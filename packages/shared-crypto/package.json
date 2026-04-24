@@ -1,0 +1,74 @@
+{
+  "name": "@strimz/shared-crypto",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Web Crypto primitives for Strimz — HMAC webhook signing, API key generation, hashing, and constant-time comparison. Runs in Node 22 and Edge runtimes.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./encoding": {
+      "types": "./dist/encoding.d.ts",
+      "import": "./dist/encoding.js",
+      "require": "./dist/encoding.cjs"
+    },
+    "./hash": {
+      "types": "./dist/hash.d.ts",
+      "import": "./dist/hash.js",
+      "require": "./dist/hash.cjs"
+    },
+    "./hmac": {
+      "types": "./dist/hmac.d.ts",
+      "import": "./dist/hmac.js",
+      "require": "./dist/hmac.cjs"
+    },
+    "./random": {
+      "types": "./dist/random.d.ts",
+      "import": "./dist/random.js",
+      "require": "./dist/random.cjs"
+    },
+    "./timing-safe": {
+      "types": "./dist/timing-safe.d.ts",
+      "import": "./dist/timing-safe.js",
+      "require": "./dist/timing-safe.cjs"
+    },
+    "./webhook": {
+      "types": "./dist/webhook.d.ts",
+      "import": "./dist/webhook.js",
+      "require": "./dist/webhook.cjs"
+    },
+    "./api-key": {
+      "types": "./dist/api-key.d.ts",
+      "import": "./dist/api-key.js",
+      "require": "./dist/api-key.cjs"
+    }
+  },
+  "files": ["dist", "src", "README.md"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@strimz/shared-config": "workspace:*"
+  },
+  "devDependencies": {
+    "@strimz/eslint-config": "workspace:*",
+    "@strimz/tsconfig": "workspace:*",
+    "eslint": "^9.18.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
