@@ -1,0 +1,30 @@
+{
+  "name": "strimz",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Strimz — B2B subscription billing infrastructure for stablecoin commerce on Arc.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\" --ignore-path .gitignore",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\" --ignore-path .gitignore",
+    "changeset": "changeset",
+    "release": "turbo run build --filter=./packages/* && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.27.10",
+    "prettier": "^3.4.2",
+    "turbo": "^2.5.0",
+    "typescript": "^5.7.3"
+  }
+}

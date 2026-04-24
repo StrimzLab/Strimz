@@ -1,0 +1,70 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.turbo/
+.swc/
+*.tsbuildinfo
+next-env.d.ts
+
+# Foundry
+packages/contracts/out/
+packages/contracts/cache/
+packages/contracts/broadcast/
+packages/contracts/forge-cache/
+packages/contracts/lib/
+
+# Go
+apps/indexer/bin/
+apps/indexer/tmp/
+apps/indexer/coverage.out
+
+# Prisma
+packages/db/generated/
+
+# Env
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+
+# Coverage
+coverage/
+*.lcov
+.nyc_output/
+
+# Vercel
+.vercel
+
+# Sentry
+.sentryclirc
+
+# Local agent runs
+.agent-runs/
