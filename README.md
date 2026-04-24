@@ -1,10 +1,8 @@
-<div align="center">
-
 # Strimz
 
 **The B2B subscription billing infrastructure for stablecoin commerce — built on Arc.**
 
-[![CI](https://img.shields.io/github/actions/workflow/status/strimz/strimz/ci.yml?branch=main&label=CI&logo=github)](./.github/workflows/ci.yml)
+[![CI](https://img.shields.io/github/actions/workflow/status/StrimzLab/Strimz/ci.yml?branch=main&label=CI&logo=github)](./.github/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-02C76A.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](./.nvmrc)
 [![pnpm](https://img.shields.io/badge/pnpm-10.x-F69220?logo=pnpm&logoColor=white)](https://pnpm.io)
@@ -14,7 +12,6 @@
 [![Arc](https://img.shields.io/badge/Chain-Arc-000000)](https://www.arc.network)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-02C76A.svg)](#contributing)
 
-</div>
 
 ---
 

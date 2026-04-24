@@ -4,6 +4,14 @@
   "private": true,
   "description": "Strimz — B2B subscription billing infrastructure for stablecoin commerce on Arc.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/StrimzLab/Strimz.git"
+  },
+  "bugs": {
+    "url": "https://github.com/StrimzLab/Strimz/issues"
+  },
+  "homepage": "https://github.com/StrimzLab/Strimz#readme",
   "packageManager": "pnpm@10.28.2",
   "engines": {
     "node": ">=22.0.0",
