@@ -5,11 +5,10 @@
 // All .prisma files under `prisma/schema/` are merged at generate time.
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../../generated/client"
+  provider = "prisma-client"
+  output   = "../../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }

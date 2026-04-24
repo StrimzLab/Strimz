@@ -1,21 +1,20 @@
+import 'dotenv/config'
 import path from 'node:path'
-import { defineConfig } from 'prisma/config'
-
-// Prisma's prisma.config.ts does not auto-load .env the way the deprecated
-// `package.json#prisma` entry did. Node 22 has this natively.
-if (typeof process.loadEnvFile === 'function') {
-  try {
-    process.loadEnvFile()
-  } catch {
-    // .env is optional — apps pass DATABASE_URL via their own env in prod.
-  }
-}
+import { defineConfig, env } from 'prisma/config'
 
 /**
- * Prisma config — supersedes `package.json#prisma` (deprecated in Prisma 7).
+ * Prisma 7 configuration.
  *
- * Strimz uses a multi-file schema under `prisma/schema/`.
+ * The `datasource.url` here is used only by the Prisma CLI (migrate, studio,
+ * push). The runtime client gets its connection through the
+ * `@prisma/adapter-pg` driver adapter configured in `src/client.ts`.
  */
 export default defineConfig({
   schema: path.join('prisma', 'schema'),
+  migrations: {
+    path: path.join('prisma', 'migrations'),
+  },
+  datasource: {
+    url: env('DATABASE_URL'),
+  },
 })
