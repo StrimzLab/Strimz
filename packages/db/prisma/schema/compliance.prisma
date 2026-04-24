@@ -1,0 +1,24 @@
+// Sanctions / AML screening log.
+
+model ComplianceLog {
+  id                   String                     @id @default(cuid())
+  walletAddress        String                     @db.VarChar(42)
+  provider             ComplianceProvider
+  status               ComplianceStatus
+  riskScore            Int?
+  flags                String[]                   @default([])
+  context              ComplianceScreeningContext
+
+  merchantId           String?
+  sessionId            String?
+  subscriptionId       String?
+  providerRequestId    String?                    @db.VarChar(200)
+
+  createdAt            DateTime                   @default(now())
+
+  merchant             Merchant?                  @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+
+  @@index([walletAddress, createdAt])
+  @@index([status])
+  @@index([merchantId, createdAt])
+}

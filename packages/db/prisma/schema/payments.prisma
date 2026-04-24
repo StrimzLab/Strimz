@@ -1,0 +1,46 @@
+// One-shot payment sessions (the hosted checkout intent).
+
+model PaymentSession {
+  id                   String               @id @default(cuid())
+  merchantId           String
+  customerId           String?
+  status               PaymentSessionStatus @default(created)
+
+  /// Token smallest-unit integer as a string (e.g. "1000000" for 1 USDC).
+  amount               String               @db.VarChar(78)
+  currency             PaymentCurrency
+  feeAmount            String               @db.VarChar(78)
+  netAmount            String               @db.VarChar(78)
+
+  description          String?              @db.VarChar(500)
+  payerWalletAddress   String?              @db.VarChar(42)
+  payerEmail           String?              @db.VarChar(320)
+  successUrl           String?
+  cancelUrl            String?
+
+  sourceChain          SourceChain?
+  bridgeTxHash         String?              @db.VarChar(66)
+  onchainTxHash        String?              @db.VarChar(66)
+
+  checkoutUrl          String
+
+  /// Mode at the time of creation — a live key cannot charge a test session.
+  mode                 Mode                 @default(test)
+
+  /// Merchant-supplied metadata bag (arbitrary keys, bounded in the API layer).
+  metadata             Json                 @default("{}")
+
+  expiresAt            DateTime
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  merchant             Merchant             @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  customer             Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  transaction          Transaction?
+  invoice              Invoice?             @relation("InvoiceSession")
+
+  @@index([merchantId, status])
+  @@index([merchantId, createdAt])
+  @@index([onchainTxHash])
+  @@index([status, expiresAt])
+}

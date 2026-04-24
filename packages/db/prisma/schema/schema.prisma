@@ -1,0 +1,15 @@
+// Strimz platform database schema.
+//
+// This is the root Prisma file — it holds the generator and datasource.
+// Models and enums are split into domain-specific files in this folder.
+// All .prisma files under `prisma/schema/` are merged at generate time.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}

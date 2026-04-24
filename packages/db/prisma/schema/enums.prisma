@@ -1,0 +1,318 @@
+// Platform-wide enums.
+//
+// Values MUST stay in sync with the corresponding Zod enums in
+// @strimz/shared-types and the constants in @strimz/shared-config.
+
+enum Mode {
+  test
+  live
+}
+
+enum ArcEnvironment {
+  testnet
+  mainnet
+}
+
+// ---------- Tokens ----------
+
+enum PaymentCurrency {
+  USDC
+  EURC
+}
+
+enum TokenSymbol {
+  USDC
+  EURC
+  USYC
+}
+
+// ---------- Merchants ----------
+
+enum MerchantStatus {
+  active
+  suspended
+  closed
+}
+
+enum MerchantTier {
+  free
+  growth
+  business
+  enterprise
+}
+
+enum MerchantRole {
+  owner
+  admin
+  developer
+  read_only
+}
+
+// ---------- API keys ----------
+
+enum ApiKeyKind {
+  secret
+  publishable
+}
+
+enum ApiKeyScope {
+  sessions_read
+  sessions_write
+  subscriptions_read
+  subscriptions_write
+  refunds_read
+  refunds_write
+  transactions_read
+  webhooks_read
+  webhooks_write
+  invoices_read
+  invoices_write
+  storefronts_read
+  storefronts_write
+  agents_read
+  agents_write
+}
+
+// ---------- Payment sessions ----------
+
+enum PaymentSessionStatus {
+  created
+  awaiting_payment
+  submitted
+  confirmed
+  failed
+  expired
+  cancelled
+}
+
+enum SourceChain {
+  arc
+  ethereum
+  base
+  polygon
+  arbitrum
+  optimism
+  avalanche
+  solana
+}
+
+// ---------- Transactions ----------
+
+enum TransactionKind {
+  one_shot
+  subscription_charge
+  refund
+  invoice_payment
+  storefront_purchase
+}
+
+enum TransactionStatus {
+  pending
+  confirmed
+  failed
+}
+
+// ---------- Subscriptions ----------
+
+enum SubscriptionInterval {
+  daily
+  weekly
+  monthly
+  quarterly
+  yearly
+}
+
+enum SubscriptionPlanStatus {
+  active
+  archived
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  at_risk
+  paused
+  cancelled
+  lapsed
+}
+
+enum SubscriptionChargeStatus {
+  pending
+  in_flight
+  succeeded
+  failed
+  retrying
+  abandoned
+}
+
+enum SubscriptionChargeOutcome {
+  charged
+  insufficient_funds
+  revoked_approval
+  cancelled
+  skipped
+}
+
+// ---------- Refunds ----------
+
+enum RefundReason {
+  customer_request
+  product_issue
+  duplicate_charge
+  fraudulent
+  other
+}
+
+enum RefundStatus {
+  pending
+  awaiting_signature
+  submitted
+  completed
+  failed
+  cancelled
+}
+
+// ---------- Webhooks ----------
+
+enum WebhookEventName {
+  payment_created
+  payment_completed
+  payment_failed
+  subscription_created
+  subscription_charged
+  subscription_charge_failed
+  subscription_recovery_attempt
+  subscription_recovery_outcome
+  subscription_cancelled
+  subscription_lapsed
+  refund_created
+  refund_completed
+  refund_failed
+  invoice_created
+  invoice_paid
+  invoice_overdue
+  agent_action_executed
+  agent_job_proposed
+  agent_job_completed
+  agent_job_disputed
+  compliance_wallet_flagged
+  compliance_wallet_blocked
+}
+
+enum WebhookEndpointStatus {
+  active
+  disabled
+}
+
+enum WebhookDeliveryStatus {
+  pending
+  delivered
+  retrying
+  permanently_failed
+}
+
+// ---------- Compliance ----------
+
+enum ComplianceProvider {
+  trm
+  elliptic
+  disabled
+}
+
+enum ComplianceStatus {
+  clear
+  flagged
+  blocked
+  error
+}
+
+enum ComplianceScreeningContext {
+  merchant_onboarding
+  payer_checkout
+  subscriber_signup
+  refund_recipient
+}
+
+// ---------- Agents ----------
+
+enum AgentCapability {
+  identity
+  recovery
+  routing
+  cashflow
+  commerce
+  pricing_intelligence
+}
+
+enum AgentActionType {
+  recovery_notification_sent
+  recovery_retry_scheduled
+  recovery_retry_executed
+  recovery_abandoned
+  routing_bridge_initiated
+  routing_payment_completed
+  cashflow_digest_sent
+  cashflow_anomaly_flagged
+  cashflow_yield_converted
+  commerce_job_created
+  commerce_job_approved
+  commerce_job_completed
+  commerce_job_disputed
+}
+
+enum AgentActionOutcome {
+  success
+  failure
+  pending
+  skipped
+}
+
+enum AgentJobStatus {
+  proposed
+  accepted
+  in_progress
+  delivered
+  approved
+  completed
+  disputed
+  cancelled
+}
+
+// ---------- Storefronts ----------
+
+enum StorefrontStatus {
+  draft
+  published
+  archived
+}
+
+enum StorefrontProductType {
+  one_time
+  subscription
+}
+
+// ---------- Invoices ----------
+
+enum InvoiceStatus {
+  draft
+  sent
+  paid
+  overdue
+  void
+}
+
+// ---------- Audit ----------
+
+enum AuditActionCategory {
+  merchant
+  api_key
+  webhook
+  payment
+  subscription
+  refund
+  agent
+  compliance
+  auth
+  member
+  settings
+}
