@@ -1,0 +1,109 @@
+{
+  "name": "@strimz/shared-types",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Zod schemas and inferred TypeScript types for every platform entity, API input, and webhook event.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./common": {
+      "types": "./dist/common.d.ts",
+      "import": "./dist/common.js",
+      "require": "./dist/common.cjs"
+    },
+    "./merchants": {
+      "types": "./dist/merchants.d.ts",
+      "import": "./dist/merchants.js",
+      "require": "./dist/merchants.cjs"
+    },
+    "./api-keys": {
+      "types": "./dist/api-keys.d.ts",
+      "import": "./dist/api-keys.js",
+      "require": "./dist/api-keys.cjs"
+    },
+    "./customers": {
+      "types": "./dist/customers.d.ts",
+      "import": "./dist/customers.js",
+      "require": "./dist/customers.cjs"
+    },
+    "./payment-sessions": {
+      "types": "./dist/payment-sessions.d.ts",
+      "import": "./dist/payment-sessions.js",
+      "require": "./dist/payment-sessions.cjs"
+    },
+    "./transactions": {
+      "types": "./dist/transactions.d.ts",
+      "import": "./dist/transactions.js",
+      "require": "./dist/transactions.cjs"
+    },
+    "./subscriptions": {
+      "types": "./dist/subscriptions.d.ts",
+      "import": "./dist/subscriptions.js",
+      "require": "./dist/subscriptions.cjs"
+    },
+    "./refunds": {
+      "types": "./dist/refunds.d.ts",
+      "import": "./dist/refunds.js",
+      "require": "./dist/refunds.cjs"
+    },
+    "./webhooks": {
+      "types": "./dist/webhooks.d.ts",
+      "import": "./dist/webhooks.js",
+      "require": "./dist/webhooks.cjs"
+    },
+    "./compliance": {
+      "types": "./dist/compliance.d.ts",
+      "import": "./dist/compliance.js",
+      "require": "./dist/compliance.cjs"
+    },
+    "./agents": {
+      "types": "./dist/agents.d.ts",
+      "import": "./dist/agents.js",
+      "require": "./dist/agents.cjs"
+    },
+    "./storefronts": {
+      "types": "./dist/storefronts.d.ts",
+      "import": "./dist/storefronts.js",
+      "require": "./dist/storefronts.cjs"
+    },
+    "./invoices": {
+      "types": "./dist/invoices.d.ts",
+      "import": "./dist/invoices.js",
+      "require": "./dist/invoices.cjs"
+    },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "import": "./dist/events.js",
+      "require": "./dist/events.cjs"
+    }
+  },
+  "files": ["dist", "src", "README.md"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@strimz/shared-config": "workspace:*",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@strimz/eslint-config": "workspace:*",
+    "@strimz/tsconfig": "workspace:*",
+    "eslint": "^9.18.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
