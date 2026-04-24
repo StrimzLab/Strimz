@@ -1,0 +1,29 @@
+node_modules
+dist
+build
+out
+.next
+.turbo
+coverage
+generated
+
+# Foundry
+packages/contracts/out
+packages/contracts/cache
+packages/contracts/lib
+packages/contracts/broadcast
+
+# Go
+apps/indexer/bin
+apps/indexer/tmp
+
+# Prisma
+packages/db/generated
+
+# Lockfiles
+pnpm-lock.yaml
+go.sum
+
+# Env
+.env*
+!.env.example
