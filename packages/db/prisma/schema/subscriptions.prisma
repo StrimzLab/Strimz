@@ -1,0 +1,98 @@
+// Subscription plans, active subscriptions, and individual charges.
+
+model SubscriptionPlan {
+  id               String                 @id @default(cuid())
+  merchantId       String
+  name             String                 @db.VarChar(120)
+  description      String?                @db.VarChar(500)
+  amount           String                 @db.VarChar(78)
+  currency         PaymentCurrency
+  interval         SubscriptionInterval
+  intervalCount    Int                    @default(1)
+  trialPeriodDays  Int?
+  status           SubscriptionPlanStatus @default(active)
+  metadata         Json                   @default("{}")
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  merchant         Merchant               @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  subscriptions    Subscription[]
+
+  @@index([merchantId, status])
+}
+
+model Subscription {
+  id                      String              @id @default(cuid())
+  onchainSubscriptionId   Int?                @unique
+  merchantId              String
+  customerId              String
+  planId                  String
+  status                  SubscriptionStatus  @default(active)
+
+  payerAddress            String              @db.VarChar(42)
+  currency                PaymentCurrency
+  amount                  String              @db.VarChar(78)
+  interval                SubscriptionInterval
+  intervalCount           Int                 @default(1)
+
+  trialEndsAt             DateTime?
+  currentPeriodStartAt    DateTime
+  currentPeriodEndAt      DateTime
+  nextChargeAt            DateTime?
+  gracePeriodHours        Int                 @default(48)
+
+  /// Soft lock used by the scheduler to prevent concurrent charge attempts.
+  chargeLock              Boolean             @default(false)
+  chargeLockAcquiredAt    DateTime?
+
+  cancelledAt             DateTime?
+  cancellationReason      String?             @db.VarChar(500)
+
+  mode                    Mode                @default(test)
+  metadata                Json                @default("{}")
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+
+  merchant                Merchant            @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  customer                Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  plan                    SubscriptionPlan    @relation(fields: [planId], references: [id], onDelete: Restrict)
+  charges                 SubscriptionCharge[]
+  transactions            Transaction[]
+
+  @@index([merchantId, status])
+  @@index([nextChargeAt, status])
+  @@index([customerId])
+}
+
+model SubscriptionCharge {
+  id                String                    @id @default(cuid())
+  subscriptionId    String
+  merchantId        String
+
+  /// 32-byte contract-idempotency key carried on the charge call.
+  chargeAttemptId   String                    @unique @db.VarChar(66)
+
+  periodStartAt     DateTime
+  periodEndAt       DateTime
+  amount            String                    @db.VarChar(78)
+  currency          PaymentCurrency
+
+  status            SubscriptionChargeStatus  @default(pending)
+  outcome           SubscriptionChargeOutcome?
+  attemptNumber     Int                       @default(1)
+
+  scheduledAt       DateTime
+  executedAt        DateTime?
+  onchainTxHash     String?                   @db.VarChar(66)
+  failureReason     String?                   @db.VarChar(500)
+
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+
+  subscription      Subscription              @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  merchant          Merchant                  @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  transaction       Transaction?
+
+  @@index([subscriptionId, attemptNumber])
+  @@index([status, scheduledAt])
+}

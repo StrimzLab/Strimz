@@ -1,0 +1,24 @@
+// The payer side of the merchant's relationship.
+// Customers are unique per (merchantId, walletAddress).
+
+model Customer {
+  id             String       @id @default(cuid())
+  merchantId     String
+  walletAddress  String       @db.VarChar(42)
+  email          String?      @db.VarChar(320)
+  externalRef    String?      @db.VarChar(120)
+  displayName    String?      @db.VarChar(120)
+  metadata       Json         @default("{}")
+  firstSeenAt    DateTime     @default(now())
+  lastSeenAt     DateTime     @default(now())
+
+  merchant       Merchant     @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  paymentSessions PaymentSession[]
+  transactions   Transaction[]
+  subscriptions  Subscription[]
+
+  @@unique([merchantId, walletAddress])
+  @@index([merchantId, lastSeenAt])
+  @@index([email])
+  @@index([externalRef])
+}

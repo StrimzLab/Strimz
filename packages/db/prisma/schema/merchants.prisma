@@ -1,0 +1,83 @@
+// Merchants, team members, and API keys.
+
+model Merchant {
+  id                   String         @id @default(cuid())
+  onchainMerchantId    Int?           @unique
+  businessName         String         @db.VarChar(120)
+  email                String         @unique @db.VarChar(320)
+  passwordHash         String
+  tier                 MerchantTier   @default(free)
+  status               MerchantStatus @default(active)
+  payoutAddress        String?        @db.VarChar(42)
+  defaultCurrency      PaymentCurrency @default(USDC)
+  countryCode          String?        @db.VarChar(2)
+  websiteUrl           String?
+  logoUrl              String?
+  whitelabelEnabled    Boolean        @default(false)
+  arcEnvironment       ArcEnvironment @default(testnet)
+  metadata             Json           @default("{}")
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  // Relations
+  members              MerchantMember[]
+  apiKeys              MerchantApiKey[]
+  webhookEndpoints     MerchantWebhookEndpoint[]
+  webhookEvents        WebhookEvent[]
+  webhookDeliveries    WebhookDelivery[]
+  customers            Customer[]
+  paymentSessions      PaymentSession[]
+  transactions         Transaction[]
+  subscriptionPlans    SubscriptionPlan[]
+  subscriptions        Subscription[]
+  subscriptionCharges  SubscriptionCharge[]
+  refunds              Refund[]
+  complianceLogs       ComplianceLog[]
+  agentConfig          AgentMerchantConfig?
+  agentActivityLogs    AgentActivityLog[]
+  agentJobs            AgentJob[]
+  storefront           Storefront?
+  invoices             Invoice[]
+  auditLogs            AuditLog[]
+
+  @@index([status])
+  @@index([tier])
+}
+
+model MerchantMember {
+  id             String       @id @default(cuid())
+  merchantId     String
+  email          String       @db.VarChar(320)
+  role           MerchantRole @default(developer)
+  invitationToken String?     @unique
+  invitedAt      DateTime     @default(now())
+  acceptedAt     DateTime?
+
+  merchant       Merchant     @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+
+  @@unique([merchantId, email])
+  @@index([merchantId])
+}
+
+model MerchantApiKey {
+  id           String      @id @default(cuid())
+  merchantId   String
+  name         String      @db.VarChar(60)
+  kind         ApiKeyKind
+  mode         Mode
+  /// sha256(secret) in lowercase hex — the O(1) lookup index.
+  hash         String      @unique
+  /// First N chars of the secret for display.
+  prefix       String      @db.VarChar(24)
+  /// Last 4 chars for "ending in ..." display.
+  lastFour     String      @db.VarChar(4)
+  scopes       ApiKeyScope[]
+  lastUsedAt   DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime    @default(now())
+
+  merchant     Merchant    @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+
+  @@index([merchantId, mode])
+  @@index([revokedAt])
+}

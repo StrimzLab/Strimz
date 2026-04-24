@@ -1,0 +1,49 @@
+{
+  "name": "@strimz/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Prisma schema and generated client for the Strimz platform — every on-chain-backed and off-chain entity.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./client": {
+      "types": "./src/client.ts",
+      "import": "./src/client.ts",
+      "default": "./src/client.ts"
+    }
+  },
+  "files": ["src", "prisma", "generated", "README.md"],
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset",
+    "db:format": "prisma format",
+    "db:validate": "prisma validate",
+    "build": "prisma generate",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf generated .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.2.1"
+  },
+  "devDependencies": {
+    "@strimz/eslint-config": "workspace:*",
+    "@strimz/tsconfig": "workspace:*",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
+    "prisma": "^6.2.1",
+    "typescript": "^5.7.3"
+  }
+}

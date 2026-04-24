@@ -1,0 +1,82 @@
+// Strimz AutoPay Agent — identity, per-merchant config, activity log,
+// and ERC-8183 escrow jobs.
+
+model AgentIdentity {
+  id                 String   @id @default(cuid())
+  /// ERC-8004 on-chain identity address.
+  onchainAddress     String   @unique @db.VarChar(42)
+  credentialDigest   String
+  name               String   @db.VarChar(120)
+  version            String   @db.VarChar(40)
+  reputationScore    Int?
+  environment        ArcEnvironment @default(testnet)
+  registeredAt       DateTime @default(now())
+
+  @@index([environment])
+}
+
+model AgentMerchantConfig {
+  id                                   String            @id @default(cuid())
+  merchantId                           String            @unique
+
+  enabledCapabilities                  AgentCapability[] @default([])
+
+  recoveryGracePeriodHours             Int               @default(48)
+  recoveryStrategy                     String            @default("twice")
+  recoveryNotificationTemplate         String?           @db.VarChar(2000)
+
+  cashflowDigestEnabled                Boolean           @default(false)
+  cashflowAnomalySensitivity           String            @default("medium")
+  cashflowAutoConvertToYield           Boolean           @default(false)
+  cashflowMinimumLiquidReserveCents    Int               @default(100000)
+
+  commerceHumanApprovalAboveUsdCents   Int               @default(100000)
+  commerceApprovedVendors              String[]          @default([])
+  commerceMonthlySpendCapUsdCents      Int?
+
+  updatedAt                            DateTime          @updatedAt
+  createdAt                            DateTime          @default(now())
+
+  merchant                             Merchant          @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+}
+
+model AgentActivityLog {
+  id                  String              @id @default(cuid())
+  merchantId          String
+  capability          AgentCapability
+  actionType          AgentActionType
+  outcome             AgentActionOutcome
+  subscriptionId      String?
+  transactionId       String?
+  jobId               String?
+  metadata            Json                @default("{}")
+  createdAt           DateTime            @default(now())
+
+  merchant            Merchant            @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+
+  @@index([merchantId, createdAt])
+  @@index([capability, actionType])
+}
+
+model AgentJob {
+  id                String         @id @default(cuid())
+  merchantId        String
+  /// On-chain job id from StrimzAgentEscrow (ERC-8183).
+  onchainJobId      Int?           @unique
+  vendorAddress     String         @db.VarChar(42)
+  description       String         @db.VarChar(2000)
+  amount            String         @db.VarChar(78)
+  currency          PaymentCurrency
+  status            AgentJobStatus @default(proposed)
+  assessorAddress   String         @db.VarChar(42)
+  deliverableHash   String?
+  escrowTxHash      String?        @db.VarChar(66)
+  releaseTxHash     String?        @db.VarChar(66)
+  createdAt         DateTime       @default(now())
+  completedAt       DateTime?
+
+  merchant          Merchant       @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+
+  @@index([merchantId, status])
+  @@index([status, createdAt])
+}

@@ -1,0 +1,15 @@
+{
+  "extends": "@strimz/tsconfig/library.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "noEmit": true,
+    "incremental": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "types": ["node"]
+  },
+  "include": ["src/**/*", "generated/client/index.d.ts"],
+  "exclude": ["node_modules", "dist"]
+}
