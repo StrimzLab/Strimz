@@ -3,29 +3,42 @@
  *
  * Each app (api, scheduler, agent) owns its own PrismaClient instance. This
  * factory exists so every instance is configured identically: log routing,
- * connection pool, and any Strimz-specific extensions happen in one place.
+ * driver adapter, and any Strimz-specific extensions happen in one place.
+ *
+ * Prisma 7 requires a driver adapter — `new PrismaClient()` without one throws.
  */
 
-import { PrismaClient, type Prisma } from '../generated/client/index.js'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaClient, type Prisma } from '../generated/prisma/client.js'
 
 export interface CreatePrismaClientOptions {
-  /** Override the DATABASE_URL. Defaults to the env var. */
+  /** Override DATABASE_URL. Defaults to `process.env.DATABASE_URL`. */
   databaseUrl?: string
   /** Log level routing. Defaults to warn+error in prod, all in dev. */
   log?: Prisma.LogLevel[]
-  /** Extra Prisma options to pass through. */
-  prismaOptions?: Prisma.PrismaClientOptions
+  /** Optional node-postgres pool settings. Defaults kick in if omitted. */
+  poolOptions?: {
+    max?: number
+    idleTimeoutMillis?: number
+    connectionTimeoutMillis?: number
+  }
 }
 
 export function createPrismaClient(options: CreatePrismaClientOptions = {}): PrismaClient {
   const isDev = process.env.NODE_ENV !== 'production'
   const log = options.log ?? (isDev ? ['warn', 'error'] : ['error'])
 
+  const connectionString = options.databaseUrl ?? process.env.DATABASE_URL
+  if (!connectionString) {
+    throw new Error(
+      '[@strimz/db] DATABASE_URL is not set. Provide it via env or via the `databaseUrl` option.',
+    )
+  }
+
+  const adapter = new PrismaPg({ connectionString, ...options.poolOptions })
+
   return new PrismaClient({
+    adapter,
     log,
-    datasources: options.databaseUrl
-      ? { db: { url: options.databaseUrl } }
-      : undefined,
-    ...options.prismaOptions,
   })
 }

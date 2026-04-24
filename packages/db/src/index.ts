@@ -13,4 +13,4 @@ export type { CreatePrismaClientOptions } from './client.js'
 
 // Re-export everything from the generated client so consumers can type
 // their services with `Merchant`, `Subscription`, `Prisma`, `PrismaClient`, etc.
-export * from '../generated/client/index.js'
+export * from '../generated/prisma/client.js'
