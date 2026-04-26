@@ -1,0 +1,20 @@
+{
+  "name": "@strimz/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Strimz smart contracts — registry, payments, subscriptions, fees, and AI agent escrow. Foundry workspace.",
+  "license": "MIT",
+  "scripts": {
+    "build": "forge build",
+    "test": "forge clean && forge build && forge test -vv",
+    "test:gas": "forge test --gas-report",
+    "lint": "forge fmt --check",
+    "format": "forge fmt",
+    "clean": "forge clean && rm -rf .turbo",
+    "coverage": "forge coverage --report lcov",
+    "snapshot": "forge snapshot",
+    "forge:install": "forge install foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts@v5.6.1 OpenZeppelin/openzeppelin-contracts-upgradeable@v5.6.1 OpenZeppelin/openzeppelin-foundry-upgrades",
+    "deploy:testnet": "forge script script/DeployCore.s.sol:DeployCore --rpc-url $ARC_TESTNET_RPC_URL --broadcast --verify",
+    "deploy:agent:testnet": "forge script script/DeployAgent.s.sol:DeployAgent --rpc-url $ARC_TESTNET_RPC_URL --broadcast"
+  }
+}

@@ -19,7 +19,7 @@ packages/contracts/out/
 packages/contracts/cache/
 packages/contracts/broadcast/
 packages/contracts/forge-cache/
-packages/contracts/lib/
+# Note: packages/contracts/lib/ is tracked — Foundry deps live there as git submodules.
 
 # Go
 apps/indexer/bin/
