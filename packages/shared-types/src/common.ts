@@ -12,11 +12,11 @@ export const idSchema = z
   .max(64)
   .regex(/^[a-zA-Z0-9_-]+$/, 'id must be URL-safe')
 
-/** EVM address. Hex-encoded, 0x-prefixed, 20 bytes. */
+/** EVM address. Hex-encoded, 0x-prefixed, 20 bytes. Normalised to lowercase. */
 export const evmAddressSchema = z
   .string()
   .regex(/^0x[a-fA-F0-9]{40}$/, 'must be a 0x-prefixed 40-character hex EVM address')
-  .transform((v) => v.toLowerCase() as `0x${string}`)
+  .transform((v) => v.toLowerCase())
 
 /** EVM transaction hash. 32-byte hex. */
 export const evmTxHashSchema = z
