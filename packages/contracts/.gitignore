@@ -1,0 +1,21 @@
+# Foundry build artifacts
+out/
+cache/
+broadcast/
+coverage/
+lcov.info
+gas-report.json
+
+# Foundry dependencies (installed as git submodules)
+# Keep lib/ tracked via submodule, but ignore its internals if not using submodules:
+# lib/
+
+# Env
+.env
+!.env.example
+
+# OS / editor
+.DS_Store
+
+# Turbo
+.turbo
