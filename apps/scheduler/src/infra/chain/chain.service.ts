@@ -1,0 +1,157 @@
+import { Injectable, Logger } from '@nestjs/common'
+import {
+  createPublicClient,
+  createWalletClient,
+  http,
+  type Address,
+  type Hash,
+  type PublicClient,
+  type WalletClient,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { arcMainnet, arcTestnet } from '@strimz/shared-config'
+import { TypedConfigService } from '../../config/index.js'
+import { StrimzSubscriptionsAbi, StrimzAgentEscrowAbi } from './abis.js'
+
+/**
+ * Chain access for the scheduler.
+ *
+ * Holds two clients:
+ *   - `public`  — RPC reads (gas estimation, receipt polling)
+ *   - `wallet`  — service-wallet writes; signing happens locally with the
+ *                env-loaded private key. The key never leaves this process.
+ *
+ * Every write helper:
+ *   1. estimates gas (so we surface chain-level reverts before broadcast)
+ *   2. broadcasts the tx
+ *   3. returns the tx hash; the indexer projects the resulting event
+ *
+ * Receipt waiting is intentionally NOT done here — workers return after
+ * broadcast and let the indexer flip DB state when the event lands.
+ * Holding workers open during 12-block confirmations would needlessly
+ * pin queue concurrency.
+ */
+@Injectable()
+export class ChainService {
+  public readonly publicClient: PublicClient
+  public readonly walletClient: WalletClient
+  public readonly account: { address: Address }
+  public readonly subscriptionsAddress: Address
+  public readonly agentEscrowAddress: Address
+  private readonly log = new Logger(ChainService.name)
+
+  constructor(cfg: TypedConfigService) {
+    const chain = cfg.env.ARC_ENVIRONMENT === 'mainnet' ? arcMainnet : arcTestnet
+    const transport = http(cfg.env.ARC_RPC_URL)
+
+    this.publicClient = createPublicClient({ chain, transport }) as PublicClient
+    const account = privateKeyToAccount(cfg.env.SCHEDULER_PRIVATE_KEY as `0x${string}`)
+    this.account = account
+    this.walletClient = createWalletClient({ account, chain, transport })
+
+    this.subscriptionsAddress = cfg.env.SUBSCRIPTIONS_ADDRESS as Address
+    this.agentEscrowAddress = cfg.env.AGENT_ESCROW_ADDRESS as Address
+    this.log.log(`scheduler signing as ${account.address}`)
+  }
+
+  // ----- Subscription writes -----
+
+  /** Cancels a single on-chain subscription. */
+  async cancelSubscription(subscriptionId: bigint): Promise<Hash> {
+    return this.walletClient.writeContract({
+      account: this.account.address,
+      address: this.subscriptionsAddress,
+      abi: StrimzSubscriptionsAbi,
+      functionName: 'cancel',
+      args: [subscriptionId],
+      chain: null,
+    })
+  }
+
+  /**
+   * Batches up to N due subscriptions in a single tx for gas efficiency.
+   *
+   * The contract's `batchCharge(uint256[], bytes32[])` writes per-attempt
+   * outcomes so a single failure (e.g. one subscriber's allowance lapsed)
+   * doesn't roll back the rest. The indexer projects the resulting
+   * `SubscriptionCharged` / `SubscriptionChargeSkipped` events.
+   */
+  async batchCharge(
+    subscriptionIds: readonly bigint[],
+    chargeAttemptIds: readonly `0x${string}`[],
+  ): Promise<Hash> {
+    if (subscriptionIds.length !== chargeAttemptIds.length) {
+      throw new Error('batchCharge: subscriptionIds.length !== chargeAttemptIds.length')
+    }
+    return this.walletClient.writeContract({
+      account: this.account.address,
+      address: this.subscriptionsAddress,
+      abi: StrimzSubscriptionsAbi,
+      functionName: 'batchCharge',
+      args: [subscriptionIds, chargeAttemptIds],
+      chain: null,
+    })
+  }
+
+  /** True if the on-chain idempotency check has already burned the attempt id. */
+  async isAttemptUsed(chargeAttemptId: `0x${string}`): Promise<boolean> {
+    return this.publicClient.readContract({
+      address: this.subscriptionsAddress,
+      abi: StrimzSubscriptionsAbi,
+      functionName: 'isAttemptUsed',
+      args: [chargeAttemptId],
+    })
+  }
+
+  // ----- Agent escrow writes -----
+
+  async createJob(input: {
+    vendor: Address
+    assessor: Address
+    token: Address
+    amount: bigint
+    description: string
+  }): Promise<Hash> {
+    return this.walletClient.writeContract({
+      account: this.account.address,
+      address: this.agentEscrowAddress,
+      abi: StrimzAgentEscrowAbi,
+      functionName: 'createJob',
+      args: [input.vendor, input.assessor, input.token, input.amount, input.description],
+      chain: null,
+    })
+  }
+
+  async approveAndReleaseJob(jobId: bigint): Promise<Hash> {
+    return this.walletClient.writeContract({
+      account: this.account.address,
+      address: this.agentEscrowAddress,
+      abi: StrimzAgentEscrowAbi,
+      functionName: 'approveAndRelease',
+      args: [jobId],
+      chain: null,
+    })
+  }
+
+  async disputeJob(jobId: bigint, reason: string): Promise<Hash> {
+    return this.walletClient.writeContract({
+      account: this.account.address,
+      address: this.agentEscrowAddress,
+      abi: StrimzAgentEscrowAbi,
+      functionName: 'dispute',
+      args: [jobId, reason],
+      chain: null,
+    })
+  }
+
+  async cancelJob(jobId: bigint, reason: string): Promise<Hash> {
+    return this.walletClient.writeContract({
+      account: this.account.address,
+      address: this.agentEscrowAddress,
+      abi: StrimzAgentEscrowAbi,
+      functionName: 'cancelJob',
+      args: [jobId, reason],
+      chain: null,
+    })
+  }
+}
