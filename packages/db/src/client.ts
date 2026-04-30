@@ -25,6 +25,16 @@ export interface CreatePrismaClientOptions {
 }
 
 export function createPrismaClient(options: CreatePrismaClientOptions = {}): PrismaClient {
+  return new PrismaClient(buildPrismaOptions(options))
+}
+
+/**
+ * Build the options object that goes into `new PrismaClient(...)`.
+ * Useful for apps that want to subclass `PrismaClient` (NestJS pattern).
+ */
+export function buildPrismaOptions(
+  options: CreatePrismaClientOptions = {},
+): { adapter: PrismaPg; log: Prisma.LogLevel[] } {
   const isDev = process.env.NODE_ENV !== 'production'
   const log = options.log ?? (isDev ? ['warn', 'error'] : ['error'])
 
@@ -36,9 +46,5 @@ export function createPrismaClient(options: CreatePrismaClientOptions = {}): Pri
   }
 
   const adapter = new PrismaPg({ connectionString, ...options.poolOptions })
-
-  return new PrismaClient({
-    adapter,
-    log,
-  })
+  return { adapter, log }
 }

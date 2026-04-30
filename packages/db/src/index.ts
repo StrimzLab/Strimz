@@ -8,7 +8,7 @@
  * `generated/` path — it is an implementation detail.
  */
 
-export { createPrismaClient } from './client.js'
+export { createPrismaClient, buildPrismaOptions } from './client.js'
 export type { CreatePrismaClientOptions } from './client.js'
 
 // Re-export everything from the generated client so consumers can type
