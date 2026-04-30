@@ -11,6 +11,7 @@ import { WebhookDeliveryModule } from './workers/webhook-delivery/webhook-delive
 import { SubscriptionDueModule } from './workers/subscription-due/subscription-due.module.js'
 import { AgentActionModule } from './workers/agent-action/agent-action.module.js'
 import { SubscriptionSweeperModule } from './crons/subscription-sweeper/subscription-sweeper.module.js'
+import { SubscriptionLapsedModule } from './crons/subscription-lapsed/subscription-lapsed.module.js'
 import { InvoiceOverdueModule } from './crons/invoice-overdue/invoice-overdue.module.js'
 import { HealthModule } from './common/health/health.module.js'
 
@@ -32,6 +33,7 @@ import { HealthModule } from './common/health/health.module.js'
 
     // Crons
     SubscriptionSweeperModule,
+    SubscriptionLapsedModule,
     InvoiceOverdueModule,
 
     // Public surface

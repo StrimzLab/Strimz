@@ -133,8 +133,8 @@ describe('webhook-delivery worker e2e', () => {
     await recv.close()
   })
 
-  it('marks permanently_failed after WEBHOOK_MAX_ATTEMPTS', async () => {
-    const merchant = await seedMerchant(t.prisma.db)
+  it('marks permanently_failed after WEBHOOK_MAX_ATTEMPTS and emails the merchant', async () => {
+    const merchant = await seedMerchant(t.prisma.db, { email: 'merchant-on-call@strimz.test' })
     const recv = await startReceiver(() => ({ status: 503, body: 'unavailable' }))
     const { endpoint, secret } = await seedWebhookEndpoint(t.prisma.db, merchant.id, {
       url: recv.url,
@@ -158,6 +158,7 @@ describe('webhook-delivery worker e2e', () => {
       },
     })
 
+    t.email.reset()
     const worker = t.app.get(WebhookDeliveryWorker)
     const result = await worker.process({
       data: {
@@ -175,6 +176,79 @@ describe('webhook-delivery worker e2e', () => {
     const updated = await t.prisma.db.webhookDelivery.findUniqueOrThrow({ where: { id: delivery.id } })
     expect(updated.status).toBe('permanently_failed')
     expect(updated.responseCode).toBe(503)
+
+    expect(t.email.sent).toHaveLength(1)
+    expect(t.email.sent[0]!.to).toBe('merchant-on-call@strimz.test')
+    expect(t.email.sent[0]!.subject).toContain('permanently failed')
+    expect(t.email.sent[0]!.html).toContain(recv.url)
+    expect(t.email.sent[0]!.html).toContain('503')
+
+    await recv.close()
+  })
+
+  it('auto-disables the endpoint and emails after AUTO_DISABLE_THRESHOLD permanent failures in 24h', async () => {
+    const merchant = await seedMerchant(t.prisma.db, { email: 'autodisable@strimz.test' })
+    const recv = await startReceiver(() => ({ status: 503, body: 'down' }))
+    const { endpoint, secret } = await seedWebhookEndpoint(t.prisma.db, merchant.id, {
+      url: recv.url,
+      events: ['payment_completed'],
+      mode: 'test',
+    })
+    await t.app.get(WebhookSecretCache).set(endpoint.id, secret)
+    const event = await seedWebhookEvent(t.prisma.db, merchant.id, 'payment_completed')
+
+    // Pre-seed 4 prior permanently_failed deliveries within 24h. The 5th
+    // (this one) tips us over the threshold.
+    for (let i = 0; i < 4; i++) {
+      await t.prisma.db.webhookDelivery.create({
+        data: {
+          id: `whdl_prior_${i}`,
+          deliveryId: `whdl_prior_${i}`,
+          merchantId: merchant.id,
+          endpointId: endpoint.id,
+          eventId: event.id,
+          eventName: 'payment_completed' as never,
+          status: 'permanently_failed',
+          attempt: 3,
+          responseCode: 503,
+          lastError: 'down',
+        },
+      })
+    }
+
+    const trigger = await t.prisma.db.webhookDelivery.create({
+      data: {
+        id: `whdl_trigger`,
+        deliveryId: `whdl_trigger`,
+        merchantId: merchant.id,
+        endpointId: endpoint.id,
+        eventId: event.id,
+        eventName: 'payment_completed' as never,
+        status: 'retrying',
+        attempt: 2,
+      },
+    })
+
+    t.email.reset()
+    const worker = t.app.get(WebhookDeliveryWorker)
+    await worker.process({
+      data: {
+        deliveryId: trigger.id,
+        endpointId: endpoint.id,
+        url: recv.url,
+        signingSecretHash: endpoint.signingSecretHash,
+        eventId: event.id,
+      },
+      queue: { add: async () => undefined },
+    } as never)
+
+    const ep = await t.prisma.db.merchantWebhookEndpoint.findUniqueOrThrow({ where: { id: endpoint.id } })
+    expect(ep.status).toBe('disabled')
+
+    expect(t.email.sent).toHaveLength(1)
+    expect(t.email.sent[0]!.subject).toContain('auto-disabled')
+    expect(t.email.sent[0]!.html).toContain('disabled automatically')
+
     await recv.close()
   })
 

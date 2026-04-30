@@ -6,8 +6,9 @@ NestJS background-worker process. The **only** Strimz app that holds a service-w
 
 | Surface             | Source                                          | Effect                                                                 |
 | ------------------- | ----------------------------------------------- | ---------------------------------------------------------------------- |
-| Webhook delivery    | `strimz.webhook.delivery` queue                 | Sign with HMAC-SHA256 (`Strimz-Signature: t=<unix>,v1=<hex>`), POST to merchant URL with timeout, retry with exponential backoff (1m → 5m → 30m → 2h → 12h, default 5 attempts), update `WebhookDelivery` row per attempt |
+| Webhook delivery    | `strimz.webhook.delivery` queue                 | Sign with HMAC-SHA256 (`Strimz-Signature: t=<unix>,v1=<hex>`), POST to merchant URL with timeout, retry with exponential backoff (1m → 5m → 30m → 2h → 12h, default 5 attempts), update `WebhookDelivery` row per attempt. On permanent failure: email merchant; on 5+ permanent failures within 24h: auto-disable the endpoint and email a separate notice. |
 | Subscription charges| Cron sweep + `strimz.subscription.due` queue   | Atomically lock due `Subscription` rows, enqueue per sub, worker derives deterministic `chargeAttemptId`, calls `batchCharge`, releases lock |
+| Subscription lapsed | Cron                                            | Flip `at_risk → lapsed` once `currentPeriodEndAt + gracePeriodHours` has elapsed, fire `subscription.lapsed` webhook |
 | Agent escrow ops    | `strimz.agent.action` queue                    | Subscription cancel + full job lifecycle (create / release / dispute / cancel) |
 | Invoice overdue     | Cron                                            | Flip past-due `Invoice` rows to `overdue`, fire `invoice.overdue` webhook |
 
@@ -29,6 +30,7 @@ src/
     agent-action             discriminated-union dispatch over agent op types
   crons/
     subscription-sweeper     SELECT … FOR UPDATE SKIP LOCKED; multi-instance safe
+    subscription-lapsed      flip at_risk → lapsed after grace; fire subscription.lapsed
     invoice-overdue          flip + fire invoice.overdue webhook
 ```
 
@@ -43,7 +45,7 @@ The webhook-delivery worker is also multi-instance safe: BullMQ ensures each job
 ```bash
 pnpm --filter @strimz/scheduler dev      # local
 pnpm --filter @strimz/scheduler test     # 10 unit tests
-pnpm --filter @strimz/scheduler test:e2e # 18 e2e tests (testcontainers Postgres + Redis)
+pnpm --filter @strimz/scheduler test:e2e # 21 e2e tests (testcontainers Postgres + Redis)
 ```
 
 ## Service-wallet key
@@ -59,4 +61,4 @@ These are the only function ABIs hand-curated in `src/infra/chain/abis.ts`. Any 
 
 ## Webhook signing secret cache
 
-When the API creates a webhook endpoint it generates a 32-byte secret, stores `sha256(secret)` in Postgres for the index, and writes the plaintext to Redis under `webhook:secret:<endpointId>` for the scheduler to read. This is M1; M2 path is a KMS-backed `signWithKey()` interface where the secret never leaves the KMS.
+When the API creates a webhook endpoint it generates a 32-byte secret, stores `sha256(secret)` in Postgres for the lookup index, and writes the plaintext to Redis under `webhook:secret:<endpointId>` for the scheduler to read. Postgres dumps are the single most common sensitive-data leak vector; an in-memory store scoped separately to the same network keeps the blast radius small. Rotation is an atomic `set`.

@@ -14,12 +14,14 @@ import { hmacSha256Hex } from '@strimz/shared-crypto'
  * latency without leaving stale signatures replayable forever.
  *
  * `signingSecret` is the merchant's per-endpoint secret — generated at
- * endpoint creation, returned ONCE, sha256'd at rest. The scheduler must
- * derive the plaintext secret from somewhere; M1 stores it in Redis under
- * the endpoint id at creation time. M2 will move to a KMS-backed vault.
+ * endpoint creation, returned to the merchant exactly once, and stored as
+ * `sha256(secret)` in Postgres for the lookup index. The scheduler reads
+ * the plaintext from a Redis-backed cache (see `WebhookSecretCache`).
  *
- * For now the scheduler reads the plaintext from a Redis-backed cache;
- * see `WebhookSecretCache`.
+ * Why Redis and not Postgres for the plaintext? Postgres dumps are the
+ * single most common sensitive-data leak vector; an in-memory cache
+ * scoped separately reduces blast radius. Rotating a secret simply
+ * overwrites the cache entry.
  */
 @Injectable()
 export class WebhookSigningService {

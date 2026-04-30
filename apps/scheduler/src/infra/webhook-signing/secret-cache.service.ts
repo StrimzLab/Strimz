@@ -5,18 +5,15 @@ import { RedisService } from '../redis/redis.service.js'
  * Caches webhook signing secrets in Redis.
  *
  * The API generates a secret at endpoint creation time, hashes it with
- * sha256 for the DB index, and (in this M1 cut) writes the plaintext to
- * Redis under `webhook:secret:<endpointId>`. The scheduler reads it here
- * to sign outbound requests.
+ * sha256 for the Postgres index, and writes the plaintext to Redis under
+ * `webhook:secret:<endpointId>`. The scheduler reads it here to sign
+ * outbound requests; rotation is an atomic `set`.
  *
- * Why Redis and not just store the plaintext in Postgres? Plaintext
- * secrets in the application DB are a known anti-pattern — a Postgres
- * dump is the most common sensitive-data leak vector. Redis is in-memory,
- * separately scoped, and the stored value can be rotated atomically.
- *
- * M2 path: replace Redis with a KMS-backed `signWithKey(endpointId,
- * payload)` interface; the secret never leaves the KMS. M1 ships with
- * Redis to keep the dependency surface tight.
+ * Why Redis and not Postgres for the plaintext: Postgres dumps are the
+ * single most common sensitive-data leak vector. An in-memory store
+ * scoped separately to the same network keeps blast radius small while
+ * staying simple — no KMS dependency, no per-request remote call on the
+ * hot path of webhook delivery.
  */
 @Injectable()
 export class WebhookSecretCache {
