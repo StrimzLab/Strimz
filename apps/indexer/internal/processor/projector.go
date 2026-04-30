@@ -2,8 +2,10 @@ package processor
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,33 +15,46 @@ import (
 	"github.com/StrimzLab/strimz/apps/indexer/internal/store"
 )
 
-// Projector turns a decoded event into a database write. The dispatch
-// table is exhaustive over the event names the indexer subscribes to;
-// anything not in the table is logged and skipped.
+// Projector turns a decoded event into a database write. The dispatch table
+// is exhaustive over `indabi.SubscribedEvents`; anything else is logged and
+// skipped without failing the pipeline.
 type Projector struct {
-	store *store.Store
-	env   string
-	log   *slog.Logger
+	store    *store.Store
+	registry *indabi.Registry
+	mode     string // "test" | "live"
+	tokens   map[string]string // lowercase token addr → symbol (USDC/EURC)
+	log      *slog.Logger
 }
 
-// NewProjector returns a ready-to-use projector. The block-timestamp
-// resolver defaults to the log's BlockHash mapping; for tests we accept
-// the pre-supplied timestamp on each call.
-func NewProjector(s *store.Store, env string) *Projector {
+// NewProjector returns a ready-to-use projector. `mode` is fixed by the
+// indexer's environment: testnet → "test", mainnet → "live".
+func NewProjector(s *store.Store, registry *indabi.Registry, env string, tokens map[string]string) *Projector {
+	mode := "test"
+	if env == "mainnet" {
+		mode = "live"
+	}
+	normalised := make(map[string]string, len(tokens))
+	for k, v := range tokens {
+		normalised[strings.ToLower(k)] = v
+	}
 	return &Projector{
-		store: s,
-		env:   env,
-		log:   slog.Default().With("component", "projector"),
+		store:    s,
+		registry: registry,
+		mode:     mode,
+		tokens:   normalised,
+		log:      slog.Default().With("component", "projector"),
 	}
 }
 
 // Apply decodes a single log and dispatches to the right writer.
-func (p *Projector) Apply(ctx context.Context, lg types.Log) error {
-	name, payload, err := indabi.Decode(lg)
+//
+// `blockTime` is supplied by the runner (resolved once per block, cached
+// across all logs in that block).
+func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time) error {
+	name, payload, err := p.registry.Decode(lg)
 	if err != nil {
-		// Malformed event for a topic we own — log loudly. Don't return; a
-		// single bad event shouldn't stall the pipeline (we've already
-		// checkpoint'd the previous block).
+		// Malformed event for a topic we own. Log and continue — a single
+		// bad log shouldn't stall the whole pipeline.
 		p.log.Warn("decode failed",
 			"contract", lg.Address.Hex(),
 			"tx", lg.TxHash.Hex(),
@@ -51,104 +66,251 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log) error {
 		return nil // not subscribed
 	}
 
-	// Block timestamp is approximated as the time the log is processed; for
-	// production accuracy we'd resolve via eth_getBlockByNumber. Trade-off
-	// is fine for M1 — the API never displays second-precision timestamps.
-	blockTs := time.Now().UTC()
-
 	switch name {
+	// ----- Registry -----
 	case indabi.EventMerchantRegistered:
 		ev := payload.(*indabi.MerchantRegistered)
-		_, err = p.store.LinkOnchainMerchant(ctx, ev.MerchantID, ev.PayoutAddress.Hex())
+		_, err = p.store.LinkOnchainMerchant(ctx, ev.MerchantID, strings.ToLower(ev.PayoutAddress.Hex()))
 
+	case indabi.EventMerchantPayoutAddressUpdated:
+		ev := payload.(*indabi.MerchantPayoutAddressUpdated)
+		_, err = p.store.UpdateMerchantPayoutAddress(ctx, ev.MerchantID, strings.ToLower(ev.NewPayoutAddress.Hex()))
+
+	case indabi.EventMerchantActiveSet:
+		ev := payload.(*indabi.MerchantActiveSet)
+		_, err = p.store.SetMerchantActive(ctx, ev.MerchantID, ev.Active)
+
+	case indabi.EventMerchantFeeBpsUpdated:
+		ev := payload.(*indabi.MerchantFeeBpsUpdated)
+		err = p.store.LogMerchantFeeBpsChange(ctx, ev.MerchantID, ev.NewFeeBps, lg.TxHash.Hex())
+
+	case indabi.EventMerchantOwnerTransferred:
+		ev := payload.(*indabi.MerchantOwnerTransferred)
+		err = p.store.LogMerchantOwnerTransfer(ctx, ev.MerchantID, ev.NewOwner.Hex(), lg.TxHash.Hex())
+
+	// ----- Payments -----
 	case indabi.EventPaymentExecuted:
 		ev := payload.(*indabi.PaymentExecuted)
 		_, err = p.store.InsertOneShotTransaction(ctx, store.OneShotTxInput{
 			MerchantOnchainID: ev.MerchantID,
-			PayerAddress:      ev.Payer.Hex(),
-			MerchantAddress:   "", // resolved off-chain via Merchant.payoutAddress on read
+			PayerAddress:      strings.ToLower(ev.Payer.Hex()),
 			Amount:            ev.Amount.String(),
 			FeeAmount:         ev.FeeAmount.String(),
 			NetAmount:         ev.NetAmount.String(),
-			Currency:          tokenSymbol(ev.Token),
+			Currency:          p.tokenSymbol(ev.Token),
 			SessionRef:        decodeSessionRef(ev.Ref),
 			OnchainTxHash:     lg.TxHash.Hex(),
 			BlockNumber:       lg.BlockNumber,
-			BlockTimestamp:    blockTs,
+			BlockTimestamp:    blockTime,
 			LogIndex:          lg.Index,
-			Mode:              "live", // M1: indexer assumes live; per-event mode lookup is M2
+			Mode:              p.mode,
+		})
+
+	// ----- Subscriptions -----
+	case indabi.EventSubscriptionCreated:
+		ev := payload.(*indabi.SubscriptionCreated)
+		interval, intervalCount := store.IntervalFromSeconds(ev.IntervalSecs)
+		startAt := time.Unix(int64(ev.StartAt), 0).UTC()
+		nextCharge := startAt.Add(time.Duration(ev.IntervalSecs) * time.Second)
+		_, err = p.store.UpsertSubscriptionFromOnchain(ctx, store.SubscriptionCreatedInput{
+			OnchainSubscriptionID: ev.SubscriptionID,
+			MerchantOnchainID:     ev.MerchantID,
+			PayerAddress:          strings.ToLower(ev.Payer.Hex()),
+			Currency:              p.tokenSymbol(ev.Token),
+			Amount:                ev.Amount.String(),
+			Interval:              interval,
+			IntervalCount:         intervalCount,
+			StartAt:               startAt,
+			NextChargeAt:          nextCharge,
+			OnchainTxHash:         lg.TxHash.Hex(),
+			Mode:                  p.mode,
+		})
+
+	case indabi.EventSubscriptionCharged:
+		ev := payload.(*indabi.SubscriptionCharged)
+		_, err = p.store.InsertSubscriptionCharge(ctx, store.SubscriptionChargedInput{
+			OnchainSubscriptionID: ev.SubscriptionID,
+			ChargeAttemptID:       hexBytes32(ev.ChargeAttemptID),
+			Amount:                ev.Amount.String(),
+			FeeAmount:             ev.FeeAmount.String(),
+			NetAmount:             ev.NetAmount.String(),
+			NextChargeAt:          time.Unix(int64(ev.NextChargeAt), 0).UTC(),
+			OnchainTxHash:         lg.TxHash.Hex(),
+			BlockNumber:           lg.BlockNumber,
+			BlockTimestamp:        blockTime,
+			LogIndex:              lg.Index,
+			Mode:                  p.mode,
+		})
+
+	case indabi.EventSubscriptionChargeSkipped:
+		ev := payload.(*indabi.SubscriptionChargeSkipped)
+		_, err = p.store.InsertSubscriptionChargeSkip(ctx, store.SubscriptionChargeSkippedInput{
+			OnchainSubscriptionID: ev.SubscriptionID,
+			ChargeAttemptID:       hexBytes32(ev.ChargeAttemptID),
+			Outcome:               ev.Outcome.DBString(),
+			BlockTimestamp:        blockTime,
 		})
 
 	case indabi.EventSubscriptionCancelled:
 		ev := payload.(*indabi.SubscriptionCancelled)
-		_, err = p.store.MarkSubscriptionCancelled(ctx, ev.SubscriptionID, ev.By.Hex(), lg.TxHash.Hex(), blockTs)
+		_, err = p.store.MarkSubscriptionCancelled(ctx, ev.SubscriptionID, strings.ToLower(ev.By.Hex()), lg.TxHash.Hex(), blockTime)
 
+	// ----- Refunds (via ERC-20 Transfer) -----
 	case indabi.EventERC20Transfer:
-		ev := payload.(*indabi.ERC20Transfer)
-		// Refund completion is the only ERC-20 use-case the indexer reacts
-		// to. Match by tx hash — the merchant pre-recorded it via the API.
-		if _, err = p.store.CompleteRefundByTxHash(ctx, lg.TxHash.Hex(), blockTs); err != nil {
-			return fmt.Errorf("complete refund: %w", err)
-		}
-		// Silent — most ERC-20 Transfers won't match a refund.
-		_ = ev
+		_, err = p.store.CompleteRefundByTxHash(ctx, lg.TxHash.Hex(), blockTime)
+		// Most ERC-20 Transfers won't match any pending refund — that's
+		// fine. CompleteRefundByTxHash returns 0 rows in that case.
 
+	// ----- Agent escrow (full lifecycle) -----
 	case indabi.EventJobCreated:
 		ev := payload.(*indabi.JobCreated)
-		_, err = p.store.UpsertAgentJobOnchain(ctx, ev.JobID, ev.Vendor.Hex(), lg.TxHash.Hex())
+		_, err = p.store.LinkAgentJobOnchain(ctx, ev.JobID, strings.ToLower(ev.Vendor.Hex()), lg.TxHash.Hex(), blockTime)
+		if err == nil {
+			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.created", map[string]any{
+				"client": strings.ToLower(ev.Client.Hex()),
+				"vendor": strings.ToLower(ev.Vendor.Hex()),
+				"token":  strings.ToLower(ev.Token.Hex()),
+				"amount": ev.Amount.String(),
+				"txHash": lg.TxHash.Hex(),
+			})
+		}
+
+	case indabi.EventJobFunded:
+		ev := payload.(*indabi.JobFunded)
+		err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.funded", map[string]any{
+			"amount": ev.Amount.String(),
+			"txHash": lg.TxHash.Hex(),
+		})
+
+	case indabi.EventJobStarted:
+		ev := payload.(*indabi.JobStarted)
+		_, err = p.store.SetAgentJobStatus(ctx, store.AgentJobStatusInput{
+			OnchainJobID:   ev.JobID,
+			NewStatus:      "in_progress",
+			BlockTimestamp: blockTime,
+		})
+		if err == nil {
+			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.started", map[string]any{"txHash": lg.TxHash.Hex()})
+		}
+
+	case indabi.EventJobDelivered:
+		ev := payload.(*indabi.JobDelivered)
+		_, err = p.store.SetAgentJobStatus(ctx, store.AgentJobStatusInput{
+			OnchainJobID:    ev.JobID,
+			NewStatus:       "delivered",
+			DeliverableHash: hexBytes32(ev.DeliverableHash),
+			BlockTimestamp:  blockTime,
+		})
+		if err == nil {
+			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.delivered", map[string]any{
+				"deliverableHash": hexBytes32(ev.DeliverableHash),
+				"txHash":          lg.TxHash.Hex(),
+			})
+		}
+
+	case indabi.EventJobApproved:
+		ev := payload.(*indabi.JobApproved)
+		_, err = p.store.SetAgentJobStatus(ctx, store.AgentJobStatusInput{
+			OnchainJobID:   ev.JobID,
+			NewStatus:      "approved",
+			BlockTimestamp: blockTime,
+		})
+		if err == nil {
+			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.approved", map[string]any{
+				"assessor": strings.ToLower(ev.Assessor.Hex()),
+				"txHash":   lg.TxHash.Hex(),
+			})
+		}
 
 	case indabi.EventJobReleased:
 		ev := payload.(*indabi.JobReleased)
-		_, err = p.store.MarkAgentJobReleased(ctx, ev.JobID, lg.TxHash.Hex(), blockTs)
+		_, err = p.store.SetAgentJobStatus(ctx, store.AgentJobStatusInput{
+			OnchainJobID:   ev.JobID,
+			NewStatus:      "completed",
+			ReleaseTxHash:  lg.TxHash.Hex(),
+			BlockTimestamp: blockTime,
+			CompletedAt:    true,
+		})
+		if err == nil {
+			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.released", map[string]any{
+				"vendor": strings.ToLower(ev.Vendor.Hex()),
+				"amount": ev.Amount.String(),
+				"txHash": lg.TxHash.Hex(),
+			})
+		}
 
-	// Events tracked but with no DB-state implications in M1:
-	case indabi.EventSubscriptionCreated,
-		indabi.EventSubscriptionCharged,
-		indabi.EventSubscriptionChargeSkipped,
-		indabi.EventJobFunded,
-		indabi.EventJobStarted,
-		indabi.EventJobDelivered,
-		indabi.EventJobApproved,
-		indabi.EventJobDisputed,
-		indabi.EventJobCancelled,
-		indabi.EventFeeAccrued:
-		// M2: surface as audit log entries.
+	case indabi.EventJobDisputed:
+		ev := payload.(*indabi.JobDisputed)
+		_, err = p.store.SetAgentJobStatus(ctx, store.AgentJobStatusInput{
+			OnchainJobID:   ev.JobID,
+			NewStatus:      "disputed",
+			BlockTimestamp: blockTime,
+		})
+		if err == nil {
+			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.disputed", map[string]any{
+				"reason": ev.Reason,
+				"txHash": lg.TxHash.Hex(),
+			})
+		}
+
+	case indabi.EventJobCancelled:
+		ev := payload.(*indabi.JobCancelled)
+		_, err = p.store.SetAgentJobStatus(ctx, store.AgentJobStatusInput{
+			OnchainJobID:   ev.JobID,
+			NewStatus:      "cancelled",
+			BlockTimestamp: blockTime,
+			CompletedAt:    true,
+		})
+		if err == nil {
+			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.cancelled", map[string]any{
+				"reason": ev.Reason,
+				"txHash": lg.TxHash.Hex(),
+			})
+		}
+
+	// ----- Fees -----
+	case indabi.EventFeeAccrued:
+		ev := payload.(*indabi.FeeAccrued)
+		err = p.store.LogFeeAccrued(ctx, ev.MerchantID,
+			strings.ToLower(ev.Token.Hex()),
+			ev.Amount.String(),
+			lg.TxHash.Hex())
 
 	default:
-		p.log.Warn("unhandled event in projector dispatch", "name", string(name))
+		p.log.Warn("unhandled subscribed event in dispatch", "name", string(name))
 	}
-	return err
+
+	if err != nil {
+		return fmt.Errorf("project %s: %w", name, err)
+	}
+	return nil
 }
 
-// tokenSymbol maps a known token contract address to its display symbol.
-// In production this lookup is a `TokenWhitelist` table query; for M1 we
-// hardcode the canonical Arc stablecoins.
-func tokenSymbol(token common.Address) string {
-	addr := common.HexToAddress(token.Hex()).Hex()
-	switch addr {
-	case "0x3600C2E5b9Be41C2Ce4DC0E51A6cFE0E81b1f4f3": // USDC on Arc (placeholder)
-		return "USDC"
-	case "0x89B5F1A0a3aB7e2A0d0f5c3D3a9F0f9F8F0F8F0F": // EURC placeholder
-		return "EURC"
-	default:
-		return "USDC" // safe default; refined in M2 with TokenWhitelist
+// tokenSymbol resolves a token contract address to its display symbol via
+// the configured token map. Falls back to "USDC" when unknown.
+func (p *Projector) tokenSymbol(token common.Address) string {
+	if sym, ok := p.tokens[strings.ToLower(token.Hex())]; ok {
+		return sym
 	}
+	return "USDC"
 }
 
-// decodeSessionRef interprets a bytes32 ref carried by `PaymentExecuted`.
-// Sessions are CUIDs — printable ASCII, ≤ 32 chars. We keep it simple:
-// take everything up to the first NUL byte, treat as ASCII. Junk-in →
-// empty-string-out; the SQL layer handles the "no matching session"
-// case.
+// decodeSessionRef interprets the bytes32 ref carried by `PaymentExecuted`.
+// PaymentSession ids are CUIDs — printable ASCII, ≤ 32 chars. Anything that
+// fails the ASCII check returns "" so the SQL layer treats it as "no
+// matching session".
 func decodeSessionRef(ref [32]byte) string {
 	for i, b := range ref {
 		if b == 0 {
 			return string(ref[:i])
 		}
-		// Reject obviously non-ASCII bytes — saves a Postgres lookup.
 		if b < 0x20 || b > 0x7E {
 			return ""
 		}
 	}
 	return string(ref[:])
+}
+
+func hexBytes32(b [32]byte) string {
+	return "0x" + hex.EncodeToString(b[:])
 }
