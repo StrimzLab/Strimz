@@ -1,0 +1,16 @@
+{
+  "name": "@strimz/indexer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Strimz on-chain indexer (Go) — projects Arc contract events into Postgres.",
+  "license": "MIT",
+  "scripts": {
+    "build": "go build -o bin/indexer ./cmd/indexer",
+    "dev": "go run ./cmd/indexer run",
+    "lint": "go vet ./...",
+    "typecheck": "go build -o /dev/null ./...",
+    "test": "go test ./internal/...",
+    "test:e2e": "go test -tags=e2e -count=1 ./internal/...",
+    "clean": "rm -rf bin .turbo"
+  }
+}
