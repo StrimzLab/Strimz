@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -13,14 +14,13 @@ import (
 	"github.com/StrimzLab/strimz/apps/indexer/internal/config"
 )
 
-// fakeChain is a deterministic stand-in for the on-chain client used by
-// runner tests. It records every call and drives FilterLogs from a
-// pre-canned response keyed on `(addr, fromBlock, toBlock)` if any.
+// fakeChain is a deterministic in-memory stand-in for the on-chain client.
 type fakeChain struct {
-	head   uint64
-	headFn func() (uint64, error)
-	logs   []types.Log
-	calls  []ethereum.FilterQuery
+	head    uint64
+	headFn  func() (uint64, error)
+	logs    []types.Log
+	calls   []ethereum.FilterQuery
+	blockTs map[uint64]time.Time
 }
 
 func (f *fakeChain) BlockNumber(ctx context.Context) (uint64, error) {
@@ -35,10 +35,17 @@ func (f *fakeChain) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]t
 	return f.logs, nil
 }
 
+func (f *fakeChain) BlockTime(ctx context.Context, blockNumber uint64) (time.Time, error) {
+	if ts, ok := f.blockTs[blockNumber]; ok {
+		return ts, nil
+	}
+	return time.Now().UTC(), nil
+}
+
 func (f *fakeChain) Close() {}
 
 func TestTick_DoesNothingWhenChainBelowConfirmationWindow(t *testing.T) {
-	chain := &fakeChain{head: 3}
+	c := &fakeChain{head: 3}
 	r := &Runner{
 		cfg: &config.Config{
 			Environment:        config.EnvTestnet,
@@ -46,15 +53,15 @@ func TestTick_DoesNothingWhenChainBelowConfirmationWindow(t *testing.T) {
 			BlockBatchSize:     500,
 			PollIntervalMillis: 5_000,
 		},
-		chain: chain,
+		chain: c,
 	}
 	require.NoError(t, r.Tick(context.Background()))
-	assert.Empty(t, chain.calls, "should not fetch logs while head <= confirmations")
+	assert.Empty(t, c.calls, "should not fetch logs while head <= confirmations")
 }
 
 func TestTick_PropagatesHeadFetchError(t *testing.T) {
-	chain := &fakeChain{headFn: func() (uint64, error) { return 0, errors.New("rpc down") }}
-	r := &Runner{cfg: &config.Config{Confirmations: 5, BlockBatchSize: 500, PollIntervalMillis: 5_000}, chain: chain}
+	c := &fakeChain{headFn: func() (uint64, error) { return 0, errors.New("rpc down") }}
+	r := &Runner{cfg: &config.Config{Confirmations: 5, BlockBatchSize: 500, PollIntervalMillis: 5_000}, chain: c}
 	err := r.Tick(context.Background())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "rpc down")
