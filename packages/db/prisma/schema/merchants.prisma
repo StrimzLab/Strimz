@@ -2,20 +2,34 @@
 
 model Merchant {
   id                   String         @id @default(cuid())
+  /// Privy DID (`did:privy:...`). Issued on first sign-in via Privy.
+  /// Server verifies inbound Privy access tokens; this is the join key.
+  privyUserId          String?        @unique
   onchainMerchantId    Int?           @unique
-  businessName         String         @db.VarChar(120)
+  businessName         String?        @db.VarChar(120)
   email                String         @unique @db.VarChar(320)
-  passwordHash         String
+  /// True after Privy confirms the email address. Required for live mode.
+  emailVerified        Boolean        @default(false)
+  /// True after the merchant has enrolled MFA in Privy. Required for live mode.
+  twoFactorEnabled     Boolean        @default(false)
+  /// True after the self-attested business onboarding form is submitted.
+  onboardingCompleted  Boolean        @default(false)
+  /// Free-text business sector (Software, eCommerce, etc.); collected at onboarding.
+  businessSector       String?        @db.VarChar(80)
   tier                 MerchantTier   @default(free)
   status               MerchantStatus @default(active)
   payoutAddress        String?        @db.VarChar(42)
   defaultCurrency      PaymentCurrency @default(USDC)
   countryCode          String?        @db.VarChar(2)
+  /// E.164 phone number, optional, captured at onboarding.
+  phone                String?        @db.VarChar(20)
   websiteUrl           String?
   logoUrl              String?
   whitelabelEnabled    Boolean        @default(false)
   arcEnvironment       ArcEnvironment @default(testnet)
   metadata             Json           @default("{}")
+  /// Last successful login timestamp; useful for session-management UI.
+  lastLoginAt          DateTime?
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 

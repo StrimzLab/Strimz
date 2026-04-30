@@ -11,22 +11,27 @@ import { idSchema, isoTimestampSchema, modeSchema } from './common.js'
 export const apiKeyKindSchema = z.enum(['secret', 'publishable'])
 export type ApiKeyKind = z.infer<typeof apiKeyKindSchema>
 
+/**
+ * Underscore-separated to match the Prisma `ApiKeyScope` enum (Prisma
+ * does not allow `:` in enum values). The DB and the wire format use the
+ * same form so there is no boundary translation.
+ */
 export const apiKeyScopeSchema = z.enum([
-  'sessions:read',
-  'sessions:write',
-  'subscriptions:read',
-  'subscriptions:write',
-  'refunds:read',
-  'refunds:write',
-  'transactions:read',
-  'webhooks:read',
-  'webhooks:write',
-  'invoices:read',
-  'invoices:write',
-  'storefronts:read',
-  'storefronts:write',
-  'agents:read',
-  'agents:write',
+  'sessions_read',
+  'sessions_write',
+  'subscriptions_read',
+  'subscriptions_write',
+  'refunds_read',
+  'refunds_write',
+  'transactions_read',
+  'webhooks_read',
+  'webhooks_write',
+  'invoices_read',
+  'invoices_write',
+  'storefronts_read',
+  'storefronts_write',
+  'agents_read',
+  'agents_write',
 ])
 export type ApiKeyScope = z.infer<typeof apiKeyScopeSchema>
 
