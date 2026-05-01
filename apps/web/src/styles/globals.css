@@ -1,0 +1,186 @@
+@import 'tailwindcss';
+@import '@strimz/ui/globals.css';
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Strimz brand tokens — extracted from the prior `strmzz` + `strimz-subscription`
+ * design system and re-expressed as Tailwind v4 `@theme` so every utility
+ * (`bg-primary`, `text-accent`, `shadow-auth-card`) reads from one source.
+ *
+ * Brand
+ *   #02C76A  — accent (signature green)
+ *   #050020  — primary (deep navy)
+ *
+ * Neutrals follow Tailwind's gray scale; the proprietary value is `#58556A`
+ * which we expose as `text-muted` for body copy.
+ *
+ * Shadows are direct ports of the strmzz `tailwind.config.ts` definitions
+ * — they're load-bearing visual identity (sidebar lift, card lift, CTA
+ * inset rim).
+ * ──────────────────────────────────────────────────────────────────────── */
+@theme {
+  --color-accent: #02C76A;
+  --color-accent-foreground: #ffffff;
+  --color-brand-primary: #050020;
+  --color-brand-muted: #58556A;
+  --color-brand-soft: #F9FAFB;
+  --color-brand-border: #E5E7EB;
+  --color-brand-line: #D1D5DB;
+
+  --font-sora: 'Sora', ui-sans-serif, system-ui, sans-serif;
+  --font-poppins: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+
+  /* Signature shadows */
+  --shadow-cta:
+    0px -4px 4px 0px rgba(0, 0, 0, 0.2) inset,
+    0px 4px 4px 0px rgba(225, 225, 225, 0.25) inset;
+  --shadow-cta-rim:
+    0px -4px 4px 0px rgba(0, 0, 0, 0.2) inset,
+    0px 4px 4px 0px rgba(225, 225, 225, 0.16) inset,
+    0px 0px 0px 1px rgba(2, 199, 106, 0.25);
+  --shadow-sub-card:
+    0px 1px 2px -1px rgba(0, 0, 0, 0.1),
+    0px 1px 3px 0px rgba(0, 0, 0, 0.1);
+  --shadow-auth-card:
+    0px 2px 4px -2px rgba(0, 0, 0, 0.05),
+    0px 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-strimz-logo:
+    0px 25px 40px 0px rgba(2, 199, 106, 0.6),
+    0px -9px 15px 0px rgba(0, 0, 0, 0.2) inset;
+  --shadow-sidebar-link:
+    0px 2px 4px -2px rgba(0, 0, 0, 0.05),
+    0px 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-sub-icon:
+    0px 2px 4px -2px rgba(0, 0, 0, 0.05),
+    0px 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0px -2px 4px 0px rgba(0, 0, 0, 0.1) inset;
+  --shadow-navbar:
+    0px 1px 2px -1px rgba(0, 0, 0, 0.1),
+    0px 1px 3px 0px rgba(0, 0, 0, 0.1);
+  --shadow-nav-cta:
+    0px -2px 4px 0px rgba(0, 0, 0, 0.08) inset,
+    0px 0px 0px 1px #E5E7EB;
+
+  --animate-custom-ping: custom-ping 1.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+  --animate-aurora: aurora-shift 24s ease-in-out infinite;
+  --animate-orbit: orbit 20s linear infinite;
+}
+
+@keyframes custom-ping {
+  75%, 100% {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+
+@keyframes aurora-shift {
+  0%, 100% { background-position: 0% 50%, 100% 50%, 50% 100%; }
+  50%      { background-position: 60% 30%, 30% 70%, 70% 30%; }
+}
+
+@keyframes orbit {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sora);
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-poppins);
+    letter-spacing: -0.02em;
+  }
+
+  /* Smooth color transitions on theme flip — but never on transform/layout
+   * properties (those should snap instantly). */
+  * {
+    transition-property: background-color, border-color, color;
+    transition-duration: 200ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@layer utilities {
+  /* Marketing hero aurora — three radial blobs that drift in/out. The
+   * @media (prefers-reduced-motion) guard cuts the animation for users
+   * who've opted out. */
+  .strimz-aurora {
+    background:
+      radial-gradient(at 20% 20%, color-mix(in oklch, var(--color-accent) 22%, transparent), transparent 50%),
+      radial-gradient(at 80% 30%, color-mix(in oklch, hsl(200 90% 60%) 16%, transparent), transparent 55%),
+      radial-gradient(at 50% 90%, color-mix(in oklch, hsl(280 80% 60%) 14%, transparent), transparent 50%);
+    background-size: 130% 130%;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .strimz-aurora-animated { animation: var(--animate-aurora); }
+  }
+
+  /* Subtle dotted grid that fades to transparent at the edges — used as
+   * a backdrop behind hero content. */
+  .strimz-grid-bg {
+    background-image:
+      linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse at center, black 40%, transparent 75%);
+  }
+
+  /* Wave gradients — the concentric circles in the hero orb. Light + dark
+   * variants so the orb reads on both themes. */
+  .strimz-wave-1 {
+    background: linear-gradient(to bottom, #F0FFF8 0%, #FFFFFF 100%);
+  }
+  .strimz-wave-2 {
+    background: linear-gradient(to bottom, #CCFFE7 0%, #FFFFFF 100%);
+  }
+  .strimz-wave-3 {
+    background: linear-gradient(to bottom, #B3FEDB 0%, #FFFFFF 100%);
+  }
+  .dark .strimz-wave-1 { background: linear-gradient(to bottom, color-mix(in oklch, var(--color-accent) 8%, transparent) 0%, transparent 100%); }
+  .dark .strimz-wave-2 { background: linear-gradient(to bottom, color-mix(in oklch, var(--color-accent) 14%, transparent) 0%, transparent 100%); }
+  .dark .strimz-wave-3 { background: linear-gradient(to bottom, color-mix(in oklch, var(--color-accent) 22%, transparent) 0%, transparent 100%); }
+
+  .strimz-cta-shadow {
+    box-shadow: var(--shadow-cta-rim);
+  }
+  .strimz-card-shadow {
+    box-shadow: var(--shadow-sub-card);
+  }
+  .strimz-auth-shadow {
+    box-shadow: var(--shadow-auth-card);
+  }
+  .strimz-sidebar-link-shadow {
+    box-shadow: var(--shadow-sidebar-link);
+  }
+  .strimz-logo-shadow {
+    box-shadow: var(--shadow-strimz-logo);
+  }
+  .strimz-nav-cta-shadow {
+    box-shadow: var(--shadow-nav-cta);
+  }
+  .strimz-sub-icon-shadow {
+    box-shadow: var(--shadow-sub-icon);
+  }
+
+  /* Conic gradient ring — used around the hero strimz logo + CTA accents. */
+  .strimz-conic-ring {
+    background: conic-gradient(
+      from 0deg,
+      var(--color-accent) 0%,
+      transparent 25%,
+      var(--color-accent) 50%,
+      transparent 75%,
+      var(--color-accent) 100%
+    );
+  }
+}
