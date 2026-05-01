@@ -1,0 +1,101 @@
+---
+title: Resources
+description: The objects you'll interact with — what they mean, when they exist, what their lifecycles look like.
+---
+
+Strimz exposes a small number of resources. Most have a lifecycle (`pending` → `confirmed` → `refunded`) that's worth knowing before you start wiring webhooks.
+
+## Merchant
+
+The top-level you. Created by Privy on first login. Holds business info (name, sector, country, payout address) and configuration (active capabilities, agent settings). Most resources hang off `merchantId`.
+
+## Customer
+
+Anyone who has paid you. Strimz creates a `Customer` row automatically the first time a wallet pays one of your sessions or subscriptions. Unique on `(merchantId, walletAddress)` — the same wallet across two merchants is two distinct rows.
+
+## PaymentSession
+
+A one-shot checkout. You create one with an amount, currency, and (optional) description. Strimz returns a `checkoutUrl`. The customer pays. The session goes through:
+
+```
+created  →  pending  →  confirmed  →  (optional) refunded
+```
+
+Sessions expire after 24 hours by default. An expired session goes to `cancelled` and can no longer be paid.
+
+## Subscription + SubscriptionPlan
+
+A `SubscriptionPlan` is the *template* (name, amount, interval, intervalCount). A `Subscription` is the *instance* — a specific customer subscribed to a specific plan.
+
+```
+active  →  at_risk  →  lapsed
+            ↓
+         cancelled
+```
+
+A failed charge moves a sub from `active` to `at_risk`. The agent emails the customer per your configured strategy. After the grace window (24/48/72h, your choice), the sub flips to `lapsed` and stops attempting charges. The customer can also cancel directly from their wallet — the indexer projects `SubscriptionCancelled` and we mark the row.
+
+## SubscriptionCharge
+
+One charge attempt. Created by the scheduler when a sub is due. Idempotency is guaranteed by `chargeAttemptId` — a deterministic `keccak256(subscriptionId, periodEndAt)`.
+
+```
+pending  →  succeeded  ↦  Transaction(kind=subscription_charge)
+       ↘   failed (with outcome enum)
+```
+
+## Transaction
+
+A confirmed on-chain payment. There are several kinds:
+
+| `kind` | Source |
+| --- | --- |
+| `one_shot` | Customer paid a session |
+| `subscription_charge` | Scheduler successfully charged a sub |
+| `refund` | A refund tx was confirmed |
+
+`Transaction.amount` is in smallest token units (USDC has 6 decimals). `feeAmount` is the Strimz platform fee at the merchant's tier. `netAmount` is what landed in the merchant's payout wallet.
+
+## Refund
+
+Server-side intent + wallet-signed transfer.
+
+```
+awaiting_signature  →  submitted  →  completed
+                                ↘  failed
+```
+
+You create the refund (which validates against `Transaction.amount` so cumulative refunds can't exceed the original). We return wallet-signing instructions. You broadcast the ERC-20 Transfer. The indexer detects the on-chain transfer and flips the row to `completed`.
+
+## Invoice
+
+A hosted, branded payment page with line items + a backing `PaymentSession`. Useful for B2B billing where the buyer wants to see the breakdown before paying.
+
+```
+draft  →  sent  →  paid
+              ↘   overdue  →  void
+```
+
+Invoices that pass their `dueAt` without a successful charge flip to `overdue` (daily cron) and fire `invoice.overdue`.
+
+## WebhookEndpoint + WebhookDelivery
+
+An `Endpoint` is a URL + event subscription list + signing secret. A `Delivery` is one attempt to POST a specific event to a specific endpoint:
+
+```
+pending  →  delivered                      (2xx response)
+        ↘   retrying  →  permanently_failed (after max attempts)
+```
+
+Every delivery is one BullMQ job; we keep the attempts visible in your dashboard so you can debug a flaky receiver row by row.
+
+## AgentJob
+
+ERC-8183 escrow job. Used by the AutoPay Agent's commerce capability to pay vendors via on-chain escrow.
+
+```
+proposed  →  accepted  →  in_progress  →  delivered  →  approved  →  completed
+                                                 ↘   disputed / cancelled
+```
+
+`proposed` means it's awaiting human approval (above your configured threshold). `accepted` auto-fires below threshold.

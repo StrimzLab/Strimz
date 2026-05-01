@@ -1,0 +1,72 @@
+---
+title: Webhooks
+description: Register endpoints; inspect deliveries; rotate secrets; replay.
+---
+
+## Endpoints
+
+```http
+POST /v1/webhook-endpoints
+{
+  "url": "https://your-site.com/webhooks/strimz",
+  "events": ["payment.completed", "subscription.charged"],
+  "mode": "live",
+  "description": "Production receiver"
+}
+```
+
+Returns:
+
+```json
+{
+  "endpoint": {
+    "id": "ep_xyz",
+    "url": "https://your-site.com/webhooks/strimz",
+    "events": ["payment.completed", "subscription.charged"],
+    "mode": "live",
+    "status": "active",
+    "signingSecretPrefix": "whsec_abcd",
+    ...
+  },
+  "signingSecret": "whsec_xxxxxxxxxxxxxxxxxxxx"
+}
+```
+
+`signingSecret` is shown **once**. Store it in your env immediately.
+
+```http
+GET  /v1/webhook-endpoints/{id}
+GET  /v1/webhook-endpoints
+POST /v1/webhook-endpoints/{id}/disable
+POST /v1/webhook-endpoints/{id}/enable
+POST /v1/webhook-endpoints/{id}/rotate-secret
+```
+
+## Deliveries
+
+```http
+GET /v1/webhook-deliveries/{id}
+GET /v1/webhook-deliveries?endpointId=ep_xyz&status=permanently_failed
+```
+
+```http
+POST /v1/webhook-deliveries/{id}/replay
+```
+
+Replay puts the delivery back on the queue. Useful for debugging your receiver — fix the bug, replay the last few deliveries, validate.
+
+## SSRF guard
+
+Endpoint URLs must:
+
+- Use `https://`
+- Not resolve to private (RFC 1918), loopback, link-local, or CGNAT addresses
+- Be DNS-resolvable at registration time
+
+We re-check on every delivery; an endpoint that starts pointing to internal infra later (DNS rebinding) gets blocked.
+
+## Auto-disable
+
+5+ permanent failures in a 24-hour window → endpoint flips to `disabled` automatically. Re-enable from the dashboard once your server is back online.
+
+See the [Webhooks guide](/docs/guides/webhooks) for signature verification.

@@ -1,0 +1,65 @@
+---
+title: How Strimz fits together
+description: A 90-second tour of the six processes and what each one does.
+---
+
+Strimz is six processes. You only ever talk to one of them (the API), but understanding what the others do makes failure modes a lot easier to reason about.
+
+## The pieces
+
+```
+        ┌─────────┐
+        │ apps/web│         ← marketing, dashboard, hosted checkout, docs
+        └────┬────┘
+             │ HTTPS
+        ┌────▼────┐
+        │ apps/api│         ← Nest+Fastify, Privy auth, OpenAPI 3.1
+        └────┬────┘
+             │
+   ┌─────────┼──────────┐
+   │         │          │
+┌──▼──┐  ┌───▼───┐  ┌───▼────┐
+│ DB  │  │ Redis │  │  Arc   │
+│ PG  │  │       │  │  L1    │
+└──┬──┘  └───────┘  └───┬────┘
+   │                    │
+   │   ┌────────────────┘
+   │   │
+┌──▼───▼──┐    ┌─────────────┐
+│indexer  │    │  scheduler  │
+│  Go     │    │  Nest+BullMQ│  ← only process holding a signing key
+└─────────┘    └─────────────┘
+                       │
+                ┌──────▼──────┐
+                │   agent     │
+                │ Nest+cron   │  ← read-only; emails, recommendations
+                └─────────────┘
+```
+
+- **`apps/api`** — your one entry point. Validates inputs with Zod, persists to Postgres, fires events. Never signs on-chain.
+- **`apps/indexer`** — Go process polling the Arc RPC. Decodes contract events, projects them into Postgres tables (Transactions, Subscriptions, etc.). The "source of truth" rebuild path: drop `IndexerCursor`, restart, and you'll re-derive the entire DB from chain history.
+- **`apps/scheduler`** — Nest+BullMQ worker. Owns the service signing key. Processes `strimz.subscription.due` (charges via `batchCharge`), `strimz.agent.action` (cancel-on-chain, job operations, CCTP settlement), `strimz.webhook.delivery` (signs and POSTs to merchant URLs).
+- **`apps/agent`** — the AutoPay Agent. Hourly/daily crons that run six capabilities: recovery, cashflow digest, cashflow anomaly, yield recommendation, commerce summary, pricing intelligence. Plus a queue worker for CCTP routing. **Never signs.**
+- **`apps/web`** — the frontend you're reading right now. Same Next.js app handles marketing, dashboard, hosted checkout, public storefronts, and these docs.
+- **`packages/contracts`** — Foundry workspace. UUPS-upgradeable contracts with ERC-7201 namespaced storage.
+
+## What lives where
+
+When something goes wrong, knowing which process to look at is half the battle.
+
+| Symptom | Process to check |
+| --- | --- |
+| API returning 5xx | `apps/api` logs |
+| Subscriptions not charging on schedule | `apps/scheduler` logs (sweeper tick + worker) |
+| Webhooks failing or stuck retrying | `apps/scheduler` (delivery worker) |
+| New on-chain payment not in dashboard | `apps/indexer` (cursor caught up?) |
+| Merchant not getting daily digest | `apps/agent` (cashflow cron logs) |
+| CCTP bridge stuck in `bridge_initiated` | `apps/agent` (Circle attestation poller) |
+
+## What you don't need to think about
+
+- **On-chain idempotency.** The contract's `usedAttempts[id]` mapping makes every charge attempt safe to retry without duplication.
+- **Webhook delivery retries.** The scheduler handles 1m → 5m → 30m → 2h → 12h backoff. After max attempts, you get an email and the endpoint can auto-disable.
+- **Reorg protection.** The indexer waits `CONFIRMATIONS` blocks (default 5) before projecting. Arc's finality means short reorgs are extremely unlikely, but the safety margin is there.
+
+If you're self-hosting or want to dig deeper, every service has a README at the top of its directory in [github.com/StrimzLab/strimz](https://github.com/StrimzLab/strimz).

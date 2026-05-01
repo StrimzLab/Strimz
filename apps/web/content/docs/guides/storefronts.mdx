@@ -1,0 +1,58 @@
+---
+title: Build a storefront
+description: A hosted, branded landing page where your products live.
+---
+
+A Strimz storefront is a no-code landing page at `strimz.io/store/<your-slug>` that lists products you've added. Each product becomes a one-shot or subscription checkout. Useful when you need to take payments but don't want to build a full e-commerce stack.
+
+## Create
+
+```ts
+await strimz.storefronts.upsert({
+  slug: 'acme',
+  name: 'Acme Inc.',
+  description: 'Premium widgets, settled in USDC.',
+  accentColor: '#02C76A',
+  logoUrl: 'https://acme.com/logo.png',
+  socialLinks: ['https://x.com/acme', 'https://acme.com'],
+})
+```
+
+Slugs are unique per environment. `acme` in test mode and `acme` in live mode are different storefronts.
+
+## Add products
+
+```ts
+await strimz.storefronts.products.create({
+  name: 'Pro Widget',
+  description: 'Our flagship widget.',
+  price: '50000000',
+  currency: 'USDC',
+  type: 'one_time',          // 'one_time' | 'subscription'
+})
+
+await strimz.storefronts.products.create({
+  name: 'Pro Subscription',
+  price: '20000000',
+  currency: 'USDC',
+  type: 'subscription',
+  interval: 'monthly',
+  intervalCount: 1,
+})
+```
+
+For subscription products, the `interval` and `intervalCount` create a backing `SubscriptionPlan` automatically. The product detail page links to that plan's checkout URL.
+
+## Publish
+
+```ts
+await strimz.storefronts.publish()
+```
+
+Until published, your storefront returns 404 publicly. Drafts are visible to you in the dashboard. Once published, `strimz.io/store/<your-slug>` is live and SEO-indexable.
+
+## Customising the look
+
+You get accent colour, logo, cover image, and social links. The page itself is rendered by Strimz, so updates we ship (better mobile layouts, faster image optimisation, dark mode) automatically benefit your storefront.
+
+If you need a custom domain (`shop.your-site.com` instead of `strimz.io/store/your-slug`), upgrade to **Growth** or above and contact support.

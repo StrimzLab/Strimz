@@ -1,0 +1,80 @@
+---
+title: Invoices
+description: Hosted, branded payment pages with line items.
+---
+
+## Create
+
+```http
+POST /v1/invoices
+{
+  "customerName": "Acme Inc.",
+  "customerEmail": "ap@acme.com",
+  "currency": "USDC",
+  "lineItems": [
+    { "description": "Hosting", "quantity": 1, "unitAmount": "50000000" },
+    { "description": "Support", "quantity": 2, "unitAmount": "10000000" }
+  ],
+  "note": "Net 14",
+  "dueInDays": 14
+}
+```
+
+Returns:
+
+```json
+{
+  "id": "inv_xyz",
+  "number": "2026-0001",
+  "subtotal": "70000000",
+  "total": "70000000",
+  "currency": "USDC",
+  "status": "draft",
+  "sessionId": "sess_xyz",
+  "dueAt": "2026-05-13T...",
+  "lineItems": [...],
+  ...
+}
+```
+
+## Send
+
+```http
+POST /v1/invoices/{id}/send
+```
+
+Emails the customer. Requires `customerEmail` to be set; returns 403 otherwise.
+
+## Void
+
+```http
+POST /v1/invoices/{id}/void
+```
+
+Cannot void a paid invoice — issue a refund instead. Voiding cancels the backing payment session.
+
+## Read
+
+```http
+GET  /v1/invoices/{id}
+GET  /v1/invoices?status=overdue
+```
+
+## Lifecycle
+
+```
+draft  →  sent  →  paid
+              ↘
+               overdue  →  void
+```
+
+Daily cron flips invoices past `dueAt` to `overdue` and fires `invoice.overdue`.
+
+## Webhook events
+
+| Event | Fires when |
+| --- | --- |
+| `invoice.created` | A new invoice was created |
+| `invoice.sent` | The invoice email was delivered |
+| `invoice.paid` | The backing session confirmed |
+| `invoice.overdue` | dueAt passed without payment |

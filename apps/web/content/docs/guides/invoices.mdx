@@ -1,0 +1,54 @@
+---
+title: Send an invoice
+description: Hosted, branded, paid in USDC.
+---
+
+Strimz invoices are payment sessions with line items, a customer email, and a due date. We render them as a hosted page, email a copy with a "Pay" button, and back the whole thing with a normal `PaymentSession` so all your existing webhooks keep working.
+
+## Create
+
+```ts
+const invoice = await strimz.invoices.create({
+  customerName:  'Acme Inc.',
+  customerEmail: 'ap@acme.com',
+  currency: 'USDC',
+  lineItems: [
+    { description: 'Hosting',  quantity: 1, unitAmount: '50000000' }, // 50 USDC
+    { description: 'Support',  quantity: 2, unitAmount: '10000000' }, // 10 USDC × 2
+  ],
+  note:    'Net 14',
+  dueInDays: 14,
+})
+
+console.log(invoice.number)        // 2026-0001
+console.log(invoice.sessionId)     // backing PaymentSession.id
+```
+
+The `number` is a per-merchant sequence (`<year>-<NNNN>`). The `sessionId` is a real `PaymentSession` — the customer pays it like any other one-shot session, except the hosted checkout has a "Download PDF" button and the line-item breakdown.
+
+## Send
+
+```ts
+await strimz.invoices.send(invoice.id)
+```
+
+This emails the customer at `customerEmail`. The email is templated with your business name and brand color (from your storefront, if configured); it links to the hosted checkout page.
+
+If `customerEmail` is null, `send()` returns a 403 — invoices without an email can be paid via direct link, but Strimz won't deliver them for you.
+
+## Lifecycle
+
+```
+draft  →  sent  →  paid          (customer paid before due)
+              ↘   overdue  →  void  (you voided after dueAt)
+```
+
+A daily cron flips invoices past `dueAt` (status `draft` or `sent`) to `overdue` and fires `invoice.overdue`. Use this webhook to chase the customer (or it gets routed to the AutoPay Agent's recovery capability if enabled).
+
+## Void
+
+```ts
+await strimz.invoices.void(invoice.id)
+```
+
+Sets the invoice's status to `void` and cancels the backing payment session. You can't void an invoice that's already paid — that requires a refund instead.

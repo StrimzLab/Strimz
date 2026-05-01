@@ -1,0 +1,122 @@
+---
+title: Errors
+description: Every error code Strimz returns, what causes it, and what to do about it.
+---
+
+Every Strimz error has the same envelope:
+
+```json
+{
+  "error": {
+    "code": "invalid_request",
+    "message": "amount must be a positive integer string",
+    "param": "amount",
+    "details": { "issues": [...] },
+    "requestId": "req_abc123"
+  }
+}
+```
+
+`requestId` is your fastest path to support — include it on every issue you file.
+
+## Codes
+
+| Code | HTTP | Meaning |
+| --- | --- | --- |
+| `authentication_error` | 401 | Missing, invalid, or expired auth token |
+| `permission_denied` | 403 | Token is valid but lacks the required scope |
+| `merchant_not_synced` | 401 | Privy session is valid but no Merchant row — call `POST /v1/auth/sync` first |
+| `not_found` | 404 | Resource doesn't exist or isn't visible to your token |
+| `invalid_request` | 400 | Validation failure; `details.issues` has the Zod paths |
+| `session_invalid_state` | 403 | The action conflicts with the resource's current status (e.g. cancelling an already-cancelled sub) |
+| `idempotency_error` | 409 | An idempotency key was reused with a different payload |
+| `rate_limited` | 429 | Per-IP or per-key rate limit exceeded; check `Retry-After` |
+| `api_error` | 500 | Unexpected server error; we'll see it in our logs and triage |
+
+## Examples
+
+### `authentication_error`
+
+```json
+{
+  "error": {
+    "code": "authentication_error",
+    "message": "missing bearer token"
+  }
+}
+```
+
+You forgot the `Authorization: Bearer …` header. Or the key is malformed.
+
+### `permission_denied`
+
+```json
+{
+  "error": {
+    "code": "permission_denied",
+    "message": "api key missing scope subscriptions_write"
+  }
+}
+```
+
+Your key has read access but not write. Re-issue with broader scopes from the dashboard.
+
+### `invalid_request`
+
+```json
+{
+  "error": {
+    "code": "invalid_request",
+    "message": "Validation failed",
+    "details": {
+      "issues": [
+        { "path": ["amount"], "message": "must be a non-negative integer string", "code": "custom" },
+        { "path": ["currency"], "message": "Required", "code": "invalid_type" }
+      ]
+    }
+  }
+}
+```
+
+Look at `details.issues` for the exact Zod path that failed.
+
+### `session_invalid_state`
+
+```json
+{
+  "error": {
+    "code": "session_invalid_state",
+    "message": "subscription is already cancelled"
+  }
+}
+```
+
+You tried to cancel a subscription that was already in the `cancelled` status. No-op.
+
+### `rate_limited`
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 30
+```
+
+Wait 30 seconds, then retry. The `@strimz/sdk` does this automatically.
+
+## When you should retry
+
+- **5xx errors** → yes, with exponential backoff. The SDK handles this.
+- **`rate_limited`** → yes, after `Retry-After`. The SDK handles this.
+- **`authentication_error`** → no. Your key needs to be fixed.
+- **`permission_denied`** → no. Your scope needs to change.
+- **`invalid_request`** → no. Your payload needs to change.
+- **`session_invalid_state`** → no. The resource's state needs to change first.
+
+## Reporting an issue
+
+If you hit an error you can't make sense of:
+
+1. Save the full response body, including `requestId`.
+2. Note the time (UTC) — we use it to look up the request in our logs.
+3. File at [github.com/StrimzLab/strimz/issues](https://github.com/StrimzLab/strimz/issues) or email support@strimz.io.
+
+We respond to every report within one business day.

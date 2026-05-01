@@ -1,0 +1,14 @@
+{
+  "title": "Guides",
+  "pages": [
+    "accept-payment",
+    "subscriptions",
+    "refunds",
+    "invoices",
+    "webhooks",
+    "agent",
+    "cross-chain",
+    "storefronts",
+    "migrate-from-stripe"
+  ]
+}

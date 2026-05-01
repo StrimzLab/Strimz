@@ -1,0 +1,78 @@
+---
+title: Migrating from Stripe
+description: A side-by-side mapping for the most common Stripe APIs to Strimz equivalents.
+---
+
+If you're coming from Stripe, here's the lay of the land.
+
+## Conceptual mapping
+
+| Stripe | Strimz | Notes |
+| --- | --- | --- |
+| `Customer` | `Customer` | We auto-create on first payment; you don't `customers.create` upfront. |
+| `PaymentIntent` | `PaymentSession` | The hosted-checkout flow is one type per Strimz session. |
+| `Charge` | `Transaction(kind=one_shot)` | Indexer-projected. The on-chain hash is the canonical receipt. |
+| `Invoice` | `Invoice` | Same line-items model. Backed by a `PaymentSession`. |
+| `Subscription` | `Subscription` | Pull-based — the customer signs once, the scheduler charges. No re-invoicing per period. |
+| `SubscriptionItem` | (none) | Strimz subs are one-line. For multi-product, use multiple subs. |
+| `Refund` | `Refund` | Server-intent + wallet-signed transfer (vs. Stripe's pure-server). |
+| `Dispute` | (none) | Stablecoins don't have chargebacks; disputes are between you and your customer. |
+| `Webhook` | `WebhookEndpoint` + `WebhookDelivery` | Same shape — `Strimz-Signature: t=…,v1=…` matches Stripe's `Stripe-Signature` format. |
+| `Payment Link` | Storefront product page | Hosted, brandable, one URL per product. |
+
+## SDK side-by-side
+
+```ts
+// Stripe
+const session = await stripe.checkout.sessions.create({
+  mode: 'payment',
+  line_items: [{ price: 'price_xxx', quantity: 1 }],
+  success_url: 'https://your-site.com/thanks',
+})
+
+// Strimz
+const session = await strimz.paymentSessions.create({
+  amount: '5000000',
+  currency: 'USDC',
+  description: 'Pro plan',
+  successUrl: 'https://your-site.com/thanks',
+})
+```
+
+```ts
+// Stripe webhook verification
+const sig = req.headers['stripe-signature']
+const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET)
+
+// Strimz
+const ok = verifyWebhookSignature({
+  secret: process.env.STRIMZ_WEBHOOK_SECRET,
+  body: req.rawBody,
+  signatureHeader: req.headers['strimz-signature'],
+})
+if (!ok) return res.status(401).end()
+const event = JSON.parse(req.rawBody.toString())
+```
+
+## What's different
+
+**Settlement is instant**. There's no `succeeded → paid → settled` chain like in Stripe. By the time you receive `payment.completed`, the merchant's wallet has the USDC. There's no T+2 payout window.
+
+**No chargebacks, no disputes**. Stablecoins don't have card-network reversal mechanisms. The flip side: your customer can't claim a payment was unauthorised after the fact. The chain is the receipt.
+
+**Idempotency is on-chain**. Stripe's idempotency keys are server-side guarantees. Strimz's are encoded into the contract calls (`bytes32 ref`, `chargeAttemptId`). Even a maliciously-replayed signed transaction can't double-charge.
+
+**No customer-card-on-file**. There's no equivalent of saving a card. Customers either keep their wallet authorised (subscriptions) or sign each payment fresh (one-shots).
+
+**FX is implicit**. If your customer pays in EURC and you settle in USDC, there's no FX engine — they pay one stablecoin, you receive a different stablecoin, and the swap happens through external routing (CCTP V2 + DEX). For now, Strimz settles in the same currency the customer paid; cross-currency support lands with the routing capability above.
+
+## Migration playbook
+
+1. Set up your Strimz account and finish onboarding.
+2. Issue test-mode keys.
+3. Add a Strimz checkout button alongside your Stripe one — A/B for a week.
+4. Wire the webhook receiver. Same shape as Stripe; usually a fork-and-edit.
+5. Move your subscriptions over. Customers re-authorise (one signature each); on-chain approvals replace card-on-file.
+6. Switch off Stripe for new traffic. Existing Stripe subs continue until they churn naturally.
+
+We've helped migrate ~30 SaaS companies; **[contact sales](/contact)** if you want a consult — it's part of the Growth plan.

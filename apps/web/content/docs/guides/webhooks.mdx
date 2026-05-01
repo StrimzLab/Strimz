@@ -1,0 +1,111 @@
+---
+title: Verifying webhooks
+description: HMAC-SHA256 with replay protection. Six lines on your end.
+---
+
+Every webhook Strimz sends is signed. You verify the signature on receipt, reject anything that doesn't match, and your endpoint is safe even if the public URL leaks.
+
+## The header
+
+```http
+Strimz-Signature: t=1714003200,v1=ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
+```
+
+`t` is the Unix timestamp at signing time. `v1` is the lowercase hex of `hmac_sha256(secret, "${t}.${rawBody}")`.
+
+We sign the raw body, byte-for-byte, before any framework parses it. If your framework re-serialises JSON in a slightly different shape (whitespace, key order), the signature won't match — capture the raw body before parsing.
+
+## The receiver
+
+The reference implementation lives in `@strimz/sdk`:
+
+```ts
+import { verifyWebhookSignature } from '@strimz/sdk'
+
+app.post('/webhooks/strimz', (req, res) => {
+  const ok = verifyWebhookSignature({
+    secret: process.env.STRIMZ_WEBHOOK_SECRET!,
+    body: req.rawBody,                                   // Buffer or string
+    signatureHeader: req.headers['strimz-signature'] as string,
+  })
+  if (!ok) return res.status(401).end()
+
+  const event = JSON.parse(req.rawBody.toString())
+  // ... handle event ...
+  res.status(200).end()
+})
+```
+
+If you're not using Node, here's the algorithm to translate:
+
+```python
+# Python
+import hmac, hashlib, time
+
+def verify_strimz_signature(secret: str, body: bytes, header: str, tolerance_s=300) -> bool:
+    parts = dict(p.split('=', 1) for p in header.split(','))
+    t = int(parts['t'])
+    if abs(time.time() - t) > tolerance_s:
+        return False
+    expected = hmac.new(
+        secret.encode(),
+        f'{t}.{body.decode()}'.encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(expected, parts['v1'])
+```
+
+```go
+// Go
+import "crypto/hmac"
+import "crypto/sha256"
+import "encoding/hex"
+
+func verifyStrimz(secret string, body []byte, header string) bool {
+    parts := strings.Split(header, ",")
+    var t int64; var got string
+    for _, p := range parts {
+        kv := strings.SplitN(p, "=", 2)
+        if kv[0] == "t" { t, _ = strconv.ParseInt(kv[1], 10, 64) }
+        if kv[0] == "v1" { got = kv[1] }
+    }
+    if math.Abs(float64(time.Now().Unix()-t)) > 300 { return false }
+    mac := hmac.New(sha256.New, []byte(secret))
+    fmt.Fprintf(mac, "%d.%s", t, body)
+    expected := hex.EncodeToString(mac.Sum(nil))
+    return hmac.Equal([]byte(expected), []byte(got))
+}
+```
+
+## Replay protection
+
+The `t` timestamp is your defence against an attacker capturing a real webhook and re-sending it later. Reject anything where `|now - t| > 300s`. We use 5 minutes because clocks drift, but it's tight enough that captured payloads can't sit in someone's logs for an hour and then be replayed.
+
+## Idempotency on your end
+
+Strimz uses at-least-once delivery — a flaky transport can cause us to retry a delivery you've already processed. Every delivery has a unique `X-Strimz-Delivery-Id` header. Persist it; if you've already seen this ID, skip the work and return `200`.
+
+```ts
+const deliveryId = req.headers['x-strimz-delivery-id'] as string
+const seen = await db.webhookSeen.findUnique({ where: { id: deliveryId } })
+if (seen) return res.status(200).end()
+await db.webhookSeen.create({ data: { id: deliveryId } })
+// ... handle event ...
+```
+
+## Rotating the secret
+
+In the dashboard, **Webhooks** → endpoint → **Rotate secret**. You'll get a new secret immediately. The old one stops working *the same instant* — there's no overlap window. To roll without downtime:
+
+1. Update your env to accept either the old or new secret.
+2. Rotate in the dashboard.
+3. Wait until you've seen one delivery succeed with the new secret.
+4. Remove the old secret from your env.
+
+We log every delivery's signature attempts in your dashboard so you can see the cutover happen in real time.
+
+## Why HMAC and not RSA / ed25519
+
+We picked HMAC-SHA256 because it's the same shape as Stripe's signature, which means engineers can use code they've already shipped. It also means there's no public-key infrastructure for you to manage — one shared secret per endpoint, rotatable on demand.
+
+If you want asymmetric signing (so leaking your endpoint's secret doesn't compromise the signing key), [open an issue](https://github.com/StrimzLab/strimz/issues/new) — we'd consider it for the Enterprise plan.

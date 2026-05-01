@@ -1,0 +1,82 @@
+---
+title: Build a subscription
+description: Recurring revenue, on stablecoins, with one customer signature.
+---
+
+Strimz subscriptions are *pull-based*: the customer signs once, granting your contract permission to charge a fixed amount on a fixed cadence. Strimz's scheduler then charges them every period. No re-prompts, no re-authorizations, no churn from "your bank declined the renewal".
+
+## Define a plan
+
+```ts
+const plan = await strimz.subscriptionPlans.create({
+  name: 'Pro',
+  amount: '20000000',     // 20 USDC, 6 decimals
+  currency: 'USDC',
+  interval: 'monthly',
+  intervalCount: 1,
+  trialPeriodDays: 14,
+})
+
+console.log(plan.checkoutUrl)
+// → https://strimz.io/sub/plan_pro_monthly
+```
+
+Plans are templates. They don't represent a single customer; they represent a recurring price the customer can subscribe to.
+
+## Customer subscribes
+
+Send the customer to `plan.checkoutUrl`. They connect a wallet, see "Subscribe — 20 USDC/month", and sign two transactions:
+
+1. **Approve** — grants Strimz's contract permission to move USDC from their wallet, up to a multi-month limit (we approve `12 × amount` by default so monthly re-prompts aren't needed).
+2. **Subscribe** — calls `StrimzSubscriptions.createSubscription()` with the merchant ID, token, amount, interval, and start time.
+
+You receive `subscription.created` immediately and another webhook each time a period charges (`subscription.charged`).
+
+## What happens at charge time
+
+The Strimz scheduler runs a sweep every 15 minutes (configurable). It finds subscriptions whose `nextChargeAt` is in the past, atomically locks them via `chargeLock`, and enqueues a job per locked sub onto `strimz.subscription.due`.
+
+The worker calls `batchCharge(subscriptionIds, chargeAttemptIds)` on the contract. Each entry has a `chargeAttemptId = keccak256(subscriptionId, periodEndAt)` so retries can't double-charge. The contract pulls USDC from the customer's wallet and emits `SubscriptionCharged` (or `SubscriptionChargeSkipped` with the reason). The indexer projects both into your DB.
+
+## Handle a failed charge
+
+A failed charge moves the subscription to `at_risk` and fires `subscription.charge_failed` with the on-chain `outcome`:
+
+| `outcome` | What it means |
+| --- | --- |
+| `insufficient_funds` | Customer's USDC balance is below the charge amount |
+| `revoked_approval` | Customer revoked your contract's allowance |
+| `cancelled` | Customer cancelled on-chain between your charge attempts (rare race) |
+| `skipped` | Period not yet due (defensive; should never reach you) |
+
+If you've enabled the agent's `recovery` capability, the customer gets an email. After your configured grace window (`24h` / `48h` / `72h`), the sub flips to `lapsed`.
+
+## Cancel a subscription
+
+Two paths:
+
+**Merchant cancels** (e.g., because the customer's account was deleted):
+
+```ts
+await strimz.subscriptions.cancel(subscriptionId, { reason: 'merchant initiated' })
+```
+
+This marks the DB optimistically and enqueues an on-chain cancel. You'll receive `subscription.cancelled` once the on-chain tx confirms.
+
+**Customer cancels in their wallet** by calling the contract directly. The indexer projects the `SubscriptionCancelled` event and we mark the row.
+
+Either way, the customer's wallet stops being charged. Their existing approval allowance still exists; if you want to *fully* revoke, the customer needs to call `approve(spender, 0)` on the USDC contract themselves. We don't auto-revoke because future plans might use the same spender.
+
+## Trial periods
+
+`trialPeriodDays: 14` on the plan means the first charge is `now + 14 days` instead of `now`. The customer signs immediately so you know they've committed; we just don't take their money for two weeks. Standard trial behaviour.
+
+## Pricing math
+
+Strimz charges a per-transaction fee on every charge based on your tier. For a Starter ($0.5%) merchant subscribing a customer to a 20 USDC monthly plan:
+
+- Customer pays: **20.00 USDC**
+- Strimz fee: **0.10 USDC** (0.5%)
+- Merchant receives: **19.90 USDC**
+
+The fee is taken on-chain, in the same transaction, by `StrimzPayments`. There's no separate invoicing. Your dashboard's MRR view shows both gross and net.

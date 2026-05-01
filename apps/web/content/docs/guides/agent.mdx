@@ -1,0 +1,121 @@
+---
+title: The AutoPay Agent
+description: Six capabilities your billing surface gets for free.
+---
+
+The Strimz AutoPay Agent is a separate process (`apps/agent`) that runs scheduled background work for your merchant account. It holds **no signing key** and never moves funds without your explicit approval — every action either sends an email, writes to your activity log, or queues an action for the scheduler to sign with your prior consent.
+
+You enable capabilities individually. The dashboard surfaces them under **AutoPay Agent → Capabilities**.
+
+## `recovery`
+
+When a subscription charge fails, the customer needs to know — but you probably don't want to write the recovery email yourself. The agent emails them for you, on a cadence you choose:
+
+| `strategy` | Cadence (relative to `currentPeriodEndAt`) |
+| --- | --- |
+| `once` | T+0 |
+| `twice` | T+0, T+24h |
+| `until_grace_ends` | T+0, T+24h, T+72h |
+
+You can override the email body with a custom template via `recoveryNotificationTemplate`. We render it inside our wrapper (header, unsubscribe footer) so brand consistency stays intact.
+
+If the customer has no email on file (wallet-only checkout), the agent records `recovery_abandoned` in your activity log so finance can follow up manually.
+
+## `cashflow.digest`
+
+Daily 9am UTC, the agent emails you yesterday's roll-up:
+
+- Confirmed transaction count
+- Gross revenue
+- Strimz fees
+- Net to your wallet
+- Unique customers
+
+Idempotent per UTC day — if a flapping cron fires twice, you only get one email.
+
+## `cashflow.anomaly`
+
+Hourly, the agent computes a z-score for the last completed clock-hour against the trailing 30-day average for that same hour-of-day. If your revenue dropped more than `nσ` (n derived from your `anomalySensitivity` — `low=3σ`, `medium=2σ`, `high=1σ`), you get an email + an `AuditLog` entry. We only flag drops, not surges, because revenue surges aren't actionable.
+
+The math:
+
+```
+z = (this_hour_revenue - mean(prior_30_days_same_hour)) / stddev(prior_30_days_same_hour)
+if z < -threshold: alert
+```
+
+We require at least 7 prior data points before we'll alert; merchants in their first week aren't surprised by false positives.
+
+## `cashflow.yield`
+
+Daily 9:30am UTC, the agent computes your running net balance:
+
+```
+balance_cents = sum(Transaction.netAmount where kind != refund) - sum(Refund.amount where status = completed)
+```
+
+If `balance > cashflowMinimumLiquidReserveCents` and you've enabled `cashflowAutoConvertToYield`, the agent emails you a recommendation: "you have $X in surplus over your $Y reserve target — consider moving the excess to a yield position".
+
+The agent **never** signs the deposit. When you confirm in the dashboard, that's when a scheduler job is enqueued to sign on your behalf. We treat fund movement as a strict opt-in-per-transaction action.
+
+## `commerce`
+
+Monthly (1st of each month, 9am UTC), the agent emails you last month's vendor activity:
+
+- Total spend across all approved/completed `AgentJob`s
+- Top 5 vendors by spend
+- Cap utilisation: `total_spend / commerceMonthlySpendCapUsdCents`
+- Count of jobs awaiting your approval (`status = proposed`)
+
+Plus a one-line nudge if any vendor's monthly spend has increased >50% over their three-month average — possibly worth a closer look.
+
+## `pricing_intelligence`
+
+Monthly, the agent runs the same SQL aggregates the API exposes via `/v1/stats/{mrr,churn,forecast}`:
+
+- MRR (interval-normalised across daily/weekly/monthly/quarterly/yearly subs)
+- 12-month average churn rate
+- 90-day linear-regression revenue forecast (next 30 / 60 / 90 days)
+
+…and emails them to you with a confidence rating (`low` / `medium` / `high`) based on sample size.
+
+## `routing`
+
+This one's queue-driven, not cron-driven. When a customer pays from a non-Arc chain (e.g., USDC on Base), the checkout client enqueues a `strimz.routing.cctp.bridge` job. The agent worker:
+
+1. Records `routing_bridge_initiated` in your activity log
+2. Polls Circle's CCTP V2 attestation API (re-enqueues itself with a 30-second delay until status=`complete`)
+3. Hands off to the scheduler, which calls `MessageTransmitter.receiveMessage(message, attestation)` on Arc to claim the bridged USDC
+4. Records `routing_payment_completed`
+
+You don't have to do anything. From your perspective, a customer pays, and a USDC payment lands in your Arc wallet a few minutes later — the bridge is invisible.
+
+## `identity`
+
+A capability flag, not an automation. When enabled, your dashboard surfaces extra business-info verification steps (KYB, beneficial-owner declaration, sanctions screening). The agent itself doesn't do anything for this capability — it's a configuration affordance.
+
+## How to enable
+
+```ts
+await strimz.agents.updateConfig({
+  enabledCapabilities: ['recovery', 'cashflow', 'pricing_intelligence'],
+  recovery: {
+    gracePeriodHours: 48,
+    strategy: 'twice',
+    notificationTemplate: 'Hey — your subscription with Acme couldn\'t be charged. Top up your wallet?',
+  },
+  cashflow: {
+    digestEnabled: true,
+    anomalySensitivity: 'medium',
+    autoConvertToYield: false,
+    minimumLiquidReserveCents: 50_000,
+  },
+  commerce: {
+    requireHumanApprovalAboveUsdCents: 100_000,
+    approvedVendors: ['0x...', '0x...'],
+    monthlySpendCapUsdCents: 500_000,
+  },
+})
+```
+
+Or use the dashboard. Capabilities are individually toggleable; turning one off doesn't affect the others.

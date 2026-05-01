@@ -1,0 +1,92 @@
+---
+title: Self-hosting the scheduler
+description: The only process that holds a signing key.
+---
+
+The scheduler is a Nest+Fastify+BullMQ app. It signs and broadcasts every Strimz transaction (subscription charges, on-chain cancels, agent job operations, CCTP settlements) and delivers webhooks to merchants.
+
+**This is the most sensitive process to self-host.** Treat its private key with the same care as a payment-processor production secret.
+
+## Build
+
+```bash
+cd apps/scheduler
+pnpm build
+pnpm start:prod
+```
+
+## Configuration
+
+```
+NODE_ENV=production
+PORT=4200
+DATABASE_URL=postgresql://...
+REDIS_URL=redis://...
+
+ARC_ENVIRONMENT=mainnet
+ARC_RPC_URL=https://your-arc-rpc.com
+SCHEDULER_PRIVATE_KEY=0x...           # ← guard this carefully
+
+SUBSCRIPTIONS_ADDRESS=0x...
+AGENT_ESCROW_ADDRESS=0x...
+
+STRIMZ_WEBHOOK_SIGNING_SECRET=...     # 32+ chars
+WEBHOOK_DELIVERY_TIMEOUT_MS=10000
+WEBHOOK_MAX_ATTEMPTS=5
+
+SUBSCRIPTION_SWEEPER_CRON=0 */15 * * * *
+INVOICE_OVERDUE_CRON=0 0 * * * *
+SUBSCRIPTION_LAPSED_CRON=0 0 * * * *
+
+RESEND_API_KEY=...
+RESEND_FROM_EMAIL=noreply@your-domain.com
+```
+
+## Service-wallet key custody
+
+The recommended deployment uses a **secrets-manager-injected env var** (Render Environment, Vercel KV, AWS Secrets Manager). The key is loaded once at boot and stays in process memory for the lifetime of the container.
+
+For higher-security deployments:
+
+- Use a hardware key manager (HSM, Cloud KMS) and a custom signing client.
+- Run the scheduler in a separate VPC from the API.
+- Rotate the key quarterly.
+
+The on-chain operations the key signs are:
+
+| Operation | Contract / Function |
+| --- | --- |
+| Cancel a subscription | `StrimzSubscriptions.cancel(subId)` |
+| Charge subscriptions | `StrimzSubscriptions.batchCharge(ids[], attemptIds[])` |
+| Create an agent job | `StrimzAgentEscrow.createJob(...)` |
+| Release a job | `StrimzAgentEscrow.approveAndRelease(jobId)` |
+| Dispute a job | `StrimzAgentEscrow.dispute(jobId, reason)` |
+| Cancel a job | `StrimzAgentEscrow.cancelJob(jobId, reason)` |
+| Settle CCTP routing | `MessageTransmitter.receiveMessage(...)` |
+
+## Multi-instance safety
+
+Two scheduler instances behind a load balancer are safe:
+
+- Subscription sweeper uses Postgres `UPDATE … WHERE chargeLock=false` for atomic claim.
+- BullMQ guarantees each job is delivered to exactly one worker.
+- The webhook delivery worker no-ops on already-terminal `WebhookDelivery.status`.
+
+For deployments processing > 100k webhook deliveries/day, scale horizontally. Each replica adds linear throughput.
+
+## Observability
+
+- `/healthz`, `/readyz`
+- BullMQ dashboard at `/admin/queues` (gated by an admin password)
+- Prometheus metrics for job counts, latency, failure rates
+
+## Failure modes
+
+- **RPC outage** — workers retry with exponential backoff. The chain key isn't compromised.
+- **DB outage** — workers fail their current job; BullMQ retries. The job stays in the queue.
+- **Redis outage** — the scheduler can't pick up new jobs. Existing in-flight work completes.
+- **Scheduler crashes after broadcasting but before recording** — the on-chain side succeeded. The indexer projects the resulting event. The DB row catches up on the next sweep.
+
+## Source
+
+[github.com/StrimzLab/strimz/tree/main/apps/scheduler](https://github.com/StrimzLab/strimz/tree/main/apps/scheduler)

@@ -1,0 +1,73 @@
+---
+title: Storefronts
+description: Hosted, branded landing pages.
+---
+
+## Storefront
+
+```http
+POST /v1/storefront
+{
+  "slug": "acme",
+  "name": "Acme Inc.",
+  "description": "Premium widgets, settled in USDC.",
+  "accentColor": "#02C76A",
+  "logoUrl": "https://acme.com/logo.png",
+  "socialLinks": ["https://x.com/acme"]
+}
+```
+
+Slugs are unique per merchant per environment. The same slug cannot be reused after deletion within 30 days.
+
+```http
+GET   /v1/storefront
+POST  /v1/storefront/publish
+POST  /v1/storefront/archive
+```
+
+## Products
+
+```http
+POST /v1/storefront/products
+{
+  "name": "Pro Widget",
+  "price": "50000000",
+  "currency": "USDC",
+  "type": "one_time",
+  "description": "Our flagship.",
+  "imageUrl": "https://...",
+  "stock": 100
+}
+```
+
+For subscription products:
+
+```json
+{
+  "type": "subscription",
+  "interval": "monthly",
+  "intervalCount": 1
+}
+```
+
+A backing `SubscriptionPlan` is created automatically.
+
+```http
+GET  /v1/storefront/products
+GET  /v1/storefront/products/{id}
+POST /v1/storefront/products/{id}/archive
+```
+
+## Public read
+
+The hosted storefront page is accessible without auth at:
+
+```http
+GET /store/{slug}
+```
+
+Returns the storefront + products with `isActive=true`. Your customers go directly to this URL.
+
+## Custom domains
+
+Available on **Growth** and above. Contact sales — we'll set up a CNAME and TLS for your domain.

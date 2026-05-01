@@ -1,0 +1,92 @@
+---
+title: Process a refund
+description: Full or partial, with on-chain audit trail.
+---
+
+A Strimz refund is a server-side intent + a wallet-signed on-chain transfer. The intent step validates the refund (cumulative cap, transaction status), generates wallet-signing instructions, and reserves the refund row. The merchant then signs an ERC-20 Transfer from their wallet to the original payer's address. Our indexer detects the on-chain Transfer and flips the refund to `completed`.
+
+## Why this design (and not "Strimz refunds for you")
+
+We could hold the merchant's USDC in a custodial wallet and refund out of it — but that would make Strimz a money-services business in most jurisdictions, and would mean your funds sit on our balance sheet rather than yours. Instead, the merchant's payout wallet holds the funds, and the merchant signs the refund. Strimz never custodies; the on-chain trail proves where the money came from.
+
+## Issue a refund
+
+```ts
+const refund = await strimz.refunds.create({
+  transactionId: 'tx_xyz',
+  amount: '50000000',          // 50 USDC, 6 decimals — partial refunds are fine
+  reason: 'customer_request',  // 'customer_request' | 'product_issue' | 'duplicate_charge' | 'fraudulent' | 'other'
+  note: 'Customer asked nicely',
+})
+
+console.log(refund.signingInstructions)
+// {
+//   token:  '0x...USDC',
+//   to:     '0x...payerAddress',
+//   amount: '50000000',
+//   note:   'Refund for transaction tx_xyz',
+// }
+```
+
+The `signingInstructions` object tells the merchant's wallet what to sign:
+
+```ts
+// Using viem from the merchant dashboard
+import { createWalletClient, http, parseUnits } from 'viem'
+import { erc20Abi } from 'viem'
+
+const wallet = createWalletClient({
+  account: merchantAddress,
+  chain: arcMainnet,
+  transport: http(),
+})
+
+const txHash = await wallet.writeContract({
+  address: signingInstructions.token,
+  abi: erc20Abi,
+  functionName: 'transfer',
+  args: [signingInstructions.to, BigInt(signingInstructions.amount)],
+})
+```
+
+## Submit the tx hash
+
+Once the merchant has the tx hash, post it back to Strimz:
+
+```ts
+await strimz.refunds.submitSignature(refund.id, { refundTxHash: txHash })
+```
+
+This flips the refund from `awaiting_signature` to `submitted`. The indexer is watching for ERC-20 `Transfer` events with this tx hash; when one lands, it flips the refund to `completed` and fires `refund.completed`.
+
+## Cumulative caps
+
+Strimz won't let you refund more than the original transaction:
+
+```ts
+// Original transaction: 100 USDC
+
+await strimz.refunds.create({ transactionId: 'tx_x', amount: '60000000', reason: 'customer_request' })
+// ✓ ok — 60 of 100 refunded
+
+await strimz.refunds.create({ transactionId: 'tx_x', amount: '50000000', reason: 'customer_request' })
+// ✗ 400 invalid_request — 60 + 50 > 100
+```
+
+The cap is computed across refunds with status `submitted` or `completed`. An `awaiting_signature` refund that the merchant abandons doesn't lock funds — you can void it (delete the row) and re-create.
+
+## What if the indexer never sees the on-chain transfer?
+
+This happens if the merchant submitted the wrong tx hash. The refund stays in `submitted` indefinitely. To fix:
+
+```ts
+await strimz.refunds.submitSignature(refund.id, { refundTxHash: correctTxHash })
+```
+
+Re-submitting overwrites idempotently. The indexer's matcher then finds the right Transfer and completes the refund.
+
+If the merchant submitted a real hash but the on-chain transfer was for the wrong amount, the refund row records the original intent amount and the on-chain transfer's amount separately. The dashboard surfaces the discrepancy so finance can reconcile.
+
+## What if the customer's address is invalid?
+
+You can't get this far. Strimz validates `Refund.payerAddress` is a valid 20-byte EVM address at create time, and the original transaction's payer address is recorded on-chain — we use that, not anything you pass in. The only way `to` could be wrong is if the customer's wallet itself is wrong, which Strimz can't prevent.

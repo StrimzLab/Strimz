@@ -1,0 +1,60 @@
+---
+title: API Reference
+description: Every endpoint Strimz exposes, generated from the OpenAPI spec.
+---
+
+# API Reference
+
+The full OpenAPI 3.1 spec is served by the API at [`/openapi.json`](https://api.strimz.io/openapi.json), with an interactive Scalar UI at [`/docs`](https://api.strimz.io/docs) on the API host itself.
+
+For static reference, the resources are:
+
+## Authentication
+
+Every request requires a Bearer token:
+
+- **Dashboard auth**: a Privy access token (`POST /v1/auth/sync` first).
+- **SDK auth**: a merchant secret API key (prefix `sk_test_…` or `sk_live_…`).
+
+```http
+Authorization: Bearer sk_test_xxx
+```
+
+## Resources
+
+### Payment sessions
+- `POST /v1/payment-sessions` — create a one-shot checkout session
+- `GET  /v1/payment-sessions/:id` — fetch
+- `GET  /v1/payment-sessions` — list
+
+### Subscriptions
+- `GET  /v1/subscriptions/:id`
+- `GET  /v1/subscriptions` (filterable by status, planId)
+- `POST /v1/subscriptions/:id/cancel` — marks DB cancelled, enqueues on-chain cancel
+
+### Refunds
+- `POST /v1/refunds` — returns wallet-signing instructions
+- `POST /v1/refunds/:id/signature` — record the on-chain tx hash
+- `GET  /v1/refunds`, `GET /v1/refunds/:id`
+
+### Webhooks
+- `POST /v1/webhook-endpoints` — register an endpoint, returns the signing secret **once**
+- `POST /v1/webhook-endpoints/:id/{enable,disable,rotate-secret}`
+- `GET  /v1/webhook-deliveries` — every attempt, every response code
+
+### Invoices
+- `POST /v1/invoices` — create with line items, returns a backing payment session
+- `POST /v1/invoices/:id/{send,void}`
+
+### Storefronts
+- `POST /v1/storefront` — create or update your storefront
+- `POST /v1/storefront/products` — add a product
+- `GET  /store/:slug` — public read
+
+### Agents
+- `GET  /v1/agents/config`, `PATCH /v1/agents/config`
+- `GET  /v1/agents/activity` — chronological feed
+- `POST /v1/agents/jobs` — create an ERC-8183 escrow job
+
+### Analytics
+- `GET /v1/stats/{conversion,churn,mrr,ltv,forecast}`

@@ -1,0 +1,64 @@
+---
+title: Subscriptions
+description: Recurring revenue API.
+---
+
+Subscriptions are bound to a `SubscriptionPlan` (the template) and a `Customer` (the buyer). The customer's wallet authorises a multi-period allowance; Strimz's scheduler charges every period.
+
+## Plans
+
+```http
+POST /v1/subscription-plans
+{
+  "name": "Pro",
+  "amount": "20000000",
+  "currency": "USDC",
+  "interval": "monthly",      // 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+  "intervalCount": 1,
+  "trialPeriodDays": 14
+}
+```
+
+```http
+GET  /v1/subscription-plans/{id}
+GET  /v1/subscription-plans
+```
+
+## Subscriptions
+
+Customers create subscriptions on-chain via your hosted checkout — there's no `POST /v1/subscriptions` endpoint. The indexer projects them when the chain emits `SubscriptionCreated`.
+
+Read paths:
+
+```http
+GET  /v1/subscriptions/{id}
+GET  /v1/subscriptions?status=active&planId=plan_xxx
+POST /v1/subscriptions/{id}/cancel    { "reason": "merchant initiated" }
+```
+
+## Status enum
+
+```
+trialing  active  at_risk  paused  cancelled  lapsed  completed
+```
+
+Only `cancelled` and `lapsed` are terminal; `at_risk` is recoverable if the customer tops up their wallet.
+
+## Charges
+
+```http
+GET  /v1/subscription-charges/{id}
+GET  /v1/subscription-charges?subscriptionId=sub_xxx
+```
+
+Charges are auto-created by the scheduler when a charge is attempted on-chain.
+
+## Webhook events
+
+| Event | Fires when |
+| --- | --- |
+| `subscription.created` | A new on-chain subscription is observed |
+| `subscription.charged` | A periodic charge succeeded |
+| `subscription.charge_failed` | A charge attempt failed |
+| `subscription.cancelled` | The merchant or customer cancelled |
+| `subscription.lapsed` | Grace period exceeded |

@@ -1,0 +1,87 @@
+---
+title: API overview
+description: Authentication, errors, pagination, idempotency — the basics every Strimz API call shares.
+---
+
+The Strimz API is a single host (`https://api.strimz.io`) serving JSON over HTTPS. Every endpoint is documented in [OpenAPI 3.1](https://api.strimz.io/openapi.json) and rendered by [Scalar](https://api.strimz.io/docs) for an interactive "try it" experience.
+
+## Base URL
+
+```
+https://api.strimz.io
+```
+
+Test and live mode share the same host — the API key prefix routes the request internally.
+
+## Authentication
+
+```http
+Authorization: Bearer sk_live_xxx
+```
+
+See [Authentication](/docs/authentication) for the full breakdown.
+
+## Errors
+
+Every error returns a JSON envelope:
+
+```json
+{
+  "error": {
+    "code": "invalid_request",
+    "message": "amount must be a positive integer string",
+    "param": "amount",
+    "details": { "issues": [...] },
+    "requestId": "req_abc123"
+  }
+}
+```
+
+The full code list is on [Errors](/docs/errors). Always include `requestId` when reporting an issue — that's our fastest path to your specific request in our logs.
+
+## Pagination
+
+List endpoints return:
+
+```json
+{
+  "data": [...],
+  "nextCursor": "cmh3lmkw50000xv8d12345678",
+  "hasMore": true
+}
+```
+
+Pass `?cursor=<nextCursor>` on the next call. `limit` defaults to 25, max 100.
+
+## Idempotency
+
+`POST` endpoints accept an `Idempotency-Key` header. See [Idempotency](/docs/concepts/idempotency).
+
+## Versioning
+
+Strimz uses **date-based API versions**. The current version is `2026-04-27` (set in your `Strimz-Version` header on every request, or pinned in your dashboard).
+
+Breaking changes only ship in a new dated version. Old versions remain available for at least 12 months after a successor lands.
+
+## Rate limits
+
+The API enforces a 600 req/min global rate limit per IP at the edge. Authenticated requests get a higher per-key limit (10,000 req/min on Starter, custom on Enterprise). Exceeding either returns `429` with a `Retry-After` header.
+
+## Resources
+
+Every resource has its own page in the sidebar. The most-used ones:
+
+- **[Payment sessions](/docs/api/payment-sessions)** — one-shot checkouts
+- **[Subscriptions](/docs/api/subscriptions)** — recurring revenue
+- **[Refunds](/docs/api/refunds)** — server-intent + wallet-signed transfers
+- **[Webhooks](/docs/api/webhooks)** — register endpoints, replay deliveries
+- **[Invoices](/docs/api/invoices)** — hosted, branded payment pages
+
+## Try it
+
+Hit the live test endpoint:
+
+```bash
+curl https://api.strimz.io/v1/merchants/me \
+  -H "Authorization: Bearer sk_test_xxxxxxxxxxx"
+```
