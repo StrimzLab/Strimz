@@ -1,0 +1,78 @@
+---
+title: Agents
+description: Configure AutoPay Agent capabilities.
+---
+
+## Read config
+
+```http
+GET /v1/agents/config
+```
+
+Returns the current `AgentMerchantConfig`. If you've never touched it, it's lazy-created with defaults on first read.
+
+## Update config
+
+```http
+PATCH /v1/agents/config
+{
+  "enabledCapabilities": ["recovery", "cashflow", "pricing_intelligence"],
+  "recovery": {
+    "gracePeriodHours": 48,
+    "strategy": "twice",
+    "notificationTemplate": "Hey — your subscription with us couldn't be charged. Top up?"
+  },
+  "cashflow": {
+    "digestEnabled": true,
+    "anomalySensitivity": "medium",
+    "autoConvertToYield": false,
+    "minimumLiquidReserveCents": 50000
+  },
+  "commerce": {
+    "requireHumanApprovalAboveUsdCents": 100000,
+    "approvedVendors": ["0x..."],
+    "monthlySpendCapUsdCents": 500000
+  }
+}
+```
+
+Partial — only the keys you send are updated.
+
+## Activity log
+
+```http
+GET /v1/agents/activity?capability=recovery&outcome=success
+```
+
+Returns chronological agent actions. Filter by `capability`, `actionType`, `outcome`, `subscriptionId`, `transactionId`, `jobId`.
+
+## Jobs
+
+```http
+POST /v1/agents/jobs
+{
+  "vendorAddress": "0x...",
+  "description": "Translate marketing pages",
+  "amount": "50000000",
+  "currency": "USDC"
+}
+```
+
+Auto-approves if `amount < commerce.requireHumanApprovalAboveUsdCents`; otherwise creates with status `proposed`.
+
+```http
+GET  /v1/agents/jobs
+GET  /v1/agents/jobs/{id}
+POST /v1/agents/jobs/{id}/approve
+```
+
+## Webhook events
+
+| Event | Fires when |
+| --- | --- |
+| `agent.action_executed` | Any capability completed an action |
+| `agent.job_proposed` | A job needs human approval |
+| `agent.job_completed` | A job's escrow was released to the vendor |
+| `agent.job_disputed` | A job was disputed |
+
+See [The AutoPay Agent](/docs/guides/agent) for the capability-by-capability breakdown.

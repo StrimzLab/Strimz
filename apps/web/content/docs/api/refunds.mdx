@@ -1,0 +1,71 @@
+---
+title: Refunds
+description: Server-intent + wallet-signed on-chain transfer.
+---
+
+## Create
+
+```http
+POST /v1/refunds
+{
+  "transactionId": "tx_xyz",
+  "amount": "50000000",
+  "reason": "customer_request",
+  "note": "Buyer asked for a refund"
+}
+```
+
+Returns:
+
+```json
+{
+  "refund": {
+    "id": "rf_xyz",
+    "transactionId": "tx_xyz",
+    "amount": "50000000",
+    "status": "awaiting_signature",
+    "reason": "customer_request",
+    "payerAddress": "0x...",
+    "createdAt": "..."
+  },
+  "signingInstructions": {
+    "token": "0x...USDC",
+    "to":    "0x...payer",
+    "amount": "50000000",
+    "note":   "Refund for transaction tx_xyz"
+  }
+}
+```
+
+## Submit signature
+
+After the merchant broadcasts the on-chain ERC-20 Transfer, record the tx hash:
+
+```http
+POST /v1/refunds/{id}/signature
+{
+  "refundTxHash": "0x..."
+}
+```
+
+## Lifecycle
+
+```
+awaiting_signature  →  submitted  →  completed
+                              ↘   failed
+```
+
+Re-submitting `signature` is idempotent — useful if the merchant accidentally records the wrong hash and needs to update.
+
+## Validation
+
+- Cumulative refund amount cannot exceed `Transaction.amount` (across all refunds with status `submitted` or `completed`)
+- The original transaction must be in status `confirmed`
+
+## Webhook events
+
+| Event | Fires when |
+| --- | --- |
+| `refund.created` | The refund row was created |
+| `refund.completed` | The indexer confirmed the on-chain Transfer |
+| `refund.failed` | Validation rejected the refund or it was voided |

@@ -1,0 +1,83 @@
+---
+title: Self-hosting the agent
+description: The AutoPay Agent process.
+---
+
+The agent is a Nest cron app + BullMQ worker. It runs scheduled jobs (recovery emails, cashflow digests, anomaly detection, monthly reports) and consumes the routing queue for CCTP V2 bridging.
+
+## Build
+
+```bash
+cd apps/agent
+pnpm build
+pnpm start:prod
+```
+
+## Configuration
+
+```
+NODE_ENV=production
+PORT=4300
+DATABASE_URL=postgresql://...
+REDIS_URL=redis://...
+
+ARC_ENVIRONMENT=mainnet
+ARC_RPC_URL=https://your-arc-rpc.com
+
+# Cron schedules
+RECOVERY_TICK_CRON=0 0 * * * *
+CASHFLOW_DIGEST_CRON=0 0 9 * * *
+CASHFLOW_ANOMALY_CRON=0 0 * * * *
+CASHFLOW_YIELD_CRON=0 30 9 * * *
+COMMERCE_MONTHLY_CRON=0 0 9 1 * *
+PRICING_MONTHLY_CRON=0 0 9 1 * *
+
+# Anomaly thresholds (standard deviations)
+ANOMALY_THRESHOLD_LOW=3.0
+ANOMALY_THRESHOLD_MEDIUM=2.0
+ANOMALY_THRESHOLD_HIGH=1.0
+
+# CCTP V2 attestation API
+CIRCLE_ATTESTATION_BASE_URL=https://iris-api.circle.com  # or sandbox for testnet
+CIRCLE_API_KEY=                                          # optional; for higher rate limits
+
+# Email
+RESEND_API_KEY=...
+RESEND_FROM_EMAIL=noreply@your-domain.com
+```
+
+## What runs when
+
+| Capability | Cron | Notes |
+| --- | --- | --- |
+| `recovery` | hourly | Idempotent per (subId, attempt) |
+| `cashflow.digest` | daily 9am UTC | Idempotent per UTC day |
+| `cashflow.anomaly` | hourly | z-score over trailing 30d |
+| `cashflow.yield` | daily 9:30am UTC | Recommendation only — no signing |
+| `commerce` | first of each month | Per-month dedup |
+| `pricing_intelligence` | first of each month | Per-month dedup |
+| `routing` | queue-driven | CCTP V2 attestation polling |
+
+The agent reads `AgentMerchantConfig` on every tick, so config changes in the dashboard take effect on the next firing.
+
+## Single-instance recommendation
+
+Unlike the scheduler, the agent has **no built-in multi-instance safety**. Running two instances will fire each cron twice — the dedup logic in each capability prevents *visible* duplicates (the same email won't be sent twice within the dedup window), but it's wasted compute.
+
+If you need horizontal scaling for the routing worker (high CCTP volume), run the agent as one cron instance + multiple `routing-only` workers configured with `BullMQ.concurrency`.
+
+## Observability
+
+- `/healthz`, `/readyz`
+- Activity log written to `AgentActivityLog` for every action
+- AuditLog entries for `cashflow.anomaly_detected`, `merchant.fee_bps_changed_onchain`, `fees.accrued`
+
+## Failure modes
+
+- **Resend API outage** — emails fail; agent retries on next tick. We don't lose state.
+- **Circle attestation outage** — routing jobs back up in the queue. The agent re-polls indefinitely until Circle responds.
+- **Postgres outage** — capabilities skip; next tick retries.
+
+## Source
+
+[github.com/StrimzLab/strimz/tree/main/apps/agent](https://github.com/StrimzLab/strimz/tree/main/apps/agent)

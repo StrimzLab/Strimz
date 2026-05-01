@@ -1,0 +1,56 @@
+---
+title: Webhooks
+description: Every event Strimz fires and how to verify signatures.
+---
+
+# Webhooks
+
+## Signature
+
+Every webhook is signed with HMAC-SHA256 and sent as the `Strimz-Signature` header:
+
+```
+Strimz-Signature: t=1714003200,v1=ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
+```
+
+`t` is the Unix timestamp at signing time. Receivers should:
+
+1. Re-compute `hmac_sha256(secret, "${t}.${rawBody}")`
+2. Compare timing-safe to `v1`
+3. Reject if `|now - t| > 300s` (replay protection window)
+
+The reference implementation lives in [`@strimz/sdk` → `verifyWebhookSignature`](/docs/sdks).
+
+## Headers
+
+| Header | Description |
+| --- | --- |
+| `Strimz-Signature` | `t=<unix>,v1=<hex>` |
+| `Strimz-Event-Id` | `evt_…` — globally unique |
+| `Strimz-Event-Type` | dotted name, e.g. `payment.completed` |
+| `X-Strimz-Delivery-Id` | `whdl_…` — idempotency key for at-least-once delivery |
+
+## Events
+
+| Event | Fired when |
+| --- | --- |
+| `payment.created` | A `PaymentSession` is created |
+| `payment.completed` | An on-chain payment is confirmed for a session |
+| `payment.failed` | A session expires or fails |
+| `subscription.created` | A subscription lands on-chain |
+| `subscription.charged` | A periodic charge succeeded |
+| `subscription.charge_failed` | A charge attempt failed (insufficient funds, revoked approval, etc.) |
+| `subscription.cancelled` | The merchant or customer cancelled |
+| `subscription.lapsed` | Grace period exceeded — customer didn't pay |
+| `refund.created` | Refund intent created |
+| `refund.completed` | Refund tx confirmed on-chain |
+| `invoice.created` / `invoice.paid` / `invoice.overdue` | Invoice lifecycle |
+| `agent.action_executed` / `agent.job_*` | AutoPay Agent activity |
+
+## Retry policy
+
+Strimz retries with exponential backoff (1m → 5m → 30m → 2h → 12h, 5 attempts). After max attempts:
+
+- The delivery is marked `permanently_failed`
+- The merchant is emailed
+- 5+ permanent failures within 24h on the same endpoint → endpoint auto-disabled

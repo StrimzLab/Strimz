@@ -1,0 +1,151 @@
+---
+title: '@strimz/sdk'
+description: The server SDK for Node.js + Bun.
+---
+
+The server SDK is what you'll spend most of your time with. It's typed, validated with Zod, and retries 5xx and 429 responses automatically.
+
+## Install
+
+```bash
+pnpm add @strimz/sdk
+```
+
+```bash
+npm  install @strimz/sdk
+yarn add @strimz/sdk
+bun  add @strimz/sdk
+```
+
+## Construct
+
+```ts
+import { Strimz } from '@strimz/sdk'
+
+const strimz = new Strimz({
+  apiKey: process.env.STRIMZ_KEY!,
+  baseUrl: 'https://api.strimz.io',  // optional override; defaults to live
+  timeout: 30_000,
+  retries: 3,
+})
+```
+
+The constructor doesn't make any network calls. The first time you call a method, it lazily initialises a `fetcher` with your config.
+
+## Resources
+
+Every API resource is exposed as a property:
+
+```ts
+strimz.merchants
+strimz.apiKeys
+strimz.customers
+strimz.paymentSessions
+strimz.transactions
+strimz.subscriptionPlans
+strimz.subscriptions
+strimz.refunds
+strimz.invoices
+strimz.webhookEndpoints
+strimz.webhookDeliveries
+strimz.storefronts
+strimz.agents
+```
+
+Each follows the same `(create | retrieve | list | update | …)` shape. Returns are typed:
+
+```ts
+const session = await strimz.paymentSessions.create({
+  amount: '50000000',
+  currency: 'USDC',
+})
+//    ^? PaymentSession  (typed, every field, with .checkoutUrl etc.)
+```
+
+## Pagination
+
+List methods return a `{ data, nextCursor, hasMore }` envelope:
+
+```ts
+let cursor: string | null = null
+do {
+  const page = await strimz.subscriptions.list({ limit: 50, cursor })
+  for (const sub of page.data) {
+    /* ... */
+  }
+  cursor = page.nextCursor
+} while (cursor)
+```
+
+There's also a `listAll` async generator if you'd rather not manage the cursor:
+
+```ts
+for await (const sub of strimz.subscriptions.listAll({ status: 'active' })) {
+  /* ... */
+}
+```
+
+## Errors
+
+Every error is a typed subclass of `StrimzError`. Catch the base class and `instanceof`-narrow as needed:
+
+```ts
+import {
+  StrimzError,
+  StrimzAuthenticationError,
+  StrimzValidationError,
+  StrimzRateLimitError,
+  StrimzNotFoundError,
+} from '@strimz/sdk'
+
+try {
+  await strimz.refunds.create({ ... })
+} catch (e) {
+  if (e instanceof StrimzValidationError) {
+    console.error('field', e.param, 'failed', e.message)
+  } else if (e instanceof StrimzRateLimitError) {
+    await sleep(e.retryAfterMs)
+    /* retry */
+  } else if (e instanceof StrimzError) {
+    /* fallthrough */
+  }
+}
+```
+
+See [Errors](/docs/errors) for the full list.
+
+## Webhook signature verification
+
+```ts
+import { verifyWebhookSignature } from '@strimz/sdk'
+
+const ok = verifyWebhookSignature({
+  secret: process.env.STRIMZ_WEBHOOK_SECRET!,
+  body: req.rawBody,
+  signatureHeader: req.headers['strimz-signature'] as string,
+  toleranceSeconds: 300,  // optional; defaults to 300
+})
+```
+
+Constant-time comparison; safe to use directly without wrapping in your own `crypto.timingSafeEqual` call.
+
+## Idempotency
+
+`create` methods accept an `idempotencyKey` option. The SDK generates one automatically if you don't provide one:
+
+```ts
+await strimz.paymentSessions.create(input, { idempotencyKey: 'order-' + orderId })
+```
+
+See [Idempotency](/docs/concepts/idempotency).
+
+## Compatibility
+
+- Node.js ≥ 18 (uses `fetch`)
+- Bun ≥ 1.0
+- Deno via the [npm shim](https://docs.deno.com/runtime/manual/node/npm_specifiers)
+- Cloudflare Workers (`@strimz/sdk` is Edge-runtime safe — it uses `globalThis.fetch` and `Web Crypto API`, no Node-builtins)
+
+## Source
+
+[github.com/StrimzLab/strimz/tree/main/packages/sdk](https://github.com/StrimzLab/strimz/tree/main/packages/sdk)

@@ -1,0 +1,64 @@
+---
+title: Glossary
+description: Strimz-specific terms and what they mean.
+---
+
+A few terms in the Strimz docs deserve a definition. If you're a Stripe veteran, most of these will feel familiar.
+
+## API key kinds
+
+**Secret key** — full-permissions, server-side only. Prefix `sk_test_` / `sk_live_`.
+
+**Publishable key** — read + create-session only, safe in browsers. Prefix `pk_test_` / `pk_live_`.
+
+## Charge attempt ID
+
+A 32-byte deterministic identifier passed to the contract's `batchCharge` so retries are safe. Computed as `keccak256(subscriptionId, periodEndAt)`. The contract's `usedAttempts` mapping rejects duplicates.
+
+## Confirmations
+
+The number of blocks the indexer waits behind the chain head before projecting an event. Default 5. Higher = more reorg-safe, lower = faster updates.
+
+## ERC-7201
+
+The "namespaced storage" pattern. Lets upgradeable contracts declare their state under a deterministic slot, so adding fields in V2 can't collide with V1's layout. Strimz contracts use this so `forge upgrade` is provably safe.
+
+## Indexer cursor
+
+The bookmark that tracks "what block has the indexer projected up to". One row per `(network, contractAddress)` in the `IndexerCursor` table. Truncating it = re-process from genesis.
+
+## Live mode / Test mode
+
+Two entirely separate environments — different on-chain deployments, different DBs, different keys. Resources can't cross.
+
+## Mode
+
+A column on most resources (`Subscription.mode`, `Transaction.mode`, etc.) recording whether it was created in test or live mode.
+
+## On-chain merchant ID
+
+A `uint256` assigned by `StrimzRegistry` when a merchant first connects their payout wallet on-chain. Stored in `Merchant.onchainMerchantId`. The contracts use it (not the off-chain `cuid`) as the canonical merchant identifier.
+
+## Pull-based subscription
+
+A subscription where the customer signs once, granting the contract a multi-period allowance, and the merchant's scheduler "pulls" payment each period. Contrast with push-based, where the customer initiates each charge.
+
+## Ref
+
+A `bytes32` identifier passed to `StrimzPayments.pay()` that the indexer uses to link an on-chain payment back to its off-chain `PaymentSession.id`.
+
+## Service wallet
+
+The private key the scheduler holds. Used to sign every Strimz on-chain write — subscription charges, agent escrow operations, CCTP settlements. Never customer-facing.
+
+## UUPS
+
+Universal Upgradeable Proxy Standard (EIP-1822). Strimz's contracts use this pattern — the upgrade logic lives in the implementation contract rather than a separate `ProxyAdmin`. Cheaper calls and per-contract upgrade authority.
+
+## Webhook delivery
+
+One attempt to POST a specific event to a specific endpoint. Persisted in the `WebhookDelivery` table so you can see every attempt's response code and body in your dashboard.
+
+## Webhook signing secret
+
+The HMAC key used to sign outbound webhook deliveries. Generated at endpoint creation, returned to you exactly once, sha256-hashed at rest.

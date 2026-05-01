@@ -1,0 +1,89 @@
+---
+title: Analytics
+description: SQL-backed conversion, churn, MRR, LTV, forecast.
+---
+
+All endpoints below take optional `?from=ISO8601&to=ISO8601` query params.
+
+## Conversion
+
+```http
+GET /v1/stats/conversion?from=2026-04-01&to=2026-04-30
+```
+
+Daily buckets:
+
+```json
+{
+  "from": "...",
+  "to":   "...",
+  "data": [
+    { "day": "2026-04-01", "created": 124, "confirmed": 89, "rate": 0.7177 },
+    ...
+  ]
+}
+```
+
+`rate = confirmed / created` per UTC day.
+
+## Churn
+
+```http
+GET /v1/stats/churn
+```
+
+Monthly churn rate over the last 12 months. Numerator: subs that flipped to `cancelled` or `lapsed` in that month. Denominator: total subs created in that month.
+
+## MRR
+
+```http
+GET /v1/stats/mrr
+```
+
+```json
+{
+  "mrr": "60000000",       // 60 USDC, smallest units
+  "activeSubscribers": 3
+}
+```
+
+Interval-normalised: `daily × 30`, `weekly × 30/7`, `monthly`, `quarterly / 3`, `yearly / 12`. Returns gross MRR; for net subtract your tier's per-transaction fee.
+
+## LTV
+
+```http
+GET /v1/stats/ltv?limit=25
+```
+
+Top customers by lifetime spend:
+
+```json
+{
+  "data": [
+    { "customerId": "cus_xyz", "totalSpend": "500000000", "transactionCount": 12 },
+    ...
+  ],
+  "nextCursor": null,
+  "hasMore": false
+}
+```
+
+## Forecast
+
+```http
+GET /v1/stats/forecast
+```
+
+Linear regression over the last 90 days of confirmed transactions:
+
+```json
+{
+  "confidence": "high",       // 'low' | 'medium' | 'high', based on sample size
+  "last90DayRevenue": "...",
+  "next30": "...",
+  "next60": "...",
+  "next90": "..."
+}
+```
+
+Confidence: `low` if < 30 days of data, `medium` if 30-60, `high` if 60+.

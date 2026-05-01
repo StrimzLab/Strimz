@@ -1,0 +1,58 @@
+---
+title: Getting Started
+description: From zero to your first stablecoin payment in five minutes.
+---
+
+# Getting Started
+
+## 1. Sign up
+
+Head to [strimz.io/signup](/signup). Sign in with email, wallet, or Google. We'll create your test-mode account immediately.
+
+## 2. Issue a test API key
+
+In the dashboard, go to **API keys** → **Issue key**. Test-mode keys (prefixed `sk_test_…`) are free; live-mode keys (`sk_live_…`) unlock once you complete onboarding + 2FA.
+
+## 3. Send a test payment
+
+```ts
+import { Strimz } from '@strimz/sdk'
+
+const strimz = new Strimz({ apiKey: process.env.STRIMZ_KEY! })
+
+const session = await strimz.paymentSessions.create({
+  amount:   '50000000',  // 50 USDC (6 decimals)
+  currency: 'USDC',
+  description: 'Pro plan, August',
+})
+
+console.log(session.checkoutUrl)
+// → https://strimz.io/pay/cmh3lmkw50000xv8dabcdefgh
+```
+
+Open `session.checkoutUrl`, connect a wallet, and complete the payment. The session lands in your dashboard at **Payment sessions** within seconds.
+
+## 4. Wire a webhook
+
+Add an HTTPS URL under **Webhooks** → **Add endpoint**. Strimz signs every request with HMAC-SHA256. Verify on receipt:
+
+```ts
+import { verifyWebhookSignature } from '@strimz/sdk'
+
+app.post('/webhooks/strimz', (req, res) => {
+  const ok = verifyWebhookSignature({
+    secret: process.env.STRIMZ_WEBHOOK_SECRET!,
+    body: req.rawBody,
+    signatureHeader: req.headers['strimz-signature'],
+  })
+  if (!ok) return res.status(401).end()
+  // ... handle event
+  res.status(200).end()
+})
+```
+
+## What's next?
+
+- **[Subscriptions](/docs/api-reference#subscriptions)** — recurring revenue with one signature
+- **[Refunds](/docs/api-reference#refunds)** — server-intent + wallet-signed transfer
+- **[Webhooks](/docs/webhooks)** — every event we fire

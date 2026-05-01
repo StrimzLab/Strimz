@@ -1,0 +1,68 @@
+---
+title: Modes of failure
+description: What can go wrong, what you'll see when it does, and what Strimz does about it automatically.
+---
+
+Most billing systems hide their failure modes behind opaque error codes. Strimz documents them. Here's what fails, how you find out, and what we do without you having to lift a finger.
+
+## A subscription charge fails
+
+The contract emits `SubscriptionChargeSkipped(subId, attemptId, outcome)` with one of:
+
+- `InsufficientFunds` — payer's USDC balance was below the charge amount
+- `RevokedApproval` — payer revoked the contract's allowance to move their USDC
+- `Cancelled` — the subscription is already cancelled (race; rare)
+- `NotDue` — the scheduler tried to charge before `nextChargeAt` (defensive; the contract rejects)
+
+The indexer projects this into `SubscriptionCharge(status: failed, outcome: <enum>)` and flips the `Subscription` to `at_risk`. The agent's recovery capability (if enabled) emails the customer per your `recoveryStrategy`. If the grace window expires without success, the agent's `subscription-lapsed` cron flips the sub to `lapsed` and fires `subscription.lapsed`.
+
+You'll see this in:
+
+- `GET /v1/subscriptions?status=at_risk`
+- `subscription.charge_failed` webhook
+- `subscription.lapsed` webhook (after grace)
+- The agent activity log under `recovery_notification_sent`
+
+## A webhook delivery fails
+
+Strimz POSTs the event to your URL with a 10-second timeout. Anything other than 2xx, including network errors, counts as a failure.
+
+```
+attempt 1 → fail → wait 1m   → attempt 2 → fail → wait 5m
+attempt 3 → fail → wait 30m  → attempt 4 → fail → wait 2h
+attempt 5 → fail → permanently_failed
+```
+
+After permanent failure:
+
+1. We email the merchant with the delivery ID, last response, and last error.
+2. If the same endpoint has had 5+ permanent failures in 24 hours, we auto-disable it (status: `disabled`) and email a separate notice. You re-enable from the dashboard.
+3. The delivery row stays in your `WebhookDelivery` table with `status='permanently_failed'` and `lastError` for triage. You can manually replay via `POST /v1/webhook-deliveries/:id/replay`.
+
+## The on-chain payment is broadcast but doesn't confirm
+
+Edge case: the scheduler's `batchCharge` tx hits the mempool, then a chain reorg orphans it. The indexer's confirmation depth (`CONFIRMATIONS=5` by default) prevents projecting until the tx has 5+ blocks of finality. If a reorg drops a tx, the indexer never projects it; the scheduler's next sweep retries. The `chargeAttemptId` idempotency check on the contract handles the replay safely.
+
+## A customer cancels their subscription on-chain (without telling you)
+
+The contract emits `SubscriptionCancelled(subId, by)`. The indexer projects `Subscription.status = cancelled` and `cancellationReason = 'on-chain cancel by 0x… in tx 0x…'`. You'll receive `subscription.cancelled` webhook.
+
+## A refund tx is signed but never broadcast
+
+The merchant created a refund (status: `awaiting_signature`), got wallet-signing instructions, but didn't follow through. The refund stays in `awaiting_signature` until manually voided (cancel via dashboard) or the merchant does eventually broadcast.
+
+If they broadcast but record the wrong tx hash (`POST /v1/refunds/:id/signature` with a hash for a different tx), the indexer's ERC-20 matcher doesn't find a corresponding Transfer and the row sits in `submitted`. You can fix this by re-submitting the correct hash; we update the row idempotently.
+
+## API key leaks
+
+We scan public GitHub for live-mode key prefixes. If we find yours, we auto-revoke and email you within minutes. The old key returns `authentication_error` immediately. Audit logs show every action the key took before revocation.
+
+## What's not currently automated
+
+These are real failure modes you should still build for:
+
+- **Customer's wallet permanently loses access** (lost seed phrase, hardware wallet bricked). Their subscription will keep failing until they re-create a wallet and re-subscribe. There's no Strimz-side way to "transfer" a subscription to a new wallet — the on-chain authorisation is gone.
+- **Strimz API is down**. We're a single hosted service today; outage = downtime. The 99.9% / 99.99% SLAs on the Growth/Enterprise plans are real, but a Free-plan account isn't covered. The on-chain layer keeps working — payments via direct contract calls still settle.
+- **Arc network outage**. Same — this is a chain-level event. We're explicit that Strimz inherits Arc's availability.
+
+For everything else, [open an issue](https://github.com/StrimzLab/strimz/issues/new) and we'll add the failure mode + recovery to this page.

@@ -1,0 +1,93 @@
+---
+title: Accept a one-shot payment
+description: The full happy-path for charging a customer once.
+---
+
+You want to charge a customer one time for one thing. Here's the entire flow, with both server and client code.
+
+## Server: create the session
+
+```ts title="server.ts"
+import { Strimz } from '@strimz/sdk'
+
+const strimz = new Strimz({ apiKey: process.env.STRIMZ_KEY! })
+
+export async function createPaymentForOrder(orderId: string, amountUsd: number) {
+  const session = await strimz.paymentSessions.create({
+    amount:   String(Math.round(amountUsd * 1_000_000)),  // → smallest USDC units
+    currency: 'USDC',
+    description: `Order ${orderId}`,
+    successUrl: `https://your-site.com/orders/${orderId}/thanks`,
+    cancelUrl:  `https://your-site.com/orders/${orderId}/cancelled`,
+    metadata:   { orderId },
+  })
+  return session
+}
+```
+
+`metadata` is round-tripped to your webhooks unchanged. Use it to correlate Strimz sessions back to your own resources.
+
+## Client: redirect to checkout
+
+```tsx title="checkout-button.tsx"
+'use client'
+
+export function CheckoutButton({ orderId }: { orderId: string }) {
+  return (
+    <button
+      onClick={async () => {
+        const r = await fetch('/api/checkout', { method: 'POST', body: JSON.stringify({ orderId }) })
+        const { checkoutUrl } = await r.json()
+        window.location.href = checkoutUrl
+      }}
+    >
+      Pay with USDC
+    </button>
+  )
+}
+```
+
+That's the entire client side. The customer lands on `strimz.io/pay/<sessionId>`, connects a wallet (any major one — Reown handles the picker), and signs the payment.
+
+## Webhook: react when it confirms
+
+Don't trust the redirect to `successUrl` for state changes — anyone can navigate to that URL. The webhook is the source of truth.
+
+```ts title="webhooks-handler.ts"
+import { verifyWebhookSignature } from '@strimz/sdk'
+
+app.post('/webhooks/strimz', async (req, res) => {
+  const ok = verifyWebhookSignature({
+    secret: process.env.STRIMZ_WEBHOOK_SECRET!,
+    body: req.rawBody,
+    signatureHeader: req.headers['strimz-signature'] as string,
+  })
+  if (!ok) return res.status(401).end()
+
+  const event = JSON.parse(req.rawBody.toString())
+  const { type, data } = event
+
+  switch (type) {
+    case 'payment.completed': {
+      const orderId = data.metadata?.orderId
+      if (orderId) await fulfillOrder(orderId, data.id, data.amount)
+      break
+    }
+    case 'payment.failed':
+      await markOrderFailed(data.metadata?.orderId)
+      break
+  }
+  res.status(200).end()
+})
+```
+
+## Edge cases to know about
+
+- **Session expiry**: 24 hours by default. If the customer doesn't pay in time, the session goes to `cancelled` and you'll receive `payment.failed`. Create a new session.
+- **Customer changes their mind mid-checkout**: they hit the back button, you see no webhook. Don't fulfill until you receive `payment.completed`. The session sits in `pending` until expiry.
+- **Customer pays the same session twice**: impossible. Each session is one on-chain `pay()` call and the contract enforces the `ref` is single-use.
+- **Network reorg**: the indexer waits 5 confirmations before flipping `confirmed`. You won't get a flapping "confirmed → pending → confirmed" sequence.
+
+## What just happened on-chain
+
+The customer's wallet signed a `StrimzPayments.pay(merchantId, token, amount, ref, fee)` call. Arc settled in ~13 seconds. Your `payoutAddress` received `amount - feeAmount` USDC immediately. The indexer detected the `PaymentExecuted` event, matched `ref` to your `PaymentSession.id`, inserted a `Transaction(kind=one_shot, status=confirmed)`, and fired `payment.completed`. Total time from "customer clicked Pay" to "your webhook received `payment.completed`": about 20 seconds.

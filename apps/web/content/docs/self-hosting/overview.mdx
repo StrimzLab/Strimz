@@ -1,0 +1,57 @@
+---
+title: Self-hosting Strimz
+description: Run the full stack on your own infrastructure.
+---
+
+The entire Strimz monorepo is open source. You can clone it, configure it against your own database + Redis + RPC + signing key, and run it. There's no proprietary "cloud-only" component — what's deployed at strimz.io is what's in the repo.
+
+## Why you might
+
+- **Compliance** — your jurisdiction requires customer data stays on your hardware.
+- **Cost** — your transaction volume makes the per-tx fee material; running it yourself is cheaper at scale.
+- **Customisation** — you want to add a capability the AutoPay Agent doesn't have.
+- **Auditability** — you want to read the indexer's exact projection logic against your own queries.
+
+## Why you probably shouldn't (yet)
+
+- **Operational burden** — six processes, all needing observability, alerting, key rotation, and chain RPC redundancy.
+- **Indexer reorg edge cases** — we've fixed several; you'd inherit fresh ones if Arc has any in the future.
+- **Scheduler key custody** — the service signing key is the most sensitive secret in the system. Self-hosting means you own that risk.
+- **Compliance ops** — TRM Labs / Elliptic accounts, sanctions screening, security disclosure handling.
+
+The hosted Strimz product handles all of these. Self-hosting makes sense once you're sure you need the control.
+
+## Architecture overview
+
+See [How Strimz fits together](/docs/concepts/overview) for the diagram. The six processes:
+
+| Process | Hosting | Sensitivity |
+| --- | --- | --- |
+| `apps/api` | Render / Vercel / your container platform | Public-facing; standard webapp ops |
+| `apps/web` | Vercel (or any Next.js host) | Public-facing |
+| `apps/indexer` | Render / fly.io / k8s | Internal; needs RPC + DB |
+| `apps/scheduler` | Render / fly.io / k8s | **Holds signing key** |
+| `apps/agent` | Render / fly.io / k8s | Internal; sends emails |
+| `packages/contracts` | Foundry → deploy to Arc | Audited, immutable on-chain |
+
+## Getting started
+
+```bash
+git clone https://github.com/StrimzLab/strimz
+cd strimz
+pnpm install
+```
+
+Each process has its own README with deploy steps:
+
+- **[Indexer setup](/docs/self-hosting/indexer)** — Postgres connection, RPC URL, contract addresses, confirmation depth
+- **[Scheduler setup](/docs/self-hosting/scheduler)** — service-wallet key management, queue concurrency, retry tuning
+- **[Agent setup](/docs/self-hosting/agent)** — capability config, cron schedules, Circle attestation API
+
+The smart contracts in `packages/contracts` deploy via Foundry's standard `forge script` flow; the addresses go into your env.
+
+## Maintenance
+
+We push API + library + contract updates to the repo on the same release cadence we deploy at strimz.io. Self-hosters subscribe to GitHub releases for breaking-change announcements.
+
+Database migrations are Prisma migration files in `packages/db/prisma/migrations`. `pnpm db:migrate:deploy` applies them in order. We never edit a previously-released migration; new changes always create a new migration file with a date prefix.

@@ -1,0 +1,75 @@
+---
+title: Self-hosting the indexer
+description: Configure the Go indexer against your own RPC + Postgres.
+---
+
+The indexer is a single Go binary. It polls an Arc RPC for new blocks, decodes contract events, and projects them into Postgres.
+
+## Build
+
+```bash
+cd apps/indexer
+make build
+./bin/indexer run
+```
+
+Or run the prebuilt distroless image:
+
+```bash
+docker pull ghcr.io/strimzlab/indexer:latest
+docker run --env-file=.env ghcr.io/strimzlab/indexer:latest
+```
+
+## Configuration
+
+Required env vars (see `.env.example`):
+
+```
+ARC_ENVIRONMENT=mainnet            # or testnet
+ARC_RPC_URL=https://your-arc-rpc.com
+DATABASE_URL=postgresql://...
+
+REGISTRY_ADDRESS=0x...
+PAYMENTS_ADDRESS=0x...
+SUBSCRIPTIONS_ADDRESS=0x...
+AGENT_ESCROW_ADDRESS=0x...
+FEE_COLLECTOR_ADDRESS=0x...
+
+CONFIRMATIONS=5                     # blocks to wait before projecting
+POLL_INTERVAL_MS=5000               # how often to check for new blocks
+BLOCK_BATCH_SIZE=500                # max blocks per RPC call
+```
+
+`STABLECOIN_ADDRESSES` is a comma-separated list of ERC-20 contract addresses to also scan (for refund-completion `Transfer` events). Leave empty if you only need to project Strimz's own contracts.
+
+## Migrations
+
+The indexer expects the Prisma schema from `packages/db` to be applied. From the repo root:
+
+```bash
+pnpm --filter @strimz/db db:migrate:deploy
+```
+
+## Reorg protection
+
+`CONFIRMATIONS=5` means the indexer waits 5 blocks behind the chain head before projecting any event. On Arc this is ~13 seconds × 5 = ~65 seconds of finality margin. Increase if you're running a high-stakes deployment.
+
+## Idempotency
+
+The indexer's checkpoint is `IndexerCursor`. Truncate it and restart, and the indexer re-processes from the configured `START_BLOCK` — every projection is idempotent (`INSERT … ON CONFLICT DO NOTHING` keyed on natural identifiers), so re-running is safe.
+
+## Observability
+
+- `/healthz` — always 200 once the process is alive
+- `/readyz` — 200 once the first batch has been processed
+- `/metrics` — Prometheus endpoint with per-contract block lag, RPC latency, projection counts
+
+## Failure recovery
+
+If the indexer crashes mid-batch, the `IndexerCursor` only advances on successful batch completion. On restart, it resumes from the last successful batch's end block. There's no double-projection.
+
+If the RPC returns malformed data (rare), the indexer logs the error and skips the bad log; the rest of the batch processes normally. Failed projections write to the `AgentActivityLog` (or stderr if it's a structural error like a schema mismatch).
+
+## Source
+
+[github.com/StrimzLab/strimz/tree/main/apps/indexer](https://github.com/StrimzLab/strimz/tree/main/apps/indexer)
