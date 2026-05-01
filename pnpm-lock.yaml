@@ -24,6 +24,118 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
+  apps/agent:
+    dependencies:
+      '@fastify/helmet':
+        specifier: ^13.0.1
+        version: 13.0.2
+      '@nestjs/bullmq':
+        specifier: ^11.0.2
+        version: 11.0.4(@nestjs/common@11.1.19(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.19(@nestjs/common@11.1.19(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))(bullmq@5.76.2)
+      '@nestjs/common':
+        specifier: ^11.0.4
+        version: 11.1.19(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/config':
+        specifier: ^4.0.0
+        version: 4.0.4(@nestjs/common@11.1.19(reflect-metadata@0.2.2)(rxjs@7.8.2))(rxjs@7.8.2)
+      '@nestjs/core':
+        specifier: ^11.0.4
+        version: 11.1.19(@nestjs/common@11.1.19(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/platform-fastify':
+        specifier: ^11.0.4
+        version: 11.1.19(@nestjs/common@11.1.19(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.19(@nestjs/common@11.1.19(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))
+      '@nestjs/schedule':
+        specifier: ^5.0.1
+        version: 5.0.1(@nestjs/common@11.1.19(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.19(@nestjs/common@11.1.19(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))
+      '@strimz/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@strimz/shared-config':
+        specifier: workspace:*
+        version: link:../../packages/shared-config
+      '@strimz/shared-crypto':
+        specifier: workspace:*
+        version: link:../../packages/shared-crypto
+      '@strimz/shared-types':
+        specifier: workspace:*
+        version: link:../../packages/shared-types
+      bullmq:
+        specifier: ^5.34.5
+        version: 5.76.2
+      fastify:
+        specifier: ^5.2.1
+        version: 5.8.4
+      ioredis:
+        specifier: ^5.4.2
+        version: 5.10.1
+      nestjs-pino:
+        specifier: ^4.3.0
+        version: 4.6.1(@nestjs/common@11.1.19(reflect-metadata@0.2.2)(rxjs@7.8.2))(pino-http@10.5.0)(pino@10.3.1)(rxjs@7.8.2)
+      pino-http:
+        specifier: ^10.4.0
+        version: 10.5.0
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+      resend:
+        specifier: ^4.0.1
+        version: 4.8.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.2
+      viem:
+        specifier: ^2.22.6
+        version: 2.48.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@3.25.76)
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@nestjs/cli':
+        specifier: ^11.0.0
+        version: 11.0.21(@swc/core@1.15.32(@swc/helpers@0.5.21))(@types/node@22.19.17)(prettier@3.8.3)
+      '@nestjs/schematics':
+        specifier: ^11.0.0
+        version: 11.1.0(chokidar@4.0.3)(prettier@3.8.3)(typescript@5.9.3)
+      '@nestjs/testing':
+        specifier: ^11.0.4
+        version: 11.1.19(@nestjs/common@11.1.19(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.19(@nestjs/common@11.1.19(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))
+      '@strimz/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
+      '@strimz/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
+      '@swc/core':
+        specifier: ^1.10.7
+        version: 1.15.32(@swc/helpers@0.5.21)
+      '@testcontainers/postgresql':
+        specifier: ^10.16.0
+        version: 10.28.0
+      '@testcontainers/redis':
+        specifier: ^10.16.0
+        version: 10.28.0
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.17
+      eslint:
+        specifier: ^9.18.0
+        version: 9.39.4(jiti@2.6.1)
+      testcontainers:
+        specifier: ^10.16.0
+        version: 10.28.0
+      ts-loader:
+        specifier: ^9.5.1
+        version: 9.5.7(typescript@5.9.3)(webpack@5.106.0(@swc/core@1.15.32(@swc/helpers@0.5.21)))
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      unplugin-swc:
+        specifier: ^1.5.1
+        version: 1.5.9(@swc/core@1.15.32(@swc/helpers@0.5.21))(rollup@4.60.2)
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.17)(jsdom@25.0.1(bufferutil@4.1.0)(utf-8-validate@6.0.6))(terser@5.46.2)
+
   apps/api:
     dependencies:
       '@fastify/cookie':

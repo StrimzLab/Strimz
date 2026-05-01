@@ -9,6 +9,7 @@ export class StubChainService {
   public readonly account = { address: '0x0000000000000000000000000000000000000001' as Address }
   public readonly subscriptionsAddress: Address = '0x0000000000000000000000000000000000000001'
   public readonly agentEscrowAddress: Address = '0x0000000000000000000000000000000000000002'
+  public readonly messageTransmitterAddress: Address = '0x000000000000000000000000000000000000cccc'
 
   public readonly publicClient: any = {}
   public readonly walletClient: any = {}
@@ -54,6 +55,9 @@ export class StubChainService {
   }
   cancelJob(jobId: bigint, reason: string): Promise<`0x${string}`> {
     return Promise.resolve(this.record('cancelJob', [jobId, reason]))
+  }
+  receiveCctpMessage(input: { messageHex: `0x${string}`; attestationHex: `0x${string}` }): Promise<`0x${string}`> {
+    return Promise.resolve(this.record('receiveCctpMessage', [input]))
   }
 
   callsFor(fn: string) {
