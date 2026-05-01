@@ -122,4 +122,28 @@ describe('agent-action worker e2e', () => {
     expect(calls[0]!.args[0]).toBe(42n)
     expect(calls[0]!.args[1]).toBe('bad work')
   })
+
+  it('routing.cctp.settle calls receiveCctpMessage with supplied hex bytes', async () => {
+    const worker = t.app.get(AgentActionWorker)
+    const message = ('0x' + 'be'.repeat(80)) as `0x${string}`
+    const attestation = ('0x' + '12'.repeat(65)) as `0x${string}`
+    const result = await worker.process({
+      data: {
+        type: 'routing.cctp.settle',
+        merchantId: 'm_x',
+        sourceDomainId: 6,
+        sourceTxHash: '0x' + 'a'.repeat(64),
+        messageHex: message,
+        attestationHex: attestation,
+        ref: 'sess_x',
+      },
+    } as never)
+    expect(result.txHash).toMatch(/^0x/)
+
+    const calls = t.chain.callsFor('receiveCctpMessage')
+    expect(calls).toHaveLength(1)
+    const arg = calls[0]!.args[0] as { messageHex: string; attestationHex: string }
+    expect(arg.messageHex).toBe(message)
+    expect(arg.attestationHex).toBe(attestation)
+  })
 })

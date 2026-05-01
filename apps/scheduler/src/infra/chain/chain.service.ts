@@ -9,9 +9,9 @@ import {
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { arcMainnet, arcTestnet } from '@strimz/shared-config'
+import { arcMainnet, arcTestnet, getCctpContracts } from '@strimz/shared-config'
 import { TypedConfigService } from '../../config/index.js'
-import { StrimzSubscriptionsAbi, StrimzAgentEscrowAbi } from './abis.js'
+import { StrimzSubscriptionsAbi, StrimzAgentEscrowAbi, MessageTransmitterAbi } from './abis.js'
 
 /**
  * Chain access for the scheduler.
@@ -38,6 +38,7 @@ export class ChainService {
   public readonly account: { address: Address }
   public readonly subscriptionsAddress: Address
   public readonly agentEscrowAddress: Address
+  public readonly messageTransmitterAddress: Address
   private readonly log = new Logger(ChainService.name)
 
   constructor(cfg: TypedConfigService) {
@@ -51,6 +52,8 @@ export class ChainService {
 
     this.subscriptionsAddress = cfg.env.SUBSCRIPTIONS_ADDRESS as Address
     this.agentEscrowAddress = cfg.env.AGENT_ESCROW_ADDRESS as Address
+    this.messageTransmitterAddress = getCctpContracts(cfg.env.ARC_ENVIRONMENT)
+      .messageTransmitterV2 as Address
     this.log.log(`scheduler signing as ${account.address}`)
   }
 
@@ -151,6 +154,32 @@ export class ChainService {
       abi: StrimzAgentEscrowAbi,
       functionName: 'cancelJob',
       args: [jobId, reason],
+      chain: null,
+    })
+  }
+
+  // ----- CCTP V2 settlement -----
+
+  /**
+   * Calls `MessageTransmitter.receiveMessage(message, attestation)` on
+   * Arc — the destination-chain settlement of a cross-chain USDC bridge
+   * initiated by a payer on a different chain. The Circle attestation
+   * service signed the message; this is the on-chain claim.
+   *
+   * Idempotent at the contract level: re-calling with the same message
+   * reverts with `MessageAlreadyUsed`. The agent's bridge worker won't
+   * normally re-enqueue, but the property still holds.
+   */
+  async receiveCctpMessage(input: {
+    messageHex: `0x${string}`
+    attestationHex: `0x${string}`
+  }): Promise<Hash> {
+    return this.walletClient.writeContract({
+      account: this.account.address,
+      address: this.messageTransmitterAddress,
+      abi: MessageTransmitterAbi,
+      functionName: 'receiveMessage',
+      args: [input.messageHex, input.attestationHex],
       chain: null,
     })
   }

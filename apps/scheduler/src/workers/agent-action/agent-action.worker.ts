@@ -40,7 +40,22 @@ export class AgentActionWorker extends WorkerHost {
         return this.disputeJob(data)
       case 'job.cancel-onchain':
         return this.cancelJob(data)
+      case 'routing.cctp.settle':
+        return this.settleCctpRouting(data)
     }
+  }
+
+  private async settleCctpRouting(
+    data: Extract<AgentActionJob, { type: 'routing.cctp.settle' }>,
+  ): Promise<{ txHash: string }> {
+    const txHash = await this.chain.receiveCctpMessage({
+      messageHex: data.messageHex as `0x${string}`,
+      attestationHex: data.attestationHex as `0x${string}`,
+    })
+    this.log.log(
+      `cctp settle merchant=${data.merchantId} src=${data.sourceTxHash} → ${txHash}`,
+    )
+    return { txHash }
   }
 
   private async cancelSubscription(

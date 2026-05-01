@@ -55,5 +55,20 @@ export const agentActionJobSchema = z.discriminatedUnion('type', [
     jobId: z.string(),
     reason: z.string(),
   }),
+  z.object({
+    /**
+     * Settle a CCTP V2 cross-chain payment: call
+     * `MessageTransmitter.receiveMessage(message, attestation)` on Arc.
+     * Enqueued by the agent's bridge worker once Circle's attestation
+     * API returns `complete`.
+     */
+    type: z.literal('routing.cctp.settle'),
+    merchantId: z.string(),
+    sourceDomainId: z.number().int().nonnegative(),
+    sourceTxHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+    messageHex: z.string().regex(/^0x[0-9a-fA-F]+$/),
+    attestationHex: z.string().regex(/^0x[0-9a-fA-F]+$/),
+    ref: z.string().optional(),
+  }),
 ])
 export type AgentActionJob = z.infer<typeof agentActionJobSchema>

@@ -101,3 +101,23 @@ export const StrimzAgentEscrowAbi = [
     outputs: [],
   },
 ] as const
+
+/**
+ * Circle CCTP V2 `MessageTransmitter` — only `receiveMessage` is
+ * exposed because that's the single function the scheduler signs.
+ * Burn-side calls happen on the source chain (and aren't signed by us).
+ *
+ * Reference: https://developers.circle.com/stablecoins/cctp-getting-started
+ */
+export const MessageTransmitterAbi = [
+  {
+    type: 'function',
+    name: 'receiveMessage',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'message', type: 'bytes' },
+      { name: 'attestation', type: 'bytes' },
+    ],
+    outputs: [{ name: 'success', type: 'bool' }],
+  },
+] as const
