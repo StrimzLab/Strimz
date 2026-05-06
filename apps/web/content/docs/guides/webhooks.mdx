@@ -106,6 +106,6 @@ We log every delivery's signature attempts in your dashboard so you can see the 
 
 ## Why HMAC and not RSA / ed25519
 
-We picked HMAC-SHA256 because it's the same shape as Stripe's signature, which means engineers can use code they've already shipped. It also means there's no public-key infrastructure for you to manage — one shared secret per endpoint, rotatable on demand.
+HMAC-SHA256 is symmetric, which means there's no public-key infrastructure for you to manage. One shared secret per endpoint, rotatable on demand. That tradeoff matches how most teams already build webhook receivers.
 
-If you want asymmetric signing (so leaking your endpoint's secret doesn't compromise the signing key), [open an issue](https://github.com/StrimzLab/strimz/issues/new) — we'd consider it for the Enterprise plan.
+If you want asymmetric signing — so leaking the endpoint's secret can't compromise the signing key itself — [open an issue](https://github.com/StrimzLab/strimz/issues/new). We'd consider it for the Enterprise plan.

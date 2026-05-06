@@ -3,7 +3,7 @@ title: '@strimz/sdk-react'
 description: React provider, components, and hooks for browser-side Strimz integrations.
 ---
 
-The React SDK wraps the server SDK's read paths and adds three components for hosted-checkout flows. It uses **publishable keys** (`pk_test_…` / `pk_live_…`), so it's safe to ship to the browser.
+The React SDK gives you read-only client hooks and a few components for embedded checkout. It uses **publishable keys** (`pk_test_…` / `pk_live_…`), which are safe to ship in browser bundles.
 
 ## Install
 
@@ -21,7 +21,7 @@ import { StrimzProvider } from '@strimz/sdk-react'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <StrimzProvider config={{ baseUrl: 'https://api.strimz.io' }}>
+    <StrimzProvider config={{ baseUrl: 'https://api.strimz.finance' }}>
       {children}
     </StrimzProvider>
   )
@@ -31,7 +31,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 `StrimzProvider` doesn't take an API key — the components issue requests through your own backend (server-side Strimz client) for any write operations. Read-only paths can use a publishable key:
 
 ```tsx
-<StrimzProvider config={{ baseUrl: 'https://api.strimz.io', publishableKey: 'pk_live_xxx' }}>
+<StrimzProvider config={{ baseUrl: 'https://api.strimz.finance', publishableKey: 'pk_live_xxx' }}>
 ```
 
 ## `<StrimzPayButton />`

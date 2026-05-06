@@ -3,11 +3,21 @@ title: Test mode vs live mode
 description: How Strimz separates test traffic from real traffic, end to end.
 ---
 
-Strimz splits test and live across the entire stack — different smart-contract deployments, different RPC URLs, different Postgres tables, different webhook endpoints, different signing secrets. There is **no** way for a test-mode call to settle a real payment, and there is no merge step to migrate test rows to live. This is intentional.
+Test mode and live mode are kept apart at every layer. They use different
+smart-contract deployments, different RPC URLs, different Postgres tables,
+different webhook endpoints, and different signing secrets. There is no
+way for a test-mode call to settle a real payment, and there's no
+"promote to live" step that migrates test data into production. This is
+on purpose.
 
-## Why we separate so aggressively
+## Why we keep them this far apart
 
-Most billing bugs aren't bugs — they're "I didn't realise I was hitting prod". Strimz makes that mistake impossible by construction: the `sk_test_` key prefix routes the request to a different chain, a different DB, a different scheduler, and a different agent. If you build a feature in test mode and then point the same SDK call at production by switching the key prefix, the only thing that changes about your code is one constant.
+A lot of billing incidents come down to one mistake: someone thought they
+were hitting test, but they were hitting prod. We made that mistake
+impossible by construction. The `sk_test_` key prefix routes your request
+to a different chain, a different database, a different scheduler, and a
+different agent. When you're ready for production, you swap the key
+prefix from `sk_test_` to `sk_live_` and your code keeps working.
 
 ## What's different between modes
 
@@ -20,7 +30,11 @@ Most billing bugs aren't bugs — they're "I didn't realise I was hitting prod".
 | API keys | `sk_test_*`, `pk_test_*` | `sk_live_*`, `pk_live_*` |
 | Dashboard view | Mode toggle in topbar | Mode toggle in topbar |
 
-Resources (`Subscription`, `Transaction`, `WebhookDelivery`, etc.) carry a `mode` column so dashboard queries can filter cleanly. The same column gates the scheduler — its sweep query only picks up subs in the mode the scheduler instance is running.
+Every resource (`Subscription`, `Transaction`, `WebhookDelivery`, and so
+on) carries a `mode` column. The dashboard uses it to filter what you
+see. The scheduler uses it too: a scheduler instance running in test mode
+will only ever pick up test-mode subscriptions, and the same is true for
+live.
 
 ## Switching modes
 

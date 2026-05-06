@@ -3,13 +3,13 @@ title: The AutoPay Agent
 description: Six capabilities your billing surface gets for free.
 ---
 
-The Strimz AutoPay Agent is a separate process (`apps/agent`) that runs scheduled background work for your merchant account. It holds **no signing key** and never moves funds without your explicit approval — every action either sends an email, writes to your activity log, or queues an action for the scheduler to sign with your prior consent.
+The AutoPay Agent runs scheduled background work for your account: things like recovery emails for failed charges, daily cashflow digests, and anomaly alerts. It holds no signing key, so it can't move money on its own. Every action either sends an email, writes to your activity log, or queues a job that needs your approval before anything signs on-chain.
 
-You enable capabilities individually. The dashboard surfaces them under **AutoPay Agent → Capabilities**.
+You turn capabilities on and off individually. They live in the dashboard under **AutoPay Agent → Capabilities**.
 
 ## `recovery`
 
-When a subscription charge fails, the customer needs to know — but you probably don't want to write the recovery email yourself. The agent emails them for you, on a cadence you choose:
+When a subscription charge fails, the customer needs to know. The agent emails them for you on a cadence you set:
 
 | `strategy` | Cadence (relative to `currentPeriodEndAt`) |
 | --- | --- |

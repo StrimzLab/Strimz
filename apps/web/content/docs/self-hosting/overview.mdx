@@ -3,7 +3,7 @@ title: Self-hosting Strimz
 description: Run the full stack on your own infrastructure.
 ---
 
-The entire Strimz monorepo is open source. You can clone it, configure it against your own database + Redis + RPC + signing key, and run it. There's no proprietary "cloud-only" component — what's deployed at strimz.io is what's in the repo.
+The entire Strimz monorepo is open source. You can clone it, configure it against your own database + Redis + RPC + signing key, and run it. There's no proprietary "cloud-only" component — what's deployed at strimz.finance is what's in the repo.
 
 ## Why you might
 
@@ -52,6 +52,6 @@ The smart contracts in `packages/contracts` deploy via Foundry's standard `forge
 
 ## Maintenance
 
-We push API + library + contract updates to the repo on the same release cadence we deploy at strimz.io. Self-hosters subscribe to GitHub releases for breaking-change announcements.
+We push API + library + contract updates to the repo on the same release cadence we deploy at strimz.finance. Self-hosters subscribe to GitHub releases for breaking-change announcements.
 
 Database migrations are Prisma migration files in `packages/db/prisma/migrations`. `pnpm db:migrate:deploy` applies them in order. We never edit a previously-released migration; new changes always create a new migration file with a date prefix.
