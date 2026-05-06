@@ -1,6 +1,14 @@
 @import 'tailwindcss';
 @import '@strimz/ui/globals.css';
 
+/* Tailwind v4 only scans the root app by default. We have shared shadcn
+ * primitives in `packages/ui` that bake in their own utility classes
+ * (data-[state=open]:translate-x-0, bg-[#E5E7EB], etc.). Without this
+ * @source directive those classes never make it into the bundle, which
+ * is what caused: the mobile sheet to never slide in, the active tab to
+ * have no background, and DropdownMenuSeparator to be invisible. */
+@source "../../../../packages/ui/src/**/*.{ts,tsx,js,jsx}";
+
 /**
  * App-level extensions on top of the @strimz/ui token base.
  *

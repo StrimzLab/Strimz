@@ -5,6 +5,12 @@ import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog'
 import { buttonVariants } from './button'
 import { cn } from '../lib/cn'
 
+/**
+ * Strimz AlertDialog — same shape as Dialog but with the action/cancel
+ * footer baked in. Uses native Tailwind data-[state] transitions, no
+ * `tw-animate-css` dependency.
+ */
+
 export const AlertDialog = AlertDialogPrimitive.Root
 export const AlertDialogTrigger = AlertDialogPrimitive.Trigger
 export const AlertDialogPortal = AlertDialogPrimitive.Portal
@@ -16,7 +22,8 @@ export const AlertDialogOverlay = React.forwardRef<
   <AlertDialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-50 bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+      'fixed inset-0 z-[70] bg-black/55 backdrop-blur-[2px] transition-opacity duration-200',
+      'data-[state=closed]:opacity-0 data-[state=open]:opacity-100',
       className,
     )}
     {...props}
@@ -33,7 +40,9 @@ export const AlertDialogContent = React.forwardRef<
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:rounded-lg',
+        'fixed left-1/2 top-1/2 z-[80] grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[14px] border border-[#E5E7EB] bg-white p-6 shadow-[0_25px_50px_-12px_rgba(5,0,32,0.25)]',
+        'transition-[opacity,transform] duration-200',
+        'data-[state=closed]:scale-95 data-[state=closed]:opacity-0 data-[state=open]:scale-100 data-[state=open]:opacity-100',
         className,
       )}
       {...props}
@@ -46,7 +55,7 @@ export const AlertDialogHeader = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('flex flex-col space-y-2 text-center sm:text-left', className)} {...props} />
+  <div className={cn('flex flex-col gap-1.5 text-left', className)} {...props} />
 )
 AlertDialogHeader.displayName = 'AlertDialogHeader'
 
@@ -55,7 +64,7 @@ export const AlertDialogFooter = ({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn('flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2', className)}
+    className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', className)}
     {...props}
   />
 )
@@ -67,7 +76,7 @@ export const AlertDialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Title
     ref={ref}
-    className={cn('font-display text-lg font-semibold', className)}
+    className={cn('font-sora text-lg font-[700] text-[#050020]', className)}
     {...props}
   />
 ))
@@ -79,7 +88,7 @@ export const AlertDialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Description
     ref={ref}
-    className={cn('text-sm text-muted-foreground', className)}
+    className={cn('font-poppins text-sm text-[#58556A]', className)}
     {...props}
   />
 ))
@@ -89,11 +98,7 @@ export const AlertDialogAction = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Action>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Action>
 >(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Action
-    ref={ref}
-    className={cn(buttonVariants(), className)}
-    {...props}
-  />
+  <AlertDialogPrimitive.Action ref={ref} className={cn(buttonVariants(), className)} {...props} />
 ))
 AlertDialogAction.displayName = AlertDialogPrimitive.Action.displayName
 
