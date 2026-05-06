@@ -1,12 +1,19 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
-/* Design tokens.
- * All semantic tokens are declared as CSS variables in :root / .dark, then
- * wired into Tailwind's theme via @theme inline. This is the canonical
- * shadcn pattern adapted to Tailwind v4. */
+/**
+ * Strimz design tokens — lifted directly from `strimz-subscription`'s
+ * `tailwind.config.ts`. Light mode only; the legacy `.dark` selector and
+ * `@custom-variant dark` declaration are intentionally removed.
+ *
+ * Brand:
+ *   accent  = #02C76A  — every CTA + active state
+ *   primary = #050020  — every dark surface + headline
+ *
+ * Shadcn semantic tokens (background, card, popover, secondary, muted,
+ * destructive, border, input, ring, chart) keep their HSL-variable
+ * indirection so consuming primitives behave normally.
+ */
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -17,17 +24,19 @@
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
 
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
+  /* Brand: accent (green CTA) + primary (dark navy) — direct hex, exactly
+   * as strimz-subscription declares them. */
+  --color-accent: #02c76a;
+  --color-accent-foreground: #ffffff;
+
+  --color-primary: #050020;
+  --color-primary-foreground: #ffffff;
 
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
 
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
-
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
 
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
@@ -36,22 +45,30 @@
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
 
-  /* Strimz brand ramps — use as `bg-strimz-500`, `text-strimz-600`, etc. */
-  --color-strimz-50: #e6fbf0;
-  --color-strimz-100: #c1f5d9;
-  --color-strimz-200: #8cecbc;
-  --color-strimz-300: #4fe199;
-  --color-strimz-400: #1fd47e;
-  --color-strimz-500: #02c76a;
-  --color-strimz-600: #02a25a;
-  --color-strimz-700: #017f47;
-  --color-strimz-800: #025e36;
-  --color-strimz-900: #02402a;
-  --color-strimz-950: #012218;
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
 
-  /* Fonts — wired via CSS variables set by the consuming Next.js app. */
+  /* Brand neutrals — used directly across pages. Match
+   * strimz-subscription's hard-coded values so the visual rhythm is the
+   * same. */
+  --color-brand-muted: #58556a;
+  --color-brand-soft: #f9fafb;
+  --color-brand-line: #e5e7eb;
+  --color-brand-subtle: #d1d5db;
+  --color-brand-placeholder: #8e8c9c;
+
+  /* Accent variants used in gradients */
+  --color-accent-bright: #03fc86;
+  --color-accent-soft: #95fecc;
+  --color-accent-deep: #028d4b;
+
   --font-sans: var(--font-poppins), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-display: var(--font-sora), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-poppins: var(--font-poppins), ui-sans-serif, sans-serif;
+  --font-sora: var(--font-sora), ui-sans-serif, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
@@ -62,66 +79,37 @@
 
 @layer base {
   :root {
+    /* Pure light-mode token set — neutral grayscale per shadcn's default,
+     * matching strimz-subscription's :root block. */
     --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --foreground: 0 0% 3.9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 0 0% 3.9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
+    --popover-foreground: 0 0% 3.9%;
 
-    /* Strimz primary: #02C76A → HSL(149.8, 97.5%, 39.8%) */
-    --primary: 150 98% 40%;
-    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
 
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 150 98% 40%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
 
-    --radius: 0.625rem;
-  }
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-
-    --card: 240 10% 6%;
-    --card-foreground: 0 0% 98%;
-
-    --popover: 240 10% 6%;
-    --popover-foreground: 0 0% 98%;
-
-    --primary: 150 98% 45%;
-    --primary-foreground: 0 0% 7%;
-
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-
-    --destructive: 0 62.8% 50.6%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 150 98% 45%;
+    --radius: 0.5rem;
   }
 
   * {

@@ -50,11 +50,16 @@ export default function DashboardHome() {
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
-        <Card className="strimz-card-shadow border-border/60 lg:col-span-2">
+        <Card className="shadow-sub-card border-border/60 lg:col-span-2">
           <CardContent className="p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="font-poppins font-semibold">Get started</h3>
-              <Link href="/docs/getting-started" className="text-xs font-medium text-[#02C76A] hover:underline">
+              <Link
+                href="/docs/quickstart"
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-medium text-[#02C76A] hover:underline"
+              >
                 Open the docs →
               </Link>
             </div>
@@ -79,7 +84,7 @@ export default function DashboardHome() {
           </CardContent>
         </Card>
 
-        <Card className="strimz-card-shadow border-border/60">
+        <Card className="shadow-sub-card border-border/60">
           <CardContent className="p-6">
             <h3 className="font-poppins font-semibold">Live mode readiness</h3>
             <p className="mt-1 text-xs text-muted-foreground">

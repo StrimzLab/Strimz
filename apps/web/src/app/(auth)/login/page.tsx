@@ -23,16 +23,16 @@ export default function LoginPage() {
 
   return (
     <AuthCard
-      title="Log in to Strimz"
-      description="Use the same email, wallet, or social account you signed up with."
+      title="Welcome back"
+      description="Sign in with the same email, wallet, or social account you used last time."
     >
       <SubmitButton type="button" onClick={handleLogin}>
         Continue
         <ArrowRight className="size-4" />
       </SubmitButton>
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      <p className="mt-6 text-center font-poppins text-sm text-[#58556A]">
         New to Strimz?{' '}
-        <Link href="/signup" className="font-medium text-foreground hover:underline">
+        <Link href="/signup" className="font-[500] text-[#050020] hover:underline">
           Create an account
         </Link>
       </p>

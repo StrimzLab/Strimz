@@ -42,7 +42,7 @@ export function ResourceList<T extends { id: string }>({
     )
   }
   return (
-    <div className="strimz-card-shadow overflow-hidden rounded-xl border border-border/60 bg-background">
+    <div className="shadow-sub-card overflow-hidden rounded-xl border border-border/60 bg-background">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/40">

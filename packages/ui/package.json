@@ -5,7 +5,9 @@
   "description": "Shared shadcn/ui primitives configured with Strimz brand tokens. Distributed as source; consuming apps compile Tailwind.",
   "license": "MIT",
   "type": "module",
-  "sideEffects": ["**/*.css"],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "main": "./src/index.ts",
   "module": "./src/index.ts",
   "types": "./src/index.ts",
@@ -32,7 +34,10 @@
       "default": "./src/providers/*.tsx"
     }
   },
-  "files": ["src", "README.md"],
+  "files": [
+    "src",
+    "README.md"
+  ],
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -58,7 +63,8 @@
     "next-themes": "^0.4.4",
     "sonner": "^1.7.2",
     "tailwind-merge": "^2.6.0",
-    "tw-animate-css": "^1.1.3"
+    "tw-animate-css": "^1.1.3",
+    "@radix-ui/react-accordion": "^1.2.12"
   },
   "peerDependencies": {
     "@hookform/resolvers": "^3.9.1 || ^4.0.0",

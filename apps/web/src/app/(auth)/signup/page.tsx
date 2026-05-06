@@ -10,21 +10,21 @@ import { AuthCard } from '@/components/auth/auth-card'
 import { SubmitButton } from '@/components/auth/submit-button'
 import { env } from '@/lib/env'
 
-declare global {
-  interface Window {
-    turnstile?: {
-      render: (
-        el: HTMLElement,
-        opts: {
-          sitekey: string
-          callback: (token: string) => void
-          'error-callback'?: () => void
-          theme?: 'light' | 'dark' | 'auto'
-        },
-      ) => string
-      reset: (id?: string) => void
-    }
-  }
+interface TurnstileApi {
+  render: (
+    el: HTMLElement,
+    opts: {
+      sitekey: string
+      callback: (token: string) => void
+      'error-callback'?: () => void
+      theme?: 'light' | 'dark' | 'auto'
+    },
+  ) => string
+  reset: (id?: string) => void
+}
+
+function getTurnstile(): TurnstileApi | undefined {
+  return (window as unknown as { turnstile?: TurnstileApi }).turnstile
 }
 
 export default function SignupPage() {
@@ -43,8 +43,9 @@ export default function SignupPage() {
     s.dataset.strimzTurnstile = 'true'
     s.onload = () => {
       const widget = document.getElementById('strimz-turnstile')
-      if (widget && window.turnstile) {
-        window.turnstile.render(widget, {
+      const turnstile = getTurnstile()
+      if (widget && turnstile) {
+        turnstile.render(widget, {
           sitekey: env.turnstileSiteKey,
           callback: (token) => setTurnstileToken(token),
         })
@@ -68,7 +69,7 @@ export default function SignupPage() {
         })
         if (!r.ok) {
           toast.error('Bot protection failed — please try again.')
-          window.turnstile?.reset()
+          getTurnstile()?.reset()
           setTurnstileToken(null)
           return
         }
@@ -87,33 +88,29 @@ export default function SignupPage() {
   return (
     <AuthCard
       title="Create your Strimz account"
-      description="Email, wallet, or Google. Two minutes to your API keys."
+      description="Sign up with email, your wallet, or Google. It takes about two minutes."
     >
       {env.turnstileSiteKey ? (
         <div id="strimz-turnstile" className="mb-5 flex justify-center" />
-      ) : (
-        <p className="mb-5 rounded-md bg-muted/50 p-3 text-center text-xs text-muted-foreground">
-          Bot-protection (Turnstile) is disabled in this environment.
-        </p>
-      )}
+      ) : null}
 
       <SubmitButton isLoading={verifying} onClick={handleStart} type="button">
         Continue
         <ArrowRight className="size-4" />
       </SubmitButton>
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      <p className="mt-6 text-center font-poppins text-sm text-[#58556A]">
         Already have an account?{' '}
-        <Link href="/login" className="font-medium text-foreground hover:underline">
+        <Link href="/login" className="font-[500] text-[#050020] hover:underline">
           Log in
         </Link>
       </p>
 
-      <p className="mt-6 text-center text-xs text-muted-foreground">
+      <p className="mt-6 text-center font-poppins text-xs text-[#58556A]">
         By continuing you agree to our{' '}
-        <Link href="/legal/terms" className="underline underline-offset-2">Terms</Link>{' '}
+        <Link href="/legal/terms" target="_blank" rel="noreferrer" className="underline underline-offset-2">Terms</Link>{' '}
         and{' '}
-        <Link href="/legal/privacy" className="underline underline-offset-2">Privacy Policy</Link>.
+        <Link href="/legal/privacy" target="_blank" rel="noreferrer" className="underline underline-offset-2">Privacy Policy</Link>.
       </p>
     </AuthCard>
   )

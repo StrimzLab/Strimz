@@ -1,26 +1,16 @@
 import { DocsLayout } from 'fumadocs-ui/layouts/docs'
+import { RootProvider } from 'fumadocs-ui/provider'
 import { source } from '@/lib/source'
+import { baseOptions } from '@/lib/layout.shared'
 import 'fumadocs-ui/style.css'
+import '@/styles/docs.css'
 
 export default function DocsRootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <DocsLayout
-      tree={source.pageTree}
-      nav={{
-        title: (
-          <span className="inline-flex items-center gap-2 font-semibold">
-            <span className="inline-block size-5 rounded-md bg-[#02C76A]" />
-            Strimz
-          </span>
-        ),
-        url: '/',
-      }}
-      links={[
-        { text: 'Dashboard', url: '/app' },
-        { text: 'Pricing', url: '/pricing' },
-      ]}
-    >
-      {children}
-    </DocsLayout>
+    <RootProvider theme={{ enabled: false }}>
+      <DocsLayout tree={source.pageTree} {...baseOptions()}>
+        {children}
+      </DocsLayout>
+    </RootProvider>
   )
 }

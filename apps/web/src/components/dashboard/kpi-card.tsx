@@ -26,7 +26,7 @@ export function KpiCard({
       transition={{ type: 'spring', stiffness: 240, damping: 18 }}
     >
       <Link href={href} className="group block">
-        <Card className="strimz-card-shadow border-border/60 transition-colors hover:border-[#02C76A]/40">
+        <Card className="shadow-sub-card border-border/60 transition-colors hover:border-[#02C76A]/40">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="text-sm font-medium text-muted-foreground">{label}</div>

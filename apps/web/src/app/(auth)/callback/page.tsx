@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { usePrivy, useGetAccessToken } from '@privy-io/react-auth'
+import { usePrivy, getAccessToken } from '@privy-io/react-auth'
 import { Loader2 } from 'lucide-react'
 import { AuthCard } from '@/components/auth/auth-card'
 import { env } from '@/lib/env'
@@ -10,7 +10,6 @@ import { env } from '@/lib/env'
 export default function AuthCallbackPage() {
   const router = useRouter()
   const privy = usePrivyOrNull()
-  const getToken = useGetAccessToken?.() ?? null
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -26,7 +25,7 @@ export default function AuthCallbackPage() {
 
   async function doSync() {
     try {
-      const accessToken = getToken ? await getToken() : null
+      const accessToken = await getAccessToken()
       if (!accessToken) return setError('No access token from Privy')
       const r = await fetch(`${env.apiUrl}/v1/auth/sync`, {
         method: 'POST',
@@ -42,10 +41,13 @@ export default function AuthCallbackPage() {
   }
 
   return (
-    <AuthCard title="Signing you in…" description={error ?? 'One moment.'}>
+    <AuthCard
+      title="Signing you in"
+      description={error ?? 'Hold on a moment.'}
+    >
       <div className="flex justify-center py-4">
         {error ? (
-          <p className="text-sm text-rose-500">{error}</p>
+          <p className="font-poppins text-sm text-rose-600">{error}</p>
         ) : (
           <Loader2 className="size-6 animate-spin text-[#02C76A]" />
         )}

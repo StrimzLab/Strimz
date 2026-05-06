@@ -1,5 +1,7 @@
 import { Hero } from '@/components/marketing/hero'
 import { SocialProof } from '@/components/marketing/social-proof'
+import { HowItWorks } from '@/components/marketing/how-it-works'
+import { StatsBand } from '@/components/marketing/stats-band'
 import { Features } from '@/components/marketing/features'
 import { Benefits } from '@/components/marketing/benefits'
 import { Developers } from '@/components/marketing/developers'
@@ -12,6 +14,8 @@ export default function HomePage() {
     <>
       <Hero />
       <SocialProof />
+      <HowItWorks />
+      <StatsBand />
       <Features />
       <Benefits />
       <Developers />

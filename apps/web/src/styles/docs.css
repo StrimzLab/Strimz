@@ -1,0 +1,89 @@
+/**
+ * Strimz brand overrides for Fumadocs UI. Imported by the docs layout
+ * after `fumadocs-ui/style.css` so these declarations win.
+ *
+ * Strategy: keep neutral-grayscale surfaces (matches our light-only
+ * design) but replace the default neutral primary with Strimz green
+ * (#02C76A) so active sidebar links, link underlines, copy-button
+ * highlights, and TOC indicators all read as on-brand.
+ */
+
+:root {
+  /* Surfaces */
+  --fd-background: 0 0% 100%;
+  --fd-foreground: 240 10% 3.9%;
+
+  --fd-muted: 220 14% 96%;
+  --fd-muted-foreground: 240 4% 46%;
+
+  --fd-popover: 0 0% 100%;
+  --fd-popover-foreground: 240 10% 3.9%;
+
+  --fd-card: 0 0% 100%;
+  --fd-card-foreground: 240 10% 3.9%;
+
+  --fd-border: 220 13% 91%;
+  --fd-ring: 150 98% 40%;
+
+  --fd-secondary: 220 14% 96%;
+  --fd-secondary-foreground: 240 10% 3.9%;
+
+  /* Brand: green primary + soft accent */
+  --fd-primary: 150 98% 40%;
+  --fd-primary-foreground: 0 0% 100%;
+
+  --fd-accent: 150 98% 95%;
+  --fd-accent-foreground: 240 10% 3.9%;
+}
+
+/* Strimz fonts on docs surface (Sora for headings, Poppins for body). */
+.fd-page,
+[data-fd-content],
+article {
+  font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+}
+.fd-page h1,
+.fd-page h2,
+.fd-page h3,
+.fd-page h4,
+.fd-page h5,
+.fd-page h6,
+[data-fd-content] h1,
+[data-fd-content] h2,
+[data-fd-content] h3,
+[data-fd-content] h4 {
+  font-family: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.015em;
+}
+
+/* Lift the headline weight on h1 to match the marketing pages. */
+[data-fd-content] h1 {
+  font-weight: 700;
+}
+
+/* Brand accent on the small "On this page" indicator. */
+[data-fd-toc] [data-active='true'] {
+  color: #02c76a;
+}
+
+/* Inline `code` chips */
+[data-fd-content] code:not(pre code) {
+  background-color: rgb(243, 244, 246);
+  color: #050020;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-size: 0.875em;
+  border: 1px solid rgb(229, 231, 235);
+}
+
+/* Soft top + bottom rule on h2s — quiet visual rhythm */
+[data-fd-content] h2 {
+  padding-top: 0.25rem;
+  border-top: 1px solid rgb(229, 231, 235);
+  margin-top: 2rem;
+}
+[data-fd-content] h2:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 1.5rem;
+}

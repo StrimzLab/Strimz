@@ -1,30 +1,77 @@
 import Link from 'next/link'
-import { AuroraBackground, AuroraGrid } from '@/components/effects/aurora-background'
+import Image from 'next/image'
 import { Logo } from '@/components/shared/logo'
-import { ThemeToggle } from '@/components/theme-toggle'
+import authPattern from '@/../public/patterns/authPattern.png'
+import authPattern2 from '@/../public/patterns/authPattern2.png'
 
+/**
+ * Two-column auth shell — direct match to strimz-subscription's auth
+ * layout. Dark navy left panel with the white logo + tagline + decorative
+ * pattern overlays; light right panel hosts the form.
+ *
+ * On mobile the left panel is hidden; the right panel takes the full
+ * viewport (with a small in-page logo so users still see brand).
+ */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      <AuroraBackground />
-      <AuroraGrid />
+    <div className="grid min-h-screen w-full md:grid-cols-8">
+      {/* Left — dark panel (hidden on mobile) */}
+      <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#050020] p-10 text-white md:col-span-3 md:flex lg:p-12">
+        <Image
+          src={authPattern}
+          alt=""
+          aria-hidden
+          fill
+          priority
+          quality={100}
+          className="pointer-events-none absolute inset-0 -bottom-12 -left-12 object-cover opacity-[0.18] mix-blend-screen"
+        />
+        <Image
+          src={authPattern2}
+          alt=""
+          aria-hidden
+          fill
+          priority
+          quality={100}
+          className="pointer-events-none absolute -bottom-16 -right-12 object-cover opacity-[0.12] mix-blend-screen"
+        />
 
-      <header className="relative z-10 mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Logo />
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
+        <div className="relative z-10">
+          <Logo variant="white" className="w-[101px]" />
+        </div>
+
+        <div className="relative z-10 max-w-sm space-y-5">
+          <h2 className="font-sora text-[28px] font-[700] leading-[36px] text-white lg:text-[34px] lg:leading-[42px]">
+            Stablecoin billing infrastructure for the next billion businesses.
+          </h2>
+          <p className="font-poppins text-[14px] leading-[24px] text-[#D1D5DB]">
+            One API. Settled in USDC on Arc. Gas-free for your customers, instant payouts for you.
+          </p>
+        </div>
+
+        <div className="relative z-10 flex items-center gap-2 font-poppins text-[12px] text-[#D1D5DB]">
+          <span className="size-1.5 rounded-full bg-[#02C76A]" />
+          Live on Arc
+        </div>
+      </aside>
+
+      {/* Right — form panel */}
+      <section className="relative flex flex-col bg-[#F9FAFB] md:col-span-5">
+        <header className="flex items-center justify-between px-4 py-5 sm:px-8 md:px-10">
+          <Logo className="md:hidden" />
+          <span className="hidden md:block" />
           <Link
             href="/"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="font-poppins text-sm text-[#58556A] transition-colors hover:text-[#050020]"
           >
             Back to site
           </Link>
-        </div>
-      </header>
+        </header>
 
-      <main className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md items-center px-4 pb-16 sm:px-6">
-        {children}
-      </main>
+        <div className="flex flex-1 items-center justify-center px-4 pb-16 sm:px-8">
+          {children}
+        </div>
+      </section>
     </div>
   )
 }

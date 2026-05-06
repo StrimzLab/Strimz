@@ -2,80 +2,207 @@
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { ArrowRight, Code2 } from 'lucide-react'
-import { Badge } from '@strimz/ui'
+import { ArrowRight, Code2, Server, Globe2, FileCode2 } from 'lucide-react'
 import { fadeUp, inViewOnce, stagger } from '@/lib/motion'
+import { PaddedLines } from '@/components/shared/padded-lines'
+import { CodeBlock } from '@/components/shared/code-block'
 
-const TABS = [
-  { id: 'server', label: '@strimz/sdk', desc: 'Server' },
-  { id: 'react', label: '@strimz/sdk-react', desc: 'React' },
-  { id: 'spec', label: 'OpenAPI 3.1', desc: 'Spec' },
+const PACKAGES = [
+  {
+    icon: Server,
+    name: '@strimz/sdk',
+    runtime: 'Server SDK',
+    desc: 'TypeScript client for Node 18+ and Bun. Every response is Zod-validated. Retries are idempotent by default.',
+    install: 'pnpm add @strimz/sdk',
+  },
+  {
+    icon: Code2,
+    name: '@strimz/sdk-react',
+    runtime: 'React SDK',
+    desc: 'Drop in <StrimzPayButton/> or our embedded checkout. Read-only hooks for client components. Uses publishable keys, so it’s safe in the browser.',
+    install: 'pnpm add @strimz/sdk-react',
+  },
+  {
+    icon: FileCode2,
+    name: 'openapi.json',
+    runtime: 'OpenAPI 3.1 schema',
+    desc: 'Every endpoint described in a machine-readable file. Open it in Postman or Insomnia, or generate a client in any language.',
+    install: 'curl https://api.strimz.finance/openapi.json',
+  },
 ] as const
 
-export function Developers() {
-  return (
-    <section className="border-y border-border/40 bg-muted/20">
-      <div className="mx-auto grid max-w-7xl items-center gap-16 px-4 py-24 sm:px-6 lg:grid-cols-2">
-        <motion.div {...inViewOnce} variants={stagger(0.05, 0.1)}>
-          <motion.div variants={fadeUp}>
-            <Badge className="mb-4 bg-[#02C76A]/10 text-[#02C76A] hover:bg-[#02C76A]/15">Developers</Badge>
-          </motion.div>
-          <motion.h2 variants={fadeUp} className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-            SDKs that feel like Stripe.
-          </motion.h2>
-          <motion.p variants={fadeUp} className="mt-4 text-muted-foreground">
-            Server SDK for Node + Bun. React SDK for embedded checkout. Webhook signatures use
-            the Stripe-style{' '}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-sm">t=…,v1=…</code> format
-            with 5-minute replay tolerance.
-          </motion.p>
-
-          <motion.div variants={fadeUp} className="mt-8 grid gap-3 sm:grid-cols-3">
-            {TABS.map((p) => (
-              <div key={p.id} className="strimz-card-shadow rounded-lg border border-border/60 bg-background p-4">
-                <div className="font-mono text-sm">{p.label}</div>
-                <div className="mt-1 text-xs text-muted-foreground">{p.desc}</div>
-              </div>
-            ))}
-          </motion.div>
-
-          <motion.div variants={fadeUp} className="mt-8">
-            <Link
-              href="/docs"
-              className="strimz-cta-shadow inline-flex h-11 items-center gap-2 rounded-md bg-[#02C76A] px-5 text-sm font-medium text-white"
-            >
-              <Code2 className="size-4" />
-              Open the docs
-              <ArrowRight className="size-4" />
-            </Link>
-          </motion.div>
-        </motion.div>
-
-        <motion.div {...inViewOnce} variants={fadeUp} className="relative">
-          <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-[#02C76A]/30 via-cyan-400/15 to-transparent blur-2xl" />
-          <div className="strimz-card-shadow relative overflow-hidden rounded-xl border border-border/60 bg-[#050020] text-white">
-            <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5 text-white/70">
-              <span className="size-2.5 rounded-full bg-rose-500" />
-              <span className="size-2.5 rounded-full bg-amber-500" />
-              <span className="size-2.5 rounded-full bg-emerald-500" />
-              <span className="ml-3 font-mono text-xs">checkout.tsx</span>
-            </div>
-            <pre className="overflow-x-auto p-5 font-mono text-sm leading-relaxed text-white/90">
-              <code>{`'use client'
+const CHECKOUT_SAMPLE = `'use client'
 import { StrimzPayButton } from '@strimz/sdk-react'
 
-export function Checkout() {
+export function Checkout({ session }) {
   return (
     <StrimzPayButton
       sessionId={session.id}
       onSuccess={(tx) => router.push('/thanks')}
+      onError={(err) => toast.error(err.message)}
     />
   )
-}`}</code>
-            </pre>
-          </div>
+}`
+
+const WEBHOOK_SAMPLE = `import { verifyWebhookSignature } from '@strimz/sdk'
+
+app.post('/webhooks/strimz', (req, res) => {
+  const ok = verifyWebhookSignature({
+    secret: process.env.STRIMZ_WEBHOOK_SECRET,
+    body: req.rawBody,
+    signatureHeader: req.headers['strimz-signature'],
+  })
+  if (!ok) return res.status(401).end()
+
+  const event = JSON.parse(req.rawBody.toString())
+  // ... handle event ...
+  res.status(200).end()
+})`
+
+/**
+ * Developer-focused band. Light background to ground the eye between
+ * Benefits and PricingTeaser. Three SDK cards stacked at the top, two
+ * code samples (browser-side checkout + server-side webhook verify)
+ * side-by-side below.
+ */
+export function Developers() {
+  return (
+    <>
+      <section className="w-full bg-[#F3F4F6] px-4 py-20 md:px-6 lg:py-24">
+        <motion.div
+          {...inViewOnce}
+          variants={stagger(0.05, 0.1)}
+          className="mx-auto max-w-[760px] text-center"
+        >
+          <motion.span
+            variants={fadeUp}
+            className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 font-poppins text-[12px] font-[600] text-[#050020] shadow-sub-card ring-1 ring-black/5"
+          >
+            <span className="size-1.5 rounded-full bg-[#02C76A]" />
+            Developer-first
+          </motion.span>
+          <motion.h2
+            variants={fadeUp}
+            className="mt-5 font-sora text-[32px] font-[700] leading-[40px] text-[#050020] md:text-[44px] md:leading-[52px]"
+          >
+            One API. Three ways to integrate.
+          </motion.h2>
+          <motion.p
+            variants={fadeUp}
+            className="mt-4 font-poppins text-base font-[400] leading-[28px] text-[#58556A]"
+          >
+            Use the server SDK from Node or Bun. Drop the React SDK into your app for embedded
+            checkout. For other languages, generate a client from our OpenAPI schema. Webhooks
+            come signed with HMAC-SHA256.
+          </motion.p>
         </motion.div>
-      </div>
-    </section>
+
+        {/* Package cards — stacked vertically so each has full width */}
+        <motion.div
+          {...inViewOnce}
+          variants={stagger(0.05, 0.08)}
+          className="mx-auto mt-12 grid max-w-[1100px] gap-3"
+        >
+          {PACKAGES.map((p) => (
+            <motion.div
+              key={p.name}
+              variants={fadeUp}
+              className="flex flex-col items-start justify-between gap-4 rounded-[16px] border border-[#E5E7EB] bg-white p-5 shadow-sub-card transition-colors hover:border-[#02C76A]/40 md:flex-row md:items-center md:p-6"
+            >
+              <div className="flex items-start gap-4 md:items-center">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-[#02C76A]/10 text-[#02C76A] shadow-sub-icon">
+                  <p.icon className="size-5" />
+                </span>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <code className="font-mono text-[15px] font-[600] text-[#050020]">{p.name}</code>
+                    <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 font-poppins text-[11px] font-[500] text-[#58556A]">
+                      {p.runtime}
+                    </span>
+                  </div>
+                  <p className="mt-1 max-w-xl font-poppins text-[13px] leading-[20px] text-[#58556A]">
+                    {p.desc}
+                  </p>
+                </div>
+              </div>
+              <code className="w-full shrink-0 rounded-[8px] border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 font-mono text-[12px] text-[#050020] md:w-auto">
+                {p.install}
+              </code>
+            </motion.div>
+          ))}
+        </motion.div>
+
+        {/* Two code samples side-by-side */}
+        <motion.div
+          {...inViewOnce}
+          variants={stagger(0.05, 0.08)}
+          className="mx-auto mt-10 grid max-w-[1100px] gap-4 lg:grid-cols-2"
+        >
+          <motion.div variants={fadeUp} className="relative min-w-0">
+            <div className="absolute -inset-3 rounded-[20px] bg-gradient-to-br from-[#02C76A]/15 via-transparent to-transparent blur-2xl" aria-hidden />
+            <div className="relative flex h-full flex-col overflow-hidden rounded-[12px] border border-[#E5E7EB] bg-[#050020] shadow-sub-card">
+              <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
+                <span className="size-2.5 rounded-full bg-rose-500" />
+                <span className="size-2.5 rounded-full bg-amber-500" />
+                <span className="size-2.5 rounded-full bg-emerald-500" />
+                <span className="ml-3 font-mono text-[11px] text-white/60">checkout.tsx</span>
+                <span className="ml-auto rounded-full bg-white/5 px-2 py-0.5 font-poppins text-[10px] text-white/60">
+                  Client
+                </span>
+              </div>
+              <div className="flex-1 p-5">
+                <CodeBlock code={CHECKOUT_SAMPLE} language="tsx" tone="dark" />
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div variants={fadeUp} className="relative min-w-0">
+            <div className="absolute -inset-3 rounded-[20px] bg-gradient-to-br from-[#02C76A]/15 via-transparent to-transparent blur-2xl" aria-hidden />
+            <div className="relative flex h-full flex-col overflow-hidden rounded-[12px] border border-[#E5E7EB] bg-[#050020] shadow-sub-card">
+              <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
+                <span className="size-2.5 rounded-full bg-rose-500" />
+                <span className="size-2.5 rounded-full bg-amber-500" />
+                <span className="size-2.5 rounded-full bg-emerald-500" />
+                <span className="ml-3 font-mono text-[11px] text-white/60">webhooks.ts</span>
+                <span className="ml-auto rounded-full bg-white/5 px-2 py-0.5 font-poppins text-[10px] text-white/60">
+                  Server
+                </span>
+              </div>
+              <div className="flex-1 p-5">
+                <CodeBlock code={WEBHOOK_SAMPLE} language="ts" tone="dark" />
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* CTA bar */}
+        <motion.div
+          {...inViewOnce}
+          variants={fadeUp}
+          className="mx-auto mt-10 flex max-w-[1100px] flex-col items-center justify-between gap-4 rounded-[16px] border border-[#E5E7EB] bg-white p-6 shadow-sub-card md:flex-row md:p-7"
+        >
+          <div className="flex items-center gap-3">
+            <Globe2 className="size-5 shrink-0 text-[#02C76A]" />
+            <p className="font-poppins text-sm text-[#050020]">
+              <span className="font-[600]">Want the full reference?</span>{' '}
+              <span className="text-[#58556A]">
+                Every endpoint, parameter, and webhook event is documented.
+              </span>
+            </p>
+          </div>
+          <Link
+            href="/docs"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-[44px] shrink-0 items-center gap-2 whitespace-nowrap rounded-[8px] bg-[#02C76A] px-5 font-poppins text-[14px] font-[600] text-white shadow-cta transition-transform hover:scale-[1.02]"
+          >
+            <Code2 className="size-4" />
+            Open the docs
+            <ArrowRight className="size-4" />
+          </Link>
+        </motion.div>
+      </section>
+      <PaddedLines />
+    </>
   )
 }

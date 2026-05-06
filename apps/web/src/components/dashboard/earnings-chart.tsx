@@ -13,7 +13,7 @@ import {
 } from 'recharts'
 import { Card, CardContent } from '@strimz/ui'
 
-const SAMPLE = [
+const SAMPLE: Array<{ day: string; volume: number }> = [
   { day: 'Day 1', volume: 0 },
   { day: 'Day 2', volume: 320 },
   { day: 'Day 3', volume: 280 },
@@ -21,7 +21,7 @@ const SAMPLE = [
   { day: 'Day 5', volume: 480 },
   { day: 'Day 6', volume: 720 },
   { day: 'Day 7', volume: 850 },
-] as const
+]
 
 /**
  * Earnings chart card — direct port of the prior business-dashboard
@@ -38,14 +38,14 @@ export function EarningsChart() {
         <h3 className="font-sora text-lg font-semibold">Earnings</h3>
         <button
           type="button"
-          className="strimz-card-shadow inline-flex h-9 items-center gap-1.5 rounded-md border border-border/60 bg-background px-3 text-sm transition-colors hover:bg-muted"
+          className="shadow-sub-card inline-flex h-9 items-center gap-1.5 rounded-md border border-border/60 bg-background px-3 text-sm transition-colors hover:bg-muted"
         >
           <Calendar className="size-4" />
           Last 7 days
         </button>
       </div>
 
-      <Card className="strimz-card-shadow border-border/60">
+      <Card className="shadow-sub-card border-border/60">
         <CardContent className="grid gap-4 p-6 lg:grid-cols-4 lg:gap-0">
           <div className="space-y-4 lg:col-span-3 lg:pr-6">
             <div>

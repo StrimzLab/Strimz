@@ -1,27 +1,135 @@
 'use client'
 
-import { Users } from 'lucide-react'
+import * as React from 'react'
+import { Download, MoreHorizontal, Mail, Eye, Copy } from 'lucide-react'
+import type { ColumnDef } from '@tanstack/react-table'
+import { toast } from 'sonner'
+import {
+  Button,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
+} from '@strimz/ui'
 import { PageHeader } from '@/components/dashboard/page-header'
-import { ResourceList } from '@/components/dashboard/resource-list'
+import { DataTable } from '@/components/dashboard/data-table'
+import { downloadCsv } from '@/lib/csv-export'
+import { CUSTOMERS, type Customer } from '@/data/customers'
+import { formatUsdc, relativeTime, shortAddress } from '@/data/_seed'
 
 export default function CustomersPage() {
+  const totalLtv = CUSTOMERS.reduce((s, c) => s + c.totalSpentUsdc, 0)
+  const withSubs = CUSTOMERS.filter((c) => c.activeSubscriptions > 0).length
+
+  const columns: ColumnDef<Customer>[] = React.useMemo(() => [
+    {
+      accessorKey: 'name',
+      header: 'Customer',
+      cell: ({ row }) => (
+        <div className="flex flex-col leading-tight">
+          <span className="font-medium">{row.original.name ?? 'Anonymous'}{row.original.company ? ` · ${row.original.company}` : ''}</span>
+          <span className="text-xs text-muted-foreground">{row.original.email ?? '— no email on file'}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'walletAddress',
+      header: 'Wallet',
+      cell: ({ row }) => <code className="text-xs">{shortAddress(row.original.walletAddress)}</code>,
+    },
+    {
+      accessorKey: 'totalSpentUsdc',
+      header: 'Lifetime spend',
+      cell: ({ row }) => <span className="font-mono">{formatUsdc(row.original.totalSpentUsdc)} USDC</span>,
+    },
+    {
+      accessorKey: 'transactionCount',
+      header: 'Transactions',
+      cell: ({ row }) => <span className="text-muted-foreground">{row.original.transactionCount}</span>,
+    },
+    {
+      accessorKey: 'activeSubscriptions',
+      header: 'Active subs',
+      cell: ({ row }) =>
+        row.original.activeSubscriptions > 0
+          ? <span className="rounded-full bg-[#02C76A]/10 px-2 py-0.5 text-xs font-medium text-[#02C76A]">{row.original.activeSubscriptions}</span>
+          : <span className="text-muted-foreground">0</span>,
+    },
+    {
+      accessorKey: 'lastSeenAt',
+      header: 'Last activity',
+      cell: ({ row }) => <span className="text-muted-foreground">{relativeTime(row.original.lastSeenAt)}</span>,
+    },
+    {
+      id: 'actions',
+      header: '',
+      enableHiding: false,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="size-8 p-0"><MoreHorizontal className="size-4" /></Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(row.original.walletAddress).then(() => toast.success('Wallet copied'))}>
+              <Copy className="mr-2 size-4" /> Copy wallet
+            </DropdownMenuItem>
+            <DropdownMenuItem><Eye className="mr-2 size-4" /> View timeline</DropdownMenuItem>
+            {row.original.email ? (
+              <DropdownMenuItem><Mail className="mr-2 size-4" /> Email customer</DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ], [])
+
   return (
-    <>
+    <div className="space-y-6">
       <PageHeader
         title="Customers"
-        description="Every wallet that's paid you. Indexed automatically — no row to create manually."
+        description="Everyone who has paid you. We add a customer here automatically the first time a wallet pays you."
+        action={
+          <Button variant="outline" size="sm" onClick={() => {
+            downloadCsv('customers.csv', CUSTOMERS, [
+              { key: 'id', header: 'ID' },
+              { key: 'walletAddress', header: 'Wallet' },
+              { key: 'email', header: 'Email' },
+              { key: 'name', header: 'Name' },
+              { key: 'company', header: 'Company' },
+              { key: 'totalSpentUsdc', header: 'Total spent (smallest units)' },
+              { key: 'transactionCount', header: 'Transactions' },
+              { key: 'activeSubscriptions', header: 'Active subs' },
+              { key: 'createdAt', header: 'Created' },
+              { key: 'lastSeenAt', header: 'Last seen' },
+            ])
+            toast.success('Exported customers.csv')
+          }}>
+            <Download className="mr-1.5 size-4" /> Export CSV
+          </Button>
+        }
       />
-      <ResourceList<{ id: string; email: string; walletAddress: string; lastSeenAt: string }>
-        rows={[]}
-        emptyIcon={Users}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Stat label="Total customers" value={CUSTOMERS.length.toLocaleString()} />
+        <Stat label="With active subscription" value={withSubs.toLocaleString()} />
+        <Stat label="Combined LTV" value={`${formatUsdc(totalLtv)} USDC`} />
+      </div>
+
+      <DataTable
+        columns={columns}
+        data={CUSTOMERS}
+        searchPlaceholder="Search by name, email, wallet…"
         emptyTitle="No customers yet"
-        emptyDescription="Customers appear here automatically the first time a wallet pays one of your sessions or subscriptions."
-        columns={[
-          { key: 'email', header: 'Email', render: (r) => r.email ?? '—' },
-          { key: 'wallet', header: 'Wallet', render: (r) => <code className="text-xs">{r.walletAddress}</code> },
-          { key: 'last', header: 'Last seen', render: (r) => r.lastSeenAt },
-        ]}
+        emptyDescription="Once a wallet pays you, they show up here automatically."
       />
-    </>
+    </div>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="shadow-sub-card rounded-xl border border-border/60 bg-background p-4">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="mt-1 font-sora text-2xl font-semibold">{value}</div>
+    </div>
   )
 }
