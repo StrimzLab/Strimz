@@ -3,7 +3,9 @@ title: Idempotency
 description: How Strimz makes sure retries are safe — at the API, at the scheduler, and on-chain.
 ---
 
-Idempotency is the property that running an operation twice has the same effect as running it once. Without it, a network blip during a refund call can quietly double-refund a customer. Strimz enforces it at three layers; the result is that every retry path you'd ever build is safe to retry as many times as you like.
+Idempotency means you can run the same operation more than once and only see the effect once. It matters because, without it, a network blip during a refund could double-refund a customer.
+
+Strimz enforces idempotency at three layers, so any retry you write on top is safe to run as many times as you need.
 
 ## At the API
 

@@ -3,51 +3,146 @@ title: Quickstart
 description: Sign up, get a key, send a test payment, wire a webhook. About five minutes.
 ---
 
-This page gets you from zero to a confirmed test transaction in your dashboard. We'll skip nothing — every command works as written.
+This page takes you from zero to a confirmed test transaction in your
+dashboard. Every command here works as written — no placeholders.
 
-## 1. Create your account
+<Callout title="Prerequisites" type="info">
+  - Node.js 18+ or Bun 1.0+ (or any HTTP client)
+  - A wallet with Arc-testnet USDC — see [Modes](/docs/modes) for the faucet
+</Callout>
 
-Go to [strimz.io/signup](/signup). Choose how you want to authenticate (email, an existing wallet, or Google). We use [Privy](https://privy.io) under the hood, which means even if you sign in with email, an embedded Arc wallet is created for you. You don't have to do anything with it; it's there if you ever want to receive payouts to a wallet you control without leaving the dashboard.
+<Steps>
 
-## 2. Issue a test API key
+<Step>
 
-Inside the dashboard, open **API keys** and click **Issue key**. Pick **Test mode** for now. You'll get a string that starts with `sk_test_` — copy it. We only show it once. The full key isn't recoverable; if you lose it, revoke and re-issue.
+### Create your account
+
+Go to [strimz.finance/signup](/signup). You can sign in with email, an existing
+wallet, or Google. We use [Privy](https://privy.io) under the hood. If you
+sign in with email, Privy creates an embedded Arc wallet for you in the
+background.
+
+You don't need to do anything with the embedded wallet right now. It's
+useful later if you want to receive payouts without connecting an external
+wallet.
+
+</Step>
+
+<Step>
+
+### Issue a test API key
+
+In the dashboard, open **API keys** and click **Issue key**. Pick **Test
+mode** for now. You'll get a string that starts with `sk_test_`. Copy it
+straight away. We only show the full key once. If you lose it, revoke it
+and issue a new one.
 
 ```bash
 export STRIMZ_KEY=sk_test_xxxxxxxxxxxxxxxxxxxx
 ```
 
-Test mode and live mode are entirely separate. Test-mode keys can never charge a live customer; live-mode keys can never accidentally settle in the test environment. The two are different on-chain deployments, different RPCs, different DBs. You'll see why on the [Modes](/docs/modes) page.
-
-## 3. Send your first payment
-
-A **payment session** is a hosted checkout: you create one server-side, then redirect your customer to the `checkoutUrl` we return. The customer connects a wallet, signs the payment, and we fire a webhook to you when it confirms on-chain.
-
-```ts title="server.ts"
-import { Strimz } from '@strimz/sdk'
-
-const strimz = new Strimz({ apiKey: process.env.STRIMZ_KEY! })
-
-const session = await strimz.paymentSessions.create({
-  amount: '50000000',          // 50 USDC, expressed in 6-decimal smallest units
-  currency: 'USDC',
-  description: 'Pro plan, August',
-  successUrl: 'https://your-site.com/thanks',
-  cancelUrl:  'https://your-site.com/cancelled',
-})
-
-console.log(session.checkoutUrl)
-```
-
-Open the printed URL in a browser, connect any test-mode wallet with USDC on Arc testnet, and complete the payment. Then refresh **Payment sessions** in your dashboard — the new session is there, and within a few seconds its status flips from `pending` to `confirmed`.
-
-<Callout title="Where do I get test USDC?">
-  Visit [Circle's faucet](https://faucet.circle.com) and choose **Arc testnet**. You'll need an Arc-testnet RPC in your wallet — see [Modes](/docs/modes) for the URL.
+<Callout title="Test mode is fully isolated" type="info">
+  Test-mode keys can never charge a live customer. Live-mode keys can never
+  accidentally settle in the test environment. Different on-chain
+  deployments, different RPCs, different DBs. See [Modes](/docs/modes).
 </Callout>
 
-## 4. Receive your first webhook
+</Step>
 
-Real apps want to know about events without polling. Add a webhook endpoint:
+<Step>
+
+### Install the SDK
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
+  <Tab value="pnpm">
+    ```bash
+    pnpm add @strimz/sdk
+    ```
+  </Tab>
+  <Tab value="npm">
+    ```bash
+    npm install @strimz/sdk
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn add @strimz/sdk
+    ```
+  </Tab>
+  <Tab value="bun">
+    ```bash
+    bun add @strimz/sdk
+    ```
+  </Tab>
+</Tabs>
+
+If you'd rather not add a Node dependency, skip ahead to step 4 and use
+plain HTTPS. Every endpoint is documented in the
+[API reference](/docs/api/overview).
+
+</Step>
+
+<Step>
+
+### Create your first payment session
+
+A **payment session** is a hosted checkout. You create one on the server
+and send your customer to the `checkoutUrl` we return. They connect a
+wallet, sign the payment, and we send you a webhook once it confirms
+on-chain.
+
+<Tabs items={['TypeScript', 'curl']}>
+  <Tab value="TypeScript">
+    ```ts title="server.ts"
+    import { Strimz } from '@strimz/sdk'
+
+    const strimz = new Strimz({ apiKey: process.env.STRIMZ_KEY! })
+
+    const session = await strimz.paymentSessions.create({
+      amount: '50000000',          // 50 USDC, expressed in 6-decimal units
+      currency: 'USDC',
+      description: 'Pro plan, August',
+      successUrl: 'https://your-site.com/thanks',
+      cancelUrl:  'https://your-site.com/cancelled',
+    })
+
+    console.log(session.checkoutUrl)
+    ```
+  </Tab>
+  <Tab value="curl">
+    ```bash
+    curl https://api.strimz.finance/v1/payment-sessions \
+      -H "Authorization: Bearer $STRIMZ_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "amount": "50000000",
+        "currency": "USDC",
+        "description": "Pro plan, August",
+        "successUrl": "https://your-site.com/thanks",
+        "cancelUrl":  "https://your-site.com/cancelled"
+      }'
+    ```
+  </Tab>
+</Tabs>
+
+Open the printed `checkoutUrl` in a browser, connect any test-mode wallet
+that has Arc-testnet USDC, and complete the payment. Now refresh the
+**Payment sessions** page in your dashboard. You'll see the new session,
+and within a few seconds its status moves from `pending` to `confirmed`.
+
+<Callout title="Where do I get test USDC?" type="info">
+  Visit [Circle's faucet](https://faucet.circle.com) and choose **Arc
+  testnet**. You'll need an Arc-testnet RPC in your wallet — see
+  [Modes](/docs/modes) for the URL.
+</Callout>
+
+</Step>
+
+<Step>
+
+### Receive your first webhook
+
+Polling for state changes is no fun. Use a webhook endpoint instead:
 
 ```ts
 const endpoint = await strimz.webhookEndpoints.create({
@@ -59,7 +154,7 @@ const endpoint = await strimz.webhookEndpoints.create({
 console.log(endpoint.signingSecret)  // shown ONCE — store it
 ```
 
-The `signingSecret` is what you use to verify the HMAC signature on every delivery. Save it in your env. Then your receiver looks like this:
+Now wire the receiver:
 
 ```ts title="receiver.ts"
 import { verifyWebhookSignature } from '@strimz/sdk'
@@ -85,14 +180,42 @@ app.post('/webhooks/strimz', (req, res) => {
 })
 ```
 
-The `verifyWebhookSignature` function is timing-safe and includes a 300-second replay tolerance. We document the format on the [Webhooks guide](/docs/guides/webhooks) if you want to write your own.
+`verifyWebhookSignature` does a timing-safe equality check and rejects
+anything older than 300 seconds. The signature format and the algorithm
+itself are documented on [Verifying webhooks](/docs/guides/webhooks).
+
+</Step>
+
+</Steps>
 
 ## What you just did
 
-You signed up, got an API key, created a hosted checkout, accepted a real test payment, and wired a webhook to react to it. Every line of this is exactly the same in production — the only difference is you'll swap `sk_test_` for `sk_live_` and your webhook URL will be your real one.
+You signed up, got an API key, created a hosted checkout, accepted a real
+test payment, and wired a webhook to react to it. **The production version
+of this code is the same.** You swap `sk_test_` for `sk_live_` and point the
+webhook at your real URL. That's it.
 
 ## Next steps
 
-- **[Subscriptions guide](/docs/guides/subscriptions)** — recurring revenue, one customer signature.
-- **[Refunds guide](/docs/guides/refunds)** — full or partial, with on-chain audit trail.
-- **[The AutoPay Agent](/docs/guides/agent)** — recovery emails, cashflow digests, anomaly detection.
+<Cards>
+  <Card
+    title="Subscriptions guide"
+    href="/docs/guides/subscriptions"
+    description="Recurring revenue, one customer signature."
+  />
+  <Card
+    title="Refunds guide"
+    href="/docs/guides/refunds"
+    description="Full or partial, with on-chain audit trail."
+  />
+  <Card
+    title="The AutoPay Agent"
+    href="/docs/guides/agent"
+    description="Recovery emails, cashflow digests, anomaly detection."
+  />
+  <Card
+    title="API reference"
+    href="/docs/api/overview"
+    description="Every endpoint, every parameter."
+  />
+</Cards>

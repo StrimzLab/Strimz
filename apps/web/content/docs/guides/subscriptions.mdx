@@ -3,7 +3,11 @@ title: Build a subscription
 description: Recurring revenue, on stablecoins, with one customer signature.
 ---
 
-Strimz subscriptions are *pull-based*: the customer signs once, granting your contract permission to charge a fixed amount on a fixed cadence. Strimz's scheduler then charges them every period. No re-prompts, no re-authorizations, no churn from "your bank declined the renewal".
+Strimz subscriptions are pull-based. Your customer signs one transaction
+that lets the contract charge them a fixed amount on a fixed schedule.
+After that, our scheduler does the work every period. There are no
+re-prompts to deal with, no card-on-file expiry, and no "your bank
+declined the renewal" emails.
 
 ## Define a plan
 
@@ -18,7 +22,7 @@ const plan = await strimz.subscriptionPlans.create({
 })
 
 console.log(plan.checkoutUrl)
-// → https://strimz.io/sub/plan_pro_monthly
+// → https://strimz.finance/sub/plan_pro_monthly
 ```
 
 Plans are templates. They don't represent a single customer; they represent a recurring price the customer can subscribe to.

@@ -3,7 +3,7 @@ title: '@strimz/sdk'
 description: The server SDK for Node.js + Bun.
 ---
 
-The server SDK is what you'll spend most of your time with. It's typed, validated with Zod, and retries 5xx and 429 responses automatically.
+The server SDK is the main way most teams use Strimz. It's fully typed, validates every response with Zod, and retries the right kinds of failures automatically (5xx errors and rate limits).
 
 ## Install
 
@@ -24,7 +24,7 @@ import { Strimz } from '@strimz/sdk'
 
 const strimz = new Strimz({
   apiKey: process.env.STRIMZ_KEY!,
-  baseUrl: 'https://api.strimz.io',  // optional override; defaults to live
+  baseUrl: 'https://api.strimz.finance',  // optional override; defaults to live
   timeout: 30_000,
   retries: 3,
 })

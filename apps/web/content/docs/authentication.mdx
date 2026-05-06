@@ -3,19 +3,29 @@ title: Authentication
 description: How requests authenticate against Strimz, and how to manage keys + scopes.
 ---
 
-Strimz uses two authentication paths because two very different audiences hit the API.
+Strimz has two ways to authenticate, because two very different kinds of
+clients call the API: the dashboard (running in a merchant's browser) and
+your server-side code.
 
 ## Dashboard sessions (Privy access tokens)
 
-When a merchant visits the dashboard, Privy authenticates them — email, wallet, or social. The browser then forwards a Privy access token to Strimz on every dashboard request:
+When a merchant logs in to the dashboard, Privy handles the auth flow
+(email, wallet, or social login). The dashboard then sends Privy's access
+token along with every API request:
 
 ```http
 Authorization: Bearer <privy-access-token>
 ```
 
-The Strimz API verifies the token with Privy's server-side library, looks up the merchant by `privyUserId`, and attaches the merchant to the request. The first time this happens, you'll get a `merchant_not_synced` error — the dashboard handles this by calling `POST /v1/auth/sync` to upsert the merchant row, then retries.
+The Strimz API verifies the token with Privy's server-side library, finds
+the merchant by `privyUserId`, and attaches them to the request. The very
+first time a new merchant logs in, you'll see a `merchant_not_synced`
+error. The dashboard handles this automatically by calling
+`POST /v1/auth/sync` to create the merchant row, then retrying the
+original request.
 
-You don't normally need to think about this path. If you're building against the dashboard surface (e.g. a custom admin tool), the SDK's browser package handles the token round-trip for you.
+You usually don't need to think about any of this. If you're building a
+custom admin tool, the browser SDK handles the token round-trip for you.
 
 ## SDK requests (API keys)
 
@@ -79,4 +89,4 @@ const newKey = await strimz.apiKeys.create({ name: 'production', scopes: [...], 
 console.log(newKey.secret)  // shown once
 ```
 
-If a key is exposed in a public repo, [contact security](mailto:security@strimz.io) — we'll auto-revoke and audit usage from the leak window.
+If a key is exposed in a public repo, [contact security](mailto:security@strimz.finance) — we'll auto-revoke and audit usage from the leak window.

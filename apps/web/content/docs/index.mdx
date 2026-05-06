@@ -1,17 +1,155 @@
 ---
-title: Strimz Docs
+title: Welcome to Strimz
 description: B2B subscription billing on stablecoins. Settled in USDC on Arc.
 ---
 
-# Welcome to Strimz
+Strimz is a billing layer for businesses that accept stablecoin payments.
+One API covers one-time payments, recurring subscriptions, refunds, agent
+escrow, and cross-chain settlement. Every payment settles in USDC on Arc.
+Because USDC is the native gas token on Arc, your customers never have to
+top up a wallet just to send a payment.
 
-Strimz is a **billing infrastructure** for accepting, managing, and settling stablecoin payments on the Arc blockchain. One API for one-shot payments, recurring subscriptions, refunds, agent escrow, and cross-chain settlement.
+The API uses verb-noun method names like `paymentSessions.create`,
+`subscriptions.cancel`, and `refunds.create`. Webhooks use a `t=…,v1=…`
+signature header signed with HMAC-SHA256. The full reference is on
+[/docs/api/overview](/docs/api/overview).
 
-These docs are built with [Fumadocs](https://fumadocs.vercel.app/) and live in the same Next.js app as the marketing site and dashboard. The MDX source is in [`apps/web/content/docs`](https://github.com/StrimzLab/strimz/tree/main/apps/web/content/docs) — pull requests welcome.
+What makes Strimz different is what happens on-chain. The smart contract
+enforces idempotency itself, so retries can't double-charge anyone.
+Settlement is final the moment your webhook fires. There is no three-day
+wait, no chargeback window, and no bank that decides to reverse the
+transaction a week later.
 
-## Where to next
+<Callout title="Live on Arc" type="info">
+  All examples in these docs assume Arc — Circle's stablecoin-native L1 where
+  USDC is the gas token. Test mode runs on Arc Testnet (chain ID `5042002`).
+  See [Modes](/docs/modes) for environment details.
+</Callout>
 
-- **[Getting started](/docs/getting-started)** — sign up, get keys, send a test payment in 5 minutes
-- **[API reference](/docs/api-reference)** — every endpoint, every parameter
-- **[SDKs](/docs/sdks)** — `@strimz/sdk` (server) and `@strimz/sdk-react` (browser)
-- **[Webhooks](/docs/webhooks)** — events Strimz fires and how to verify signatures
+## Get started in 5 minutes
+
+<Cards>
+  <Card
+    title="Quickstart"
+    href="/docs/quickstart"
+    description="Sign up, get an API key, send your first test payment, and wire a webhook — start to finish."
+  />
+  <Card
+    title="Authentication"
+    href="/docs/authentication"
+    description="Privy for the dashboard, API keys for the SDK, with scopes you control."
+  />
+  <Card
+    title="Test vs Live mode"
+    href="/docs/modes"
+    description="Two completely separate environments — different chains, DBs, keys, and webhook endpoints."
+  />
+  <Card
+    title="Modes of failure"
+    href="/docs/concepts/modes-of-failure"
+    description="What can go wrong, what you'll see when it does, and what Strimz handles for you automatically."
+  />
+</Cards>
+
+## Build by use case
+
+<Cards>
+  <Card
+    title="Accept a one-shot payment"
+    href="/docs/guides/accept-payment"
+    description="Hosted checkout for a single charge. Five minutes from `createSession` to fulfilled order."
+  />
+  <Card
+    title="Build a subscription"
+    href="/docs/guides/subscriptions"
+    description="Recurring revenue with one customer signature. Atomic batch charging, configurable grace, on-chain idempotency."
+  />
+  <Card
+    title="Process a refund"
+    href="/docs/guides/refunds"
+    description="Server-side intent + wallet-signed transfer. Indexer reconciles on-chain status automatically."
+  />
+  <Card
+    title="Verify a webhook"
+    href="/docs/guides/webhooks"
+    description="HMAC-SHA256 with replay protection. Six lines of code on your end."
+  />
+  <Card
+    title="Accept any USDC chain"
+    href="/docs/guides/cross-chain"
+    description="CCTP V2 routes payments from Ethereum, Base, Polygon, Solana, and more — settles on Arc."
+  />
+  <Card
+    title="The AutoPay Agent"
+    href="/docs/guides/agent"
+    description="Recovery emails, cashflow digests, anomaly detection, vendor escrow — included in every plan."
+  />
+</Cards>
+
+## Reference
+
+<Cards>
+  <Card
+    title="API reference"
+    href="/docs/api/overview"
+    description="Every endpoint, every parameter. OpenAPI 3.1 schema available at `/openapi.json`."
+  />
+  <Card
+    title="Server SDK"
+    href="/docs/sdks/server"
+    description="`@strimz/sdk` for Node 18+ and Bun. Type-safe, idempotent retries, Zod-validated payloads."
+  />
+  <Card
+    title="React SDK"
+    href="/docs/sdks/react"
+    description="`@strimz/sdk-react` for embedded checkout. `<StrimzPayButton/>`, hooks, browser-safe."
+  />
+  <Card
+    title="Errors"
+    href="/docs/errors"
+    description="Every error code Strimz returns, what causes it, and what to do about it."
+  />
+  <Card
+    title="Concepts"
+    href="/docs/concepts/overview"
+    description="The six processes that make up Strimz, how data flows, what's idempotent vs eventually consistent."
+  />
+  <Card
+    title="Self-hosting"
+    href="/docs/self-hosting/overview"
+    description="The full stack is open source. Audit it, fork it, run it on your own infrastructure."
+  />
+</Cards>
+
+## What's in the box
+
+A complete billing surface, not a payment SDK. Strimz ships every primitive
+your team would otherwise build over six engineering quarters.
+
+<Cards>
+  <Card title="Hosted checkout" description="Branded one-shot + subscription checkout pages — no client UI to maintain." />
+  <Card title="Wallet auth" description="Email, social, or wallet — via Privy. Embedded Arc wallets, automatic 2FA gates." />
+  <Card title="Webhook delivery" description="Signed, retried with exponential backoff, replay-protected, auto-disabled after persistent failure." />
+  <Card title="Refund pipeline" description="Wallet-signing instructions returned in the create response. Indexer closes the loop." />
+  <Card title="Cross-chain" description="CCTP V2 attestation + scheduler-side message replay on Arc — your customer pays from any USDC chain." />
+  <Card title="Analytics" description="MRR, churn, conversion, LTV, 90-day forecast — SQL-backed against your own Postgres." />
+  <Card title="AutoPay Agent" description="Recovery emails, cashflow digest, anomaly detection, vendor escrow with allowlists." />
+  <Card title="Dashboard + storefront" description="Hosted merchant dashboard + a no-code storefront builder so you can sell without an e-commerce stack." />
+  <Card title="OpenAPI 3.1" description="Machine-readable schema. Generate clients in any language — Postman, Insomnia, or your own codegen." />
+</Cards>
+
+## A note on tone
+
+These docs assume you know what an HTTP request looks like, so we skip the
+lectures on what JSON is. We try to get to the curl command quickly. If a
+section feels too long or too short, that's worth fixing.
+
+If something is wrong, unclear, or out of date,
+[open an issue](https://github.com/StrimzLab/strimz/issues/new). Docs PRs
+go through the same review as code PRs.
+
+<Callout title="Need help fast?" type="info">
+  - Open a thread in **#strimz-dev** (link in your dashboard) — Growth + Enterprise plans
+  - Email **support@strimz.finance** — every plan, < 24h reply
+  - Security disclosures: **security@strimz.finance** (PGP key on the security page)
+</Callout>

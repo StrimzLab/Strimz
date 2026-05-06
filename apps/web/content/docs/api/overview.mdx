@@ -3,12 +3,12 @@ title: API overview
 description: Authentication, errors, pagination, idempotency — the basics every Strimz API call shares.
 ---
 
-The Strimz API is a single host (`https://api.strimz.io`) serving JSON over HTTPS. Every endpoint is documented in [OpenAPI 3.1](https://api.strimz.io/openapi.json) and rendered by [Scalar](https://api.strimz.io/docs) for an interactive "try it" experience.
+The Strimz API is a single host (`https://api.strimz.finance`) serving JSON over HTTPS. Every endpoint is documented in [OpenAPI 3.1](https://api.strimz.finance/openapi.json) and rendered by [Scalar](https://api.strimz.finance/docs) for an interactive "try it" experience.
 
 ## Base URL
 
 ```
-https://api.strimz.io
+https://api.strimz.finance
 ```
 
 Test and live mode share the same host — the API key prefix routes the request internally.
@@ -82,6 +82,6 @@ Every resource has its own page in the sidebar. The most-used ones:
 Hit the live test endpoint:
 
 ```bash
-curl https://api.strimz.io/v1/merchants/me \
+curl https://api.strimz.finance/v1/merchants/me \
   -H "Authorization: Bearer sk_test_xxxxxxxxxxx"
 ```

@@ -3,11 +3,11 @@ title: Process a refund
 description: Full or partial, with on-chain audit trail.
 ---
 
-A Strimz refund is a server-side intent + a wallet-signed on-chain transfer. The intent step validates the refund (cumulative cap, transaction status), generates wallet-signing instructions, and reserves the refund row. The merchant then signs an ERC-20 Transfer from their wallet to the original payer's address. Our indexer detects the on-chain Transfer and flips the refund to `completed`.
+A refund happens in two steps. First you create the refund on the server, which validates the amount, checks the original transaction, and gives you wallet-signing instructions. Then you sign the on-chain transfer from your own wallet to the customer's wallet. Our indexer watches Arc and marks the refund completed once the transfer confirms.
 
-## Why this design (and not "Strimz refunds for you")
+## Why we don't refund for you
 
-We could hold the merchant's USDC in a custodial wallet and refund out of it — but that would make Strimz a money-services business in most jurisdictions, and would mean your funds sit on our balance sheet rather than yours. Instead, the merchant's payout wallet holds the funds, and the merchant signs the refund. Strimz never custodies; the on-chain trail proves where the money came from.
+We could hold your USDC and refund out of it. But then Strimz would be holding your money, which is a regulated activity in most countries, and would mean your funds sit on our balance sheet rather than yours. Instead, every refund is signed from your own wallet. The on-chain trail shows exactly where the money came from and where it went.
 
 ## Issue a refund
 

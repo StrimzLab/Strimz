@@ -3,54 +3,117 @@ title: How Strimz fits together
 description: A 90-second tour of the six processes and what each one does.
 ---
 
-Strimz is six processes. You only ever talk to one of them (the API), but understanding what the others do makes failure modes a lot easier to reason about.
+Strimz is six processes. You only talk to one of them directly (the API),
+but it helps to know what the others do — especially when something goes
+wrong and you need to figure out which logs to read.
 
-## The pieces
+## Architecture at a glance
 
+```text
+                ┌──────────────┐
+                │   apps/web   │  Marketing · Dashboard · Hosted checkout · Docs
+                └──────┬───────┘
+                       │ HTTPS
+                ┌──────▼───────┐
+                │   apps/api   │  Nest + Fastify · Privy auth · OpenAPI 3.1
+                └──┬───────┬───┘
+                   │       │
+        ┌──────────┘       └──────────┐
+        ▼                              ▼
+ ┌─────────────┐               ┌──────────────┐
+ │ Postgres    │               │     Redis    │
+ │  (data)     │               │   (queues)   │
+ └──────┬──────┘               └───────┬──────┘
+        │                              │
+        ▼                              ▼
+ ┌─────────────┐               ┌──────────────┐
+ │   indexer   │               │   scheduler  │
+ │   (Go)      │  ◀──Arc RPC──▶│  (Nest+BullMQ)
+ └─────────────┘               │  signs txns  │
+        ▲                      └───────┬──────┘
+        │                              │
+        │           ┌──────────────────┘
+        │           ▼
+        │    ┌──────────────┐
+        └────│    agent     │  Background AI worker
+             │ (Nest+cron)  │  Read-only · emails · CCTP routing
+             └──────────────┘
 ```
-        ┌─────────┐
-        │ apps/web│         ← marketing, dashboard, hosted checkout, docs
-        └────┬────┘
-             │ HTTPS
-        ┌────▼────┐
-        │ apps/api│         ← Nest+Fastify, Privy auth, OpenAPI 3.1
-        └────┬────┘
-             │
-   ┌─────────┼──────────┐
-   │         │          │
-┌──▼──┐  ┌───▼───┐  ┌───▼────┐
-│ DB  │  │ Redis │  │  Arc   │
-│ PG  │  │       │  │  L1    │
-└──┬──┘  └───────┘  └───┬────┘
-   │                    │
-   │   ┌────────────────┘
-   │   │
-┌──▼───▼──┐    ┌─────────────┐
-│indexer  │    │  scheduler  │
-│  Go     │    │  Nest+BullMQ│  ← only process holding a signing key
-└─────────┘    └─────────────┘
-                       │
-                ┌──────▼──────┐
-                │   agent     │
-                │ Nest+cron   │  ← read-only; emails, recommendations
-                └─────────────┘
-```
 
-- **`apps/api`** — your one entry point. Validates inputs with Zod, persists to Postgres, fires events. Never signs on-chain.
-- **`apps/indexer`** — Go process polling the Arc RPC. Decodes contract events, projects them into Postgres tables (Transactions, Subscriptions, etc.). The "source of truth" rebuild path: drop `IndexerCursor`, restart, and you'll re-derive the entire DB from chain history.
-- **`apps/scheduler`** — Nest+BullMQ worker. Owns the service signing key. Processes `strimz.subscription.due` (charges via `batchCharge`), `strimz.agent.action` (cancel-on-chain, job operations, CCTP settlement), `strimz.webhook.delivery` (signs and POSTs to merchant URLs).
-- **`apps/agent`** — the AutoPay Agent. Hourly/daily crons that run six capabilities: recovery, cashflow digest, cashflow anomaly, yield recommendation, commerce summary, pricing intelligence. Plus a queue worker for CCTP routing. **Never signs.**
-- **`apps/web`** — the frontend you're reading right now. Same Next.js app handles marketing, dashboard, hosted checkout, public storefronts, and these docs.
-- **`packages/contracts`** — Foundry workspace. UUPS-upgradeable contracts with ERC-7201 namespaced storage.
+A request comes in to `apps/api`. The API writes to Postgres and pushes any
+background work onto Redis. The `scheduler` picks up jobs from Redis and
+signs the on-chain transactions. Meanwhile the `indexer` watches Arc and
+writes the events it sees back to Postgres. The `agent` reads everything
+in Postgres but never signs anything.
 
-## What lives where
+## The six processes
 
-When something goes wrong, knowing which process to look at is half the battle.
+<Cards>
+  <Card
+    title="apps/api"
+    href="/docs/self-hosting/overview"
+    description="Nest + Fastify entry point. Validates with Zod, persists to Postgres, fires events. Never signs on-chain."
+  />
+  <Card
+    title="apps/indexer"
+    href="/docs/self-hosting/indexer"
+    description="Go process polling Arc RPC. Decodes contract events, projects them into Postgres tables. Re-derives state from chain history."
+  />
+  <Card
+    title="apps/scheduler"
+    href="/docs/self-hosting/scheduler"
+    description="Nest + BullMQ worker. Owns the service signing key. Charges subscriptions, delivers webhooks, signs CCTP receives."
+  />
+  <Card
+    title="apps/agent"
+    href="/docs/self-hosting/agent"
+    description="The AutoPay Agent. Hourly + daily crons. Recovery emails, cashflow digests, anomaly detection, CCTP routing. Holds no key."
+  />
+  <Card
+    title="apps/web"
+    href="https://github.com/StrimzLab/strimz/tree/main/apps/web"
+    description="Next.js. Marketing site, merchant dashboard, hosted checkout, public storefronts, these docs — same app."
+  />
+  <Card
+    title="packages/contracts"
+    href="https://github.com/StrimzLab/strimz/tree/main/packages/contracts"
+    description="Foundry workspace. UUPS-upgradeable contracts with ERC-7201 namespaced storage."
+  />
+</Cards>
+
+## Repository layout
+
+<Files>
+  <Folder name="strimz" defaultOpen>
+    <Folder name="apps">
+      <File name="api" />
+      <File name="indexer" />
+      <File name="scheduler" />
+      <File name="agent" />
+      <File name="web" />
+    </Folder>
+    <Folder name="packages">
+      <File name="contracts" />
+      <File name="sdk" />
+      <File name="sdk-react" />
+      <File name="ui" />
+      <File name="db" />
+      <File name="shared-config" />
+      <File name="shared-types" />
+      <File name="shared-crypto" />
+    </Folder>
+  </Folder>
+</Files>
+
+## Where to look when something is wrong
+
+Knowing which process owns each piece of behaviour saves a lot of time
+when you're debugging.
 
 | Symptom | Process to check |
 | --- | --- |
 | API returning 5xx | `apps/api` logs |
-| Subscriptions not charging on schedule | `apps/scheduler` logs (sweeper tick + worker) |
+| Subscriptions not charging on schedule | `apps/scheduler` (sweeper tick + worker) |
 | Webhooks failing or stuck retrying | `apps/scheduler` (delivery worker) |
 | New on-chain payment not in dashboard | `apps/indexer` (cursor caught up?) |
 | Merchant not getting daily digest | `apps/agent` (cashflow cron logs) |
@@ -58,8 +121,33 @@ When something goes wrong, knowing which process to look at is half the battle.
 
 ## What you don't need to think about
 
-- **On-chain idempotency.** The contract's `usedAttempts[id]` mapping makes every charge attempt safe to retry without duplication.
-- **Webhook delivery retries.** The scheduler handles 1m → 5m → 30m → 2h → 12h backoff. After max attempts, you get an email and the endpoint can auto-disable.
-- **Reorg protection.** The indexer waits `CONFIRMATIONS` blocks (default 5) before projecting. Arc's finality means short reorgs are extremely unlikely, but the safety margin is there.
+<Callout title="Built-in guarantees" type="info">
+  - **On-chain idempotency.** The contract's `usedAttempts[id]` mapping makes every charge attempt safe to retry without duplication.
+  - **Webhook delivery retries.** The scheduler handles `1m → 5m → 30m → 2h → 12h` backoff. After max attempts, you get an email and the endpoint can auto-disable.
+  - **Reorg protection.** The indexer waits `CONFIRMATIONS` blocks (default 5) before projecting. Arc's finality means short reorgs are extremely unlikely, but the safety margin is there.
+</Callout>
 
-If you're self-hosting or want to dig deeper, every service has a README at the top of its directory in [github.com/StrimzLab/strimz](https://github.com/StrimzLab/strimz).
+## Want to dig deeper?
+
+<Cards>
+  <Card
+    title="Resources"
+    href="/docs/concepts/resources"
+    description="The objects you'll interact with — what they mean, when they exist, what their lifecycles look like."
+  />
+  <Card
+    title="Idempotency"
+    href="/docs/concepts/idempotency"
+    description="How Strimz makes sure retries are safe — at the API, at the scheduler, and on-chain."
+  />
+  <Card
+    title="On-chain architecture"
+    href="/docs/concepts/on-chain-architecture"
+    description="The contract suite, why it's UUPS-upgradeable, and how you can verify it independently."
+  />
+  <Card
+    title="Modes of failure"
+    href="/docs/concepts/modes-of-failure"
+    description="What can go wrong, what you'll see when it does, and what Strimz does about it automatically."
+  />
+</Cards>
