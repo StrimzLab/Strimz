@@ -21,7 +21,7 @@ export function EmptyState({
         className,
       )}
     >
-      <div className="strimz-sub-icon-shadow mb-4 inline-flex size-12 items-center justify-center rounded-xl bg-[#02C76A]/10 text-[#02C76A]">
+      <div className="shadow-sub-icon mb-4 inline-flex size-12 items-center justify-center rounded-xl bg-[#02C76A]/10 text-[#02C76A]">
         <Icon className="size-5" />
       </div>
       <h3 className="font-poppins text-base font-semibold">{title}</h3>

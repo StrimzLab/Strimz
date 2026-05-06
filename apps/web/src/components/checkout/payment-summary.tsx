@@ -28,7 +28,7 @@ export function PaymentSummary({
 
   return (
     <aside className="flex h-full flex-col">
-      <div className="strimz-card-shadow flex flex-1 flex-col gap-10 rounded-2xl bg-muted/30 p-8">
+      <div className="shadow-sub-card flex flex-1 flex-col gap-10 rounded-2xl bg-muted/30 p-8">
         {/* Merchant identity */}
         <div className="flex items-center gap-3">
           <div className="flex size-10 items-center justify-center rounded-full bg-[#02C76A] font-sora text-base font-semibold text-white">
@@ -45,7 +45,7 @@ export function PaymentSummary({
             Total amount
           </div>
           <div className="flex items-center gap-2.5">
-            <div className="strimz-sub-icon-shadow flex size-8 items-center justify-center rounded-full bg-background">
+            <div className="shadow-sub-icon flex size-8 items-center justify-center rounded-full bg-background">
               <span className="font-mono text-xs font-bold">{currency.charAt(0)}</span>
             </div>
             <h2 className="font-sora text-2xl font-bold md:text-3xl">
@@ -81,10 +81,10 @@ export function PaymentSummary({
           <Logo className="!gap-1.5 [&>span]:!text-sm" />
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/legal/privacy" className="transition-colors hover:text-foreground">
+          <Link href="/legal/privacy" target="_blank" rel="noreferrer" className="transition-colors hover:text-foreground">
             Privacy
           </Link>
-          <Link href="/legal/terms" className="transition-colors hover:text-foreground">
+          <Link href="/legal/terms" target="_blank" rel="noreferrer" className="transition-colors hover:text-foreground">
             Terms
           </Link>
         </div>

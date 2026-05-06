@@ -8,7 +8,7 @@ import { cn } from '@strimz/ui'
 /**
  * Centred auth card — direct evolution of the prior `AuthFormContainer`.
  * 380px on desktop, full-bleed on mobile, with the signature
- * `strimz-auth-shadow` and a bordered green chip above the title.
+ * `shadow-auth-card` and a bordered green chip above the title.
  */
 export function AuthCard({
   title,
@@ -27,7 +27,7 @@ export function AuthCard({
       animate="show"
       variants={fadeUp}
       className={cn(
-        'strimz-auth-shadow w-full rounded-2xl border border-border/60 bg-background/95 p-8 backdrop-blur md:w-[420px]',
+        'shadow-auth-card w-full rounded-2xl border border-border/60 bg-background/95 p-8 backdrop-blur md:w-[420px]',
         className,
       )}
     >

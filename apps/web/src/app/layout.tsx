@@ -13,7 +13,7 @@ const poppins = Poppins({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://strimz.io'),
+  metadataBase: new URL('https://strimz.finance'),
   title: {
     default: 'Strimz — Stablecoin billing infrastructure',
     template: '%s · Strimz',

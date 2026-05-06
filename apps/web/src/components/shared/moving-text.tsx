@@ -1,39 +1,39 @@
 'use client'
 
+import Image from 'next/image'
 import Marquee from 'react-fast-marquee'
-import { Glyph } from './logo'
-
-const MESSAGES = [
-  'Streamline payments anytime',
-  'Settled in USDC on Arc',
-  'No gas for your customers',
-  'AI AutoPay Agent included',
-  'Webhook-signed by HMAC-SHA256',
-  'Cross-chain via CCTP V2',
-] as const
+import strimzBlueLogoIcon from '@/../public/logoIcons/strimzBlueLogoPNG.svg'
 
 /**
- * Horizontal marquee shown beneath the marketing hero. Pure decorative —
- * but it lifts the section visually and gives a sense of motion that
- * static screenshots never get.
+ * Horizontally scrolling marquee — direct match to strimz-subscription's
+ * `MovingText`. `bg-[#F9FAFB]` strip with the blue Strimz icon and the
+ * brand line repeating. Sits underneath the hero.
  */
 export function MovingText() {
   return (
-    <div className="border-y border-border/40 bg-muted/20">
-      <Marquee gradient gradientColor="hsl(var(--background))" speed={36} pauseOnHover>
-        {MESSAGES.concat(MESSAGES).map((msg, i) => (
-          <Pill key={i}>{msg}</Pill>
-        ))}
-      </Marquee>
-    </div>
+    <Marquee className="h-[60px] w-full bg-[#F9FAFB]" speed={48}>
+      {Array.from({ length: 11 }).map((_, i) => (
+        <Pill key={i} />
+      ))}
+    </Marquee>
   )
 }
 
-function Pill({ children }: { children: React.ReactNode }) {
+function Pill() {
   return (
-    <span className="mx-6 inline-flex items-center gap-2 py-3 text-sm text-muted-foreground">
-      <Glyph className="size-4" />
-      {children}
-    </span>
+    <div className="mr-4 flex w-full items-center gap-4">
+      <Image
+        src={strimzBlueLogoIcon}
+        alt="Strimz"
+        className="h-[18.28px] w-[16.97px] md:h-[20.28px] md:w-[18.97px]"
+        width={19}
+        height={22}
+        quality={100}
+        priority
+      />
+      <p className="px-2.5 font-poppins text-sm font-[400] text-[#050020] md:text-base">
+        Streamline payments anytime
+      </p>
+    </div>
   )
 }

@@ -16,7 +16,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@strimz/ui'
-import { ThemeToggle } from '@/components/theme-toggle'
 import { cn } from '@strimz/ui'
 
 interface Props {
@@ -54,7 +53,7 @@ export function DashboardTopbar({ title, onMenuClick, menuOpen }: Props) {
         <button
           aria-label={menuOpen ? 'Close menu' : 'Open menu'}
           onClick={onMenuClick}
-          className="strimz-card-shadow flex size-9 items-center justify-center rounded-md border border-border/60 lg:hidden"
+          className="shadow-sub-card flex size-9 items-center justify-center rounded-md border border-border/60 lg:hidden"
         >
           <span className="relative block size-5">
             <Menu
@@ -83,10 +82,9 @@ export function DashboardTopbar({ title, onMenuClick, menuOpen }: Props) {
       </div>
 
       <div className="flex items-center gap-2">
-        <ThemeToggle />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="strimz-sub-icon-shadow gap-2 rounded-md border border-border/60 px-2">
+            <Button variant="ghost" className="shadow-sub-icon gap-2 rounded-md border border-border/60 px-2">
               <Avatar className="size-7">
                 <AvatarFallback className="bg-[#02C76A]/15 text-xs font-medium text-[#02C76A]">
                   {initials}

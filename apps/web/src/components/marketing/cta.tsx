@@ -1,69 +1,88 @@
 'use client'
 
+import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { ArrowRight } from 'lucide-react'
-import { InteractiveHoverButton } from '@/components/effects/interactive-hover-button'
-import { Glyph } from '@/components/shared/logo'
+import { MoveRight } from 'lucide-react'
 import { fadeUp, inViewOnce, stagger } from '@/lib/motion'
+import { InteractiveHoverButton } from '@/components/effects/interactive-hover-button'
+import strimzVector from '@/../public/logoIcons/StrimzVector.svg'
+import ctaPattern from '@/../public/patterns/ctaPattern.svg'
 
 /**
- * Final marketing CTA — `#050020` background, animated halo around the
- * Strimz glyph (mimics the prior CTA's pulsing-circle pattern), big
- * type. The InteractiveHoverButton lands the brand signature here too.
+ * Closing CTA — direct port of strimz-subscription's `CTA` section.
+ * `bg-primary` block with the cta-pattern strip pulsing along the bottom
+ * and the Strimz vector pulsing on top of it.
  */
 export function ClosingCta() {
+  const router = useRouter()
   return (
-    <section className="relative overflow-hidden bg-[#050020] py-24 text-white">
-      <div className="absolute inset-0 strimz-aurora opacity-50" aria-hidden />
-      <div className="absolute inset-x-0 -bottom-20 flex justify-center" aria-hidden>
-        <div className="size-[640px] rounded-full bg-[#02C76A]/20 blur-[120px]" />
-      </div>
-
+    <section className="w-full bg-[#050020] py-16 md:py-20">
       <motion.div
         {...inViewOnce}
-        variants={stagger(0.05, 0.08)}
-        className="relative mx-auto max-w-4xl px-4 text-center sm:px-6"
+        variants={stagger(0.05, 0.1)}
+        className="mx-auto flex w-full max-w-[812px] flex-col items-center gap-4 px-6 lg:px-0"
       >
         <motion.h2
           variants={fadeUp}
-          className="text-balance text-4xl font-bold tracking-tight sm:text-6xl"
+          className="text-balance text-center font-sora text-[40px] font-[700] leading-[48px] text-white md:text-[60px] md:leading-[68px]"
         >
-          Stop building billing.
+          Stop writing billing code.
           <br />
-          <span className="text-white/60">Start shipping product.</span>
+          <span className="text-white/60">Build the rest of the app.</span>
         </motion.h2>
         <motion.p
           variants={fadeUp}
-          className="mx-auto mt-6 max-w-xl text-balance text-white/70"
+          className="max-w-[522px] text-balance text-center font-poppins text-base font-[400] leading-[28px] text-white"
         >
-          Your free Strimz account ships with everything. Live mode unlocks once you complete
-          identity verification — usually under 5 minutes.
+          The free plan includes every feature. Live mode unlocks after identity verification,
+          which usually takes under five minutes.
         </motion.p>
-        <motion.div variants={fadeUp} className="mt-10 flex justify-center gap-3">
+        <motion.div variants={fadeUp} className="mt-2 flex flex-wrap items-center justify-center gap-3">
           <InteractiveHoverButton
             type="button"
-            icon={<ArrowRight className="size-4" />}
-            innerClassName="bg-white rounded-md"
-            className="strimz-cta-shadow flex h-12 w-[180px] items-center justify-center rounded-md bg-[#02C76A] font-poppins text-sm font-medium text-white hover:text-[#050020]"
-            onClick={() => (window.location.href = '/signup')}
+            icon={<MoveRight className="h-5 w-5" />}
+            innerClassName="bg-white rounded-[8px]"
+            className="flex h-[48px] w-[200px] cursor-pointer items-center justify-center rounded-[8px] bg-[#02C76A] font-poppins text-[14px] font-[600] text-white shadow-cta hover:text-[#050020]"
+            onClick={() => router.push('/signup')}
           >
             Get your API keys
           </InteractiveHoverButton>
           <a
             href="/contact"
-            className="inline-flex h-12 items-center rounded-md border border-white/20 bg-white/5 px-6 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/10"
+            className="inline-flex h-[48px] items-center rounded-[8px] border border-white/20 bg-white/5 px-6 font-poppins text-[14px] font-[500] text-white backdrop-blur transition-colors hover:bg-white/10"
           >
             Talk to sales
           </a>
         </motion.div>
-
-        <motion.div variants={fadeUp} className="relative mx-auto mt-20 inline-flex">
-          <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-[#02C76A]/30" />
-          <div className="strimz-logo-shadow relative flex size-20 items-center justify-center rounded-full bg-[#02C76A]">
-            <Glyph className="size-10 [&>defs>linearGradient>stop]:!stop-color-white" />
-          </div>
-        </motion.div>
       </motion.div>
+
+      {/* Pulsing CTA pattern strip — strimz-subscription signature */}
+      <div className="relative mt-16 flex w-full items-center justify-center">
+        <Image
+          src={ctaPattern}
+          alt=""
+          aria-hidden
+          width={1440}
+          height={145}
+          priority
+          quality={100}
+          className="h-[145px] w-full animate-pulse object-cover opacity-90"
+        />
+        <span className="absolute inline-flex h-[50px] w-[50px] md:h-[70px] md:w-[70px] lg:h-[90px] lg:w-[90px]">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#02C76A] opacity-70" />
+          <Image
+            src={strimzVector}
+            alt=""
+            aria-hidden
+            width={120}
+            height={120}
+            priority
+            quality={100}
+            className="relative h-full w-full"
+          />
+        </span>
+      </div>
     </section>
   )
 }

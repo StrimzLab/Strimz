@@ -1,92 +1,103 @@
 'use client'
 
-import { ChevronDown } from 'lucide-react'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@strimz/ui'
 import { motion } from 'framer-motion'
-import { useState } from 'react'
 import { fadeUp, inViewOnce, stagger } from '@/lib/motion'
 
 const FAQS = [
   {
-    q: 'How is Strimz different from Stripe for stablecoin payments?',
-    a: 'Strimz is built for stablecoins natively. Customer doesn\'t pay gas (USDC is the native gas token on Arc). Idempotency is enforced on-chain via deterministic chargeAttemptIds. Reconciliation is via the on-chain log — your indexer can re-derive every penny.',
+    q: 'What does Strimz actually do?',
+    a: "Strimz lets your business take payments in stablecoins. You can charge a customer once, or set up a subscription that charges them every period. You get paid in USDC; we handle the on-chain side, refunds, webhooks, dashboards, and everything in between.",
   },
   {
-    q: 'Do my customers need to know about crypto?',
-    a: 'No. The hosted checkout supports email + wallet + Google login (via Privy). Customers get an embedded Arc wallet automatically. They sign one approval; we charge them recurring without re-prompts.',
+    q: 'Do my customers need to understand crypto?',
+    a: "Not really. The checkout works with email, social login, or an existing wallet. If they don't have one, we create a wallet for them in the background. They approve the payment once and never have to think about it again.",
+  },
+  {
+    q: 'Do I need to hold any crypto myself to use Strimz?',
+    a: "Only the USDC you receive from your customers. Strimz takes care of gas through Arc (where USDC is the gas token), so you don't have to top up ETH or anything else.",
+  },
+  {
+    q: 'Is Strimz custodial? Do you hold my money?',
+    a: "No. Strimz is non-custodial. Every payment settles directly into a wallet you control. There's no Strimz balance you have to wait days to withdraw.",
+  },
+  {
+    q: 'How does pricing work?',
+    a: "You pay a small percentage of each transaction. The more volume you do, the lower your rate. The fee is taken on-chain in the same transaction, so what you see is what lands in your wallet. There are no platform fees on top.",
+  },
+  {
+    q: 'Can Strimz handle subscriptions, or only one-off payments?',
+    a: "Both. One-off payments are a single hosted checkout. Subscriptions ask the customer to approve recurring charges once, and we charge them every period after that. You don't have to ask again.",
   },
   {
     q: 'What happens if a subscription charge fails?',
-    a: 'The contract emits SubscriptionChargeSkipped with the typed outcome (insufficient_funds / revoked_approval / cancelled / not_due). The agent emails the customer per your configured strategy (once / twice / until_grace_ends) and your dashboard flips the sub to at_risk. After the grace window, we mark it lapsed and fire subscription.lapsed.',
+    a: "The subscription moves into an at-risk state and the AutoPay Agent emails the customer asking them to top up. You can pick the recovery strategy and grace window. If the grace window passes without a successful charge, the subscription lapses and we let you know.",
   },
   {
-    q: 'Can I refund a payment?',
-    a: 'Yes — full and partial refunds. The API gives you wallet-signing instructions; you broadcast the refund tx. Our indexer detects the on-chain ERC-20 Transfer and flips the refund to completed automatically.',
+    q: 'Can I refund a customer?',
+    a: "Yes, full or partial. You sign the refund from your own wallet (we never custody your funds), and we update the dashboard automatically once the on-chain transfer goes through.",
   },
   {
-    q: 'What about cross-chain payments?',
-    a: 'CCTP V2 is integrated. Customers can pay from Ethereum, Base, Arbitrum, Polygon, Solana, etc. — Strimz polls Circle\'s attestation API and settles on Arc once the message is signed. You always get USDC on Arc.',
+    q: 'What if my customer wants to pay from a different chain?',
+    a: "That works too. They can pay in USDC from Ethereum, Base, Polygon, Solana, and most other chains. We bridge it to Arc behind the scenes, and you receive USDC on Arc as normal.",
   },
   {
-    q: 'How do I verify a webhook signature?',
-    a: 'Every delivery has a Strimz-Signature header in the format t=<unix>,v1=<hex>. Re-compute hmac_sha256(secret, t.body) and compare timing-safe to v1. Reject when |now - t| > 300s. The @strimz/sdk package ships verifyWebhookSignature() ready-made.',
+    q: 'Where can I find the technical details?',
+    a: "All the technical details — APIs, SDKs, webhook signatures, contract architecture, error codes — live in the docs at /docs. They cover everything from a 5-minute quickstart to self-hosting.",
   },
 ] as const
 
 export function Faqs() {
   return (
-    <section className="bg-background py-24">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6">
-        <motion.div {...inViewOnce} variants={stagger(0.05, 0.1)} className="text-center">
-          <motion.h2 variants={fadeUp} className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-            Frequently asked questions
-          </motion.h2>
-          <motion.p variants={fadeUp} className="mt-4 text-muted-foreground">
-            Don't see yours?{' '}
-            <a href="mailto:support@strimz.io" className="font-medium text-foreground underline-offset-4 hover:underline">
-              Email us
-            </a>{' '}
-            — we answer every question.
-          </motion.p>
-        </motion.div>
-
-        <motion.div {...inViewOnce} variants={stagger(0.05, 0.06)} className="mt-12 space-y-3">
-          {FAQS.map((f, i) => (
-            <FaqItem key={i} index={i} q={f.q} a={f.a} defaultOpen={i === 0} />
-          ))}
-        </motion.div>
-      </div>
-    </section>
-  )
-}
-
-function FaqItem({ q, a, index, defaultOpen }: { q: string; a: string; index: number; defaultOpen?: boolean }) {
-  const [open, setOpen] = useState(Boolean(defaultOpen))
-  return (
-    <motion.div
-      variants={fadeUp}
-      className="strimz-card-shadow overflow-hidden rounded-xl border border-border/60 bg-muted/20"
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-start justify-between gap-4 px-5 py-4 text-left"
-        aria-expanded={open}
-        aria-controls={`faq-answer-${index}`}
-      >
-        <span className="font-poppins font-medium">{q}</span>
-        <ChevronDown
-          className={`size-5 shrink-0 text-muted-foreground transition-transform duration-300 ${open ? 'rotate-180' : ''}`}
-        />
-      </button>
+    <section className="w-full bg-white px-6 py-16 md:py-20">
       <motion.div
-        id={`faq-answer-${index}`}
-        initial={false}
-        animate={{ height: open ? 'auto' : 0, opacity: open ? 1 : 0 }}
-        transition={{ duration: 0.25 }}
-        className="overflow-hidden"
+        {...inViewOnce}
+        variants={stagger(0.05, 0.1)}
+        className="mx-auto max-w-[996px] text-center"
       >
-        <p className="px-5 pb-5 text-sm leading-relaxed text-muted-foreground">{a}</p>
+        <motion.h2
+          variants={fadeUp}
+          className="font-sora text-[32px] font-[700] leading-[40px] text-[#050020] md:text-[40px] md:leading-[48px]"
+        >
+          Frequently asked questions
+        </motion.h2>
+        <motion.p
+          variants={fadeUp}
+          className="mt-4 font-poppins text-base font-[400] text-[#58556A]"
+        >
+          Don&apos;t see yours?{' '}
+          <a
+            href="mailto:support@strimz.finance"
+            className="font-[500] text-[#050020] underline-offset-4 hover:underline"
+          >
+            Email us
+          </a>
+          . Real people read every message.
+        </motion.p>
       </motion.div>
-    </motion.div>
+
+      <motion.div
+        {...inViewOnce}
+        variants={fadeUp}
+        className="mx-auto mt-10 max-w-[996px]"
+      >
+        <Accordion type="single" defaultValue="0" collapsible className="space-y-2">
+          {FAQS.map((f, i) => (
+            <AccordionItem
+              key={i}
+              value={String(i)}
+              className="rounded-[8px] border border-[#E5E7EB] bg-[#F3F4F6] px-4 md:px-8"
+            >
+              <AccordionTrigger className="py-4 font-poppins text-[16px] font-[500] text-[#050020] md:text-[18px] md:leading-[28px]">
+                {f.q}
+              </AccordionTrigger>
+              <AccordionContent className="pb-4 font-poppins text-base leading-[28px] text-[#58556A]">
+                {f.a}
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      </motion.div>
+    </section>
   )
 }

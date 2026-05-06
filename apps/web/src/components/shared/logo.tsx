@@ -1,52 +1,61 @@
 import Link from 'next/link'
+import Image, { type StaticImageData } from 'next/image'
 import { cn } from '@strimz/ui'
+import blueLogoSrc from '@/../public/logo/blueLogo.png'
+import whiteLogoSrc from '@/../public/logo/whiteLogo.png'
+import strimzVectorSrc from '@/../public/logoIcons/StrimzVector.svg'
 
 /**
- * Strimz wordmark + glyph. Pure SVG (no Image) so it inherits theme
- * colours and renders identically across light/dark without a flash.
+ * Strimz wordmark — direct port of strimz-subscription's `Logo`. Renders
+ * the canonical `blueLogo.png` on light surfaces and `whiteLogo.png` on
+ * dark surfaces (footer, dark hero blocks).
+ *
+ * Default size is `w-[101px] md:w-[116px]` matching the live nav. Pass
+ * `className` to override per usage.
  */
 export function Logo({
   href = '/',
+  variant = 'blue',
   className,
-  variant = 'auto',
 }: {
   href?: string
+  variant?: 'blue' | 'white'
   className?: string
-  variant?: 'auto' | 'mono-light' | 'mono-dark'
 }) {
-  const wordmark = cn(
-    'text-lg font-semibold tracking-tight',
-    variant === 'mono-light' && 'text-white',
-    variant === 'mono-dark' && 'text-[#050020]',
-  )
+  const src: StaticImageData = variant === 'white' ? whiteLogoSrc : blueLogoSrc
   return (
-    <Link href={href} className={cn('inline-flex items-center gap-2', className)}>
-      <Glyph className="h-7 w-7" />
-      <span className={wordmark}>Strimz</span>
+    <Link href={href} className={cn('inline-block w-[101px] shrink-0 md:w-[116px]', className)}>
+      <Image
+        src={src}
+        alt="Strimz"
+        className="h-auto w-full"
+        width={407}
+        height={128}
+        priority
+        quality={100}
+      />
     </Link>
   )
 }
 
-export function Glyph({ className }: { className?: string }) {
+/**
+ * The Strimz vector glyph (the centred "S" mark from `StrimzVector.svg`).
+ * Used as the centrepiece of the hero orb and CTA badges.
+ */
+export function StrimzGlyph({ className }: { className?: string }) {
   return (
-    <svg
-      viewBox="0 0 32 32"
-      fill="none"
+    <Image
+      src={strimzVectorSrc}
+      alt=""
       aria-hidden
-      className={cn('text-[#02C76A]', className)}
-    >
-      <defs>
-        <linearGradient id="strimz-glyph-grad" x1="0" y1="0" x2="32" y2="32">
-          <stop offset="0%" stopColor="#02C76A" />
-          <stop offset="100%" stopColor="#10b981" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M6 8a4 4 0 0 1 4-4h12a4 4 0 0 1 4 4v3a4 4 0 0 1-4 4H10a4 4 0 0 0-4 4v3a4 4 0 0 0 4 4h12a4 4 0 0 0 4-4"
-        stroke="url(#strimz-glyph-grad)"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-    </svg>
+      className={cn('h-auto w-full', className)}
+      width={120}
+      height={120}
+      priority
+      quality={100}
+    />
   )
 }
+
+/** Alias kept for back-compat with earlier imports of `Glyph`. */
+export { StrimzGlyph as Glyph }

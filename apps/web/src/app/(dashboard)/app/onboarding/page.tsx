@@ -57,7 +57,7 @@ export default function OnboardingPage() {
         }
       />
 
-      <Card className="strimz-card-shadow max-w-2xl border-border/60">
+      <Card className="shadow-sub-card max-w-2xl border-border/60">
         <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-5">
             <Field label="Business name" required>

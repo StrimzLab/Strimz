@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { PaymentSummary, CheckoutPoweredBy, type SummaryProps } from './payment-summary'

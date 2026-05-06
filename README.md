@@ -1,6 +1,6 @@
 # Strimz
 
-**The B2B subscription billing infrastructure for stablecoin commerce — built on Arc.**
+**The B2B subscription billing infrastructure for stablecoin commerce.**
 
 [![CI](https://img.shields.io/github/actions/workflow/status/StrimzLab/Strimz/ci.yml?branch=main&label=CI&logo=github)](./.github/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-02C76A.svg)](./LICENSE)

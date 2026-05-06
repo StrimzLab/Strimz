@@ -1,22 +1,41 @@
+import { Briefcase, Building2, Globe, Layers, Sparkles, Users } from 'lucide-react'
 import { MovingText } from '@/components/shared/moving-text'
 
-const LOGOS = ['Mercato', 'Aperture', 'Hexcell', 'Northstar', 'Pulsefin', 'Stacked'] as const
+const SECTORS = [
+  { icon: Layers, label: 'SaaS billing' },
+  { icon: Building2, label: 'Marketplace fees' },
+  { icon: Briefcase, label: 'Subscription apps' },
+  { icon: Users, label: 'DAO treasuries' },
+  { icon: Globe, label: 'Cross-border B2B' },
+  { icon: Sparkles, label: 'Creator payouts' },
+] as const
 
+/**
+ * "Built for" sector strip. Pre-launch substitute for fake customer
+ * logos. Soft-tinted background to break the visual rhythm between the
+ * white hero and the white "How it works" section that follows.
+ *
+ * `whitespace-nowrap` on each chip keeps the captions on a single line
+ * even when the grid squeezes them at intermediate widths.
+ */
 export function SocialProof() {
   return (
     <>
-      <section className="relative bg-muted/30">
-        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-          <p className="text-center text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground/80">
-            Trusted by teams shipping the next wave of stablecoin commerce
+      <section className="border-y border-[#E5E7EB] bg-[#F9FAFB]">
+        <div className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 lg:px-16">
+          <p className="text-center font-poppins text-[11px] font-[500] uppercase tracking-[0.22em] text-[#58556A]">
+            Built for
           </p>
-          <div className="mt-8 grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-3 lg:grid-cols-6">
-            {LOGOS.map((n) => (
+          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
+            {SECTORS.map((s) => (
               <div
-                key={n}
-                className="flex items-center justify-center font-poppins text-lg font-semibold tracking-tight text-muted-foreground/60 transition-colors hover:text-foreground"
+                key={s.label}
+                className="flex items-center justify-center gap-2 whitespace-nowrap rounded-[10px] border border-[#E5E7EB] bg-white px-3 py-3 transition-colors hover:border-[#02C76A]/40"
               >
-                {n}
+                <s.icon className="size-4 shrink-0 text-[#02C76A]" />
+                <span className="font-poppins text-[13px] font-[500] text-[#050020]">
+                  {s.label}
+                </span>
               </div>
             ))}
           </div>
