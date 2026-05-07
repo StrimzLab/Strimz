@@ -7,6 +7,17 @@
 generator client {
   provider = "prisma-client"
   output   = "../../generated/prisma"
+
+  // Emit ESM-friendly output that compiles cleanly under our consumer
+  // tsconfigs (apps use `module: "Node16"` / `moduleResolution: "Node16"`,
+  // which requires explicit `.js` extensions on relative imports).
+  // `importFileExtension = "js"` turns Prisma's emitted `from "./enums"`
+  // into `from "./enums.js"` so the generated client passes strict
+  // module resolution. Without these the `@ts-nocheck` directive Prisma
+  // adds defensively was the only thing keeping consumer builds green —
+  // at the cost of model accessors silently degrading to `any`.
+  moduleFormat        = "esm"
+  importFileExtension = "js"
 }
 
 datasource db {

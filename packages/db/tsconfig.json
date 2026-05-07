@@ -3,13 +3,24 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": ".",
-    "noEmit": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
     "incremental": false,
-    "declaration": false,
-    "declarationMap": false,
-    "sourceMap": false,
-    "types": ["node"]
+    "types": ["node"],
+
+    // Prisma's generated TS legitimately ships unused type parameters
+    // in defensive overload signatures (e.g. `<ExtArgs extends ...>`)
+    // and a couple of unused imports. Strict unused-symbol checks
+    // would block emit. They only apply to this package's own
+    // compile — consumer apps keep their full strictness and benefit
+    // from `skipLibCheck` against the .d.ts we emit here.
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+
+    // Prisma's runtime polyfills `globalThis['__dirname']` for ESM.
+    "noPropertyAccessFromIndexSignature": false
   },
-  "include": ["src/**/*", "generated/prisma/client.d.ts"],
+  "include": ["src/**/*", "generated/**/*"],
   "exclude": ["node_modules", "dist"]
 }
