@@ -40,11 +40,15 @@ optimizer = false
 via_ir = false
 
 [fmt]
+# `forge fmt` is opinionated and reformats away from the project's
+# preferred multi-line style for storage slots, function signatures
+# with many params, and view-getter one-liners — so CI does not run
+# `forge fmt --check`. These settings are kept only as a hint for
+# anyone invoking `forge fmt` by hand.
 line_length = 120
 tab_width = 4
 bracket_spacing = true
 int_types = "long"
-func_attrs_with_params_multiline = true
 quote_style = "double"
 number_underscore = "thousands"
 

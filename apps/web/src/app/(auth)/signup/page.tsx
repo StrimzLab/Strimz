@@ -99,18 +99,33 @@ export default function SignupPage() {
         <ArrowRight className="size-4" />
       </SubmitButton>
 
-      <p className="mt-6 text-center font-poppins text-sm text-[#58556A]">
+      <p className="font-poppins mt-6 text-center text-sm text-[#58556A]">
         Already have an account?{' '}
         <Link href="/login" className="font-[500] text-[#050020] hover:underline">
           Log in
         </Link>
       </p>
 
-      <p className="mt-6 text-center font-poppins text-xs text-[#58556A]">
+      <p className="font-poppins mt-6 text-center text-xs text-[#58556A]">
         By continuing you agree to our{' '}
-        <Link href="/legal/terms" target="_blank" rel="noreferrer" className="underline underline-offset-2">Terms</Link>{' '}
+        <Link
+          href="/legal/terms"
+          target="_blank"
+          rel="noreferrer"
+          className="underline underline-offset-2"
+        >
+          Terms
+        </Link>{' '}
         and{' '}
-        <Link href="/legal/privacy" target="_blank" rel="noreferrer" className="underline underline-offset-2">Privacy Policy</Link>.
+        <Link
+          href="/legal/privacy"
+          target="_blank"
+          rel="noreferrer"
+          className="underline underline-offset-2"
+        >
+          Privacy Policy
+        </Link>
+        .
       </p>
     </AuthCard>
   )

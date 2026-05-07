@@ -11,7 +11,13 @@
  *   - 5xx for non-idempotent calls without an idempotency key.
  */
 
-import { classifyError, StrimzError, StrimzNetworkError, StrimzTimeoutError, type StrimzErrorBody } from '../errors.js'
+import {
+  classifyError,
+  StrimzError,
+  StrimzNetworkError,
+  StrimzTimeoutError,
+  type StrimzErrorBody,
+} from '../errors.js'
 import { HEADERS } from './headers.js'
 
 export interface FetcherOptions {
@@ -25,7 +31,13 @@ export interface FetcherOptions {
   initialBackoffMs?: number
   /** Optional logger. */
   onRequest?: (info: { method: string; url: string; attempt: number }) => void
-  onResponse?: (info: { method: string; url: string; status: number; ms: number; attempt: number }) => void
+  onResponse?: (info: {
+    method: string
+    url: string
+    status: number
+    ms: number
+    attempt: number
+  }) => void
   /** Override the global fetch (for tests / Edge polyfills). */
   fetch?: typeof globalThis.fetch
 }
@@ -78,11 +90,15 @@ export class Fetcher {
       try {
         this.onRequest?.({ method: spec.method, url, attempt })
         const start = Date.now()
-        const res = await this.fetchWithTimeout(url, {
-          method: spec.method,
-          headers,
-          body: spec.body == null ? undefined : JSON.stringify(spec.body),
-        }, spec.timeoutMs ?? this.timeoutMs)
+        const res = await this.fetchWithTimeout(
+          url,
+          {
+            method: spec.method,
+            headers,
+            body: spec.body == null ? undefined : JSON.stringify(spec.body),
+          },
+          spec.timeoutMs ?? this.timeoutMs,
+        )
         const ms = Date.now() - start
         this.onResponse?.({ method: spec.method, url, status: res.status, ms, attempt })
 
@@ -122,7 +138,11 @@ export class Fetcher {
     throw new StrimzNetworkError(`Network error after ${this.maxRetries} retries`, lastErr)
   }
 
-  private async fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  private async fetchWithTimeout(
+    url: string,
+    init: RequestInit,
+    timeoutMs: number,
+  ): Promise<Response> {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {

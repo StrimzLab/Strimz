@@ -39,16 +39,25 @@ export class ApiKeyGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest<FastifyRequest>()
     const auth = req.headers.authorization
     if (!auth || !auth.startsWith('Bearer ')) {
-      throw new UnauthorizedException({ code: 'authentication_error', message: 'missing bearer token' })
+      throw new UnauthorizedException({
+        code: 'authentication_error',
+        message: 'missing bearer token',
+      })
     }
     const token = auth.slice('Bearer '.length).trim()
 
     if (kindFromKey(token) !== 'secret') {
-      throw new UnauthorizedException({ code: 'authentication_error', message: 'invalid api key kind' })
+      throw new UnauthorizedException({
+        code: 'authentication_error',
+        message: 'invalid api key kind',
+      })
     }
     const mode = modeFromKey(token)
     if (mode == null) {
-      throw new UnauthorizedException({ code: 'authentication_error', message: 'invalid api key prefix' })
+      throw new UnauthorizedException({
+        code: 'authentication_error',
+        message: 'invalid api key prefix',
+      })
     }
 
     const hash = await hashApiKey(token)
@@ -63,10 +72,11 @@ export class ApiKeyGuard implements CanActivate {
       throw new ForbiddenException({ code: 'permission_denied', message: 'merchant suspended' })
     }
 
-    const required = this.reflector.getAllAndOverride<ApiKeyScope[]>(REQUIRED_SCOPES_KEY, [
-      ctx.getHandler(),
-      ctx.getClass(),
-    ]) ?? []
+    const required =
+      this.reflector.getAllAndOverride<ApiKeyScope[]>(REQUIRED_SCOPES_KEY, [
+        ctx.getHandler(),
+        ctx.getClass(),
+      ]) ?? []
     if (required.length > 0) {
       const has = new Set(apiKey.scopes as unknown as string[])
       for (const s of required) {

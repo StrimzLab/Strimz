@@ -42,11 +42,11 @@ src/
 
 ## Auth
 
-| Surface | Strategy | Header |
-|---|---|---|
-| `/v1/auth/*` | none (public) | – |
-| `/v1/merchants/*`, `/v1/api-keys/*`, dashboard surface | JWT (HS256) | `Authorization: Bearer <jwt>` |
-| `/v1/payment-sessions/*`, `/v1/customers/*`, every SDK-callable resource | API key | `Authorization: Bearer sk_test_...` |
+| Surface                                                                  | Strategy      | Header                              |
+| ------------------------------------------------------------------------ | ------------- | ----------------------------------- |
+| `/v1/auth/*`                                                             | none (public) | –                                   |
+| `/v1/merchants/*`, `/v1/api-keys/*`, dashboard surface                   | JWT (HS256)   | `Authorization: Bearer <jwt>`       |
+| `/v1/payment-sessions/*`, `/v1/customers/*`, every SDK-callable resource | API key       | `Authorization: Bearer sk_test_...` |
 
 The API-key guard hashes the inbound key with `@strimz/shared-crypto` and looks it up by the indexed sha256 hash. Mode (`test`/`live`) is derived from the key prefix.
 
@@ -56,30 +56,30 @@ The API-key guard hashes the inbound key with `@strimz/shared-crypto` and looks 
 
 Strict Zod validation at boot — see `src/config/env.schema.ts`. The process refuses to start with an invalid `.env`.
 
-| Var | Required | Notes |
-|---|---|---|
-| `NODE_ENV` | ✓ | `development` / `test` / `production` |
-| `PORT` | – | default `4000` |
-| `DATABASE_URL` | ✓ | shared with `@strimz/db` |
-| `REDIS_URL` | ✓ | BullMQ + caches |
-| `JWT_SECRET` | ✓ | 32+ characters |
-| `STRIMZ_WEBHOOK_SIGNING_SECRET` | ✓ | HMAC for outbound webhooks |
-| `ARC_RPC_URL`, `ARC_ENVIRONMENT` | ✓ | viem PublicClient seed |
-| `RESEND_API_KEY` | – | falls back to logging if absent (dev) |
-| `COMPLIANCE_PROVIDER` | – | `disabled` / `trm` / `elliptic` |
-| `CORS_ORIGIN` | – | comma-separated list or `*` |
+| Var                              | Required | Notes                                 |
+| -------------------------------- | -------- | ------------------------------------- |
+| `NODE_ENV`                       | ✓        | `development` / `test` / `production` |
+| `PORT`                           | –        | default `4000`                        |
+| `DATABASE_URL`                   | ✓        | shared with `@strimz/db`              |
+| `REDIS_URL`                      | ✓        | BullMQ + caches                       |
+| `JWT_SECRET`                     | ✓        | 32+ characters                        |
+| `STRIMZ_WEBHOOK_SIGNING_SECRET`  | ✓        | HMAC for outbound webhooks            |
+| `ARC_RPC_URL`, `ARC_ENVIRONMENT` | ✓        | viem PublicClient seed                |
+| `RESEND_API_KEY`                 | –        | falls back to logging if absent (dev) |
+| `COMPLIANCE_PROVIDER`            | –        | `disabled` / `trm` / `elliptic`       |
+| `CORS_ORIGIN`                    | –        | comma-separated list or `*`           |
 
 ## Scripts
 
-| Script | Action |
-|---|---|
-| `pnpm --filter @strimz/api dev` | `nest start --watch` |
-| `pnpm --filter @strimz/api build` | `nest build` |
-| `pnpm --filter @strimz/api start` | `node dist/main.js` (prod) |
-| `pnpm --filter @strimz/api test` | vitest |
-| `pnpm --filter @strimz/api test:e2e` | full e2e suite (requires Postgres + Redis) |
-| `pnpm --filter @strimz/api typecheck` | `tsc --noEmit` |
-| `pnpm --filter @strimz/api lint` | ESLint |
+| Script                                | Action                                     |
+| ------------------------------------- | ------------------------------------------ |
+| `pnpm --filter @strimz/api dev`       | `nest start --watch`                       |
+| `pnpm --filter @strimz/api build`     | `nest build`                               |
+| `pnpm --filter @strimz/api start`     | `node dist/main.js` (prod)                 |
+| `pnpm --filter @strimz/api test`      | vitest                                     |
+| `pnpm --filter @strimz/api test:e2e`  | full e2e suite (requires Postgres + Redis) |
+| `pnpm --filter @strimz/api typecheck` | `tsc --noEmit`                             |
+| `pnpm --filter @strimz/api lint`      | ESLint                                     |
 
 ## Bootstrap behaviour
 
@@ -93,4 +93,4 @@ Strict Zod validation at boot — see `src/config/env.schema.ts`. The process re
 
 ## What's stubbed
 
-Modules tagged *M1 / M2 / M3 — TODO* in the layout above expose the full route surface but throw `NotImplementedException` for handlers that need integration with chain events, off-chain compliance providers, or aggregation pipelines that don't exist yet. Each stub carries a single-line comment pointing to the work item.
+Modules tagged _M1 / M2 / M3 — TODO_ in the layout above expose the full route surface but throw `NotImplementedException` for handlers that need integration with chain events, off-chain compliance providers, or aggregation pipelines that don't exist yet. Each stub carries a single-line comment pointing to the work item.

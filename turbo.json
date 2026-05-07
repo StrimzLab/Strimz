@@ -1,27 +1,12 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": [
-    "**/.env",
-    "**/.env.*",
-    "tsconfig.json",
-    ".nvmrc"
-  ],
-  "globalEnv": [
-    "NODE_ENV",
-    "CI"
-  ],
+  "globalDependencies": ["**/.env", "**/.env.*", "tsconfig.json", ".nvmrc"],
+  "globalEnv": ["NODE_ENV", "CI"],
   "ui": "stream",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [
-        "dist/**",
-        ".next/**",
-        "!.next/cache/**",
-        "out/**",
-        "build/**",
-        "generated/**"
-      ],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**", "out/**", "build/**", "generated/**"],
       "outputLogs": "new-only"
     },
     "dev": {

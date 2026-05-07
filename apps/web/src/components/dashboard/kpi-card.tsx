@@ -29,11 +29,11 @@ export function KpiCard({
         <Card className="shadow-sub-card border-border/60 transition-colors hover:border-[#02C76A]/40">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-medium text-muted-foreground">{label}</div>
-              <Icon className="size-4 text-muted-foreground/60" />
+              <div className="text-muted-foreground text-sm font-medium">{label}</div>
+              <Icon className="text-muted-foreground/60 size-4" />
             </div>
-            <div className="mt-3 font-sora text-2xl font-bold tracking-tight">{value}</div>
-            {subtle && <div className="mt-1 text-xs text-muted-foreground">{subtle}</div>}
+            <div className="font-sora mt-3 text-2xl font-bold tracking-tight">{value}</div>
+            {subtle && <div className="text-muted-foreground mt-1 text-xs">{subtle}</div>}
             <div className="mt-4 inline-flex items-center text-xs font-medium text-[#02C76A] opacity-0 transition-opacity group-hover:opacity-100">
               View details <ArrowUpRight className="ml-1 size-3" />
             </div>

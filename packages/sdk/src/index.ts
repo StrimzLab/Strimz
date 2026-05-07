@@ -30,11 +30,7 @@ export {
 } from './errors.js'
 
 // Pagination.
-export {
-  AutoPagingIterator,
-  type Page,
-  type PaginationParams,
-} from './pagination.js'
+export { AutoPagingIterator, type Page, type PaginationParams } from './pagination.js'
 
 // Idempotency.
 export { generateIdempotencyKey, isValidIdempotencyKey } from './idempotency.js'

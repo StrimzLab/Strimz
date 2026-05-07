@@ -33,22 +33,32 @@ export default function PrivacyPage() {
         not sell personal data and we do not run third-party advertising on our surfaces.
       </p>
       <p>
-        This policy applies to data we process about merchants who sign up at strimz.finance and about
-        end-customers who pay through Strimz checkouts.
+        This policy applies to data we process about merchants who sign up at strimz.finance and
+        about end-customers who pay through Strimz checkouts.
       </p>
 
       <h2 id="collect">Data we collect</h2>
-      <p><strong>From merchants:</strong></p>
+      <p>
+        <strong>From merchants:</strong>
+      </p>
       <ul>
         <li>Name and email address (provided to Privy at sign-up).</li>
-        <li>Business information you provide during onboarding (legal name, trading name, sector, country, registered address, tax ID).</li>
+        <li>
+          Business information you provide during onboarding (legal name, trading name, sector,
+          country, registered address, tax ID).
+        </li>
         <li>Payout wallet address.</li>
-        <li>API keys you create (we store a SHA-256 hash and the prefix; the full secret is never persisted).</li>
+        <li>
+          API keys you create (we store a SHA-256 hash and the prefix; the full secret is never
+          persisted).
+        </li>
         <li>Webhook endpoint URLs and signing secret hashes.</li>
         <li>Dashboard activity logs (which keys were created, who invited a teammate, etc.).</li>
         <li>Communication you send us via support channels.</li>
       </ul>
-      <p><strong>From end-customers paying via your Strimz checkout:</strong></p>
+      <p>
+        <strong>From end-customers paying via your Strimz checkout:</strong>
+      </p>
       <ul>
         <li>Wallet address (visible on-chain).</li>
         <li>Email address (only if your checkout collects it).</li>
@@ -62,9 +72,18 @@ export default function PrivacyPage() {
 
       <h2 id="not-collect">Data we never collect</h2>
       <ul>
-        <li>Private keys or seed phrases — wallet authentication is delegated to Privy and your wallet provider.</li>
-        <li>Card numbers, bank account numbers, or tax-return data — Strimz does not handle traditional payment rails.</li>
-        <li>Government-ID images for the Free / Starter tiers (live-mode unlocks via self-attested KYB + 2FA).</li>
+        <li>
+          Private keys or seed phrases — wallet authentication is delegated to Privy and your wallet
+          provider.
+        </li>
+        <li>
+          Card numbers, bank account numbers, or tax-return data — Strimz does not handle
+          traditional payment rails.
+        </li>
+        <li>
+          Government-ID images for the Free / Starter tiers (live-mode unlocks via self-attested KYB
+          + 2FA).
+        </li>
       </ul>
 
       <h2 id="use">How we use it</h2>
@@ -72,22 +91,37 @@ export default function PrivacyPage() {
       <ul>
         <li>Authenticate you and route requests to the correct merchant account.</li>
         <li>Settle and reconcile on-chain payments to your payout wallet.</li>
-        <li>Send transactional email (account verification, recovery emails, daily digests, security alerts, invoice receipts).</li>
+        <li>
+          Send transactional email (account verification, recovery emails, daily digests, security
+          alerts, invoice receipts).
+        </li>
         <li>Detect and prevent abuse (rate-limit enforcement, leaked-key scanning).</li>
         <li>Comply with legal obligations and respond to lawful requests.</li>
       </ul>
 
       <h2 id="share">Data sharing</h2>
-      <p>
-        We share data only with infrastructure providers necessary to operate the Service:
-      </p>
+      <p>We share data only with infrastructure providers necessary to operate the Service:</p>
       <ul>
-        <li><strong>Privy</strong> — identity, embedded wallets, 2FA.</li>
-        <li><strong>Resend</strong> — transactional email delivery.</li>
-        <li><strong>Cloudflare</strong> — bot protection (Turnstile) on signup and checkout.</li>
-        <li><strong>Render</strong> + <strong>Vercel</strong> — application hosting.</li>
-        <li><strong>Circle</strong> — CCTP V2 attestation API for cross-chain routing (only the source-chain transaction hash is shared, no personal data).</li>
-        <li><strong>TRM Labs / Elliptic</strong> — wallet sanctions screening when the compliance integration is enabled (wallet address only).</li>
+        <li>
+          <strong>Privy</strong> — identity, embedded wallets, 2FA.
+        </li>
+        <li>
+          <strong>Resend</strong> — transactional email delivery.
+        </li>
+        <li>
+          <strong>Cloudflare</strong> — bot protection (Turnstile) on signup and checkout.
+        </li>
+        <li>
+          <strong>Render</strong> + <strong>Vercel</strong> — application hosting.
+        </li>
+        <li>
+          <strong>Circle</strong> — CCTP V2 attestation API for cross-chain routing (only the
+          source-chain transaction hash is shared, no personal data).
+        </li>
+        <li>
+          <strong>TRM Labs / Elliptic</strong> — wallet sanctions screening when the compliance
+          integration is enabled (wallet address only).
+        </li>
       </ul>
       <p>
         We do not sell your data. We will disclose data when legally compelled (court order,
@@ -112,8 +146,9 @@ export default function PrivacyPage() {
         <li>Withdraw consent for marketing communications at any time.</li>
       </ul>
       <p>
-        Exercise any of these by emailing <a href="mailto:privacy@strimz.finance">privacy@strimz.finance</a>.
-        We respond to all requests within thirty (30) days.
+        Exercise any of these by emailing{' '}
+        <a href="mailto:privacy@strimz.finance">privacy@strimz.finance</a>. We respond to all
+        requests within thirty (30) days.
       </p>
 
       <h2 id="children">Children</h2>
@@ -133,14 +168,16 @@ export default function PrivacyPage() {
         We use TLS in transit, encryption at rest for our managed databases, and per-merchant data
         partitioning. API keys and webhook signing secrets are stored only as SHA-256 hashes;
         secrets are returned exactly once at creation time and cannot be recovered. We follow a
-        responsible disclosure policy at <a href="mailto:security@strimz.finance">security@strimz.finance</a>.
+        responsible disclosure policy at{' '}
+        <a href="mailto:security@strimz.finance">security@strimz.finance</a>.
       </p>
 
       <h2 id="contact">Contact</h2>
       <p>
         Strimz Labs Ltd., 20 Chancery Lane, London EC4A 1LF, United Kingdom.
         <br />
-        <a href="mailto:privacy@strimz.finance">privacy@strimz.finance</a> for any privacy-related question.
+        <a href="mailto:privacy@strimz.finance">privacy@strimz.finance</a> for any privacy-related
+        question.
       </p>
     </LegalDoc>
   )

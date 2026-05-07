@@ -8,15 +8,15 @@ Every contract is a **UUPS proxy**. Implementations disable initialisers in thei
 
 Each contract reserves a deterministic **ERC-7201 storage slot** for its state struct. Future versions can append fields to that struct or add new storage namespaces with zero risk of collision with existing slots — **no breaks, no data loss on upgrade**.
 
-| Contract | Storage namespace |
-|---|---|
-| `TokenWhitelist` | `strimz.storage.TokenWhitelist` |
-| `FeeCollector` | `strimz.storage.FeeCollector` |
-| `StrimzRegistry` | `strimz.storage.StrimzRegistry` |
-| `StrimzPayments` | `strimz.storage.StrimzPayments` |
+| Contract              | Storage namespace                    |
+| --------------------- | ------------------------------------ |
+| `TokenWhitelist`      | `strimz.storage.TokenWhitelist`      |
+| `FeeCollector`        | `strimz.storage.FeeCollector`        |
+| `StrimzRegistry`      | `strimz.storage.StrimzRegistry`      |
+| `StrimzPayments`      | `strimz.storage.StrimzPayments`      |
 | `StrimzSubscriptions` | `strimz.storage.StrimzSubscriptions` |
 | `StrimzAgentRegistry` | `strimz.storage.StrimzAgentRegistry` |
-| `StrimzAgentEscrow` | `strimz.storage.StrimzAgentEscrow` |
+| `StrimzAgentEscrow`   | `strimz.storage.StrimzAgentEscrow`   |
 
 **Upgrade authorization.** `_authorizeUpgrade` is gated by `UPGRADER_ROLE`. In production this role is held by an OpenZeppelin `TimelockController` (48h delay on mainnet) controlled by a Safe multi-sig. On testnet a single deployer holds it for development velocity.
 
@@ -60,16 +60,16 @@ deployments/
 
 ## Gas posture
 
-| Lever | Choice |
-|---|---|
-| `via_ir` | `true` — better optimisation passes |
-| `optimizer_runs` | `1_000_000` — runtime-optimal (millions of executions expected) |
-| Custom errors | Everywhere — ~50% cheaper than revert strings |
-| Struct packing | `Subscription` packed to 4 slots (was 5); `Merchant` packed to 2 slots |
-| Hot-path locals | Subscription charge caches `payer`, `amount`, `token` to avoid repeated SLOADs |
-| `unchecked` blocks | Loop counters and provably-safe arithmetic |
-| `calldata` arrays | `batchCharge` reads input arrays from calldata, no memory copy |
-| Indexed events | Up to 3 indexed fields where downstream filters benefit |
+| Lever              | Choice                                                                         |
+| ------------------ | ------------------------------------------------------------------------------ |
+| `via_ir`           | `true` — better optimisation passes                                            |
+| `optimizer_runs`   | `1_000_000` — runtime-optimal (millions of executions expected)                |
+| Custom errors      | Everywhere — ~50% cheaper than revert strings                                  |
+| Struct packing     | `Subscription` packed to 4 slots (was 5); `Merchant` packed to 2 slots         |
+| Hot-path locals    | Subscription charge caches `payer`, `amount`, `token` to avoid repeated SLOADs |
+| `unchecked` blocks | Loop counters and provably-safe arithmetic                                     |
+| `calldata` arrays  | `batchCharge` reads input arrays from calldata, no memory copy                 |
+| Indexed events     | Up to 3 indexed fields where downstream filters benefit                        |
 
 ## Security posture
 
@@ -93,31 +93,31 @@ deployments/
 
 ## Scripts
 
-| Command | Description |
-|---|---|
-| `pnpm --filter @strimz/contracts build` | `forge build` |
-| `pnpm --filter @strimz/contracts test` | Clean + build + `forge test -vv` (clean is required for the OZ validator) |
-| `pnpm --filter @strimz/contracts test:gas` | `forge test --gas-report` |
-| `pnpm --filter @strimz/contracts coverage` | `forge coverage --report lcov` |
-| `pnpm --filter @strimz/contracts format` | `forge fmt` |
-| `pnpm --filter @strimz/contracts snapshot` | `forge snapshot` |
-| `pnpm --filter @strimz/contracts forge:install` | Install / refresh all submodules |
-| `pnpm --filter @strimz/contracts deploy:testnet` | Deploy core proxies to Arc testnet |
-| `pnpm --filter @strimz/contracts deploy:agent:testnet` | Deploy agent proxies to Arc testnet |
+| Command                                                | Description                                                               |
+| ------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `pnpm --filter @strimz/contracts build`                | `forge build`                                                             |
+| `pnpm --filter @strimz/contracts test`                 | Clean + build + `forge test -vv` (clean is required for the OZ validator) |
+| `pnpm --filter @strimz/contracts test:gas`             | `forge test --gas-report`                                                 |
+| `pnpm --filter @strimz/contracts coverage`             | `forge coverage --report lcov`                                            |
+| `pnpm --filter @strimz/contracts format`               | `forge fmt`                                                               |
+| `pnpm --filter @strimz/contracts snapshot`             | `forge snapshot`                                                          |
+| `pnpm --filter @strimz/contracts forge:install`        | Install / refresh all submodules                                          |
+| `pnpm --filter @strimz/contracts deploy:testnet`       | Deploy core proxies to Arc testnet                                        |
+| `pnpm --filter @strimz/contracts deploy:agent:testnet` | Deploy agent proxies to Arc testnet                                       |
 
 ## Environment
 
 Copy `.env.example` to `.env`:
 
-| Var | Purpose |
-|---|---|
-| `ARC_TESTNET_RPC_URL` | RPC for testnet deploys (`https://rpc.testnet.arc.network`) |
-| `ARC_MAINNET_RPC_URL` | RPC for mainnet deploys |
-| `STRIMZ_DEPLOYER_PRIVATE_KEY` | Funded deployer. Never commit. Get testnet gas at `https://faucet.circle.com`. |
-| `ARCSCAN_API_KEY` | For `--verify` on ArcScan |
-| `ARC_USDC_ADDRESS` | Token whitelist seed — auto-added by `DeployCore` |
-| `ARC_EURC_ADDRESS` | Token whitelist seed — auto-added by `DeployCore` |
-| `STRIMZ_TOKEN_WHITELIST_ADDRESS` | Whitelist proxy address — required by `DeployAgent` |
+| Var                              | Purpose                                                                        |
+| -------------------------------- | ------------------------------------------------------------------------------ |
+| `ARC_TESTNET_RPC_URL`            | RPC for testnet deploys (`https://rpc.testnet.arc.network`)                    |
+| `ARC_MAINNET_RPC_URL`            | RPC for mainnet deploys                                                        |
+| `STRIMZ_DEPLOYER_PRIVATE_KEY`    | Funded deployer. Never commit. Get testnet gas at `https://faucet.circle.com`. |
+| `ARCSCAN_API_KEY`                | For `--verify` on ArcScan                                                      |
+| `ARC_USDC_ADDRESS`               | Token whitelist seed — auto-added by `DeployCore`                              |
+| `ARC_EURC_ADDRESS`               | Token whitelist seed — auto-added by `DeployCore`                              |
+| `STRIMZ_TOKEN_WHITELIST_ADDRESS` | Whitelist proxy address — required by `DeployAgent`                            |
 
 ## Audit posture
 

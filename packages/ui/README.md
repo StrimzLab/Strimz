@@ -10,21 +10,21 @@ Shared shadcn/ui primitives configured with Strimz brand tokens. Distributed as 
 
 ## What's inside
 
-| Component | Import |
-|---|---|
-| `Button` | `@strimz/ui` or `@strimz/ui/components/button` |
-| `Input`, `Textarea`, `Label` | form primitives |
-| `Card`, `CardHeader`, `CardContent`, `CardFooter` | layout |
-| `Badge` | with `success` and `warning` variants |
-| `Separator`, `Skeleton`, `Avatar` | scaffolding |
-| `Dialog`, `AlertDialog` | modals |
-| `DropdownMenu`, `Select`, `Tabs` | navigation + pickers |
-| `Switch`, `Checkbox`, `RadioGroup` | binary + choice controls |
-| `Table` and friends | data display |
-| `Tooltip`, `TooltipProvider` | help overlays |
-| `Toaster`, `toast` | Sonner-backed notifications |
-| `Form`, `FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormDescription`, `FormMessage` | react-hook-form wrapper |
-| `ThemeProvider` | next-themes wrapper |
+| Component                                                                                     | Import                                         |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `Button`                                                                                      | `@strimz/ui` or `@strimz/ui/components/button` |
+| `Input`, `Textarea`, `Label`                                                                  | form primitives                                |
+| `Card`, `CardHeader`, `CardContent`, `CardFooter`                                             | layout                                         |
+| `Badge`                                                                                       | with `success` and `warning` variants          |
+| `Separator`, `Skeleton`, `Avatar`                                                             | scaffolding                                    |
+| `Dialog`, `AlertDialog`                                                                       | modals                                         |
+| `DropdownMenu`, `Select`, `Tabs`                                                              | navigation + pickers                           |
+| `Switch`, `Checkbox`, `RadioGroup`                                                            | binary + choice controls                       |
+| `Table` and friends                                                                           | data display                                   |
+| `Tooltip`, `TooltipProvider`                                                                  | help overlays                                  |
+| `Toaster`, `toast`                                                                            | Sonner-backed notifications                    |
+| `Form`, `FormField`, `FormItem`, `FormLabel`, `FormControl`, `FormDescription`, `FormMessage` | react-hook-form wrapper                        |
+| `ThemeProvider`                                                                               | next-themes wrapper                            |
 
 The `cn` utility (clsx + tailwind-merge) is exported at the package root and at `@strimz/ui/cn`.
 

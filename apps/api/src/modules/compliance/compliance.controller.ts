@@ -1,7 +1,10 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { PrivyAuthGuard } from '../../common/guards/privy.guard.js'
-import { CurrentMerchant, type CurrentMerchantPayload } from '../../common/decorators/current-merchant.decorator.js'
+import {
+  CurrentMerchant,
+  type CurrentMerchantPayload,
+} from '../../common/decorators/current-merchant.decorator.js'
 import { ComplianceService } from './compliance.service.js'
 
 @ApiTags('compliance')

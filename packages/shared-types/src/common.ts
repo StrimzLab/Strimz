@@ -27,9 +27,12 @@ export const evmTxHashSchema = z
 export const emailSchema = z.string().email().trim().toLowerCase().max(320)
 
 /** HTTPS URL. No http:// allowed outside dev. */
-export const httpsUrlSchema = z.string().url().refine((v) => v.startsWith('https://'), {
-  message: 'must be an https:// URL',
-})
+export const httpsUrlSchema = z
+  .string()
+  .url()
+  .refine((v) => v.startsWith('https://'), {
+    message: 'must be an https:// URL',
+  })
 
 /** URL permitting http and https (dev + prod). */
 export const httpUrlSchema = z.string().url()
@@ -75,7 +78,10 @@ export const makePaginatedSchema = <T extends z.ZodTypeAny>(item: T) =>
 
 /** Free-form metadata bag the API round-trips for merchants. */
 export const metadataSchema = z
-  .record(z.string().min(1).max(40), z.union([z.string().max(500), z.number(), z.boolean(), z.null()]))
+  .record(
+    z.string().min(1).max(40),
+    z.union([z.string().max(500), z.number(), z.boolean(), z.null()]),
+  )
   .refine((m) => Object.keys(m).length <= 50, 'at most 50 metadata keys')
   .default({})
 

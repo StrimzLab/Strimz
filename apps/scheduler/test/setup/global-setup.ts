@@ -33,10 +33,15 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   // Resolve repo root robustly under both CJS (typecheck) and ESM (runtime).
   // tsc with module=commonjs (the nestjs preset) doesn't permit `import.meta`,
   // so we fall back to `__dirname` if it exists.
+  // `eval` defers the `import.meta.url` syntax check to runtime so this
+  // file still parses under tsc's CJS preset (which rejects `import.meta`)
+  // while the runtime ESM path resolves it normally. Literal string, not
+  // user input — no security surface.
   const here =
     typeof __dirname !== 'undefined'
       ? __dirname
-      : dirname(fileURLToPath(eval('import.meta.url') as string))
+      : // eslint-disable-next-line no-eval
+        dirname(fileURLToPath(eval('import.meta.url') as string))
   const repoRoot = resolve(here, '../../../..')
   const dbPkg = resolve(repoRoot, 'packages/db')
 

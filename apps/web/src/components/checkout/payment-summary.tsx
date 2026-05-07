@@ -28,10 +28,10 @@ export function PaymentSummary({
 
   return (
     <aside className="flex h-full flex-col">
-      <div className="shadow-sub-card flex flex-1 flex-col gap-10 rounded-2xl bg-muted/30 p-8">
+      <div className="shadow-sub-card bg-muted/30 flex flex-1 flex-col gap-10 rounded-2xl p-8">
         {/* Merchant identity */}
         <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-full bg-[#02C76A] font-sora text-base font-semibold text-white">
+          <div className="font-sora flex size-10 items-center justify-center rounded-full bg-[#02C76A] text-base font-semibold text-white">
             {merchantInitial}
           </div>
           <h4 className="font-poppins text-base font-medium md:text-lg">
@@ -41,11 +41,11 @@ export function PaymentSummary({
 
         {/* Amount */}
         <div className="space-y-1.5">
-          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          <div className="text-muted-foreground text-xs font-medium uppercase tracking-widest">
             Total amount
           </div>
           <div className="flex items-center gap-2.5">
-            <div className="shadow-sub-icon flex size-8 items-center justify-center rounded-full bg-background">
+            <div className="shadow-sub-icon bg-background flex size-8 items-center justify-center rounded-full">
               <span className="font-mono text-xs font-bold">{currency.charAt(0)}</span>
             </div>
             <h2 className="font-sora text-2xl font-bold md:text-3xl">
@@ -53,7 +53,7 @@ export function PaymentSummary({
             </h2>
           </div>
           {interval && (
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <div className="text-muted-foreground flex items-center gap-1.5 text-sm">
               <Repeat className="size-3.5" />
               Charged every {interval.replace('ly', '')}
             </div>
@@ -62,10 +62,8 @@ export function PaymentSummary({
 
         {/* Details */}
         <div className="space-y-4">
-          {description && (
-            <div className="text-sm text-muted-foreground">{description}</div>
-          )}
-          <div className="border-t border-border/60" />
+          {description && <div className="text-muted-foreground text-sm">{description}</div>}
+          <div className="border-border/60 border-t" />
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">Total due</span>
             <span className="font-poppins text-sm font-semibold">
@@ -75,16 +73,26 @@ export function PaymentSummary({
         </div>
       </div>
 
-      <div className="mt-6 hidden items-center justify-between text-xs text-muted-foreground md:flex">
+      <div className="text-muted-foreground mt-6 hidden items-center justify-between text-xs md:flex">
         <div className="flex items-center gap-2">
           <span>Powered by</span>
           <Logo className="!gap-1.5 [&>span]:!text-sm" />
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/legal/privacy" target="_blank" rel="noreferrer" className="transition-colors hover:text-foreground">
+          <Link
+            href="/legal/privacy"
+            target="_blank"
+            rel="noreferrer"
+            className="hover:text-foreground transition-colors"
+          >
             Privacy
           </Link>
-          <Link href="/legal/terms" target="_blank" rel="noreferrer" className="transition-colors hover:text-foreground">
+          <Link
+            href="/legal/terms"
+            target="_blank"
+            rel="noreferrer"
+            className="hover:text-foreground transition-colors"
+          >
             Terms
           </Link>
         </div>
@@ -95,11 +103,11 @@ export function PaymentSummary({
 
 export function CheckoutPoweredBy() {
   return (
-    <div className="flex flex-col items-center gap-3 pt-4 text-xs text-muted-foreground md:hidden">
+    <div className="text-muted-foreground flex flex-col items-center gap-3 pt-4 text-xs md:hidden">
       <div className="flex items-center gap-2">
         <span>Powered by</span>
         <Glyph className="size-4" />
-        <span className="font-medium text-foreground">Strimz</span>
+        <span className="text-foreground font-medium">Strimz</span>
       </div>
     </div>
   )

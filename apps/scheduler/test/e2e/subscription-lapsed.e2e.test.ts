@@ -40,8 +40,8 @@ describe('subscription-lapsed cron e2e', () => {
       where: { id: expiredSub.id },
       data: {
         currentPeriodStartAt: new Date(Date.now() - 60 * 24 * 60 * 60_000), // 60d ago
-        currentPeriodEndAt: new Date(Date.now() - 7 * 24 * 60 * 60_000),    // 7d ago
-        gracePeriodHours: 48,                                                 // 48h grace
+        currentPeriodEndAt: new Date(Date.now() - 7 * 24 * 60 * 60_000), // 7d ago
+        gracePeriodHours: 48, // 48h grace
       },
     })
 
@@ -79,7 +79,9 @@ describe('subscription-lapsed cron e2e', () => {
       { onchainSubscriptionId: 3, status: 'active' },
     ])
 
-    const events = await t.prisma.db.webhookEvent.findMany({ where: { type: 'subscription_lapsed' } })
+    const events = await t.prisma.db.webhookEvent.findMany({
+      where: { type: 'subscription_lapsed' },
+    })
     expect(events).toHaveLength(1)
     const deliveries = await t.prisma.db.webhookDelivery.findMany()
     expect(deliveries).toHaveLength(1)

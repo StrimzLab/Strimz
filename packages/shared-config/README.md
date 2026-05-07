@@ -4,15 +4,15 @@ Single source of truth for the Strimz platform's environment-independent constan
 
 ## Modules
 
-| Subpath | Exports |
-|---|---|
-| `@strimz/shared-config/chains` | `arcTestnet`, `arcMainnet`, `getArcChain`, `isArcChain`, chain id constants |
-| `@strimz/shared-config/tokens` | `TOKENS`, `TOKEN_ADDRESSES`, `getTokenAddress`, `isPaymentToken`, `PaymentToken` type |
-| `@strimz/shared-config/tiers` | `TIERS`, `effectiveFeeBps`, `getTier`, `MerchantTier` type |
-| `@strimz/shared-config/webhooks` | `WEBHOOK_EVENTS`, retry schedule, signature header constants |
-| `@strimz/shared-config/api-keys` | `API_KEY_PREFIXES`, `prefixFor`, `modeFromKey`, `kindFromKey` |
-| `@strimz/shared-config/agents` | `AGENT_CAPABILITIES`, `AGENT_DEFAULTS`, capability metadata |
-| `@strimz/shared-config/cctp` | CCTP V2 contract addresses, domain ids, source chain registry |
+| Subpath                          | Exports                                                                               |
+| -------------------------------- | ------------------------------------------------------------------------------------- |
+| `@strimz/shared-config/chains`   | `arcTestnet`, `arcMainnet`, `getArcChain`, `isArcChain`, chain id constants           |
+| `@strimz/shared-config/tokens`   | `TOKENS`, `TOKEN_ADDRESSES`, `getTokenAddress`, `isPaymentToken`, `PaymentToken` type |
+| `@strimz/shared-config/tiers`    | `TIERS`, `effectiveFeeBps`, `getTier`, `MerchantTier` type                            |
+| `@strimz/shared-config/webhooks` | `WEBHOOK_EVENTS`, retry schedule, signature header constants                          |
+| `@strimz/shared-config/api-keys` | `API_KEY_PREFIXES`, `prefixFor`, `modeFromKey`, `kindFromKey`                         |
+| `@strimz/shared-config/agents`   | `AGENT_CAPABILITIES`, `AGENT_DEFAULTS`, capability metadata                           |
+| `@strimz/shared-config/cctp`     | CCTP V2 contract addresses, domain ids, source chain registry                         |
 
 The package root (`@strimz/shared-config`) re-exports everything.
 

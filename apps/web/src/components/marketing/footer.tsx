@@ -35,11 +35,11 @@ export function MarketingFooter() {
   const year = new Date().getFullYear()
   return (
     <>
-      <footer className="flex w-full flex-col bg-[#050020] px-4 pt-12 pb-10 md:px-12 lg:px-20 lg:pt-20">
+      <footer className="flex w-full flex-col bg-[#050020] px-4 pb-10 pt-12 md:px-12 lg:px-20 lg:pt-20">
         <section className="flex w-full flex-col items-start justify-between gap-12 border-b border-[#58556A] pb-10 md:flex-row md:gap-0">
           <div className="max-w-xs">
             <Logo variant="white" className="lg:w-[126.98px]" />
-            <p className="mt-5 font-poppins text-sm text-[#D1D5DB]">
+            <p className="font-poppins mt-5 text-sm text-[#D1D5DB]">
               Stablecoin billing for businesses. One API for one-time payments, subscriptions, and
               agent-driven escrow. Settled in USDC on Arc.
             </p>
@@ -71,10 +71,10 @@ export function MarketingFooter() {
           <div className="grid w-full max-w-2xl grid-cols-2 gap-10 sm:grid-cols-3">
             {COLUMNS.map((col) => (
               <div key={col.label}>
-                <div className="mb-4 font-sora text-sm font-[600] uppercase tracking-wide text-white">
+                <div className="font-sora mb-4 text-sm font-[600] uppercase tracking-wide text-white">
                   {col.label}
                 </div>
-                <ul className="space-y-3 font-poppins text-sm text-[#D1D5DB]">
+                <ul className="font-poppins space-y-3 text-sm text-[#D1D5DB]">
                   {col.links.map((l) => (
                     <li key={l.href}>
                       <Link href={l.href} className="transition hover:text-white">
@@ -89,9 +89,7 @@ export function MarketingFooter() {
         </section>
 
         <section className="flex w-full flex-col items-center justify-between gap-4 pt-6 md:flex-row md:gap-0">
-          <p className="font-poppins text-sm text-[#D1D5DB] md:text-base">
-            Made with 💚 by the Strimz team
-          </p>
+          <p className="font-poppins text-sm text-[#D1D5DB] md:text-base">Built by the Strimz</p>
           <p className="font-poppins text-sm text-[#D1D5DB] md:text-base">
             © {year} Strimz. All rights reserved.
           </p>

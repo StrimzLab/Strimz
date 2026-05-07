@@ -52,9 +52,7 @@ export class AgentActionWorker extends WorkerHost {
       messageHex: data.messageHex as `0x${string}`,
       attestationHex: data.attestationHex as `0x${string}`,
     })
-    this.log.log(
-      `cctp settle merchant=${data.merchantId} src=${data.sourceTxHash} → ${txHash}`,
-    )
+    this.log.log(`cctp settle merchant=${data.merchantId} src=${data.sourceTxHash} → ${txHash}`)
     return { txHash }
   }
 

@@ -32,7 +32,7 @@ export function MarketingNav() {
                 href={link.href}
                 target={link.external ? '_blank' : undefined}
                 rel={link.external ? 'noreferrer' : undefined}
-                className="cursor-pointer font-poppins text-[15px] font-[400] capitalize text-[#58556A] transition-all hover:text-[#050020]"
+                className="font-poppins cursor-pointer text-[15px] font-[400] capitalize text-[#58556A] transition-all hover:text-[#050020]"
               >
                 {link.label}
               </Link>
@@ -44,7 +44,7 @@ export function MarketingNav() {
               type="button"
               icon={<ArrowRight className="h-4 w-4" />}
               innerClassName="bg-[#02C76A] rounded-[8px]"
-              className="shadow-nav-cta flex h-[40px] cursor-pointer items-center justify-center whitespace-nowrap rounded-[8px] bg-[#F9FAFB] px-5 font-poppins text-[14px] font-[500] text-[#050020] transition-all duration-300 hover:text-white"
+              className="shadow-nav-cta font-poppins flex h-[40px] cursor-pointer items-center justify-center whitespace-nowrap rounded-[8px] bg-[#F9FAFB] px-5 text-[14px] font-[500] text-[#050020] transition-all duration-300 hover:text-white"
               onClick={() => (window.location.href = '/signup')}
             >
               Get started

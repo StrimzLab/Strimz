@@ -38,7 +38,7 @@ export function EarningsChart() {
         <h3 className="font-sora text-lg font-semibold">Earnings</h3>
         <button
           type="button"
-          className="shadow-sub-card inline-flex h-9 items-center gap-1.5 rounded-md border border-border/60 bg-background px-3 text-sm transition-colors hover:bg-muted"
+          className="shadow-sub-card border-border/60 bg-background hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-md border px-3 text-sm transition-colors"
         >
           <Calendar className="size-4" />
           Last 7 days
@@ -49,23 +49,27 @@ export function EarningsChart() {
         <CardContent className="grid gap-4 p-6 lg:grid-cols-4 lg:gap-0">
           <div className="space-y-4 lg:col-span-3 lg:pr-6">
             <div>
-              <div className="text-sm font-medium text-muted-foreground">Volume</div>
+              <div className="text-muted-foreground text-sm font-medium">Volume</div>
               <div className="mt-1 flex flex-wrap items-baseline gap-2">
                 <h2 className="font-sora text-3xl font-bold">
-                  $1,255<span className="text-base text-muted-foreground">.50 USD</span>
+                  $1,255<span className="text-muted-foreground text-base">.50 USD</span>
                 </h2>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-[#02C76A]/10 px-2 py-0.5 text-xs font-medium text-[#02C76A]">
                   <ArrowUpRight className="size-3" />
                   +7%
                 </span>
-                <span className="text-xs text-muted-foreground">vs. previous 7 days</span>
+                <span className="text-muted-foreground text-xs">vs. previous 7 days</span>
               </div>
             </div>
             <div className="h-48 w-full">
               {mounted && (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={SAMPLE} margin={{ top: 5, right: 5, left: -16, bottom: 5 }}>
-                    <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
+                    <CartesianGrid
+                      stroke="hsl(var(--border))"
+                      strokeDasharray="3 3"
+                      vertical={false}
+                    />
                     <XAxis
                       dataKey="day"
                       axisLine={false}
@@ -99,23 +103,29 @@ export function EarningsChart() {
             </div>
           </div>
 
-          <div className="space-y-4 border-t border-border/40 pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-6">
+          <div className="border-border/40 space-y-4 border-t pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
             <div>
-              <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">All-time volume</div>
-              <div className="mt-1 font-sora text-xl font-bold">
-                $345,250<span className="text-sm text-muted-foreground">.50</span>
+              <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-widest">
+                All-time volume
+              </div>
+              <div className="font-sora mt-1 text-xl font-bold">
+                $345,250<span className="text-muted-foreground text-sm">.50</span>
               </div>
             </div>
             <div>
-              <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">USDC</div>
-              <div className="mt-1 font-sora text-xl font-bold">
-                $201,250<span className="text-sm text-muted-foreground">.00</span>
+              <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-widest">
+                USDC
+              </div>
+              <div className="font-sora mt-1 text-xl font-bold">
+                $201,250<span className="text-muted-foreground text-sm">.00</span>
               </div>
             </div>
             <div>
-              <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">EURC</div>
-              <div className="mt-1 font-sora text-xl font-bold">
-                €0<span className="text-sm text-muted-foreground">.00</span>
+              <div className="text-muted-foreground text-[10px] font-medium uppercase tracking-widest">
+                EURC
+              </div>
+              <div className="font-sora mt-1 text-xl font-bold">
+                €0<span className="text-muted-foreground text-sm">.00</span>
               </div>
             </div>
           </div>

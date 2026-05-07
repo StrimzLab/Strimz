@@ -5,7 +5,12 @@ import { generateApiKey, randomBase64Url, sha256Hex } from '@strimz/shared-crypt
 
 export async function seedMerchant(
   prisma: PrismaClient,
-  overrides: Partial<{ id: string; email: string; payoutAddress: string; onchainMerchantId: number | null }> = {},
+  overrides: Partial<{
+    id: string
+    email: string
+    payoutAddress: string
+    onchainMerchantId: number | null
+  }> = {},
 ): Promise<any> {
   const id = overrides.id ?? `m_${Math.random().toString(36).slice(2, 10)}`
   return prisma.merchant.create({
@@ -130,7 +135,10 @@ export async function seedSubscription(
       intervalCount: 1,
       currentPeriodStartAt: now,
       currentPeriodEndAt: new Date(now.getTime() + 30 * 86_400_000),
-      nextChargeAt: overrides.nextChargeAt === undefined ? new Date(now.getTime() - 60_000) : overrides.nextChargeAt,
+      nextChargeAt:
+        overrides.nextChargeAt === undefined
+          ? new Date(now.getTime() - 60_000)
+          : overrides.nextChargeAt,
       mode: 'test',
     },
   })

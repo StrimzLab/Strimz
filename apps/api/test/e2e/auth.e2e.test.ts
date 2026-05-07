@@ -72,8 +72,16 @@ describe('auth e2e', () => {
     it('is idempotent — second call updates instead of duplicating', async () => {
       const token = `test|${makePrivyDid('repeat@x.test')}|repeat@x.test|`
 
-      const r1 = await t.inject({ method: 'POST', url: '/v1/auth/sync', payload: { accessToken: token } })
-      const r2 = await t.inject({ method: 'POST', url: '/v1/auth/sync', payload: { accessToken: token } })
+      const r1 = await t.inject({
+        method: 'POST',
+        url: '/v1/auth/sync',
+        payload: { accessToken: token },
+      })
+      const r2 = await t.inject({
+        method: 'POST',
+        url: '/v1/auth/sync',
+        payload: { accessToken: token },
+      })
 
       expect(r1.statusCode).toBe(200)
       expect(r2.statusCode).toBe(200)

@@ -121,7 +121,11 @@ export class StrimzModeMismatchError extends StrimzError {
 }
 
 /** Map an HTTP status + body to the right StrimzError subclass. */
-export function classifyError(httpStatus: number, body: StrimzErrorBody, retryAfterMs?: number): StrimzError {
+export function classifyError(
+  httpStatus: number,
+  body: StrimzErrorBody,
+  retryAfterMs?: number,
+): StrimzError {
   if (httpStatus === 401) return new StrimzAuthenticationError(body, httpStatus)
   if (httpStatus === 403) return new StrimzPermissionError(body, httpStatus)
   if (httpStatus === 404) return new StrimzNotFoundError(body, httpStatus)

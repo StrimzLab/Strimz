@@ -58,7 +58,8 @@ export class SubscriptionSweeperService {
     // Step 1+2: atomic select-and-lock. We do this with a single UPDATE
     // that returns the rows it locked, so two scheduler replicas never
     // see the same subscription as available.
-    const candidates = (await this.prisma.db.$queryRawUnsafe(`
+    const candidates = (await this.prisma.db.$queryRawUnsafe(
+      `
       UPDATE "Subscription"
          SET "chargeLock" = true,
              "chargeLockAcquiredAt" = NOW()
@@ -74,7 +75,10 @@ export class SubscriptionSweeperService {
           FOR UPDATE SKIP LOCKED
        )
        RETURNING id
-    `, now, limit)) as Array<{ id: string }>
+    `,
+      now,
+      limit,
+    )) as Array<{ id: string }>
 
     if (candidates.length === 0) {
       this.log.debug('sweeper found nothing due')

@@ -16,7 +16,7 @@ import { StrimzClient } from '@strimz/sdk'
 const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_SECRET_KEY! })
 
 const session = await strimz.paymentSessions.create({
-  amount: '1000000',          // 1 USDC in smallest units
+  amount: '1000000', // 1 USDC in smallest units
   currency: 'USDC',
   description: 'Premium plan – April',
   successUrl: 'https://app.example.com/success',
@@ -27,21 +27,21 @@ console.log(session.checkoutUrl)
 
 ## Modules
 
-| Resource | Path |
-|---|---|
-| `merchants` | `me`, `update`, `changeTier` |
-| `apiKeys` | `list`, `retrieve`, `create`, `revoke` |
-| `customers` | `retrieve`, `list`, `upsert` |
-| `paymentSessions` | `create`, `retrieve`, `list`, `cancel`, `expire` |
-| `transactions` | `retrieve`, `list` |
-| `subscriptionPlans` | `create`, `retrieve`, `list`, `archive` |
-| `subscriptions` | `create`, `retrieve`, `list`, `cancel` |
-| `refunds` | `create`, `retrieve`, `list`, `submitSignature` |
-| `webhookEndpoints` | `create`, `retrieve`, `list`, `enable`, `disable`, `rotateSecret` |
-| `webhookDeliveries` | `retrieve`, `list`, `replay` |
-| `invoices` | `create`, `retrieve`, `list`, `send`, `void` |
-| `storefronts` | `retrieve`, `upsert`, `publish`, `archive`, `listProducts`, `createProduct`, `retrieveProduct`, `archiveProduct` |
-| `agents` | `retrieveConfig`, `updateConfig`, `listActivity`, `listJobs`, `retrieveJob`, `createJob`, `approveJob` |
+| Resource            | Path                                                                                                             |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `merchants`         | `me`, `update`, `changeTier`                                                                                     |
+| `apiKeys`           | `list`, `retrieve`, `create`, `revoke`                                                                           |
+| `customers`         | `retrieve`, `list`, `upsert`                                                                                     |
+| `paymentSessions`   | `create`, `retrieve`, `list`, `cancel`, `expire`                                                                 |
+| `transactions`      | `retrieve`, `list`                                                                                               |
+| `subscriptionPlans` | `create`, `retrieve`, `list`, `archive`                                                                          |
+| `subscriptions`     | `create`, `retrieve`, `list`, `cancel`                                                                           |
+| `refunds`           | `create`, `retrieve`, `list`, `submitSignature`                                                                  |
+| `webhookEndpoints`  | `create`, `retrieve`, `list`, `enable`, `disable`, `rotateSecret`                                                |
+| `webhookDeliveries` | `retrieve`, `list`, `replay`                                                                                     |
+| `invoices`          | `create`, `retrieve`, `list`, `send`, `void`                                                                     |
+| `storefronts`       | `retrieve`, `upsert`, `publish`, `archive`, `listProducts`, `createProduct`, `retrieveProduct`, `archiveProduct` |
+| `agents`            | `retrieveConfig`, `updateConfig`, `listActivity`, `listJobs`, `retrieveJob`, `createJob`, `approveJob`           |
 
 ## Behaviour
 
@@ -94,13 +94,13 @@ The browser client exposes a strict subset of resource methods. It will refuse a
 
 ## Runtime support
 
-| Runtime | Supported |
-|---|---|
-| Node 22+ | ✓ (primary) |
-| Vercel Edge | ✓ (uses Web Crypto + fetch) |
-| Cloudflare Workers | ✓ |
-| Deno / Bun | should work; not regularly tested |
-| Browsers | use `StrimzBrowserClient` from `@strimz/sdk/browser` |
+| Runtime            | Supported                                            |
+| ------------------ | ---------------------------------------------------- |
+| Node 22+           | ✓ (primary)                                          |
+| Vercel Edge        | ✓ (uses Web Crypto + fetch)                          |
+| Cloudflare Workers | ✓                                                    |
+| Deno / Bun         | should work; not regularly tested                    |
+| Browsers           | use `StrimzBrowserClient` from `@strimz/sdk/browser` |
 
 ## Boundaries
 

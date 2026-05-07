@@ -43,14 +43,14 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
           <h2 className="font-poppins text-2xl font-semibold tracking-tight">
             {step === 'confirmed' ? 'Payment confirmed' : 'Pay with USDC'}
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-1 text-sm">
             {step === 'connect'
               ? 'Connect a wallet to continue. We use Reown AppKit to support every major wallet.'
               : step === 'approve'
-              ? 'Approve the contract to use your USDC. One-time per session.'
-              : step === 'pay'
-              ? 'Confirm the payment in your wallet.'
-              : `Tx hash recorded · session ${sessionId.slice(0, 12)}…`}
+                ? 'Approve the contract to use your USDC. One-time per session.'
+                : step === 'pay'
+                  ? 'Confirm the payment in your wallet.'
+                  : `Tx hash recorded · session ${sessionId.slice(0, 12)}…`}
           </p>
         </div>
 
@@ -80,8 +80,8 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
           </div>
         )}
 
-        <div className="rounded-lg bg-muted/30 p-4 text-xs text-muted-foreground">
-          <p className="font-medium text-foreground">How it works</p>
+        <div className="bg-muted/30 text-muted-foreground rounded-lg p-4 text-xs">
+          <p className="text-foreground font-medium">How it works</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
             <li>Connect a wallet that holds USDC on Arc.</li>
             <li>Approve the Strimz Payments contract (one-time).</li>

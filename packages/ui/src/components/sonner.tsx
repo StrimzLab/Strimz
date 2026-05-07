@@ -1,22 +1,27 @@
 'use client'
 
-import { useTheme } from 'next-themes'
 import { Toaster as Sonner, type ToasterProps } from 'sonner'
 
+/**
+ * Strimz toast — hardcoded `theme="light"`. Sonner reads `prefers-color-scheme`
+ * by default and goes dark on Mac/Windows users with dark system mode, which
+ * is wrong for Strimz (light-mode only).
+ */
 export function Toaster({ ...props }: ToasterProps) {
-  const { theme = 'system' } = useTheme()
-
   return (
     <Sonner
-      theme={theme as ToasterProps['theme']}
+      theme="light"
       className="toaster group"
       toastOptions={{
         classNames: {
           toast:
-            'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',
-          description: 'group-[.toast]:text-muted-foreground',
-          actionButton: 'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
-          cancelButton: 'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
+            'group toast !bg-white !text-[#050020] !border !border-[#E5E7EB] !shadow-[0_18px_40px_-15px_rgba(5,0,32,0.18)] font-poppins',
+          title: '!text-[#050020] !font-[600]',
+          description: '!text-[#58556A]',
+          actionButton: '!bg-[#02C76A] !text-white',
+          cancelButton: '!bg-[#F9FAFB] !text-[#58556A]',
+          success: '!text-[#050020]',
+          error: '!text-[#050020]',
         },
       }}
       {...props}

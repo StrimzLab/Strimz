@@ -57,7 +57,7 @@ export default function OnboardingPage() {
         }
       />
 
-      <Card className="shadow-sub-card max-w-2xl border-border/60">
+      <Card className="shadow-sub-card border-border/60 max-w-2xl">
         <CardContent className="p-6">
           <form onSubmit={handleSubmit} className="space-y-5">
             <Field label="Business name" required>
@@ -79,7 +79,7 @@ export default function OnboardingPage() {
                       businessSector: e.target.value as (typeof SECTORS)[number],
                     }))
                   }
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                  className="border-border bg-background h-10 w-full rounded-md border px-3 text-sm"
                   required
                 >
                   {SECTORS.map((s) => (
@@ -161,7 +161,7 @@ function Field({
         {required && <span className="text-[#02C76A]">*</span>}
       </Label>
       {children}
-      {help && <p className="mt-1 text-xs text-muted-foreground">{help}</p>}
+      {help && <p className="text-muted-foreground mt-1 text-xs">{help}</p>}
     </div>
   )
 }

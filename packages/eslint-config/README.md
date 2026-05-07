@@ -4,13 +4,13 @@ Shared ESLint flat configurations for every package and app in the Strimz monore
 
 ## Configurations
 
-| Entry | When to use |
-|---|---|
-| `@strimz/eslint-config/base` | Pure TypeScript libraries with no DOM or Node specifics. |
-| `@strimz/eslint-config/node` | Node 22 services and CLIs. |
-| `@strimz/eslint-config/nestjs` | NestJS apps — relaxes a few rules that conflict with DI. |
-| `@strimz/eslint-config/nextjs` | Next.js 15 apps — adds React, React Hooks, and the Next plugin. |
-| `@strimz/eslint-config/react-library` | Shared React libraries — adds React and React Hooks (no Next). |
+| Entry                                 | When to use                                                     |
+| ------------------------------------- | --------------------------------------------------------------- |
+| `@strimz/eslint-config/base`          | Pure TypeScript libraries with no DOM or Node specifics.        |
+| `@strimz/eslint-config/node`          | Node 22 services and CLIs.                                      |
+| `@strimz/eslint-config/nestjs`        | NestJS apps — relaxes a few rules that conflict with DI.        |
+| `@strimz/eslint-config/nextjs`        | Next.js 15 apps — adds React, React Hooks, and the Next plugin. |
+| `@strimz/eslint-config/react-library` | Shared React libraries — adds React and React Hooks (no Next).  |
 
 ## Usage
 

@@ -44,9 +44,7 @@ export function StrimzProvider({
 export function useStrimzContext(): StrimzContextValue {
   const ctx = React.useContext(StrimzContext)
   if (!ctx) {
-    throw new Error(
-      'useStrimzContext / Strimz components must be used inside a <StrimzProvider/>.',
-    )
+    throw new Error('useStrimzContext / Strimz components must be used inside a <StrimzProvider/>.')
   }
   return ctx
 }

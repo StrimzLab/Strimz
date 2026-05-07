@@ -17,7 +17,7 @@ describe('cashflow digest e2e', () => {
     t.email.reset()
   })
 
-  it('aggregates yesterday\'s confirmed transactions and emails the merchant', async () => {
+  it("aggregates yesterday's confirmed transactions and emails the merchant", async () => {
     const merchant = await seedMerchant(t.prisma.db, { businessName: 'Acme Inc.' })
     await seedAgentConfig(t.prisma.db, merchant.id, {
       enabledCapabilities: ['cashflow'],

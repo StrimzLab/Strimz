@@ -25,7 +25,7 @@ export function ClosingCta() {
       >
         <motion.h2
           variants={fadeUp}
-          className="text-balance text-center font-sora text-[40px] font-[700] leading-[48px] text-white md:text-[60px] md:leading-[68px]"
+          className="font-sora text-balance text-center text-[40px] font-[700] leading-[48px] text-white md:text-[60px] md:leading-[68px]"
         >
           Stop writing billing code.
           <br />
@@ -33,24 +33,27 @@ export function ClosingCta() {
         </motion.h2>
         <motion.p
           variants={fadeUp}
-          className="max-w-[522px] text-balance text-center font-poppins text-base font-[400] leading-[28px] text-white"
+          className="font-poppins max-w-[522px] text-balance text-center text-base font-[400] leading-[28px] text-white"
         >
-          The free plan includes every feature. Live mode unlocks after identity verification,
-          which usually takes under five minutes.
+          The free plan includes every feature. Live mode unlocks after identity verification, which
+          usually takes under five minutes.
         </motion.p>
-        <motion.div variants={fadeUp} className="mt-2 flex flex-wrap items-center justify-center gap-3">
+        <motion.div
+          variants={fadeUp}
+          className="mt-2 flex flex-wrap items-center justify-center gap-3"
+        >
           <InteractiveHoverButton
             type="button"
             icon={<MoveRight className="h-5 w-5" />}
             innerClassName="bg-white rounded-[8px]"
-            className="flex h-[48px] w-[200px] cursor-pointer items-center justify-center rounded-[8px] bg-[#02C76A] font-poppins text-[14px] font-[600] text-white shadow-cta hover:text-[#050020]"
+            className="font-poppins shadow-cta flex h-[48px] w-[200px] cursor-pointer items-center justify-center rounded-[8px] bg-[#02C76A] text-[14px] font-[600] text-white hover:text-[#050020]"
             onClick={() => router.push('/signup')}
           >
             Get your API keys
           </InteractiveHoverButton>
           <a
             href="/contact"
-            className="inline-flex h-[48px] items-center rounded-[8px] border border-white/20 bg-white/5 px-6 font-poppins text-[14px] font-[500] text-white backdrop-blur transition-colors hover:bg-white/10"
+            className="font-poppins inline-flex h-[48px] items-center rounded-[8px] border border-white/20 bg-white/5 px-6 text-[14px] font-[500] text-white backdrop-blur transition-colors hover:bg-white/10"
           >
             Talk to sales
           </a>

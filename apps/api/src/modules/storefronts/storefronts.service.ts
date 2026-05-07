@@ -81,7 +81,7 @@ export class StorefrontsService {
     })
     const hasMore = rows.length > limit
     const data = rows.slice(0, limit).map(serialiseProduct)
-    return { data, nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null, hasMore }
+    return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
   }
 
   async createProduct(

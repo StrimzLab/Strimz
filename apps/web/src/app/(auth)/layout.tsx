@@ -49,7 +49,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </p>
         </div>
 
-        <div className="relative z-10 flex items-center gap-2 font-poppins text-[12px] text-[#D1D5DB]">
+        <div className="font-poppins relative z-10 flex items-center gap-2 text-[12px] text-[#D1D5DB]">
           <span className="size-1.5 rounded-full bg-[#02C76A]" />
           Live on Arc
         </div>
@@ -68,9 +68,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </Link>
         </header>
 
-        <div className="flex flex-1 items-center justify-center px-4 pb-16 sm:px-8">
-          {children}
-        </div>
+        <div className="flex flex-1 items-center justify-center px-4 pb-16 sm:px-8">{children}</div>
       </section>
     </div>
   )

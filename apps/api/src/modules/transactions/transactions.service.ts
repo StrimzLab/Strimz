@@ -29,7 +29,7 @@ export class TransactionsService {
     })
     const hasMore = rows.length > limit
     const data = rows.slice(0, limit).map(serialise)
-    return { data, nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null, hasMore }
+    return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
   }
 }
 

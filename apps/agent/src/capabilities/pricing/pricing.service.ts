@@ -46,7 +46,9 @@ export class PricingService {
           }),
         })
       } catch (err) {
-        this.log.warn(`pricing email failed for merchant=${cfg.merchantId}: ${(err as Error).message}`)
+        this.log.warn(
+          `pricing email failed for merchant=${cfg.merchantId}: ${(err as Error).message}`,
+        )
         continue
       }
       sent++
@@ -108,9 +110,12 @@ export class PricingService {
   }
 
   /** Linear regression over last 90 days of confirmed transactions. */
-  private async computeForecast(
-    merchantId: string,
-  ): Promise<{ confidence: 'low' | 'medium' | 'high'; next30: bigint; next60: bigint; next90: bigint }> {
+  private async computeForecast(merchantId: string): Promise<{
+    confidence: 'low' | 'medium' | 'high'
+    next30: bigint
+    next60: bigint
+    next90: bigint
+  }> {
     type Row = { rev: bigint }
     const rows = (await this.prisma.db.$queryRawUnsafe(
       `SELECT date_trunc('day', "blockTimestamp") AS day,
@@ -180,5 +185,8 @@ function humanise(raw: bigint): string {
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
+  )
 }

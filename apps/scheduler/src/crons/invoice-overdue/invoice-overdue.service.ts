@@ -103,7 +103,9 @@ export class InvoiceOverdueService {
       }
     }
 
-    this.log.log(`flipped ${overdue.length} invoices to overdue, queued ${deliveriesQueued} deliveries`)
+    this.log.log(
+      `flipped ${overdue.length} invoices to overdue, queued ${deliveriesQueued} deliveries`,
+    )
     return { flipped: overdue.length, deliveriesQueued }
   }
 }

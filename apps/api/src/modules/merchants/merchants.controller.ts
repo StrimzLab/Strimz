@@ -1,7 +1,10 @@
 import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { PrivyAuthGuard } from '../../common/guards/privy.guard.js'
-import { CurrentMerchant, type CurrentMerchantPayload } from '../../common/decorators/current-merchant.decorator.js'
+import {
+  CurrentMerchant,
+  type CurrentMerchantPayload,
+} from '../../common/decorators/current-merchant.decorator.js'
 import { MerchantsService } from './merchants.service.js'
 import { ChangeTierDto, OnboardDto, UpdateMerchantDto } from './merchants.dto.js'
 

@@ -41,10 +41,7 @@ export default function AuthCallbackPage() {
   }
 
   return (
-    <AuthCard
-      title="Signing you in"
-      description={error ?? 'Hold on a moment.'}
-    >
+    <AuthCard title="Signing you in" description={error ?? 'Hold on a moment.'}>
       <div className="flex justify-center py-4">
         {error ? (
           <p className="font-poppins text-sm text-rose-600">{error}</p>

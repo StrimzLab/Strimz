@@ -139,7 +139,12 @@ export class CashflowAnomalyService {
     stddev: number
     priorSamples: number
   }> {
-    type Row = { lastHour: bigint | null; priorMean: number | null; priorStddev: number | null; samples: bigint }
+    type Row = {
+      lastHour: bigint | null
+      priorMean: number | null
+      priorStddev: number | null
+      samples: bigint
+    }
     const rows = (await this.prisma.db.$queryRawUnsafe(
       `WITH hourly AS (
          SELECT
@@ -184,9 +189,7 @@ export class CashflowAnomalyService {
 }
 
 function utcHourFloor(d: Date): Date {
-  return new Date(
-    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours()),
-  )
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours()))
 }
 
 function renderAnomalyEmail(input: {
@@ -217,5 +220,8 @@ function humanise(raw: bigint): string {
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
+  )
 }

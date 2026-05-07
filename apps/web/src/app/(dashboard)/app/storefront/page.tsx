@@ -218,11 +218,7 @@ export default function StorefrontPage() {
               </div>
             </div>
 
-            <Button
-              variant="default"
-              className="text-accent-foreground"
-              onClick={() => toast.success('Storefront updated')}
-            >
+            <Button variant="default" onClick={() => toast.success('Storefront updated')}>
               Save changes
             </Button>
           </CardContent>
@@ -284,7 +280,7 @@ function NewProductDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="default" className="text-accent-foreground">
+        <Button size="sm" variant="default">
           <Plus className="mr-1.5 size-4" /> New product
         </Button>
       </DialogTrigger>

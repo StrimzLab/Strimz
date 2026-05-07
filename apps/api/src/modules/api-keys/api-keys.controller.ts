@@ -2,7 +2,10 @@ import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common'
 import { createApiKeyInputSchema } from '@strimz/shared-types'
 import type { ApiKey, CreateApiKeyInput, CreateApiKeyOutput } from '@strimz/shared-types'
 import { JwtGuard } from '../../common/guards/jwt.guard.js'
-import { CurrentMerchant, type CurrentMerchantPayload } from '../../common/decorators/current-merchant.decorator.js'
+import {
+  CurrentMerchant,
+  type CurrentMerchantPayload,
+} from '../../common/decorators/current-merchant.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
 import { ApiKeysService } from './api-keys.service.js'
 
@@ -33,10 +36,7 @@ export class ApiKeysController {
   }
 
   @Post('/:id/revoke')
-  revoke(
-    @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Param('id') id: string,
-  ): Promise<ApiKey> {
+  revoke(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string): Promise<ApiKey> {
     return this.apiKeys.revoke(ctx.merchantId, id)
   }
 }

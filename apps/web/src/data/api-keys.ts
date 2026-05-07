@@ -3,28 +3,46 @@ import { daysAgo, id, mulberry32, pick, range } from './_seed'
 export type ApiKeyMode = 'live' | 'test'
 export type ApiKeyStatus = 'active' | 'revoked'
 export type ApiKeyScope =
-  | 'sessions_read' | 'sessions_write'
-  | 'subscriptions_read' | 'subscriptions_write'
-  | 'customers_read' | 'customers_write'
-  | 'refunds_read' | 'refunds_write'
-  | 'invoices_read' | 'invoices_write'
-  | 'webhooks_read' | 'webhooks_write'
+  | 'sessions_read'
+  | 'sessions_write'
+  | 'subscriptions_read'
+  | 'subscriptions_write'
+  | 'customers_read'
+  | 'customers_write'
+  | 'refunds_read'
+  | 'refunds_write'
+  | 'invoices_read'
+  | 'invoices_write'
+  | 'webhooks_read'
+  | 'webhooks_write'
   | 'transactions_read'
-  | 'agents_read' | 'agents_write'
-  | 'storefronts_read' | 'storefronts_write'
-  | 'api_keys_read' | 'api_keys_write'
+  | 'agents_read'
+  | 'agents_write'
+  | 'storefronts_read'
+  | 'storefronts_write'
+  | 'api_keys_read'
+  | 'api_keys_write'
 
 export const ALL_SCOPES: ApiKeyScope[] = [
-  'sessions_read', 'sessions_write',
-  'subscriptions_read', 'subscriptions_write',
-  'customers_read', 'customers_write',
-  'refunds_read', 'refunds_write',
-  'invoices_read', 'invoices_write',
-  'webhooks_read', 'webhooks_write',
+  'sessions_read',
+  'sessions_write',
+  'subscriptions_read',
+  'subscriptions_write',
+  'customers_read',
+  'customers_write',
+  'refunds_read',
+  'refunds_write',
+  'invoices_read',
+  'invoices_write',
+  'webhooks_read',
+  'webhooks_write',
   'transactions_read',
-  'agents_read', 'agents_write',
-  'storefronts_read', 'storefronts_write',
-  'api_keys_read', 'api_keys_write',
+  'agents_read',
+  'agents_write',
+  'storefronts_read',
+  'storefronts_write',
+  'api_keys_read',
+  'api_keys_write',
 ]
 
 export type ApiKey = {
@@ -58,7 +76,14 @@ export const API_KEYS: ApiKey[] = [
     name: 'Production read-only (analytics worker)',
     prefix: 'sk_live_qP2nW9',
     mode: 'live',
-    scopes: ['sessions_read', 'subscriptions_read', 'customers_read', 'transactions_read', 'invoices_read', 'webhooks_read'],
+    scopes: [
+      'sessions_read',
+      'subscriptions_read',
+      'customers_read',
+      'transactions_read',
+      'invoices_read',
+      'webhooks_read',
+    ],
     status: 'active',
     createdAt: daysAgo(120),
     lastUsedAt: daysAgo(0, 8),

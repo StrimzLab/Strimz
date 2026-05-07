@@ -11,11 +11,12 @@ import {
 } from '../src/errors.js'
 
 describe('classifyError', () => {
-  const body = (code: string) =>
-    ({ code: code as never, message: 'msg', requestId: 'req_1' })
+  const body = (code: string) => ({ code: code as never, message: 'msg', requestId: 'req_1' })
 
   it('401 → StrimzAuthenticationError', () => {
-    expect(classifyError(401, body('authentication_error'))).toBeInstanceOf(StrimzAuthenticationError)
+    expect(classifyError(401, body('authentication_error'))).toBeInstanceOf(
+      StrimzAuthenticationError,
+    )
   })
 
   it('403 → StrimzPermissionError', () => {

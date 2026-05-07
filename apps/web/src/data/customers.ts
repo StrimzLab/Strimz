@@ -1,4 +1,14 @@
-import { COMPANIES, daysAgo, emailFor, fullName, id, mulberry32, pick, range, walletAddress } from './_seed'
+import {
+  COMPANIES,
+  daysAgo,
+  emailFor,
+  fullName,
+  id,
+  mulberry32,
+  pick,
+  range,
+  walletAddress,
+} from './_seed'
 
 export type Customer = {
   id: string

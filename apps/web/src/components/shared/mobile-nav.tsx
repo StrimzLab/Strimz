@@ -41,7 +41,7 @@ export function MobileNav({ links }: { links: MobileLink[] }) {
                   href={l.href}
                   target={l.external ? '_blank' : undefined}
                   rel={l.external ? 'noreferrer' : undefined}
-                  className="flex items-center gap-2 font-poppins text-2xl font-[500] capitalize text-[#050020] transition-colors hover:underline"
+                  className="font-poppins flex items-center gap-2 text-2xl font-[500] capitalize text-[#050020] transition-colors hover:underline"
                 >
                   {l.label}
                   <MoveUpRight className="size-6" />

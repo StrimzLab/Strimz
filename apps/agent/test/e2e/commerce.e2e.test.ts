@@ -17,7 +17,7 @@ describe('commerce monthly summary e2e', () => {
     t.email.reset()
   })
 
-  it('aggregates last month\'s vendor activity and emails the merchant', async () => {
+  it("aggregates last month's vendor activity and emails the merchant", async () => {
     const merchant = await seedMerchant(t.prisma.db)
     await seedAgentConfig(t.prisma.db, merchant.id, {
       enabledCapabilities: ['commerce'],

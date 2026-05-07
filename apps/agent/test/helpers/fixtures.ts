@@ -3,11 +3,17 @@ import type { PrismaClient } from '@strimz/db'
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 let counter = 0
-const nextId = (prefix: string): string => `${prefix}_${(counter++).toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+const nextId = (prefix: string): string =>
+  `${prefix}_${(counter++).toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 
 export async function seedMerchant(
   prisma: PrismaClient,
-  overrides: Partial<{ id: string; email: string; businessName: string; payoutAddress: string }> = {},
+  overrides: Partial<{
+    id: string
+    email: string
+    businessName: string
+    payoutAddress: string
+  }> = {},
 ): Promise<any> {
   const id = overrides.id ?? nextId('m')
   return prisma.merchant.create({
@@ -43,8 +49,7 @@ export async function seedAgentConfig(
       cashflowDigestEnabled: overrides.cashflowDigestEnabled ?? false,
       cashflowAnomalySensitivity: overrides.cashflowAnomalySensitivity ?? 'medium',
       cashflowAutoConvertToYield: overrides.cashflowAutoConvertToYield ?? false,
-      cashflowMinimumLiquidReserveCents:
-        overrides.cashflowMinimumLiquidReserveCents ?? 100_000,
+      cashflowMinimumLiquidReserveCents: overrides.cashflowMinimumLiquidReserveCents ?? 100_000,
       commerceMonthlySpendCapUsdCents: overrides.commerceMonthlySpendCapUsdCents ?? null,
     },
   })
@@ -122,8 +127,7 @@ export async function seedTransaction(
       currency: 'USDC',
       payerAddress: '0x' + 'b'.repeat(40),
       merchantAddress: '0x' + 'd'.repeat(40),
-      onchainTxHash:
-        '0x' + Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64),
+      onchainTxHash: '0x' + Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64),
       blockNumber: 1000n,
       blockTimestamp: overrides.blockTimestamp ?? new Date(),
       logIndex: 0,
@@ -140,7 +144,15 @@ export async function seedAgentJob(
   overrides: Partial<{
     vendorAddress: string
     amount: string
-    status: 'proposed' | 'accepted' | 'in_progress' | 'delivered' | 'approved' | 'completed' | 'disputed' | 'cancelled'
+    status:
+      | 'proposed'
+      | 'accepted'
+      | 'in_progress'
+      | 'delivered'
+      | 'approved'
+      | 'completed'
+      | 'disputed'
+      | 'cancelled'
     createdAt: Date
   }> = {},
 ): Promise<any> {

@@ -76,24 +76,24 @@ export function Developers() {
         >
           <motion.span
             variants={fadeUp}
-            className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 font-poppins text-[12px] font-[600] text-[#050020] shadow-sub-card ring-1 ring-black/5"
+            className="font-poppins shadow-sub-card inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[12px] font-[600] text-[#050020] ring-1 ring-black/5"
           >
             <span className="size-1.5 rounded-full bg-[#02C76A]" />
             Developer-first
           </motion.span>
           <motion.h2
             variants={fadeUp}
-            className="mt-5 font-sora text-[32px] font-[700] leading-[40px] text-[#050020] md:text-[44px] md:leading-[52px]"
+            className="font-sora mt-5 text-[32px] font-[700] leading-[40px] text-[#050020] md:text-[44px] md:leading-[52px]"
           >
             One API. Three ways to integrate.
           </motion.h2>
           <motion.p
             variants={fadeUp}
-            className="mt-4 font-poppins text-base font-[400] leading-[28px] text-[#58556A]"
+            className="font-poppins mt-4 text-base font-[400] leading-[28px] text-[#58556A]"
           >
             Use the server SDK from Node or Bun. Drop the React SDK into your app for embedded
-            checkout. For other languages, generate a client from our OpenAPI schema. Webhooks
-            come signed with HMAC-SHA256.
+            checkout. For other languages, generate a client from our OpenAPI schema. Webhooks come
+            signed with HMAC-SHA256.
           </motion.p>
         </motion.div>
 
@@ -107,20 +107,22 @@ export function Developers() {
             <motion.div
               key={p.name}
               variants={fadeUp}
-              className="flex flex-col items-start justify-between gap-4 rounded-[16px] border border-[#E5E7EB] bg-white p-5 shadow-sub-card transition-colors hover:border-[#02C76A]/40 md:flex-row md:items-center md:p-6"
+              className="shadow-sub-card flex flex-col items-start justify-between gap-4 rounded-[16px] border border-[#E5E7EB] bg-white p-5 transition-colors hover:border-[#02C76A]/40 md:flex-row md:items-center md:p-6"
             >
               <div className="flex items-start gap-4 md:items-center">
-                <span className="flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-[#02C76A]/10 text-[#02C76A] shadow-sub-icon">
+                <span className="shadow-sub-icon flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-[#02C76A]/10 text-[#02C76A]">
                   <p.icon className="size-5" />
                 </span>
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <code className="font-mono text-[15px] font-[600] text-[#050020]">{p.name}</code>
-                    <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 font-poppins text-[11px] font-[500] text-[#58556A]">
+                    <code className="font-mono text-[15px] font-[600] text-[#050020]">
+                      {p.name}
+                    </code>
+                    <span className="font-poppins rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[11px] font-[500] text-[#58556A]">
                       {p.runtime}
                     </span>
                   </div>
-                  <p className="mt-1 max-w-xl font-poppins text-[13px] leading-[20px] text-[#58556A]">
+                  <p className="font-poppins mt-1 max-w-xl text-[13px] leading-[20px] text-[#58556A]">
                     {p.desc}
                   </p>
                 </div>
@@ -139,14 +141,17 @@ export function Developers() {
           className="mx-auto mt-10 grid max-w-[1100px] gap-4 lg:grid-cols-2"
         >
           <motion.div variants={fadeUp} className="relative min-w-0">
-            <div className="absolute -inset-3 rounded-[20px] bg-gradient-to-br from-[#02C76A]/15 via-transparent to-transparent blur-2xl" aria-hidden />
-            <div className="relative flex h-full flex-col overflow-hidden rounded-[12px] border border-[#E5E7EB] bg-[#050020] shadow-sub-card">
+            <div
+              className="absolute -inset-3 rounded-[20px] bg-gradient-to-br from-[#02C76A]/15 via-transparent to-transparent blur-2xl"
+              aria-hidden
+            />
+            <div className="shadow-sub-card relative flex h-full flex-col overflow-hidden rounded-[12px] border border-[#E5E7EB] bg-[#050020]">
               <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
                 <span className="size-2.5 rounded-full bg-rose-500" />
                 <span className="size-2.5 rounded-full bg-amber-500" />
                 <span className="size-2.5 rounded-full bg-emerald-500" />
                 <span className="ml-3 font-mono text-[11px] text-white/60">checkout.tsx</span>
-                <span className="ml-auto rounded-full bg-white/5 px-2 py-0.5 font-poppins text-[10px] text-white/60">
+                <span className="font-poppins ml-auto rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/60">
                   Client
                 </span>
               </div>
@@ -157,14 +162,17 @@ export function Developers() {
           </motion.div>
 
           <motion.div variants={fadeUp} className="relative min-w-0">
-            <div className="absolute -inset-3 rounded-[20px] bg-gradient-to-br from-[#02C76A]/15 via-transparent to-transparent blur-2xl" aria-hidden />
-            <div className="relative flex h-full flex-col overflow-hidden rounded-[12px] border border-[#E5E7EB] bg-[#050020] shadow-sub-card">
+            <div
+              className="absolute -inset-3 rounded-[20px] bg-gradient-to-br from-[#02C76A]/15 via-transparent to-transparent blur-2xl"
+              aria-hidden
+            />
+            <div className="shadow-sub-card relative flex h-full flex-col overflow-hidden rounded-[12px] border border-[#E5E7EB] bg-[#050020]">
               <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
                 <span className="size-2.5 rounded-full bg-rose-500" />
                 <span className="size-2.5 rounded-full bg-amber-500" />
                 <span className="size-2.5 rounded-full bg-emerald-500" />
                 <span className="ml-3 font-mono text-[11px] text-white/60">webhooks.ts</span>
-                <span className="ml-auto rounded-full bg-white/5 px-2 py-0.5 font-poppins text-[10px] text-white/60">
+                <span className="font-poppins ml-auto rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/60">
                   Server
                 </span>
               </div>
@@ -179,7 +187,7 @@ export function Developers() {
         <motion.div
           {...inViewOnce}
           variants={fadeUp}
-          className="mx-auto mt-10 flex max-w-[1100px] flex-col items-center justify-between gap-4 rounded-[16px] border border-[#E5E7EB] bg-white p-6 shadow-sub-card md:flex-row md:p-7"
+          className="shadow-sub-card mx-auto mt-10 flex max-w-[1100px] flex-col items-center justify-between gap-4 rounded-[16px] border border-[#E5E7EB] bg-white p-6 md:flex-row md:p-7"
         >
           <div className="flex items-center gap-3">
             <Globe2 className="size-5 shrink-0 text-[#02C76A]" />
@@ -194,7 +202,7 @@ export function Developers() {
             href="/docs"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-[44px] shrink-0 items-center gap-2 whitespace-nowrap rounded-[8px] bg-[#02C76A] px-5 font-poppins text-[14px] font-[600] text-white shadow-cta transition-transform hover:scale-[1.02]"
+            className="font-poppins shadow-cta inline-flex h-[44px] shrink-0 items-center gap-2 whitespace-nowrap rounded-[8px] bg-[#02C76A] px-5 text-[14px] font-[600] text-white transition-transform hover:scale-[1.02]"
           >
             <Code2 className="size-4" />
             Open the docs

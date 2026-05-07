@@ -17,15 +17,29 @@ export type PaymentSession = {
 }
 
 const DESCRIPTIONS = [
-  'Pro plan, August', 'Annual subscription renewal', 'API overage fee',
-  'Onboarding session', 'Custom integration deposit', 'Hardware wallet bundle',
-  'Setup + migration package', 'Training workshop', 'Pro plan, July',
-  'Add-on: dedicated support', 'Compliance audit fee', 'Account top-up',
+  'Pro plan, August',
+  'Annual subscription renewal',
+  'API overage fee',
+  'Onboarding session',
+  'Custom integration deposit',
+  'Hardware wallet bundle',
+  'Setup + migration package',
+  'Training workshop',
+  'Pro plan, July',
+  'Add-on: dedicated support',
+  'Compliance audit fee',
+  'Account top-up',
 ]
 
 const STATUSES: PaymentSessionStatus[] = [
-  'confirmed', 'confirmed', 'confirmed', 'confirmed', 'confirmed', 'confirmed',
-  'pending', 'pending',
+  'confirmed',
+  'confirmed',
+  'confirmed',
+  'confirmed',
+  'confirmed',
+  'confirmed',
+  'pending',
+  'pending',
   'cancelled',
   'expired',
   'refunded',

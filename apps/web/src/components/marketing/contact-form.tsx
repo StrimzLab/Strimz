@@ -6,7 +6,16 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Loader2, Send } from 'lucide-react'
 import { toast } from 'sonner'
-import { Input, Label, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@strimz/ui'
+import {
+  Input,
+  Label,
+  Textarea,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@strimz/ui'
 
 const ContactSchema = z.object({
   name: z.string().min(2, 'Name is too short'),
@@ -47,13 +56,13 @@ export function ContactForm() {
     return (
       <div className="mt-6 rounded-[12px] border border-[#02C76A]/30 bg-[#02C76A]/5 p-5">
         <p className="font-sora text-base font-[600] text-[#050020]">Message sent ✨</p>
-        <p className="mt-1 font-poppins text-sm text-[#58556A]">
+        <p className="font-poppins mt-1 text-sm text-[#58556A]">
           We&apos;ll get back within 1 business day. Watch your inbox.
         </p>
         <button
           type="button"
           onClick={() => setSubmitted(false)}
-          className="mt-3 font-poppins text-sm font-[500] text-[#02C76A] hover:underline"
+          className="font-poppins mt-3 text-sm font-[500] text-[#02C76A] hover:underline"
         >
           Send another message →
         </button>
@@ -62,20 +71,13 @@ export function ContactForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="mt-6 grid gap-4 font-poppins">
+    <form onSubmit={handleSubmit(onSubmit)} className="font-poppins mt-6 grid gap-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
           id="name"
           label="Your name"
           error={errors.name?.message}
-          input={
-            <Input
-              id="name"
-              placeholder="Alex"
-              autoComplete="name"
-              {...register('name')}
-            />
-          }
+          input={<Input id="name" placeholder="Alex" autoComplete="name" {...register('name')} />}
         />
         <Field
           id="email"
@@ -145,7 +147,7 @@ export function ContactForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="inline-flex h-[44px] items-center justify-center gap-2 rounded-[8px] bg-[#02C76A] font-poppins text-sm font-[600] text-white shadow-cta transition-transform hover:scale-[1.01] disabled:scale-100 disabled:opacity-70"
+        className="font-poppins shadow-cta inline-flex h-[44px] items-center justify-center gap-2 rounded-[8px] bg-[#02C76A] text-sm font-[600] text-white transition-transform hover:scale-[1.01] disabled:scale-100 disabled:opacity-70"
       >
         {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
         {isSubmitting ? 'Sending…' : 'Send message'}
@@ -171,9 +173,7 @@ function Field({
         {label}
       </Label>
       {input}
-      {error ? (
-        <p className="font-poppins text-[12px] text-rose-600">{error}</p>
-      ) : null}
+      {error ? <p className="font-poppins text-[12px] text-rose-600">{error}</p> : null}
     </div>
   )
 }

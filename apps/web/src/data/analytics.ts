@@ -65,7 +65,7 @@ export const MRR_HISTORY: MrrPoint[] = range(12).map((i) => {
   const subs = Math.round(8 + i * 4 + rng() * 5)
   return {
     month: date.toISOString().slice(0, 7),
-    mrrUsdc: subs * Math.round((24_000_000 + rng() * 12_000_000)),
+    mrrUsdc: subs * Math.round(24_000_000 + rng() * 12_000_000),
     activeSubscribers: subs,
   }
 })

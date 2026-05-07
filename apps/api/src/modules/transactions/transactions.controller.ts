@@ -1,7 +1,10 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common'
 import type { Transaction } from '@strimz/shared-types'
 import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
-import { CurrentMerchant, type CurrentMerchantPayload } from '../../common/decorators/current-merchant.decorator.js'
+import {
+  CurrentMerchant,
+  type CurrentMerchantPayload,
+} from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { TransactionsService } from './transactions.service.js'
 
@@ -12,7 +15,10 @@ export class TransactionsController {
   constructor(private readonly transactions: TransactionsService) {}
 
   @Get('/:id')
-  retrieve(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string): Promise<Transaction> {
+  retrieve(
+    @CurrentMerchant() ctx: CurrentMerchantPayload,
+    @Param('id') id: string,
+  ): Promise<Transaction> {
     return this.transactions.retrieve(ctx.merchantId, id)
   }
 

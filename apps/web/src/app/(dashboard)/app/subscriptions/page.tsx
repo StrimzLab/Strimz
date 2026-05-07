@@ -176,7 +176,6 @@ export default function SubscriptionsPage() {
             <Button
               size="sm"
               variant="default"
-              className="text-accent-foreground"
               onClick={() =>
                 toast.message('Plans are created on-chain via your hosted checkout — see docs.')
               }

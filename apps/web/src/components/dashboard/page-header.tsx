@@ -18,9 +18,7 @@ export function PageHeader({
           <h2 className="font-sora text-2xl font-bold tracking-tight">{title}</h2>
           {badge}
         </div>
-        {description && (
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        )}
+        {description && <p className="text-muted-foreground mt-1 text-sm">{description}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>

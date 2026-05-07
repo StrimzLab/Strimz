@@ -23,7 +23,7 @@ export const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      'flex h-10 w-full items-center justify-between gap-2 whitespace-nowrap rounded-md border border-[#E5E7EB] bg-white px-3 py-2 font-poppins text-sm text-[#050020] shadow-sm transition-colors',
+      'font-poppins flex h-10 w-full items-center justify-between gap-2 whitespace-nowrap rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-[#050020] shadow-sm transition-colors',
       'focus:outline-none focus:ring-2 focus:ring-[#02C76A]/40 focus:ring-offset-2',
       'placeholder:text-[#8E8C9C] disabled:cursor-not-allowed disabled:opacity-50',
       '[&>span]:line-clamp-1 [&>span]:truncate',
@@ -106,7 +106,10 @@ export const SelectLabel = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Label
     ref={ref}
-    className={cn('px-2 py-1.5 font-poppins text-[11px] font-[600] uppercase tracking-wider text-[#58556A]', className)}
+    className={cn(
+      'font-poppins px-2 py-1.5 text-[11px] font-[600] uppercase tracking-wider text-[#58556A]',
+      className,
+    )}
     {...props}
   />
 ))
@@ -119,7 +122,7 @@ export const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex w-full cursor-pointer select-none items-center rounded-md py-2 pl-8 pr-3 font-poppins text-sm text-[#050020] outline-none transition-colors',
+      'font-poppins relative flex w-full cursor-pointer select-none items-center rounded-md py-2 pl-8 pr-3 text-sm text-[#050020] outline-none transition-colors',
       'focus:bg-[#F9FAFB] focus:text-[#050020] data-[state=checked]:bg-[#02C76A]/10 data-[state=checked]:text-[#050020]',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       className,

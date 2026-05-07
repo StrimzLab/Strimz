@@ -13,10 +13,7 @@ import { z } from 'zod'
 import { idSchema, isoTimestampSchema, modeSchema } from './common.js'
 import { paymentSessionSchema } from './payment-sessions.js'
 import { transactionSchema } from './transactions.js'
-import {
-  subscriptionSchema,
-  subscriptionChargeSchema,
-} from './subscriptions.js'
+import { subscriptionSchema, subscriptionChargeSchema } from './subscriptions.js'
 import { refundSchema } from './refunds.js'
 import { invoiceSchema } from './invoices.js'
 import { agentActivityLogSchema, agentJobSchema } from './agents.js'
@@ -155,8 +152,12 @@ export type PaymentFailedEvent = z.infer<typeof paymentFailedEventSchema>
 export type SubscriptionCreatedEvent = z.infer<typeof subscriptionCreatedEventSchema>
 export type SubscriptionChargedEvent = z.infer<typeof subscriptionChargedEventSchema>
 export type SubscriptionChargeFailedEvent = z.infer<typeof subscriptionChargeFailedEventSchema>
-export type SubscriptionRecoveryAttemptEvent = z.infer<typeof subscriptionRecoveryAttemptEventSchema>
-export type SubscriptionRecoveryOutcomeEvent = z.infer<typeof subscriptionRecoveryOutcomeEventSchema>
+export type SubscriptionRecoveryAttemptEvent = z.infer<
+  typeof subscriptionRecoveryAttemptEventSchema
+>
+export type SubscriptionRecoveryOutcomeEvent = z.infer<
+  typeof subscriptionRecoveryOutcomeEventSchema
+>
 export type SubscriptionCancelledEvent = z.infer<typeof subscriptionCancelledEventSchema>
 export type SubscriptionLapsedEvent = z.infer<typeof subscriptionLapsedEventSchema>
 export type RefundCreatedEvent = z.infer<typeof refundCreatedEventSchema>

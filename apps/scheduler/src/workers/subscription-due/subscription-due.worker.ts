@@ -41,7 +41,9 @@ export class SubscriptionDueWorker extends WorkerHost {
     super()
   }
 
-  async process(job: Job<SubscriptionDueJob>): Promise<{ txHash: string; chargeAttemptId: string }> {
+  async process(
+    job: Job<SubscriptionDueJob>,
+  ): Promise<{ txHash: string; chargeAttemptId: string }> {
     const data = subscriptionDueJobSchema.parse(job.data)
     const sub = await this.prisma.db.subscription.findUniqueOrThrow({
       where: { id: data.subscriptionId },
@@ -73,10 +75,7 @@ export class SubscriptionDueWorker extends WorkerHost {
 
     let txHash: `0x${string}`
     try {
-      txHash = await this.chain.batchCharge(
-        [BigInt(sub.onchainSubscriptionId)],
-        [chargeAttemptId],
-      )
+      txHash = await this.chain.batchCharge([BigInt(sub.onchainSubscriptionId)], [chargeAttemptId])
     } catch (err) {
       // Broadcast failed (RPC error / nonce conflict / chain revert).
       // Release the lock so the next sweep retries.

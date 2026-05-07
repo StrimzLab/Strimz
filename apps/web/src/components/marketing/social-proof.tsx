@@ -23,7 +23,7 @@ export function SocialProof() {
     <>
       <section className="border-y border-[#E5E7EB] bg-[#F9FAFB]">
         <div className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 lg:px-16">
-          <p className="text-center font-poppins text-[11px] font-[500] uppercase tracking-[0.22em] text-[#58556A]">
+          <p className="font-poppins text-center text-[11px] font-[500] uppercase tracking-[0.22em] text-[#58556A]">
             Built for
           </p>
           <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">

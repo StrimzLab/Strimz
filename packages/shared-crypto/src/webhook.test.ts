@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  WEBHOOK_SIGNATURE_VERSION,
-  signWebhookPayload,
-  verifyWebhookSignature,
-} from './webhook.js'
+import { WEBHOOK_SIGNATURE_VERSION, signWebhookPayload, verifyWebhookSignature } from './webhook.js'
 
 const SECRET = 'whsec_test_1234567890abcdef'
 const PAYLOAD = '{"type":"payment.completed","data":{"amount":"1000000"}}'
@@ -12,9 +8,7 @@ const T = 1_735_000_000
 describe('webhook/signWebhookPayload', () => {
   it('produces the expected header format', async () => {
     const header = await signWebhookPayload(PAYLOAD, SECRET, { timestampSeconds: T })
-    expect(header).toMatch(
-      new RegExp(`^t=${T},${WEBHOOK_SIGNATURE_VERSION}=[a-f0-9]{64}$`),
-    )
+    expect(header).toMatch(new RegExp(`^t=${T},${WEBHOOK_SIGNATURE_VERSION}=[a-f0-9]{64}$`))
   })
 
   it('uses the provided timestamp', async () => {

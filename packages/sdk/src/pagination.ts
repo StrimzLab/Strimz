@@ -19,9 +19,7 @@ export interface PaginationParams {
  *   for await (const tx of strimz.transactions.listAll()) { ... }
  */
 export class AutoPagingIterator<T> implements AsyncIterable<T> {
-  constructor(
-    private readonly fetchPage: (cursor: string | null) => Promise<Page<T>>,
-  ) {}
+  constructor(private readonly fetchPage: (cursor: string | null) => Promise<Page<T>>) {}
 
   async *[Symbol.asyncIterator](): AsyncIterator<T> {
     let cursor: string | null = null

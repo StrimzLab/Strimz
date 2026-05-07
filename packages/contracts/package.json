@@ -8,7 +8,6 @@
     "build": "forge build",
     "test": "forge clean && forge build && forge test -vv",
     "test:gas": "forge test --gas-report",
-    "lint": "forge fmt --check",
     "format": "forge fmt",
     "clean": "forge clean && rm -rf .turbo",
     "coverage": "forge coverage --report lcov",

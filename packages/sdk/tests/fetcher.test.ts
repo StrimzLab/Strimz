@@ -8,7 +8,10 @@ import {
   StrimzTimeoutError,
 } from '../src/errors.js'
 
-function jsonRes(body: unknown, init?: { status?: number; headers?: Record<string, string> }): Response {
+function jsonRes(
+  body: unknown,
+  init?: { status?: number; headers?: Record<string, string> },
+): Response {
   return new Response(JSON.stringify(body), {
     status: init?.status ?? 200,
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
@@ -31,7 +34,9 @@ describe('Fetcher', () => {
   it('throws StrimzNotFoundError on 404', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonRes({ error: { code: 'not_found', message: 'gone' } }, { status: 404 }))
+      .mockResolvedValue(
+        jsonRes({ error: { code: 'not_found', message: 'gone' } }, { status: 404 }),
+      )
     const f = new Fetcher({
       baseUrl: 'https://example.test',
       baseHeaders: {},
@@ -45,7 +50,9 @@ describe('Fetcher', () => {
   it('throws StrimzAuthenticationError on 401 and does not retry', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonRes({ error: { code: 'authentication_error', message: 'no' } }, { status: 401 }))
+      .mockResolvedValue(
+        jsonRes({ error: { code: 'authentication_error', message: 'no' } }, { status: 401 }),
+      )
     const f = new Fetcher({
       baseUrl: 'https://example.test',
       baseHeaders: {},
@@ -60,7 +67,9 @@ describe('Fetcher', () => {
   it('retries 5xx for GET and eventually succeeds', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonRes({ error: { code: 'api_error', message: 'oops' } }, { status: 503 }))
+      .mockResolvedValueOnce(
+        jsonRes({ error: { code: 'api_error', message: 'oops' } }, { status: 503 }),
+      )
       .mockResolvedValueOnce(jsonRes({ ok: true }))
     const f = new Fetcher({
       baseUrl: 'https://example.test',
@@ -95,7 +104,9 @@ describe('Fetcher', () => {
   it('does NOT retry 5xx for non-idempotent POST without idempotency key', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonRes({ error: { code: 'api_error', message: 'oops' } }, { status: 500 }))
+      .mockResolvedValue(
+        jsonRes({ error: { code: 'api_error', message: 'oops' } }, { status: 500 }),
+      )
     const f = new Fetcher({
       baseUrl: 'https://example.test',
       baseHeaders: {},
@@ -110,7 +121,9 @@ describe('Fetcher', () => {
   it('retries 5xx for POST with idempotency key', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonRes({ error: { code: 'api_error', message: 'oops' } }, { status: 502 }))
+      .mockResolvedValueOnce(
+        jsonRes({ error: { code: 'api_error', message: 'oops' } }, { status: 502 }),
+      )
       .mockResolvedValueOnce(jsonRes({ ok: true }))
     const f = new Fetcher({
       baseUrl: 'https://example.test',
@@ -138,7 +151,9 @@ describe('Fetcher', () => {
       initialBackoffMs: 1,
       fetch: fetchMock as unknown as typeof fetch,
     })
-    await expect(f.request({ method: 'GET', path: '/x' })).rejects.toBeInstanceOf(StrimzNetworkError)
+    await expect(f.request({ method: 'GET', path: '/x' })).rejects.toBeInstanceOf(
+      StrimzNetworkError,
+    )
   })
 
   it('classifies aborts as StrimzTimeoutError', async () => {
@@ -159,14 +174,19 @@ describe('Fetcher', () => {
       maxRetries: 0,
       fetch: fetchMock as unknown as typeof fetch,
     })
-    await expect(f.request({ method: 'GET', path: '/x' })).rejects.toBeInstanceOf(StrimzTimeoutError)
+    await expect(f.request({ method: 'GET', path: '/x' })).rejects.toBeInstanceOf(
+      StrimzTimeoutError,
+    )
   })
 
   it('rate limit error carries retry-after', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        jsonRes({ error: { code: 'rate_limited', message: 'no' } }, { status: 429, headers: { 'Retry-After': '2' } }),
+        jsonRes(
+          { error: { code: 'rate_limited', message: 'no' } },
+          { status: 429, headers: { 'Retry-After': '2' } },
+        ),
       )
       .mockResolvedValueOnce(
         jsonRes({ error: { code: 'rate_limited', message: 'still no' } }, { status: 429 }),
@@ -178,6 +198,8 @@ describe('Fetcher', () => {
       initialBackoffMs: 1,
       fetch: fetchMock as unknown as typeof fetch,
     })
-    await expect(f.request({ method: 'GET', path: '/x' })).rejects.toBeInstanceOf(StrimzRateLimitError)
+    await expect(f.request({ method: 'GET', path: '/x' })).rejects.toBeInstanceOf(
+      StrimzRateLimitError,
+    )
   })
 })

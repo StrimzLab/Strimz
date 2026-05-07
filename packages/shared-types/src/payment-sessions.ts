@@ -74,7 +74,12 @@ export const createPaymentSessionInputSchema = z.object({
   successUrl: z.string().url().optional(),
   cancelUrl: z.string().url().optional(),
   /** Minutes until the session expires. Default 30, max 60*24 (one day). */
-  expiresInMinutes: z.number().int().min(1).max(60 * 24).default(30),
+  expiresInMinutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(60 * 24)
+    .default(30),
   /**
    * Allowed source chains a payer can bridge USDC from via CCTP. Omit to
    * accept every CCTP-supported chain.

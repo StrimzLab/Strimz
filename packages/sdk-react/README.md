@@ -43,24 +43,24 @@ The merchant's backend creates the session via `@strimz/sdk` and passes its `id`
 
 Wraps any tree that uses Strimz components/hooks. Exposes a memoised `StrimzBrowserClient` and the hosted-checkout origin.
 
-| Prop | Default | Notes |
-|---|---|---|
-| `publishableKey` | required | `pk_test_...` or `pk_live_...` |
-| `apiBaseUrl` | `https://api.strimz.io` | Override for staging |
+| Prop             | Default                      | Notes                               |
+| ---------------- | ---------------------------- | ----------------------------------- |
+| `publishableKey` | required                     | `pk_test_...` or `pk_live_...`      |
+| `apiBaseUrl`     | `https://api.strimz.io`      | Override for staging                |
 | `checkoutOrigin` | `https://checkout.strimz.io` | Origin used to filter `postMessage` |
 
 ### `<StrimzPayButton/>`
 
-| Prop | Default | Notes |
-|---|---|---|
-| `sessionId` | required | Returned by `strimz.paymentSessions.create(...)` on your backend |
-| `mode` | `popup` | `popup` or `redirect` |
-| `theme` | `auto` | `auto` / `light` / `dark` |
-| `size` | `md` | `sm` / `md` / `lg` |
-| `onSuccess(txHash?)` | — | Fired on `strimz:checkout:success` postMessage |
-| `onCancel()` | — | Fired on `strimz:checkout:cancel` or popup close |
-| `onError(error)` | — | Fired on `strimz:checkout:error` |
-| `label` | `Pay with Strimz` | Override the button content |
+| Prop                 | Default           | Notes                                                            |
+| -------------------- | ----------------- | ---------------------------------------------------------------- |
+| `sessionId`          | required          | Returned by `strimz.paymentSessions.create(...)` on your backend |
+| `mode`               | `popup`           | `popup` or `redirect`                                            |
+| `theme`              | `auto`            | `auto` / `light` / `dark`                                        |
+| `size`               | `md`              | `sm` / `md` / `lg`                                               |
+| `onSuccess(txHash?)` | —                 | Fired on `strimz:checkout:success` postMessage                   |
+| `onCancel()`         | —                 | Fired on `strimz:checkout:cancel` or popup close                 |
+| `onError(error)`     | —                 | Fired on `strimz:checkout:error`                                 |
+| `label`              | `Pay with Strimz` | Override the button content                                      |
 
 ### `<StrimzCheckoutEmbed/>`
 

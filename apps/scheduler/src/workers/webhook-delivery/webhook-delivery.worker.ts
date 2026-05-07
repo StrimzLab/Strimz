@@ -161,11 +161,11 @@ export class WebhookDeliveryWorker extends WorkerHost {
     })
     // Re-enqueue with delay — keeps each attempt as a discrete BullMQ job
     // for observability.
-    await this.retryQueue.add(
-      'deliver',
-      data,
-      { delay: backoff, removeOnComplete: 1_000, removeOnFail: 1_000 },
-    )
+    await this.retryQueue.add('deliver', data, {
+      delay: backoff,
+      removeOnComplete: 1_000,
+      removeOnFail: 1_000,
+    })
     return { status: 'retrying', httpStatus }
   }
 
@@ -218,10 +218,7 @@ export class WebhookDeliveryWorker extends WorkerHost {
     })
 
     let autoDisabled = false
-    if (
-      recentFailures >= AUTO_DISABLE_THRESHOLD &&
-      endpoint.status === 'active'
-    ) {
+    if (recentFailures >= AUTO_DISABLE_THRESHOLD && endpoint.status === 'active') {
       await this.prisma.db.merchantWebhookEndpoint.update({
         where: { id: endpointId },
         data: { status: 'disabled' },
@@ -248,7 +245,9 @@ export class WebhookDeliveryWorker extends WorkerHost {
         }),
       })
     } catch (err) {
-      this.log.warn(`failed to email merchant for delivery ${deliveryId}: ${(err as Error).message}`)
+      this.log.warn(
+        `failed to email merchant for delivery ${deliveryId}: ${(err as Error).message}`,
+      )
     }
   }
 

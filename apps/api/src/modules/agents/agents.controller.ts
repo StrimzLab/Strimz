@@ -1,7 +1,10 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
-import { CurrentMerchant, type CurrentMerchantPayload } from '../../common/decorators/current-merchant.decorator.js'
+import {
+  CurrentMerchant,
+  type CurrentMerchantPayload,
+} from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { AgentsService } from './agents.service.js'
 import { CreateAgentJobDto, UpdateAgentConfigDto } from './agents.dto.js'
@@ -22,7 +25,9 @@ export class AgentsController {
 
   @RequireScopes('agents_write')
   @Patch('/config')
-  @ApiOperation({ summary: 'Update AutoPay Agent configuration. Partial — sends only changed fields.' })
+  @ApiOperation({
+    summary: 'Update AutoPay Agent configuration. Partial — sends only changed fields.',
+  })
   updateConfig(@CurrentMerchant() ctx: CurrentMerchantPayload, @Body() dto: UpdateAgentConfigDto) {
     return this.agents.updateConfig(ctx.merchantId, dto)
   }
@@ -69,7 +74,8 @@ export class AgentsController {
   @RequireScopes('agents_write')
   @Post('/jobs')
   @ApiOperation({
-    summary: 'Create an ERC-8183 escrow job. Auto-approves below the merchant-configured threshold.',
+    summary:
+      'Create an ERC-8183 escrow job. Auto-approves below the merchant-configured threshold.',
   })
   createJob(@CurrentMerchant() ctx: CurrentMerchantPayload, @Body() dto: CreateAgentJobDto) {
     return this.agents.createJob(ctx.merchantId, dto)

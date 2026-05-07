@@ -23,23 +23,29 @@ export function LegalDoc({
 }) {
   return (
     <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24">
-      <header className="border-b border-border/40 pb-8">
-        <div className="mb-3 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Legal</div>
+      <header className="border-border/40 border-b pb-8">
+        <div className="text-muted-foreground mb-3 text-[11px] font-medium uppercase tracking-widest">
+          Legal
+        </div>
         <h1 className="font-poppins text-4xl font-bold tracking-tight sm:text-5xl">{title}</h1>
-        <p className="mt-3 max-w-2xl text-muted-foreground">{description}</p>
-        <div className="mt-6 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-          <span><span className="font-medium text-foreground">Effective:</span> {effectiveDate}</span>
+        <p className="text-muted-foreground mt-3 max-w-2xl">{description}</p>
+        <div className="text-muted-foreground mt-6 flex flex-wrap items-center gap-4 text-xs">
+          <span>
+            <span className="text-foreground font-medium">Effective:</span> {effectiveDate}
+          </span>
           <span className="opacity-40">·</span>
-          <span><span className="font-medium text-foreground">Last updated:</span> {lastUpdated}</span>
+          <span>
+            <span className="text-foreground font-medium">Last updated:</span> {lastUpdated}
+          </span>
         </div>
       </header>
 
       <div className="mt-10 grid gap-12 lg:grid-cols-[1fr_220px]">
-        <article className="prose prose-neutral max-w-none prose-h2:scroll-mt-24 prose-h2:font-poppins prose-h2:text-2xl prose-h2:font-semibold prose-h3:font-poppins prose-a:text-[#02C76A] prose-a:no-underline hover:prose-a:underline">
+        <article className="prose prose-neutral prose-h2:scroll-mt-24 prose-h2:font-poppins prose-h2:text-2xl prose-h2:font-semibold prose-h3:font-poppins prose-a:text-[#02C76A] prose-a:no-underline hover:prose-a:underline max-w-none">
           {children}
 
-          <hr className="my-12 border-border/40" />
-          <p className="text-sm text-muted-foreground">
+          <hr className="border-border/40 my-12" />
+          <p className="text-muted-foreground text-sm">
             Questions about this document? Email{' '}
             <a href="mailto:legal@strimz.finance">legal@strimz.finance</a>.
           </p>
@@ -48,21 +54,48 @@ export function LegalDoc({
         <aside className="hidden lg:block">
           <div className="sticky top-24 space-y-6 text-sm">
             <div>
-              <div className="mb-3 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">On this page</div>
-              <ul className="space-y-1.5 border-l border-border/40 pl-3">
+              <div className="text-muted-foreground mb-3 text-[11px] font-medium uppercase tracking-widest">
+                On this page
+              </div>
+              <ul className="border-border/40 space-y-1.5 border-l pl-3">
                 {toc.map((t) => (
                   <li key={t.id}>
-                    <a className="text-muted-foreground transition-colors hover:text-foreground" href={`#${t.id}`}>{t.label}</a>
+                    <a
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                      href={`#${t.id}`}
+                    >
+                      {t.label}
+                    </a>
                   </li>
                 ))}
               </ul>
             </div>
             <div>
-              <div className="mb-3 text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Related</div>
+              <div className="text-muted-foreground mb-3 text-[11px] font-medium uppercase tracking-widest">
+                Related
+              </div>
               <ul className="space-y-1.5">
-                <li><Link href="/legal/terms" className="text-muted-foreground hover:text-foreground">Terms of Service</Link></li>
-                <li><Link href="/legal/privacy" className="text-muted-foreground hover:text-foreground">Privacy Policy</Link></li>
-                <li><Link href="/legal/acceptable-use" className="text-muted-foreground hover:text-foreground">Acceptable Use</Link></li>
+                <li>
+                  <Link href="/legal/terms" className="text-muted-foreground hover:text-foreground">
+                    Terms of Service
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/legal/privacy"
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/legal/acceptable-use"
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    Acceptable Use
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>

@@ -127,7 +127,7 @@ export class RefundsService {
     })
     const hasMore = rows.length > limit
     const data = rows.slice(0, limit).map(serialise)
-    return { data, nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null, hasMore }
+    return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
   }
 
   /**
@@ -135,10 +135,7 @@ export class RefundsService {
    * tx hash and transition the refund. Final `completed` status is written
    * by the indexer when the on-chain ERC20 Transfer is observed.
    */
-  async submitSignature(
-    merchantId: string,
-    input: SubmitRefundSignatureInput,
-  ): Promise<Refund> {
+  async submitSignature(merchantId: string, input: SubmitRefundSignatureInput): Promise<Refund> {
     const refund = await this.prisma.db.refund.findFirst({
       where: { id: input.id, merchantId },
     })

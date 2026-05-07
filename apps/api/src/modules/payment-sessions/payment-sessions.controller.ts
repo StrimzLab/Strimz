@@ -2,7 +2,10 @@ import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/co
 import { createPaymentSessionInputSchema } from '@strimz/shared-types'
 import type { CreatePaymentSessionInput, PaymentSession } from '@strimz/shared-types'
 import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
-import { CurrentMerchant, type CurrentMerchantPayload } from '../../common/decorators/current-merchant.decorator.js'
+import {
+  CurrentMerchant,
+  type CurrentMerchantPayload,
+} from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
 import { PaymentSessionsService } from './payment-sessions.service.js'

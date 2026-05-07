@@ -50,8 +50,8 @@ describe('StrimzBrowserClient', () => {
   })
 
   it('rejects a secret key', () => {
-    expect(
-      () => new StrimzBrowserClient({ publishableKey: 'sk_test_' + 'a'.repeat(20) }),
-    ).toThrow(StrimzAuthenticationError)
+    expect(() => new StrimzBrowserClient({ publishableKey: 'sk_test_' + 'a'.repeat(20) })).toThrow(
+      StrimzAuthenticationError,
+    )
   })
 })

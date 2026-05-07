@@ -18,9 +18,7 @@ export class TurnstileService {
   constructor(cfg: TypedConfigService) {
     this.secretKey = cfg.env.TURNSTILE_SECRET_KEY
     if (!this.secretKey) {
-      this.log.warn(
-        'TURNSTILE_SECRET_KEY not set — bot-protection is disabled (OK in dev / test).',
-      )
+      this.log.warn('TURNSTILE_SECRET_KEY not set — bot-protection is disabled (OK in dev / test).')
     }
   }
 
@@ -39,9 +37,7 @@ export class TurnstileService {
       })
       const data = (await res.json()) as { success?: boolean; 'error-codes'?: string[] }
       if (!data.success) {
-        this.log.warn(
-          `turnstile rejected token: ${(data['error-codes'] ?? []).join(',')}`,
-        )
+        this.log.warn(`turnstile rejected token: ${(data['error-codes'] ?? []).join(',')}`)
       }
       return data.success === true
     } catch (err) {

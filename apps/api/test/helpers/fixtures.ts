@@ -54,7 +54,12 @@ export interface SeededApiKey {
 export async function seedApiKey(
   prisma: PrismaClient,
   merchantId: string,
-  overrides: { mode?: 'test' | 'live'; scopes?: string[]; revoked?: boolean; kind?: 'secret' | 'publishable' } = {},
+  overrides: {
+    mode?: 'test' | 'live'
+    scopes?: string[]
+    revoked?: boolean
+    kind?: 'secret' | 'publishable'
+  } = {},
 ): Promise<SeededApiKey> {
   const mode = overrides.mode ?? 'test'
   const kind = overrides.kind ?? 'secret'
@@ -127,10 +132,8 @@ export async function seedTransaction(
       feeAmount: '1500000',
       currency: 'USDC',
       payerAddress: overrides.payerAddress ?? '0x' + 'b'.repeat(40),
-      merchantAddress:
-        overrides.merchantAddress ?? '0x000000000000000000000000000000000000beef',
-      onchainTxHash:
-        '0x' + Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64),
+      merchantAddress: overrides.merchantAddress ?? '0x000000000000000000000000000000000000beef',
+      onchainTxHash: '0x' + Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64),
       blockNumber: 1000n,
       blockTimestamp: overrides.blockTimestamp ?? new Date(),
       logIndex: 0,

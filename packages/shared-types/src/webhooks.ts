@@ -7,12 +7,7 @@
  */
 
 import { z } from 'zod'
-import {
-  httpsUrlSchema,
-  idSchema,
-  isoTimestampSchema,
-  modeSchema,
-} from './common.js'
+import { httpsUrlSchema, idSchema, isoTimestampSchema, modeSchema } from './common.js'
 
 // ---------- Event name ----------
 

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 import {
+  ArrowLeft,
   BarChart3,
   Bot,
   Boxes,
@@ -108,9 +109,17 @@ export function DashboardSidebar({ open, onClose }: Props) {
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
       >
-        {/* Sticky logo block */}
-        <div className="flex h-16 shrink-0 items-center border-b border-[#E5E7EB] bg-[#F9FAFB] px-5">
+        {/* Sticky logo block — close button shows on mobile only */}
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-[#E5E7EB] bg-[#F9FAFB] px-5">
           <Logo />
+          <button
+            type="button"
+            aria-label="Close sidebar"
+            onClick={onClose}
+            className="flex size-8 items-center justify-center rounded-md border border-[#E5E7EB] bg-white text-[#58556A] transition-colors hover:bg-[#F9FAFB] hover:text-[#050020] lg:hidden"
+          >
+            <ArrowLeft className="size-4" />
+          </button>
         </div>
 
         {/* Scrollable nav (no visible scrollbar) */}

@@ -41,11 +41,7 @@ export function Features() {
           className="mx-auto grid max-w-[1200px] gap-6 md:grid-cols-3"
         >
           {FEATURES.map((f) => (
-            <motion.div
-              key={f.title}
-              variants={fadeUp}
-              className="flex w-full flex-col p-4"
-            >
+            <motion.div key={f.title} variants={fadeUp} className="flex w-full flex-col p-4">
               <Image
                 src={f.icon}
                 alt=""
@@ -56,10 +52,10 @@ export function Features() {
                 quality={100}
                 className="h-[72px] w-[72px]"
               />
-              <h3 className="mt-6 font-sora text-[24px] font-[600] leading-[32px] text-white">
+              <h3 className="font-sora mt-6 text-[24px] font-[600] leading-[32px] text-white">
                 {f.title}
               </h3>
-              <p className="mt-2 font-poppins text-base font-[400] leading-[28px] text-[#BCBAC4]">
+              <p className="font-poppins mt-2 text-base font-[400] leading-[28px] text-[#BCBAC4]">
                 {f.body}
               </p>
             </motion.div>

@@ -36,9 +36,7 @@ describe('random/randomBase64Url', () => {
 
 describe('random/uuid', () => {
   it('matches the RFC 4122 v4 format', () => {
-    expect(uuid()).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
-    )
+    expect(uuid()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
   })
 
   it('produces distinct values', () => {

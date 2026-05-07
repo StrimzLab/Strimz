@@ -107,7 +107,7 @@ export class PaymentSessionsService {
     const data = rows.slice(0, limit).map(serialise)
     return {
       data,
-      nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null,
+      nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null,
       hasMore,
     }
   }

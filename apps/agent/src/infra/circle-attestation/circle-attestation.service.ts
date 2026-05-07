@@ -92,8 +92,7 @@ export class CircleAttestationService {
       // First non-complete message dictates the status string we surface.
       const first = messages[0]!
       return {
-        status:
-          first.status === 'pending_confirmations' ? 'pending_confirmations' : 'unknown',
+        status: first.status === 'pending_confirmations' ? 'pending_confirmations' : 'unknown',
       }
     } finally {
       clearTimeout(timeout)

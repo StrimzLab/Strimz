@@ -11,7 +11,9 @@ describe('AutoPagingIterator', () => {
       .mockImplementationOnce(() =>
         Promise.resolve({ data: [3, 4], nextCursor: 'c2', hasMore: true }),
       )
-      .mockImplementationOnce(() => Promise.resolve({ data: [5], nextCursor: null, hasMore: false }))
+      .mockImplementationOnce(() =>
+        Promise.resolve({ data: [5], nextCursor: null, hasMore: false }),
+      )
 
     const iter = new AutoPagingIterator(fetchPage)
     const out = await iter.toArray()
@@ -22,7 +24,9 @@ describe('AutoPagingIterator', () => {
   it('forEach awaits async handlers', async () => {
     const fetchPage = vi
       .fn()
-      .mockImplementationOnce(() => Promise.resolve({ data: [1, 2], nextCursor: null, hasMore: false }))
+      .mockImplementationOnce(() =>
+        Promise.resolve({ data: [1, 2], nextCursor: null, hasMore: false }),
+      )
     const iter = new AutoPagingIterator<number>(fetchPage)
     const seen: number[] = []
     await iter.forEach(async (v) => {
@@ -35,7 +39,9 @@ describe('AutoPagingIterator', () => {
   it('stops when hasMore is false even with a cursor', async () => {
     const fetchPage = vi
       .fn()
-      .mockImplementationOnce(() => Promise.resolve({ data: [1], nextCursor: 'extra', hasMore: false }))
+      .mockImplementationOnce(() =>
+        Promise.resolve({ data: [1], nextCursor: 'extra', hasMore: false }),
+      )
     const iter = new AutoPagingIterator(fetchPage)
     expect(await iter.toArray()).toEqual([1])
     expect(fetchPage).toHaveBeenCalledTimes(1)
