@@ -2,7 +2,6 @@ FROM node:22-alpine AS build
 WORKDIR /repo
 RUN corepack enable
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
-COPY tooling/ ./tooling/
 COPY packages/ ./packages/
 COPY apps/scheduler/ ./apps/scheduler/
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \

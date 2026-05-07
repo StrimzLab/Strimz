@@ -65,4 +65,4 @@ const merchant: Merchant | null = await prisma.merchant.findUnique({
 
 ## Database target
 
-PostgreSQL 16 on Render (managed). Local development uses Postgres 16 via `docker compose` in `tooling/docker/`.
+PostgreSQL 16 on Render (managed). Local development uses Postgres 16 via `docker compose up -d` from the repo root.

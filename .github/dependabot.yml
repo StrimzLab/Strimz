@@ -13,7 +13,6 @@ updates:
       - '/'
       - '/apps/*'
       - '/packages/*'
-      - '/tooling/*'
     schedule:
       interval: weekly
       day: monday
