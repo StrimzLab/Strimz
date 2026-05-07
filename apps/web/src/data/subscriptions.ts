@@ -1,7 +1,13 @@
 import { CUSTOMERS } from './customers'
 import { daysAgo, id, mulberry32, pick, range } from './_seed'
 
-export type SubscriptionStatus = 'active' | 'trialing' | 'at_risk' | 'paused' | 'cancelled' | 'lapsed'
+export type SubscriptionStatus =
+  | 'active'
+  | 'trialing'
+  | 'at_risk'
+  | 'paused'
+  | 'cancelled'
+  | 'lapsed'
 
 export type SubscriptionPlan = {
   id: string
@@ -14,10 +20,42 @@ export type SubscriptionPlan = {
 }
 
 export const PLANS: SubscriptionPlan[] = [
-  { id: 'plan_starter', name: 'Starter', amountUsdc: 19_000_000, interval: 'monthly', intervalCount: 1, trialPeriodDays: 14, activeSubscribers: 21 },
-  { id: 'plan_pro', name: 'Pro', amountUsdc: 49_000_000, interval: 'monthly', intervalCount: 1, trialPeriodDays: 14, activeSubscribers: 14 },
-  { id: 'plan_team', name: 'Team', amountUsdc: 199_000_000, interval: 'monthly', intervalCount: 1, trialPeriodDays: 0, activeSubscribers: 6 },
-  { id: 'plan_pro_annual', name: 'Pro (annual)', amountUsdc: 490_000_000, interval: 'yearly', intervalCount: 1, trialPeriodDays: 0, activeSubscribers: 4 },
+  {
+    id: 'plan_starter',
+    name: 'Starter',
+    amountUsdc: 19_000_000,
+    interval: 'monthly',
+    intervalCount: 1,
+    trialPeriodDays: 14,
+    activeSubscribers: 21,
+  },
+  {
+    id: 'plan_pro',
+    name: 'Pro',
+    amountUsdc: 49_000_000,
+    interval: 'monthly',
+    intervalCount: 1,
+    trialPeriodDays: 14,
+    activeSubscribers: 14,
+  },
+  {
+    id: 'plan_team',
+    name: 'Team',
+    amountUsdc: 199_000_000,
+    interval: 'monthly',
+    intervalCount: 1,
+    trialPeriodDays: 0,
+    activeSubscribers: 6,
+  },
+  {
+    id: 'plan_pro_annual',
+    name: 'Pro (annual)',
+    amountUsdc: 490_000_000,
+    interval: 'yearly',
+    intervalCount: 1,
+    trialPeriodDays: 0,
+    activeSubscribers: 4,
+  },
 ]
 
 export type Subscription = {
@@ -39,11 +77,18 @@ export type Subscription = {
 }
 
 const STATUSES: SubscriptionStatus[] = [
-  'active', 'active', 'active', 'active', 'active',
-  'trialing', 'trialing',
-  'at_risk', 'at_risk',
+  'active',
+  'active',
+  'active',
+  'active',
+  'active',
+  'trialing',
+  'trialing',
+  'at_risk',
+  'at_risk',
   'paused',
-  'cancelled', 'cancelled',
+  'cancelled',
+  'cancelled',
   'lapsed',
 ]
 

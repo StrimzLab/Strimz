@@ -27,7 +27,10 @@ export const storefrontSchema = z.object({
   description: z.string().max(2000).nullable(),
   logoUrl: httpsUrlSchema.nullable(),
   coverImageUrl: httpsUrlSchema.nullable(),
-  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable(),
+  accentColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable(),
   socialLinks: z.array(httpsUrlSchema).max(10).default([]),
   status: storefrontStatusSchema,
   createdAt: isoTimestampSchema,

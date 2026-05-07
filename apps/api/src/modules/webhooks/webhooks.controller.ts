@@ -1,7 +1,10 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
-import { CurrentMerchant, type CurrentMerchantPayload } from '../../common/decorators/current-merchant.decorator.js'
+import {
+  CurrentMerchant,
+  type CurrentMerchantPayload,
+} from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { WebhooksService } from './webhooks.service.js'
 import { CreateWebhookEndpointDto } from './webhooks.dto.js'
@@ -18,7 +21,10 @@ export class WebhooksController {
   @RequireScopes('webhooks_write')
   @Post('/webhook-endpoints')
   @ApiOperation({ summary: 'Register a new webhook endpoint and return the signing secret once.' })
-  createEndpoint(@CurrentMerchant() ctx: CurrentMerchantPayload, @Body() dto: CreateWebhookEndpointDto) {
+  createEndpoint(
+    @CurrentMerchant() ctx: CurrentMerchantPayload,
+    @Body() dto: CreateWebhookEndpointDto,
+  ) {
     return this.webhooks.createEndpoint(ctx.merchantId, dto)
   }
 

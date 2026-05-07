@@ -6,8 +6,10 @@ import { useStrimzCheckout, type CheckoutMode } from '../hooks/useStrimzCheckout
 export type StrimzPayButtonTheme = 'auto' | 'light' | 'dark'
 export type StrimzPayButtonSize = 'sm' | 'md' | 'lg'
 
-export interface StrimzPayButtonProps
-  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onError'> {
+export interface StrimzPayButtonProps extends Omit<
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  'onError'
+> {
   /** Strimz session id created via `@strimz/sdk` on your backend. */
   sessionId: string
   /** Hosted checkout open mode. Default `popup`. */

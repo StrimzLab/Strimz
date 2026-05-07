@@ -3,7 +3,10 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { createZodDto } from 'nestjs-zod'
 import { z } from 'zod'
 import { Public } from '../../common/decorators/public.decorator.js'
-import { CurrentMerchant, type CurrentMerchantPayload } from '../../common/decorators/current-merchant.decorator.js'
+import {
+  CurrentMerchant,
+  type CurrentMerchantPayload,
+} from '../../common/decorators/current-merchant.decorator.js'
 import { PrivyAuthGuard } from '../../common/guards/privy.guard.js'
 import { AuthService, type SyncResult } from './auth.service.js'
 import { MerchantsService } from '../merchants/merchants.service.js'

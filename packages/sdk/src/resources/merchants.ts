@@ -1,4 +1,11 @@
-import { merchantSchema, updateMerchantInputSchema, changeTierInputSchema, type Merchant, type UpdateMerchantInput, type ChangeTierInput } from '@strimz/shared-types'
+import {
+  merchantSchema,
+  updateMerchantInputSchema,
+  changeTierInputSchema,
+  type Merchant,
+  type UpdateMerchantInput,
+  type ChangeTierInput,
+} from '@strimz/shared-types'
 import { BaseResource, type RequestOptions } from './base-resource.js'
 
 export class MerchantsResource extends BaseResource {

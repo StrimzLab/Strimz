@@ -10,8 +10,7 @@ const BLOCKS = [
   {
     chip: 'Subscriptions',
     title: 'Recurring revenue, on stablecoins.',
-    body:
-      'Your customer signs once. After that, the scheduler runs every period and pulls the next charge. Each attempt has a deterministic ID, so a flaky scheduler can’t double-charge anyone.',
+    body: 'Your customer signs once. After that, the scheduler runs every period and pulls the next charge. Each attempt has a deterministic ID, so a flaky scheduler can’t double-charge anyone.',
     bullets: [
       'Batch charges so gas stays cheap at scale',
       'Pick your grace window: 24, 48, or 72 hours',
@@ -25,8 +24,7 @@ const BLOCKS = [
   {
     chip: 'Refunds',
     title: 'Refunds with a real audit trail.',
-    body:
-      'You create the intent on the server. The merchant signs the transfer from their own wallet. The indexer watches Arc and updates the refund the moment the transfer confirms. Every refund has a tx hash you can verify yourself.',
+    body: 'You create the intent on the server. The merchant signs the transfer from their own wallet. The indexer watches Arc and updates the refund the moment the transfer confirms. Every refund has a tx hash you can verify yourself.',
     bullets: [
       'You can’t refund more than the original transaction (we check at insert time)',
       'The create response includes the wallet-signing instructions',
@@ -40,8 +38,7 @@ const BLOCKS = [
   {
     chip: 'Analytics',
     title: 'Forecasts, not just dashboards.',
-    body:
-      'Conversion, churn, MRR, LTV, and a 90-day forecast. Every metric runs as SQL against your own Postgres — the AutoPay Agent uses the same queries to put together its monthly summary.',
+    body: 'Conversion, churn, MRR, LTV, and a 90-day forecast. Every metric runs as SQL against your own Postgres — the AutoPay Agent uses the same queries to put together its monthly summary.',
     bullets: [
       'Daily conversion rate per session created',
       '12-month trailing churn',
@@ -75,7 +72,7 @@ export function Benefits() {
         </motion.h2>
         <motion.p
           variants={fadeUp}
-          className="mt-4 max-w-[488px] font-poppins text-base font-[400] text-[#58556A]"
+          className="font-poppins mt-4 max-w-[488px] text-base font-[400] text-[#58556A]"
         >
           Pick what you need, copy the snippet, ship the feature. We deal with retries and
           reconciliation; the contracts handle idempotency.
@@ -97,17 +94,17 @@ export function Benefits() {
                 i % 2 === 1 ? 'md:order-2' : '',
               ].join(' ')}
             >
-              <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#02C76A]/10 px-3 py-1 font-poppins text-[12px] font-[500] text-[#02C76A]">
+              <span className="font-poppins inline-flex w-fit items-center gap-1.5 rounded-full bg-[#02C76A]/10 px-3 py-1 text-[12px] font-[500] text-[#02C76A]">
                 <span className="size-1.5 rounded-full bg-[#02C76A]" />
                 {b.chip}
               </span>
-              <h3 className="mt-4 font-sora text-[24px] font-[700] leading-[32px] text-[#050020] md:text-[30px] md:leading-[38px]">
+              <h3 className="font-sora mt-4 text-[24px] font-[700] leading-[32px] text-[#050020] md:text-[30px] md:leading-[38px]">
                 {b.title}
               </h3>
-              <p className="mt-3 font-poppins text-[15px] font-[400] leading-[26px] text-[#58556A]">
+              <p className="font-poppins mt-3 text-[15px] font-[400] leading-[26px] text-[#58556A]">
                 {b.body}
               </p>
-              <ul className="mt-5 space-y-2.5 font-poppins text-[14px] text-[#050020]">
+              <ul className="font-poppins mt-5 space-y-2.5 text-[14px] text-[#050020]">
                 {b.bullets.map((bu) => (
                   <li key={bu} className="flex items-start gap-2">
                     <Check className="mt-0.5 size-4 shrink-0 text-[#02C76A]" />
@@ -117,7 +114,7 @@ export function Benefits() {
               </ul>
               <Link
                 href={b.href}
-                className="group mt-6 inline-flex w-fit items-center gap-1 font-poppins text-sm font-[500] text-[#02C76A]"
+                className="font-poppins group mt-6 inline-flex w-fit items-center gap-1 text-sm font-[500] text-[#02C76A]"
               >
                 {b.cta}
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
@@ -127,7 +124,7 @@ export function Benefits() {
             {/* Mock side — fills the cell, no negative space */}
             <div
               className={[
-                'relative flex items-stretch overflow-hidden bg-gradient-to-br from-[#02C76A]/8 via-[#F9FAFB] to-[#F9FAFB] p-6 md:p-8 lg:p-10',
+                'from-[#02C76A]/8 relative flex items-stretch overflow-hidden bg-gradient-to-br via-[#F9FAFB] to-[#F9FAFB] p-6 md:p-8 lg:p-10',
                 i % 2 === 1 ? 'md:order-1' : '',
               ].join(' ')}
             >
@@ -145,15 +142,18 @@ export function Benefits() {
 function MockShell({ children, label }: { children: React.ReactNode; label?: string }) {
   return (
     <div className="relative flex w-full flex-col">
-      <div className="absolute -inset-4 rounded-[20px] bg-gradient-to-br from-[#02C76A]/15 via-transparent to-transparent blur-2xl" aria-hidden />
-      <div className="relative flex w-full flex-col overflow-hidden rounded-[12px] border border-[#E5E7EB] bg-white shadow-sub-card">
+      <div
+        className="absolute -inset-4 rounded-[20px] bg-gradient-to-br from-[#02C76A]/15 via-transparent to-transparent blur-2xl"
+        aria-hidden
+      />
+      <div className="shadow-sub-card relative flex w-full flex-col overflow-hidden rounded-[12px] border border-[#E5E7EB] bg-white">
         {label ? (
           <div className="flex items-center justify-between border-b border-[#E5E7EB] bg-[#F9FAFB] px-4 py-2.5">
             <span className="flex items-center gap-2">
               <span className="size-2 rounded-full bg-[#02C76A]" />
               <code className="font-mono text-[11px] text-[#58556A]">{label}</code>
             </span>
-            <span className="rounded-full bg-[#02C76A]/10 px-2 py-0.5 font-poppins text-[10px] font-[500] text-[#02C76A]">
+            <span className="font-poppins rounded-full bg-[#02C76A]/10 px-2 py-0.5 text-[10px] font-[500] text-[#02C76A]">
               200 OK · 84ms
             </span>
           </div>
@@ -203,7 +203,9 @@ function RefundMock() {
       <div className="mt-4 flex items-center justify-between rounded-[8px] border border-[#02C76A]/20 bg-[#02C76A]/5 px-3 py-2.5">
         <div>
           <div className="font-mono text-[11px] text-[#58556A]">refund.completed</div>
-          <div className="font-poppins text-[12px] font-[500] text-[#050020]">webhook delivered</div>
+          <div className="font-poppins text-[12px] font-[500] text-[#050020]">
+            webhook delivered
+          </div>
         </div>
         <ExternalLink className="size-3.5 text-[#02C76A]" />
       </div>
@@ -228,13 +230,13 @@ function RefundStep({
     <div className="flex items-center gap-3 rounded-[8px] border border-[#E5E7EB] bg-[#F9FAFB] p-2.5">
       <span
         className={[
-          'flex size-7 shrink-0 items-center justify-center rounded-full font-poppins text-xs font-[600]',
-          active ? 'bg-[#02C76A] text-white shadow-sub-icon' : 'bg-white text-[#58556A]',
+          'font-poppins flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-[600]',
+          active ? 'shadow-sub-icon bg-[#02C76A] text-white' : 'bg-white text-[#58556A]',
         ].join(' ')}
       >
         {n}
       </span>
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="font-poppins text-[13px] font-[500] text-[#050020]">{label}</div>
         <div className="font-mono text-[10px] text-[#58556A]">{status}</div>
       </div>
@@ -256,7 +258,7 @@ function ForecastMock() {
             <div className="font-poppins text-[10px] uppercase tracking-wider text-[#58556A]">
               {kpi.label}
             </div>
-            <div className="mt-0.5 font-sora text-[15px] font-[700] text-[#050020]">
+            <div className="font-sora mt-0.5 text-[15px] font-[700] text-[#050020]">
               {kpi.value}
             </div>
             <div className="mt-0.5 font-mono text-[10px] text-[#02C76A]">{kpi.delta}</div>
@@ -270,11 +272,19 @@ function ForecastMock() {
             <stop offset="100%" stopColor="#02C76A" stopOpacity="0" />
           </linearGradient>
         </defs>
-        <path d="M 0 65 Q 30 60, 60 50 T 120 32 T 200 18 L 240 12 L 240 80 L 0 80 Z" fill="url(#fgrad)" />
-        <path d="M 0 65 Q 30 60, 60 50 T 120 32 T 200 18 L 240 12" stroke="#02C76A" strokeWidth="2" fill="none" />
+        <path
+          d="M 0 65 Q 30 60, 60 50 T 120 32 T 200 18 L 240 12 L 240 80 L 0 80 Z"
+          fill="url(#fgrad)"
+        />
+        <path
+          d="M 0 65 Q 30 60, 60 50 T 120 32 T 200 18 L 240 12"
+          stroke="#02C76A"
+          strokeWidth="2"
+          fill="none"
+        />
         <circle cx="240" cy="12" r="3" fill="#02C76A" />
       </svg>
-      <div className="mt-2 flex items-center justify-between font-poppins text-[10px] text-[#58556A]">
+      <div className="font-poppins mt-2 flex items-center justify-between text-[10px] text-[#58556A]">
         <span>last 90 days</span>
         <span className="text-[#02C76A]">forecast: high confidence</span>
       </div>

@@ -9,9 +9,9 @@ describe('timing-safe/bytes', () => {
   })
 
   it('returns false for arrays of different length', () => {
-    expect(
-      timingSafeEqualBytes(new Uint8Array([1, 2, 3]), new Uint8Array([1, 2, 3, 4])),
-    ).toBe(false)
+    expect(timingSafeEqualBytes(new Uint8Array([1, 2, 3]), new Uint8Array([1, 2, 3, 4]))).toBe(
+      false,
+    )
   })
 
   it('returns false for arrays that differ in any byte', () => {

@@ -21,7 +21,7 @@ export const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      'no-scrollbar relative inline-flex h-11 max-w-full items-center justify-start gap-1 overflow-x-auto rounded-[10px] border border-[#E5E7EB] bg-[#F9FAFB] p-1 font-poppins text-sm text-[#58556A]',
+      'no-scrollbar font-poppins relative inline-flex h-11 max-w-full items-center justify-start gap-1 overflow-x-auto rounded-[10px] border border-[#E5E7EB] bg-[#F9FAFB] p-1 text-sm text-[#58556A]',
       className,
     )}
     {...props}
@@ -36,7 +36,7 @@ export const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      'group relative inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md px-3.5 py-1.5 font-poppins text-sm font-[500] transition-all',
+      'font-poppins group relative inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md px-3.5 py-1.5 text-sm font-[500] transition-all',
       'text-[#58556A] hover:text-[#050020]',
       // Active state: white surface, navy text, brand-green left bar
       'data-[state=active]:bg-white data-[state=active]:text-[#050020]',

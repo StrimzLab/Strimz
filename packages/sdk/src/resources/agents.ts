@@ -19,13 +19,21 @@ export class AgentsResource extends BaseResource {
     return this.get('/v1/agents/config', agentMerchantConfigSchema)
   }
 
-  updateConfig(input: UpdateAgentConfigInput, options?: RequestOptions): Promise<AgentMerchantConfig> {
+  updateConfig(
+    input: UpdateAgentConfigInput,
+    options?: RequestOptions,
+  ): Promise<AgentMerchantConfig> {
     updateAgentConfigInputSchema.parse(input)
     return this.patch('/v1/agents/config', input, agentMerchantConfigSchema, options)
   }
 
   listActivity(
-    params?: PaginationParams & { capability?: string; outcome?: string; from?: string; to?: string },
+    params?: PaginationParams & {
+      capability?: string
+      outcome?: string
+      from?: string
+      to?: string
+    },
   ): Promise<Page<AgentActivityLog>> {
     return this.listPage('/v1/agents/activity', agentActivityLogSchema, params)
   }
@@ -46,6 +54,11 @@ export class AgentsResource extends BaseResource {
   }
 
   approveJob(id: string, options?: RequestOptions): Promise<AgentJob> {
-    return this.post(`/v1/agents/jobs/${encodeURIComponent(id)}/approve`, {}, agentJobSchema, options)
+    return this.post(
+      `/v1/agents/jobs/${encodeURIComponent(id)}/approve`,
+      {},
+      agentJobSchema,
+      options,
+    )
   }
 }

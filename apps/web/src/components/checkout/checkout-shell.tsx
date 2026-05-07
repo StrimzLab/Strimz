@@ -23,7 +23,7 @@ export function CheckoutShell({
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm transition-colors"
         >
           <ArrowLeft className="size-4" />
           Cancel
@@ -44,11 +44,7 @@ export function CheckoutShell({
   )
 }
 
-export function StepIndicator({
-  step,
-}: {
-  step: 'connect' | 'approve' | 'pay' | 'confirmed'
-}) {
+export function StepIndicator({ step }: { step: 'connect' | 'approve' | 'pay' | 'confirmed' }) {
   const items = [
     { id: 'approve', label: 'Approve' },
     { id: 'pay', label: 'Pay' },
@@ -67,14 +63,14 @@ export function StepIndicator({
                 isDone
                   ? 'bg-[#02C76A]/15 text-[#02C76A]'
                   : isActive
-                  ? 'bg-[#02C76A] text-white'
-                  : 'bg-muted text-muted-foreground'
+                    ? 'bg-[#02C76A] text-white'
+                    : 'bg-muted text-muted-foreground'
               }`}
             >
               {isDone ? '✓' : i + 1}
             </div>
-            <span className="text-sm text-muted-foreground">{item.label}</span>
-            {i < items.length - 1 && <div className="h-px flex-1 bg-border" />}
+            <span className="text-muted-foreground text-sm">{item.label}</span>
+            {i < items.length - 1 && <div className="bg-border h-px flex-1" />}
           </div>
         )
       })}

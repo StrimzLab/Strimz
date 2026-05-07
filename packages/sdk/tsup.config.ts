@@ -1,12 +1,7 @@
 import { defineConfig } from 'tsup'
 
 export default defineConfig({
-  entry: [
-    'src/index.ts',
-    'src/browser-client.ts',
-    'src/webhooks.ts',
-    'src/errors.ts',
-  ],
+  entry: ['src/index.ts', 'src/browser-client.ts', 'src/webhooks.ts', 'src/errors.ts'],
   format: ['esm', 'cjs'],
   dts: true,
   sourcemap: true,

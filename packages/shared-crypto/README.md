@@ -4,15 +4,15 @@ Cryptographic primitives for the Strimz platform. Built on the Web Crypto API so
 
 ## What lives here
 
-| Subpath | Contents |
-|---|---|
-| `/encoding` | `toHex`, `fromHex`, `toBase64Url`, `utf8ToBytes`, `bytesToUtf8` |
-| `/hash` | `sha256`, `sha256Hex` |
-| `/hmac` | `hmacSha256`, `hmacSha256Hex` |
-| `/random` | `randomBytes`, `randomHex`, `randomBase64Url`, `uuid` |
-| `/timing-safe` | `timingSafeEqualBytes`, `timingSafeEqualString` |
-| `/webhook` | `signWebhookPayload`, `verifyWebhookSignature` (Stripe-style scheme) |
-| `/api-key` | `generateApiKey`, `hashApiKey`, `redactApiKey` |
+| Subpath        | Contents                                                             |
+| -------------- | -------------------------------------------------------------------- |
+| `/encoding`    | `toHex`, `fromHex`, `toBase64Url`, `utf8ToBytes`, `bytesToUtf8`      |
+| `/hash`        | `sha256`, `sha256Hex`                                                |
+| `/hmac`        | `hmacSha256`, `hmacSha256Hex`                                        |
+| `/random`      | `randomBytes`, `randomHex`, `randomBase64Url`, `uuid`                |
+| `/timing-safe` | `timingSafeEqualBytes`, `timingSafeEqualString`                      |
+| `/webhook`     | `signWebhookPayload`, `verifyWebhookSignature` (Stripe-style scheme) |
+| `/api-key`     | `generateApiKey`, `hashApiKey`, `redactApiKey`                       |
 
 The package root re-exports every subpath.
 

@@ -15,9 +15,18 @@ import {
 } from '@tanstack/react-table'
 import { ArrowUpDown, ChevronLeft, ChevronRight, Columns3, Search } from 'lucide-react'
 import {
-  Button, Input,
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-  DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuTrigger,
+  Button,
+  Input,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
   cn,
 } from '@strimz/ui'
 
@@ -70,7 +79,7 @@ export function DataTable<TData, TValue>({
       <div className="flex flex-wrap items-center justify-between gap-3">
         {searchPlaceholder ? (
           <div className="relative w-full sm:max-w-xs">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="text-muted-foreground pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2" />
             <Input
               value={globalFilter ?? ''}
               onChange={(e) => setGlobalFilter(e.target.value)}
@@ -91,7 +100,8 @@ export function DataTable<TData, TValue>({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
-              {table.getAllColumns()
+              {table
+                .getAllColumns()
                 .filter((c) => c.getCanHide())
                 .map((column) => (
                   <DropdownMenuCheckboxItem
@@ -108,17 +118,20 @@ export function DataTable<TData, TValue>({
         </div>
       </div>
 
-      <div className="shadow-sub-card overflow-hidden rounded-xl border border-border/60 bg-background">
+      <div className="shadow-sub-card border-border/60 bg-background overflow-hidden rounded-xl border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id} className="hover:bg-transparent">
                 {hg.headers.map((header) => (
-                  <TableHead key={header.id} className="h-11 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <TableHead
+                    key={header.id}
+                    className="text-muted-foreground h-11 text-xs font-medium uppercase tracking-wide"
+                  >
                     {header.isPlaceholder ? null : header.column.getCanSort() ? (
                       <button
                         type="button"
-                        className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+                        className="hover:text-foreground inline-flex items-center gap-1 transition-colors"
                         onClick={header.column.getToggleSortingHandler()}
                       >
                         {flexRender(header.column.columnDef.header, header.getContext())}
@@ -135,7 +148,7 @@ export function DataTable<TData, TValue>({
           <TableBody>
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className="transition-colors hover:bg-muted/40">
+                <TableRow key={row.id} className="hover:bg-muted/40 transition-colors">
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="py-3 text-sm">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -148,7 +161,7 @@ export function DataTable<TData, TValue>({
                 <TableCell colSpan={columns.length} className="h-40">
                   <div className="flex flex-col items-center justify-center gap-1.5 py-6 text-center">
                     <div className="text-sm font-medium">{emptyTitle}</div>
-                    <div className="text-xs text-muted-foreground">{emptyDescription}</div>
+                    <div className="text-muted-foreground text-xs">{emptyDescription}</div>
                   </div>
                 </TableCell>
               </TableRow>
@@ -158,18 +171,31 @@ export function DataTable<TData, TValue>({
       </div>
 
       <div className="flex items-center justify-between gap-3 pt-1">
-        <div className="text-xs text-muted-foreground">
-          {table.getFilteredRowModel().rows.length} {table.getFilteredRowModel().rows.length === 1 ? 'row' : 'rows'}
+        <div className="text-muted-foreground text-xs">
+          {table.getFilteredRowModel().rows.length}{' '}
+          {table.getFilteredRowModel().rows.length === 1 ? 'row' : 'rows'}
           {globalFilter ? ` matching "${globalFilter}"` : ''}
         </div>
         <div className="flex items-center gap-2">
-          <div className="text-xs text-muted-foreground">
+          <div className="text-muted-foreground text-xs">
             Page {table.getState().pagination.pageIndex + 1} of {Math.max(1, table.getPageCount())}
           </div>
-          <Button variant="outline" size="sm" className="size-8 p-0" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="size-8 p-0"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
             <ChevronLeft className="size-4" />
           </Button>
-          <Button variant="outline" size="sm" className="size-8 p-0" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="size-8 p-0"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
             <ChevronRight className="size-4" />
           </Button>
         </div>
@@ -187,13 +213,18 @@ export function StatusPill({
 }) {
   const tones: Record<typeof tone, string> = {
     positive: 'bg-[#02C76A]/10 text-[#02C76A] border-[#02C76A]/20',
-    warning:  'bg-amber-500/10  text-amber-600  border-amber-500/20',
-    danger:   'bg-rose-500/10   text-rose-600   border-rose-500/20',
-    info:     'bg-sky-500/10    text-sky-600    border-sky-500/20',
-    neutral:  'bg-muted/60      text-muted-foreground border-border/60',
+    warning: 'bg-amber-500/10  text-amber-600  border-amber-500/20',
+    danger: 'bg-rose-500/10   text-rose-600   border-rose-500/20',
+    info: 'bg-sky-500/10    text-sky-600    border-sky-500/20',
+    neutral: 'bg-muted/60      text-muted-foreground border-border/60',
   }
   return (
-    <span className={cn('inline-flex h-6 items-center rounded-full border px-2 text-[11px] font-medium', tones[tone])}>
+    <span
+      className={cn(
+        'inline-flex h-6 items-center rounded-full border px-2 text-[11px] font-medium',
+        tones[tone],
+      )}
+    >
       {children}
     </span>
   )

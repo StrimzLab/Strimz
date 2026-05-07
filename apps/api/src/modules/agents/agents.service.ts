@@ -76,7 +76,7 @@ export class AgentsService {
     })
     const hasMore = rows.length > limit
     const data = rows.slice(0, limit).map(serialiseActivity)
-    return { data, nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null, hasMore }
+    return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
   }
 
   // ----- Jobs (ERC-8183) -----
@@ -94,7 +94,7 @@ export class AgentsService {
     })
     const hasMore = rows.length > limit
     const data = rows.slice(0, limit).map(serialiseJob)
-    return { data, nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null, hasMore }
+    return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
   }
 
   async retrieveJob(merchantId: string, id: string): Promise<AgentJob> {

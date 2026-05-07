@@ -1,9 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common'
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import type { CreateInvoiceInput, Invoice } from '@strimz/shared-types'
 import { effectiveFeeBps } from '@strimz/shared-config'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
@@ -107,7 +102,7 @@ export class InvoicesService {
     })
     const hasMore = rows.length > limit
     const data = rows.slice(0, limit).map(serialise)
-    return { data, nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null, hasMore }
+    return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
   }
 
   async send(merchantId: string, id: string): Promise<Invoice> {
@@ -203,7 +198,9 @@ export class InvoicesService {
   }
 
   private renderInvoiceEmail(row: any, checkoutUrl: string): string {
-    const items = (row.lineItems as Array<{ description: string; quantity: number; unitAmount: string }>)
+    const items = (
+      row.lineItems as Array<{ description: string; quantity: number; unitAmount: string }>
+    )
       .map(
         (li) =>
           `<tr><td style="padding:8px;border-bottom:1px solid #eee;">${escapeHtml(li.description)}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${li.quantity}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${humanise(li.unitAmount)} ${row.currency}</td></tr>`,

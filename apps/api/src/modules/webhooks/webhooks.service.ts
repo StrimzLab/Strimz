@@ -64,7 +64,7 @@ export class WebhooksService {
     })
     const hasMore = rows.length > limit
     const data = rows.slice(0, limit).map(serialiseEndpoint)
-    return { data, nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null, hasMore }
+    return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
   }
 
   async setEndpointStatus(
@@ -121,9 +121,7 @@ export class WebhooksService {
         merchantId,
         endpointId: params.endpointId ?? undefined,
         status: (params.status as never) ?? undefined,
-        eventName: params.eventName
-          ? (params.eventName.replace(/\./g, '_') as never)
-          : undefined,
+        eventName: params.eventName ? (params.eventName.replace(/\./g, '_') as never) : undefined,
       },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,
@@ -131,7 +129,7 @@ export class WebhooksService {
     })
     const hasMore = rows.length > limit
     const data = rows.slice(0, limit).map(serialiseDelivery)
-    return { data, nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null, hasMore }
+    return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
   }
 
   async replay(merchantId: string, id: string): Promise<WebhookDelivery> {
@@ -179,7 +177,14 @@ function serialiseEndpoint(row: any): WebhookEndpoint {
     mode: row.mode,
     url: row.url,
     description: row.description,
-    events: row.events.map((e: string) => e.replace(/_/g, '.').replace(/\.(read|write|created|completed|failed|charged|charge\.failed|recovery\.attempt|recovery\.outcome|cancelled|lapsed|paid|overdue|action\.executed|job\.proposed|job\.completed|job\.disputed|wallet\.flagged|wallet\.blocked)/g, (_, suffix) => `.${suffix}`)) as never,
+    events: row.events.map((e: string) =>
+      e
+        .replace(/_/g, '.')
+        .replace(
+          /\.(read|write|created|completed|failed|charged|charge\.failed|recovery\.attempt|recovery\.outcome|cancelled|lapsed|paid|overdue|action\.executed|job\.proposed|job\.completed|job\.disputed|wallet\.flagged|wallet\.blocked)/g,
+          (_, suffix) => `.${suffix}`,
+        ),
+    ) as never,
     status: row.status,
     signingSecretPrefix: row.signingSecretPrefix,
     lastDeliveredAt: row.lastDeliveredAt?.toISOString() ?? null,

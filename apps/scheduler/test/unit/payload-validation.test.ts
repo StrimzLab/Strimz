@@ -57,9 +57,9 @@ describe('queue payload schemas', () => {
           reason: null,
         }).success,
       ).toBe(true)
-      expect(
-        agentActionJobSchema.safeParse({ type: 'unknown.thing', jobId: 'j' }).success,
-      ).toBe(false)
+      expect(agentActionJobSchema.safeParse({ type: 'unknown.thing', jobId: 'j' }).success).toBe(
+        false,
+      )
     })
     it('accepts every documented type', () => {
       const types: Array<{ type: string; jobId?: string; reason?: string }> = [

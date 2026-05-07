@@ -15,7 +15,7 @@ const PRINCIPLES = [
   {
     icon: Lock,
     title: 'You hold your money, not us',
-    body: "Strimz is non-custodial. Payments settle directly into a wallet you control. There is no balance you have to wait to withdraw.",
+    body: 'Strimz is non-custodial. Payments settle directly into a wallet you control. There is no balance you have to wait to withdraw.',
   },
   {
     icon: ShieldCheck,
@@ -41,14 +41,14 @@ export default function AboutPage() {
           aria-hidden
         />
         <div className="relative mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 lg:py-28">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#02C76A]/10 px-3 py-1 font-poppins text-[12px] font-[600] text-[#02C76A]">
+          <span className="font-poppins inline-flex items-center gap-1.5 rounded-full bg-[#02C76A]/10 px-3 py-1 text-[12px] font-[600] text-[#02C76A]">
             <span className="size-1.5 rounded-full bg-[#02C76A]" />
             About
           </span>
-          <h1 className="mt-5 font-sora text-[40px] font-[700] leading-[48px] text-[#050020] md:text-[56px] md:leading-[60px]">
+          <h1 className="font-sora mt-5 text-[40px] font-[700] leading-[48px] text-[#050020] md:text-[56px] md:leading-[60px]">
             Billing, designed for stablecoins.
           </h1>
-          <p className="mx-auto mt-5 max-w-2xl font-poppins text-base font-[400] leading-[28px] text-[#58556A]">
+          <p className="font-poppins mx-auto mt-5 max-w-2xl text-base font-[400] leading-[28px] text-[#58556A]">
             Strimz is a billing platform for businesses that want to take payments in stablecoins.
             We handle the parts you would otherwise have to build yourself: hosted checkout,
             recurring subscriptions, refunds, payouts, and a real audit trail.
@@ -58,18 +58,18 @@ export default function AboutPage() {
 
       {/* Story */}
       <section className="bg-white py-16">
-        <div className="mx-auto max-w-3xl space-y-6 px-4 font-poppins text-base leading-[28px] text-[#58556A] sm:px-6">
+        <div className="font-poppins mx-auto max-w-3xl space-y-6 px-4 text-base leading-[28px] text-[#58556A] sm:px-6">
           <p>
-            We started Strimz because the existing options for taking stablecoin payments are
-            either too complex (a wallet plus a manual reconciliation script) or too consumer
-            (built for individuals sending money to each other, not businesses billing customers).
+            We started Strimz because the existing options for taking stablecoin payments are either
+            too complex (a wallet plus a manual reconciliation script) or too consumer (built for
+            individuals sending money to each other, not businesses billing customers).
           </p>
           <p>
-            Businesses need the same primitives card processors gave them years ago:
-            subscriptions that don&apos;t fail silently, refunds with a clear paper trail,
-            webhooks that retry on their own, and a dashboard you can hand to a finance team. We
-            think those should work the same when the money is USDC — and the on-chain settlement
-            should make a few of them better.
+            Businesses need the same primitives card processors gave them years ago: subscriptions
+            that don&apos;t fail silently, refunds with a clear paper trail, webhooks that retry on
+            their own, and a dashboard you can hand to a finance team. We think those should work
+            the same when the money is USDC — and the on-chain settlement should make a few of them
+            better.
           </p>
           <p>
             Everything we build is anchored to that. Take payments fast. Settle fast. Give the
@@ -87,7 +87,7 @@ export default function AboutPage() {
                 <div className="font-sora text-[32px] font-[700] leading-none tracking-[-0.02em] text-white sm:text-[40px]">
                   {n.value}
                 </div>
-                <div className="mt-2 font-poppins text-[12px] font-[400] uppercase tracking-[0.18em] text-white/60">
+                <div className="font-poppins mt-2 text-[12px] font-[400] uppercase tracking-[0.18em] text-white/60">
                   {n.label}
                 </div>
               </div>
@@ -103,7 +103,7 @@ export default function AboutPage() {
             <h2 className="font-sora text-[32px] font-[700] leading-[40px] text-[#050020] md:text-[40px] md:leading-[48px]">
               What we believe
             </h2>
-            <p className="mt-4 font-poppins text-base text-[#58556A]">
+            <p className="font-poppins mt-4 text-base text-[#58556A]">
               Four ideas that shape every product decision we make.
             </p>
           </div>
@@ -111,13 +111,13 @@ export default function AboutPage() {
             {PRINCIPLES.map((p) => (
               <article
                 key={p.title}
-                className="rounded-[16px] border border-[#E5E7EB] bg-white p-6 shadow-sub-card transition-colors hover:border-[#02C76A]/40"
+                className="shadow-sub-card rounded-[16px] border border-[#E5E7EB] bg-white p-6 transition-colors hover:border-[#02C76A]/40"
               >
                 <span className="shadow-sub-icon inline-flex size-10 items-center justify-center rounded-[10px] bg-[#02C76A]/10 text-[#02C76A]">
                   <p.icon className="size-5" />
                 </span>
-                <h3 className="mt-5 font-sora text-[20px] font-[700] text-[#050020]">{p.title}</h3>
-                <p className="mt-2 font-poppins text-sm leading-[24px] text-[#58556A]">{p.body}</p>
+                <h3 className="font-sora mt-5 text-[20px] font-[700] text-[#050020]">{p.title}</h3>
+                <p className="font-poppins mt-2 text-sm leading-[24px] text-[#58556A]">{p.body}</p>
               </article>
             ))}
           </div>
@@ -130,20 +130,20 @@ export default function AboutPage() {
           <h3 className="font-sora text-[24px] font-[700] text-[#050020] md:text-[28px]">
             A small team, across London and Lagos.
           </h3>
-          <p className="mt-3 font-poppins text-base text-[#58556A]">
-            We&apos;re hiring engineers who have built billing systems before, and security
-            people who like breaking them. If that sounds like you, please reach out.
+          <p className="font-poppins mt-3 text-base text-[#58556A]">
+            We&apos;re hiring engineers who have built billing systems before, and security people
+            who like breaking them. If that sounds like you, please reach out.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link
               href="/signup"
-              className="inline-flex h-[44px] items-center rounded-[8px] bg-[#02C76A] px-5 font-poppins text-sm font-[600] text-white shadow-cta transition-transform hover:scale-[1.02]"
+              className="font-poppins shadow-cta inline-flex h-[44px] items-center rounded-[8px] bg-[#02C76A] px-5 text-sm font-[600] text-white transition-transform hover:scale-[1.02]"
             >
               Start free
             </Link>
             <Link
               href="/contact"
-              className="inline-flex h-[44px] items-center rounded-[8px] border border-[#E5E7EB] bg-white px-5 font-poppins text-sm font-[500] text-[#050020] hover:border-[#050020]"
+              className="font-poppins inline-flex h-[44px] items-center rounded-[8px] border border-[#E5E7EB] bg-white px-5 text-sm font-[500] text-[#050020] hover:border-[#050020]"
             >
               Get in touch
             </Link>

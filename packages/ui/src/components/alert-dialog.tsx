@@ -42,7 +42,7 @@ export const AlertDialogContent = React.forwardRef<
       className={cn(
         'fixed left-1/2 top-1/2 z-[80] grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[14px] border border-[#E5E7EB] bg-white p-6 shadow-[0_25px_50px_-12px_rgba(5,0,32,0.25)]',
         'transition-[opacity,transform] duration-200',
-        'data-[state=closed]:scale-95 data-[state=closed]:opacity-0 data-[state=open]:scale-100 data-[state=open]:opacity-100',
+        'data-[state=closed]:scale-95 data-[state=open]:scale-100 data-[state=closed]:opacity-0 data-[state=open]:opacity-100',
         className,
       )}
       {...props}

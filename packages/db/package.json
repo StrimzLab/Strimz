@@ -20,7 +20,13 @@
       "default": "./dist/src/client.js"
     }
   },
-  "files": ["dist", "src", "prisma", "generated", "README.md"],
+  "files": [
+    "dist",
+    "src",
+    "prisma",
+    "generated",
+    "README.md"
+  ],
   "scripts": {
     "db:generate": "prisma generate && node scripts/strip-ts-nocheck.mjs",
     "db:migrate": "prisma migrate dev",

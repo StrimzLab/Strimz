@@ -95,17 +95,17 @@ export default function PricingPage() {
           aria-hidden
         />
         <div className="relative mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 lg:py-28">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#02C76A]/10 px-3 py-1 font-poppins text-[12px] font-[600] text-[#02C76A]">
+          <span className="font-poppins inline-flex items-center gap-1.5 rounded-full bg-[#02C76A]/10 px-3 py-1 text-[12px] font-[600] text-[#02C76A]">
             <span className="size-1.5 rounded-full bg-[#02C76A]" />
             Pricing
           </span>
-          <h1 className="mt-5 font-sora text-[40px] font-[700] leading-[48px] text-[#050020] md:text-[60px] md:leading-[64px]">
+          <h1 className="font-sora mt-5 text-[40px] font-[700] leading-[48px] text-[#050020] md:text-[60px] md:leading-[64px]">
             Pay only for what you process.
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl font-poppins text-base font-[400] leading-[28px] text-[#58556A]">
-            A small percentage on each transaction. The more volume you do, the lower the rate.
-            No platform fees on top, no hidden tiers. The fee is taken in the same transaction,
-            so what you see is what lands in your wallet.
+          <p className="font-poppins mx-auto mt-4 max-w-2xl text-base font-[400] leading-[28px] text-[#58556A]">
+            A small percentage on each transaction. The more volume you do, the lower the rate. No
+            platform fees on top, no hidden tiers. The fee is taken in the same transaction, so what
+            you see is what lands in your wallet.
           </p>
         </div>
       </section>
@@ -124,16 +124,16 @@ export default function PricingPage() {
               ].join(' ')}
             >
               {t.featured ? (
-                <span className="mb-3 self-start rounded-full bg-[#02C76A] px-2.5 py-0.5 font-poppins text-[11px] font-[600] text-white">
+                <span className="font-poppins mb-3 self-start rounded-full bg-[#02C76A] px-2.5 py-0.5 text-[11px] font-[600] text-white">
                   Most popular
                 </span>
               ) : null}
               <div className="font-poppins text-[13px] font-[500] text-[#58556A]">{t.name}</div>
-              <div className="mt-2 font-sora text-[40px] font-[700] leading-none text-[#050020]">
+              <div className="font-sora mt-2 text-[40px] font-[700] leading-none text-[#050020]">
                 {t.price}
               </div>
-              <div className="mt-1 font-poppins text-[11px] text-[#58556A]">{t.cap}</div>
-              <ul className="mt-6 flex-1 space-y-2.5 font-poppins text-[13px]">
+              <div className="font-poppins mt-1 text-[11px] text-[#58556A]">{t.cap}</div>
+              <ul className="font-poppins mt-6 flex-1 space-y-2.5 text-[13px]">
                 {t.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-[#050020]">
                     <Check className="mt-0.5 size-4 shrink-0 text-[#02C76A]" />
@@ -150,7 +150,7 @@ export default function PricingPage() {
               <Link
                 href={t.cta.href}
                 className={[
-                  'mt-6 inline-flex h-[44px] items-center justify-center rounded-[8px] font-poppins text-[14px] font-[500] transition-transform hover:scale-[1.02]',
+                  'font-poppins mt-6 inline-flex h-[44px] items-center justify-center rounded-[8px] text-[14px] font-[500] transition-transform hover:scale-[1.02]',
                   t.featured
                     ? 'shadow-cta bg-[#02C76A] text-white'
                     : 'border border-[#E5E7EB] bg-white text-[#050020] hover:border-[#050020]',
@@ -163,11 +163,11 @@ export default function PricingPage() {
         </div>
 
         {/* Comparison table */}
-        <h2 className="mt-24 text-center font-sora text-[28px] font-[700] tracking-tight text-[#050020] md:text-[32px]">
+        <h2 className="font-sora mt-24 text-center text-[28px] font-[700] tracking-tight text-[#050020] md:text-[32px]">
           Compare every plan
         </h2>
         <div className="shadow-sub-card mt-8 overflow-x-auto rounded-[16px] border border-[#E5E7EB] bg-white">
-          <table className="w-full font-poppins text-sm">
+          <table className="font-poppins w-full text-sm">
             <thead className="bg-[#F9FAFB]">
               <tr>
                 <th className="px-5 py-4 text-left font-[600] text-[#050020]">Feature</th>
@@ -206,13 +206,13 @@ export default function PricingPage() {
           <h3 className="font-sora text-[20px] font-[700] text-[#050020] md:text-[24px]">
             Need something the plans don&apos;t cover?
           </h3>
-          <p className="mx-auto mt-2 max-w-xl font-poppins text-sm text-[#58556A]">
-            Custom workflows, dedicated regions, custom SLAs, custom legal terms — these all
-            come with Enterprise. Tell us what you need.
+          <p className="font-poppins mx-auto mt-2 max-w-xl text-sm text-[#58556A]">
+            Custom workflows, dedicated regions, custom SLAs, custom legal terms — these all come
+            with Enterprise. Tell us what you need.
           </p>
           <Link
             href="/contact"
-            className="mt-5 inline-flex h-[44px] items-center rounded-[8px] bg-[#050020] px-5 font-poppins text-[14px] font-[500] text-white transition-transform hover:scale-[1.02]"
+            className="font-poppins mt-5 inline-flex h-[44px] items-center rounded-[8px] bg-[#050020] px-5 text-[14px] font-[500] text-white transition-transform hover:scale-[1.02]"
           >
             Talk to sales
           </Link>

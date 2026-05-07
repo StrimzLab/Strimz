@@ -34,10 +34,7 @@ export interface GeneratedApiKey {
   mode: ApiKeyMode
 }
 
-export async function generateApiKey(
-  kind: ApiKeyKind,
-  mode: ApiKeyMode,
-): Promise<GeneratedApiKey> {
+export async function generateApiKey(kind: ApiKeyKind, mode: ApiKeyMode): Promise<GeneratedApiKey> {
   const prefixStr = API_KEY_PREFIXES[kind][mode]
   const random = randomBase64Url(API_KEY_RANDOM_BYTES)
   const secret = `${prefixStr}${random}`

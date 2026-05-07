@@ -30,16 +30,16 @@ packages/db/
 
 ## Scripts
 
-| Script | Action |
-|---|---|
-| `pnpm --filter @strimz/db db:generate` | Generate the Prisma client into `generated/` |
-| `pnpm --filter @strimz/db db:migrate` | Create and apply a new migration in dev |
-| `pnpm --filter @strimz/db db:migrate:deploy` | Apply pending migrations in production |
-| `pnpm --filter @strimz/db db:push` | Push schema to the database without migrations (dev only) |
-| `pnpm --filter @strimz/db db:studio` | Open Prisma Studio |
-| `pnpm --filter @strimz/db db:reset` | Drop, recreate, migrate, seed |
-| `pnpm --filter @strimz/db db:validate` | Validate schema |
-| `pnpm --filter @strimz/db db:format` | Format schema files |
+| Script                                       | Action                                                    |
+| -------------------------------------------- | --------------------------------------------------------- |
+| `pnpm --filter @strimz/db db:generate`       | Generate the Prisma client into `generated/`              |
+| `pnpm --filter @strimz/db db:migrate`        | Create and apply a new migration in dev                   |
+| `pnpm --filter @strimz/db db:migrate:deploy` | Apply pending migrations in production                    |
+| `pnpm --filter @strimz/db db:push`           | Push schema to the database without migrations (dev only) |
+| `pnpm --filter @strimz/db db:studio`         | Open Prisma Studio                                        |
+| `pnpm --filter @strimz/db db:reset`          | Drop, recreate, migrate, seed                             |
+| `pnpm --filter @strimz/db db:validate`       | Validate schema                                           |
+| `pnpm --filter @strimz/db db:format`         | Format schema files                                       |
 
 ## Usage
 

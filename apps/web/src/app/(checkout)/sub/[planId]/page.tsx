@@ -29,18 +29,22 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
             <ShieldCheck className="size-3 text-[#02C76A]" />
             Secured by Strimz
           </Badge>
-          <h2 className="flex items-center gap-2 font-poppins text-2xl font-semibold tracking-tight">
+          <h2 className="font-poppins flex items-center gap-2 text-2xl font-semibold tracking-tight">
             <Repeat className="size-5 text-[#02C76A]" /> Subscribe
           </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-1 text-sm">
             One signature, then we charge automatically each month. Cancel anytime from your wallet.
           </p>
         </div>
 
-        {(step === 'approve' || step === 'pay' || step === 'confirmed') && <StepIndicator step={step} />}
+        {(step === 'approve' || step === 'pay' || step === 'confirmed') && (
+          <StepIndicator step={step} />
+        )}
 
         {step === 'connect' && (
-          <SubmitButton type="button" onClick={() => setStep('approve')}>Connect wallet</SubmitButton>
+          <SubmitButton type="button" onClick={() => setStep('approve')}>
+            Connect wallet
+          </SubmitButton>
         )}
         {step === 'approve' && (
           <SubmitButton type="button" onClick={() => setStep('pay')}>

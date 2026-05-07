@@ -12,7 +12,9 @@ export class CustomersResource extends BaseResource {
     return this.get(`/v1/customers/${encodeURIComponent(id)}`, customerSchema)
   }
 
-  list(params?: PaginationParams & { externalRef?: string; walletAddress?: string }): Promise<Page<Customer>> {
+  list(
+    params?: PaginationParams & { externalRef?: string; walletAddress?: string },
+  ): Promise<Page<Customer>> {
     return this.listPage('/v1/customers', customerSchema, params)
   }
 

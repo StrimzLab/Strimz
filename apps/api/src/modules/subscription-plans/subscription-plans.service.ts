@@ -29,7 +29,10 @@ export class SubscriptionPlansService {
     return serialise(row)
   }
 
-  async list(merchantId: string, params: { limit?: number; cursor?: string | null; status?: string }) {
+  async list(
+    merchantId: string,
+    params: { limit?: number; cursor?: string | null; status?: string },
+  ) {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.subscriptionPlan.findMany({
       where: { merchantId, status: (params.status as never) ?? undefined },
@@ -39,7 +42,7 @@ export class SubscriptionPlansService {
     })
     const hasMore = rows.length > limit
     const data = rows.slice(0, limit).map(serialise)
-    return { data, nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null, hasMore }
+    return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
   }
 
   async archive(merchantId: string, id: string): Promise<SubscriptionPlan> {

@@ -115,7 +115,8 @@ export class StrimzClient {
 function detectRuntime(): string {
   // @ts-expect-error EdgeRuntime is a Vercel global; not in node types.
   if (typeof EdgeRuntime !== 'undefined') return 'edge'
-  if (typeof process !== 'undefined' && process.versions?.node) return `node-${process.versions.node}`
+  if (typeof process !== 'undefined' && process.versions?.node)
+    return `node-${process.versions.node}`
   if (typeof navigator !== 'undefined' && navigator.userAgent) return 'browser'
   return 'unknown'
 }

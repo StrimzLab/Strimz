@@ -4,32 +4,32 @@ Zod schemas and inferred TypeScript types for every entity, API input, and webho
 
 ## Who uses what
 
-| Consumer | Why |
-|---|---|
-| `apps/api` | Runtime validation of every request body, query string, and path param |
-| `apps/scheduler` | Validation of queued job payloads |
-| `apps/web` | React Hook Form resolvers, typed API client responses |
-| `@strimz/sdk` | Typed request builders and typed response objects |
-| `@strimz/sdk-react` | Typed props for `<StrimzPayButton />` and hooks |
+| Consumer            | Why                                                                    |
+| ------------------- | ---------------------------------------------------------------------- |
+| `apps/api`          | Runtime validation of every request body, query string, and path param |
+| `apps/scheduler`    | Validation of queued job payloads                                      |
+| `apps/web`          | React Hook Form resolvers, typed API client responses                  |
+| `@strimz/sdk`       | Typed request builders and typed response objects                      |
+| `@strimz/sdk-react` | Typed props for `<StrimzPayButton />` and hooks                        |
 
 ## Module map
 
-| Subpath | Contains |
-|---|---|
-| `/common` | Primitives: ids, EVM address, tx hash, email, URL, money, pagination, metadata, mode, tier, environment |
-| `/merchants` | Merchant entity, login, member invites, tier changes |
-| `/api-keys` | Secret/publishable keys, scopes, rotation |
-| `/customers` | Payer identity |
-| `/payment-sessions` | One-shot session entity + state machine + `createPaymentSessionInputSchema` |
-| `/transactions` | Confirmed on-chain payment records |
-| `/subscriptions` | Plans, active subscriptions, per-period charges (with `chargeAttemptId`) |
-| `/refunds` | Merchant-initiated refund entity + signature flow |
-| `/webhooks` | Endpoints, deliveries, replay |
-| `/compliance` | Sanctions screening log |
-| `/agents` | Identity, merchant config, activity log, ERC-8183 jobs |
-| `/storefronts` | Storefront + product |
-| `/invoices` | Invoice + line items |
-| `/events` | Discriminated `StrimzWebhookEvent` union — every webhook payload shape |
+| Subpath             | Contains                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------- |
+| `/common`           | Primitives: ids, EVM address, tx hash, email, URL, money, pagination, metadata, mode, tier, environment |
+| `/merchants`        | Merchant entity, login, member invites, tier changes                                                    |
+| `/api-keys`         | Secret/publishable keys, scopes, rotation                                                               |
+| `/customers`        | Payer identity                                                                                          |
+| `/payment-sessions` | One-shot session entity + state machine + `createPaymentSessionInputSchema`                             |
+| `/transactions`     | Confirmed on-chain payment records                                                                      |
+| `/subscriptions`    | Plans, active subscriptions, per-period charges (with `chargeAttemptId`)                                |
+| `/refunds`          | Merchant-initiated refund entity + signature flow                                                       |
+| `/webhooks`         | Endpoints, deliveries, replay                                                                           |
+| `/compliance`       | Sanctions screening log                                                                                 |
+| `/agents`           | Identity, merchant config, activity log, ERC-8183 jobs                                                  |
+| `/storefronts`      | Storefront + product                                                                                    |
+| `/invoices`         | Invoice + line items                                                                                    |
+| `/events`           | Discriminated `StrimzWebhookEvent` union — every webhook payload shape                                  |
 
 The package root re-exports every subpath.
 

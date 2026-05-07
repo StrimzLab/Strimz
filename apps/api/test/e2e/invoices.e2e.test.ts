@@ -47,7 +47,9 @@ describe('invoices e2e', () => {
     expect(body.sessionId).toBeTruthy()
 
     // The backing PaymentSession was created with checkoutUrl populated.
-    const session = await t.prisma.db.paymentSession.findUniqueOrThrow({ where: { id: body.sessionId } })
+    const session = await t.prisma.db.paymentSession.findUniqueOrThrow({
+      where: { id: body.sessionId },
+    })
     expect(session.checkoutUrl).toContain(body.sessionId)
   })
 
@@ -120,7 +122,9 @@ describe('invoices e2e', () => {
       payload: {},
     })
     expect(v.statusCode).toBe(201)
-    const session = await t.prisma.db.paymentSession.findUniqueOrThrow({ where: { id: inv.sessionId } })
+    const session = await t.prisma.db.paymentSession.findUniqueOrThrow({
+      where: { id: inv.sessionId },
+    })
     expect(session.status).toBe('cancelled')
 
     // Already-paid invoices can't be voided.

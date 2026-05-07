@@ -19,7 +19,9 @@ export class SubscriptionsResource extends BaseResource {
     return this.get(`/v1/subscriptions/${encodeURIComponent(id)}`, subscriptionSchema)
   }
 
-  list(params?: PaginationParams & { status?: string; planId?: string }): Promise<Page<Subscription>> {
+  list(
+    params?: PaginationParams & { status?: string; planId?: string },
+  ): Promise<Page<Subscription>> {
     return this.listPage('/v1/subscriptions', subscriptionSchema, params)
   }
 

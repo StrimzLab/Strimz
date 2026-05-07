@@ -20,6 +20,9 @@ apps/indexer/tmp
 # Prisma
 packages/db/generated
 
+# Fumadocs codegen (regenerated on build; carries `// @ts-nocheck`)
+apps/web/.source
+
 # Lockfiles
 pnpm-lock.yaml
 go.sum

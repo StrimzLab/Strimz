@@ -17,9 +17,7 @@ async function bootstrap(): Promise<void> {
   await app.register(helmet, { contentSecurityPolicy: false })
   app.enableShutdownHooks()
   await app.listen({ port: cfg.env.PORT, host: '0.0.0.0' })
-  new Logger('Bootstrap').log(
-    `Strimz scheduler listening on ${cfg.env.PORT} (${cfg.env.NODE_ENV})`,
-  )
+  new Logger('Bootstrap').log(`Strimz scheduler listening on ${cfg.env.PORT} (${cfg.env.NODE_ENV})`)
 }
 
 bootstrap().catch((err) => {

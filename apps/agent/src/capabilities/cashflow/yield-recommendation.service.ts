@@ -78,7 +78,9 @@ export class CashflowYieldService {
           }),
         })
       } catch (err) {
-        this.log.warn(`yield email failed for merchant=${cfg.merchantId}: ${(err as Error).message}`)
+        this.log.warn(
+          `yield email failed for merchant=${cfg.merchantId}: ${(err as Error).message}`,
+        )
       }
 
       // We log the *recommendation*. The actual `cashflow_yield_converted`
@@ -147,5 +149,8 @@ function renderYieldEmail(input: {
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
+  )
 }

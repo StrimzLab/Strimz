@@ -1,7 +1,10 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { PrivyAuthGuard } from '../../common/guards/privy.guard.js'
-import { CurrentMerchant, type CurrentMerchantPayload } from '../../common/decorators/current-merchant.decorator.js'
+import {
+  CurrentMerchant,
+  type CurrentMerchantPayload,
+} from '../../common/decorators/current-merchant.decorator.js'
 import { AnalyticsService } from './analytics.service.js'
 
 @ApiTags('analytics')
@@ -51,7 +54,9 @@ export class AnalyticsController {
   }
 
   @Get('/forecast')
-  @ApiOperation({ summary: '30/60/90-day revenue forecast (linear regression over 90-day history).' })
+  @ApiOperation({
+    summary: '30/60/90-day revenue forecast (linear regression over 90-day history).',
+  })
   forecast(@CurrentMerchant() ctx: CurrentMerchantPayload) {
     return this.analytics.forecast(ctx.merchantId)
   }

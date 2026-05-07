@@ -27,11 +27,27 @@ export type Invoice = {
   sessionId: string | null
 }
 
-const STATUSES: InvoiceStatus[] = ['paid', 'paid', 'paid', 'sent', 'sent', 'overdue', 'draft', 'void']
+const STATUSES: InvoiceStatus[] = [
+  'paid',
+  'paid',
+  'paid',
+  'sent',
+  'sent',
+  'overdue',
+  'draft',
+  'void',
+]
 const LINE_DESCRIPTIONS = [
-  'Hosting (monthly)', 'Premium support', 'Pro seats × 5', 'API overage',
-  'Migration consulting', 'Custom integration', 'Implementation services',
-  'SLA upgrade', 'Compliance review', 'Data import',
+  'Hosting (monthly)',
+  'Premium support',
+  'Pro seats × 5',
+  'API overage',
+  'Migration consulting',
+  'Custom integration',
+  'Implementation services',
+  'SLA upgrade',
+  'Compliance review',
+  'Data import',
 ]
 const NOTES = ['Net 14', 'Net 30', 'Due on receipt', 'Pay before next renewal']
 

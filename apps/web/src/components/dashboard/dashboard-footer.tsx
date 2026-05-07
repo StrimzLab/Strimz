@@ -10,7 +10,7 @@ export function DashboardFooter() {
   const year = new Date().getFullYear()
   return (
     <footer className="mt-12 border-t border-[#E5E7EB] bg-white">
-      <div className="mx-auto flex w-full max-w-7xl flex-col items-start justify-between gap-3 px-1 py-5 text-[12px] font-poppins text-[#58556A] sm:flex-row sm:items-center sm:px-2">
+      <div className="font-poppins mx-auto flex w-full max-w-7xl flex-col items-start justify-between gap-3 px-1 py-5 text-[12px] text-[#58556A] sm:flex-row sm:items-center sm:px-2">
         <div className="flex items-center gap-2">
           <Glyph className="size-4" />
           <span>© {year} Strimz Labs</span>

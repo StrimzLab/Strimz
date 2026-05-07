@@ -17,7 +17,7 @@ describe('recovery e2e', () => {
     t.email.reset()
   })
 
-  it('skips merchants that don\'t have recovery in enabledCapabilities', async () => {
+  it("skips merchants that don't have recovery in enabledCapabilities", async () => {
     const merchant = await seedMerchant(t.prisma.db)
     await seedAgentConfig(t.prisma.db, merchant.id, { enabledCapabilities: [] })
     await seedSubscription(t.prisma.db, merchant.id, { status: 'at_risk' })

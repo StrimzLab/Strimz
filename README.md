@@ -12,7 +12,6 @@
 [![Arc](https://img.shields.io/badge/Chain-Arc-000000)](https://www.arc.network)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-02C76A.svg)](#contributing)
 
-
 ---
 
 ## Overview
@@ -50,52 +49,52 @@ The monorepo is split into deployables (`apps/`) and shared libraries (`packages
 
 ### Apps
 
-| App | Runtime | Purpose |
-|---|---|---|
-| [`apps/web`](./apps/web) | Next.js 15 | Merchant dashboard, hosted checkout, public marketing, docs |
-| [`apps/api`](./apps/api) | NestJS (Node 22) | HTTP API: auth, merchants, sessions, subscriptions, refunds, webhooks |
-| [`apps/indexer`](./apps/indexer) | Go | Listens to Arc, projects on-chain events into Postgres, publishes domain events to Redis |
-| [`apps/scheduler`](./apps/scheduler) | NestJS (Node 22) | BullMQ workers: subscription charging, webhook delivery, agent jobs |
-| [`apps/agent`](./apps/agent) | NestJS (Node 22) | Strimz AutoPay Agent — ERC-8004 identity, ERC-8183 commerce, recovery, routing |
+| App                                  | Runtime          | Purpose                                                                                  |
+| ------------------------------------ | ---------------- | ---------------------------------------------------------------------------------------- |
+| [`apps/web`](./apps/web)             | Next.js 15       | Merchant dashboard, hosted checkout, public marketing, docs                              |
+| [`apps/api`](./apps/api)             | NestJS (Node 22) | HTTP API: auth, merchants, sessions, subscriptions, refunds, webhooks                    |
+| [`apps/indexer`](./apps/indexer)     | Go               | Listens to Arc, projects on-chain events into Postgres, publishes domain events to Redis |
+| [`apps/scheduler`](./apps/scheduler) | NestJS (Node 22) | BullMQ workers: subscription charging, webhook delivery, agent jobs                      |
+| [`apps/agent`](./apps/agent)         | NestJS (Node 22) | Strimz AutoPay Agent — ERC-8004 identity, ERC-8183 commerce, recovery, routing           |
 
 ### Packages
 
-| Package | Purpose |
-|---|---|
-| [`packages/contracts`](./packages/contracts) | Foundry workspace — Solidity contracts, tests, deploy scripts |
-| [`packages/sdk`](./packages/sdk) | `@strimz/sdk` — server SDK for Node and Edge runtimes |
-| [`packages/sdk-react`](./packages/sdk-react) | `@strimz/sdk-react` — drop-in React components and hooks |
-| [`packages/db`](./packages/db) | Prisma schema and generated client, shared by every Node app |
-| [`packages/shared-types`](./packages/shared-types) | Zod schemas; TS types inferred from them |
+| Package                                              | Purpose                                                            |
+| ---------------------------------------------------- | ------------------------------------------------------------------ |
+| [`packages/contracts`](./packages/contracts)         | Foundry workspace — Solidity contracts, tests, deploy scripts      |
+| [`packages/sdk`](./packages/sdk)                     | `@strimz/sdk` — server SDK for Node and Edge runtimes              |
+| [`packages/sdk-react`](./packages/sdk-react)         | `@strimz/sdk-react` — drop-in React components and hooks           |
+| [`packages/db`](./packages/db)                       | Prisma schema and generated client, shared by every Node app       |
+| [`packages/shared-types`](./packages/shared-types)   | Zod schemas; TS types inferred from them                           |
 | [`packages/shared-config`](./packages/shared-config) | Chain registry, token registry, fee tiers — single source of truth |
-| [`packages/shared-crypto`](./packages/shared-crypto) | HMAC, webhook signing, nonces — runs in Node and Edge |
-| [`packages/ui`](./packages/ui) | shadcn primitives configured with Strimz brand tokens |
-| [`packages/tsconfig`](./packages/tsconfig) | Shared TypeScript configurations |
-| [`packages/eslint-config`](./packages/eslint-config) | Shared ESLint configurations |
+| [`packages/shared-crypto`](./packages/shared-crypto) | HMAC, webhook signing, nonces — runs in Node and Edge              |
+| [`packages/ui`](./packages/ui)                       | shadcn primitives configured with Strimz brand tokens              |
+| [`packages/tsconfig`](./packages/tsconfig)           | Shared TypeScript configurations                                   |
+| [`packages/eslint-config`](./packages/eslint-config) | Shared ESLint configurations                                       |
 
 ### Repo-level tooling
 
-| Path | Purpose |
-|---|---|
-| [`docker-compose.yml`](./docker-compose.yml) | Local dev stack — Postgres, Redis, Anvil; opt-in app profile |
-| [`.github/workflows`](./.github/workflows) | CI pipelines — `ci.yml`, `docker.yml` |
-| [`.github/dependabot.yml`](./.github/dependabot.yml) | Weekly auto-PRs for npm, Go modules, and GitHub Actions |
+| Path                                                 | Purpose                                                      |
+| ---------------------------------------------------- | ------------------------------------------------------------ |
+| [`docker-compose.yml`](./docker-compose.yml)         | Local dev stack — Postgres, Redis, Anvil; opt-in app profile |
+| [`.github/workflows`](./.github/workflows)           | CI pipelines — `ci.yml`, `docker.yml`                        |
+| [`.github/dependabot.yml`](./.github/dependabot.yml) | Weekly auto-PRs for npm, Go modules, and GitHub Actions      |
 
 ## Tech stack
 
-| Layer | Technology |
-|---|---|
-| Language | TypeScript 5.7, Solidity 0.8.x, Go 1.25 |
-| Smart contracts | Foundry, OpenZeppelin Contracts |
-| Backend HTTP | NestJS 11 (Node 22) |
-| Backend workers | NestJS standalone + BullMQ; Go for the indexer |
-| Frontend | Next.js 15 (App Router), React 19, Tailwind v4, shadcn/ui |
-| Wallet & chain | viem 2.x, wagmi 2.x, Privy |
-| Database | PostgreSQL 16, Prisma 7, Redis 7 |
-| Validation | Zod 3 |
-| Build | Turborepo 2, pnpm 10, tsup |
-| Observability | OpenTelemetry, Sentry, Pino |
-| Hosting | Vercel (web), Render (api, indexer, scheduler, agent, Postgres, Redis) |
+| Layer           | Technology                                                             |
+| --------------- | ---------------------------------------------------------------------- |
+| Language        | TypeScript 5.7, Solidity 0.8.x, Go 1.25                                |
+| Smart contracts | Foundry, OpenZeppelin Contracts                                        |
+| Backend HTTP    | NestJS 11 (Node 22)                                                    |
+| Backend workers | NestJS standalone + BullMQ; Go for the indexer                         |
+| Frontend        | Next.js 15 (App Router), React 19, Tailwind v4, shadcn/ui              |
+| Wallet & chain  | viem 2.x, wagmi 2.x, Privy                                             |
+| Database        | PostgreSQL 16, Prisma 7, Redis 7                                       |
+| Validation      | Zod 3                                                                  |
+| Build           | Turborepo 2, pnpm 10, tsup                                             |
+| Observability   | OpenTelemetry, Sentry, Pino                                            |
+| Hosting         | Vercel (web), Render (api, indexer, scheduler, agent, Postgres, Redis) |
 
 ## System architecture
 
@@ -148,14 +147,14 @@ Located in [`packages/contracts/src`](./packages/contracts/src). Built and teste
 
 **Modules.**
 
-| Module | Contracts |
-|---|---|
-| `core/` | `StrimzRegistry`, `StrimzPayments`, `StrimzSubscriptions` |
-| `fees/` | `FeeCollector` |
-| `tokens/` | `TokenWhitelist` |
-| `access/` | `StrimzAccessControl`, `Pausable` |
-| `agent/` | `StrimzAgentRegistry` (ERC-8004), `StrimzAgentEscrow` (ERC-8183) |
-| `interfaces/` | One interface per public contract |
+| Module        | Contracts                                                        |
+| ------------- | ---------------------------------------------------------------- |
+| `core/`       | `StrimzRegistry`, `StrimzPayments`, `StrimzSubscriptions`        |
+| `fees/`       | `FeeCollector`                                                   |
+| `tokens/`     | `TokenWhitelist`                                                 |
+| `access/`     | `StrimzAccessControl`, `Pausable`                                |
+| `agent/`      | `StrimzAgentRegistry` (ERC-8004), `StrimzAgentEscrow` (ERC-8183) |
+| `interfaces/` | One interface per public contract                                |
 
 **Design rules.**
 
@@ -175,6 +174,7 @@ Three Node services (NestJS) and one Go service. Each runs as its own process so
 **`apps/indexer` — chain projector (Go).** Subscribes to Arc events using `go-ethereum`. For each event it: parses to a domain event, writes to Postgres (advancing a per-contract cursor), and publishes to a Redis stream so the scheduler and agent can react in real time. Go is chosen here because indexers are bounded by I/O concurrency and stable long-running connections — a domain Go is genuinely best at. Resumable on restart, idempotent on replay.
 
 **`apps/scheduler` — workers.** NestJS standalone app backed by BullMQ. Three queues:
+
 - `subscription.due` — cron-driven; reads due subscriptions from Postgres, calls `batchCharge` on the contract with one `chargeAttemptId` per subscription, writes the result.
 - `webhook.deliver` — exponential backoff (1m → 5m → 30m → 2h → 24h), then dead-lettered with merchant alert.
 - `agent.action` — drives the AutoPay Agent's scheduled actions (subscription recovery retries, daily cash flow digests).
@@ -229,6 +229,7 @@ H. Webhook delivery same as above
 ```
 
 Two properties hold by construction:
+
 1. A subscription is never double-charged for the same period (idempotency at the contract level via `chargeAttemptId`).
 2. A subscription cancelled on-chain between cron tick and worker run is skipped (the contract rejects, the worker records the outcome).
 
@@ -276,11 +277,11 @@ pnpm dev
 
 The default `docker compose up` brings up three infra services:
 
-| Service | Host port | Purpose |
-|---|---|---|
-| `postgres` | `5432` | Source of read state for every Node app |
-| `redis` | `6379` | BullMQ queues, idempotency cache, rate-limit buckets |
-| `anvil` | `8545` | Local EVM devnet (chain id `31337`) for contract work |
+| Service    | Host port | Purpose                                               |
+| ---------- | --------- | ----------------------------------------------------- |
+| `postgres` | `5432`    | Source of read state for every Node app               |
+| `redis`    | `6379`    | BullMQ queues, idempotency cache, rate-limit buckets  |
+| `anvil`    | `8545`    | Local EVM devnet (chain id `31337`) for contract work |
 
 For an end-to-end smoke test of the **build artifacts** (rare — mostly pre-deploy), the `full` profile also rebuilds and boots `api`, `scheduler`, `agent`, and `indexer` from their Dockerfiles:
 
@@ -292,28 +293,28 @@ Apps in the `full` profile reach Postgres / Redis / Anvil via compose service na
 
 ### Useful scripts
 
-| Command | Description |
-|---|---|
-| `pnpm dev` | Run all apps in watch mode |
-| `pnpm build` | Build everything via Turbo |
-| `pnpm lint` | Lint everything |
-| `pnpm typecheck` | Typecheck everything |
-| `pnpm test` | Test everything |
-| `pnpm format` | Prettier write |
-| `pnpm format:check` | Prettier verify (CI runs this; same rules as `format`) |
-| `pnpm changeset` | Create a changeset for an SDK release |
-| `pnpm --filter @strimz/contracts forge:test` | Run Foundry tests |
-| `pnpm --filter @strimz/db db:migrate` | Apply Prisma migrations |
-| `pnpm --filter web dev` | Run only the web app |
+| Command                                      | Description                                            |
+| -------------------------------------------- | ------------------------------------------------------ |
+| `pnpm dev`                                   | Run all apps in watch mode                             |
+| `pnpm build`                                 | Build everything via Turbo                             |
+| `pnpm lint`                                  | Lint everything                                        |
+| `pnpm typecheck`                             | Typecheck everything                                   |
+| `pnpm test`                                  | Test everything                                        |
+| `pnpm format`                                | Prettier write                                         |
+| `pnpm format:check`                          | Prettier verify (CI runs this; same rules as `format`) |
+| `pnpm changeset`                             | Create a changeset for an SDK release                  |
+| `pnpm --filter @strimz/contracts forge:test` | Run Foundry tests                                      |
+| `pnpm --filter @strimz/db db:migrate`        | Apply Prisma migrations                                |
+| `pnpm --filter web dev`                      | Run only the web app                                   |
 
 ### Continuous integration
 
 Three parallel jobs run on every PR via [`.github/workflows/ci.yml`](./.github/workflows/ci.yml):
 
-| Job | What it runs |
-|---|---|
-| `node` | `pnpm install` → `pnpm build` (turbo `^build`, generates the Prisma client first) → `format:check` → `lint` → `typecheck` → `test` |
-| `go` | `go vet`, `go build`, race-tested unit tests on `apps/indexer` |
+| Job       | What it runs                                                                                                                       |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `node`    | `pnpm install` → `pnpm build` (turbo `^build`, generates the Prisma client first) → `format:check` → `lint` → `typecheck` → `test` |
+| `go`      | `go vet`, `go build`, race-tested unit tests on `apps/indexer`                                                                     |
 | `foundry` | `forge fmt --check`, `forge build --sizes`, `forge test -vvv`. Checks out submodules so `forge-std` and OpenZeppelin libs resolve. |
 
 A separate [`docker.yml`](./.github/workflows/docker.yml) workflow builds every app's Dockerfile via a matrix, but only when a Dockerfile or `docker-compose.yml` actually changes — otherwise it'd be a slow tax on every unrelated PR.
@@ -324,18 +325,18 @@ A separate [`docker.yml`](./.github/workflows/docker.yml) workflow builds every 
 
 Each app has its own `.env.example` listing required and optional variables. Copy each one to `.env` for local use. Production values live in Render and Vercel, never in the repo. Recurring variables across apps:
 
-| Variable | Used by | Purpose |
-|---|---|---|
-| `DATABASE_URL` | api, indexer, scheduler, agent | Postgres connection string |
-| `REDIS_URL` | api, scheduler, agent | Redis connection string |
-| `ARC_RPC_URL` | api, indexer, scheduler, agent | Arc JSON-RPC endpoint |
-| `ARC_CHAIN_ID` | all | Chain id (`5042002` testnet) |
-| `STRIMZ_REGISTRY_ADDRESS` | all | Deployed `StrimzRegistry` address |
-| `STRIMZ_WEBHOOK_SIGNING_SECRET` | api, scheduler | HMAC secret for webhook signatures |
-| `JWT_SECRET` | api | Merchant session JWT secret |
-| `PRIVY_APP_ID` / `PRIVY_APP_SECRET` | web, api | Wallet auth |
-| `RESEND_API_KEY` | api, scheduler | Transactional email |
-| `SENTRY_DSN` | all | Error tracking (optional in dev) |
+| Variable                            | Used by                        | Purpose                            |
+| ----------------------------------- | ------------------------------ | ---------------------------------- |
+| `DATABASE_URL`                      | api, indexer, scheduler, agent | Postgres connection string         |
+| `REDIS_URL`                         | api, scheduler, agent          | Redis connection string            |
+| `ARC_RPC_URL`                       | api, indexer, scheduler, agent | Arc JSON-RPC endpoint              |
+| `ARC_CHAIN_ID`                      | all                            | Chain id (`5042002` testnet)       |
+| `STRIMZ_REGISTRY_ADDRESS`           | all                            | Deployed `StrimzRegistry` address  |
+| `STRIMZ_WEBHOOK_SIGNING_SECRET`     | api, scheduler                 | HMAC secret for webhook signatures |
+| `JWT_SECRET`                        | api                            | Merchant session JWT secret        |
+| `PRIVY_APP_ID` / `PRIVY_APP_SECRET` | web, api                       | Wallet auth                        |
+| `RESEND_API_KEY`                    | api, scheduler                 | Transactional email                |
+| `SENTRY_DSN`                        | all                            | Error tracking (optional in dev)   |
 
 ## Project structure
 
@@ -372,16 +373,16 @@ strimz/
 
 ## Deployment targets
 
-| Surface | Host |
-|---|---|
-| `apps/web` | Vercel |
-| `apps/api` | Render — Web Service |
-| `apps/indexer` | Render — Background Worker |
-| `apps/scheduler` | Render — Background Worker |
-| `apps/agent` | Render — Background Worker |
-| Postgres 16 | Render — Managed PostgreSQL |
-| Redis 7 | Render — Managed Key Value |
-| Smart contracts | Arc testnet (`5042002`), then Arc mainnet |
+| Surface          | Host                                      |
+| ---------------- | ----------------------------------------- |
+| `apps/web`       | Vercel                                    |
+| `apps/api`       | Render — Web Service                      |
+| `apps/indexer`   | Render — Background Worker                |
+| `apps/scheduler` | Render — Background Worker                |
+| `apps/agent`     | Render — Background Worker                |
+| Postgres 16      | Render — Managed PostgreSQL               |
+| Redis 7          | Render — Managed Key Value                |
+| Smart contracts  | Arc testnet (`5042002`), then Arc mainnet |
 
 ## Contributing
 

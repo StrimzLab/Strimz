@@ -46,7 +46,8 @@ export function useStrimzCheckout(options: UseStrimzCheckoutOptions = {}): UseSt
     function onMessage(ev: MessageEvent) {
       if (ev.origin !== checkoutOrigin) return
       const data = ev.data as { type?: string; txHash?: string; message?: string }
-      if (!data || typeof data.type !== 'string' || !data.type.startsWith('strimz:checkout:')) return
+      if (!data || typeof data.type !== 'string' || !data.type.startsWith('strimz:checkout:'))
+        return
 
       switch (data.type) {
         case 'strimz:checkout:success':

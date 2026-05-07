@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common'
-import type { ComplianceLog, ComplianceProvider, ComplianceScreeningContext, ComplianceStatus } from '@strimz/shared-types'
+import type {
+  ComplianceLog,
+  ComplianceProvider,
+  ComplianceScreeningContext,
+  ComplianceStatus,
+} from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { TypedConfigService } from '../../config/index.js'
 
@@ -91,14 +96,12 @@ export class ComplianceService {
     })
     const hasMore = rows.length > limit
     const data = rows.slice(0, limit).map(serialise)
-    return { data, nextCursor: hasMore ? data[data.length - 1]?.id ?? null : null, hasMore }
+    return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
   }
 
   // ----- Provider adapters -----
 
-  private async callProvider(
-    walletAddress: string,
-  ): Promise<{
+  private async callProvider(walletAddress: string): Promise<{
     status: ComplianceStatus
     riskScore: number | null
     flags: string[]
@@ -145,8 +148,8 @@ export class ComplianceService {
         riskScore != null && riskScore >= this.blockThreshold
           ? 'blocked'
           : flags.length > 0
-          ? 'flagged'
-          : 'clear'
+            ? 'flagged'
+            : 'clear'
       return { status, riskScore, flags, providerRequestId: first?.accountExternalId ?? null }
     } catch (err) {
       this.log.error(`TRM error: ${(err as Error).message}`)
@@ -188,8 +191,8 @@ export class ComplianceService {
         riskScore != null && riskScore >= this.blockThreshold
           ? 'blocked'
           : flags.length > 0
-          ? 'flagged'
-          : 'clear'
+            ? 'flagged'
+            : 'clear'
       return { status, riskScore, flags, providerRequestId: json.analysed_at ?? null }
     } catch (err) {
       this.log.error(`Elliptic error: ${(err as Error).message}`)

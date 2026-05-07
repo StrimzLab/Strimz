@@ -2,7 +2,10 @@ import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/co
 import { upsertCustomerInputSchema } from '@strimz/shared-types'
 import type { Customer, UpsertCustomerInput } from '@strimz/shared-types'
 import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
-import { CurrentMerchant, type CurrentMerchantPayload } from '../../common/decorators/current-merchant.decorator.js'
+import {
+  CurrentMerchant,
+  type CurrentMerchantPayload,
+} from '../../common/decorators/current-merchant.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
 import { CustomersService } from './customers.service.js'
 
@@ -20,7 +23,10 @@ export class CustomersController {
   }
 
   @Get('/:id')
-  retrieve(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string): Promise<Customer> {
+  retrieve(
+    @CurrentMerchant() ctx: CurrentMerchantPayload,
+    @Param('id') id: string,
+  ): Promise<Customer> {
     return this.customers.retrieve(ctx.merchantId, id)
   }
 

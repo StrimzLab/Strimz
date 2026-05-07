@@ -48,7 +48,9 @@ export class BridgeWorker extends WorkerHost {
     super()
   }
 
-  async process(job: Job<CctpBridgeJob>): Promise<{ status: 'queued' | 'pending'; txHash?: string }> {
+  async process(
+    job: Job<CctpBridgeJob>,
+  ): Promise<{ status: 'queued' | 'pending'; txHash?: string }> {
     const data = cctpBridgeJobSchema.parse(job.data)
 
     // First-touch: record bridge_initiated. Subsequent polls (re-enqueued

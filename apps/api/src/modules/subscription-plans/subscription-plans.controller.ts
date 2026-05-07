@@ -2,7 +2,10 @@ import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/co
 import { createSubscriptionPlanInputSchema } from '@strimz/shared-types'
 import type { CreateSubscriptionPlanInput, SubscriptionPlan } from '@strimz/shared-types'
 import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
-import { CurrentMerchant, type CurrentMerchantPayload } from '../../common/decorators/current-merchant.decorator.js'
+import {
+  CurrentMerchant,
+  type CurrentMerchantPayload,
+} from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
 import { SubscriptionPlansService } from './subscription-plans.service.js'
@@ -16,7 +19,8 @@ export class SubscriptionPlansController {
   @Post()
   create(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Body(new ZodValidationPipe(createSubscriptionPlanInputSchema)) input: CreateSubscriptionPlanInput,
+    @Body(new ZodValidationPipe(createSubscriptionPlanInputSchema))
+    input: CreateSubscriptionPlanInput,
   ): Promise<SubscriptionPlan> {
     return this.plans.create(ctx.merchantId, input)
   }

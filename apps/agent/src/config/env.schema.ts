@@ -27,10 +27,7 @@ export const envSchema = z.object({
 
   // Circle CCTP V2 — used by the routing capability to fetch attestations.
   // Default to Circle's sandbox; mainnet deployments override.
-  CIRCLE_ATTESTATION_BASE_URL: z
-    .string()
-    .url()
-    .default('https://iris-api-sandbox.circle.com'),
+  CIRCLE_ATTESTATION_BASE_URL: z.string().url().default('https://iris-api-sandbox.circle.com'),
   CIRCLE_API_KEY: z.string().optional(),
 })
 

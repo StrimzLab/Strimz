@@ -342,7 +342,7 @@ function NewEndpointDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="default" >
+        <Button size="sm" variant="default">
           <Plus className="mr-1.5 size-4" /> Add endpoint
         </Button>
       </DialogTrigger>

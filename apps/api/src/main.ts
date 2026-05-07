@@ -37,14 +37,8 @@ async function bootstrap(): Promise<void> {
     .setVersion('2026-04-27')
     .setContact('Strimz', 'https://strimz.io', 'developers@strimz.io')
     .addServer(cfg.env.API_BASE_URL)
-    .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-      'privy',
-    )
-    .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'API key' },
-      'apiKey',
-    )
+    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'privy')
+    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'API key' }, 'apiKey')
     .build()
   const doc = SwaggerModule.createDocument(app, swaggerConfig)
   SwaggerModule.setup('/openapi.json', app, doc, { jsonDocumentUrl: '/openapi.json' })

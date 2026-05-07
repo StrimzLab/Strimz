@@ -17,7 +17,14 @@ export class StubPrivyService {
     return `test|${opts.did}|${opts.email}|${opts.mfa ? 'mfa' : ''}`
   }
 
-  async verifyAccessToken(token: string): Promise<{ userId: string; sessionId: string; appId: string; issuer: string; issuedAt: number; expiration: number }> {
+  async verifyAccessToken(token: string): Promise<{
+    userId: string
+    sessionId: string
+    appId: string
+    issuer: string
+    issuedAt: number
+    expiration: number
+  }> {
     if (!token.startsWith('test|')) {
       throw new UnauthorizedException({
         code: 'authentication_error',
@@ -44,9 +51,7 @@ export class StubPrivyService {
     return {
       id: privyUserId,
       email: decoded.email ? { address: decoded.email } : undefined,
-      linkedAccounts: decoded.email
-        ? [{ type: 'email', address: decoded.email }]
-        : [],
+      linkedAccounts: decoded.email ? [{ type: 'email', address: decoded.email }] : [],
       mfaMethods: decoded.mfa ? [{ type: 'totp' }] : [],
     }
   }

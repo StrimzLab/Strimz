@@ -1,12 +1,5 @@
 import type { ReactNode } from 'react'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@strimz/ui'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@strimz/ui'
 import { EmptyState } from './empty-state'
 
 export interface Column<T> {
@@ -42,15 +35,12 @@ export function ResourceList<T extends { id: string }>({
     )
   }
   return (
-    <div className="shadow-sub-card overflow-hidden rounded-xl border border-border/60 bg-background">
+    <div className="shadow-sub-card border-border/60 bg-background overflow-hidden rounded-xl border">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/40">
             {columns.map((c) => (
-              <TableHead
-                key={c.key}
-                className={c.align === 'right' ? 'text-right' : undefined}
-              >
+              <TableHead key={c.key} className={c.align === 'right' ? 'text-right' : undefined}>
                 {c.header}
               </TableHead>
             ))}
@@ -58,12 +48,9 @@ export function ResourceList<T extends { id: string }>({
         </TableHeader>
         <TableBody>
           {rows.map((row) => (
-            <TableRow key={row.id} className="transition-colors hover:bg-muted/30">
+            <TableRow key={row.id} className="hover:bg-muted/30 transition-colors">
               {columns.map((c) => (
-                <TableCell
-                  key={c.key}
-                  className={c.align === 'right' ? 'text-right' : undefined}
-                >
+                <TableCell key={c.key} className={c.align === 'right' ? 'text-right' : undefined}>
                   {c.render(row)}
                 </TableCell>
               ))}

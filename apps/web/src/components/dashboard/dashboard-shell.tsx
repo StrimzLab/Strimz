@@ -12,13 +12,7 @@ import { DashboardFooter } from './dashboard-footer'
  * grows with `flex-1` so the `<DashboardFooter />` always sits at the
  * viewport bottom even when content is short.
  */
-export function DashboardShell({
-  children,
-  title,
-}: {
-  children: React.ReactNode
-  title?: string
-}) {
+export function DashboardShell({ children, title }: { children: React.ReactNode; title?: string }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="flex min-h-screen bg-white">

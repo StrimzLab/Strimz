@@ -2,7 +2,10 @@ import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/co
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { Public } from '../../common/decorators/public.decorator.js'
 import { PrivyAuthGuard } from '../../common/guards/privy.guard.js'
-import { CurrentMerchant, type CurrentMerchantPayload } from '../../common/decorators/current-merchant.decorator.js'
+import {
+  CurrentMerchant,
+  type CurrentMerchantPayload,
+} from '../../common/decorators/current-merchant.decorator.js'
 import { StorefrontsService } from './storefronts.service.js'
 import { CreateStorefrontDto, CreateStorefrontProductDto } from './storefronts.dto.js'
 

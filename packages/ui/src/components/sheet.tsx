@@ -43,19 +43,19 @@ const sheetVariants = cva(
       side: {
         top: [
           'inset-x-0 top-0 border-b',
-          'data-[state=open]:translate-y-0 data-[state=closed]:-translate-y-full',
+          'data-[state=closed]:-translate-y-full data-[state=open]:translate-y-0',
         ].join(' '),
         bottom: [
           'inset-x-0 bottom-0 border-t',
-          'data-[state=open]:translate-y-0 data-[state=closed]:translate-y-full',
+          'data-[state=closed]:translate-y-full data-[state=open]:translate-y-0',
         ].join(' '),
         left: [
           'inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm',
-          'data-[state=open]:translate-x-0 data-[state=closed]:-translate-x-full',
+          'data-[state=closed]:-translate-x-full data-[state=open]:translate-x-0',
         ].join(' '),
         right: [
           'inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm',
-          'data-[state=open]:translate-x-0 data-[state=closed]:translate-x-full',
+          'data-[state=closed]:translate-x-full data-[state=open]:translate-x-0',
         ].join(' '),
       },
     },
@@ -64,7 +64,8 @@ const sheetVariants = cva(
 )
 
 interface SheetContentProps
-  extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
+  extends
+    React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
     VariantProps<typeof sheetVariants> {
   /** Hide the X close button. */
   hideCloseButton?: boolean

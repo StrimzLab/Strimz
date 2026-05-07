@@ -38,9 +38,7 @@ export type VerifyWebhookReason =
   | 'timestamp_out_of_range'
   | 'signature_mismatch'
 
-export type VerifyWebhookResult =
-  | { valid: true }
-  | { valid: false; reason: VerifyWebhookReason }
+export type VerifyWebhookResult = { valid: true } | { valid: false; reason: VerifyWebhookReason }
 
 export interface VerifyWebhookOptions {
   /** Maximum age of a signature in seconds. Defaults to the shared-config tolerance. */

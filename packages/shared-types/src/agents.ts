@@ -128,7 +128,10 @@ export const agentJobSchema = z.object({
   currency: z.enum(['USDC', 'EURC']),
   status: agentJobStatusSchema,
   assessorAddress: evmAddressSchema,
-  deliverableHash: z.string().regex(/^0x[a-fA-F0-9]+$/).nullable(),
+  deliverableHash: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]+$/)
+    .nullable(),
   escrowTxHash: evmTxHashSchema.nullable(),
   releaseTxHash: evmTxHashSchema.nullable(),
   createdAt: isoTimestampSchema,

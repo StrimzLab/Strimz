@@ -31,7 +31,7 @@ function Pill() {
         quality={100}
         priority
       />
-      <p className="px-2.5 font-poppins text-sm font-[400] text-[#050020] md:text-base">
+      <p className="font-poppins px-2.5 text-sm font-[400] text-[#050020] md:text-base">
         Streamline payments anytime
       </p>
     </div>

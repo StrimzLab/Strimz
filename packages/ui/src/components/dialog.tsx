@@ -43,15 +43,13 @@ export const DialogContent = React.forwardRef<
       className={cn(
         'fixed left-1/2 top-1/2 z-[80] grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[14px] border border-[#E5E7EB] bg-white p-6 shadow-[0_25px_50px_-12px_rgba(5,0,32,0.25)]',
         'transition-[opacity,transform] duration-200',
-        'data-[state=closed]:scale-95 data-[state=closed]:opacity-0 data-[state=open]:scale-100 data-[state=open]:opacity-100',
+        'data-[state=closed]:scale-95 data-[state=open]:scale-100 data-[state=closed]:opacity-0 data-[state=open]:opacity-100',
         className,
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close
-        className="absolute right-4 top-4 rounded-md p-1.5 text-[#58556A] transition-colors hover:bg-[#F9FAFB] hover:text-[#050020] focus:outline-none focus:ring-2 focus:ring-[#02C76A]/40 focus:ring-offset-2 disabled:pointer-events-none"
-      >
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-md p-1.5 text-[#58556A] transition-colors hover:bg-[#F9FAFB] hover:text-[#050020] focus:outline-none focus:ring-2 focus:ring-[#02C76A]/40 focus:ring-offset-2 disabled:pointer-events-none">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -79,7 +77,10 @@ export const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn('font-sora text-lg font-[700] leading-none tracking-tight text-[#050020]', className)}
+    className={cn(
+      'font-sora text-lg font-[700] leading-none tracking-tight text-[#050020]',
+      className,
+    )}
     {...props}
   />
 ))

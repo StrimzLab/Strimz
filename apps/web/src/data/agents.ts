@@ -30,11 +30,18 @@ export type AgentConfig = {
 }
 
 export const AGENT_CONFIG: AgentConfig = {
-  enabledCapabilities: ['recovery', 'cashflow', 'cashflow_anomaly', 'pricing_intelligence', 'routing'],
+  enabledCapabilities: [
+    'recovery',
+    'cashflow',
+    'cashflow_anomaly',
+    'pricing_intelligence',
+    'routing',
+  ],
   recovery: {
     gracePeriodHours: 48,
     strategy: 'twice',
-    notificationTemplate: 'Hey — your subscription with us couldn\'t be charged. Top up and we\'ll retry automatically.',
+    notificationTemplate:
+      "Hey — your subscription with us couldn't be charged. Top up and we'll retry automatically.",
   },
   cashflow: {
     digestEnabled: true,
@@ -61,31 +68,62 @@ export type AgentActivity = {
 
 const rngActivity = mulberry32(89)
 
-export const AGENT_ACTIVITY: AgentActivity[] = range(36).map((i) => {
-  const cap = pick(rngActivity, ['recovery', 'cashflow', 'cashflow_anomaly', 'pricing_intelligence', 'routing'] as AgentCapability[])
-  const outcome = pick(rngActivity, ['success', 'success', 'success', 'success', 'skipped', 'failed'] as Array<AgentActivity['outcome']>)
-  const summaries: Record<AgentCapability, [string, string]> = {
-    recovery: ['recovery_notification_sent', 'Sent recovery email after failed charge'],
-    cashflow: ['cashflow_digest_sent', 'Daily digest delivered'],
-    cashflow_anomaly: ['cashflow_anomaly_detected', 'Hourly revenue 2.4σ below 30-day baseline'],
-    cashflow_yield: ['cashflow_yield_recommended', 'Surplus over reserve detected — yield recommendation issued'],
-    commerce: ['commerce_monthly_summary_sent', 'Monthly vendor summary emailed'],
-    pricing_intelligence: ['pricing_monthly_report_sent', 'Monthly MRR + churn + forecast emailed'],
-    routing: ['routing_payment_completed', 'CCTP V2 settlement complete on Arc'],
-  }
-  const [actionType, summary] = summaries[cap]
-  return {
-    id: id('agact', i + 1),
-    capability: cap,
-    actionType,
-    outcome,
-    summary,
-    ref: rngActivity() > 0.4 ? id(cap === 'recovery' ? 'sub' : cap === 'routing' ? 'tx' : 'ev', i + 1) : null,
-    createdAt: daysAgo(Math.floor(rngActivity() * 14), Math.floor(rngActivity() * 24)),
-  }
-}).sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+export const AGENT_ACTIVITY: AgentActivity[] = range(36)
+  .map((i) => {
+    const cap = pick(rngActivity, [
+      'recovery',
+      'cashflow',
+      'cashflow_anomaly',
+      'pricing_intelligence',
+      'routing',
+    ] as AgentCapability[])
+    const outcome = pick(rngActivity, [
+      'success',
+      'success',
+      'success',
+      'success',
+      'skipped',
+      'failed',
+    ] as Array<AgentActivity['outcome']>)
+    const summaries: Record<AgentCapability, [string, string]> = {
+      recovery: ['recovery_notification_sent', 'Sent recovery email after failed charge'],
+      cashflow: ['cashflow_digest_sent', 'Daily digest delivered'],
+      cashflow_anomaly: ['cashflow_anomaly_detected', 'Hourly revenue 2.4σ below 30-day baseline'],
+      cashflow_yield: [
+        'cashflow_yield_recommended',
+        'Surplus over reserve detected — yield recommendation issued',
+      ],
+      commerce: ['commerce_monthly_summary_sent', 'Monthly vendor summary emailed'],
+      pricing_intelligence: [
+        'pricing_monthly_report_sent',
+        'Monthly MRR + churn + forecast emailed',
+      ],
+      routing: ['routing_payment_completed', 'CCTP V2 settlement complete on Arc'],
+    }
+    const [actionType, summary] = summaries[cap]
+    return {
+      id: id('agact', i + 1),
+      capability: cap,
+      actionType,
+      outcome,
+      summary,
+      ref:
+        rngActivity() > 0.4
+          ? id(cap === 'recovery' ? 'sub' : cap === 'routing' ? 'tx' : 'ev', i + 1)
+          : null,
+      createdAt: daysAgo(Math.floor(rngActivity() * 14), Math.floor(rngActivity() * 24)),
+    }
+  })
+  .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
 
-export type AgentJobStatus = 'proposed' | 'accepted' | 'in_progress' | 'delivered' | 'approved' | 'completed' | 'disputed'
+export type AgentJobStatus =
+  | 'proposed'
+  | 'accepted'
+  | 'in_progress'
+  | 'delivered'
+  | 'approved'
+  | 'completed'
+  | 'disputed'
 
 export type AgentJob = {
   id: string
@@ -118,7 +156,9 @@ export const AGENT_JOBS: AgentJob[] = range(8).map((i) => {
     vendorWallet: walletAddress(rngJobs),
     description: desc,
     amountUsdc: amount,
-    status: requiresApproval ? 'proposed' : pick(rngJobs, ['completed', 'in_progress', 'delivered', 'completed'] as AgentJobStatus[]),
+    status: requiresApproval
+      ? 'proposed'
+      : pick(rngJobs, ['completed', 'in_progress', 'delivered', 'completed'] as AgentJobStatus[]),
     createdAt: daysAgo(Math.floor(rngJobs() * 30)),
     requiresApproval,
   }

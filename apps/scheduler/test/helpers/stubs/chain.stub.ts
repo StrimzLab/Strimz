@@ -56,7 +56,10 @@ export class StubChainService {
   cancelJob(jobId: bigint, reason: string): Promise<`0x${string}`> {
     return Promise.resolve(this.record('cancelJob', [jobId, reason]))
   }
-  receiveCctpMessage(input: { messageHex: `0x${string}`; attestationHex: `0x${string}` }): Promise<`0x${string}`> {
+  receiveCctpMessage(input: {
+    messageHex: `0x${string}`
+    attestationHex: `0x${string}`
+  }): Promise<`0x${string}`> {
     return Promise.resolve(this.record('receiveCctpMessage', [input]))
   }
 

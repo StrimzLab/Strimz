@@ -17,8 +17,6 @@ export function MaxWrapper({
 }) {
   const Component = As as React.ElementType
   return (
-    <Component className={cn('mx-auto w-full max-w-[1440px]', className)}>
-      {children}
-    </Component>
+    <Component className={cn('mx-auto w-full max-w-[1440px]', className)}>{children}</Component>
   )
 }

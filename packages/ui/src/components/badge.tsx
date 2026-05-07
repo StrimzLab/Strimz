@@ -8,7 +8,7 @@ import { cn } from '../lib/cn'
  * extra props.
  */
 const badgeVariants = cva(
-  'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-poppins text-[11px] font-[500] transition-colors',
+  'font-poppins inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-[500] transition-colors',
   {
     variants: {
       variant: {
@@ -29,8 +29,7 @@ const badgeVariants = cva(
 )
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {}
+  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
 
 export function Badge({ className, variant, ...props }: BadgeProps) {
   return <div className={cn(badgeVariants({ variant }), className)} {...props} />

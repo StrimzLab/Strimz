@@ -47,7 +47,7 @@ export function StatsBand() {
           initial={{ opacity: 0, y: 8 }}
           animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
           transition={{ duration: 0.5 }}
-          className="text-center font-poppins text-[12px] font-[500] uppercase tracking-[0.22em] text-white/60"
+          className="font-poppins text-center text-[12px] font-[500] uppercase tracking-[0.22em] text-white/60"
         >
           Built for production scale
         </motion.p>
@@ -62,20 +62,13 @@ export function StatsBand() {
   )
 }
 
-function Counter({
-  stat,
-  startNow,
-  delay,
-}: {
-  stat: Stat
-  startNow: boolean
-  delay: number
-}) {
+function Counter({ stat, startNow, delay }: { stat: Stat; startNow: boolean; delay: number }) {
   const [display, setDisplay] = useState(0)
 
   useEffect(() => {
     if (!startNow) return
-    const reduceMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reduceMotion =
+      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (reduceMotion) {
       setDisplay(stat.value)
       return
@@ -98,9 +91,7 @@ function Counter({
 
   const decimals = stat.decimals ?? 0
   const formatted =
-    decimals > 0
-      ? display.toFixed(decimals)
-      : Math.round(display).toLocaleString('en-US')
+    decimals > 0 ? display.toFixed(decimals) : Math.round(display).toLocaleString('en-US')
 
   return (
     <div className="text-center sm:text-left">
@@ -109,7 +100,7 @@ function Counter({
         {formatted}
         {stat.suffix}
       </div>
-      <div className="mt-2 font-poppins text-[12px] font-[400] uppercase tracking-[0.18em] text-white/60 sm:text-[13px]">
+      <div className="font-poppins mt-2 text-[12px] font-[400] uppercase tracking-[0.18em] text-white/60 sm:text-[13px]">
         {stat.label}
       </div>
     </div>

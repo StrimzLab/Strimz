@@ -10,8 +10,6 @@ export const env = {
   privyAppId: process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? '',
   turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '',
   reownProjectId: process.env.NEXT_PUBLIC_REOWN_PROJECT_ID ?? '',
-  arcEnvironment: (process.env.NEXT_PUBLIC_ARC_ENVIRONMENT ?? 'testnet') as
-    | 'testnet'
-    | 'mainnet',
+  arcEnvironment: (process.env.NEXT_PUBLIC_ARC_ENVIRONMENT ?? 'testnet') as 'testnet' | 'mainnet',
   arcRpcUrl: process.env.NEXT_PUBLIC_ARC_RPC_URL ?? '',
 } as const

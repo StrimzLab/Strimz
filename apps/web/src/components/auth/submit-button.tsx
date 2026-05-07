@@ -24,7 +24,7 @@ export function SubmitButton({
       type="submit"
       disabled={disabled || isLoading}
       className={cn(
-        'shadow-cta-rim flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#02C76A] font-poppins text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-70',
+        'shadow-cta-rim font-poppins flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#02C76A] text-sm font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-70',
         className,
       )}
       {...rest}

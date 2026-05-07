@@ -10,10 +10,19 @@ import { Highlight, type PrismTheme } from 'prism-react-renderer'
 const lightTheme: PrismTheme = {
   plain: { color: '#050020', backgroundColor: 'transparent' },
   styles: [
-    { types: ['comment', 'prolog', 'doctype', 'cdata'], style: { color: '#9ca3af', fontStyle: 'italic' } },
+    {
+      types: ['comment', 'prolog', 'doctype', 'cdata'],
+      style: { color: '#9ca3af', fontStyle: 'italic' },
+    },
     { types: ['punctuation'], style: { color: '#58556A' } },
-    { types: ['property', 'tag', 'boolean', 'number', 'constant', 'symbol', 'deleted'], style: { color: '#0969da' } },
-    { types: ['selector', 'attr-name', 'string', 'char', 'builtin', 'inserted'], style: { color: '#02865c' } },
+    {
+      types: ['property', 'tag', 'boolean', 'number', 'constant', 'symbol', 'deleted'],
+      style: { color: '#0969da' },
+    },
+    {
+      types: ['selector', 'attr-name', 'string', 'char', 'builtin', 'inserted'],
+      style: { color: '#02865c' },
+    },
     { types: ['operator', 'entity', 'url', 'variable'], style: { color: '#cf222e' } },
     { types: ['atrule', 'attr-value', 'keyword'], style: { color: '#cf222e' } },
     { types: ['function', 'class-name'], style: { color: '#8250df' } },
@@ -28,10 +37,19 @@ const lightTheme: PrismTheme = {
 const darkTheme: PrismTheme = {
   plain: { color: '#e6edf3', backgroundColor: 'transparent' },
   styles: [
-    { types: ['comment', 'prolog', 'doctype', 'cdata'], style: { color: '#8b949e', fontStyle: 'italic' } },
+    {
+      types: ['comment', 'prolog', 'doctype', 'cdata'],
+      style: { color: '#8b949e', fontStyle: 'italic' },
+    },
     { types: ['punctuation'], style: { color: '#c9d1d9' } },
-    { types: ['property', 'tag', 'boolean', 'number', 'constant', 'symbol', 'deleted'], style: { color: '#79c0ff' } },
-    { types: ['selector', 'attr-name', 'string', 'char', 'builtin', 'inserted'], style: { color: '#a5d6ff' } },
+    {
+      types: ['property', 'tag', 'boolean', 'number', 'constant', 'symbol', 'deleted'],
+      style: { color: '#79c0ff' },
+    },
+    {
+      types: ['selector', 'attr-name', 'string', 'char', 'builtin', 'inserted'],
+      style: { color: '#a5d6ff' },
+    },
     { types: ['operator', 'entity', 'url', 'variable'], style: { color: '#ffa657' } },
     { types: ['atrule', 'attr-value', 'keyword'], style: { color: '#ff7b72' } },
     { types: ['function', 'class-name'], style: { color: '#d2a8ff' } },
@@ -62,7 +80,9 @@ export function CodeBlock({
     <Highlight code={code.trim()} language={language} theme={theme}>
       {({ tokens, getLineProps, getTokenProps }) => (
         <pre
-          className={['overflow-x-auto font-mono text-[12.5px] leading-[1.7]', className].filter(Boolean).join(' ')}
+          className={['overflow-x-auto font-mono text-[12.5px] leading-[1.7]', className]
+            .filter(Boolean)
+            .join(' ')}
           style={{ background: 'transparent' }}
         >
           {tokens.map((line, i) => {

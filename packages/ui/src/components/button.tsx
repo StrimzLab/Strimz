@@ -12,7 +12,7 @@ import { cn } from '../lib/cn'
  */
 const buttonVariants = cva(
   [
-    'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-poppins text-sm font-[500]',
+    'font-poppins inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-[500]',
     'transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#02C76A]/40 focus-visible:ring-offset-2',
     'disabled:pointer-events-none disabled:opacity-50',
     '[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
@@ -23,7 +23,8 @@ const buttonVariants = cva(
         default:
           'bg-[#02C76A] text-white shadow-[0_-4px_4px_0_rgba(0,0,0,0.2)_inset,_0_4px_4px_0_rgba(225,225,225,0.25)_inset] hover:bg-[#02b35e]',
         navy: 'bg-[#050020] text-white hover:bg-[#0a0530]',
-        secondary: 'bg-[#F9FAFB] text-[#050020] border border-[#E5E7EB] hover:bg-white hover:border-[#050020]',
+        secondary:
+          'border border-[#E5E7EB] bg-[#F9FAFB] text-[#050020] hover:border-[#050020] hover:bg-white',
         outline:
           'border border-[#E5E7EB] bg-white text-[#050020] hover:border-[#050020] hover:bg-white',
         ghost: 'text-[#050020] hover:bg-[#F9FAFB]',
@@ -45,8 +46,7 @@ const buttonVariants = cva(
 )
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   asChild?: boolean
 }
 

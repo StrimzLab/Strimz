@@ -25,27 +25,50 @@ export default function AcceptableUsePage() {
       <p>
         Strimz exists to make legitimate stablecoin commerce easier. We operate in a permissionless
         on-chain environment, but the Service we provide — the API, dashboard, hosted checkout,
-        webhook delivery, and the AutoPay Agent — is not. The activities listed below are
-        prohibited from running on Strimz infrastructure.
+        webhook delivery, and the AutoPay Agent — is not. The activities listed below are prohibited
+        from running on Strimz infrastructure.
       </p>
       <p>
-        These rules apply equally to test mode and live mode. They apply regardless of whether
-        the customer pays directly to your wallet on-chain or via Strimz's hosted checkout.
+        These rules apply equally to test mode and live mode. They apply regardless of whether the
+        customer pays directly to your wallet on-chain or via Strimz's hosted checkout.
       </p>
 
       <h2 id="prohibited">Prohibited businesses</h2>
       <p>You may not use Strimz for any business or activity that involves:</p>
       <ul>
-        <li><strong>Sanctioned entities or jurisdictions</strong> (e.g., OFAC SDN, EU consolidated list, UK HMT financial-sanctions list).</li>
-        <li><strong>Child sexual abuse material</strong> or any content sexualising minors.</li>
-        <li><strong>Human trafficking</strong> or forced labour.</li>
-        <li><strong>Weapons trafficking</strong>, including firearms, ammunition, and dual-use goods controlled under export law.</li>
-        <li><strong>Narcotics</strong> trafficking or sale.</li>
-        <li><strong>Money laundering</strong>, terrorism financing, or evasion of capital controls.</li>
-        <li><strong>Pyramid, ponzi, multi-level-marketing, or matrix schemes.</strong></li>
-        <li><strong>Unregistered securities offerings</strong>, manipulative market practices, or wash trading.</li>
-        <li><strong>Mixing or tumbling services</strong> intended to obscure the origin of funds.</li>
-        <li><strong>Phishing, malware distribution, or credential harvesting.</strong></li>
+        <li>
+          <strong>Sanctioned entities or jurisdictions</strong> (e.g., OFAC SDN, EU consolidated
+          list, UK HMT financial-sanctions list).
+        </li>
+        <li>
+          <strong>Child sexual abuse material</strong> or any content sexualising minors.
+        </li>
+        <li>
+          <strong>Human trafficking</strong> or forced labour.
+        </li>
+        <li>
+          <strong>Weapons trafficking</strong>, including firearms, ammunition, and dual-use goods
+          controlled under export law.
+        </li>
+        <li>
+          <strong>Narcotics</strong> trafficking or sale.
+        </li>
+        <li>
+          <strong>Money laundering</strong>, terrorism financing, or evasion of capital controls.
+        </li>
+        <li>
+          <strong>Pyramid, ponzi, multi-level-marketing, or matrix schemes.</strong>
+        </li>
+        <li>
+          <strong>Unregistered securities offerings</strong>, manipulative market practices, or wash
+          trading.
+        </li>
+        <li>
+          <strong>Mixing or tumbling services</strong> intended to obscure the origin of funds.
+        </li>
+        <li>
+          <strong>Phishing, malware distribution, or credential harvesting.</strong>
+        </li>
       </ul>
 
       <h2 id="restricted">Restricted businesses</h2>
@@ -62,7 +85,8 @@ export default function AcceptableUsePage() {
         <li>Charities operating in jurisdictions with elevated diversion risk.</li>
       </ul>
       <p>
-        If you operate in one of these sectors, contact <a href="mailto:compliance@strimz.finance">compliance@strimz.finance</a> before launching.
+        If you operate in one of these sectors, contact{' '}
+        <a href="mailto:compliance@strimz.finance">compliance@strimz.finance</a> before launching.
       </p>
 
       <h2 id="screening">Compliance screening</h2>
@@ -79,9 +103,10 @@ export default function AcceptableUsePage() {
 
       <h2 id="misuse">Reporting misuse</h2>
       <p>
-        Suspected misuse can be reported to <a href="mailto:abuse@strimz.finance">abuse@strimz.finance</a>.
-        Include the storefront URL, transaction hash, or merchant ID where relevant. We acknowledge
-        every report within twenty-four (24) business hours and investigate independently.
+        Suspected misuse can be reported to{' '}
+        <a href="mailto:abuse@strimz.finance">abuse@strimz.finance</a>. Include the storefront URL,
+        transaction hash, or merchant ID where relevant. We acknowledge every report within
+        twenty-four (24) business hours and investigate independently.
       </p>
 
       <h2 id="enforcement">Enforcement</h2>

@@ -30,7 +30,7 @@ export default function LoginPage() {
         Continue
         <ArrowRight className="size-4" />
       </SubmitButton>
-      <p className="mt-6 text-center font-poppins text-sm text-[#58556A]">
+      <p className="font-poppins mt-6 text-center text-sm text-[#58556A]">
         New to Strimz?{' '}
         <Link href="/signup" className="font-[500] text-[#050020] hover:underline">
           Create an account

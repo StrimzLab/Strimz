@@ -1,38 +1,47 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
-import { seedDelivery, seedMerchant, seedWebhookEndpoint, seedWebhookEvent } from '../helpers/fixtures.js'
+import {
+  seedDelivery,
+  seedMerchant,
+  seedWebhookEndpoint,
+  seedWebhookEvent,
+} from '../helpers/fixtures.js'
 import { WebhookDeliveryWorker } from '../../src/workers/webhook-delivery/webhook-delivery.worker.js'
 import { WebhookSecretCache } from '../../src/infra/webhook-signing/secret-cache.service.js'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
 /** Spin up a tiny HTTP listener for the worker to POST to. */
-function startReceiver(handler: (req: { signature: string | null; body: string }) => { status: number; body?: string }) {
-  return new Promise<{ url: string; close: () => Promise<void>; received: { signature: string | null; body: string }[] }>(
-    (resolve) => {
-      const received: { signature: string | null; body: string }[] = []
-      const server: Server = createServer((req, res) => {
-        let body = ''
-        req.on('data', (c) => (body += c))
-        req.on('end', () => {
-          const sig = (req.headers['strimz-signature'] as string) ?? null
-          received.push({ signature: sig, body })
-          const out = handler({ signature: sig, body })
-          res.writeHead(out.status, { 'content-type': 'text/plain' })
-          res.end(out.body ?? '')
-        })
+function startReceiver(
+  handler: (req: { signature: string | null; body: string }) => { status: number; body?: string },
+) {
+  return new Promise<{
+    url: string
+    close: () => Promise<void>
+    received: { signature: string | null; body: string }[]
+  }>((resolve) => {
+    const received: { signature: string | null; body: string }[] = []
+    const server: Server = createServer((req, res) => {
+      let body = ''
+      req.on('data', (c) => (body += c))
+      req.on('end', () => {
+        const sig = (req.headers['strimz-signature'] as string) ?? null
+        received.push({ signature: sig, body })
+        const out = handler({ signature: sig, body })
+        res.writeHead(out.status, { 'content-type': 'text/plain' })
+        res.end(out.body ?? '')
       })
-      server.listen(0, '127.0.0.1', () => {
-        const port = (server.address() as AddressInfo).port
-        resolve({
-          url: `http://127.0.0.1:${port}/hook`,
-          received,
-          close: () => new Promise((r) => server.close(() => r())),
-        })
+    })
+    server.listen(0, '127.0.0.1', () => {
+      const port = (server.address() as AddressInfo).port
+      resolve({
+        url: `http://127.0.0.1:${port}/hook`,
+        received,
+        close: () => new Promise((r) => server.close(() => r())),
       })
-    },
-  )
+    })
+  })
 }
 
 describe('webhook-delivery worker e2e', () => {
@@ -58,8 +67,16 @@ describe('webhook-delivery worker e2e', () => {
     const cache = t.app.get(WebhookSecretCache)
     await cache.set(endpoint.id, secret)
 
-    const event = await seedWebhookEvent(t.prisma.db, merchant.id, 'payment_completed', { amount: '100' })
-    const delivery = await seedDelivery(t.prisma.db, merchant.id, endpoint.id, event.id, 'payment_completed')
+    const event = await seedWebhookEvent(t.prisma.db, merchant.id, 'payment_completed', {
+      amount: '100',
+    })
+    const delivery = await seedDelivery(
+      t.prisma.db,
+      merchant.id,
+      endpoint.id,
+      event.id,
+      'payment_completed',
+    )
 
     const worker = t.app.get(WebhookDeliveryWorker)
     const result = await worker.process({
@@ -77,12 +94,16 @@ describe('webhook-delivery worker e2e', () => {
     expect(recv.received).toHaveLength(1)
     expect(recv.received[0]!.signature).toMatch(/^t=\d+,v1=[0-9a-f]{64}$/)
 
-    const updated = await t.prisma.db.webhookDelivery.findUniqueOrThrow({ where: { id: delivery.id } })
+    const updated = await t.prisma.db.webhookDelivery.findUniqueOrThrow({
+      where: { id: delivery.id },
+    })
     expect(updated.status).toBe('delivered')
     expect(updated.responseCode).toBe(200)
     expect(updated.deliveredAt).not.toBeNull()
 
-    const ep = await t.prisma.db.merchantWebhookEndpoint.findUniqueOrThrow({ where: { id: endpoint.id } })
+    const ep = await t.prisma.db.merchantWebhookEndpoint.findUniqueOrThrow({
+      where: { id: endpoint.id },
+    })
     expect(ep.lastDeliveredAt).not.toBeNull()
 
     await recv.close()
@@ -98,7 +119,13 @@ describe('webhook-delivery worker e2e', () => {
     })
     await t.app.get(WebhookSecretCache).set(endpoint.id, secret)
     const event = await seedWebhookEvent(t.prisma.db, merchant.id, 'payment_completed')
-    const delivery = await seedDelivery(t.prisma.db, merchant.id, endpoint.id, event.id, 'payment_completed')
+    const delivery = await seedDelivery(
+      t.prisma.db,
+      merchant.id,
+      endpoint.id,
+      event.id,
+      'payment_completed',
+    )
 
     const worker = t.app.get(WebhookDeliveryWorker)
     const result = await worker.process({
@@ -123,7 +150,9 @@ describe('webhook-delivery worker e2e', () => {
     const delayed = await queue.getJobs(['delayed'])
     expect(delayed.length).toBeGreaterThan(0)
 
-    const updated = await t.prisma.db.webhookDelivery.findUniqueOrThrow({ where: { id: delivery.id } })
+    const updated = await t.prisma.db.webhookDelivery.findUniqueOrThrow({
+      where: { id: delivery.id },
+    })
     expect(updated.status).toBe('retrying')
     expect(updated.attempt).toBe(1)
     expect(updated.responseCode).toBe(500)
@@ -173,7 +202,9 @@ describe('webhook-delivery worker e2e', () => {
 
     expect(result.status).toBe('permanently_failed')
 
-    const updated = await t.prisma.db.webhookDelivery.findUniqueOrThrow({ where: { id: delivery.id } })
+    const updated = await t.prisma.db.webhookDelivery.findUniqueOrThrow({
+      where: { id: delivery.id },
+    })
     expect(updated.status).toBe('permanently_failed')
     expect(updated.responseCode).toBe(503)
 
@@ -242,7 +273,9 @@ describe('webhook-delivery worker e2e', () => {
       queue: { add: async () => undefined },
     } as never)
 
-    const ep = await t.prisma.db.merchantWebhookEndpoint.findUniqueOrThrow({ where: { id: endpoint.id } })
+    const ep = await t.prisma.db.merchantWebhookEndpoint.findUniqueOrThrow({
+      where: { id: endpoint.id },
+    })
     expect(ep.status).toBe('disabled')
 
     expect(t.email.sent).toHaveLength(1)
@@ -299,7 +332,13 @@ describe('webhook-delivery worker e2e', () => {
     })
     // No cache.set() — secret is missing.
     const event = await seedWebhookEvent(t.prisma.db, merchant.id, 'payment_completed')
-    const delivery = await seedDelivery(t.prisma.db, merchant.id, endpoint.id, event.id, 'payment_completed')
+    const delivery = await seedDelivery(
+      t.prisma.db,
+      merchant.id,
+      endpoint.id,
+      event.id,
+      'payment_completed',
+    )
 
     const worker = t.app.get(WebhookDeliveryWorker)
     const result = await worker.process({
@@ -314,7 +353,9 @@ describe('webhook-delivery worker e2e', () => {
     } as never)
     expect(result.status).toBe('permanently_failed')
 
-    const updated = await t.prisma.db.webhookDelivery.findUniqueOrThrow({ where: { id: delivery.id } })
+    const updated = await t.prisma.db.webhookDelivery.findUniqueOrThrow({
+      where: { id: delivery.id },
+    })
     expect(updated.status).toBe('permanently_failed')
     expect(updated.lastError).toContain('signing secret')
   })
