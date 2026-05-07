@@ -6,7 +6,7 @@ COPY packages/ ./packages/
 COPY apps/agent/ ./apps/agent/
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
-RUN pnpm --filter @strimz/agent build
+RUN pnpm --filter "@strimz/agent..." build
 
 FROM node:22-alpine
 WORKDIR /app

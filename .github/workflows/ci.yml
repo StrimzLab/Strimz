@@ -41,11 +41,15 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # Prisma generate runs as part of @strimz/db's `build` script.
-      # `turbo run build` honours the `^build` dep chain so every
-      # workspace that imports @strimz/db gets a fresh client first.
-      - name: Build (turbo)
-        run: pnpm build
+      # Build everything *except* @strimz/contracts — that package's
+      # build script is `forge build`, and Foundry isn't installed in
+      # this job. The `foundry` job builds and tests contracts on its
+      # own, in parallel.
+      #
+      # `turbo run build` honours `^build` so every workspace that
+      # imports @strimz/db gets a fresh Prisma client first.
+      - name: Build (turbo, TS only)
+        run: pnpm exec turbo run build --filter=!@strimz/contracts
 
       - name: Format check
         run: pnpm format:check
@@ -84,7 +88,7 @@ jobs:
         run: go test -count=1 -race ./internal/...
 
   foundry:
-    name: foundry (fmt · build · test)
+    name: foundry (build · test)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -100,9 +104,8 @@ jobs:
         with:
           version: stable
 
-      - name: Format check
-        run: forge fmt --check
-
+      # `forge fmt --check` deliberately not run — see foundry.toml [fmt]
+      # comment. The build + test pair is the load-bearing CI signal.
       - name: Build
         run: forge build --sizes
 

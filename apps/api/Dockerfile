@@ -14,7 +14,7 @@ COPY packages/ ./packages/
 COPY apps/api/ ./apps/api/
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
-RUN pnpm --filter @strimz/api build
+RUN pnpm --filter "@strimz/api..." build
 
 FROM node:22-alpine
 WORKDIR /app
