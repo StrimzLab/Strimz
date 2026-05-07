@@ -43,7 +43,11 @@ export default tseslint.config(
         'warn',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
-      '@typescript-eslint/consistent-type-exports': 'warn',
+      // `@typescript-eslint/consistent-type-exports` is intentionally
+      // not enabled — it requires type-aware linting
+      // (`parserOptions.project`), which this monorepo doesn't wire up.
+      // With it on, ESLint throws on every file. The import-side rule
+      // above is sufficient in practice.
       '@typescript-eslint/no-empty-object-type': 'off',
     },
   },

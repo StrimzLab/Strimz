@@ -54,14 +54,20 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
+      # `lint`, `typecheck`, `test` mirror the build-step exclusion of
+      # @strimz/contracts. Contracts' scripts shell out to `forge`, which
+      # isn't on this runner — those tasks run in the parallel `foundry`
+      # job. (`typecheck` is filtered too as a safety net even though
+      # contracts has no `typecheck` script today; turbo would no-op it,
+      # but the explicit filter documents intent.)
       - name: Lint
-        run: pnpm lint
+        run: pnpm exec turbo run lint --filter=!@strimz/contracts
 
       - name: Typecheck
-        run: pnpm typecheck
+        run: pnpm exec turbo run typecheck --filter=!@strimz/contracts
 
       - name: Test
-        run: pnpm test
+        run: pnpm exec turbo run test --filter=!@strimz/contracts
 
   go:
     name: go (vet · build · test)

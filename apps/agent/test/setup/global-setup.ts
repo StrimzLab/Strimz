@@ -25,10 +25,15 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   const dbUrl = pg.getConnectionUri()
   const redisUrl = redis.getConnectionUrl()
 
+  // `eval` defers the `import.meta.url` syntax check to runtime so this
+  // file still parses under tsc's CJS preset (which rejects `import.meta`)
+  // while the runtime ESM path resolves it normally. Literal string, not
+  // user input — no security surface.
   const here =
     typeof __dirname !== 'undefined'
       ? __dirname
-      : dirname(fileURLToPath(eval('import.meta.url') as string))
+      : // eslint-disable-next-line no-eval
+        dirname(fileURLToPath(eval('import.meta.url') as string))
   const repoRoot = resolve(here, '../../../..')
   const dbPkg = resolve(repoRoot, 'packages/db')
 
