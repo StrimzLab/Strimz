@@ -1,0 +1,54 @@
+# Weekly cadence on purpose — daily generates more PR noise than this
+# repo is ready to triage. Bump to "daily" on a per-ecosystem basis
+# once the project has dedicated maintenance time.
+
+version: 2
+updates:
+  # ─────────── npm / pnpm ───────────
+  # `directories: ["/"]` plus the recursive globs lets Dependabot find
+  # every workspace package.json in one shared schedule, so it groups
+  # cross-workspace bumps (e.g. a Next.js minor) into a single PR.
+  - package-ecosystem: npm
+    directories:
+      - '/'
+      - '/apps/*'
+      - '/packages/*'
+      - '/tooling/*'
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      # Group every Nest update together — Nest minors land in lockstep.
+      nest:
+        patterns: ['@nestjs/*']
+      # Group all Next.js + React-side bumps so the web app upgrades atomically.
+      next-react:
+        patterns: ['next', 'react', 'react-dom', '@types/react', '@types/react-dom']
+      # Linting / formatting tooling moves frequently and rarely affects runtime.
+      lint-format:
+        patterns:
+          - 'eslint'
+          - 'eslint-*'
+          - '@typescript-eslint/*'
+          - 'prettier'
+          - 'prettier-*'
+    labels: ['dependencies', 'npm']
+
+  # ─────────── Go ───────────
+  - package-ecosystem: gomod
+    directory: /apps/indexer
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: ['dependencies', 'go']
+
+  # ─────────── GitHub Actions ───────────
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: ['dependencies', 'ci']

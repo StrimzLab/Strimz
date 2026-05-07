@@ -34,6 +34,10 @@ This repository is the entire platform: smart contracts, backend services, the m
   - [Subscription charging lifecycle](#subscription-charging-lifecycle)
   - [Security model](#security-model)
 - [Local development](#local-development)
+  - [Prerequisites](#prerequisites)
+  - [First-time setup](#first-time-setup)
+  - [Useful scripts](#useful-scripts)
+  - [Continuous integration](#continuous-integration)
 - [Environment configuration](#environment-configuration)
 - [Project structure](#project-structure)
 - [Deployment targets](#deployment-targets)
@@ -69,24 +73,25 @@ The monorepo is split into deployables (`apps/`) and shared libraries (`packages
 | [`packages/tsconfig`](./packages/tsconfig) | Shared TypeScript configurations |
 | [`packages/eslint-config`](./packages/eslint-config) | Shared ESLint configurations |
 
-### Tooling
+### Repo-level tooling
 
 | Path | Purpose |
 |---|---|
-| [`tooling/docker`](./tooling/docker) | Docker Compose stack for local development |
-| [`tooling/scripts`](./tooling/scripts) | Release, deploy, and seed scripts |
+| [`docker-compose.yml`](./docker-compose.yml) | Local dev stack — Postgres, Redis, Anvil; opt-in app profile |
+| [`.github/workflows`](./.github/workflows) | CI pipelines — `ci.yml`, `docker.yml` |
+| [`.github/dependabot.yml`](./.github/dependabot.yml) | Weekly auto-PRs for npm, Go modules, and GitHub Actions |
 
 ## Tech stack
 
 | Layer | Technology |
 |---|---|
-| Language | TypeScript 5.7, Solidity 0.8.x, Go 1.23 |
+| Language | TypeScript 5.7, Solidity 0.8.x, Go 1.25 |
 | Smart contracts | Foundry, OpenZeppelin Contracts |
 | Backend HTTP | NestJS 11 (Node 22) |
 | Backend workers | NestJS standalone + BullMQ; Go for the indexer |
 | Frontend | Next.js 15 (App Router), React 19, Tailwind v4, shadcn/ui |
 | Wallet & chain | viem 2.x, wagmi 2.x, Privy |
-| Database | PostgreSQL 16, Prisma 6, Redis 7 |
+| Database | PostgreSQL 16, Prisma 7, Redis 7 |
 | Validation | Zod 3 |
 | Build | Turborepo 2, pnpm 10, tsup |
 | Observability | OpenTelemetry, Sentry, Pino |
@@ -246,20 +251,44 @@ Two properties hold by construction:
 - pnpm 10 (`corepack enable && corepack prepare pnpm@10 --activate`)
 - Docker (for the local Postgres + Redis + Anvil stack)
 - Foundry (`curl -L https://foundry.paradigm.xyz | bash && foundryup`)
-- Go 1.23 (only required to develop the indexer)
+- Go 1.25 (only required to develop the indexer)
 
 ### First-time setup
 
 ```sh
 git clone <repo-url> strimz
 cd strimz
+git submodule update --init --recursive       # Foundry deps live in packages/contracts/lib
 pnpm install
-cp tooling/docker/.env.example tooling/docker/.env   # local-stack creds, optional
-docker compose --file tooling/docker/docker-compose.yml up -d
+
+# Optional — copy compose env template if you need to override defaults
+cp .env.docker.example .env
+
+# Boot local infra (Postgres, Redis, Anvil)
+docker compose up -d
+
+# Apply Prisma migrations against the compose Postgres
 pnpm --filter @strimz/db db:migrate
-pnpm --filter @strimz/contracts forge:install
-pnpm dev                                              # runs every app via Turbo
+
+# Run every app in watch mode via Turbo
+pnpm dev
 ```
+
+The default `docker compose up` brings up three infra services:
+
+| Service | Host port | Purpose |
+|---|---|---|
+| `postgres` | `5432` | Source of read state for every Node app |
+| `redis` | `6379` | BullMQ queues, idempotency cache, rate-limit buckets |
+| `anvil` | `8545` | Local EVM devnet (chain id `31337`) for contract work |
+
+For an end-to-end smoke test of the **build artifacts** (rare — mostly pre-deploy), the `full` profile also rebuilds and boots `api`, `scheduler`, `agent`, and `indexer` from their Dockerfiles:
+
+```sh
+docker compose --profile full up
+```
+
+Apps in the `full` profile reach Postgres / Redis / Anvil via compose service names; apps run from your shell via `pnpm dev` use `localhost`.
 
 ### Useful scripts
 
@@ -271,10 +300,25 @@ pnpm dev                                              # runs every app via Turbo
 | `pnpm typecheck` | Typecheck everything |
 | `pnpm test` | Test everything |
 | `pnpm format` | Prettier write |
+| `pnpm format:check` | Prettier verify (CI runs this; same rules as `format`) |
 | `pnpm changeset` | Create a changeset for an SDK release |
 | `pnpm --filter @strimz/contracts forge:test` | Run Foundry tests |
 | `pnpm --filter @strimz/db db:migrate` | Apply Prisma migrations |
 | `pnpm --filter web dev` | Run only the web app |
+
+### Continuous integration
+
+Three parallel jobs run on every PR via [`.github/workflows/ci.yml`](./.github/workflows/ci.yml):
+
+| Job | What it runs |
+|---|---|
+| `node` | `pnpm install` → `pnpm build` (turbo `^build`, generates the Prisma client first) → `format:check` → `lint` → `typecheck` → `test` |
+| `go` | `go vet`, `go build`, race-tested unit tests on `apps/indexer` |
+| `foundry` | `forge fmt --check`, `forge build --sizes`, `forge test -vvv`. Checks out submodules so `forge-std` and OpenZeppelin libs resolve. |
+
+A separate [`docker.yml`](./.github/workflows/docker.yml) workflow builds every app's Dockerfile via a matrix, but only when a Dockerfile or `docker-compose.yml` actually changes — otherwise it'd be a slow tax on every unrelated PR.
+
+[Dependabot](./.github/dependabot.yml) opens grouped weekly PRs for npm (`@nestjs/*`, `next + react`, lint/format tooling each in their own group), Go modules (`apps/indexer`), and GitHub Actions.
 
 ## Environment configuration
 
@@ -298,26 +342,29 @@ Each app has its own `.env.example` listing required and optional variables. Cop
 ```
 strimz/
 ├── apps/
-│   ├── web/              Next.js 15 — dashboard, checkout, marketing
-│   ├── api/              NestJS HTTP API
-│   ├── indexer/          Go chain projector
-│   ├── scheduler/        NestJS BullMQ workers
-│   └── agent/            NestJS AutoPay Agent (M3+)
+│   ├── web/                   Next.js 15 — dashboard, checkout, marketing
+│   ├── api/                   NestJS HTTP API           (Dockerfile)
+│   ├── indexer/               Go chain projector        (Dockerfile)
+│   ├── scheduler/             NestJS BullMQ workers     (Dockerfile)
+│   └── agent/                 NestJS AutoPay Agent (M3+)(Dockerfile)
 ├── packages/
-│   ├── contracts/        Foundry workspace
-│   ├── sdk/              @strimz/sdk
-│   ├── sdk-react/        @strimz/sdk-react
-│   ├── db/               Prisma schema + client
-│   ├── shared-types/     Zod schemas
-│   ├── shared-config/    Chains, tokens, tiers
-│   ├── shared-crypto/    HMAC, webhook verify
-│   ├── ui/               shadcn + Strimz brand
-│   ├── tsconfig/         Base TS configs
-│   └── eslint-config/    Base ESLint configs
-├── tooling/
-│   ├── docker/           Local Compose stack
-│   └── scripts/          Release + deploy helpers
-├── .github/workflows/    CI pipelines
+│   ├── contracts/             Foundry workspace
+│   ├── sdk/                   @strimz/sdk
+│   ├── sdk-react/             @strimz/sdk-react
+│   ├── db/                    Prisma schema + client
+│   ├── shared-types/          Zod schemas
+│   ├── shared-config/         Chains, tokens, tiers
+│   ├── shared-crypto/         HMAC, webhook verify
+│   ├── ui/                    shadcn + Strimz brand
+│   ├── tsconfig/              Base TS configs
+│   └── eslint-config/         Base ESLint configs
+├── .github/
+│   ├── workflows/
+│   │   ├── ci.yml             Parallel node / go / foundry jobs
+│   │   └── docker.yml         Matrix Dockerfile build (paths-filtered)
+│   └── dependabot.yml         Grouped weekly dependency PRs
+├── docker-compose.yml         Local infra stack + opt-in `full` app profile
+├── .env.docker.example        Compose env override template
 ├── pnpm-workspace.yaml
 ├── turbo.json
 └── package.json
@@ -341,7 +388,7 @@ strimz/
 - Create a branch from `main`. Branch naming: `feat/<scope>`, `fix/<scope>`, `chore/<scope>`.
 - Conventional commits: `feat(api): ...`, `fix(contracts): ...`, `chore(repo): ...`.
 - Every SDK-touching PR ships a [changeset](https://github.com/changesets/changesets).
-- `pnpm lint && pnpm typecheck && pnpm test` must pass.
+- `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test` must pass — these are the same checks CI runs (see [Continuous integration](#continuous-integration)).
 - Contract changes require Foundry tests, including invariant tests for value-moving functions.
 
 ## License

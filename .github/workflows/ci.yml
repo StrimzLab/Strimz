@@ -1,0 +1,112 @@
+name: ci
+
+# Three parallel jobs — node, go, foundry. Splitting them keeps the
+# polyglot stack honest: a Go-only change shouldn't have to wait for
+# a TypeScript install, and a Solidity change shouldn't pull a Go
+# toolchain. Concurrency cancels older runs on the same ref so a
+# fresh push doesn't pile up minutes.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  node:
+    name: node (typecheck · lint · test · build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      TURBO_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Prisma generate runs as part of @strimz/db's `build` script.
+      # `turbo run build` honours the `^build` dep chain so every
+      # workspace that imports @strimz/db gets a fresh client first.
+      - name: Build (turbo)
+        run: pnpm build
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+  go:
+    name: go (vet · build · test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/indexer
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/indexer/go.mod
+          cache-dependency-path: apps/indexer/go.sum
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build -o /dev/null ./...
+
+      - name: Test (unit only — e2e needs Docker)
+        run: go test -count=1 -race ./internal/...
+
+  foundry:
+    name: foundry (fmt · build · test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: packages/contracts
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Foundry deps live as git submodules under packages/contracts/lib.
+          submodules: recursive
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Format check
+        run: forge fmt --check
+
+      - name: Build
+        run: forge build --sizes
+
+      - name: Test
+        run: forge test -vvv
+        env:
+          FOUNDRY_PROFILE: default
