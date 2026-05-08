@@ -82,19 +82,19 @@ The monorepo is split into deployables (`apps/`) and shared libraries (`packages
 
 ## Tech stack
 
-| Layer           | Technology                                                             |
-| --------------- | ---------------------------------------------------------------------- |
-| Language        | TypeScript 5.7, Solidity 0.8.x, Go 1.25                                |
-| Smart contracts | Foundry, OpenZeppelin Contracts                                        |
-| Backend HTTP    | NestJS 11 (Node 22)                                                    |
-| Backend workers | NestJS standalone + BullMQ; Go for the indexer                         |
-| Frontend        | Next.js 15 (App Router), React 19, Tailwind v4, shadcn/ui              |
-| Wallet & chain  | viem 2.x, wagmi 2.x, Privy                                             |
-| Database        | PostgreSQL 16, Prisma 7, Redis 7                                       |
-| Validation      | Zod 3                                                                  |
-| Build           | Turborepo 2, pnpm 10, tsup                                             |
-| Observability   | OpenTelemetry, Sentry, Pino                                            |
-| Hosting         | Vercel (web), Render (api, indexer, scheduler, agent, Postgres, Redis) |
+| Layer           | Technology                                                               |
+| --------------- | ------------------------------------------------------------------------ |
+| Language        | TypeScript 5.7, Solidity 0.8.x, Go 1.25                                  |
+| Smart contracts | Foundry, OpenZeppelin Contracts                                          |
+| Backend HTTP    | NestJS 11 (Node 22)                                                      |
+| Backend workers | NestJS standalone + BullMQ; Go for the indexer                           |
+| Frontend        | Next.js 15 (App Router), React 19, Tailwind v4, shadcn/ui                |
+| Wallet & chain  | viem 2.x, wagmi 2.x, Privy (merchant auth), Reown AppKit (payer connect) |
+| Database        | PostgreSQL 16, Prisma 7, Redis 7                                         |
+| Validation      | Zod 3                                                                    |
+| Build           | Turborepo 2, pnpm 10, tsup                                               |
+| Observability   | OpenTelemetry, Sentry, Pino                                              |
+| Hosting         | Vercel (web), Render (api, indexer, scheduler, agent, Postgres, Redis)   |
 
 ## System architecture
 
@@ -191,7 +191,14 @@ Three Node services (NestJS) and one Go service. Each runs as its own process so
 - `checkout/[sessionId]` — the payer-facing hosted checkout, intentionally isolated so it can later be embedded in iframes without dashboard chrome leaking.
 - `invoice/[id]` — the public invoice page.
 
-Server components are the default; only interactive leaves (wallet connect, charts, forms) are client components. Forms use React Hook Form with the same Zod schemas the API validates against — there is no opportunity for client and server to disagree on shape. Server state is owned by TanStack Query; client state is small and lives in component-local React state or thin Zustand slices. Wallet integration uses viem 2.x and wagmi 2.x with Privy as the embedded-wallet provider.
+Server components are the default; only interactive leaves (wallet connect, charts, forms) are client components. Forms use React Hook Form with the same Zod schemas the API validates against — there is no opportunity for client and server to disagree on shape. Server state is owned by TanStack Query; client state is small and lives in component-local React state or thin Zustand slices.
+
+Two wallet ecosystems coexist by design, each scoped to its own audience:
+
+- **Privy** — merchant identity. Email / Google / wallet login on `/signup` and `/login`, embedded wallet for the dashboard owner. Configured with Arc as `defaultChain` so the embedded wallet is created on Arc rather than Ethereum mainnet.
+- **Reown AppKit** — anonymous payer wallet connect on the public `/pay/[sessionId]` and `/sub/[planId]` checkout pages. Brings the long tail of WalletConnect-compatible wallets (MetaMask, Rainbow, Coinbase Wallet, Trust, etc.) without requiring the payer to have a Strimz account.
+
+The two domains never share connector state — they live in different routes serving different actors. Both wrap the app in `apps/web/src/components/providers.tsx`, with Wagmi/AppKit hydrated via cookies in `apps/web/src/app/layout.tsx` to avoid SSR hydration mismatch on the initial paint.
 
 ### Payment session lifecycle
 
@@ -325,18 +332,21 @@ A separate [`docker.yml`](./.github/workflows/docker.yml) workflow builds every 
 
 Each app has its own `.env.example` listing required and optional variables. Copy each one to `.env` for local use. Production values live in Render and Vercel, never in the repo. Recurring variables across apps:
 
-| Variable                            | Used by                        | Purpose                            |
-| ----------------------------------- | ------------------------------ | ---------------------------------- |
-| `DATABASE_URL`                      | api, indexer, scheduler, agent | Postgres connection string         |
-| `REDIS_URL`                         | api, scheduler, agent          | Redis connection string            |
-| `ARC_RPC_URL`                       | api, indexer, scheduler, agent | Arc JSON-RPC endpoint              |
-| `ARC_CHAIN_ID`                      | all                            | Chain id (`5042002` testnet)       |
-| `STRIMZ_REGISTRY_ADDRESS`           | all                            | Deployed `StrimzRegistry` address  |
-| `STRIMZ_WEBHOOK_SIGNING_SECRET`     | api, scheduler                 | HMAC secret for webhook signatures |
-| `JWT_SECRET`                        | api                            | Merchant session JWT secret        |
-| `PRIVY_APP_ID` / `PRIVY_APP_SECRET` | web, api                       | Wallet auth                        |
-| `RESEND_API_KEY`                    | api, scheduler                 | Transactional email                |
-| `SENTRY_DSN`                        | all                            | Error tracking (optional in dev)   |
+| Variable                            | Used by                        | Purpose                                                     |
+| ----------------------------------- | ------------------------------ | ----------------------------------------------------------- |
+| `DATABASE_URL`                      | api, indexer, scheduler, agent | Postgres connection string                                  |
+| `REDIS_URL`                         | api, scheduler, agent          | Redis connection string                                     |
+| `ARC_RPC_URL`                       | api, indexer, scheduler, agent | Arc JSON-RPC endpoint                                       |
+| `ARC_CHAIN_ID`                      | all                            | Chain id (`5042002` testnet)                                |
+| `STRIMZ_REGISTRY_ADDRESS`           | all                            | Deployed `StrimzRegistry` address                           |
+| `STRIMZ_WEBHOOK_SIGNING_SECRET`     | api, scheduler                 | HMAC secret for webhook signatures                          |
+| `JWT_SECRET`                        | api                            | Merchant session JWT secret                                 |
+| `PRIVY_APP_ID` / `PRIVY_APP_SECRET` | web, api                       | Merchant auth (email + embedded wallet)                     |
+| `NEXT_PUBLIC_REOWN_PROJECT_ID`      | web                            | Reown AppKit project id — payer wallet connect on checkout  |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`    | web                            | Cloudflare Turnstile site key — bot-protection on `/signup` |
+| `TURNSTILE_SECRET_KEY`              | api                            | Cloudflare Turnstile secret — server-side Siteverify call   |
+| `RESEND_API_KEY`                    | api, scheduler                 | Transactional email                                         |
+| `SENTRY_DSN`                        | all                            | Error tracking (optional in dev)                            |
 
 ## Project structure
 
@@ -391,6 +401,7 @@ strimz/
 - Every SDK-touching PR ships a [changeset](https://github.com/changesets/changesets).
 - `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test` must pass — these are the same checks CI runs (see [Continuous integration](#continuous-integration)).
 - Contract changes require Foundry tests, including invariant tests for value-moving functions.
+- The root `package.json` carries a `pnpm.overrides` block pinning `@wagmi/connectors` to `^5.x` (see the `_overridesNote` in that file for the full reason). Don't remove it without verifying — `@reown/appkit-adapter-wagmi`'s open-ended optional peer otherwise lets pnpm pick the broken `@wagmi/connectors@8.x` line, breaking the web app's build.
 
 ## License
 

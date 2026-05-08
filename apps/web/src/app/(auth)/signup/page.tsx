@@ -90,13 +90,34 @@ export default function SignupPage() {
     setVerifying(true)
     try {
       if (env.turnstileSiteKey && turnstileToken) {
-        const r = await fetch(`${env.apiUrl}/v1/auth/turnstile/verify`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ token: turnstileToken }),
-        })
-        if (!r.ok) {
-          toast.error('Bot protection failed — please try again.')
+        // Verify against the local Next.js route handler at
+        // `/api/auth/turnstile/verify`, not apps/api. The verify is just
+        // a thin Cloudflare Siteverify proxy that doesn't need the
+        // database or merchant context — keeping it in apps/web means
+        // signup works without apps/api having to be deployed yet, and
+        // sidesteps the cross-origin call.
+        let ok = false
+        try {
+          const r = await fetch('/api/auth/turnstile/verify', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ token: turnstileToken, action: 'signup' }),
+          })
+          ok = r.ok
+        } catch (err) {
+          // Network / CORS / offline. Surface this rather than silently
+          // killing the flow — the previous implementation had no catch
+          // here and a failed fetch left the user staring at a dead
+          // Continue button with no feedback.
+          // eslint-disable-next-line no-console
+          console.error('[turnstile] verify call failed:', err)
+          toast.error('Could not reach bot-protection service. Please try again.')
+          getTurnstile()?.reset()
+          setTurnstileToken(null)
+          return
+        }
+        if (!ok) {
+          toast.error('Bot-protection check failed — please try again.')
           getTurnstile()?.reset()
           setTurnstileToken(null)
           return
@@ -107,7 +128,15 @@ export default function SignupPage() {
         return
       }
       await privy.login()
-      router.push('/auth/callback')
+      // Route group `(auth)` is stripped from the URL, so the callback
+      // page lives at `/callback` not `/auth/callback`.
+      router.push('/callback')
+    } catch (err) {
+      // Final safety net so any unexpected error (Privy widget,
+      // navigation, etc.) surfaces a toast instead of vanishing.
+      // eslint-disable-next-line no-console
+      console.error('[signup] unexpected error:', err)
+      toast.error('Something went wrong. Please try again.')
     } finally {
       setVerifying(false)
     }

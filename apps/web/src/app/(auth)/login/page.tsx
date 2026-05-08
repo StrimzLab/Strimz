@@ -18,7 +18,9 @@ export default function LoginPage() {
       return
     }
     await privy.login()
-    router.push('/auth/callback')
+    // The (auth) route group's parentheses are stripped from the URL, so
+    // the callback page lives at `/callback`, not `/auth/callback`.
+    router.push('/callback')
   }
 
   return (
