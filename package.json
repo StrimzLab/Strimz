@@ -35,5 +35,11 @@
     "prettier-plugin-tailwindcss": "^0.6.9",
     "turbo": "^2.5.0",
     "typescript": "^5.7.3"
+  },
+  "pnpm": {
+    "_overridesNote": "@reown/appkit-adapter-wagmi@1.8.x declares `@wagmi/connectors: >=5.9.9` as an open-ended optionalDependency. With no upper bound, pnpm picks @wagmi/connectors@8.x (the wagmi 3.x companion line) which ships a broken peer pin: it pins @wagmi/core@3.4.9 exact, but its `exports/index.js` re-exports `tempoWallet from '@wagmi/core/tempo'` — a path @wagmi/core@3.4.9 doesn't export. Result: cold install fails with `Module not found: ./tempo`. We cap connectors to ^5.x — the line matching wagmi 2.x that the Reown adapter was built against — so the @wagmi/* tree resolves consistently.",
+    "overrides": {
+      "@wagmi/connectors": "^5.11.0"
+    }
   }
 }

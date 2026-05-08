@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Sora, Poppins } from 'next/font/google'
+import { headers } from 'next/headers'
 import { Providers } from '@/components/providers'
 import { Toaster } from '@strimz/ui'
 import '@/styles/globals.css'
@@ -13,7 +14,7 @@ const poppins = Poppins({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://strimz.finance'),
+  metadataBase: new URL('https://strimz-finance.vercel.app'),
   title: {
     default: 'Strimz — Stablecoin billing infrastructure',
     template: '%s · Strimz',
@@ -46,11 +47,25 @@ export const viewport: Viewport = {
   ],
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Reown's WagmiAdapter (in `@/lib/wagmi`) uses cookieStorage so wallet
+  // connector state survives a page refresh and SSR. We forward the
+  // request `Cookie` header to the Providers tree so the initial paint
+  // can reflect a connected wallet rather than flashing from
+  // disconnected → connected on hydration. `null` is a valid value when
+  // no cookie was sent.
+  const cookies = (await headers()).get('cookie')
+
   return (
     <html lang="en" suppressHydrationWarning className={`${sora.variable} ${poppins.variable}`}>
+      <head>
+        {/* Pre-resolve DNS + TLS for Cloudflare Turnstile so the bot-
+            check on /signup loads with no network hiccup. Recommended
+            in Cloudflare's official embed guide for performance. */}
+        <link rel="preconnect" href="https://challenges.cloudflare.com" />
+      </head>
       <body className="bg-background text-foreground antialiased">
-        <Providers>{children}</Providers>
+        <Providers cookies={cookies}>{children}</Providers>
         <Toaster richColors position="top-right" />
       </body>
     </html>

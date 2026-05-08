@@ -28,7 +28,10 @@ export class AuthService {
    * Privy session is created.
    */
   async verifyTurnstile(token: string, remoteIp?: string): Promise<{ ok: boolean }> {
-    const ok = await this.turnstile.verify(token, remoteIp)
+    // Pin the expected action to the surface the signup widget renders
+    // with (`action: 'signup'`). A token minted on a different surface
+    // and replayed here will be rejected even if structurally valid.
+    const ok = await this.turnstile.verify(token, remoteIp, 'signup')
     if (!ok) {
       throw new ForbiddenException({
         code: 'permission_denied',

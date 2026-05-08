@@ -18,6 +18,13 @@ const config = {
       // explicitly since `@/*` would otherwise look in `./src/*`.
       '@/.source': path.resolve(__dirname, '.source'),
     }
+
+    // Reown AppKit's wagmi adapter pulls Node-only optional deps. Mark
+    // them as externals so the browser bundle doesn't try to resolve
+    // their internals. Required per Reown's Next.js install guide.
+    cfg.externals = cfg.externals ?? []
+    cfg.externals.push('pino-pretty', 'lokijs', 'encoding')
+
     return cfg
   },
   typedRoutes: false,

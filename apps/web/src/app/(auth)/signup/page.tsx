@@ -15,9 +15,12 @@ interface TurnstileApi {
     el: HTMLElement,
     opts: {
       sitekey: string
-      callback: (token: string) => void
-      'error-callback'?: () => void
+      action?: string
       theme?: 'light' | 'dark' | 'auto'
+      callback: (token: string) => void
+      'error-callback'?: (errorCode: string) => void
+      'expired-callback'?: () => void
+      'timeout-callback'?: () => void
     },
   ) => string
   reset: (id?: string) => void
@@ -35,6 +38,8 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (!env.turnstileSiteKey) return
+    // Idempotent script load — guards against StrictMode's double-mount
+    // in dev re-running the effect.
     if (document.querySelector('script[data-strimz-turnstile]')) return
     const s = document.createElement('script')
     s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
@@ -47,7 +52,30 @@ export default function SignupPage() {
       if (widget && turnstile) {
         turnstile.render(widget, {
           sitekey: env.turnstileSiteKey,
+          // `action` lets Cloudflare differentiate signup-page tokens
+          // from any future Turnstile usage (e.g. contact form) in
+          // analytics, and lets the api-side validator confirm the
+          // token came from this specific surface.
+          action: 'signup',
+          theme: 'light',
           callback: (token) => setTurnstileToken(token),
+          // Token expired before the user submitted — clear it so the
+          // user gets a fresh challenge instead of submitting a stale
+          // token the api would reject with timeout-or-duplicate.
+          'expired-callback': () => {
+            setTurnstileToken(null)
+            toast.info('Bot-protection check expired. Please try again.')
+          },
+          'error-callback': (code) => {
+            setTurnstileToken(null)
+            // eslint-disable-next-line no-console
+            console.warn('[turnstile] error', code)
+            toast.error('Bot-protection check failed. Please refresh and try again.')
+          },
+          'timeout-callback': () => {
+            setTurnstileToken(null)
+            toast.info('Verification timed out. Please try again.')
+          },
         })
       }
     }
