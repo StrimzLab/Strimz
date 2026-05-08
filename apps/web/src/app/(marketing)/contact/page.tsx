@@ -1,5 +1,20 @@
+import type { Metadata } from 'next'
 import { ContactForm } from '@/components/marketing/contact-form'
 import { Mail, MessageCircle, ShieldAlert } from 'lucide-react'
+import { OG_IMAGE } from '@/lib/seo'
+
+export const metadata: Metadata = {
+  title: 'Contact',
+  description:
+    'Talk to Strimz. Sales for partnerships and onboarding, support for live merchants, and a security disclosure channel for researchers.',
+  openGraph: {
+    title: 'Contact Strimz',
+    description: 'Sales, support, and security disclosure channels for the Strimz platform.',
+    url: '/contact',
+    images: [OG_IMAGE],
+  },
+  alternates: { canonical: '/contact' },
+}
 
 const ROUTES = [
   {

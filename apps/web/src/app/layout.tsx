@@ -3,6 +3,7 @@ import { Sora, Poppins } from 'next/font/google'
 import { headers } from 'next/headers'
 import { Providers } from '@/components/providers'
 import { Toaster } from '@strimz/ui'
+import { OG_IMAGE, TWITTER_IMAGE } from '@/lib/seo'
 import '@/styles/globals.css'
 
 const sora = Sora({ subsets: ['latin'], variable: '--font-sora', display: 'swap' })
@@ -36,8 +37,15 @@ export const metadata: Metadata = {
     title: 'Strimz — Stablecoin billing infrastructure',
     description:
       'One API for stablecoin one-shot, subscription, and AI-driven payments. Settled in USDC on Arc.',
+    images: [OG_IMAGE],
   },
-  twitter: { card: 'summary_large_image' },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Strimz — Stablecoin billing infrastructure',
+    description:
+      'One API for stablecoin one-shot, subscription, and AI-driven payments. Settled in USDC on Arc.',
+    images: [TWITTER_IMAGE],
+  },
 }
 
 export const viewport: Viewport = {

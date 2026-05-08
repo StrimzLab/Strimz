@@ -1,7 +1,14 @@
 import type { Metadata } from 'next'
 import { LegalDoc } from '@/components/marketing/legal-doc'
+import { OG_IMAGE } from '@/lib/seo'
 
-export const metadata: Metadata = { title: 'Terms of Service' }
+export const metadata: Metadata = {
+  title: 'Terms of Service',
+  description:
+    'Strimz Terms of Service — the agreement between Strimz and merchants using the platform.',
+  alternates: { canonical: '/legal/terms' },
+  openGraph: { title: 'Terms of Service · Strimz', url: '/legal/terms', images: [OG_IMAGE] },
+}
 
 const TOC = [
   { id: 'agreement', label: '1. Agreement to Terms' },
