@@ -1,8 +1,19 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Logo } from '@/components/shared/logo'
 import authPattern from '@/../public/patterns/authPattern.png'
 import authPattern2 from '@/../public/patterns/authPattern2.png'
+
+/**
+ * Group-wide metadata for `/signup`, `/login`, `/callback`. Per-page
+ * titles + descriptions live in each page's sibling `layout.tsx` (the
+ * page files themselves are `'use client'` and can't export metadata).
+ */
+export const metadata: Metadata = {
+  // Auth surfaces shouldn't appear in search results or get link-previewed.
+  robots: { index: false, follow: false },
+}
 
 /**
  * Two-column auth shell — direct match to strimz-subscription's auth

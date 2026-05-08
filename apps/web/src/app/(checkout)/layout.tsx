@@ -1,4 +1,14 @@
+import type { Metadata } from 'next'
 import { Logo } from '@/components/shared/logo'
+
+/**
+ * Group-wide metadata for `/pay/[sessionId]` and `/sub/[planId]`.
+ * Checkout URLs are tokenized one-shot links and should never be
+ * indexed or link-previewed.
+ */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+}
 
 export default function CheckoutLayout({ children }: { children: React.ReactNode }) {
   return (

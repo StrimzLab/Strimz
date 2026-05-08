@@ -1,5 +1,24 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Button, Card, CardContent } from '@strimz/ui'
+
+/**
+ * Per-product metadata. Once the API is wired up, replace the synthetic
+ * `Product {productId}` title with the real product name pulled by id.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string; productId: string }>
+}): Promise<Metadata> {
+  const { slug, productId } = await params
+  const display = slug.charAt(0).toUpperCase() + slug.slice(1)
+  return {
+    title: `Product ${productId} · ${display}`,
+    description: `Buy product ${productId} from ${display} with USDC on Arc.`,
+    alternates: { canonical: `/store/${slug}/products/${productId}` },
+  }
+}
 
 export default async function ProductPage({
   params,

@@ -1,4 +1,20 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
+import { OG_IMAGE } from '@/lib/seo'
+
+export const metadata: Metadata = {
+  title: 'Customers',
+  description:
+    'Companies running Strimz in production: SaaS subscriptions, AI products, marketplaces, and creator platforms billing in stablecoins on Arc.',
+  openGraph: {
+    title: 'Customers · Strimz',
+    description:
+      'See how SaaS, AI, marketplace, and creator businesses use Strimz to bill in USDC on Arc.',
+    url: '/customers',
+    images: [OG_IMAGE],
+  },
+  alternates: { canonical: '/customers' },
+}
 
 const HERO_STATS = [
   { value: '$48M', label: 'Volume processed' },

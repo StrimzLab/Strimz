@@ -1,7 +1,14 @@
 import type { Metadata } from 'next'
 import { LegalDoc } from '@/components/marketing/legal-doc'
+import { OG_IMAGE } from '@/lib/seo'
 
-export const metadata: Metadata = { title: 'Privacy Policy' }
+export const metadata: Metadata = {
+  title: 'Privacy Policy',
+  description:
+    'How Strimz collects, uses, and protects merchant and payer data. Wallet addresses, KYC, cookies, and your rights as a data subject.',
+  alternates: { canonical: '/legal/privacy' },
+  openGraph: { title: 'Privacy Policy · Strimz', url: '/legal/privacy', images: [OG_IMAGE] },
+}
 
 const TOC = [
   { id: 'overview', label: 'Overview' },
