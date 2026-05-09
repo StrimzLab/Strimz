@@ -46,7 +46,7 @@ if (projectId) {
     themeVariables: {
       '--w3m-accent': '#02C76A',
       '--w3m-color-mix': '#02C76A',
-      '--w3m-color-mix-strength': 25,
+      '--w3m-color-mix-strength': 5,
       '--w3m-border-radius-master': '2px',
     },
     features: {
