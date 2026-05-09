@@ -20,13 +20,12 @@ export function baseOptions(): BaseLayoutProps {
           className="h-auto w-[88px] md:w-[100px]"
         />
       ),
-      url: '/',
+      // Click-target for the logo inside the docs surface. Points at
+      // the docs landing rather than the marketing homepage so a reader
+      // browsing the documentation can return to the docs index without
+      // bouncing out to /.
+      url: '/docs',
     },
-    links: [
-      { text: 'Dashboard', url: '/app' },
-      { text: 'Pricing', url: '/pricing' },
-      { text: 'Contact', url: '/contact' },
-    ],
     githubUrl: 'https://github.com/StrimzLab/strimz',
   }
 }
