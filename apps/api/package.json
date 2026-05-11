@@ -24,7 +24,7 @@
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.4",
     "@nestjs/platform-fastify": "^11.0.4",
-    "@nestjs/swagger": "^11.0.3",
+    "@nestjs/swagger": "^11.4.2",
     "@privy-io/server-auth": "^1.18.7",
     "@scalar/nestjs-api-reference": "^0.4.0",
     "@strimz/db": "workspace:*",
