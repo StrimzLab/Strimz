@@ -10,6 +10,7 @@ import { IStrimzSubscriptions } from "../interfaces/IStrimzSubscriptions.sol";
 import { IStrimzRegistry } from "../interfaces/IStrimzRegistry.sol";
 import { IFeeCollector } from "../interfaces/IFeeCollector.sol";
 import { ITokenWhitelist } from "../interfaces/ITokenWhitelist.sol";
+import { IERC2612 } from "../interfaces/IERC2612.sol";
 import { StrimzPausable } from "../access/Pausable.sol";
 
 /// @title StrimzSubscriptions
@@ -26,6 +27,11 @@ contract StrimzSubscriptions is
     uint16 public constant BPS_DENOMINATOR = 10_000;
     uint32 public constant MIN_INTERVAL = 1 hours;
     uint256 public constant MAX_MERCHANT_ID = type(uint96).max;
+
+    /// @dev Mirrors `TokenWhitelist.CAP_PERMIT_2612`. If the bit
+    ///      assignment in TokenWhitelist ever changes, update this
+    ///      constant in lockstep.
+    uint8 private constant CAP_PERMIT_2612 = 1 << 0; // 0x01
 
     /// @custom:storage-location erc7201:strimz.storage.StrimzSubscriptions
     struct Storage {
@@ -132,6 +138,71 @@ contract StrimzSubscriptions is
         });
 
         emit SubscriptionCreated(subscriptionId, merchantId, msg.sender, token, amount, interval, firstChargeAt);
+    }
+
+    /// @inheritdoc IStrimzSubscriptions
+    function permitAndCreateSubscription(
+        uint256 merchantId,
+        address token,
+        uint256 amount,
+        uint32 interval,
+        uint64 startAt,
+        PermitData calldata permitData,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external override whenNotPaused returns (uint256 subscriptionId) {
+        if (amount == 0) revert Subscriptions__InvalidAmount();
+        if (interval < MIN_INTERVAL) revert Subscriptions__InvalidInterval();
+        if (merchantId > MAX_MERCHANT_ID) revert Subscriptions__InvalidMerchantId();
+
+        Storage storage $ = _s();
+        if (!$.tokenWhitelist.isWhitelisted(token)) revert Subscriptions__InvalidToken(token);
+        // The token must declare EIP-2612 support; calling `permit()` on
+        // a token that doesn't implement it would either revert with no
+        // useful error or, worse, silently no-op on a non-standard fallback.
+        if (!$.tokenWhitelist.supportsCapability(token, CAP_PERMIT_2612)) {
+            revert Subscriptions__UnsupportedCapability(token);
+        }
+        $.registry.requireActiveMerchant(merchantId);
+
+        // Set the allowance via permit. The token verifies the signature
+        // came from `permitData.owner`, that the deadline hasn't passed,
+        // and that the owner's permit nonce hasn't been consumed. Any of
+        // those failures revert atomically — the subscription is not
+        // created on a bad permit.
+        IERC2612(token).permit(
+            permitData.owner,
+            address(this),
+            permitData.value,
+            permitData.deadline,
+            v, r, s
+        );
+
+        uint64 firstChargeAt = startAt == 0 ? uint64(block.timestamp) : startAt;
+
+        subscriptionId = $.nextSubscriptionId;
+        unchecked {
+            $.nextSubscriptionId = subscriptionId + 1;
+        }
+        // `payer` is the permit owner, not `msg.sender`. This enables the
+        // meta-tx pattern: a relayer can call this function on behalf of
+        // a customer who only ever signed a permit message. Cancellation
+        // remains the customer's right because `cancel()` checks
+        // `msg.sender == sub.payer`, not the creator of the subscription.
+        $.subscriptions[subscriptionId] = Subscription({
+            payer: permitData.owner,
+            nextChargeAt: firstChargeAt,
+            interval: interval,
+            token: token,
+            merchantId: uint96(merchantId),
+            amount: amount,
+            cancelled: false
+        });
+
+        emit SubscriptionCreated(
+            subscriptionId, merchantId, permitData.owner, token, amount, interval, firstChargeAt
+        );
     }
 
     /// @inheritdoc IStrimzSubscriptions

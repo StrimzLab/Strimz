@@ -10,6 +10,7 @@ import { IStrimzPayments } from "../interfaces/IStrimzPayments.sol";
 import { IStrimzRegistry } from "../interfaces/IStrimzRegistry.sol";
 import { IFeeCollector } from "../interfaces/IFeeCollector.sol";
 import { ITokenWhitelist } from "../interfaces/ITokenWhitelist.sol";
+import { IERC3009 } from "../interfaces/IERC3009.sol";
 import { StrimzPausable } from "../access/Pausable.sol";
 
 /// @title StrimzPayments
@@ -23,6 +24,12 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, UUP
     using SafeERC20 for IERC20;
 
     uint16 public constant BPS_DENOMINATOR = 10_000;
+
+    /// @dev Mirrors `TokenWhitelist.CAP_TRANSFER_AUTH_3009`. If the bit
+    ///      assignment in TokenWhitelist ever changes, update this
+    ///      constant in lockstep. Cheaper than reading via the interface
+    ///      on every call.
+    uint8 private constant CAP_TRANSFER_AUTH_3009 = 1 << 1; // 0x02
 
     /// @custom:storage-location erc7201:strimz.storage.StrimzPayments
     struct Storage {
@@ -124,5 +131,66 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, UUP
         IERC20(token).safeTransferFrom(msg.sender, m.payoutAddress, netAmount);
 
         emit PaymentExecuted(merchantId, msg.sender, token, amount, feeAmount, netAmount, ref);
+    }
+
+    /// @inheritdoc IStrimzPayments
+    function payWithAuthorization(
+        uint256 merchantId,
+        address token,
+        PayAuthorization calldata auth,
+        bytes32 ref,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external override whenNotPaused nonReentrant {
+        if (auth.amount == 0) revert Payments__InvalidAmount();
+
+        Storage storage $ = _s();
+        if (!$.tokenWhitelist.isWhitelisted(token)) revert Payments__InvalidToken(token);
+        // The token must declare EIP-3009 support; we don't want a relayer
+        // to accidentally call a non-3009 token's fallback function with
+        // these arguments and have something unintended happen.
+        if (!$.tokenWhitelist.supportsCapability(token, CAP_TRANSFER_AUTH_3009)) {
+            revert Payments__UnsupportedCapability(token);
+        }
+
+        IStrimzRegistry.Merchant memory m = $.registry.requireActiveMerchant(merchantId);
+
+        // Pull the full amount into this contract via EIP-3009. The token
+        // verifies the signature and the validity window, enforces that
+        // msg.sender == to (this contract), and records the nonce as used
+        // so the same authorization cannot be replayed. Any failure
+        // (bad signature, expired window, replayed nonce) reverts the
+        // entire payWithAuthorization call atomically.
+        IERC3009(token).receiveWithAuthorization(
+            auth.from,
+            address(this),
+            auth.amount,
+            auth.validAfter,
+            auth.validBefore,
+            auth.nonce,
+            v, r, s
+        );
+
+        uint256 feeAmount;
+        unchecked {
+            // Same overflow reasoning as pay(): feeBps <= MAX_FEE_BPS (500),
+            // auth.amount < 2^247 in any realistic scenario, so the product
+            // cannot overflow under Solidity 0.8.
+            feeAmount = (auth.amount * m.feeBps) / BPS_DENOMINATOR;
+        }
+        uint256 netAmount = auth.amount - feeAmount;
+
+        // The funds are now in address(this). Forward them: fee to the
+        // FeeCollector, net to the merchant's payout address. SafeERC20
+        // handles non-standard tokens that return false instead of
+        // reverting on failure.
+        if (feeAmount > 0) {
+            IERC20(token).safeTransfer(address($.feeCollector), feeAmount);
+            $.feeCollector.accrue(token, merchantId, feeAmount);
+        }
+        IERC20(token).safeTransfer(m.payoutAddress, netAmount);
+
+        emit PaymentExecuted(merchantId, auth.from, token, auth.amount, feeAmount, netAmount, ref);
     }
 }
