@@ -24,9 +24,7 @@ const addressSchema = z
   .string()
   .regex(/^0x[0-9a-fA-F]{40}$/u, 'must be a 0x-prefixed 20-byte address')
 
-const bytes32Schema = z
-  .string()
-  .regex(/^0x[0-9a-fA-F]{64}$/u, 'must be a 0x-prefixed 32-byte hex')
+const bytes32Schema = z.string().regex(/^0x[0-9a-fA-F]{64}$/u, 'must be a 0x-prefixed 32-byte hex')
 
 const bigintStringSchema = z
   .string()
@@ -34,7 +32,10 @@ const bigintStringSchema = z
   .transform((s) => BigInt(s))
 
 const vrsSignatureSchema = z.object({
-  v: z.number().int().refine((v) => v === 27 || v === 28, 'must be 27 or 28'),
+  v: z
+    .number()
+    .int()
+    .refine((v) => v === 27 || v === 28, 'must be 27 or 28'),
   r: bytes32Schema,
   s: bytes32Schema,
 })

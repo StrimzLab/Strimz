@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  NotFoundException,
-  Param,
-  Post,
-  UseGuards,
-} from '@nestjs/common'
+import { Body, Controller, Get, NotFoundException, Param, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 
 import {
@@ -125,7 +117,7 @@ export class RelayController {
   @ApiOperation({
     summary: 'Look up a submission by idempotency key',
     description:
-      "Returns the latest known state of a previously submitted relay job. " +
+      'Returns the latest known state of a previously submitted relay job. ' +
       'Returns 404 if no submission exists for the given key (either it was ' +
       'never submitted, or BullMQ aged it out of the retention window).',
   })

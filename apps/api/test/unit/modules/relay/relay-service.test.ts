@@ -174,7 +174,9 @@ describe('RelayService', () => {
 
     it('throws when STRIMZ_PAYMENTS_ADDRESS is unset', async () => {
       const { svc } = makeFakeQueueService()
-      const cfgEmpty = { env: { STRIMZ_PAYMENTS_ADDRESS: undefined } } as unknown as TypedConfigService
+      const cfgEmpty = {
+        env: { STRIMZ_PAYMENTS_ADDRESS: undefined },
+      } as unknown as TypedConfigService
       const svcNoAddr = new RelayService(svc, cfgEmpty)
       await expect(svcNoAddr.submitPayWithAuthorization(payInput())).rejects.toThrow(
         /STRIMZ_PAYMENTS_ADDRESS/,

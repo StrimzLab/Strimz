@@ -1,10 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  Logger,
-  type OnModuleDestroy,
-  type OnModuleInit,
-} from '@nestjs/common'
+import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common'
 import { Worker, type Job } from 'bullmq'
 import { hexToBigInt } from 'viem'
 
@@ -143,9 +137,7 @@ export class RelayProcessor implements OnModuleInit, OnModuleDestroy {
     if (receipt.status !== 'success') {
       // The tx mined but reverted. BullMQ retry would just re-broadcast
       // the same calldata and revert again. Mark and fail without retry.
-      throw new RelayPermanentError(
-        `tx ${txHash} reverted in block ${receipt.blockNumber}`,
-      )
+      throw new RelayPermanentError(`tx ${txHash} reverted in block ${receipt.blockNumber}`)
     }
     return {
       txHash,

@@ -34,7 +34,7 @@ const kmsSignerProvider: FactoryProvider<KmsSigner> = {
       if (cfg.env.NODE_ENV === 'production' && !keyFromEnv) {
         throw new Error(
           'KMS: refusing to auto-generate an ephemeral key in production. ' +
-            'Set KMS_SOFTWARE_PRIVATE_KEY explicitly via your hosting provider\'s ' +
+            "Set KMS_SOFTWARE_PRIVATE_KEY explicitly via your hosting provider's " +
             'encrypted secrets store, or configure a hardware-backed provider.',
         )
       }

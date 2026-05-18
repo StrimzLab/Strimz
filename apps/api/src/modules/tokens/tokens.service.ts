@@ -33,9 +33,7 @@ export class TokensService {
     private readonly chain: ChainService,
     cfg: TypedConfigService,
   ) {
-    this.tokenWhitelistAddress = cfg.env.STRIMZ_TOKEN_WHITELIST_ADDRESS as
-      | `0x${string}`
-      | undefined
+    this.tokenWhitelistAddress = cfg.env.STRIMZ_TOKEN_WHITELIST_ADDRESS as `0x${string}` | undefined
   }
 
   /**
@@ -105,9 +103,7 @@ export class TokensService {
       })
       version = domain[2]
     } catch {
-      this.log.debug(
-        `${token}: eip712Domain() unavailable, defaulting version="1"`,
-      )
+      this.log.debug(`${token}: eip712Domain() unavailable, defaulting version="1"`)
     }
 
     return {
@@ -152,8 +148,7 @@ export class TokensService {
       throw new NotFoundException({
         code: 'token_missing_permit',
         message:
-          `token ${token} does not implement EIP-2612 nonces() ` +
-          `(${(err as Error).message})`,
+          `token ${token} does not implement EIP-2612 nonces() ` + `(${(err as Error).message})`,
       })
     }
   }

@@ -32,12 +32,10 @@ const VIEW: RelaySubmissionView = {
 
 function makeRelayMock() {
   return {
-    submitPayWithAuthorization: vi.fn<
-      (input: PayWithAuthorizationInput) => Promise<RelaySubmissionView>
-    >(),
-    submitPermitAndCreateSubscription: vi.fn<
-      (input: PermitAndCreateSubscriptionInput) => Promise<RelaySubmissionView>
-    >(),
+    submitPayWithAuthorization:
+      vi.fn<(input: PayWithAuthorizationInput) => Promise<RelaySubmissionView>>(),
+    submitPermitAndCreateSubscription:
+      vi.fn<(input: PermitAndCreateSubscriptionInput) => Promise<RelaySubmissionView>>(),
     getByIdempotencyKey: vi.fn<(key: string) => Promise<RelaySubmissionView | null>>(),
   }
 }

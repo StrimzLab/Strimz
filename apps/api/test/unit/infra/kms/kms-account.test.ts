@@ -84,7 +84,8 @@ describe('toKmsAccount', () => {
     // `yParity`; the tx hash signed is keccak256 of the unsigned serialised tx.
     const unsigned = serializeTransaction({ ...tx })
     const digest = keccak256(unsigned)
-    const sig = `0x${decoded.r!.replace(/^0x/, '').padStart(64, '0')}${decoded.s!.replace(/^0x/, '').padStart(64, '0')}${(decoded.yParity! + 27).toString(16).padStart(2, '0')}` as `0x${string}`
+    const sig =
+      `0x${decoded.r!.replace(/^0x/, '').padStart(64, '0')}${decoded.s!.replace(/^0x/, '').padStart(64, '0')}${(decoded.yParity! + 27).toString(16).padStart(2, '0')}` as `0x${string}`
     const recovered = await recoverAddress({ hash: digest, signature: sig })
     expect(recovered.toLowerCase()).toBe(signer.address.toLowerCase())
   })

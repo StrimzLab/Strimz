@@ -55,12 +55,7 @@ export class NonceManager {
   async acquire(chainId: number, address: `0x${string}`): Promise<bigint> {
     const key = this.key(chainId, address)
     const seed = await this.fetchPendingSeed(address)
-    const result = await this.redis.client.eval(
-      NonceManager.SEED_AND_INCR,
-      1,
-      key,
-      String(seed),
-    )
+    const result = await this.redis.client.eval(NonceManager.SEED_AND_INCR, 1, key, String(seed))
     // ioredis types `eval` as `unknown`; the script returns an integer.
     if (typeof result !== 'number' && typeof result !== 'string') {
       throw new Error(`NonceManager: unexpected EVAL return ${String(result)}`)

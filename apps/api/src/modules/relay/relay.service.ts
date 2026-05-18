@@ -59,9 +59,7 @@ export class RelayService {
 
   // ----- Public submission entrypoints -----
 
-  async submitPayWithAuthorization(
-    input: PayWithAuthorizationInput,
-  ): Promise<RelaySubmissionView> {
+  async submitPayWithAuthorization(input: PayWithAuthorizationInput): Promise<RelaySubmissionView> {
     if (!this.paymentsAddress) {
       throw new Error('STRIMZ_PAYMENTS_ADDRESS is not configured')
     }
@@ -181,9 +179,7 @@ export class RelayService {
     return this.viewFromJob(job)
   }
 
-  private async viewFromJob(
-    job: Job<RelayJobData, RelayJobResult>,
-  ): Promise<RelaySubmissionView> {
+  private async viewFromJob(job: Job<RelayJobData, RelayJobResult>): Promise<RelaySubmissionView> {
     const state = await job.getState()
     return {
       id: String(job.id),
