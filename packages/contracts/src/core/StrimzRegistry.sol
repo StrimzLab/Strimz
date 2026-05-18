@@ -52,24 +52,38 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
     }
 
     /// @inheritdoc IStrimzRegistry
-    function registerMerchant(address owner, address payoutAddress, uint16 feeBps)
-        external
-        override
-        onlyRole(MERCHANT_REGISTRAR_ROLE)
-        returns (uint256 merchantId)
-    {
+    function registerMerchant(
+        address owner,
+        address payoutAddress,
+        uint16 feeBps,
+        uint256 parentMerchantId
+    ) external override onlyRole(MERCHANT_REGISTRAR_ROLE) returns (uint256 merchantId) {
         if (owner == address(0) || payoutAddress == address(0)) revert Registry__ZeroAddress();
         if (feeBps > MAX_FEE_BPS) revert Registry__FeeTooHigh(feeBps);
 
         Storage storage $ = _s();
+        // Non-zero parents must already exist; 0 means flat / top-level.
+        // We check by owner-existence (every registered merchant has a
+        // non-zero owner, since registerMerchant rejects address(0)).
+        if (parentMerchantId != 0) {
+            if ($.merchants[parentMerchantId].owner == address(0)) {
+                revert Registry__UnknownParentMerchant(parentMerchantId);
+            }
+        }
+
         merchantId = $.nextMerchantId;
         unchecked {
             $.nextMerchantId = merchantId + 1;
         }
-        $.merchants[merchantId] =
-            Merchant({ owner: owner, feeBps: feeBps, active: true, payoutAddress: payoutAddress });
+        $.merchants[merchantId] = Merchant({
+            owner: owner,
+            feeBps: feeBps,
+            active: true,
+            payoutAddress: payoutAddress,
+            parentMerchantId: parentMerchantId
+        });
 
-        emit MerchantRegistered(merchantId, owner, payoutAddress, feeBps);
+        emit MerchantRegistered(merchantId, owner, payoutAddress, feeBps, parentMerchantId);
     }
 
     /// @inheritdoc IStrimzRegistry

@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import { IStrimzPayments } from "../interfaces/IStrimzPayments.sol";
@@ -15,12 +14,23 @@ import { StrimzPausable } from "../access/Pausable.sol";
 
 /// @title StrimzPayments
 /// @notice One-shot USDC / EURC payments with fee-on-transfer split and
-///         pull-based ERC20 settlement.
-/// @dev UUPS upgradeable. Dependency references live in namespaced storage
-///      so they can be rotated via a migration call (e.g. when the Registry
-///      itself is upgraded separately).
-/// @custom:oz-upgrades-unsafe-allow constructor
-contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, UUPSUpgradeable {
+///         pull-based ERC20 settlement. Two entrypoints:
+///         - `pay()` — classic approve+pay flow for any whitelisted token.
+///         - `payWithAuthorization()` — EIP-3009 meta-tx flow for tokens
+///           whose `TokenWhitelist` capability bitmap has `CAP_TRANSFER_AUTH_3009`.
+/// @dev    **This contract is immutable.** It does NOT inherit
+///         `UUPSUpgradeable` and has no `_authorizeUpgrade` function. If
+///         a vulnerability is discovered, the remediation is to deploy a
+///         new `StrimzPayments` to a fresh address and rotate the
+///         Registry's dependency pointers. This is the deliberate
+///         security posture documented in the Strimz whitepaper —
+///         policy-bearing contracts (Registry, FeeCollector,
+///         TokenWhitelist) remain upgradeable, but the value-moving
+///         path is closed against upgrade-as-attack-vector.
+/// @dev    Dependency references live in namespaced storage so the
+///         admin can still rotate them via `setRegistry` /
+///         `setFeeCollector` / `setTokenWhitelist`.
+contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint16 public constant BPS_DENOMINATOR = 10_000;
@@ -51,29 +61,31 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, UUP
         }
     }
 
-    constructor() {
-        _disableInitializers();
-    }
-
-    function initialize(
+    /// @dev Single-phase init. The `initializer` modifier from OZ's
+    ///      Initializable guards the OZ `__init` functions and prevents
+    ///      double-initialisation. Because this contract is non-upgradeable
+    ///      and never sits behind a proxy, the `_disableInitializers`
+    ///      pattern (used by the upgradeable contracts) is unnecessary.
+    constructor(
         address admin,
         IStrimzRegistry registry_,
         IFeeCollector feeCollector_,
         ITokenWhitelist tokenWhitelist_
-    ) external initializer {
+    ) initializer {
         __AccessControl_init();
         __Pausable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
-        _grantRole(UPGRADER_ROLE, admin);
+        // UPGRADER_ROLE is not granted here — there is nothing to upgrade.
+        // The role still exists in StrimzAccessControl (it's used by the
+        // upgradeable contracts), but `StrimzPayments` simply never
+        // consults it because there is no `_authorizeUpgrade` function.
 
         Storage storage $ = _s();
         $.registry = registry_;
         $.feeCollector = feeCollector_;
         $.tokenWhitelist = tokenWhitelist_;
     }
-
-    function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }
 
     // ----- Dependency views -----
 

@@ -14,8 +14,8 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_registerAssignsIncrementingId() public {
         vm.startPrank(admin);
-        uint256 id1 = registry.registerMerchant(merchant, merchantPayout, 150);
-        uint256 id2 = registry.registerMerchant(merchant, merchantPayout, 150);
+        uint256 id1 = registry.registerMerchant(merchant, merchantPayout, 150, 0);
+        uint256 id2 = registry.registerMerchant(merchant, merchantPayout, 150, 0);
         vm.stopPrank();
         assertEq(id1, 1);
         assertEq(id2, 2);
@@ -24,12 +24,12 @@ contract StrimzRegistryTest is StrimzTestBase {
     function test_rejectsFeeAboveMax() public {
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(IStrimzRegistry.Registry__FeeTooHigh.selector, 600));
-        registry.registerMerchant(merchant, merchantPayout, 600);
+        registry.registerMerchant(merchant, merchantPayout, 600, 0);
     }
 
     function test_ownerCanRotatePayoutAddress() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
         address newPayout = makeAddr("newPayout");
 
         vm.prank(merchant);
@@ -41,7 +41,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_nonOwnerCannotRotatePayoutAddress() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
 
         vm.prank(payer);
         vm.expectRevert(IStrimzRegistry.Registry__NotMerchantOwner.selector);
@@ -50,7 +50,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_requireActiveMerchantRevertsWhenInactive() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
         vm.prank(admin);
         registry.setActive(id, false);
 
