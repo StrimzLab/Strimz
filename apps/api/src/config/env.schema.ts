@@ -47,6 +47,23 @@ export const envSchema = z.object({
   COMPLIANCE_API_KEY: z.string().optional(),
   COMPLIANCE_BLOCK_THRESHOLD: z.coerce.number().int().min(0).max(100).default(80),
 
+  // ----- KMS (signer for meta-tx relayer) -----
+  // The KmsSigner interface is provider-agnostic. We ship with a
+  // software signer (key in process memory, sourced from the hosting
+  // provider's encrypted secrets vault). Future hardware-backed
+  // providers (GCP Cloud KMS, Vault Transit) drop in against the same
+  // env enum without touching call sites.
+  KMS_PROVIDER: z.enum(['software']).default('software'),
+  // 0x-prefixed 32-byte hex private key for the software signer. In dev
+  // and CI this can be omitted — a fresh ephemeral key is generated at
+  // boot and the derived address is logged. In production this MUST be
+  // set explicitly; the module factory refuses to auto-generate keys
+  // when NODE_ENV=production.
+  KMS_SOFTWARE_PRIVATE_KEY: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{64}$/u, 'must be a 0x-prefixed 32-byte hex string')
+    .optional(),
+
   // ----- Hosted checkout origin (for embed postMessage allow-list) -----
   CHECKOUT_ORIGIN: z.string().url().default('http://localhost:3000'),
 

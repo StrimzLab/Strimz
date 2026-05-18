@@ -93,6 +93,10 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
+    # KMS_SOFTWARE_PRIVATE_KEY is a secret and must come from this env
+    # file (or your hosting provider's vault in production). It is
+    # never hardcoded in compose — the boot guard refuses to start in
+    # production without it.
     env_file:
       - path: ./apps/api/.env
         required: false
@@ -106,6 +110,7 @@ services:
       REDIS_URL: redis://redis:6379
       ARC_RPC_URL: http://anvil:8545
       ARC_ENVIRONMENT: testnet
+      KMS_PROVIDER: software
     ports:
       - '4000:4000'
     depends_on:
