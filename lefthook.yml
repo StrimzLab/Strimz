@@ -1,0 +1,30 @@
+# Lefthook git hooks for Strimz.
+#
+# The intent here is a narrow one: pre-commit auto-formatting so the
+# `pnpm format:check` job on CI never fails for cosmetic reasons. Lint,
+# typecheck, and tests stay in CI — running them on every commit slows
+# the inner loop without buying much, and developers already invoke
+# them through `pnpm dev` / `pnpm test` while iterating.
+#
+# Activation: `pnpm install` runs the root `prepare` script
+# (`lefthook install`), which writes hook stubs into `.git/hooks/`.
+# Cloning the repo + installing dependencies is enough; no separate
+# bootstrap step.
+#
+# Bypass: `git commit --no-verify` skips hooks entirely. Use sparingly
+# — the prettier pass is meant to be invisible, not annoying.
+
+pre-commit:
+  parallel: true
+  commands:
+    prettier:
+      # Match the same globs the `format:check` script uses on CI so
+      # what the hook fixes is exactly what the CI check would flag.
+      # Solidity files are formatted via the prettier plugin per
+      # .prettierrc.json overrides; we include them in the glob.
+      glob: '*.{ts,tsx,js,jsx,json,md,yaml,yml,sol}'
+      run: pnpm prettier --write --ignore-unknown {staged_files}
+      # Re-stage the formatted files so the commit picks up the
+      # prettier-applied changes. Without this the commit lands with
+      # the pre-format version and CI fails anyway.
+      stage_fixed: true

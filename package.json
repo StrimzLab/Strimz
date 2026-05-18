@@ -26,11 +26,13 @@
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
+    "prepare": "lefthook install",
     "changeset": "changeset",
     "release": "turbo run build --filter=./packages/* && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
+    "lefthook": "^1.10.0",
     "prettier": "^3.4.2",
     "prettier-plugin-tailwindcss": "^0.6.9",
     "turbo": "^2.5.0",
@@ -40,6 +42,10 @@
     "_overridesNote": "@reown/appkit-adapter-wagmi@1.8.x declares `@wagmi/connectors: >=5.9.9` as an open-ended optionalDependency. With no upper bound, pnpm picks @wagmi/connectors@8.x (the wagmi 3.x companion line) which ships a broken peer pin: it pins @wagmi/core@3.4.9 exact, but its `exports/index.js` re-exports `tempoWallet from '@wagmi/core/tempo'` — a path @wagmi/core@3.4.9 doesn't export. Result: cold install fails with `Module not found: ./tempo`. We cap connectors to ^5.x — the line matching wagmi 2.x that the Reown adapter was built against — so the @wagmi/* tree resolves consistently.",
     "overrides": {
       "@wagmi/connectors": "^5.11.0"
-    }
+    },
+    "_onlyBuiltDependenciesNote": "Lefthook ships a Go binary that pnpm post-install fetches into node_modules — that's a build script, and pnpm@10 blocks them by default for safety. We explicitly opt this in so `pnpm install` wires the git hooks via the root `prepare` script.",
+    "onlyBuiltDependencies": [
+      "lefthook"
+    ]
   }
 }
