@@ -14,6 +14,7 @@ import {
 } from '@strimz/ui'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable } from '@/components/dashboard/data-table'
+import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { CUSTOMERS, type Customer } from '@/data/customers'
 import { formatUsdc, relativeTime, shortAddress } from '@/data/_seed'
@@ -50,7 +51,10 @@ export default function CustomersPage() {
         accessorKey: 'totalSpentUsdc',
         header: 'Lifetime spend',
         cell: ({ row }) => (
-          <span className="font-mono">{formatUsdc(row.original.totalSpentUsdc)} USDC</span>
+          <span className="inline-flex items-center gap-1.5 font-mono">
+            <TokenLogo symbol="USDC" size={14} />
+            {formatUsdc(row.original.totalSpentUsdc)}
+          </span>
         ),
       },
       {

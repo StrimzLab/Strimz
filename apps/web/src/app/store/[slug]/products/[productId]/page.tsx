@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Button, Card, CardContent } from '@strimz/ui'
+import { TokenLogo } from '@/components/shared/token-logo'
 
 /**
  * Per-product metadata. Once the API is wired up, replace the synthetic
@@ -39,7 +40,9 @@ export default async function ProductPage({
           <h1 className="font-sora text-3xl font-[700] tracking-tight text-[#050020]">
             Product {productId}
           </h1>
-          <p className="mt-2 font-mono text-sm text-[#58556A]">— USDC</p>
+          <p className="mt-2 inline-flex items-center gap-1.5 font-mono text-sm text-[#58556A]">
+            <TokenLogo symbol="USDC" size={14} />— priced in USDC
+          </p>
           <Button className="mt-6 w-full" size="lg">
             Buy now
           </Button>

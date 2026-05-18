@@ -28,6 +28,7 @@ import {
 } from '@strimz/ui'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { TokenLogo } from '@/components/shared/token-logo'
 import {
   AGENT_CONFIG,
   AGENT_ACTIVITY,
@@ -172,7 +173,10 @@ export default function AgentsPage() {
         accessorKey: 'amountUsdc',
         header: 'Amount',
         cell: ({ row }) => (
-          <span className="font-mono">{formatUsdc(row.original.amountUsdc)} USDC</span>
+          <span className="inline-flex items-center gap-1.5 font-mono">
+            <TokenLogo symbol="USDC" size={14} />
+            {formatUsdc(row.original.amountUsdc)}
+          </span>
         ),
       },
       {

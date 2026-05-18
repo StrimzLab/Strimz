@@ -25,6 +25,7 @@ import {
 } from '@strimz/ui'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { downloadInvoicePdf } from '@/lib/invoice-pdf'
 import { INVOICES, type Invoice, type InvoiceStatus } from '@/data/invoices'
@@ -71,7 +72,10 @@ export default function InvoicesPage() {
         accessorKey: 'totalUsdc',
         header: 'Amount',
         cell: ({ row }) => (
-          <span className="font-mono">{formatUsdc(row.original.totalUsdc)} USDC</span>
+          <span className="inline-flex items-center gap-1.5 font-mono">
+            <TokenLogo symbol="USDC" size={14} />
+            {formatUsdc(row.original.totalUsdc)}
+          </span>
         ),
       },
       {

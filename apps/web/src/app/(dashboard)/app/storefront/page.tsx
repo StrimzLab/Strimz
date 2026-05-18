@@ -34,6 +34,7 @@ import {
 } from '@strimz/ui'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { TokenLogo } from '@/components/shared/token-logo'
 import { STOREFRONT, STOREFRONT_PRODUCTS, type StorefrontProduct } from '@/data/storefront'
 import { formatUsdc } from '@/data/_seed'
 
@@ -72,7 +73,10 @@ export default function StorefrontPage() {
         accessorKey: 'priceUsdc',
         header: 'Price',
         cell: ({ row }) => (
-          <span className="font-mono">{formatUsdc(row.original.priceUsdc)} USDC</span>
+          <span className="inline-flex items-center gap-1.5 font-mono">
+            <TokenLogo symbol="USDC" size={14} />
+            {formatUsdc(row.original.priceUsdc)}
+          </span>
         ),
       },
       {
@@ -84,7 +88,10 @@ export default function StorefrontPage() {
         accessorKey: 'revenue30dUsdc',
         header: 'Revenue (30d)',
         cell: ({ row }) => (
-          <span className="font-mono">{formatUsdc(row.original.revenue30dUsdc)} USDC</span>
+          <span className="inline-flex items-center gap-1.5 font-mono">
+            <TokenLogo symbol="USDC" size={14} />
+            {formatUsdc(row.original.revenue30dUsdc)}
+          </span>
         ),
       },
       {
