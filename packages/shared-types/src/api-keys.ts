@@ -32,6 +32,11 @@ export const apiKeyScopeSchema = z.enum([
   'storefronts_write',
   'agents_read',
   'agents_write',
+  // Meta-tx relayer — submitting payer-signed EIP-3009 / EIP-2612
+  // authorizations on the merchant's behalf. Granted to keys used by
+  // hosted checkout and merchants embedding the SDK.
+  'relay_read',
+  'relay_write',
 ])
 export type ApiKeyScope = z.infer<typeof apiKeyScopeSchema>
 

@@ -12,6 +12,12 @@ import { Fetcher } from './http/fetcher.js'
 import { buildBaseHeaders } from './http/headers.js'
 import { StrimzAuthenticationError } from './errors.js'
 import { PaymentSessionsResource } from './resources/payment-sessions.js'
+import {
+  TokensResource,
+  selectPaymentPath,
+  selectSubscriptionPath,
+  type RelayPath,
+} from './resources/tokens.js'
 
 export interface StrimzBrowserClientOptions {
   /** Publishable key — `pk_test_...` or `pk_live_...`. */
@@ -27,13 +33,21 @@ const DEFAULT_BASE_URL = 'https://api.strimz.io'
 /**
  * Browser-safe Strimz client.
  *
- * Read-only on most resources. Designed for hosted-checkout state polling
- * and the React component family. Will refuse a secret key.
+ * Designed for hosted-checkout state polling and the React component
+ * family. Read-only on most resources. Refuses a secret key.
+ *
+ * The `tokens` resource + `selectPaymentPath` / `selectSubscriptionPath`
+ * selectors are the core of the capability-detection layer: given a
+ * token, the SDK asks the backend which meta-tx flows the token
+ * supports, and the selectors map that to a `RelayPath` the checkout
+ * UI uses to decide which typed-data to build.
  */
 export class StrimzBrowserClient {
   public readonly mode: ApiKeyMode
   /** Read-only access to a session by id (fetched with the publishable key). */
   public readonly paymentSessions: Pick<PaymentSessionsResource, 'retrieve'>
+  /** Token metadata + EIP-2612 permit nonce lookup. */
+  public readonly tokens: TokensResource
 
   constructor(options: StrimzBrowserClientOptions) {
     const key = options.publishableKey
@@ -70,5 +84,11 @@ export class StrimzBrowserClient {
     })
     const sessions = new PaymentSessionsResource({ fetcher })
     this.paymentSessions = { retrieve: sessions.retrieve.bind(sessions) }
+    this.tokens = new TokensResource({ fetcher })
   }
 }
+
+// Re-export the selectors + path type so consumers don't need a
+// second import: `import { StrimzBrowserClient, selectPaymentPath }
+// from '@strimz/sdk/browser'`.
+export { selectPaymentPath, selectSubscriptionPath, type RelayPath }

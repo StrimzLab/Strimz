@@ -8,6 +8,7 @@ import { RedisModule } from './infra/redis/redis.module.js'
 import { QueueModule } from './infra/queue/queue.module.js'
 import { EmailModule } from './infra/email/email.module.js'
 import { ChainModule } from './infra/chain/chain.module.js'
+import { KmsModule } from './infra/kms/kms.module.js'
 import { PrivyModule } from './infra/privy/privy.module.js'
 import { TurnstileModule } from './infra/turnstile/turnstile.module.js'
 import { WebhookEventModule } from './infra/events/webhook-event.module.js'
@@ -31,6 +32,8 @@ import { AgentsModule } from './modules/agents/agents.module.js'
 import { StorefrontsModule } from './modules/storefronts/storefronts.module.js'
 import { InvoicesModule } from './modules/invoices/invoices.module.js'
 import { HealthModule } from './modules/health/health.module.js'
+import { RelayModule } from './modules/relay/relay.module.js'
+import { TokensModule } from './modules/tokens/tokens.module.js'
 
 @Module({
   imports: [
@@ -40,6 +43,7 @@ import { HealthModule } from './modules/health/health.module.js'
     QueueModule,
     EmailModule,
     ChainModule,
+    KmsModule,
     PrivyModule,
     TurnstileModule,
     WebhookEventModule,
@@ -60,6 +64,8 @@ import { HealthModule } from './modules/health/health.module.js'
     StorefrontsModule,
     InvoicesModule,
     HealthModule,
+    RelayModule,
+    TokensModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },

@@ -29,6 +29,11 @@
       "types": "./dist/errors.d.ts",
       "import": "./dist/errors.js",
       "require": "./dist/errors.cjs"
+    },
+    "./eip712": {
+      "types": "./dist/eip712.d.ts",
+      "import": "./dist/eip712.js",
+      "require": "./dist/eip712.cjs"
     }
   },
   "files": [
