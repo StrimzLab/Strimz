@@ -4,50 +4,90 @@ import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useAppKit } from '@reown/appkit/react'
-import { ShieldCheck, Wallet } from 'lucide-react'
+import { Loader2, ShieldCheck, Wallet } from 'lucide-react'
 import { Badge } from '@strimz/ui'
+import type { TokenMetadata } from '@strimz/shared-types'
+
 import { CheckoutShell, StepIndicator } from '@/components/checkout/checkout-shell'
 import { SubmitButton } from '@/components/auth/submit-button'
+import { TokenLogo } from '@/components/shared/token-logo'
 import { projectId as reownProjectId } from '@/lib/wagmi'
+import { env } from '@/lib/env'
+import { strimzBrowserClient } from '@/lib/strimz-browser'
+import { usePayCheckout, type PayPhase } from '@/hooks/use-pay-checkout'
 
 /**
  * Public hosted checkout for one-shot payment sessions.
  *
- * Flow (simplified for the v1 page; real wagmi tx logic will live in a
- * `useCheckoutSession` hook once apps/web is integrated with the API):
+ * Flow (collapsed by EIP-3009 — one signature, no separate approve):
  *
- *   1. Load session via `GET /v1/payment-sessions/:id`
- *   2. step=connect    — payer opens AppKit modal, picks a wallet
- *   3. step=approve    — payer approves USDC allowance to the contract
- *   4. step=pay        — payer signs the on-chain `pay` call
- *   5. step=confirmed  — show success, optionally redirect to merchant successUrl
+ *   1. Load token metadata + capabilities.
+ *   2. Payer opens AppKit modal, picks a wallet.
+ *   3. Single "Pay X USDC" button kicks `usePayCheckout.submit()`,
+ *      which builds the EIP-712 typed-data, asks the wallet to sign,
+ *      POSTs to the BFF, then polls the relay submission until it
+ *      confirms (or reverts/fails).
+ *   4. Success or error UI.
  *
- * Wallet connection uses Reown AppKit. The `useAccount` hook tracks the
- * connected address; once it appears we auto-advance from `connect`
- * to `approve`.
+ * The mock placeholder data (50.00 USDC, "Demo Merchant") will be
+ * replaced with real session data once `paymentSessions.retrieve()`
+ * grows the `chainMerchantId` + token-address fields needed to drive
+ * the meta-tx (tracked as a follow-up — see Task #55 commit notes).
  */
 export default function PayPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = use(params)
   const router = useRouter()
-  const [step, setStep] = useState<'connect' | 'approve' | 'pay' | 'confirmed'>('connect')
 
   const { address, isConnected } = useAccount()
   const { open } = useAppKit()
   const { disconnect } = useDisconnect()
 
-  // Auto-advance once a wallet is connected. Doing this here rather
-  // than from a connect-success callback keeps the state machine
-  // single-sourced — `isConnected` is the wagmi store's truth.
+  const [tokenMeta, setTokenMeta] = useState<TokenMetadata | null>(null)
+  const [tokenError, setTokenError] = useState<string | null>(null)
+
+  // Load token metadata (capabilities + EIP-712 domain name/version)
+  // from the Strimz API. Public endpoint, no auth needed.
   useEffect(() => {
-    if (isConnected && step === 'connect') setStep('approve')
-  }, [isConnected, step])
+    if (!env.usdcAddress) {
+      setTokenError('NEXT_PUBLIC_STRIMZ_USDC_ADDRESS is not configured')
+      return
+    }
+    let cancelled = false
+    strimzBrowserClient()
+      .tokens.retrieve(env.usdcAddress)
+      .then((meta) => {
+        if (!cancelled) setTokenMeta(meta)
+      })
+      .catch((err: Error) => {
+        if (!cancelled) setTokenError(err.message)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // TODO(session-schema): real chainMerchantId + token + amount must
+  // come from the session payload. Sessions don't expose those yet;
+  // the hardcoded fixture below is for the v1 demo only.
+  const DEMO_CHAIN_MERCHANT_ID = 1n
+  const DEMO_AMOUNT_BASE_UNITS = 50_000_000n // 50.00 USDC (6 decimals)
+  const DEMO_AMOUNT_DISPLAY = '50.00'
+
+  const pay = usePayCheckout({
+    sessionId,
+    merchantId: DEMO_CHAIN_MERCHANT_ID,
+    tokenMeta: tokenMeta ?? PLACEHOLDER_TOKEN,
+    amount: DEMO_AMOUNT_BASE_UNITS,
+  })
+
+  const phase = derivePhase(pay.phase, isConnected, tokenMeta)
 
   return (
     <CheckoutShell
       summary={{
         merchantName: 'Demo Merchant',
-        amount: '50.00',
-        currency: 'USDC',
+        amount: DEMO_AMOUNT_DISPLAY,
+        currency: tokenMeta?.symbol ?? 'USDC',
         description: `Session ${sessionId}`,
       }}
       onCancel={() => router.push('/')}
@@ -58,31 +98,30 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
             <ShieldCheck className="size-3 text-[#02C76A]" />
             Secured by Strimz
           </Badge>
-          <h2 className="font-poppins text-2xl font-semibold tracking-tight">
-            {step === 'confirmed' ? 'Payment confirmed' : 'Pay with USDC'}
+          <h2 className="font-poppins flex items-center gap-2 text-2xl font-semibold tracking-tight">
+            {phase === 'confirmed' ? (
+              'Payment confirmed'
+            ) : (
+              <>
+                Pay with <TokenLogo symbol={tokenMeta?.symbol ?? 'USDC'} size={24} />
+                {tokenMeta?.symbol ?? 'USDC'}
+              </>
+            )}
           </h2>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {step === 'connect'
-              ? 'Connect a wallet to continue. We use Reown AppKit to support every major wallet.'
-              : step === 'approve'
-                ? 'Approve the contract to use your USDC. One-time per session.'
-                : step === 'pay'
-                  ? 'Confirm the payment in your wallet.'
-                  : `Tx hash recorded · session ${sessionId.slice(0, 12)}…`}
-          </p>
+          <p className="text-muted-foreground mt-1 text-sm">{phaseDescription(phase, pay.error)}</p>
         </div>
 
-        {(step === 'approve' || step === 'pay' || step === 'confirmed') && (
-          <StepIndicator step={step} />
-        )}
+        {phase !== 'connect' && <StepIndicator phase={phase} />}
 
-        {step === 'connect' && (
+        {tokenError && <ErrorBanner message={tokenError} />}
+
+        {phase === 'connect' && (
           <>
-            {!reownProjectId ? (
+            {!reownProjectId && (
               <div className="font-poppins rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700">
                 Wallet connect is unavailable — set <code>NEXT_PUBLIC_REOWN_PROJECT_ID</code>.
               </div>
-            ) : null}
+            )}
             <SubmitButton type="button" onClick={() => open()} disabled={!reownProjectId}>
               <Wallet className="size-4" />
               Connect wallet
@@ -90,40 +129,144 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
           </>
         )}
 
-        {step === 'approve' && (
+        {phase === 'ready' && (
           <>
-            {address ? <ConnectedRow address={address} onChange={disconnect} /> : null}
-            <SubmitButton type="button" onClick={() => setStep('pay')}>
-              Approve 50.00 USDC
+            {address && <ConnectedRow address={address} onChange={disconnect} />}
+            <SubmitButton
+              type="button"
+              onClick={() => void pay.submit()}
+              disabled={!tokenMeta || !env.paymentsAddress}
+            >
+              <TokenLogo symbol={tokenMeta?.symbol ?? 'USDC'} size={18} />
+              Pay {DEMO_AMOUNT_DISPLAY} {tokenMeta?.symbol ?? 'USDC'}
             </SubmitButton>
           </>
         )}
 
-        {step === 'pay' && (
+        {(phase === 'signing' || phase === 'submitting' || phase === 'polling') && (
           <>
-            {address ? <ConnectedRow address={address} onChange={disconnect} /> : null}
-            <SubmitButton type="button" onClick={() => setStep('confirmed')}>
-              Pay 50.00 USDC
-            </SubmitButton>
+            {address && <ConnectedRow address={address} onChange={disconnect} />}
+            <BusyState phase={phase} />
           </>
         )}
 
-        {step === 'confirmed' && (
+        {phase === 'confirmed' && (
           <div className="rounded-xl border border-[#02C76A]/30 bg-[#02C76A]/5 p-5 text-center text-sm">
-            Payment complete. The merchant has been notified via webhook.
+            <p className="text-foreground font-medium">Payment complete</p>
+            {pay.txHash && (
+              <p className="text-muted-foreground mt-1 break-all font-mono text-xs">{pay.txHash}</p>
+            )}
+            <p className="text-muted-foreground mt-2 text-xs">
+              The merchant has been notified via webhook.
+            </p>
           </div>
+        )}
+
+        {(phase === 'reverted' || phase === 'failed') && (
+          <ErrorBanner
+            message={pay.error ?? 'The payment did not go through.'}
+            retry={pay.submit}
+          />
         )}
 
         <div className="bg-muted/30 text-muted-foreground rounded-lg p-4 text-xs">
           <p className="text-foreground font-medium">How it works</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
             <li>Connect a wallet that holds USDC on Arc.</li>
-            <li>Approve the Strimz Payments contract (one-time).</li>
-            <li>Confirm the payment — USDC settles directly to the merchant.</li>
+            <li>Sign once — Strimz submits the transaction for you.</li>
+            <li>USDC settles directly to the merchant.</li>
           </ol>
         </div>
       </div>
     </CheckoutShell>
+  )
+}
+
+// ---- helpers ----
+
+/**
+ * The page collapses the hook's internal phases (idle / signing /
+ * submitting / polling / …) plus wallet-connect state into a single
+ * visible "what's happening right now" enum. Doing the mapping here
+ * keeps `usePayCheckout` focused on the meta-tx flow and the UI
+ * focused on rendering.
+ */
+type VisiblePhase =
+  | 'connect'
+  | 'ready'
+  | 'signing'
+  | 'submitting'
+  | 'polling'
+  | 'confirmed'
+  | 'reverted'
+  | 'failed'
+
+function derivePhase(
+  hookPhase: PayPhase,
+  isConnected: boolean,
+  tokenMeta: TokenMetadata | null,
+): VisiblePhase {
+  if (hookPhase === 'confirmed') return 'confirmed'
+  if (hookPhase === 'reverted') return 'reverted'
+  if (hookPhase === 'failed') return 'failed'
+  if (hookPhase === 'signing') return 'signing'
+  if (hookPhase === 'submitting') return 'submitting'
+  if (hookPhase === 'polling') return 'polling'
+  if (!isConnected) return 'connect'
+  if (!tokenMeta) return 'connect' // still loading token metadata
+  return 'ready'
+}
+
+function phaseDescription(phase: VisiblePhase, error: string | null): string {
+  switch (phase) {
+    case 'connect':
+      return 'Connect a wallet to continue. We use Reown AppKit to support every major wallet.'
+    case 'ready':
+      return 'One signature — Strimz settles the payment and notifies the merchant.'
+    case 'signing':
+      return 'Confirm the signature in your wallet.'
+    case 'submitting':
+      return 'Submitting your signed authorization to the network…'
+    case 'polling':
+      return 'Waiting for on-chain confirmation. Arc finalises in under a second.'
+    case 'confirmed':
+      return ''
+    case 'reverted':
+      return 'The transaction was rejected on-chain.'
+    case 'failed':
+      return error ?? 'Something went wrong before the transaction was submitted.'
+  }
+}
+
+function BusyState({ phase }: { phase: 'signing' | 'submitting' | 'polling' }) {
+  const label =
+    phase === 'signing'
+      ? 'Awaiting wallet signature…'
+      : phase === 'submitting'
+        ? 'Submitting…'
+        : 'Confirming on-chain…'
+  return (
+    <div className="bg-muted/30 flex items-center gap-3 rounded-md px-3 py-3 text-sm">
+      <Loader2 className="size-4 animate-spin text-[#02C76A]" />
+      <span>{label}</span>
+    </div>
+  )
+}
+
+function ErrorBanner({ message, retry }: { message: string; retry?: () => Promise<void> }) {
+  return (
+    <div className="rounded-md border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-700">
+      <p>{message}</p>
+      {retry && (
+        <button
+          type="button"
+          onClick={() => void retry()}
+          className="mt-2 text-xs font-medium underline"
+        >
+          Try again
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -144,4 +287,18 @@ function ConnectedRow({ address, onChange }: { address: string; onChange: () => 
       </button>
     </div>
   )
+}
+
+/**
+ * Used only while the real token metadata is loading. Has zero
+ * capabilities, so any attempt to sign before the real metadata
+ * lands will fail loudly in `usePayCheckout.submit()`.
+ */
+const PLACEHOLDER_TOKEN: TokenMetadata = {
+  address: '0x0000000000000000000000000000000000000000',
+  name: 'USDC',
+  symbol: 'USDC',
+  version: '1',
+  decimals: 6,
+  capabilities: { permit2612: false, transferAuth3009: false },
 }

@@ -44,25 +44,46 @@ export function CheckoutShell({
   )
 }
 
-export function StepIndicator({ step }: { step: 'connect' | 'approve' | 'pay' | 'confirmed' }) {
+/**
+ * Two-step indicator: `Sign` then `Settle`.
+ *
+ * The flow has collapsed from the legacy four-stage (connect →
+ * approve → pay → confirmed) to a single payer-facing action: sign
+ * once, Strimz settles. The first dot fills while the wallet prompt
+ * is up; the second fills while the relay submits + confirms. The
+ * connect step is handled by the page (button appears before the
+ * indicator renders) so it's not represented here.
+ */
+export type CheckoutPhase =
+  | 'connect'
+  | 'ready'
+  | 'signing'
+  | 'submitting'
+  | 'polling'
+  | 'confirmed'
+  | 'reverted'
+  | 'failed'
+
+export function StepIndicator({ phase }: { phase: CheckoutPhase }) {
   const items = [
-    { id: 'approve', label: 'Approve' },
-    { id: 'pay', label: 'Pay' },
+    { id: 'sign', label: 'Sign' },
+    { id: 'settle', label: 'Settle' },
   ] as const
-  const activeIndex = step === 'approve' ? 0 : step === 'pay' || step === 'confirmed' ? 1 : -1
+  const activeIndex = activeIndexForPhase(phase)
+  const isTerminal = phase === 'confirmed' || phase === 'reverted' || phase === 'failed'
 
   return (
     <div className="flex items-center gap-3">
       {items.map((item, i) => {
         const isActive = activeIndex === i
-        const isDone = activeIndex > i || step === 'confirmed'
+        const isDone = activeIndex > i || (phase === 'confirmed' && i === items.length - 1)
         return (
           <div key={item.id} className="flex flex-1 items-center gap-3">
             <div
               className={`flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
                 isDone
                   ? 'bg-[#02C76A]/15 text-[#02C76A]'
-                  : isActive
+                  : isActive && !isTerminal
                     ? 'bg-[#02C76A] text-white'
                     : 'bg-muted text-muted-foreground'
               }`}
@@ -76,4 +97,25 @@ export function StepIndicator({ step }: { step: 'connect' | 'approve' | 'pay' | 
       })}
     </div>
   )
+}
+
+function activeIndexForPhase(phase: CheckoutPhase): number {
+  // `Sign` is index 0; `Settle` is index 1. `connect`/`ready` mean
+  // we're before the indicator should show, but if a page does render
+  // it during `ready` we still light up Sign as the next action.
+  switch (phase) {
+    case 'ready':
+    case 'signing':
+      return 0
+    case 'submitting':
+    case 'polling':
+    case 'reverted':
+    case 'failed':
+      return 1
+    case 'confirmed':
+      return 1
+    case 'connect':
+    default:
+      return -1
+  }
 }

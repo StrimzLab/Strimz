@@ -8,6 +8,7 @@ import { Repeat, ShieldCheck, Wallet } from 'lucide-react'
 import { Badge } from '@strimz/ui'
 import { CheckoutShell, StepIndicator } from '@/components/checkout/checkout-shell'
 import { SubmitButton } from '@/components/auth/submit-button'
+import { TokenLogo } from '@/components/shared/token-logo'
 import { projectId as reownProjectId } from '@/lib/wagmi'
 
 export default function SubscribePage({ params }: { params: Promise<{ planId: string }> }) {
@@ -50,7 +51,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
         </div>
 
         {(step === 'approve' || step === 'pay' || step === 'confirmed') && (
-          <StepIndicator step={step} />
+          <StepIndicator phase={legacyStepToPhase(step)} />
         )}
 
         {step === 'connect' && (
@@ -71,6 +72,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
           <>
             {address ? <ConnectedRow address={address} onChange={disconnect} /> : null}
             <SubmitButton type="button" onClick={() => setStep('pay')}>
+              <TokenLogo symbol="USDC" size={18} />
               Approve 240 USDC (12 months)
             </SubmitButton>
           </>
@@ -80,6 +82,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
           <>
             {address ? <ConnectedRow address={address} onChange={disconnect} /> : null}
             <SubmitButton type="button" onClick={() => setStep('confirmed')}>
+              <TokenLogo symbol="USDC" size={18} />
               Subscribe — 20 USDC/month
             </SubmitButton>
           </>
@@ -93,6 +96,21 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
       </div>
     </CheckoutShell>
   )
+}
+
+/**
+ * Bridge the legacy `step` union to the new `phase` indicator until
+ * the subscription flow is rewired to EIP-2612 (tracked as a follow-up
+ * to Task #55). `approve` predates the collapse and maps to `ready`;
+ * `pay` maps to the in-flight `submitting`; `confirmed` stays as-is.
+ */
+function legacyStepToPhase(
+  step: 'connect' | 'approve' | 'pay' | 'confirmed',
+): 'ready' | 'submitting' | 'confirmed' | 'connect' {
+  if (step === 'approve') return 'ready'
+  if (step === 'pay') return 'submitting'
+  if (step === 'confirmed') return 'confirmed'
+  return 'connect'
 }
 
 function ConnectedRow({ address, onChange }: { address: string; onChange: () => void }) {
