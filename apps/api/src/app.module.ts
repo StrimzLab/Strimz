@@ -33,6 +33,7 @@ import { StorefrontsModule } from './modules/storefronts/storefronts.module.js'
 import { InvoicesModule } from './modules/invoices/invoices.module.js'
 import { HealthModule } from './modules/health/health.module.js'
 import { RelayModule } from './modules/relay/relay.module.js'
+import { TokensModule } from './modules/tokens/tokens.module.js'
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { RelayModule } from './modules/relay/relay.module.js'
     InvoicesModule,
     HealthModule,
     RelayModule,
+    TokensModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
