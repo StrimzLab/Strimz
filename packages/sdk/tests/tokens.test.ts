@@ -32,9 +32,9 @@ describe('selectPaymentPath', () => {
   it('does not depend on the permit2612 capability', () => {
     // A token that supports 2612 but not 3009 still falls back —
     // 2612 is the wrong primitive for a one-shot payment.
-    expect(
-      selectPaymentPath(meta({ transferAuth3009: false, permit2612: true })),
-    ).toBe('approve_then_pay')
+    expect(selectPaymentPath(meta({ transferAuth3009: false, permit2612: true }))).toBe(
+      'approve_then_pay',
+    )
   })
 })
 
@@ -52,8 +52,8 @@ describe('selectSubscriptionPath', () => {
   })
 
   it('does not depend on the transferAuth3009 capability', () => {
-    expect(
-      selectSubscriptionPath(meta({ permit2612: false, transferAuth3009: true })),
-    ).toBe('approve_then_create_subscription')
+    expect(selectSubscriptionPath(meta({ permit2612: false, transferAuth3009: true }))).toBe(
+      'approve_then_create_subscription',
+    )
   })
 })

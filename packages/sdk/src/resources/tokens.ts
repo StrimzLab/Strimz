@@ -21,10 +21,7 @@ export class TokensResource extends BaseResource {
    * (404 → `StrimzNotFoundError`) if the token isn't whitelisted.
    */
   retrieve(address: string): Promise<TokenMetadata> {
-    return this.get(
-      `/v1/tokens/${encodeURIComponent(address.toLowerCase())}`,
-      tokenMetadataSchema,
-    )
+    return this.get(`/v1/tokens/${encodeURIComponent(address.toLowerCase())}`, tokenMetadataSchema)
   }
 
   /**
