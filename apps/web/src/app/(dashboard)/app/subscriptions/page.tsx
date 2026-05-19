@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import {
   SUBSCRIPTIONS,
@@ -70,10 +71,10 @@ export default function SubscriptionsPage() {
         accessorKey: 'amountUsdc',
         header: 'Amount',
         cell: ({ row }) => (
-          <span className="font-mono">
-            {formatUsdc(row.original.amountUsdc)} USDC
+          <span className="inline-flex items-center gap-1.5 font-mono">
+            <TokenLogo symbol="USDC" size={14} />
+            {formatUsdc(row.original.amountUsdc)}
             <span className="text-muted-foreground text-xs">
-              {' '}
               /{row.original.interval.replace('ly', '')}
             </span>
           </span>
@@ -261,9 +262,9 @@ export default function SubscriptionsPage() {
                   {p.interval}
                 </Badge>
               </div>
-              <div className="font-sora mt-2 text-xl font-semibold">
-                {formatUsdc(p.amountUsdc)}{' '}
-                <span className="text-muted-foreground text-xs">USDC</span>
+              <div className="font-sora mt-2 flex items-center gap-1.5 text-xl font-semibold">
+                <TokenLogo symbol="USDC" size={18} />
+                {formatUsdc(p.amountUsdc)}
               </div>
               <div className="text-muted-foreground mt-2 text-xs">
                 {p.activeSubscribers} active subscribers
