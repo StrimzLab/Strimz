@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { randomBase64Url, sha256Hex } from '@strimz/shared-crypto'
 import type {
   CreateWebhookEndpointInput,
@@ -8,16 +8,54 @@ import type {
 } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QueueService, QUEUE_NAMES } from '../../infra/queue/queue.service.js'
+import { RedisService } from '../../infra/redis/redis.service.js'
 import { isPrivateOrLoopback } from './ssrf-guard.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 
+/**
+ * Cache key under which the plaintext signing secret is stored for the
+ * scheduler's webhook worker. Must match `WebhookSecretCache` in
+ * `apps/scheduler/src/infra/webhook-signing/secret-cache.service.ts`
+ * exactly — the two apps share Redis but not code.
+ *
+ * Redis is the v1 home for plaintext secrets because (a) the scheduler
+ * needs them on the hot delivery path and (b) Postgres dumps are the
+ * single most common sensitive-data exfiltration vector. The trade-off
+ * is durability: a Redis flush wipes secrets and breaks every endpoint
+ * until rotation. The follow-up task `#71` graduates this to
+ * encrypted-at-rest in Postgres with Redis as a hot cache.
+ */
+const SECRET_CACHE_KEY = (endpointId: string): string => `webhook:secret:${endpointId}`
+
 @Injectable()
 export class WebhooksService {
+  private readonly log = new Logger(WebhooksService.name)
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly queue: QueueService,
+    private readonly redis: RedisService,
   ) {}
+
+  /**
+   * Write the plaintext signing secret to the Redis cache the
+   * scheduler reads from. Called on every code path that mints a new
+   * secret (create + rotate). A failure here leaves the merchant
+   * with a working API response (they still see the secret once) but
+   * a broken delivery flow — so we log loud and let the caller see
+   * the failure rather than swallowing it.
+   */
+  private async cacheSigningSecret(endpointId: string, secret: string): Promise<void> {
+    try {
+      await this.redis.client.set(SECRET_CACHE_KEY(endpointId), secret)
+    } catch (err) {
+      this.log.error(
+        `failed to cache signing secret for endpoint ${endpointId}: ${(err as Error).message}`,
+      )
+      throw err
+    }
+  }
 
   // ----- Endpoints -----
 
@@ -40,6 +78,11 @@ export class WebhooksService {
         signingSecretPrefix: secret.slice(0, 12),
       },
     })
+    // Persist the plaintext to the cache the scheduler reads at
+    // delivery time. Without this, every webhook to this endpoint
+    // would land as `permanently_failed` with "signing secret not in
+    // cache" — which is exactly the bug this commit closes.
+    await this.cacheSigningSecret(row.id, secret)
     return {
       endpoint: serialiseEndpoint(row),
       signingSecret: secret,
@@ -94,6 +137,11 @@ export class WebhooksService {
       where: { id },
       data: { signingSecretHash, signingSecretPrefix: secret.slice(0, 12) },
     })
+    // Overwrite the cached plaintext atomically. Until this commit
+    // ran, a rotation produced a secret the merchant could verify
+    // signatures against but the scheduler had no way to sign with —
+    // every post-rotate delivery failed.
+    await this.cacheSigningSecret(updated.id, secret)
     return { endpoint: serialiseEndpoint(updated), signingSecret: secret }
   }
 
