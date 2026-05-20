@@ -41,7 +41,10 @@ export function useStrimzSession(
     if (!sessionId) return
     setLoading(true)
     try {
-      const next = await client.paymentSessions.retrieve(sessionId)
+      // Browser checkout reads go through the public /v1/checkout/* namespace
+      // — paymentSessions.retrieve required a secret key and is no longer on
+      // the BrowserClient. See packages/sdk/src/resources/checkout.ts.
+      const next = await client.checkout.session(sessionId)
       if (!cancelledRef.current) {
         setSession(next)
         setError(null)
