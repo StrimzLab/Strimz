@@ -6,7 +6,7 @@ import { useAccount, useDisconnect } from 'wagmi'
 import { useAppKit } from '@reown/appkit/react'
 import { Loader2, Repeat, ShieldCheck, Wallet } from 'lucide-react'
 import { Badge } from '@strimz/ui'
-import type { TokenMetadata } from '@strimz/shared-types'
+import type { SubscriptionPlan, TokenMetadata } from '@strimz/shared-types'
 
 import { CheckoutShell, StepIndicator } from '@/components/checkout/checkout-shell'
 import { SubmitButton } from '@/components/auth/submit-button'
@@ -19,20 +19,12 @@ import { useSubscriptionCheckout, type SubscriptionPhase } from '@/hooks/use-sub
 /**
  * Public hosted checkout for subscription enrolment.
  *
- * Flow (collapsed by EIP-2612 — one signature, no separate approve):
- *
- *   1. Load token metadata + capabilities.
- *   2. Payer opens AppKit modal, picks a wallet.
- *   3. Single "Subscribe — X USDC/month" button kicks
- *      `useSubscriptionCheckout.submit()`, which builds the EIP-712
- *      Permit, asks the wallet to sign, POSTs to the BFF, then polls
- *      the relay submission until it confirms (or reverts/fails).
- *   4. Success or error UI.
- *
- * The mock placeholder data (20.00 USDC/month) will be replaced with
- * real plan data once the subscription-plan payload exposes the
- * chainMerchantId + token-address fields needed to drive the meta-tx
- * (tracked as a follow-up — same gap as the pay page, see task #68).
+ * Loads the plan payload (amount, currency, intervalSeconds,
+ * tokenAddress, chainMerchantId), looks up token capabilities, then
+ * drives the EIP-2612 single-signature flow via
+ * `useSubscriptionCheckout`. A plan whose merchant isn't yet
+ * registered on-chain (chainMerchantId == null) surfaces a clear
+ * error rather than letting the payer attempt a doomed signature.
  */
 export default function SubscribePage({ params }: { params: Promise<{ planId: string }> }) {
   const { planId } = use(params)
@@ -42,53 +34,63 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
   const { open } = useAppKit()
   const { disconnect } = useDisconnect()
 
+  const [plan, setPlan] = useState<SubscriptionPlan | null>(null)
   const [tokenMeta, setTokenMeta] = useState<TokenMetadata | null>(null)
-  const [tokenError, setTokenError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!env.usdcAddress) {
-      setTokenError('NEXT_PUBLIC_STRIMZ_USDC_ADDRESS is not configured')
-      return
-    }
     let cancelled = false
-    strimzBrowserClient()
-      .tokens.retrieve(env.usdcAddress)
-      .then((meta) => {
+    void (async () => {
+      try {
+        const p = await strimzBrowserClient().checkout.plan(planId)
+        if (cancelled) return
+        setPlan(p)
+        if (!p.tokenAddress) {
+          throw new Error('plan has no token address configured — set ARC_USDC_ADDRESS on the API')
+        }
+        const meta = await strimzBrowserClient().tokens.retrieve(p.tokenAddress)
         if (!cancelled) setTokenMeta(meta)
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setTokenError(err.message)
-      })
+      } catch (err) {
+        if (!cancelled) setLoadError((err as Error).message)
+      }
+    })()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [planId])
 
-  // TODO(session-schema): real chainMerchantId + token + amount must
-  // come from the plan payload. Same gap as the pay page.
-  const DEMO_CHAIN_MERCHANT_ID = 1n
-  const DEMO_AMOUNT_BASE_UNITS = 20_000_000n // 20.00 USDC (6 decimals)
-  const DEMO_AMOUNT_DISPLAY = '20.00'
-  const DEMO_INTERVAL_SECONDS = 30 * 24 * 60 * 60 // monthly
+  const chainMerchantId = plan?.chainMerchantId ?? null
+  const amountBaseUnits = plan ? BigInt(plan.amount) : 0n
+  const amountDisplay = formatAmount(amountBaseUnits, tokenMeta?.decimals ?? 6)
+  const intervalSeconds = plan?.intervalSeconds ?? 0
+  const intervalLabel = humaniseInterval(plan?.interval ?? null)
 
   const subscribe = useSubscriptionCheckout({
     sessionId: planId,
-    merchantId: DEMO_CHAIN_MERCHANT_ID,
+    merchantId: chainMerchantId ? BigInt(chainMerchantId) : 0n,
     tokenMeta: tokenMeta ?? PLACEHOLDER_TOKEN,
-    amount: DEMO_AMOUNT_BASE_UNITS,
-    intervalSeconds: DEMO_INTERVAL_SECONDS,
+    amount: amountBaseUnits,
+    intervalSeconds: intervalSeconds || 1, // hook validates > 0; 1 keeps it from throwing while loading
   })
 
-  const phase = derivePhase(subscribe.phase, isConnected, tokenMeta)
+  const phase = derivePhase({
+    hookPhase: subscribe.phase,
+    isConnected,
+    plan,
+    tokenMeta,
+    chainMerchantId,
+    intervalSeconds,
+    loadError,
+  })
 
   return (
     <CheckoutShell
       summary={{
-        merchantName: 'Demo Merchant',
-        amount: DEMO_AMOUNT_DISPLAY,
-        currency: tokenMeta?.symbol ?? 'USDC',
-        interval: 'monthly',
-        description: `Plan ${planId}`,
+        merchantName: 'Merchant',
+        amount: amountDisplay,
+        currency: tokenMeta?.symbol ?? plan?.currency ?? 'USDC',
+        interval: plan?.interval ?? 'monthly',
+        description: plan?.description ?? `Plan ${planId}`,
       }}
       onCancel={() => router.push('/')}
     >
@@ -107,9 +109,22 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
           </p>
         </div>
 
-        {phase !== 'connect' && <StepIndicator phase={phase} />}
+        {phase !== 'connect' &&
+          phase !== 'loading' &&
+          phase !== 'load_error' &&
+          phase !== 'not_ready' && <StepIndicator phase={phase} />}
 
-        {tokenError && <ErrorBanner message={tokenError} />}
+        {phase === 'load_error' && <ErrorBanner message={loadError ?? 'Failed to load plan.'} />}
+
+        {phase === 'not_ready' && (
+          <ErrorBanner
+            message={
+              'This merchant has not been registered on-chain yet. Subscriptions will be available once Strimz completes their on-chain enrolment.'
+            }
+          />
+        )}
+
+        {phase === 'loading' && <BusyState phase="loading" />}
 
         {phase === 'connect' && (
           <>
@@ -131,10 +146,10 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
             <SubmitButton
               type="button"
               onClick={() => void subscribe.submit()}
-              disabled={!tokenMeta || !env.subscriptionsAddress}
+              disabled={!env.subscriptionsAddress}
             >
               <TokenLogo symbol={tokenMeta?.symbol ?? 'USDC'} size={18} />
-              Subscribe — {DEMO_AMOUNT_DISPLAY} {tokenMeta?.symbol ?? 'USDC'}/month
+              Subscribe — {amountDisplay} {tokenMeta?.symbol ?? 'USDC'}/{intervalLabel}
             </SubmitButton>
           </>
         )}
@@ -171,7 +186,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
         <div className="bg-muted/30 text-muted-foreground rounded-lg p-4 text-xs">
           <p className="text-foreground font-medium">How it works</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
-            <li>Connect a wallet that holds USDC on Arc.</li>
+            <li>Connect a wallet that holds {tokenMeta?.symbol ?? 'USDC'} on Arc.</li>
             <li>Sign once — Strimz creates the subscription on-chain.</li>
             <li>Strimz settles each scheduled charge automatically.</li>
           </ol>
@@ -181,10 +196,12 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
   )
 }
 
-// ---- helpers (mirror the pay page; small enough that abstracting
-// them costs more than it saves at this stage) ----
+// ---- helpers ----
 
 type VisiblePhase =
+  | 'loading'
+  | 'load_error'
+  | 'not_ready'
   | 'connect'
   | 'ready'
   | 'signing'
@@ -194,11 +211,20 @@ type VisiblePhase =
   | 'reverted'
   | 'failed'
 
-function derivePhase(
-  hookPhase: SubscriptionPhase,
-  isConnected: boolean,
-  tokenMeta: TokenMetadata | null,
-): VisiblePhase {
+function derivePhase(args: {
+  hookPhase: SubscriptionPhase
+  isConnected: boolean
+  plan: SubscriptionPlan | null
+  tokenMeta: TokenMetadata | null
+  chainMerchantId: string | null
+  intervalSeconds: number
+  loadError: string | null
+}): VisiblePhase {
+  const { hookPhase, isConnected, plan, tokenMeta, chainMerchantId, intervalSeconds, loadError } =
+    args
+  if (loadError) return 'load_error'
+  if (!plan || !tokenMeta || intervalSeconds <= 0) return 'loading'
+  if (!chainMerchantId) return 'not_ready'
   if (hookPhase === 'confirmed') return 'confirmed'
   if (hookPhase === 'reverted') return 'reverted'
   if (hookPhase === 'failed') return 'failed'
@@ -206,12 +232,17 @@ function derivePhase(
   if (hookPhase === 'submitting') return 'submitting'
   if (hookPhase === 'polling') return 'polling'
   if (!isConnected) return 'connect'
-  if (!tokenMeta) return 'connect'
   return 'ready'
 }
 
 function phaseDescription(phase: VisiblePhase, error: string | null): string {
   switch (phase) {
+    case 'loading':
+      return 'Loading plan…'
+    case 'load_error':
+      return 'We could not load this subscription plan.'
+    case 'not_ready':
+      return ''
     case 'connect':
       return 'Connect a wallet to continue. We use Reown AppKit to support every major wallet.'
     case 'ready':
@@ -231,13 +262,45 @@ function phaseDescription(phase: VisiblePhase, error: string | null): string {
   }
 }
 
-function BusyState({ phase }: { phase: 'signing' | 'submitting' | 'polling' }) {
+/**
+ * Format a base-units bigint as a token-decimals-correct display
+ * string. `50000000` at 6 decimals → `"50.00"`. Uses string slicing
+ * so uint256 values don't risk Number truncation.
+ */
+function formatAmount(baseUnits: bigint, decimals: number): string {
+  if (baseUnits === 0n) return '0.00'
+  const s = baseUnits.toString().padStart(decimals + 1, '0')
+  const whole = s.slice(0, -decimals)
+  const frac = s.slice(-decimals).replace(/0+$/, '')
+  return frac ? `${whole}.${frac}` : `${whole}.00`
+}
+
+function humaniseInterval(interval: SubscriptionPlan['interval'] | null): string {
+  switch (interval) {
+    case 'daily':
+      return 'day'
+    case 'weekly':
+      return 'week'
+    case 'monthly':
+      return 'month'
+    case 'quarterly':
+      return 'quarter'
+    case 'yearly':
+      return 'year'
+    default:
+      return 'period'
+  }
+}
+
+function BusyState({ phase }: { phase: 'loading' | 'signing' | 'submitting' | 'polling' }) {
   const label =
-    phase === 'signing'
-      ? 'Awaiting wallet signature…'
-      : phase === 'submitting'
-        ? 'Submitting…'
-        : 'Confirming on-chain…'
+    phase === 'loading'
+      ? 'Loading…'
+      : phase === 'signing'
+        ? 'Awaiting wallet signature…'
+        : phase === 'submitting'
+          ? 'Submitting…'
+          : 'Confirming on-chain…'
   return (
     <div className="bg-muted/30 flex items-center gap-3 rounded-md px-3 py-3 text-sm">
       <Loader2 className="size-4 animate-spin text-[#02C76A]" />
@@ -282,11 +345,6 @@ function ConnectedRow({ address, onChange }: { address: string; onChange: () => 
   )
 }
 
-/**
- * Used only while the real token metadata is loading. Has zero
- * capabilities so any attempt to sign before the real metadata
- * lands fails loudly in `useSubscriptionCheckout.submit()`.
- */
 const PLACEHOLDER_TOKEN: TokenMetadata = {
   address: '0x0000000000000000000000000000000000000000',
   name: 'USDC',
