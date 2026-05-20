@@ -28,6 +28,20 @@ export const envSchema = z.object({
   STRIMZ_WEBHOOK_SIGNING_SECRET: z
     .string()
     .min(32, 'webhook signing secret must be at least 32 characters'),
+  /**
+   * 32-byte hex (= 64 chars) AES-256-GCM key used to encrypt the
+   * per-endpoint plaintext signing secret at rest in Postgres. Must
+   * match the scheduler's `WEBHOOK_SECRET_ENCRYPTION_KEY` exactly —
+   * the scheduler decrypts on boot to warm the Redis cache.
+   *
+   * Generate with `openssl rand -hex 32` or
+   * `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.
+   * Rotating means re-encrypting every stored ciphertext; handle as
+   * an ops migration when funded.
+   */
+  WEBHOOK_SECRET_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[0-9a-fA-F]{64}$/u, 'must be a 32-byte hex string (64 chars)'),
 
   // ----- Email (Resend) -----
   RESEND_API_KEY: z.string().optional(),

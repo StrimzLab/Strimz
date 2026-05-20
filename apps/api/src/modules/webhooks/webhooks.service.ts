@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
-import { randomBase64Url, sha256Hex } from '@strimz/shared-crypto'
+import { encryptAesGcm, randomBase64Url, sha256Hex } from '@strimz/shared-crypto'
 import type {
   CreateWebhookEndpointInput,
   CreateWebhookEndpointOutput,
   WebhookEndpoint,
   WebhookDelivery,
 } from '@strimz/shared-types'
+import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QueueService, QUEUE_NAMES } from '../../infra/queue/queue.service.js'
 import { RedisService } from '../../infra/redis/redis.service.js'
@@ -36,25 +37,32 @@ export class WebhooksService {
     private readonly prisma: PrismaService,
     private readonly queue: QueueService,
     private readonly redis: RedisService,
+    private readonly cfg: TypedConfigService,
   ) {}
 
   /**
-   * Write the plaintext signing secret to the Redis cache the
-   * scheduler reads from. Called on every code path that mints a new
-   * secret (create + rotate). A failure here leaves the merchant
-   * with a working API response (they still see the secret once) but
-   * a broken delivery flow — so we log loud and let the caller see
-   * the failure rather than swallowing it.
+   * Persist a plaintext signing secret in both places that need it:
+   *
+   *  - Encrypted (AES-256-GCM) at rest in Postgres — the durable
+   *    source of truth. The scheduler decrypts at boot to warm the
+   *    Redis cache, so a Redis flush doesn't break deliveries.
+   *  - Plaintext in Redis — the hot cache the delivery worker reads
+   *    on every send. Avoids decrypting on the hot path.
+   *
+   * Both writes happen here so the two surfaces never drift. If
+   * either fails the caller sees an error and the merchant can retry.
    */
-  private async cacheSigningSecret(endpointId: string, secret: string): Promise<void> {
+  private async persistSigningSecret(endpointId: string, plaintext: string): Promise<string> {
+    const ciphertext = await encryptAesGcm(plaintext, this.cfg.env.WEBHOOK_SECRET_ENCRYPTION_KEY)
     try {
-      await this.redis.client.set(SECRET_CACHE_KEY(endpointId), secret)
+      await this.redis.client.set(SECRET_CACHE_KEY(endpointId), plaintext)
     } catch (err) {
       this.log.error(
         `failed to cache signing secret for endpoint ${endpointId}: ${(err as Error).message}`,
       )
       throw err
     }
+    return ciphertext
   }
 
   // ----- Endpoints -----
@@ -67,6 +75,10 @@ export class WebhooksService {
     const secret = `whsec_${randomBase64Url(32)}`
     const signingSecretHash = await sha256Hex(secret)
 
+    // Insert the row first so we have an id to encrypt against.
+    // The ciphertext column is nullable in the schema — we patch it
+    // in the next step rather than wedge encryption inside the
+    // initial INSERT.
     const row = await this.prisma.db.merchantWebhookEndpoint.create({
       data: {
         merchantId,
@@ -78,13 +90,13 @@ export class WebhooksService {
         signingSecretPrefix: secret.slice(0, 12),
       },
     })
-    // Persist the plaintext to the cache the scheduler reads at
-    // delivery time. Without this, every webhook to this endpoint
-    // would land as `permanently_failed` with "signing secret not in
-    // cache" — which is exactly the bug this commit closes.
-    await this.cacheSigningSecret(row.id, secret)
+    const ciphertext = await this.persistSigningSecret(row.id, secret)
+    const withCiphertext = await this.prisma.db.merchantWebhookEndpoint.update({
+      where: { id: row.id },
+      data: { signingSecretCiphertext: ciphertext },
+    })
     return {
-      endpoint: serialiseEndpoint(row),
+      endpoint: serialiseEndpoint(withCiphertext),
       signingSecret: secret,
     }
   }
@@ -133,15 +145,15 @@ export class WebhooksService {
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'endpoint not found' })
     const secret = `whsec_${randomBase64Url(32)}`
     const signingSecretHash = await sha256Hex(secret)
+    const ciphertext = await this.persistSigningSecret(id, secret)
     const updated = await this.prisma.db.merchantWebhookEndpoint.update({
       where: { id },
-      data: { signingSecretHash, signingSecretPrefix: secret.slice(0, 12) },
+      data: {
+        signingSecretHash,
+        signingSecretCiphertext: ciphertext,
+        signingSecretPrefix: secret.slice(0, 12),
+      },
     })
-    // Overwrite the cached plaintext atomically. Until this commit
-    // ran, a rotation produced a secret the merchant could verify
-    // signatures against but the scheduler had no way to sign with —
-    // every post-rotate delivery failed.
-    await this.cacheSigningSecret(updated.id, secret)
     return { endpoint: serialiseEndpoint(updated), signingSecret: secret }
   }
 

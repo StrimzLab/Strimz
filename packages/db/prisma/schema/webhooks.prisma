@@ -4,19 +4,27 @@
 // Delivery = one attempt to POST a specific event to a specific endpoint.
 
 model MerchantWebhookEndpoint {
-  id                    String                @id @default(cuid())
-  merchantId            String
-  mode                  Mode
-  url                   String
-  description           String?               @db.VarChar(200)
-  events                WebhookEventName[]
-  status                WebhookEndpointStatus @default(active)
-  /// sha256(signingSecret). Full secret is returned once at creation.
-  signingSecretHash     String
-  signingSecretPrefix   String                @db.VarChar(12)
-  lastDeliveredAt       DateTime?
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
+  id                      String                @id @default(cuid())
+  merchantId              String
+  mode                    Mode
+  url                     String
+  description             String?               @db.VarChar(200)
+  events                  WebhookEventName[]
+  status                  WebhookEndpointStatus @default(active)
+  /// sha256(signingSecret). Used as the integrity-check index; cannot
+  /// recover the plaintext.
+  signingSecretHash       String
+  /// AES-256-GCM ciphertext of the plaintext signing secret, encoded
+  /// `v1:<nonce-hex>:<ciphertext-and-tag-hex>`. Decrypted by the
+  /// scheduler at boot to warm the Redis cache the delivery worker
+  /// reads from. Nullable for backward compatibility with endpoints
+  /// created before #71 — those need a rotation to populate the
+  /// column and the merchant dashboard surfaces the prompt.
+  signingSecretCiphertext String?
+  signingSecretPrefix     String                @db.VarChar(12)
+  lastDeliveredAt         DateTime?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
 
   merchant              Merchant              @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   deliveries            WebhookDelivery[]
