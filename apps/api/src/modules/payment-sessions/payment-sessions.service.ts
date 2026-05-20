@@ -91,6 +91,22 @@ export class PaymentSessionsService {
     return this.serialise(row)
   }
 
+  /**
+   * Public lookup by id — does NOT filter by merchantId. Used by the
+   * hosted-checkout public endpoint so a payer landing on a session
+   * URL can load the payload without holding any API key. Session
+   * data is intrinsically public (this is the payer's checkout view)
+   * so this read leaks no merchant-confidential information.
+   */
+  async retrievePublic(id: string): Promise<PaymentSession> {
+    const row = await this.prisma.db.paymentSession.findFirst({
+      where: { id },
+      ...WITH_MERCHANT,
+    })
+    if (!row) throw new NotFoundException({ code: 'not_found', message: 'session not found' })
+    return this.serialise(row)
+  }
+
   async cancel(merchantId: string, id: string): Promise<PaymentSession> {
     await this.retrieve(merchantId, id)
     const updated = await this.prisma.db.paymentSession.update({
