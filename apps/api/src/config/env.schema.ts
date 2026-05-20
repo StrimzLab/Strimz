@@ -41,6 +41,12 @@ export const envSchema = z.object({
   STRIMZ_SUBSCRIPTIONS_ADDRESS: z.string().optional(),
   STRIMZ_FEE_COLLECTOR_ADDRESS: z.string().optional(),
   STRIMZ_TOKEN_WHITELIST_ADDRESS: z.string().optional(),
+  // Token contract addresses on the active Arc chain. The session +
+  // plan serialisers map `currency` (USDC | EURC) to one of these so
+  // the hosted checkout can build the EIP-712 typed-data domain
+  // without a separate chain lookup.
+  ARC_USDC_ADDRESS: z.string().optional(),
+  ARC_EURC_ADDRESS: z.string().optional(),
 
   // ----- Compliance -----
   COMPLIANCE_PROVIDER: z.enum(['trm', 'elliptic', 'disabled']).default('disabled'),

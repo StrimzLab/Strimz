@@ -36,6 +36,27 @@ export type SubscriptionPlanStatus = z.infer<typeof subscriptionPlanStatusSchema
 export const subscriptionPlanSchema = z.object({
   id: idSchema,
   merchantId: idSchema,
+  /**
+   * On-chain StrimzRegistry merchant id (uint96) as a decimal string.
+   * See `paymentSessionSchema.chainMerchantId`. Null when the merchant
+   * hasn't been registered on-chain yet — the hosted enrolment page
+   * refuses to take signatures in that state.
+   */
+  chainMerchantId: z
+    .string()
+    .regex(/^[0-9]+$/u, 'must be a non-negative decimal integer string')
+    .nullable(),
+  /**
+   * ERC-20 token contract address resolved from `currency` — the
+   * EIP-2612 `verifyingContract` the wallet signs over.
+   */
+  tokenAddress: evmAddressSchema.nullable(),
+  /**
+   * Charge cadence in seconds, derived from `interval` + `intervalCount`
+   * so the meta-tx layer can pass a uint32 to StrimzSubscriptions
+   * without re-deriving the conversion on the client.
+   */
+  intervalSeconds: z.number().int().positive(),
   name: z.string().min(1).max(120),
   description: z.string().max(500).nullable(),
   amount: tokenAmountSchema,

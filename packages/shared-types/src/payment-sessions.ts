@@ -34,6 +34,26 @@ export type PaymentSessionStatus = z.infer<typeof paymentSessionStatusSchema>
 export const paymentSessionSchema = z.object({
   id: idSchema,
   merchantId: idSchema,
+  /**
+   * On-chain StrimzRegistry merchant id (uint96) as a decimal string.
+   * Set when the merchant has been registered on-chain; null when the
+   * merchant exists in our DB but the registry transaction hasn't
+   * been broadcast yet. Hosted checkout uses this to populate the
+   * meta-tx calldata; if null, the checkout refuses to accept
+   * payments.
+   */
+  chainMerchantId: z
+    .string()
+    .regex(/^[0-9]+$/u, 'must be a non-negative decimal integer string')
+    .nullable(),
+  /**
+   * ERC-20 token contract address resolved from `currency` on the
+   * active chain (Arc Testnet / Mainnet). Used as the `verifyingContract`
+   * in the EIP-712 domain for both EIP-3009 and EIP-2612 signing.
+   * Null on the (vanishingly unlikely) path where the API has no
+   * configured address for the session's currency.
+   */
+  tokenAddress: evmAddressSchema.nullable(),
   customerId: idSchema.nullable(),
   status: paymentSessionStatusSchema,
   amount: tokenAmountSchema,

@@ -6,7 +6,7 @@ import { useAccount, useDisconnect } from 'wagmi'
 import { useAppKit } from '@reown/appkit/react'
 import { Loader2, ShieldCheck, Wallet } from 'lucide-react'
 import { Badge } from '@strimz/ui'
-import type { TokenMetadata } from '@strimz/shared-types'
+import type { PaymentSession, TokenMetadata } from '@strimz/shared-types'
 
 import { CheckoutShell, StepIndicator } from '@/components/checkout/checkout-shell'
 import { SubmitButton } from '@/components/auth/submit-button'
@@ -19,20 +19,12 @@ import { usePayCheckout, type PayPhase } from '@/hooks/use-pay-checkout'
 /**
  * Public hosted checkout for one-shot payment sessions.
  *
- * Flow (collapsed by EIP-3009 — one signature, no separate approve):
- *
- *   1. Load token metadata + capabilities.
- *   2. Payer opens AppKit modal, picks a wallet.
- *   3. Single "Pay X USDC" button kicks `usePayCheckout.submit()`,
- *      which builds the EIP-712 typed-data, asks the wallet to sign,
- *      POSTs to the BFF, then polls the relay submission until it
- *      confirms (or reverts/fails).
- *   4. Success or error UI.
- *
- * The mock placeholder data (50.00 USDC, "Demo Merchant") will be
- * replaced with real session data once `paymentSessions.retrieve()`
- * grows the `chainMerchantId` + token-address fields needed to drive
- * the meta-tx (tracked as a follow-up — see Task #55 commit notes).
+ * Loads the real session payload (amount, currency, tokenAddress,
+ * chainMerchantId), looks up token capabilities, then drives the
+ * EIP-3009 single-signature flow via `usePayCheckout`. A session whose
+ * merchant isn't yet registered on-chain (chainMerchantId == null)
+ * cannot be paid via meta-tx and the page surfaces a clear error
+ * instead of letting the payer attempt a doomed signature.
  */
 export default function PayPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = use(params)
@@ -42,53 +34,66 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
   const { open } = useAppKit()
   const { disconnect } = useDisconnect()
 
+  const [session, setSession] = useState<PaymentSession | null>(null)
   const [tokenMeta, setTokenMeta] = useState<TokenMetadata | null>(null)
-  const [tokenError, setTokenError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Load token metadata (capabilities + EIP-712 domain name/version)
-  // from the Strimz API. Public endpoint, no auth needed.
+  // Two sequential loads — session first (to discover the token),
+  // then token metadata. Failure at either stage surfaces in
+  // `loadError` and short-circuits the rest of the flow.
   useEffect(() => {
-    if (!env.usdcAddress) {
-      setTokenError('NEXT_PUBLIC_STRIMZ_USDC_ADDRESS is not configured')
-      return
-    }
     let cancelled = false
-    strimzBrowserClient()
-      .tokens.retrieve(env.usdcAddress)
-      .then((meta) => {
+    void (async () => {
+      try {
+        const s = await strimzBrowserClient().paymentSessions.retrieve(sessionId)
+        if (cancelled) return
+        setSession(s)
+        if (!s.tokenAddress) {
+          throw new Error(
+            'session has no token address configured — set ARC_USDC_ADDRESS on the API',
+          )
+        }
+        const meta = await strimzBrowserClient().tokens.retrieve(s.tokenAddress)
         if (!cancelled) setTokenMeta(meta)
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setTokenError(err.message)
-      })
+      } catch (err) {
+        if (!cancelled) setLoadError((err as Error).message)
+      }
+    })()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [sessionId])
 
-  // TODO(session-schema): real chainMerchantId + token + amount must
-  // come from the session payload. Sessions don't expose those yet;
-  // the hardcoded fixture below is for the v1 demo only.
-  const DEMO_CHAIN_MERCHANT_ID = 1n
-  const DEMO_AMOUNT_BASE_UNITS = 50_000_000n // 50.00 USDC (6 decimals)
-  const DEMO_AMOUNT_DISPLAY = '50.00'
+  // Refuse to drive the hook with placeholder data — the visible
+  // phase mapping below renders an explicit "not ready" state when
+  // the on-chain registry id is missing.
+  const chainMerchantId = session?.chainMerchantId ?? null
+  const amountBaseUnits = session ? BigInt(session.amount) : 0n
+  const amountDisplay = formatAmount(amountBaseUnits, tokenMeta?.decimals ?? 6)
 
   const pay = usePayCheckout({
     sessionId,
-    merchantId: DEMO_CHAIN_MERCHANT_ID,
+    merchantId: chainMerchantId ? BigInt(chainMerchantId) : 0n,
     tokenMeta: tokenMeta ?? PLACEHOLDER_TOKEN,
-    amount: DEMO_AMOUNT_BASE_UNITS,
+    amount: amountBaseUnits,
   })
 
-  const phase = derivePhase(pay.phase, isConnected, tokenMeta)
+  const phase = derivePhase({
+    hookPhase: pay.phase,
+    isConnected,
+    session,
+    tokenMeta,
+    chainMerchantId,
+    loadError,
+  })
 
   return (
     <CheckoutShell
       summary={{
-        merchantName: 'Demo Merchant',
-        amount: DEMO_AMOUNT_DISPLAY,
-        currency: tokenMeta?.symbol ?? 'USDC',
-        description: `Session ${sessionId}`,
+        merchantName: 'Merchant',
+        amount: amountDisplay,
+        currency: tokenMeta?.symbol ?? session?.currency ?? 'USDC',
+        description: session?.description ?? `Session ${sessionId}`,
       }}
       onCancel={() => router.push('/')}
     >
@@ -104,16 +109,29 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
             ) : (
               <>
                 Pay with <TokenLogo symbol={tokenMeta?.symbol ?? 'USDC'} size={24} />
-                {tokenMeta?.symbol ?? 'USDC'}
+                {tokenMeta?.symbol ?? session?.currency ?? 'USDC'}
               </>
             )}
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">{phaseDescription(phase, pay.error)}</p>
         </div>
 
-        {phase !== 'connect' && <StepIndicator phase={phase} />}
+        {phase !== 'connect' &&
+          phase !== 'loading' &&
+          phase !== 'load_error' &&
+          phase !== 'not_ready' && <StepIndicator phase={phase} />}
 
-        {tokenError && <ErrorBanner message={tokenError} />}
+        {phase === 'load_error' && <ErrorBanner message={loadError ?? 'Failed to load session.'} />}
+
+        {phase === 'not_ready' && (
+          <ErrorBanner
+            message={
+              'This merchant has not been registered on-chain yet. Payments will be available once Strimz completes their on-chain enrolment.'
+            }
+          />
+        )}
+
+        {phase === 'loading' && <BusyState phase="loading" />}
 
         {phase === 'connect' && (
           <>
@@ -135,10 +153,10 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
             <SubmitButton
               type="button"
               onClick={() => void pay.submit()}
-              disabled={!tokenMeta || !env.paymentsAddress}
+              disabled={!env.paymentsAddress}
             >
               <TokenLogo symbol={tokenMeta?.symbol ?? 'USDC'} size={18} />
-              Pay {DEMO_AMOUNT_DISPLAY} {tokenMeta?.symbol ?? 'USDC'}
+              Pay {amountDisplay} {tokenMeta?.symbol ?? 'USDC'}
             </SubmitButton>
           </>
         )}
@@ -172,9 +190,9 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
         <div className="bg-muted/30 text-muted-foreground rounded-lg p-4 text-xs">
           <p className="text-foreground font-medium">How it works</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
-            <li>Connect a wallet that holds USDC on Arc.</li>
+            <li>Connect a wallet that holds {tokenMeta?.symbol ?? 'USDC'} on Arc.</li>
             <li>Sign once — Strimz submits the transaction for you.</li>
-            <li>USDC settles directly to the merchant.</li>
+            <li>{tokenMeta?.symbol ?? 'USDC'} settles directly to the merchant.</li>
           </ol>
         </div>
       </div>
@@ -184,14 +202,10 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
 
 // ---- helpers ----
 
-/**
- * The page collapses the hook's internal phases (idle / signing /
- * submitting / polling / …) plus wallet-connect state into a single
- * visible "what's happening right now" enum. Doing the mapping here
- * keeps `usePayCheckout` focused on the meta-tx flow and the UI
- * focused on rendering.
- */
 type VisiblePhase =
+  | 'loading'
+  | 'load_error'
+  | 'not_ready'
   | 'connect'
   | 'ready'
   | 'signing'
@@ -201,11 +215,18 @@ type VisiblePhase =
   | 'reverted'
   | 'failed'
 
-function derivePhase(
-  hookPhase: PayPhase,
-  isConnected: boolean,
-  tokenMeta: TokenMetadata | null,
-): VisiblePhase {
+function derivePhase(args: {
+  hookPhase: PayPhase
+  isConnected: boolean
+  session: PaymentSession | null
+  tokenMeta: TokenMetadata | null
+  chainMerchantId: string | null
+  loadError: string | null
+}): VisiblePhase {
+  const { hookPhase, isConnected, session, tokenMeta, chainMerchantId, loadError } = args
+  if (loadError) return 'load_error'
+  if (!session || !tokenMeta) return 'loading'
+  if (!chainMerchantId) return 'not_ready'
   if (hookPhase === 'confirmed') return 'confirmed'
   if (hookPhase === 'reverted') return 'reverted'
   if (hookPhase === 'failed') return 'failed'
@@ -213,12 +234,17 @@ function derivePhase(
   if (hookPhase === 'submitting') return 'submitting'
   if (hookPhase === 'polling') return 'polling'
   if (!isConnected) return 'connect'
-  if (!tokenMeta) return 'connect' // still loading token metadata
   return 'ready'
 }
 
 function phaseDescription(phase: VisiblePhase, error: string | null): string {
   switch (phase) {
+    case 'loading':
+      return 'Loading session…'
+    case 'load_error':
+      return 'We could not load this checkout.'
+    case 'not_ready':
+      return ''
     case 'connect':
       return 'Connect a wallet to continue. We use Reown AppKit to support every major wallet.'
     case 'ready':
@@ -238,13 +264,29 @@ function phaseDescription(phase: VisiblePhase, error: string | null): string {
   }
 }
 
-function BusyState({ phase }: { phase: 'signing' | 'submitting' | 'polling' }) {
+/**
+ * Format a base-units bigint as a token-decimals-correct display
+ * string. `50000000` at 6 decimals → `"50.00"`. Intentionally simple
+ * — uses string slicing so very large amounts (uint256) don't risk
+ * Number truncation.
+ */
+function formatAmount(baseUnits: bigint, decimals: number): string {
+  if (baseUnits === 0n) return '0.00'
+  const s = baseUnits.toString().padStart(decimals + 1, '0')
+  const whole = s.slice(0, -decimals)
+  const frac = s.slice(-decimals).replace(/0+$/, '')
+  return frac ? `${whole}.${frac}` : `${whole}.00`
+}
+
+function BusyState({ phase }: { phase: 'loading' | 'signing' | 'submitting' | 'polling' }) {
   const label =
-    phase === 'signing'
-      ? 'Awaiting wallet signature…'
-      : phase === 'submitting'
-        ? 'Submitting…'
-        : 'Confirming on-chain…'
+    phase === 'loading'
+      ? 'Loading…'
+      : phase === 'signing'
+        ? 'Awaiting wallet signature…'
+        : phase === 'submitting'
+          ? 'Submitting…'
+          : 'Confirming on-chain…'
   return (
     <div className="bg-muted/30 flex items-center gap-3 rounded-md px-3 py-3 text-sm">
       <Loader2 className="size-4 animate-spin text-[#02C76A]" />
@@ -290,9 +332,9 @@ function ConnectedRow({ address, onChange }: { address: string; onChange: () => 
 }
 
 /**
- * Used only while the real token metadata is loading. Has zero
- * capabilities, so any attempt to sign before the real metadata
- * lands will fail loudly in `usePayCheckout.submit()`.
+ * Used only while token metadata is still loading. Has zero
+ * capabilities so an accidental submission attempt before the real
+ * metadata lands fails loudly in `usePayCheckout.submit()`.
  */
 const PLACEHOLDER_TOKEN: TokenMetadata = {
   address: '0x0000000000000000000000000000000000000000',
