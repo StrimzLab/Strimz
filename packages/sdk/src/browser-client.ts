@@ -11,7 +11,7 @@ import { kindFromKey, modeFromKey, type ApiKeyMode } from '@strimz/shared-config
 import { Fetcher } from './http/fetcher.js'
 import { buildBaseHeaders } from './http/headers.js'
 import { StrimzAuthenticationError } from './errors.js'
-import { PaymentSessionsResource } from './resources/payment-sessions.js'
+import { CheckoutResource } from './resources/checkout.js'
 import {
   TokensResource,
   selectPaymentPath,
@@ -44,8 +44,12 @@ const DEFAULT_BASE_URL = 'https://api.strimz.io'
  */
 export class StrimzBrowserClient {
   public readonly mode: ApiKeyMode
-  /** Read-only access to a session by id (fetched with the publishable key). */
-  public readonly paymentSessions: Pick<PaymentSessionsResource, 'retrieve'>
+  /**
+   * Public hosted-checkout reads — payment sessions and subscription
+   * plans by id. Backed by the `/v1/checkout/*` namespace on the API,
+   * which is intentionally unauthenticated.
+   */
+  public readonly checkout: CheckoutResource
   /** Token metadata + EIP-2612 permit nonce lookup. */
   public readonly tokens: TokensResource
 
@@ -82,8 +86,7 @@ export class StrimzBrowserClient {
       timeoutMs: options.timeoutMs,
       maxRetries: 2,
     })
-    const sessions = new PaymentSessionsResource({ fetcher })
-    this.paymentSessions = { retrieve: sessions.retrieve.bind(sessions) }
+    this.checkout = new CheckoutResource({ fetcher })
     this.tokens = new TokensResource({ fetcher })
   }
 }

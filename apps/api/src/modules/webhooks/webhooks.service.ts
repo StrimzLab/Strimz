@@ -1,23 +1,69 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
-import { randomBase64Url, sha256Hex } from '@strimz/shared-crypto'
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { encryptAesGcm, randomBase64Url, sha256Hex } from '@strimz/shared-crypto'
 import type {
   CreateWebhookEndpointInput,
   CreateWebhookEndpointOutput,
   WebhookEndpoint,
   WebhookDelivery,
 } from '@strimz/shared-types'
+import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QueueService, QUEUE_NAMES } from '../../infra/queue/queue.service.js'
+import { RedisService } from '../../infra/redis/redis.service.js'
 import { isPrivateOrLoopback } from './ssrf-guard.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 
+/**
+ * Cache key under which the plaintext signing secret is stored for the
+ * scheduler's webhook worker. Must match `WebhookSecretCache` in
+ * `apps/scheduler/src/infra/webhook-signing/secret-cache.service.ts`
+ * exactly — the two apps share Redis but not code.
+ *
+ * Redis is the v1 home for plaintext secrets because (a) the scheduler
+ * needs them on the hot delivery path and (b) Postgres dumps are the
+ * single most common sensitive-data exfiltration vector. The trade-off
+ * is durability: a Redis flush wipes secrets and breaks every endpoint
+ * until rotation. The follow-up task `#71` graduates this to
+ * encrypted-at-rest in Postgres with Redis as a hot cache.
+ */
+const SECRET_CACHE_KEY = (endpointId: string): string => `webhook:secret:${endpointId}`
+
 @Injectable()
 export class WebhooksService {
+  private readonly log = new Logger(WebhooksService.name)
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly queue: QueueService,
+    private readonly redis: RedisService,
+    private readonly cfg: TypedConfigService,
   ) {}
+
+  /**
+   * Persist a plaintext signing secret in both places that need it:
+   *
+   *  - Encrypted (AES-256-GCM) at rest in Postgres — the durable
+   *    source of truth. The scheduler decrypts at boot to warm the
+   *    Redis cache, so a Redis flush doesn't break deliveries.
+   *  - Plaintext in Redis — the hot cache the delivery worker reads
+   *    on every send. Avoids decrypting on the hot path.
+   *
+   * Both writes happen here so the two surfaces never drift. If
+   * either fails the caller sees an error and the merchant can retry.
+   */
+  private async persistSigningSecret(endpointId: string, plaintext: string): Promise<string> {
+    const ciphertext = await encryptAesGcm(plaintext, this.cfg.env.WEBHOOK_SECRET_ENCRYPTION_KEY)
+    try {
+      await this.redis.client.set(SECRET_CACHE_KEY(endpointId), plaintext)
+    } catch (err) {
+      this.log.error(
+        `failed to cache signing secret for endpoint ${endpointId}: ${(err as Error).message}`,
+      )
+      throw err
+    }
+    return ciphertext
+  }
 
   // ----- Endpoints -----
 
@@ -29,6 +75,10 @@ export class WebhooksService {
     const secret = `whsec_${randomBase64Url(32)}`
     const signingSecretHash = await sha256Hex(secret)
 
+    // Insert the row first so we have an id to encrypt against.
+    // The ciphertext column is nullable in the schema — we patch it
+    // in the next step rather than wedge encryption inside the
+    // initial INSERT.
     const row = await this.prisma.db.merchantWebhookEndpoint.create({
       data: {
         merchantId,
@@ -40,8 +90,13 @@ export class WebhooksService {
         signingSecretPrefix: secret.slice(0, 12),
       },
     })
+    const ciphertext = await this.persistSigningSecret(row.id, secret)
+    const withCiphertext = await this.prisma.db.merchantWebhookEndpoint.update({
+      where: { id: row.id },
+      data: { signingSecretCiphertext: ciphertext },
+    })
     return {
-      endpoint: serialiseEndpoint(row),
+      endpoint: serialiseEndpoint(withCiphertext),
       signingSecret: secret,
     }
   }
@@ -90,9 +145,14 @@ export class WebhooksService {
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'endpoint not found' })
     const secret = `whsec_${randomBase64Url(32)}`
     const signingSecretHash = await sha256Hex(secret)
+    const ciphertext = await this.persistSigningSecret(id, secret)
     const updated = await this.prisma.db.merchantWebhookEndpoint.update({
       where: { id },
-      data: { signingSecretHash, signingSecretPrefix: secret.slice(0, 12) },
+      data: {
+        signingSecretHash,
+        signingSecretCiphertext: ciphertext,
+        signingSecretPrefix: secret.slice(0, 12),
+      },
     })
     return { endpoint: serialiseEndpoint(updated), signingSecret: secret }
   }

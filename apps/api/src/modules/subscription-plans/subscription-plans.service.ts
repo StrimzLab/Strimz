@@ -21,11 +21,11 @@ const WITH_MERCHANT = { include: { merchant: { select: { onchainMerchantId: true
  * we lock the conversion here and document the rounding.
  */
 const SECONDS_PER_INTERVAL: Record<string, number> = {
-  day: 24 * 60 * 60,
-  week: 7 * 24 * 60 * 60,
-  month: 30 * 24 * 60 * 60,
-  quarter: 90 * 24 * 60 * 60,
-  year: 365 * 24 * 60 * 60,
+  daily: 24 * 60 * 60,
+  weekly: 7 * 24 * 60 * 60,
+  monthly: 30 * 24 * 60 * 60,
+  quarterly: 90 * 24 * 60 * 60,
+  yearly: 365 * 24 * 60 * 60,
 }
 
 @Injectable()
@@ -56,6 +56,22 @@ export class SubscriptionPlansService {
   async retrieve(merchantId: string, id: string): Promise<SubscriptionPlan> {
     const row = await this.prisma.db.subscriptionPlan.findFirst({
       where: { id, merchantId },
+      ...WITH_MERCHANT,
+    })
+    if (!row) throw new NotFoundException({ code: 'not_found', message: 'plan not found' })
+    return this.serialise(row)
+  }
+
+  /**
+   * Public lookup by id — does NOT filter by merchantId. Used by the
+   * hosted-checkout public endpoint so a payer landing on a plan URL
+   * can load enrolment terms without holding any API key. Plan data
+   * is intrinsically public (the merchant is offering it to payers)
+   * so this read leaks no merchant-confidential information.
+   */
+  async retrievePublic(id: string): Promise<SubscriptionPlan> {
+    const row = await this.prisma.db.subscriptionPlan.findFirst({
+      where: { id },
       ...WITH_MERCHANT,
     })
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'plan not found' })

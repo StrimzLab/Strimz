@@ -45,7 +45,7 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
     let cancelled = false
     void (async () => {
       try {
-        const s = await strimzBrowserClient().paymentSessions.retrieve(sessionId)
+        const s = await strimzBrowserClient().checkout.session(sessionId)
         if (cancelled) return
         setSession(s)
         if (!s.tokenAddress) {

@@ -32,6 +32,15 @@ export const envSchema = z.object({
     .regex(/^0x[0-9a-fA-F]{40}$/, 'must be a 0x-prefixed 20-byte hex address'),
 
   STRIMZ_WEBHOOK_SIGNING_SECRET: z.string().min(32),
+  /**
+   * 32-byte hex (= 64 chars) AES-256-GCM key. Must match the API's
+   * `WEBHOOK_SECRET_ENCRYPTION_KEY` exactly. Used to decrypt
+   * `MerchantWebhookEndpoint.signingSecretCiphertext` at boot so the
+   * scheduler can warm the Redis cache the delivery worker reads from.
+   */
+  WEBHOOK_SECRET_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[0-9a-fA-F]{64}$/u, 'must be a 32-byte hex string (64 chars)'),
   WEBHOOK_DELIVERY_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(10_000),
   WEBHOOK_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(5),
 
