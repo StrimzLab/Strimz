@@ -3,36 +3,61 @@ title: Self-hosting Strimz
 description: Run the full stack on your own infrastructure.
 ---
 
-The entire Strimz monorepo is open source. You can clone it, configure it against your own database + Redis + RPC + signing key, and run it. There's no proprietary "cloud-only" component — what's deployed at strimz.finance is what's in the repo.
+The whole Strimz monorepo is open source. You can clone it, point it
+at your own database, Redis, RPC, and signing key, and run the full
+stack yourself. There is no "cloud-only" piece. What's deployed at
+strimz.finance is what's in the repo.
 
 ## Why you might
 
-- **Compliance** — your jurisdiction requires customer data stays on your hardware.
-- **Cost** — your transaction volume makes the per-tx fee material; running it yourself is cheaper at scale.
-- **Customisation** — you want to add a capability the AutoPay Agent doesn't have.
-- **Auditability** — you want to read the indexer's exact projection logic against your own queries.
+There are four common reasons to self-host.
+
+Compliance. Your jurisdiction requires that customer data stays on
+hardware you control.
+
+Cost. Your transaction volume makes the per-transaction fee material,
+and running it yourself works out cheaper at scale.
+
+Customisation. You want to add a capability the AutoPay Agent doesn't
+have, or change something else about the platform.
+
+Auditability. You want to read the indexer's projection logic against
+your own queries, or trace the exact path a transaction takes through
+every process.
 
 ## Why you probably shouldn't (yet)
 
-- **Operational burden** — six processes, all needing observability, alerting, key rotation, and chain RPC redundancy.
-- **Indexer reorg edge cases** — we've fixed several; you'd inherit fresh ones if Arc has any in the future.
-- **Scheduler key custody** — the service signing key is the most sensitive secret in the system. Self-hosting means you own that risk.
-- **Compliance ops** — TRM Labs / Elliptic accounts, sanctions screening, security disclosure handling.
+A few things are easier said than done.
 
-The hosted Strimz product handles all of these. Self-hosting makes sense once you're sure you need the control.
+Operational burden. Six processes, each needing observability,
+alerting, key rotation, and a fallback RPC endpoint.
+
+Reorg edge cases. We've fixed several; you'd inherit any new ones if
+Arc ever has them.
+
+Relayer key custody. The relayer's signing key is the most sensitive
+secret in the system. Self-hosting means owning that risk yourself,
+including the choice of KMS backend.
+
+Compliance ops. TRM Labs or Elliptic accounts, sanctions screening,
+security disclosures, vendor reviews. None of that goes away if you
+self-host.
+
+The hosted product handles all of the above. Self-hosting makes
+sense once you're confident you need that level of control.
 
 ## Architecture overview
 
 See [How Strimz fits together](/docs/concepts/overview) for the diagram. The six processes:
 
-| Process | Hosting | Sensitivity |
-| --- | --- | --- |
-| `apps/api` | Render / Vercel / your container platform | Public-facing; standard webapp ops |
-| `apps/web` | Vercel (or any Next.js host) | Public-facing |
-| `apps/indexer` | Render / fly.io / k8s | Internal; needs RPC + DB |
-| `apps/scheduler` | Render / fly.io / k8s | **Holds signing key** |
-| `apps/agent` | Render / fly.io / k8s | Internal; sends emails |
-| `packages/contracts` | Foundry → deploy to Arc | Audited, immutable on-chain |
+| Process              | Where it runs                              | Sensitivity                                                                  |
+| -------------------- | ------------------------------------------ | ---------------------------------------------------------------------------- |
+| `apps/api`           | Render, Vercel, or your container platform | Public-facing. Holds the KMS-backed relayer key; see the KMS config.         |
+| `apps/web`           | Vercel, or any Next.js host                | Public-facing.                                                               |
+| `apps/indexer`       | Render, fly.io, or k8s                     | Internal. Needs RPC and database access.                                     |
+| `apps/scheduler`     | Render, fly.io, or k8s                     | Runs cron jobs and webhook delivery. Warms the webhook secret cache on boot. |
+| `apps/agent`         | Render, fly.io, or k8s                     | Internal. Sends emails.                                                      |
+| `packages/contracts` | Foundry, deployed to Arc                   | Audited and immutable on-chain.                                              |
 
 ## Getting started
 
@@ -44,14 +69,21 @@ pnpm install
 
 Each process has its own README with deploy steps:
 
-- **[Indexer setup](/docs/self-hosting/indexer)** — Postgres connection, RPC URL, contract addresses, confirmation depth
-- **[Scheduler setup](/docs/self-hosting/scheduler)** — service-wallet key management, queue concurrency, retry tuning
-- **[Agent setup](/docs/self-hosting/agent)** — capability config, cron schedules, Circle attestation API
+- [Indexer setup](/docs/self-hosting/indexer). Postgres connection, RPC URL, contract addresses, confirmation depth.
+- [Scheduler setup](/docs/self-hosting/scheduler). Cron jobs, the webhook delivery queue, secret-cache warmup, retry tuning.
+- Relayer (lives inside `apps/api`). KMS provider options (software-backed by default, hardware-backed when you're ready), nonce manager, gas pricing, idempotency keys. The full list is in `apps/api/.env.example`.
+- [Agent setup](/docs/self-hosting/agent). Capability config, cron schedules, the Circle attestation API.
 
-The smart contracts in `packages/contracts` deploy via Foundry's standard `forge script` flow; the addresses go into your env.
+The contracts in `packages/contracts` deploy via the standard
+`forge script` flow. Drop the resulting addresses into your env.
 
 ## Maintenance
 
-We push API + library + contract updates to the repo on the same release cadence we deploy at strimz.finance. Self-hosters subscribe to GitHub releases for breaking-change announcements.
+We push API, library, and contract updates to the repo on the same
+cadence we deploy at strimz.finance. If you're self-hosting, subscribe
+to GitHub releases so you don't miss a breaking change.
 
-Database migrations are Prisma migration files in `packages/db/prisma/migrations`. `pnpm db:migrate:deploy` applies them in order. We never edit a previously-released migration; new changes always create a new migration file with a date prefix.
+Database migrations are Prisma files in
+`packages/db/prisma/migrations`. `pnpm db:migrate:deploy` applies
+them in order. We never edit a migration after it ships; any new
+change is a new file with a fresh date prefix.

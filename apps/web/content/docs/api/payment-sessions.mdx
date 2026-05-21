@@ -17,8 +17,8 @@ POST /v1/payment-sessions
   "currency": "USDC",
   "description": "Pro plan, August",
   "successUrl": "https://your-site.com/thanks",
-  "cancelUrl":  "https://your-site.com/cancelled",
-  "metadata":   { "orderId": "abc-123" }
+  "cancelUrl": "https://your-site.com/cancelled",
+  "metadata": { "orderId": "abc-123" }
 }
 ```
 
@@ -32,9 +32,9 @@ Returns:
   "currency": "USDC",
   "status": "pending",
   "checkoutUrl": "https://strimz.finance/pay/sess_cmh3lmkw50000xv8d",
-  "expiresAt":  "2026-04-30T18:00:00Z",
-  "createdAt":  "2026-04-29T18:00:00Z",
-  "metadata":   { "orderId": "abc-123" }
+  "expiresAt": "2026-04-30T18:00:00Z",
+  "createdAt": "2026-04-29T18:00:00Z",
+  "metadata": { "orderId": "abc-123" }
 }
 ```
 
@@ -58,7 +58,7 @@ Filters: `status`, `customerId`, `createdAfter`, `createdBefore`.
 POST /v1/payment-sessions/{id}/cancel
 ```
 
-Cancels a `pending` session. Already-confirmed sessions can't be cancelled — refund the payment instead.
+Cancels a `pending` session. Already-confirmed sessions can't be cancelled. Refund the payment instead.
 
 ## Status lifecycle
 
@@ -72,8 +72,8 @@ Sessions expire 24 hours after creation by default. `expiresAt` is set when you 
 
 ## Webhook events
 
-| Event | Fires when |
-| --- | --- |
-| `payment.created` | The session row was created |
-| `payment.completed` | The on-chain transaction confirmed |
-| `payment.failed` | The session expired or was cancelled |
+| Event               | Fires when                           |
+| ------------------- | ------------------------------------ |
+| `payment.created`   | The session row was created          |
+| `payment.completed` | The on-chain transaction confirmed   |
+| `payment.failed`    | The session expired or was cancelled |

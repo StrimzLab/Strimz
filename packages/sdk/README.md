@@ -1,6 +1,8 @@
 # @strimz/sdk
 
-Server-side SDK for the Strimz API. Stripe-style — typed resources, idempotency, retries, pagination, and webhook signature verification.
+Server-side SDK for the Strimz API. Stripe-shaped: typed resources,
+automatic idempotency, retries, cursor pagination, and webhook
+signature verification.
 
 ## Installation
 
@@ -18,7 +20,7 @@ const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_SECRET_KEY! })
 const session = await strimz.paymentSessions.create({
   amount: '1000000', // 1 USDC in smallest units
   currency: 'USDC',
-  description: 'Premium plan – April',
+  description: 'Premium plan, April',
   successUrl: 'https://app.example.com/success',
 })
 
@@ -49,7 +51,7 @@ console.log(session.checkoutUrl)
 - **Idempotency** is automatic. Every mutating call generates an idempotency key (`strimz_<uuid>`) so a network retry doesn't double-charge a merchant. Override with `{ idempotencyKey }` in the second arg.
 - **Retries**: network failures and 5xx (idempotent calls only) and 429 are retried up to 3 times with exponential backoff and jitter. `Retry-After` is respected on 429.
 - **Pagination**: `list(...)` returns a single page; `listAuto(...)` (where exposed) returns an `AutoPagingIterator` that you can `for await` over.
-- **Errors are typed**. The SDK never resolves to `{ ok: false }` — it throws. Catch `StrimzAuthenticationError`, `StrimzNotFoundError`, `StrimzValidationError`, `StrimzRateLimitError`, etc., or the base `StrimzError`.
+- **Errors are typed**. The SDK throws on failure rather than resolving to `{ ok: false }`. Catch `StrimzAuthenticationError`, `StrimzNotFoundError`, `StrimzValidationError`, `StrimzRateLimitError`, etc., or the base `StrimzError`.
 
 ## Webhook verification
 
@@ -104,6 +106,6 @@ The browser client exposes a strict subset of resource methods. It will refuse a
 
 ## Boundaries
 
-- **No business logic** — the SDK validates inputs against `@strimz/shared-types` and forwards to the API.
-- **No persistent state** — the client is safe to instantiate per-request or reuse across requests.
-- **No secrets logged** — diagnostics never include the API key. Webhook signatures are verified with constant-time compare via `@strimz/shared-crypto`.
+- **No business logic.** The SDK validates inputs against `@strimz/shared-types` and forwards to the API.
+- **No persistent state.** The client is safe to instantiate per-request or reuse across requests.
+- **No secrets logged.** Diagnostics never include the API key. Webhook signatures are verified with constant-time compare via `@strimz/shared-crypto`.

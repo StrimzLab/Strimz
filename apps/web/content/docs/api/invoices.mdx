@@ -51,7 +51,7 @@ Emails the customer. Requires `customerEmail` to be set; returns 403 otherwise.
 POST /v1/invoices/{id}/void
 ```
 
-Cannot void a paid invoice — issue a refund instead. Voiding cancels the backing payment session.
+Cannot void a paid invoice. Issue a refund instead. Voiding cancels the backing payment session.
 
 ## Read
 
@@ -72,9 +72,9 @@ Daily cron flips invoices past `dueAt` to `overdue` and fires `invoice.overdue`.
 
 ## Webhook events
 
-| Event | Fires when |
-| --- | --- |
-| `invoice.created` | A new invoice was created |
-| `invoice.sent` | The invoice email was delivered |
-| `invoice.paid` | The backing session confirmed |
-| `invoice.overdue` | dueAt passed without payment |
+| Event             | Fires when                      |
+| ----------------- | ------------------------------- |
+| `invoice.created` | A new invoice was created       |
+| `invoice.sent`    | The invoice email was delivered |
+| `invoice.paid`    | The backing session confirmed   |
+| `invoice.overdue` | dueAt passed without payment    |

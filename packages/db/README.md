@@ -58,10 +58,10 @@ const merchant: Merchant | null = await prisma.merchant.findUnique({
 - **Multi-file schema** via the `prismaSchemaFolder` preview feature. One file per bounded context.
 - **Token amounts are `String(78)`** so we can carry up to uint256 without losing precision. Formatting is the consumer's responsibility.
 - **Every FK defaults to `Restrict`** for money-moving tables. Merchants and transactions are never hard-deleted; soft-close via status fields instead.
-- **`chargeAttemptId` is unique on `SubscriptionCharge`** — the scheduler enforces contract-level idempotency at the database level first.
+- **`chargeAttemptId` is unique on `SubscriptionCharge`.** The scheduler enforces contract-level idempotency at the database level first.
 - **Enums live in `enums.prisma`** and must stay in sync with the corresponding `@strimz/shared-types` Zod enums. Snake-cased values match the Zod `.enum([...])` shape.
 - **No soft-delete flag columns**; explicit status enums per domain are used instead (Merchant `closed`, Plan `archived`, Subscription `cancelled`, etc.).
-- **Audit log is central** — every mutating action writes a row. Actors, targets, and diffs are captured.
+- **Audit log is central.** Every mutating action writes a row. Actors, targets, and diffs are captured.
 
 ## Database target
 

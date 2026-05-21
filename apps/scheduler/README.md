@@ -1,6 +1,9 @@
 # `@strimz/scheduler`
 
-NestJS background-worker process. The **only** Strimz app that holds a service-wallet signing key — every on-chain write goes through here.
+NestJS background-worker process. Owns cron jobs and the webhook
+delivery queue. Does not hold any signing key. When a tick needs an
+on-chain write, the scheduler calls into `apps/api`, which signs
+through its KMS provider and broadcasts.
 
 ## Responsibilities
 
@@ -36,9 +39,16 @@ src/
 
 ## Multi-instance safety
 
-The sweeper uses Postgres `UPDATE … WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED)` to acquire `chargeLock` atomically. Two scheduler replicas running concurrently never see the same subscription as available — whichever process the row-level lock falls to wins; the other transparently picks up the next batch.
+The sweeper uses Postgres
+`UPDATE … WHERE id IN (SELECT … FOR UPDATE SKIP LOCKED)` to acquire
+`chargeLock` atomically. Two scheduler replicas running concurrently
+never see the same subscription as available. Whichever process
+wins the row-level lock keeps the batch; the other picks up the
+next one.
 
-The webhook-delivery worker is also multi-instance safe: BullMQ ensures each job is delivered to exactly one worker, and we no-op early on already-terminal `WebhookDelivery.status`.
+The webhook-delivery worker is also multi-instance safe. BullMQ
+delivers each job to exactly one worker, and the worker no-ops
+early on any `WebhookDelivery.status` that's already terminal.
 
 ## Running
 
@@ -48,18 +58,33 @@ pnpm --filter @strimz/scheduler test     # 10 unit tests
 pnpm --filter @strimz/scheduler test:e2e # 21 e2e tests (testcontainers Postgres + Redis)
 ```
 
-## Service-wallet key
+## Talking to the relayer
 
-The scheduler loads `SCHEDULER_PRIVATE_KEY` once at boot and keeps it in-process. **No other Strimz process may hold this key.** In production it comes from a secret manager (Render env, mounted from a vault). Local development uses any 32-byte hex.
+The scheduler does not hold a signing key. When a worker needs an
+on-chain write (subscription charge batch, on-chain cancel, agent
+escrow op, CCTP settle), it posts an internal request to
+`apps/api`. The API loads its KMS-backed key, signs, broadcasts,
+and writes the resulting `TxRequest` row. The scheduler reads back
+the receipt and updates its own state.
 
-The key signs every write to:
+The on-chain operations the relayer signs on the scheduler's behalf:
 
 - `StrimzSubscriptions.cancel(uint256)`
 - `StrimzSubscriptions.batchCharge(uint256[], bytes32[])`
 - `StrimzAgentEscrow.{createJob, approveAndRelease, dispute, cancelJob}(...)`
+- `MessageTransmitter.receiveMessage(...)` for CCTP settle
 
-These are the only function ABIs hand-curated in `src/infra/chain/abis.ts`. Any new on-chain operation goes through that file.
+Function ABIs for these calls live in `src/infra/chain/abis.ts`.
+Any new on-chain operation goes through that file.
 
 ## Webhook signing secret cache
 
-When the API creates a webhook endpoint it generates a 32-byte secret, stores `sha256(secret)` in Postgres for the lookup index, and writes the plaintext to Redis under `webhook:secret:<endpointId>` for the scheduler to read. Postgres dumps are the single most common sensitive-data leak vector; an in-memory store scoped separately to the same network keeps the blast radius small. Rotation is an atomic `set`.
+The API creates a webhook endpoint by generating a 32-byte secret.
+Postgres stores `sha256(secret)` as the lookup index plus an
+AES-256-GCM ciphertext of the plaintext. On boot the scheduler
+decrypts every ciphertext into Redis under
+`webhook:secret:<endpointId>` for the delivery worker to read on
+the hot path. Redis is a cache; the source of truth is Postgres.
+If Redis is flushed, the scheduler re-warms the cache on the next
+boot and webhook delivery resumes with no merchant action. Rotation
+is an atomic `set` against the cache plus a new ciphertext write.

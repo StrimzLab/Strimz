@@ -9,8 +9,8 @@ Shared TypeScript configurations for every package and app in the Strimz monorep
 | `base.json`          | The shared strict-mode foundation. Other configs extend this.                              |
 | `node.json`          | Node 22 services that emit JS (e.g. `apps/api` build tooling).                             |
 | `library.json`       | Pure TypeScript libraries that publish types (e.g. `@strimz/sdk`, `@strimz/shared-types`). |
-| `nestjs.json`        | NestJS apps and packages — enables CommonJS, decorators, and decorator metadata.           |
-| `nextjs.json`        | Next.js 15 apps — DOM lib, JSX preserve, `noEmit`, the `next` plugin.                      |
+| `nestjs.json`        | NestJS apps and packages. Enables CommonJS, decorators, and decorator metadata.            |
+| `nextjs.json`        | Next.js 15 apps. DOM lib, JSX preserve, `noEmit`, the `next` plugin.                       |
 | `react-library.json` | Shared React libraries (`@strimz/sdk-react`, `@strimz/ui`).                                |
 
 ## Usage

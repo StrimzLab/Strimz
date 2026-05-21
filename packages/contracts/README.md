@@ -1,28 +1,53 @@
 # @strimz/contracts
 
-Strimz smart contracts — the on-chain source of truth for merchant identity, payments, subscriptions, fees, and the AI-agent commerce layer. Solidity 0.8.28, Foundry, OpenZeppelin Contracts v5.6.1, OpenZeppelin Foundry Upgrades v0.4.0.
+Strimz smart contracts. On-chain source of truth for merchant identity, payments, subscriptions, fees, and the AI-agent commerce layer. Solidity 0.8.28, Foundry, OpenZeppelin Contracts v5.6.1, OpenZeppelin Foundry Upgrades v0.4.0.
 
 ## Architecture
 
-Every contract is a **UUPS proxy**. Implementations disable initialisers in their constructors (annotated with `/// @custom:oz-upgrades-unsafe-allow constructor`) and expose an `initialize(...)` that runs once via the proxy.
+The policy contracts (`StrimzRegistry`, `FeeCollector`,
+`TokenWhitelist`, `StrimzAgentRegistry`, `StrimzAgentEscrow`) are
+UUPS proxies. Their implementations disable initialisers in the
+constructor (annotated with
+`/// @custom:oz-upgrades-unsafe-allow constructor`) and expose an
+`initialize(...)` that runs once through the proxy.
 
-Each contract reserves a deterministic **ERC-7201 storage slot** for its state struct. Future versions can append fields to that struct or add new storage namespaces with zero risk of collision with existing slots — **no breaks, no data loss on upgrade**.
+The two value-moving contracts (`StrimzPayments` and
+`StrimzSubscriptions`) are deliberately immutable. Their logic is
+fixed at deploy time. A stolen admin key cannot rewrite the code
+that moves USDC out of a payer's wallet, because no upgrade path
+exists to rewrite.
 
-| Contract              | Storage namespace                    |
-| --------------------- | ------------------------------------ |
-| `TokenWhitelist`      | `strimz.storage.TokenWhitelist`      |
-| `FeeCollector`        | `strimz.storage.FeeCollector`        |
-| `StrimzRegistry`      | `strimz.storage.StrimzRegistry`      |
-| `StrimzPayments`      | `strimz.storage.StrimzPayments`      |
-| `StrimzSubscriptions` | `strimz.storage.StrimzSubscriptions` |
-| `StrimzAgentRegistry` | `strimz.storage.StrimzAgentRegistry` |
-| `StrimzAgentEscrow`   | `strimz.storage.StrimzAgentEscrow`   |
+Every contract reserves a deterministic ERC-7201 storage slot for
+its state struct. Upgradeable contracts use this so future versions
+can append fields without colliding with existing slots. The
+immutable contracts use it too, because their dependency pointers
+(Registry, FeeCollector, TokenWhitelist) can still be rotated by
+`ADMIN_ROLE` after deploy.
 
-**Upgrade authorization.** `_authorizeUpgrade` is gated by `UPGRADER_ROLE`. In production this role is held by an OpenZeppelin `TimelockController` (48h delay on mainnet) controlled by a Safe multi-sig. On testnet a single deployer holds it for development velocity.
+| Contract              | Upgradeable    | Storage namespace                    |
+| --------------------- | -------------- | ------------------------------------ |
+| `TokenWhitelist`      | UUPS           | `strimz.storage.TokenWhitelist`      |
+| `FeeCollector`        | UUPS           | `strimz.storage.FeeCollector`        |
+| `StrimzRegistry`      | UUPS           | `strimz.storage.StrimzRegistry`      |
+| `StrimzPayments`      | No, immutable. | `strimz.storage.StrimzPayments`      |
+| `StrimzSubscriptions` | No, immutable. | `strimz.storage.StrimzSubscriptions` |
+| `StrimzAgentRegistry` | UUPS           | `strimz.storage.StrimzAgentRegistry` |
+| `StrimzAgentEscrow`   | UUPS           | `strimz.storage.StrimzAgentEscrow`   |
+
+**Upgrade authorization.** Where it exists, `_authorizeUpgrade` is
+gated by `UPGRADER_ROLE`. In production the role is held by an
+OpenZeppelin `TimelockController` (48-hour delay on mainnet)
+controlled by a Safe multi-sig. On testnet a single deployer holds
+it for development velocity.
 
 **Validated upgrades.** Deploy scripts and the upgrade test go through `openzeppelin-foundry-upgrades`'s `Upgrades.deployUUPSProxy` and `Upgrades.upgradeProxy`. These shell out to the OpenZeppelin upgrades-core CLI (Node) to verify storage-layout compatibility before any deployment or upgrade transaction is broadcast. The validator refuses to ship a V2 whose storage layout would collide with V1.
 
-**Dependency rotation.** Payments and Subscriptions read Registry, FeeCollector, and TokenWhitelist references from their own namespaced storage — not from immutables. `setRegistry` / `setFeeCollector` / `setTokenWhitelist` admin endpoints let those references rotate independently from a contract upgrade.
+**Dependency rotation.** Payments and Subscriptions read Registry,
+FeeCollector, and TokenWhitelist references from their own
+namespaced storage rather than from immutables. The
+`setRegistry`, `setFeeCollector`, and `setTokenWhitelist` admin
+endpoints let those references rotate without touching the
+value-moving logic.
 
 ## Layout
 
@@ -62,9 +87,9 @@ deployments/
 
 | Lever              | Choice                                                                         |
 | ------------------ | ------------------------------------------------------------------------------ |
-| `via_ir`           | `true` — better optimisation passes                                            |
-| `optimizer_runs`   | `1_000_000` — runtime-optimal (millions of executions expected)                |
-| Custom errors      | Everywhere — ~50% cheaper than revert strings                                  |
+| `via_ir`           | `true`. Better optimisation passes.                                            |
+| `optimizer_runs`   | `1_000_000`. Runtime-optimal (millions of executions expected).                |
+| Custom errors      | Everywhere. ~50% cheaper than revert strings.                                  |
 | Struct packing     | `Subscription` packed to 4 slots (was 5); `Merchant` packed to 2 slots         |
 | Hot-path locals    | Subscription charge caches `payer`, `amount`, `token` to avoid repeated SLOADs |
 | `unchecked` blocks | Loop counters and provably-safe arithmetic                                     |
@@ -73,18 +98,18 @@ deployments/
 
 ## Security posture
 
-- **Enums begin with `None`.** `ChargeOutcome` and `JobStatus` reserve index 0 for `None` so the default value of an uninitialised storage slot is never a valid state. Reading an unset slot as `Charged` or `Proposed` would be a silent-value-leak vulnerability.
-- **Contract-level charge idempotency.** Every subscription charge call carries a unique `chargeAttemptId` (bytes32). The contract rejects reuse — double-charging is structurally impossible even if the off-chain scheduler crashes mid-batch.
-- **Owner-pausable kill switch.** Every value-moving function respects `Pausable`. ADMIN_ROLE can halt all transfers in one call.
+- **Enums begin with `None`.** `ChargeOutcome` and `JobStatus` reserve index 0 for `None`, so the default value of an uninitialised storage slot is never a valid state. Reading an unset slot as `Charged` or `Proposed` would be a silent value-leak vulnerability.
+- **Contract-level charge idempotency.** Every subscription charge carries a unique `chargeAttemptId` (bytes32). The contract rejects reuse. Double-charging is structurally impossible even if the off-chain scheduler crashes mid-batch.
+- **Owner-pausable kill switch.** Every value-moving function respects `Pausable`. `ADMIN_ROLE` can halt all transfers in a single call.
 - **Reentrancy guards** on every value-moving function (`pay`, `withdraw`, `batchCharge`, `fundJob`, `approveAndRelease`, `cancelJob`).
-- **Storage-safety validation** at deploy and upgrade time — `Upgrades.deployUUPSProxy` and `Upgrades.upgradeProxy` will fail loudly before any chain transaction if the new bytecode is incompatible.
+- **Storage-safety validation** at deploy and upgrade time. `Upgrades.deployUUPSProxy` and `Upgrades.upgradeProxy` will fail loudly before any chain transaction if the new bytecode is incompatible.
 - **No `tx.origin`. No `delegatecall` outside OZ-vetted UUPS plumbing. No assembly outside the ERC-7201 storage-slot helper.**
 
 ## Deployment flow
 
 1. Build the project with full storage layouts (`forge build`).
 2. The plugin validates each implementation against its predecessor (if any) before deploying.
-3. Deploy each ERC-1967 proxy, calling `initialize(...)` via the proxy's constructor in one transaction (atomic — no front-running window).
+3. Deploy each ERC-1967 proxy, calling `initialize(...)` via the proxy's constructor in one transaction (atomic, with no front-running window).
 4. Wire roles between proxies (e.g. grant `FEE_ACCRUER_ROLE` on `FeeCollector` to `Payments` and `Subscriptions`).
 5. Seed the token whitelist with the Arc USDC / EURC addresses.
 6. Append a JSON record to `deployments/<chainId>.jsonl`.
@@ -115,21 +140,21 @@ Copy `.env.example` to `.env`:
 | `ARC_MAINNET_RPC_URL`            | RPC for mainnet deploys                                                        |
 | `STRIMZ_DEPLOYER_PRIVATE_KEY`    | Funded deployer. Never commit. Get testnet gas at `https://faucet.circle.com`. |
 | `ARCSCAN_API_KEY`                | For `--verify` on ArcScan                                                      |
-| `ARC_USDC_ADDRESS`               | Token whitelist seed — auto-added by `DeployCore`                              |
-| `ARC_EURC_ADDRESS`               | Token whitelist seed — auto-added by `DeployCore`                              |
-| `STRIMZ_TOKEN_WHITELIST_ADDRESS` | Whitelist proxy address — required by `DeployAgent`                            |
+| `ARC_USDC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                              |
+| `ARC_EURC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                              |
+| `STRIMZ_TOKEN_WHITELIST_ADDRESS` | Whitelist proxy address. Required by `DeployAgent`.                            |
 
 ## Audit posture
 
 - Unit tests per contract + a real V1→V2 upgrade test + invariant test.
-- The `Upgradeability.t.sol` test goes through the OpenZeppelin Foundry Upgrades validator, so storage compatibility is enforced as part of the test suite, not just an off-chain check.
+- The `Upgradeability.t.sol` test goes through the OpenZeppelin Foundry Upgrades validator, so storage compatibility is enforced as part of the test suite rather than only at deploy time.
 - No mainnet deploy ships without an independent third-party audit.
 - `Pausable` kill switch on every value-moving function so a triaged incident is a one-transaction stop-the-bleed.
 - Multi-sig (Safe) controls `DEFAULT_ADMIN_ROLE` and `UPGRADER_ROLE` in production; EOA is acceptable on testnet only.
 
 ## Foundry config notes
 
-- `ffi = true` and `ast = true` are required by `openzeppelin-foundry-upgrades` — it shells out to a Node validator and parses the AST for storage layouts.
+- `ffi = true` and `ast = true` are required by `openzeppelin-foundry-upgrades`. It shells out to a Node validator and parses the AST for storage layouts.
 - `extra_output = ["storageLayout"]` and `build_info = true` ensure the validator has the data it needs.
 - The `test` script does `forge clean && forge build` before `forge test` because the OZ validator rejects partial build-info; incremental compiles produce partial output.
 - `via_ir = true` is enabled for the better optimiser; this slows compile time but is worthwhile for hot-path contracts.

@@ -1,4 +1,11 @@
 {
   "title": "Concepts",
-  "pages": ["overview", "resources", "idempotency", "modes-of-failure", "on-chain-architecture"]
+  "pages": [
+    "overview",
+    "resources",
+    "idempotency",
+    "meta-tx-flow",
+    "modes-of-failure",
+    "on-chain-architecture"
+  ]
 }

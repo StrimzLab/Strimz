@@ -29,7 +29,7 @@ Zod schemas and inferred TypeScript types for every entity, API input, and webho
 | `/agents`           | Identity, merchant config, activity log, ERC-8183 jobs                                                  |
 | `/storefronts`      | Storefront + product                                                                                    |
 | `/invoices`         | Invoice + line items                                                                                    |
-| `/events`           | Discriminated `StrimzWebhookEvent` union — every webhook payload shape                                  |
+| `/events`           | Discriminated `StrimzWebhookEvent` union covering every webhook payload shape                           |
 
 The package root re-exports every subpath.
 
@@ -45,7 +45,7 @@ const parsed: CreatePaymentSessionInput = createPaymentSessionInputSchema.parse(
 ```
 
 ```ts
-// In a webhook handler — exhaustive over every event kind
+// In a webhook handler. Exhaustive over every event kind.
 import { webhookEventSchema, type StrimzWebhookEvent } from '@strimz/shared-types/events'
 
 function handle(event: StrimzWebhookEvent) {

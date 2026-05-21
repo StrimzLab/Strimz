@@ -1,17 +1,20 @@
 ---
 title: Resources
-description: The objects you'll interact with — what they mean, when they exist, what their lifecycles look like.
+description: The objects you'll interact with. What they mean, when they exist, what their lifecycles look like.
 ---
 
 Strimz exposes a small number of resources. Most have a lifecycle (`pending` → `confirmed` → `refunded`) that's worth knowing before you start wiring webhooks.
 
 ## Merchant
 
-The top-level you. Created by Privy on first login. Holds business info (name, sector, country, payout address) and configuration (active capabilities, agent settings). Most resources hang off `merchantId`.
+You, basically. Created by Privy on first login. Holds business info
+(name, sector, country, payout address) and configuration (active
+capabilities, agent settings). Most other resources hang off
+`merchantId`.
 
 ## Customer
 
-Anyone who has paid you. Strimz creates a `Customer` row automatically the first time a wallet pays one of your sessions or subscriptions. Unique on `(merchantId, walletAddress)` — the same wallet across two merchants is two distinct rows.
+Anyone who has paid you. Strimz creates a `Customer` row automatically the first time a wallet pays one of your sessions or subscriptions. Unique on `(merchantId, walletAddress)`. The same wallet across two merchants is two distinct rows.
 
 ## PaymentSession
 
@@ -25,7 +28,7 @@ Sessions expire after 24 hours by default. An expired session goes to `cancelled
 
 ## Subscription + SubscriptionPlan
 
-A `SubscriptionPlan` is the *template* (name, amount, interval, intervalCount). A `Subscription` is the *instance* — a specific customer subscribed to a specific plan.
+A `SubscriptionPlan` is the _template_ (name, amount, interval, intervalCount). A `Subscription` is the _instance_: a specific customer subscribed to a specific plan.
 
 ```
 active  →  at_risk  →  lapsed
@@ -33,11 +36,11 @@ active  →  at_risk  →  lapsed
          cancelled
 ```
 
-A failed charge moves a sub from `active` to `at_risk`. The agent emails the customer per your configured strategy. After the grace window (24/48/72h, your choice), the sub flips to `lapsed` and stops attempting charges. The customer can also cancel directly from their wallet — the indexer projects `SubscriptionCancelled` and we mark the row.
+A failed charge moves a sub from `active` to `at_risk`. The agent emails the customer per your configured strategy. After the grace window (24/48/72h, your choice), the sub flips to `lapsed` and stops attempting charges. The customer can also cancel directly from their wallet. The indexer projects `SubscriptionCancelled` and Strimz marks the row.
 
 ## SubscriptionCharge
 
-One charge attempt. Created by the scheduler when a sub is due. Idempotency is guaranteed by `chargeAttemptId` — a deterministic `keccak256(subscriptionId, periodEndAt)`.
+One charge attempt. Created by the scheduler when a sub is due. Idempotency is guaranteed by `chargeAttemptId`, a deterministic `keccak256(subscriptionId, periodEndAt)`.
 
 ```
 pending  →  succeeded  ↦  Transaction(kind=subscription_charge)
@@ -48,28 +51,32 @@ pending  →  succeeded  ↦  Transaction(kind=subscription_charge)
 
 A confirmed on-chain payment. There are several kinds:
 
-| `kind` | Source |
-| --- | --- |
-| `one_shot` | Customer paid a session |
+| `kind`                | Source                               |
+| --------------------- | ------------------------------------ |
+| `one_shot`            | Customer paid a session              |
 | `subscription_charge` | Scheduler successfully charged a sub |
-| `refund` | A refund tx was confirmed |
+| `refund`              | A refund tx was confirmed            |
 
 `Transaction.amount` is in smallest token units (USDC has 6 decimals). `feeAmount` is the Strimz platform fee at the merchant's tier. `netAmount` is what landed in the merchant's payout wallet.
 
 ## Refund
 
-Server-side intent + wallet-signed transfer.
+Server-side intent, wallet-signed transfer.
 
 ```
 awaiting_signature  →  submitted  →  completed
                                 ↘  failed
 ```
 
-You create the refund (which validates against `Transaction.amount` so cumulative refunds can't exceed the original). We return wallet-signing instructions. You broadcast the ERC-20 Transfer. The indexer detects the on-chain transfer and flips the row to `completed`.
+You create the refund. Strimz validates the amount against
+`Transaction.amount` so cumulative refunds cannot exceed the
+original. The response carries wallet-signing instructions. You
+broadcast the ERC-20 Transfer. The indexer sees the on-chain
+transfer and flips the row to `completed`.
 
 ## Invoice
 
-A hosted, branded payment page with line items + a backing `PaymentSession`. Useful for B2B billing where the buyer wants to see the breakdown before paying.
+A hosted, branded payment page with line items and a backing `PaymentSession`. Useful for B2B billing where the buyer wants to see the breakdown before paying.
 
 ```
 draft  →  sent  →  paid
@@ -87,7 +94,7 @@ pending  →  delivered                      (2xx response)
         ↘   retrying  →  permanently_failed (after max attempts)
 ```
 
-Every delivery is one BullMQ job; we keep the attempts visible in your dashboard so you can debug a flaky receiver row by row.
+Every delivery is one BullMQ job. The attempts stay visible in your dashboard so you can debug a flaky receiver row by row.
 
 ## AgentJob
 

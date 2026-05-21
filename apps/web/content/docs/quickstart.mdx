@@ -4,11 +4,11 @@ description: Sign up, get a key, send a test payment, wire a webhook. About five
 ---
 
 This page takes you from zero to a confirmed test transaction in your
-dashboard. Every command here works as written — no placeholders.
+dashboard. Every command here works as written. No placeholders.
 
 <Callout title="Prerequisites" type="info">
-  - Node.js 18+ or Bun 1.0+ (or any HTTP client)
-  - A wallet with Arc-testnet USDC — see [Modes](/docs/modes) for the faucet
+  - Node.js 18+ or Bun 1.0+ (or any HTTP client) - A wallet with Arc-testnet USDC. See
+  [Modes](/docs/modes) for the faucet.
 </Callout>
 
 <Steps>
@@ -18,7 +18,7 @@ dashboard. Every command here works as written — no placeholders.
 ### Create your account
 
 Go to [strimz.finance/signup](/signup). You can sign in with email, an existing
-wallet, or Google. We use [Privy](https://privy.io) under the hood. If you
+wallet, or Google. Strimz uses [Privy](https://privy.io) under the hood. If you
 sign in with email, Privy creates an embedded Arc wallet for you in the
 background.
 
@@ -34,7 +34,7 @@ wallet.
 
 In the dashboard, open **API keys** and click **Issue key**. Pick **Test
 mode** for now. You'll get a string that starts with `sk_test_`. Copy it
-straight away. We only show the full key once. If you lose it, revoke it
+straight away. The full key is only shown once. If you lose it, revoke it
 and issue a new one.
 
 ```bash
@@ -42,9 +42,9 @@ export STRIMZ_KEY=sk_test_xxxxxxxxxxxxxxxxxxxx
 ```
 
 <Callout title="Test mode is fully isolated" type="info">
-  Test-mode keys can never charge a live customer. Live-mode keys can never
-  accidentally settle in the test environment. Different on-chain
-  deployments, different RPCs, different DBs. See [Modes](/docs/modes).
+  Test-mode keys can never charge a live customer. Live-mode keys can never accidentally settle in
+  the test environment. Different on-chain deployments, different RPCs, different DBs. See
+  [Modes](/docs/modes).
 </Callout>
 
 </Step>
@@ -54,26 +54,10 @@ export STRIMZ_KEY=sk_test_xxxxxxxxxxxxxxxxxxxx
 ### Install the SDK
 
 <Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
-  <Tab value="pnpm">
-    ```bash
-    pnpm add @strimz/sdk
-    ```
-  </Tab>
-  <Tab value="npm">
-    ```bash
-    npm install @strimz/sdk
-    ```
-  </Tab>
-  <Tab value="yarn">
-    ```bash
-    yarn add @strimz/sdk
-    ```
-  </Tab>
-  <Tab value="bun">
-    ```bash
-    bun add @strimz/sdk
-    ```
-  </Tab>
+  <Tab value="pnpm">```bash pnpm add @strimz/sdk ```</Tab>
+  <Tab value="npm">```bash npm install @strimz/sdk ```</Tab>
+  <Tab value="yarn">```bash yarn add @strimz/sdk ```</Tab>
+  <Tab value="bun">```bash bun add @strimz/sdk ```</Tab>
 </Tabs>
 
 If you'd rather not add a Node dependency, skip ahead to step 4 and use
@@ -87,8 +71,8 @@ plain HTTPS. Every endpoint is documented in the
 ### Create your first payment session
 
 A **payment session** is a hosted checkout. You create one on the server
-and send your customer to the `checkoutUrl` we return. They connect a
-wallet, sign the payment, and we send you a webhook once it confirms
+and send your customer to the `checkoutUrl` it returns. They connect a
+wallet, sign the payment, and Strimz fires a webhook once it confirms
 on-chain.
 
 <Tabs items={['TypeScript', 'curl']}>
@@ -108,6 +92,7 @@ on-chain.
 
     console.log(session.checkoutUrl)
     ```
+
   </Tab>
   <Tab value="curl">
     ```bash
@@ -131,9 +116,8 @@ that has Arc-testnet USDC, and complete the payment. Now refresh the
 and within a few seconds its status moves from `pending` to `confirmed`.
 
 <Callout title="Where do I get test USDC?" type="info">
-  Visit [Circle's faucet](https://faucet.circle.com) and choose **Arc
-  testnet**. You'll need an Arc-testnet RPC in your wallet — see
-  [Modes](/docs/modes) for the URL.
+  Visit [Circle's faucet](https://faucet.circle.com) and choose **Arc testnet**. You'll need an
+  Arc-testnet RPC in your wallet. See [Modes](/docs/modes) for the URL.
 </Callout>
 
 </Step>
@@ -142,7 +126,8 @@ and within a few seconds its status moves from `pending` to `confirmed`.
 
 ### Receive your first webhook
 
-Polling for state changes is no fun. Use a webhook endpoint instead:
+Polling for state changes works but it gets old fast. A webhook
+endpoint is the right shape:
 
 ```ts
 const endpoint = await strimz.webhookEndpoints.create({
@@ -151,7 +136,7 @@ const endpoint = await strimz.webhookEndpoints.create({
   mode: 'test',
 })
 
-console.log(endpoint.signingSecret)  // shown ONCE — store it
+console.log(endpoint.signingSecret) // shown ONCE. Store it now.
 ```
 
 Now wire the receiver:
@@ -190,10 +175,10 @@ itself are documented on [Verifying webhooks](/docs/guides/webhooks).
 
 ## What you just did
 
-You signed up, got an API key, created a hosted checkout, accepted a real
-test payment, and wired a webhook to react to it. **The production version
-of this code is the same.** You swap `sk_test_` for `sk_live_` and point the
-webhook at your real URL. That's it.
+You signed up, issued an API key, created a hosted checkout, took a
+real test payment, and wired a webhook to react to it. The production
+version of this code is identical. Swap `sk_test_` for `sk_live_` and
+point the webhook at your real URL.
 
 ## Next steps
 

@@ -5,7 +5,7 @@ description: Server and browser SDKs for Strimz.
 
 # SDKs
 
-## Server — `@strimz/sdk`
+## Server: `@strimz/sdk`
 
 ```bash
 pnpm add @strimz/sdk
@@ -16,20 +16,25 @@ import { Strimz } from '@strimz/sdk'
 
 const strimz = new Strimz({ apiKey: process.env.STRIMZ_KEY! })
 
-const session   = await strimz.paymentSessions.create({ amount: '50000000', currency: 'USDC' })
-const sub       = await strimz.subscriptions.retrieve('sub_xyz')
-const refund    = await strimz.refunds.create({ transactionId: 'tx_xyz', amount: '50000000', reason: 'customer_request' })
+const session = await strimz.paymentSessions.create({ amount: '50000000', currency: 'USDC' })
+const sub = await strimz.subscriptions.retrieve('sub_xyz')
+const refund = await strimz.refunds.create({
+  transactionId: 'tx_xyz',
+  amount: '50000000',
+  reason: 'customer_request',
+})
 ```
 
 Resources:
-- `paymentSessions`, `subscriptions`, `subscriptionPlans`, `refunds`,
-- `webhookEndpoints`, `webhookDeliveries`,
-- `invoices`, `storefronts`, `agents`,
+
+- `paymentSessions`, `subscriptions`, `subscriptionPlans`, `refunds`
+- `webhookEndpoints`, `webhookDeliveries`
+- `invoices`, `storefronts`, `agents`
 - `customers`, `transactions`, `apiKeys`, `merchants`
 
-Every method returns a typed Zod-validated response.
+Every method returns a typed, Zod-validated response.
 
-## Browser — `@strimz/sdk-react`
+## Browser: `@strimz/sdk-react`
 
 ```bash
 pnpm add @strimz/sdk-react
@@ -41,9 +46,7 @@ import { StrimzProvider, StrimzPayButton } from '@strimz/sdk-react'
 
 export function App({ children }) {
   return (
-    <StrimzProvider config={{ baseUrl: 'https://api.strimz.finance' }}>
-      {children}
-    </StrimzProvider>
+    <StrimzProvider config={{ baseUrl: 'https://api.strimz.finance' }}>{children}</StrimzProvider>
   )
 }
 
@@ -52,4 +55,5 @@ export function Checkout({ sessionId }: { sessionId: string }) {
 }
 ```
 
-The browser SDK uses **publishable** keys (`pk_test_…` / `pk_live_…`) — safe to ship to the client.
+The browser SDK uses publishable keys (`pk_test_…` and `pk_live_…`),
+which are safe to ship to the client.

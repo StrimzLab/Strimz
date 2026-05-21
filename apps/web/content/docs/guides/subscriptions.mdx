@@ -5,7 +5,7 @@ description: Recurring revenue, on stablecoins, with one customer signature.
 
 Strimz subscriptions are pull-based. Your customer signs one transaction
 that lets the contract charge them a fixed amount on a fixed schedule.
-After that, our scheduler does the work every period. There are no
+After that, the Strimz scheduler does the work every period. There are no
 re-prompts to deal with, no card-on-file expiry, and no "your bank
 declined the renewal" emails.
 
@@ -14,7 +14,7 @@ declined the renewal" emails.
 ```ts
 const plan = await strimz.subscriptionPlans.create({
   name: 'Pro',
-  amount: '20000000',     // 20 USDC, 6 decimals
+  amount: '20000000', // 20 USDC, 6 decimals
   currency: 'USDC',
   interval: 'monthly',
   intervalCount: 1,
@@ -29,12 +29,23 @@ Plans are templates. They don't represent a single customer; they represent a re
 
 ## Customer subscribes
 
-Send the customer to `plan.checkoutUrl`. They connect a wallet, see "Subscribe — 20 USDC/month", and sign two transactions:
+Send the customer to `plan.checkoutUrl`. They connect a wallet, see
+"Subscribe, 20 USDC/month", and sign one message.
 
-1. **Approve** — grants Strimz's contract permission to move USDC from their wallet, up to a multi-month limit (we approve `12 × amount` by default so monthly re-prompts aren't needed).
-2. **Subscribe** — calls `StrimzSubscriptions.createSubscription()` with the merchant ID, token, amount, interval, and start time.
+The message is an EIP-2612 `Permit`, a structured authorisation USDC
+supports natively that grants the `StrimzSubscriptions` contract a
+recurring allowance. Strimz's relayer takes that signed permit and
+calls `permitAndCreateSubscription` in a single atomic transaction.
+The permit is consumed and the subscription is created in the same
+block. There is no approve-then-subscribe round trip.
 
-You receive `subscription.created` immediately and another webhook each time a period charges (`subscription.charged`).
+The full security model lives on the
+[meta-tx flow page](/docs/concepts/meta-tx-flow): what the customer
+signs, why the relayer cannot move funds on its own, when the
+signature expires.
+
+You receive `subscription.created` immediately and another webhook
+each time a period charges (`subscription.charged`).
 
 ## What happens at charge time
 
@@ -46,38 +57,47 @@ The worker calls `batchCharge(subscriptionIds, chargeAttemptIds)` on the contrac
 
 A failed charge moves the subscription to `at_risk` and fires `subscription.charge_failed` with the on-chain `outcome`:
 
-| `outcome` | What it means |
-| --- | --- |
-| `insufficient_funds` | Customer's USDC balance is below the charge amount |
-| `revoked_approval` | Customer revoked your contract's allowance |
-| `cancelled` | Customer cancelled on-chain between your charge attempts (rare race) |
-| `skipped` | Period not yet due (defensive; should never reach you) |
+| `outcome`            | What it means                                                        |
+| -------------------- | -------------------------------------------------------------------- |
+| `insufficient_funds` | Customer's USDC balance is below the charge amount                   |
+| `revoked_approval`   | Customer revoked your contract's allowance                           |
+| `cancelled`          | Customer cancelled on-chain between your charge attempts (rare race) |
+| `skipped`            | Period not yet due (defensive; should never reach you)               |
 
 If you've enabled the agent's `recovery` capability, the customer gets an email. After your configured grace window (`24h` / `48h` / `72h`), the sub flips to `lapsed`.
 
 ## Cancel a subscription
 
-Two paths:
+There are two paths to cancellation.
 
-**Merchant cancels** (e.g., because the customer's account was deleted):
+**Merchant-initiated.** Say the customer's account was deleted on
+your side:
 
 ```ts
 await strimz.subscriptions.cancel(subscriptionId, { reason: 'merchant initiated' })
 ```
 
-This marks the DB optimistically and enqueues an on-chain cancel. You'll receive `subscription.cancelled` once the on-chain tx confirms.
+This marks the DB optimistically and enqueues an on-chain cancel.
+The `subscription.cancelled` webhook fires once the on-chain tx
+confirms.
 
-**Customer cancels in their wallet** by calling the contract directly. The indexer projects the `SubscriptionCancelled` event and we mark the row.
+**Customer-initiated.** The customer calls the contract directly
+from their wallet. The indexer picks up `SubscriptionCancelled` and
+flips the row.
 
-Either way, the customer's wallet stops being charged. Their existing approval allowance still exists; if you want to *fully* revoke, the customer needs to call `approve(spender, 0)` on the USDC contract themselves. We don't auto-revoke because future plans might use the same spender.
+Either way, the customer's wallet stops getting charged. Their
+existing token allowance still exists. To revoke the allowance
+fully, the customer calls `approve(spender, 0)` on the USDC
+contract. Strimz does not auto-revoke because future plans might
+use the same spender.
 
 ## Trial periods
 
-`trialPeriodDays: 14` on the plan means the first charge is `now + 14 days` instead of `now`. The customer signs immediately so you know they've committed; we just don't take their money for two weeks. Standard trial behaviour.
+`trialPeriodDays: 14` on the plan means the first charge is `now + 14 days` instead of `now`. The customer signs immediately so you know they've committed. Strimz holds off on taking their money for two weeks. Standard trial behaviour.
 
 ## Pricing math
 
-Strimz charges a per-transaction fee on every charge based on your tier. For a Starter ($0.5%) merchant subscribing a customer to a 20 USDC monthly plan:
+Strimz charges a per-transaction fee on every charge based on your tier. For a Starter (0.5%) merchant subscribing a customer to a 20 USDC monthly plan:
 
 - Customer pays: **20.00 USDC**
 - Strimz fee: **0.10 USDC** (0.5%)
