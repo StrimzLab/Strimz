@@ -26,7 +26,7 @@ GET  /v1/subscription-plans
 
 ## Subscriptions
 
-Customers create subscriptions on-chain via your hosted checkout — there's no `POST /v1/subscriptions` endpoint. The indexer projects them when the chain emits `SubscriptionCreated`.
+Customers create subscriptions on-chain via your hosted checkout. There's no `POST /v1/subscriptions` endpoint. The indexer projects them when the chain emits `SubscriptionCreated`.
 
 Read paths:
 
@@ -55,10 +55,10 @@ Charges are auto-created by the scheduler when a charge is attempted on-chain.
 
 ## Webhook events
 
-| Event | Fires when |
-| --- | --- |
-| `subscription.created` | A new on-chain subscription is observed |
-| `subscription.charged` | A periodic charge succeeded |
-| `subscription.charge_failed` | A charge attempt failed |
-| `subscription.cancelled` | The merchant or customer cancelled |
-| `subscription.lapsed` | Grace period exceeded |
+| Event                        | Fires when                              |
+| ---------------------------- | --------------------------------------- |
+| `subscription.created`       | A new on-chain subscription is observed |
+| `subscription.charged`       | A periodic charge succeeded             |
+| `subscription.charge_failed` | A charge attempt failed                 |
+| `subscription.cancelled`     | The merchant or customer cancelled      |
+| `subscription.lapsed`        | Grace period exceeded                   |

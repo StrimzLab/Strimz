@@ -3,32 +3,32 @@ title: Test mode vs live mode
 description: How Strimz separates test traffic from real traffic, end to end.
 ---
 
-Test mode and live mode are kept apart at every layer. They use different
-smart-contract deployments, different RPC URLs, different Postgres tables,
-different webhook endpoints, and different signing secrets. There is no
-way for a test-mode call to settle a real payment, and there's no
-"promote to live" step that migrates test data into production. This is
-on purpose.
+Test and live mode are separated at every layer. Different
+smart-contract deployments, different RPC URLs, different Postgres
+tables, different webhook endpoints, different signing secrets. A
+test-mode call cannot settle a real payment, and there is no "promote
+to live" step that migrates test data over. The separation is
+deliberate.
 
-## Why we keep them this far apart
+## Why the separation is so strict
 
-A lot of billing incidents come down to one mistake: someone thought they
-were hitting test, but they were hitting prod. We made that mistake
-impossible by construction. The `sk_test_` key prefix routes your request
-to a different chain, a different database, a different scheduler, and a
-different agent. When you're ready for production, you swap the key
-prefix from `sk_test_` to `sk_live_` and your code keeps working.
+Plenty of billing incidents trace back to one mistake: someone
+thought they were hitting test, but they were hitting prod. Strimz
+removes that class of mistake. The `sk_test_` prefix routes your
+request to a different chain, database, scheduler, and agent. When
+you're ready for production, you swap `sk_test_` for `sk_live_` and
+the rest of your code stays as-is.
 
 ## What's different between modes
 
-| | Test mode | Live mode |
-| --- | --- | --- |
-| Chain | Arc Testnet (chain ID 5042002) | Arc Mainnet |
-| RPC URL | `https://rpc.arc-testnet.example.com` | `https://rpc.arc.example.com` |
-| USDC | Arc Testnet USDC (faucet at [faucet.circle.com](https://faucet.circle.com)) | Arc Mainnet USDC |
-| Webhook endpoints | Different list per mode | Different list per mode |
-| API keys | `sk_test_*`, `pk_test_*` | `sk_live_*`, `pk_live_*` |
-| Dashboard view | Mode toggle in topbar | Mode toggle in topbar |
+|                   | Test mode                                                                   | Live mode                     |
+| ----------------- | --------------------------------------------------------------------------- | ----------------------------- |
+| Chain             | Arc Testnet (chain ID 5042002)                                              | Arc Mainnet                   |
+| RPC URL           | `https://rpc.arc-testnet.example.com`                                       | `https://rpc.arc.example.com` |
+| USDC              | Arc Testnet USDC (faucet at [faucet.circle.com](https://faucet.circle.com)) | Arc Mainnet USDC              |
+| Webhook endpoints | Different list per mode                                                     | Different list per mode       |
+| API keys          | `sk_test_*`, `pk_test_*`                                                    | `sk_live_*`, `pk_live_*`      |
+| Dashboard view    | Mode toggle in topbar                                                       | Mode toggle in topbar         |
 
 Every resource (`Subscription`, `Transaction`, `WebhookDelivery`, and so
 on) carries a `mode` column. The dashboard uses it to filter what you
@@ -42,10 +42,10 @@ In your code, you switch modes by changing the API key. The same SDK client work
 
 ```ts
 const strimzTest = new Strimz({ apiKey: process.env.STRIMZ_TEST_KEY! })
-const strimzLive = new Strimz({ apiKey: process.env.STRIMZ_LIVE_KEY!  })
+const strimzLive = new Strimz({ apiKey: process.env.STRIMZ_LIVE_KEY! })
 ```
 
-In the dashboard, there's a toggle in the topbar. Switching it doesn't migrate anything — it just shows you the data filtered to that mode.
+In the dashboard, there's a toggle in the topbar. Switching it doesn't migrate anything. It only filters the data shown to that mode.
 
 ## Webhooks per mode
 
@@ -53,4 +53,7 @@ Webhook endpoints are scoped to a single mode at creation. An endpoint with `mod
 
 ## Identity
 
-Your merchant identity (business name, payout address, KYB info) is shared across modes. That's by design — Strimz isn't trying to make you complete two onboardings. But everything *transactional* (sessions, subs, refunds, deliveries, invoices) is mode-segregated.
+Your merchant identity (business name, payout address, KYB info) is
+shared across modes on purpose. There is no second onboarding to
+finish before going live. The transactional resources (sessions,
+subscriptions, refunds, deliveries, invoices) stay mode-segregated.

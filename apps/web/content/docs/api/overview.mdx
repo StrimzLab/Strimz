@@ -1,6 +1,6 @@
 ---
 title: API overview
-description: Authentication, errors, pagination, idempotency — the basics every Strimz API call shares.
+description: Authentication, errors, pagination, idempotency. The basics every Strimz API call shares.
 ---
 
 The Strimz API is a single host (`https://api.strimz.finance`) serving JSON over HTTPS. Every endpoint is documented in [OpenAPI 3.1](https://api.strimz.finance/openapi.json) and rendered by [Scalar](https://api.strimz.finance/docs) for an interactive "try it" experience.
@@ -11,7 +11,8 @@ The Strimz API is a single host (`https://api.strimz.finance`) serving JSON over
 https://api.strimz.finance
 ```
 
-Test and live mode share the same host — the API key prefix routes the request internally.
+Test and live mode share the same host. The `sk_test_` or `sk_live_`
+prefix on your key decides which mode the request lands in.
 
 ## Authentication
 
@@ -37,7 +38,9 @@ Every error returns a JSON envelope:
 }
 ```
 
-The full code list is on [Errors](/docs/errors). Always include `requestId` when reporting an issue — that's our fastest path to your specific request in our logs.
+The full code list is on [Errors](/docs/errors). Always include the
+`requestId` when reporting an issue; it's the key support uses to
+find your request in the logs.
 
 ## Pagination
 
@@ -71,15 +74,15 @@ The API enforces a 600 req/min global rate limit per IP at the edge. Authenticat
 
 Every resource has its own page in the sidebar. The most-used ones:
 
-- **[Payment sessions](/docs/api/payment-sessions)** — one-shot checkouts
-- **[Subscriptions](/docs/api/subscriptions)** — recurring revenue
-- **[Refunds](/docs/api/refunds)** — server-intent + wallet-signed transfers
-- **[Webhooks](/docs/api/webhooks)** — register endpoints, replay deliveries
-- **[Invoices](/docs/api/invoices)** — hosted, branded payment pages
+- **[Payment sessions](/docs/api/payment-sessions).** One-shot checkouts.
+- **[Subscriptions](/docs/api/subscriptions).** Recurring revenue.
+- **[Refunds](/docs/api/refunds).** Server-intent plus wallet-signed transfers.
+- **[Webhooks](/docs/api/webhooks).** Register endpoints, replay deliveries.
+- **[Invoices](/docs/api/invoices).** Hosted, branded payment pages.
 
 ## Try it
 
-Hit the live test endpoint:
+A one-line sanity check against the test API:
 
 ```bash
 curl https://api.strimz.finance/v1/merchants/me \

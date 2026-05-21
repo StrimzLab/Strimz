@@ -32,7 +32,8 @@ Returns:
 }
 ```
 
-`signingSecret` is shown **once**. Store it in your env immediately.
+`signingSecret` is shown only once. Save it into your secrets
+manager before you close the response.
 
 ```http
 GET  /v1/webhook-endpoints/{id}
@@ -53,7 +54,9 @@ GET /v1/webhook-deliveries?endpointId=ep_xyz&status=permanently_failed
 POST /v1/webhook-deliveries/{id}/replay
 ```
 
-Replay puts the delivery back on the queue. Useful for debugging your receiver — fix the bug, replay the last few deliveries, validate.
+Replay puts the delivery back on the queue. Handy for debugging a
+receiver: fix the bug, replay the last few failures, watch them
+land.
 
 ## SSRF guard
 
@@ -63,7 +66,9 @@ Endpoint URLs must:
 - Not resolve to private (RFC 1918), loopback, link-local, or CGNAT addresses
 - Be DNS-resolvable at registration time
 
-We re-check on every delivery; an endpoint that starts pointing to internal infra later (DNS rebinding) gets blocked.
+The check runs again on every delivery, so an endpoint that starts
+resolving to internal infra later (DNS rebinding) gets blocked at
+send time.
 
 ## Auto-disable
 

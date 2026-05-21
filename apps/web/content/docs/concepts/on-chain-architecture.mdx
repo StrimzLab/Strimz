@@ -1,55 +1,120 @@
 ---
 title: On-chain architecture
-description: The contract suite, why it's UUPS-upgradeable, and how you can verify it independently.
+description: The contract suite, the upgrade posture, and how you can verify it independently.
 ---
 
-Strimz's smart contracts are deployed on [Arc](https://arc.network), Circle's stablecoin-native L1 where USDC is the gas token. The full Foundry workspace is open source at [github.com/StrimzLab/strimz/tree/main/packages/contracts](https://github.com/StrimzLab/strimz/tree/main/packages/contracts).
+Strimz's smart contracts are deployed on [Arc](https://arc.network),
+Circle's stablecoin-native L1 where USDC is the gas token. The full
+Foundry workspace is open source at
+[github.com/StrimzLab/strimz/tree/main/packages/contracts](https://github.com/StrimzLab/strimz/tree/main/packages/contracts).
 
 ## The contracts
 
-| Contract | Job |
-| --- | --- |
-| `StrimzRegistry` | Off-chain merchants register here to get an `onchainMerchantId`. Holds payout addresses, fee bps, active flags. |
-| `StrimzPayments` | One-shot `pay()` entrypoint. Takes `(merchantId, token, amount, ref, …)`, transfers USDC from payer to merchant, emits `PaymentExecuted`. |
-| `StrimzSubscriptions` | `createSubscription()` for the customer signature; `batchCharge()` for the scheduler-driven recurring side. Holds `usedAttempts` mapping for on-chain idempotency. |
-| `StrimzAgentEscrow` | ERC-8183 escrow. Used by the AutoPay Agent's commerce capability. |
-| `FeeCollector` | Per-token, per-merchant fee accounting. Withdrawable by Strimz. |
-| `TokenWhitelist` | Which ERC-20s can be used (USDC, EURC, USYC). Updates require multisig. |
+| Contract              | Job                                                                                                                                                                                | Upgradeable?   |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| `StrimzRegistry`      | Off-chain merchants register here to get an `onchainMerchantId`. Holds payout addresses, fee bps, active flags, and `parentMerchantId` for sub-tenancy.                            | UUPS           |
+| `StrimzPayments`      | One-shot payments. Exposes `pay()` (classic approve-then-pay) and `payWithAuthorization()` (EIP-3009, single signature). Splits the fee to FeeCollector and the net to the payout. | No, immutable. |
+| `StrimzSubscriptions` | Subscription enrolment via `createSubscription()` or `permitAndCreateSubscription()` (EIP-2612). The scheduler calls `batchCharge()` for renewals. Owns the `usedAttempts` ledger. | No, immutable. |
+| `StrimzAgentEscrow`   | ERC-8183 escrow used by the AutoPay Agent's commerce capability.                                                                                                                   | UUPS           |
+| `FeeCollector`        | Per-token, per-merchant fee accounting. Withdrawals are gated by `TREASURY_ROLE`.                                                                                                  | UUPS           |
+| `TokenWhitelist`      | Which ERC-20s are accepted (USDC, EURC, USYC) and which signing standards each implements (EIP-3009, EIP-2612).                                                                    | UUPS           |
 
-## Why UUPS
+## Why some contracts are immutable
 
-We use the UUPS pattern (EIP-1822) over the older transparent-proxy pattern for two reasons:
+`StrimzPayments` and `StrimzSubscriptions` are the only two contracts
+in the suite that move customer funds. Once deployed, their logic
+cannot be changed. A stolen admin key cannot rewrite the code that
+pulls USDC from a payer's wallet, because there is no upgrade path to
+rewrite.
 
-1. **Cheaper calls.** The proxy doesn't have admin-routing logic; the implementation does. Every call saves ~700 gas.
-2. **Per-contract upgrade authority.** The transparent pattern requires a single `ProxyAdmin` per family of proxies. UUPS lets each contract own its own upgrade gate, which means we can give different multisigs control over different surfaces (e.g. `StrimzAgentEscrow` is more conservative).
+If we ever ship a fix to either of these, we deploy a fresh address
+and rotate the Registry's dependency pointers to it. Old transactions
+keep referring to the old address; new ones use the new one.
 
-We use **OpenZeppelin's Foundry Upgrades plugin** with **ERC-7201 namespaced storage**. Every implementation declares its storage slots under a deterministic namespace, so an accidental layout collision during upgrade is caught at deploy time. The `Upgradeability.t.sol` test suite asserts V1→V2 storage preservation through OZ's validator.
+The Registry, FeeCollector, and TokenWhitelist stay UUPS because they
+hold policy: which merchants exist, what the fee schedule looks like,
+which tokens we accept. Policy changes often. Value-moving code
+should not.
+
+## The two payment paths
+
+Each value-moving contract exposes a classic entrypoint and a
+single-signature entrypoint. The classic path is there for integrators
+who want to drive the wallet themselves; the signature path is what
+the hosted checkout uses.
+
+| Flow                   | Classic                                                           | Single-signature (default)                                                                             |
+| ---------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| One-shot payment       | `pay()`. Payer approves USDC, then calls `pay()` themselves.      | `payWithAuthorization()`. Payer signs an EIP-3009 message. The relayer broadcasts it.                  |
+| Subscription enrolment | `createSubscription()`. Payer approves, then calls it themselves. | `permitAndCreateSubscription()`. Payer signs an EIP-2612 permit. The relayer creates the sub for them. |
+| Wallet prompts         | Two                                                               | One                                                                                                    |
+| Who pays gas           | The payer                                                         | The Strimz relayer                                                                                     |
+
+Both paths land in the same `Transaction` row, emit the same
+`PaymentExecuted` event, and pay the same fees. The full security
+model lives on the
+[meta-tx flow page](/docs/concepts/meta-tx-flow).
 
 ## Deterministic charge idempotency
 
-The most security-relevant detail in the suite is `StrimzSubscriptions.batchCharge`. The scheduler passes a `chargeAttemptId[]` array — each entry is `keccak256(subscriptionId, periodEndAt)`. The contract has a `mapping(bytes32 => bool) usedAttempts`. If an entry is already true, that single subscription's charge is **skipped** (the rest of the batch continues), and a `SubscriptionChargeSkipped(subId, attemptId, ChargeOutcome.None)` event is emitted.
+The single most security-relevant call in the suite is
+`StrimzSubscriptions.batchCharge`. The scheduler hands it an array of
+`chargeAttemptId` values, each one a `keccak256(subscriptionId, periodEndAt)`.
+The contract keeps a `mapping(bytes32 => bool) usedAttempts` and skips
+any entry it has already seen. The skipped subscription emits a
+`SubscriptionChargeSkipped(subId, attemptId, ChargeOutcome.None)`
+event; the rest of the batch keeps going.
 
-This means the scheduler can re-broadcast the same `batchCharge` call indefinitely without ever double-charging anyone. This property is essential for production reliability — it's what lets us treat `broadcast` as the success criterion for the worker, and let the indexer worry about projection.
+In practical terms: the scheduler can resubmit the same `batchCharge`
+call as many times as it wants and never charge a customer twice. We
+prove this with an invariant test that drives both submission paths
+through 128,000 fuzz calls and checks that the FeeCollector balance
+never exceeds the fees it has accrued. Neither path can credit a fee
+twice.
+
+## ERC-7201 namespaced storage
+
+Every upgradeable contract puts its state under a deterministic slot
+via [ERC-7201](https://eips.ethereum.org/EIPS/eip-7201). Adding fields
+in V2 cannot collide with V1's layout. The `Upgradeability.t.sol`
+suite asserts V1-to-V2 storage preservation through OpenZeppelin's
+Foundry Upgrades plugin.
+
+`StrimzPayments` and `StrimzSubscriptions` use the same namespace
+pattern even though they aren't upgradeable. The reason is mundane:
+their dependency pointers (Registry address, FeeCollector address)
+can still be rotated by `ADMIN_ROLE` after deploy, so the storage
+discipline buys us a clean migration path on the fields that do
+change.
 
 ## Reading the contracts yourself
-
-The contracts package builds with `forge build` and produces canonical ABI JSON in `out/<Contract>.sol/<Contract>.json`. The indexer ingests these directly:
 
 ```bash
 git clone https://github.com/StrimzLab/strimz
 cd strimz/packages/contracts
 forge build
-forge test                 # 31 tests including upgrade-storage validation
+forge test            # 55 tests including 128k-call invariant fuzz
 ```
 
-The deployment addresses for testnet + mainnet are kept in `@strimz/shared-config` and are the same constants every Strimz process reads at boot. There's no "secret address" — what's in the repo is what's running in production.
+Deployment addresses for testnet and mainnet live in
+`@strimz/shared-config`. Every Strimz process reads the same
+constants at boot. There are no private deployments. What's in the
+repo is what runs in production.
 
 ## Verifying a transaction
 
-Every Strimz `Transaction` row has an `onchainTxHash`. You can plug it into Arc's block explorer to verify:
+Every Strimz `Transaction` row carries an `onchainTxHash`. Drop it
+into Arc's block explorer and you can check, end to end:
 
-- The signed transaction matches the merchant's `payoutAddress`
-- The amount matches `amount + feeAmount = total`
-- The ref / chargeAttemptId match what we recorded
+1. The signer recovered from the EIP-3009 or EIP-2612 signature is the
+   payer your dashboard claims it was.
+2. The fee split is consistent: `amount == feeAmount + netAmount`.
+3. The destination address matches the merchant's `payoutAddress`.
+   (For the classic path that's the `to` field; for the
+   single-signature path it's the contract's payout call.)
+4. The `ref` field (one-shot) or `chargeAttemptId` (subscription) is
+   the value we recorded off-chain.
 
-This is part of the value of stablecoin billing: the merchant doesn't have to trust Strimz's database. The chain is the source of truth, and the indexer is just our derived view.
+The chain is the source of truth. Strimz's database is a view the
+indexer maintains over the event log. If you ever want to rebuild it
+from scratch, you can.

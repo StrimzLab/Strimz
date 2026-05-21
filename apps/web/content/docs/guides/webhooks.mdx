@@ -25,7 +25,7 @@ import { verifyWebhookSignature } from '@strimz/sdk'
 app.post('/webhooks/strimz', (req, res) => {
   const ok = verifyWebhookSignature({
     secret: process.env.STRIMZ_WEBHOOK_SECRET!,
-    body: req.rawBody,                                   // Buffer or string
+    body: req.rawBody, // Buffer or string
     signatureHeader: req.headers['strimz-signature'] as string,
   })
   if (!ok) return res.status(401).end()
@@ -95,7 +95,7 @@ await db.webhookSeen.create({ data: { id: deliveryId } })
 
 ## Rotating the secret
 
-In the dashboard, **Webhooks** → endpoint → **Rotate secret**. You'll get a new secret immediately. The old one stops working *the same instant* — there's no overlap window. To roll without downtime:
+In the dashboard, **Webhooks** → endpoint → **Rotate secret**. You'll get a new secret immediately. The old one stops working _the same instant_ — there's no overlap window. To roll without downtime:
 
 1. Update your env to accept either the old or new secret.
 2. Rotate in the dashboard.
@@ -103,6 +103,33 @@ In the dashboard, **Webhooks** → endpoint → **Rotate secret**. You'll get a 
 4. Remove the old secret from your env.
 
 We log every delivery's signature attempts in your dashboard so you can see the cutover happen in real time.
+
+## How Strimz stores your secret
+
+You see the signing secret exactly once: in the response to the
+create-endpoint call (and the same again if you rotate). On the
+Strimz side, the secret lives in two places, and neither one is
+plaintext at rest.
+
+Postgres holds an AES-256-GCM ciphertext of the secret. The
+encryption key sits in an environment variable on our infrastructure,
+not in the database. A database dump leaks ciphertext and nothing
+useful.
+
+Redis holds the plaintext as a hot cache for the delivery worker, so
+we don't pay the decrypt cost on every send. Redis is a cache, not
+the source of truth. If it's flushed, the scheduler decrypts the
+column back into the cache on its next boot and webhook delivery
+keeps going.
+
+We also keep an unsalted `sha256(secret)` alongside the ciphertext.
+It's an integrity index for the rotation flow and cannot be used to
+recover the plaintext.
+
+This is the same envelope-encryption shape a hardware KMS would give
+us. We're using a software-backed symmetric key today because it lets
+us swap the backend later (HSM, cloud KMS, whatever fits) without
+re-encrypting any data.
 
 ## Why HMAC and not RSA / ed25519
 

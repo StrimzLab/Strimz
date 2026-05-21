@@ -48,23 +48,29 @@ RESEND_FROM_EMAIL=noreply@your-domain.com
 
 ## What runs when
 
-| Capability | Cron | Notes |
-| --- | --- | --- |
-| `recovery` | hourly | Idempotent per (subId, attempt) |
-| `cashflow.digest` | daily 9am UTC | Idempotent per UTC day |
-| `cashflow.anomaly` | hourly | z-score over trailing 30d |
-| `cashflow.yield` | daily 9:30am UTC | Recommendation only — no signing |
-| `commerce` | first of each month | Per-month dedup |
-| `pricing_intelligence` | first of each month | Per-month dedup |
-| `routing` | queue-driven | CCTP V2 attestation polling |
+| Capability             | Cron                | Notes                            |
+| ---------------------- | ------------------- | -------------------------------- |
+| `recovery`             | hourly              | Idempotent per (subId, attempt)  |
+| `cashflow.digest`      | daily 9am UTC       | Idempotent per UTC day           |
+| `cashflow.anomaly`     | hourly              | z-score over trailing 30d        |
+| `cashflow.yield`       | daily 9:30am UTC    | Recommendation only. No signing. |
+| `commerce`             | first of each month | Per-month dedup                  |
+| `pricing_intelligence` | first of each month | Per-month dedup                  |
+| `routing`              | queue-driven        | CCTP V2 attestation polling      |
 
 The agent reads `AgentMerchantConfig` on every tick, so config changes in the dashboard take effect on the next firing.
 
 ## Single-instance recommendation
 
-Unlike the scheduler, the agent has **no built-in multi-instance safety**. Running two instances will fire each cron twice — the dedup logic in each capability prevents *visible* duplicates (the same email won't be sent twice within the dedup window), but it's wasted compute.
+Unlike the scheduler, the agent has no built-in multi-instance
+safety. Two agent instances will fire each cron twice. The dedup
+logic inside each capability stops the visible side effects from
+duplicating (the same email won't be sent twice inside the dedup
+window), but you're burning compute for nothing.
 
-If you need horizontal scaling for the routing worker (high CCTP volume), run the agent as one cron instance + multiple `routing-only` workers configured with `BullMQ.concurrency`.
+If you need horizontal scale for the routing worker (high CCTP
+volume), run one cron instance and several `routing-only` workers
+configured through `BullMQ.concurrency`.
 
 ## Observability
 
@@ -74,9 +80,9 @@ If you need horizontal scaling for the routing worker (high CCTP volume), run th
 
 ## Failure modes
 
-- **Resend API outage** — emails fail; agent retries on next tick. We don't lose state.
-- **Circle attestation outage** — routing jobs back up in the queue. The agent re-polls indefinitely until Circle responds.
-- **Postgres outage** — capabilities skip; next tick retries.
+- **Resend API outage.** Emails fail. The agent retries on the next tick. No state is lost.
+- **Circle attestation outage.** Routing jobs back up in the queue. The agent re-polls until Circle responds.
+- **Postgres outage.** Capabilities skip. The next tick retries.
 
 ## Source
 

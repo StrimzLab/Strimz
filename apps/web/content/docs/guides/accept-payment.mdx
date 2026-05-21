@@ -14,12 +14,12 @@ const strimz = new Strimz({ apiKey: process.env.STRIMZ_KEY! })
 
 export async function createPaymentForOrder(orderId: string, amountUsd: number) {
   const session = await strimz.paymentSessions.create({
-    amount:   String(Math.round(amountUsd * 1_000_000)),  // → smallest USDC units
+    amount: String(Math.round(amountUsd * 1_000_000)), // → smallest USDC units
     currency: 'USDC',
     description: `Order ${orderId}`,
     successUrl: `https://your-site.com/orders/${orderId}/thanks`,
-    cancelUrl:  `https://your-site.com/orders/${orderId}/cancelled`,
-    metadata:   { orderId },
+    cancelUrl: `https://your-site.com/orders/${orderId}/cancelled`,
+    metadata: { orderId },
   })
   return session
 }
@@ -36,7 +36,10 @@ export function CheckoutButton({ orderId }: { orderId: string }) {
   return (
     <button
       onClick={async () => {
-        const r = await fetch('/api/checkout', { method: 'POST', body: JSON.stringify({ orderId }) })
+        const r = await fetch('/api/checkout', {
+          method: 'POST',
+          body: JSON.stringify({ orderId }),
+        })
         const { checkoutUrl } = await r.json()
         window.location.href = checkoutUrl
       }}
@@ -47,11 +50,25 @@ export function CheckoutButton({ orderId }: { orderId: string }) {
 }
 ```
 
-That's the entire client side. The customer lands on `strimz.finance/pay/<sessionId>`, connects a wallet (any major one — Reown handles the picker), and signs the payment.
+That's the entire client side. The customer lands on
+`strimz.finance/pay/<sessionId>`, picks a wallet (Reown handles the
+picker for every major one), and signs one message.
+
+The signature is an EIP-3009 `ReceiveWithAuthorization`. Strimz's
+relayer turns it into the on-chain `payWithAuthorization` call, pays
+the gas itself, and settles the transfer. The customer never sees a
+second prompt or pays gas. The fee split (platform fee to
+FeeCollector, net to your payout) lands atomically in the same
+transaction.
+
+The full security model lives on the
+[meta-tx flow page](/docs/concepts/meta-tx-flow): what the customer
+signs, why the relayer cannot move funds on its own, how the
+signature expires.
 
 ## Webhook: react when it confirms
 
-Don't trust the redirect to `successUrl` for state changes — anyone can navigate to that URL. The webhook is the source of truth.
+Don't trust the redirect to `successUrl` for state changes. Anyone can navigate to that URL. The webhook is the source of truth.
 
 ```ts title="webhooks-handler.ts"
 import { verifyWebhookSignature } from '@strimz/sdk'
@@ -86,8 +103,16 @@ app.post('/webhooks/strimz', async (req, res) => {
 - **Session expiry**: 24 hours by default. If the customer doesn't pay in time, the session goes to `cancelled` and you'll receive `payment.failed`. Create a new session.
 - **Customer changes their mind mid-checkout**: they hit the back button, you see no webhook. Don't fulfill until you receive `payment.completed`. The session sits in `pending` until expiry.
 - **Customer pays the same session twice**: impossible. Each session is one on-chain `pay()` call and the contract enforces the `ref` is single-use.
-- **Network reorg**: the indexer waits 5 confirmations before flipping `confirmed`. You won't get a flapping "confirmed → pending → confirmed" sequence.
+- **Network reorg**: the indexer waits 5 confirmations before flipping `confirmed`. You won't get a flapping "confirmed to pending to confirmed" sequence.
 
 ## What just happened on-chain
 
-The customer's wallet signed a `StrimzPayments.pay(merchantId, token, amount, ref, fee)` call. Arc settled in ~13 seconds. Your `payoutAddress` received `amount - feeAmount` USDC immediately. The indexer detected the `PaymentExecuted` event, matched `ref` to your `PaymentSession.id`, inserted a `Transaction(kind=one_shot, status=confirmed)`, and fired `payment.completed`. Total time from "customer clicked Pay" to "your webhook received `payment.completed`": about 20 seconds.
+The customer's wallet signed an EIP-3009 authorisation. Strimz's
+relayer wrapped it into a `StrimzPayments.payWithAuthorization` call
+and broadcast the transaction. Arc settled in roughly 13 seconds.
+Your `payoutAddress` received `amount - feeAmount` USDC immediately.
+The indexer picked up the `PaymentExecuted` event, matched its
+`ref` to your `PaymentSession.id`, inserted a
+`Transaction(kind=one_shot, status=confirmed)`, and fired
+`payment.completed`. End to end (the click to your webhook handler)
+takes about 20 seconds.

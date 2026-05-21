@@ -28,7 +28,7 @@ await strimz.storefronts.products.create({
   description: 'Our flagship widget.',
   price: '50000000',
   currency: 'USDC',
-  type: 'one_time',          // 'one_time' | 'subscription'
+  type: 'one_time', // 'one_time' | 'subscription'
 })
 
 await strimz.storefronts.products.create({
@@ -53,6 +53,9 @@ Until published, your storefront returns 404 publicly. Drafts are visible to you
 
 ## Customising the look
 
-You get accent colour, logo, cover image, and social links. The page itself is rendered by Strimz, so updates we ship (better mobile layouts, faster image optimisation, dark mode) automatically benefit your storefront.
+You get accent colour, logo, cover image, and social links. Strimz
+renders the page itself, so any improvement that ships on the
+hosted side (better mobile layouts, faster image optimisation, dark
+mode) lands on your storefront automatically.
 
 If you need a custom domain (`shop.your-site.com` instead of `strimz.finance/store/your-slug`), upgrade to **Growth** or above and contact support.

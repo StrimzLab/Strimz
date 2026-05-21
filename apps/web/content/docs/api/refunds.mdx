@@ -30,9 +30,9 @@ Returns:
   },
   "signingInstructions": {
     "token": "0x...USDC",
-    "to":    "0x...payer",
+    "to": "0x...payer",
     "amount": "50000000",
-    "note":   "Refund for transaction tx_xyz"
+    "note": "Refund for transaction tx_xyz"
   }
 }
 ```
@@ -55,7 +55,7 @@ awaiting_signature  →  submitted  →  completed
                               ↘   failed
 ```
 
-Re-submitting `signature` is idempotent — useful if the merchant accidentally records the wrong hash and needs to update.
+Re-submitting `signature` is idempotent. Useful if the merchant accidentally records the wrong hash and needs to update.
 
 ## Validation
 
@@ -64,8 +64,8 @@ Re-submitting `signature` is idempotent — useful if the merchant accidentally 
 
 ## Webhook events
 
-| Event | Fires when |
-| --- | --- |
-| `refund.created` | The refund row was created |
-| `refund.completed` | The indexer confirmed the on-chain Transfer |
-| `refund.failed` | Validation rejected the refund or it was voided |
+| Event              | Fires when                                      |
+| ------------------ | ----------------------------------------------- |
+| `refund.created`   | The refund row was created                      |
+| `refund.completed` | The indexer confirmed the on-chain Transfer     |
+| `refund.failed`    | Validation rejected the refund or it was voided |
