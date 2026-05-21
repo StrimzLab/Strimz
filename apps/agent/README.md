@@ -1,6 +1,9 @@
 # `@strimz/agent`
 
-Strimz AutoPay Agent. Read-only background process that runs the merchant-configured capabilities. Never holds a signing key — anything that needs to sign on-chain is enqueued for the scheduler.
+Strimz AutoPay Agent. Read-only background process that runs the
+merchant-configured capabilities. Holds no signing key. Anything
+needing an on-chain signature is enqueued for the scheduler, which
+in turn calls the relayer in `apps/api`.
 
 ## Capabilities
 
@@ -8,7 +11,7 @@ Strimz AutoPay Agent. Read-only background process that runs the merchant-config
 | ---------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `recovery`             | Hourly              | For each `at_risk` Subscription, sends the merchant-configured notification email to the customer per the configured strategy (`once` / `twice` / `until_grace_ends`). Dedup via `AgentActivityLog`. Records `recovery_abandoned` when the customer has no email.                                                                         |
 | `cashflow.digest`      | Daily 9am UTC       | Aggregates yesterday's confirmed `Transaction` revenue/fees/net/count/unique-customers and emails the merchant a summary. Idempotent per UTC day.                                                                                                                                                                                         |
-| `cashflow.anomaly`     | Hourly              | Compares the last completed clock-hour's revenue against the trailing-30d hourly baseline (mean/stddev for the same hour-of-day). Flags drops only — fires email + `AuditLog` when below `nσ` (n derived from `cashflowAnomalySensitivity`). Skips merchants with <7 prior data points.                                                   |
+| `cashflow.anomaly`     | Hourly              | Compares the last completed clock-hour's revenue against the trailing-30d hourly baseline (mean/stddev for the same hour-of-day). Flags drops only. Fires email + `AuditLog` when below `nσ` (n derived from `cashflowAnomalySensitivity`). Skips merchants with <7 prior data points.                                                    |
 | `cashflow.yield`       | Daily 9:30am UTC    | Computes running net balance vs `cashflowMinimumLiquidReserveCents`. When `cashflowAutoConvertToYield=true` and there's a surplus, emails a recommendation. Records `cashflow_yield_converted` with `outcome=pending` until the merchant confirms in-dashboard.                                                                           |
 | `commerce`             | First of each month | Aggregates last month's approved/completed `AgentJob` rows by vendor, flags proposed (awaiting-approval) jobs, computes spend cap utilisation, emails the merchant.                                                                                                                                                                       |
 | `pricing_intelligence` | First of each month | Computes MRR (interval-normalised), 12-month average churn, and 90-day linear-regression forecast (next 30/60/90 days), emails the merchant.                                                                                                                                                                                              |
@@ -46,9 +49,9 @@ test/
 
 ## What the agent doesn't do (by design)
 
-- **No signing.** The agent holds no private key. Any on-chain action — yield deposit, CCTP settle — is enqueued for the scheduler to sign and broadcast.
-- **No autonomous fund movement.** Yield recommendation surfaces a suggestion; the merchant explicitly approves before any tx is constructed.
-- **No transition writes for state owned elsewhere.** The agent doesn't flip `Subscription.status` (that's owned by the indexer + scheduler-lapsed cron); it only reads state and writes `AgentActivityLog` / `AuditLog`.
+- **No signing.** The agent holds no private key. On-chain actions (yield deposit, CCTP settle) are enqueued for the scheduler, which forwards them to the relayer in `apps/api` for signing and broadcast.
+- **No autonomous fund movement.** Yield recommendations surface a suggestion; the merchant explicitly approves before any transaction is constructed.
+- **No transition writes for state owned elsewhere.** The agent doesn't flip `Subscription.status` (the indexer plus the scheduler-lapsed cron own that). It reads state and writes to `AgentActivityLog` and `AuditLog`.
 
 ## Routing CCTP V2
 
@@ -76,4 +79,4 @@ pnpm --filter @strimz/agent test:e2e     # 23 e2e (testcontainers Postgres + Red
 
 ## Configuration
 
-See `.env.example`. Cron schedules are env-driven so a test deployment can fire them on a faster cadence. The merchant's per-capability config lives in the `AgentMerchantConfig` model — the agent reads it on every tick (no in-process cache; merchants editing config in the dashboard see effects on the next tick).
+See `.env.example`. Cron schedules are env-driven so a test deployment can fire them on a faster cadence. The merchant's per-capability config lives in the `AgentMerchantConfig` model. The agent reads it on every tick (no in-process cache; merchants editing config in the dashboard see effects on the next tick).

@@ -29,4 +29,4 @@ const recurringFeeBps = effectiveFeeBps('growth', 'subscription') // 100 bps (0.
 
 - **No environment reads.** This package never touches `process.env`. Apps wire env values into typed config; this package supplies the constants those values key into.
 - **No I/O.** Pure data and pure functions only.
-- **Cross-language sync.** The Go indexer does not consume this package. Constants the indexer needs (chain id, contract addresses) are passed via env. The TS source of truth here is mirrored only by deployment configuration, not by duplicated code.
+- **Cross-language sync.** The Go indexer does not consume this package. Constants the indexer needs (chain id, contract addresses) are passed via env. The TS source of truth here is mirrored through deployment configuration, never through duplicated code.

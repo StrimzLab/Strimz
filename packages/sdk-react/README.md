@@ -57,9 +57,9 @@ Wraps any tree that uses Strimz components/hooks. Exposes a memoised `StrimzBrow
 | `mode`               | `popup`           | `popup` or `redirect`                                            |
 | `theme`              | `auto`            | `auto` / `light` / `dark`                                        |
 | `size`               | `md`              | `sm` / `md` / `lg`                                               |
-| `onSuccess(txHash?)` | —                 | Fired on `strimz:checkout:success` postMessage                   |
-| `onCancel()`         | —                 | Fired on `strimz:checkout:cancel` or popup close                 |
-| `onError(error)`     | —                 | Fired on `strimz:checkout:error`                                 |
+| `onSuccess(txHash?)` | none              | Fired on `strimz:checkout:success` postMessage                   |
+| `onCancel()`         | none              | Fired on `strimz:checkout:cancel` or popup close                 |
+| `onError(error)`     | none              | Fired on `strimz:checkout:error`                                 |
 | `label`              | `Pay with Strimz` | Override the button content                                      |
 
 ### `<StrimzCheckoutEmbed/>`
@@ -68,9 +68,9 @@ Iframe-embedded checkout for merchants who want the flow inside their page rathe
 
 ### Hooks
 
-- `useStrimzClient()` — returns the singleton `StrimzBrowserClient`
-- `useStrimzSession(sessionId, { pollIntervalMs })` — polls a session until it reaches a terminal state
-- `useStrimzCheckout({ mode, onSuccess, onCancel, onError })` — imperative checkout opener for custom UI
+- `useStrimzClient()`. Returns the singleton `StrimzBrowserClient`.
+- `useStrimzSession(sessionId, { pollIntervalMs })`. Polls a session until it reaches a terminal state.
+- `useStrimzCheckout({ mode, onSuccess, onCancel, onError })`. Imperative checkout opener for custom UI.
 
 ## Security
 
@@ -83,4 +83,4 @@ Every export is marked `'use client'`. Import these from a Client Component in N
 
 ## Bundle
 
-Distributed as ESM + CJS. React is `external`, so the published bundle is small (~6kb gzipped before tree-shaking). All inline styles in `<StrimzPayButton/>` keep the dependency surface zero — no Tailwind, no shadcn, no CSS imports required.
+Distributed as ESM + CJS. React is `external`, so the published bundle is small (~6kb gzipped before tree-shaking). All inline styles in `<StrimzPayButton/>` keep the dependency surface zero. No Tailwind, no shadcn, no CSS imports required.

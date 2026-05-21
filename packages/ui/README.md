@@ -1,10 +1,10 @@
 # @strimz/ui
 
-Shared shadcn/ui primitives configured with Strimz brand tokens. Distributed as **TypeScript source** — the consuming Next.js app compiles the Tailwind classes directly from these files.
+Shared shadcn/ui primitives configured with Strimz brand tokens. Distributed as **TypeScript source**. The consuming Next.js app compiles the Tailwind classes directly from these files.
 
 ## Brand
 
-- **Primary** `#02C76A` — Strimz green. Available as `bg-primary`, `bg-strimz-500`, and friends across the full `strimz-50 … strimz-950` ramp.
+- **Primary** `#02C76A`. Strimz green. Available as `bg-primary`, `bg-strimz-500`, and friends across the full `strimz-50 … strimz-950` ramp.
 - **Display font** Sora (headings, `font-display`).
 - **Body font** Poppins (default, `font-sans`).
 
