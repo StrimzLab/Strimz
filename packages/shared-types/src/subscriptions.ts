@@ -1,5 +1,5 @@
 /**
- * Subscriptions — plans, active subscriptions, and individual charges.
+ * Subscriptions: plans, active subscriptions, and individual charges.
  *
  * Design notes:
  * - A SubscriptionPlan is the template a merchant defines.
@@ -39,7 +39,7 @@ export const subscriptionPlanSchema = z.object({
   /**
    * On-chain StrimzRegistry merchant id (uint96) as a decimal string.
    * See `paymentSessionSchema.chainMerchantId`. Null when the merchant
-   * hasn't been registered on-chain yet — the hosted enrolment page
+   * hasn't been registered on-chain yet. The hosted enrolment page
    * refuses to take signatures in that state.
    */
   chainMerchantId: z
@@ -47,7 +47,7 @@ export const subscriptionPlanSchema = z.object({
     .regex(/^[0-9]+$/u, 'must be a non-negative decimal integer string')
     .nullable(),
   /**
-   * ERC-20 token contract address resolved from `currency` — the
+   * ERC-20 token contract address resolved from `currency`. This is the
    * EIP-2612 `verifyingContract` the wallet signs over.
    */
   tokenAddress: evmAddressSchema.nullable(),

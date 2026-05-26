@@ -1,7 +1,7 @@
 /**
  * EIP-712 typed-data builders.
  *
- * Pure functions — no wallet dependency. The returned shape matches
+ * Pure functions with no wallet dependency. The returned shape matches
  * the EIP-712 standard and is accepted by every major wallet library:
  *
  *   import { buildReceiveWithAuthorizationTypedData } from '@strimz/sdk/eip712'
@@ -9,7 +9,7 @@
  *   const typedData = buildReceiveWithAuthorizationTypedData({ ... })
  *   const signature = await walletClient.signTypedData(typedData)
  *
- * The builders are deliberately granular (one per primitive — EIP-3009,
+ * The builders are deliberately granular (one per primitive: EIP-3009,
  * EIP-2612) so the SDK can support future schemes (e.g. x402 batched
  * payments) by adding a sibling builder without touching existing
  * call sites.

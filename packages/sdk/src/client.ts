@@ -1,5 +1,5 @@
 /**
- * StrimzClient — the secret-key, server-side SDK entry point.
+ * StrimzClient. The secret-key, server-side SDK entry point.
  *
  *   const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_SECRET_KEY })
  *   const session = await strimz.paymentSessions.create({ amount: '1000000', currency: 'USDC' })
@@ -24,7 +24,7 @@ import { StorefrontsResource } from './resources/storefronts.js'
 import { AgentsResource } from './resources/agents.js'
 
 export interface StrimzClientOptions {
-  /** Secret key — `sk_test_...` or `sk_live_...`. Mode is auto-detected. */
+  /** Secret key. Either `sk_test_...` or `sk_live_...`. Mode is auto-detected. */
   apiKey: string
   /** Override the API base URL. Defaults to `https://api.strimz.io`. */
   baseUrl?: string
@@ -35,14 +35,14 @@ export interface StrimzClientOptions {
   /** Optional logger callbacks for instrumentation. */
   onRequest?: ConstructorParameters<typeof Fetcher>[0]['onRequest']
   onResponse?: ConstructorParameters<typeof Fetcher>[0]['onResponse']
-  /** Override fetch — use to inject mocks in tests or polyfills in Edge. */
+  /** Override fetch. Use to inject mocks in tests or polyfills in Edge. */
   fetch?: typeof globalThis.fetch
 }
 
 const DEFAULT_BASE_URL = 'https://api.strimz.io'
 
 export class StrimzClient {
-  /** Resolved mode — `test` or `live`. Derived from the API key prefix. */
+  /** Resolved mode, either `test` or `live`. Derived from the API key prefix. */
   public readonly mode: ApiKeyMode
 
   public readonly merchants: MerchantsResource

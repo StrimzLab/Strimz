@@ -1,5 +1,5 @@
 /**
- * Storefronts — hosted product catalog with checkout baked in.
+ * Storefronts. Hosted product catalog with checkout baked in.
  */
 
 import { z } from 'zod'

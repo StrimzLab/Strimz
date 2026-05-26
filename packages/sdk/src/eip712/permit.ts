@@ -5,22 +5,22 @@ import type { Eip712TypedData } from './types.js'
  *
  *  - `chainId`, `token`, `tokenName`, `tokenVersion` form the EIP-712
  *    domain (same shape as the EIP-3009 builder).
- *  - `owner` is the token holder authorising the allowance — must match
+ *  - `owner` is the token holder authorising the allowance. Must match
  *    the signing wallet.
- *  - `spender` is the contract that will pull funds — for Strimz
+ *  - `spender` is the contract that will pull funds. For Strimz
  *    subscriptions this is the StrimzSubscriptions contract.
  *  - `value` is the allowance to grant in token base units.
  *    `type(uint256).max` produces an unlimited allowance and is the
  *    common case for subscription enrolment.
  *  - `nonce` is the owner's *current* `nonces(owner)` reading from the
- *    token contract. The SDK does not fetch this — the caller is
+ *    token contract. The SDK does not fetch this. The caller is
  *    expected to have just queried it. Race-free: the token rejects
- *    stale nonces, so a concurrent permit on the same owner just
- *    causes one to fail predictably.
+ *    stale nonces, so a concurrent permit on the same owner causes one
+ *    to fail predictably.
  *  - `deadline` is the unix-second timestamp after which the permit
- *    expires. Strimz default for subscription enrolment is 24h —
- *    enough headroom for a slow merchant submit pipeline without
- *    leaving an indefinite signature window.
+ *    expires. Strimz default for subscription enrolment is 24h. Enough
+ *    headroom for a slow merchant submit pipeline without leaving an
+ *    indefinite signature window.
  */
 export interface PermitParams {
   chainId: number

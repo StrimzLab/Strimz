@@ -1,5 +1,5 @@
 /**
- * Customer — the payer on the merchant's side.
+ * Customer. The payer on the merchant's side.
  *
  * Customers are uniquely identified by (merchantId, walletAddress). Email and
  * externalRef are optional; merchants can associate their own customer id.

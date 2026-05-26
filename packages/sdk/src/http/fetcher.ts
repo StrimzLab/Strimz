@@ -38,7 +38,7 @@ export interface FetcherOptions {
     ms: number
     attempt: number
   }) => void
-  /** Override the global fetch (for tests / Edge polyfills). */
+  /** Override the global fetch (for tests or Edge polyfills). */
   fetch?: typeof globalThis.fetch
 }
 
@@ -110,13 +110,13 @@ export class Fetcher {
         const errorBody = await parseErrorBody(res)
         const retryAfterMs = parseRetryAfter(res)
 
-        // 429 — back off and retry up to maxRetries.
+        // 429. Back off and retry up to maxRetries.
         if (res.status === 429 && attempt < this.maxRetries) {
           await delay(retryAfterMs ?? this.backoffFor(attempt))
           attempt++
           continue
         }
-        // 5xx — retry only if idempotent.
+        // 5xx. Retry only if idempotent.
         if (res.status >= 500 && idempotent && attempt < this.maxRetries) {
           await delay(this.backoffFor(attempt))
           attempt++

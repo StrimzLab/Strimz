@@ -29,7 +29,7 @@ export const CCTP_CONTRACTS: Record<ArcEnvironment, CCTPContractSet> = {
   },
   mainnet: {
     // Pending Circle's mainnet publication of CCTP V2 addresses for Arc.
-    // Mirror testnet as a placeholder so type signatures stay non-null.
+    // Testnet values are mirrored as a placeholder so type signatures stay non-null.
     tokenMessengerV2: '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA',
     messageTransmitterV2: '0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275',
     gatewayWallet: '0x0077777d7EBA4688BDeF3E311b846F25870A19B9',

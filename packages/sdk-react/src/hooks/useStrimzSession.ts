@@ -41,9 +41,8 @@ export function useStrimzSession(
     if (!sessionId) return
     setLoading(true)
     try {
-      // Browser checkout reads go through the public /v1/checkout/* namespace
-      // — paymentSessions.retrieve required a secret key and is no longer on
-      // the BrowserClient. See packages/sdk/src/resources/checkout.ts.
+      // Browser checkout reads go through the public /v1/checkout/* namespace.
+      // The publishable-key client exposes them via `client.checkout.session`.
       const next = await client.checkout.session(sessionId)
       if (!cancelledRef.current) {
         setSession(next)
@@ -71,7 +70,7 @@ export function useStrimzSession(
       cancelledRef.current = true
       clearInterval(timer)
     }
-    // session is intentionally not in deps — interval reads the latest via closure
+    // session is intentionally not in deps. The interval reads the latest via closure.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, fetchOnce, options.pollIntervalMs])
 

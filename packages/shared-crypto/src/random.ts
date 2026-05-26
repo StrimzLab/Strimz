@@ -27,7 +27,7 @@ export function uuid(): string {
   if (c && typeof c.randomUUID === 'function') {
     return c.randomUUID()
   }
-  // Fallback — RFC 4122 v4 from getRandomValues
+  // Fallback. RFC 4122 v4 from getRandomValues.
   const bytes = randomBytes(16)
   bytes[6] = ((bytes[6] as number) & 0x0f) | 0x40
   bytes[8] = ((bytes[8] as number) & 0x3f) | 0x80

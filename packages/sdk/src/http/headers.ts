@@ -1,10 +1,10 @@
 /**
  * Strimz HTTP header conventions.
  *
- * `Authorization: Bearer <secret_key>` — primary auth.
- * `X-Strimz-Idempotency-Key` — mutating calls.
- * `X-Strimz-Sdk` — telemetry.
- * `X-Strimz-Sdk-Version` — telemetry.
+ * `Authorization: Bearer <secret_key>`: primary auth.
+ * `X-Strimz-Idempotency-Key`: mutating calls.
+ * `X-Strimz-Sdk`: telemetry.
+ * `X-Strimz-Sdk-Version`: telemetry.
  */
 
 export const HEADERS = {
