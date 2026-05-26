@@ -29,7 +29,8 @@
     "prepare": "lefthook install",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "turbo run build --filter=./packages/* && changeset publish"
+    "build:release": "turbo run build --filter=@strimz/shared-config --filter=@strimz/shared-crypto --filter=@strimz/shared-types --filter=@strimz/sdk --filter=@strimz/sdk-react",
+    "release": "pnpm build:release && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
