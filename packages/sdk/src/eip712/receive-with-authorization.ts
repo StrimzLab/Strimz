@@ -5,16 +5,16 @@ import type { Eip712TypedData } from './types.js'
  *
  *  - `chainId` is the EVM chain id (Arc Testnet = 5042002).
  *  - `token` is the ERC-20 contract whose `receiveWithAuthorization` is
- *    being invoked — usually USDC at `0x36...` on Arc.
+ *    being invoked. Usually USDC at `0x36...` on Arc.
  *  - `tokenName` and `tokenVersion` form the EIP-712 domain. Real USDC
  *    on most chains uses `name="USD Coin"` and `version="2"`; tests
  *    use whatever the mock token reports. Always read these from the
  *    token contract at runtime to avoid drift.
- *  - `from` is the payer; the wallet that produces the signature must
+ *  - `from` is the payer. The wallet that produces the signature must
  *    match this address.
- *  - `to` is the recipient of the funds — for Strimz this is the
+ *  - `to` is the recipient of the funds. For Strimz this is the
  *    StrimzPayments contract address (the contract pulls funds into
- *    itself, then forwards the fee + net split).
+ *    itself, then forwards the fee and net split).
  *  - `value` is the gross amount in token base units.
  *  - `validAfter` / `validBefore` are unix-second timestamps bounding
  *    the signature's validity. Strimz's default checkout window is
@@ -37,7 +37,7 @@ export interface ReceiveWithAuthorizationParams {
 }
 
 /**
- * EIP-712 type definition for `ReceiveWithAuthorization`. Stable —
+ * EIP-712 type definition for `ReceiveWithAuthorization`. Stable, and
  * shared by every EIP-3009 implementation (USDC, EURC, etc.).
  *
  * Exported so consumers can introspect or extend with sibling
@@ -61,7 +61,7 @@ export const RECEIVE_WITH_AUTHORIZATION_TYPES = {
  * compatible with viem, ethers, Privy, and Reown.
  *
  * Pass the result to `walletClient.signTypedData(typedData)` (viem)
- * or `signer._signTypedData(domain, types, message)` (ethers) — the
+ * or `signer._signTypedData(domain, types, message)` (ethers). The
  * SDK does not bind to a specific signer.
  */
 export function buildReceiveWithAuthorizationTypedData(

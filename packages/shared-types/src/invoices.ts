@@ -1,5 +1,5 @@
 /**
- * Invoices — shareable, expirable payment requests with structured line items.
+ * Invoices. Shareable, expirable payment requests with structured line items.
  */
 
 import { z } from 'zod'

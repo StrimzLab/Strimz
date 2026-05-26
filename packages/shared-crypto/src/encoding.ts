@@ -1,6 +1,6 @@
 /**
  * Byte encoders that work in every JavaScript runtime we target.
- * No Node `Buffer`, no dependency on the DOM — just Uint8Array, strings, and
+ * No Node `Buffer`, no dependency on the DOM. Only Uint8Array, strings, and
  * the two TextEncoder/TextDecoder classes available everywhere.
  */
 

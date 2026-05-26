@@ -1,8 +1,8 @@
 /**
- * Transaction — the record of a confirmed on-chain payment.
+ * Transaction. The record of a confirmed on-chain payment.
  *
  * Every transaction corresponds to either a paid PaymentSession, a
- * SubscriptionCharge, or a Refund. The indexer writes these from the
+ * SubscriptionCharge, or a Refund. Records are derived from the
  * `PaymentExecuted`, `SubscriptionCharged`, and `RefundRecorded` events.
  */
 

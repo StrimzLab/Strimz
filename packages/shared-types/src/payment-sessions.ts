@@ -1,5 +1,5 @@
 /**
- * Payment session — a one-shot checkout intent.
+ * Payment session. A one-shot checkout intent.
  *
  * State machine:
  *   created → awaiting_payment → submitted → confirmed

@@ -12,9 +12,8 @@ export const apiKeyKindSchema = z.enum(['secret', 'publishable'])
 export type ApiKeyKind = z.infer<typeof apiKeyKindSchema>
 
 /**
- * Underscore-separated to match the Prisma `ApiKeyScope` enum (Prisma
- * does not allow `:` in enum values). The DB and the wire format use the
- * same form so there is no boundary translation.
+ * Underscore-separated. The wire format and any database representation
+ * use the same form so there is no boundary translation.
  */
 export const apiKeyScopeSchema = z.enum([
   'sessions_read',
@@ -32,7 +31,7 @@ export const apiKeyScopeSchema = z.enum([
   'storefronts_write',
   'agents_read',
   'agents_write',
-  // Meta-tx relayer — submitting payer-signed EIP-3009 / EIP-2612
+  // Meta-tx relayer. Submitting payer-signed EIP-3009 / EIP-2612
   // authorizations on the merchant's behalf. Granted to keys used by
   // hosted checkout and merchants embedding the SDK.
   'relay_read',
@@ -67,7 +66,7 @@ export type CreateApiKeyInput = z.infer<typeof createApiKeyInputSchema>
 
 export const createApiKeyOutputSchema = z.object({
   apiKey: apiKeySchema,
-  /** Full plaintext key — shown exactly once. */
+  /** Full plaintext key. Shown exactly once. */
   secret: z.string(),
 })
 export type CreateApiKeyOutput = z.infer<typeof createApiKeyOutputSchema>

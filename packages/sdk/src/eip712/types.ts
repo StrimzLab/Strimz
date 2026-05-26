@@ -1,13 +1,14 @@
 /**
  * Canonical EIP-712 typed-data shape.
  *
- * Matches the structure every major wallet library accepts —
+ * Matches the structure every major wallet library accepts:
  *   viem's `signTypedData`
  *   ethers' `signer._signTypedData`
  *   Privy's `signTypedData`
  *   Reown AppKit's typed-data RPC
- * — so the SDK can produce typed-data without binding to a specific
- * wallet client. Consumers pipe the result into whichever signer they
+ *
+ * The SDK can produce typed-data without binding to a specific wallet
+ * client. Consumers pipe the result into whichever signer they
  * already use.
  *
  * No viem/ethers dependency on purpose: the SDK stays minimal, and
@@ -34,7 +35,7 @@ export type Eip712Types = Record<string, readonly Eip712Field[]>
  * gets hashed at the top level (the `types` object usually contains
  * additional referenced sub-structs).
  *
- * `bigint` is used for uint values; wallet libs handle the conversion
+ * `bigint` is used for uint values. Wallet libs handle the conversion
  * to hex/decimal at signing time. If a consumer needs to JSON-serialise
  * this object, convert bigints to strings at that boundary.
  */

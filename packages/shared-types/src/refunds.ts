@@ -1,5 +1,5 @@
 /**
- * Refund — a merchant-initiated return of funds to a payer.
+ * Refund. A merchant-initiated return of funds to a payer.
  *
  * Refunds are executed off-chain (from the merchant's wallet to the payer's
  * wallet). Strimz records the intent, validates constraints, and reconciles

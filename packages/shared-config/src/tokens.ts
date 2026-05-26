@@ -1,11 +1,11 @@
 /**
  * Token registry for Arc.
  *
- * USDC and EURC are first-class payment tokens — they can be requested in a
+ * USDC and EURC are first-class payment tokens. They can be requested in a
  * payment session and used as a subscription currency.
  *
- * USYC is yield-bearing and is treated as a treasury asset only — merchants
- * can hold and earn yield, but a payer cannot pay in USYC.
+ * USYC is yield-bearing and is treated as a treasury asset only. Merchants
+ * can hold it and earn yield, but a payer cannot pay in USYC.
  */
 
 import type { Address } from 'viem'
