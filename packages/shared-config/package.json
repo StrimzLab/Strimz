@@ -1,6 +1,6 @@
 {
   "name": "@strimz/shared-config",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Single source of truth for chain definitions, token registry, fee tiers, webhook events, and agent flags.",
   "license": "MIT",
   "author": "Strimz <hello@strimz.finance>",

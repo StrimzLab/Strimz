@@ -1,6 +1,6 @@
 {
   "name": "@strimz/shared-crypto",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Web Crypto primitives for Strimz. HMAC webhook signing, API key generation, hashing, AES-256-GCM envelope encryption, and constant-time comparison. Runs in Node 22 and Edge runtimes.",
   "license": "MIT",
   "author": "Strimz <hello@strimz.finance>",
