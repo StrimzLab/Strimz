@@ -28,6 +28,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
     "prepare": "lefthook install",
     "changeset": "changeset",
+    "version": "changeset version",
     "release": "turbo run build --filter=./packages/* && changeset publish"
   },
   "devDependencies": {
