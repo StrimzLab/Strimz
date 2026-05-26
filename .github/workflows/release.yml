@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Only run one release at a time. A second push while the first is mid-publish
+# would otherwise race with changesets' version-bump commit.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Version + publish via changesets
+    runs-on: ubuntu-latest
+    # Push events from forks don't carry the secrets needed to publish; skip
+    # them to avoid a noisy red status on community PRs.
+    if: github.repository_owner == 'StrimzLab'
+    permissions:
+      contents: write # version bumps, tags, opening the chore PR
+      pull-requests: write # opening the "chore: version packages" PR
+      id-token: write # OIDC token for npm Trusted Publishing
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      # The pnpm version is pinned by the root `package.json` `packageManager`
+      # field. Passing `with: version` alongside that field errors out with
+      # ERR_PNPM_BAD_PM_VERSION on pnpm/action-setup@v6.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      # Node 22 ships npm 10.x. npm Trusted Publishing OIDC landed in npm 11.5
+      # and the auth handshake silently no-ops on older npm versions —
+      # publishes go out unauthenticated and the registry returns 404. This
+      # upgrade step is non-optional.
+      - name: Upgrade npm for Trusted Publishing OIDC
+        run: npm install --global npm@latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      # Either opens / updates a "Version Packages" PR (when changesets exist
+      # in `.changeset/`), or — when that PR has been merged — publishes the
+      # bumped versions to npm with provenance.
+      #
+      # `version: pnpm run version` is deliberate. Bare `pnpm version` hits
+      # pnpm's built-in version subcommand and silently never consumes any
+      # changesets. `pnpm run version` forces the script defined in the root
+      # `package.json` ("changeset version").
+      #
+      # No NPM_TOKEN env var — auth is via the OIDC token issued by GitHub
+      # Actions (id-token: write) and exchanged with npm's Trusted Publisher
+      # config for the scope. NPM_CONFIG_PROVENANCE adds the Sigstore-signed
+      # attestation linking each tarball back to this exact commit.
+      - name: Create release PR or publish
+        uses: changesets/action@v1
+        with:
+          version: pnpm run version
+          publish: pnpm release
+          commit: 'chore: version packages'
+          title: 'chore: version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
