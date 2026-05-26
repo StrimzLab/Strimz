@@ -54,8 +54,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm build
+      # Only build the five publishable packages. `pnpm build` shells into
+      # `turbo run build` across every workspace, which tries to build
+      # `@strimz/contracts` (forge) and `@strimz/indexer` (Go) — neither
+      # toolchain is installed on this runner, and neither package is
+      # published to npm anyway.
+      - name: Build release packages
+        run: pnpm build:release
 
       # Either opens / updates a "Version Packages" PR (when changesets exist
       # in `.changeset/`), or — when that PR has been merged — publishes the
