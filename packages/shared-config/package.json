@@ -1,13 +1,33 @@
 {
   "name": "@strimz/shared-config",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
   "description": "Single source of truth for chain definitions, token registry, fee tiers, webhook events, and agent flags.",
   "license": "MIT",
+  "author": "Strimz <hello@strimz.finance>",
+  "homepage": "https://github.com/StrimzLab/strimz/tree/main/packages/shared-config#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/StrimzLab/strimz.git",
+    "directory": "packages/shared-config"
+  },
+  "bugs": {
+    "url": "https://github.com/StrimzLab/strimz/issues"
+  },
+  "keywords": [
+    "strimz",
+    "usdc",
+    "stablecoin",
+    "arc",
+    "billing"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -53,7 +73,8 @@
   "files": [
     "dist",
     "src",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsup",

@@ -10,6 +10,7 @@ export default defineConfig({
     'src/timing-safe.ts',
     'src/webhook.ts',
     'src/api-key.ts',
+    'src/aes-gcm.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,
