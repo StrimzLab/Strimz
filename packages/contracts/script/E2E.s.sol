@@ -44,17 +44,28 @@ interface IUSDC {
 ///         checks run against the actually-deployed Registry. If a signing
 ///         helper is off by one byte, this script reverts in seconds.
 ///
-///         **Two-actor minimum.** Admin (deployer) registers the merchant
-///         and is implicitly the merchant owner. Payer signs payments and
-///         the permit. Pass a separate funded payer key via
-///         `STRIMZ_PAYER_PRIVATE_KEY` so signatures verify against an
-///         independent address.
+///         **Three distinct actors.** This mirrors the production
+///         authorization model:
+///           - Strimz (admin) holds `MERCHANT_REGISTRAR_ROLE` and calls
+///             `registerMerchant` on the merchant's behalf. Acts as the
+///             relayer for meta-tx submissions in stages 3 and 4.
+///           - The merchant is the business onboarding on Strimz. Their
+///             wallet is recorded as the merchant entry's `owner` and is
+///             the only address (besides the payer) that can cancel an
+///             active subscription.
+///           - The payer is the merchant's customer. Signs EIP-3009 and
+///             EIP-2612 messages; never broadcasts a transaction.
+///
+///         The script rejects any run where two of the three resolve to
+///         the same address, so signature recovery and role-side asserts
+///         cannot accidentally pass for the wrong reason.
 ///
 /// Usage (see contracts/README.md for the full runbook):
 ///
 ///   STRIMZ_DEPLOYER_PRIVATE_KEY=0x...
+///   STRIMZ_MERCHANT_PRIVATE_KEY=0x...     # the business; needs gas for the cancel
 ///   STRIMZ_PAYER_PRIVATE_KEY=0x...        # funded with Arc-testnet USDC
-///   STRIMZ_MERCHANT_PAYOUT_ADDRESS=0x...  # where the merchant receives
+///   STRIMZ_MERCHANT_PAYOUT_ADDRESS=0x...  # where the merchant receives funds
 ///   STRIMZ_REGISTRY_ADDRESS=0x...
 ///   STRIMZ_TOKEN_WHITELIST_ADDRESS=0x...
 ///   STRIMZ_FEE_COLLECTOR_ADDRESS=0x...
@@ -66,6 +77,8 @@ contract E2E is Script {
     // ---------- actors ----------
     uint256 private adminKey;
     address private admin;
+    uint256 private merchantKey;
+    address private merchant;
     uint256 private payerKey;
     address private payer;
     address private merchantPayout;
@@ -106,22 +119,23 @@ contract E2E is Script {
     // ============================================================
 
     function _stageRegisterMerchant() private returns (uint256 mId) {
-        console2.log("[1] register a fresh merchant");
-        console2.log("  owner          ", admin);
-        console2.log("  payoutAddress  ", merchantPayout);
-        console2.log("  feeBps         ", FEE_BPS);
+        console2.log("[1] Strimz (admin) registers the merchant on-chain");
+        console2.log("  caller (Strimz)  ", admin);
+        console2.log("  owner (merchant) ", merchant);
+        console2.log("  payoutAddress    ", merchantPayout);
+        console2.log("  feeBps           ", FEE_BPS);
 
         vm.startBroadcast(adminKey);
-        mId = registry.registerMerchant(admin, merchantPayout, FEE_BPS, 0);
+        mId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, 0);
         vm.stopBroadcast();
 
         IStrimzRegistry.Merchant memory m = registry.getMerchant(mId);
-        require(m.owner == admin, "stage 1: owner mismatch");
+        require(m.owner == merchant, "stage 1: owner should be the merchant key, not the caller");
         require(m.payoutAddress == merchantPayout, "stage 1: payout mismatch");
         require(m.feeBps == FEE_BPS, "stage 1: feeBps mismatch");
         require(m.active, "stage 1: not active");
 
-        console2.log("  merchantId     ", mId);
+        console2.log("  merchantId       ", mId);
         console2.log("[ok] stage 1");
         console2.log("");
     }
@@ -248,15 +262,16 @@ contract E2E is Script {
     }
 
     function _stageCancelSubscription(uint256 subId) private {
-        console2.log("[5] payer cancels the subscription");
+        console2.log("[5] merchant cancels the subscription from their own wallet");
+        console2.log("  caller (merchant) ", merchant);
 
-        vm.startBroadcast(payerKey);
+        vm.startBroadcast(merchantKey);
         subs.cancel(subId);
         vm.stopBroadcast();
 
         IStrimzSubscriptions.Subscription memory sub = subs.getSubscription(subId);
         require(sub.cancelled, "stage 5: should be cancelled");
-        console2.log("  cancelled flag ", sub.cancelled);
+        console2.log("  cancelled flag    ", sub.cancelled);
         console2.log("[ok] stage 5");
         console2.log("");
     }
@@ -269,11 +284,18 @@ contract E2E is Script {
         adminKey = vm.envUint("STRIMZ_DEPLOYER_PRIVATE_KEY");
         admin = vm.addr(adminKey);
 
+        merchantKey = vm.envUint("STRIMZ_MERCHANT_PRIVATE_KEY");
+        merchant = vm.addr(merchantKey);
+
         payerKey = vm.envUint("STRIMZ_PAYER_PRIVATE_KEY");
         payer = vm.addr(payerKey);
-        require(
-            payer != admin, "payer must be a distinct funded address; set STRIMZ_PAYER_PRIVATE_KEY"
-        );
+
+        // The three actors model Strimz (admin), the merchant, and the
+        // payer in production. Collapsing any two of them onto the same
+        // address would let role-side asserts pass for the wrong reason.
+        require(admin != merchant, "admin and merchant must be different addresses");
+        require(admin != payer, "admin and payer must be different addresses");
+        require(merchant != payer, "merchant and payer must be different addresses");
 
         merchantPayout = vm.envAddress("STRIMZ_MERCHANT_PAYOUT_ADDRESS");
 
@@ -286,19 +308,21 @@ contract E2E is Script {
 
     function _printHeader() private view {
         console2.log("=== Strimz on-chain end-to-end ===");
-        console2.log("chainId         ", block.chainid);
-        console2.log("admin / relayer ", admin);
-        console2.log("payer           ", payer);
-        console2.log("merchant payout ", merchantPayout);
-        console2.log("USDC            ", address(usdc));
-        console2.log("Registry        ", address(registry));
-        console2.log("Payments        ", address(payments));
-        console2.log("Subscriptions   ", address(subs));
+        console2.log("chainId           ", block.chainid);
+        console2.log("Strimz (admin)    ", admin);
+        console2.log("merchant (owner)  ", merchant);
+        console2.log("merchant payout   ", merchantPayout);
+        console2.log("payer             ", payer);
+        console2.log("USDC              ", address(usdc));
+        console2.log("Registry          ", address(registry));
+        console2.log("Payments          ", address(payments));
+        console2.log("Subscriptions     ", address(subs));
         console2.log("");
         console2.log("Initial balances (raw, 6 decimals):");
-        console2.log("  payer USDC    ", usdc.balanceOf(payer));
-        console2.log("  payout USDC   ", usdc.balanceOf(merchantPayout));
-        console2.log("  FeeCollector  ", usdc.balanceOf(_feeCollectorAddr()));
+        console2.log("  payer USDC      ", usdc.balanceOf(payer));
+        console2.log("  merchant USDC   ", usdc.balanceOf(merchant));
+        console2.log("  payout USDC     ", usdc.balanceOf(merchantPayout));
+        console2.log("  FeeCollector    ", usdc.balanceOf(_feeCollectorAddr()));
         console2.log("");
     }
 

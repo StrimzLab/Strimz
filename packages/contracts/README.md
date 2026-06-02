@@ -272,16 +272,26 @@ classic `pay()`, pay via EIP-3009 `payWithAuthorization`, enrol a
 subscription via EIP-2612 `permitAndCreateSubscription`, then cancel.
 Each stage reads balances back and asserts the fee split is exact.
 
-Needs one additional key beyond the deployer: a funded payer wallet
-that signs payments and the permit. The payer wallet's address
-must be different from the deployer's so signature recovery
-unambiguously verifies against the right account.
+**Three distinct actors.** This mirrors the production authorization
+model. Strimz (the deployer key) holds `MERCHANT_REGISTRAR_ROLE` and
+calls `registerMerchant` on the merchant's behalf, then acts as the
+relayer for the meta-tx submissions. The merchant is the business
+onboarding on Strimz — their wallet is recorded as the merchant
+entry's `owner` and is the only address (besides the payer) that can
+cancel an active subscription. The payer is the merchant's customer.
+They sign EIP-3009 and EIP-2612 messages but never broadcast a
+transaction.
+
+The script refuses to run if any two of the three keys resolve to
+the same address, so role-side asserts cannot accidentally pass for
+the wrong reason.
 
 ```sh
-# Append the payer's key and the merchant payout address to .env
+# Append the new keys + the merchant payout address to .env
 cat >> .env <<EOF
 
 # E2E smoke test
+STRIMZ_MERCHANT_PRIVATE_KEY=0x<merchant-key>
 STRIMZ_PAYER_PRIVATE_KEY=0x<funded-payer-key>
 STRIMZ_MERCHANT_PAYOUT_ADDRESS=0x<where-the-merchant-receives>
 EOF
@@ -291,11 +301,20 @@ set -a && source .env && set +a
 forge script script/E2E.s.sol --rpc-url arc_testnet --broadcast -vvv
 ```
 
-Top up the payer wallet first (faucet.circle.com, Arc testnet). The
-script needs roughly 3 USDC across the run: 1 USDC for the classic
-payment, 1 USDC for the meta-tx payment, and 1 USDC of allowance
-plus gas headroom for the subscription path. Costs around $3 plus
-~0.1 USDC gas.
+**Funding the actors before you run:**
+
+- **Strimz (deployer)** is already funded from the deploy step. It
+  pays gas for the registration and for the relayer-broadcast meta-tx
+  in stages 3 and 4.
+- **Merchant** needs a small amount of USDC for gas. Stage 5 (cancel)
+  is the only transaction the merchant broadcasts; budget ~0.05 USDC
+  to cover it comfortably.
+- **Payer** needs roughly 3 USDC for the actual payments plus ~0.05
+  USDC of gas for the stage-2 `approve` and the stage-5-adjacent
+  reads. Top up via `https://faucet.circle.com` (Arc testnet).
+
+Total per run is about $3.10 of testnet USDC, almost all of which
+ends up at the merchant payout address.
 
 Expected tail of the output:
 
