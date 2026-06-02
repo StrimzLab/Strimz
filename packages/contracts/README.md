@@ -76,11 +76,12 @@ test/
 script/
 ├── DeployCore.s.sol               Deploys core proxies + initialises atomically
 ├── DeployAgent.s.sol              Deploys agent proxies
+├── Verify.s.sol                   Read-only post-deploy state assertion
 └── utils/
     ├── ProxyDeploy.sol            Lightweight ERC-1967 proxy helper (used by unit tests)
-    └── DeploymentLog.sol          Append-only JSON Lines deployment audit trail
+    └── DeploymentLog.sol          Append-only JSON deployment audit trail
 deployments/
-└── <chainId>.jsonl                Append-only deployment history per chain (auto-generated)
+└── <chainId>.json                 Append-only deployment history per chain (auto-generated)
 ```
 
 ## Gas posture
@@ -112,9 +113,190 @@ deployments/
 3. Deploy each ERC-1967 proxy, calling `initialize(...)` via the proxy's constructor in one transaction (atomic, with no front-running window).
 4. Wire roles between proxies (e.g. grant `FEE_ACCRUER_ROLE` on `FeeCollector` to `Payments` and `Subscriptions`).
 5. Seed the token whitelist with the Arc USDC / EURC addresses.
-6. Append a JSON record to `deployments/<chainId>.jsonl`.
+6. Append a record to `deployments/<chainId>.json`.
 
-`script/DeployCore.s.sol` does steps 1–6 atomically.
+`script/DeployCore.s.sol` does steps 1 to 6 atomically. `script/DeployAgent.s.sol` does the same for the agent layer.
+
+## Deploying to Arc
+
+These steps take you from a clean checkout to a verified deployment
+on Arc Testnet. Mainnet is identical except for the `.env` values and
+the `--rpc-url` flag.
+
+### 1. One-time setup
+
+Copy the env template and fill it in:
+
+```sh
+cd packages/contracts
+cp .env.example .env
+```
+
+Edit `.env`:
+
+```sh
+ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.network
+STRIMZ_DEPLOYER_PRIVATE_KEY=0x<your-funded-testnet-deployer-key>
+ARC_USDC_ADDRESS=0x3600000000000000000000000000000000000000
+ARC_EURC_ADDRESS=0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a
+```
+
+Fund the deployer wallet with Arc-testnet USDC. Gas on Arc is paid
+in USDC, not ETH. Faucet: `https://faucet.circle.com`, choose **Arc
+testnet**.
+
+### 2. Load the env into your shell
+
+The deploy and verify scripts read addresses from environment
+variables. Load every `KEY=value` line from `.env` into the current
+shell with one command:
+
+```sh
+set -a && source .env && set +a
+```
+
+`set -a` makes every variable defined by `source` auto-exported (as
+if you wrote `export` in front of every line). `set +a` turns that
+mode off again. The variables stay in scope for the rest of the
+terminal session; close the terminal and you'll need to run it again.
+
+Sanity check:
+
+```sh
+echo "$ARC_TESTNET_RPC_URL"
+# → https://rpc.testnet.arc.network
+```
+
+### 3. Deploy the core
+
+```sh
+forge clean && forge build
+forge script script/DeployCore.s.sol --rpc-url arc_testnet --broadcast -vvv
+```
+
+> `forge clean && forge build` is needed before any deploy because
+> the OpenZeppelin upgrades safety validator rejects build-info from
+> a partial compilation. Skip it and the script reverts mid-flight.
+
+This deploys the three UUPS proxies (Registry, TokenWhitelist,
+FeeCollector), the two immutable contracts (Payments, Subscriptions),
+wires `FEE_ACCRUER_ROLE`, seeds the whitelist with USDC and EURC,
+and appends a record to `deployments/<chainId>.json`.
+
+### 4. Capture the addresses
+
+Read the most recent entry from the deployment log and export each
+proxy address. Adjust the chain id if you're deploying to mainnet.
+
+```sh
+jq -r '.[-1].contracts[] | "STRIMZ_\(.name | ascii_upcase)_ADDRESS=\(.proxy)"' \
+  deployments/5042002.json
+```
+
+That prints lines like:
+
+```
+STRIMZ_STRIMZREGISTRY_ADDRESS=0x...
+STRIMZ_TOKENWHITELIST_ADDRESS=0x...
+STRIMZ_FEECOLLECTOR_ADDRESS=0x...
+STRIMZ_STRIMZPAYMENTS_ADDRESS=0x...
+STRIMZ_STRIMZSUBSCRIPTIONS_ADDRESS=0x...
+```
+
+Append the addresses your scripts need to `.env`:
+
+```sh
+cat >> .env <<EOF
+
+# Core deployment (chain id 5042002)
+STRIMZ_ADMIN_ADDRESS=$(cast wallet address --private-key "$STRIMZ_DEPLOYER_PRIVATE_KEY")
+STRIMZ_REGISTRY_ADDRESS=$(jq -r '.[-1].contracts[] | select(.name=="StrimzRegistry") | .proxy' deployments/5042002.json)
+STRIMZ_TOKEN_WHITELIST_ADDRESS=$(jq -r '.[-1].contracts[] | select(.name=="TokenWhitelist") | .proxy' deployments/5042002.json)
+STRIMZ_FEE_COLLECTOR_ADDRESS=$(jq -r '.[-1].contracts[] | select(.name=="FeeCollector") | .proxy' deployments/5042002.json)
+STRIMZ_PAYMENTS_ADDRESS=$(jq -r '.[-1].contracts[] | select(.name=="StrimzPayments") | .proxy' deployments/5042002.json)
+STRIMZ_SUBSCRIPTIONS_ADDRESS=$(jq -r '.[-1].contracts[] | select(.name=="StrimzSubscriptions") | .proxy' deployments/5042002.json)
+EOF
+
+# Reload so the new variables are live in the current shell.
+set -a && source .env && set +a
+```
+
+### 5. Deploy the agent layer
+
+`DeployAgent` reads `STRIMZ_TOKEN_WHITELIST_ADDRESS` to wire the
+escrow's allowlist dependency:
+
+```sh
+forge script script/DeployAgent.s.sol --rpc-url arc_testnet --broadcast -vvv
+```
+
+A second entry is appended to `deployments/<chainId>.json` with the
+AgentRegistry + AgentEscrow proxies.
+
+### 6. Verify
+
+Read-only against the deployed addresses, costs nothing:
+
+```sh
+forge script script/Verify.s.sol --rpc-url arc_testnet -vvv
+```
+
+The script asserts that admin roles, fee-accruer wiring, dependency
+pointers, UUPS implementations, and (when seeded) the USDC + EURC
+whitelist entries all match the expected post-deploy state. It
+reverts loud with a specific message if anything is wrong.
+
+Expected tail of the output:
+
+```
+[ok] StrimzRegistry      [DEFAULT_ADMIN_ROLE]
+[ok] TokenWhitelist      [DEFAULT_ADMIN_ROLE]
+[ok] FeeCollector        [DEFAULT_ADMIN_ROLE]
+[ok] StrimzPayments      [DEFAULT_ADMIN_ROLE]
+[ok] StrimzSubscriptions [DEFAULT_ADMIN_ROLE]
+[ok] FeeCollector.FEE_ACCRUER_ROLE -> Payments
+[ok] FeeCollector.FEE_ACCRUER_ROLE -> Subscriptions
+[ok] dependency pointers wired on Payments + Subscriptions
+[ok] UUPS proxies have implementations set
+[ok] USDC whitelisted: 0x3600...
+[ok] EURC whitelisted: 0x89B5...
+=== all checks passed ===
+```
+
+### 7. Commit the audit trail
+
+The JSON deployment log is the canonical record of what's where:
+
+```sh
+git add deployments/<chainId>.json
+git commit -m "chore(contracts): record Arc Testnet deployment"
+```
+
+## Reading the deployment log
+
+`deployments/<chainId>.json` is a top-level JSON array. One element
+per script invocation. Inspect with `jq`:
+
+```sh
+# Latest deployment on a chain
+jq '.[-1]' deployments/5042002.json
+
+# Just the core proxies of the latest deployment
+jq '.[-1].contracts' deployments/5042002.json
+
+# Every "core" deployment in history on this chain
+jq '.[] | select(.label == "core")' deployments/5042002.json
+
+# The deployer address of the most recent agent deploy
+jq -r '[.[] | select(.label == "agent")] | last | .deployer' deployments/5042002.json
+```
+
+Each record carries `timestamp` (Unix seconds), `chainId`,
+`deployer` (the EOA `tx.origin` of the script run), `label`
+(`"core"`, `"agent"`, etc.), and a `contracts` array of
+`{ name, proxy, implementation }` triples. For the two immutable
+contracts (Payments, Subscriptions), `proxy` and `implementation`
+are the same address — there is no proxy, only the direct deploy.
 
 ## Scripts
 
