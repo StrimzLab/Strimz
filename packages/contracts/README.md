@@ -77,6 +77,7 @@ script/
 ├── DeployCore.s.sol               Deploys core proxies + initialises atomically
 ├── DeployAgent.s.sol              Deploys agent proxies
 ├── Verify.s.sol                   Read-only post-deploy state assertion
+├── E2E.s.sol                      Live-network smoke test (register → pay → permit → cancel)
 └── utils/
     ├── ProxyDeploy.sol            Lightweight ERC-1967 proxy helper (used by unit tests)
     └── DeploymentLog.sol          Append-only JSON deployment audit trail
@@ -263,7 +264,56 @@ Expected tail of the output:
 === all checks passed ===
 ```
 
-### 7. Commit the audit trail
+### 7. Run the end-to-end smoke test (optional but recommended)
+
+`script/E2E.s.sol` drives the same flows the hosted checkout produces
+against the live deployment: register a fresh merchant, pay via
+classic `pay()`, pay via EIP-3009 `payWithAuthorization`, enrol a
+subscription via EIP-2612 `permitAndCreateSubscription`, then cancel.
+Each stage reads balances back and asserts the fee split is exact.
+
+Needs one additional key beyond the deployer: a funded payer wallet
+that signs payments and the permit. The payer wallet's address
+must be different from the deployer's so signature recovery
+unambiguously verifies against the right account.
+
+```sh
+# Append the payer's key and the merchant payout address to .env
+cat >> .env <<EOF
+
+# E2E smoke test
+STRIMZ_PAYER_PRIVATE_KEY=0x<funded-payer-key>
+STRIMZ_MERCHANT_PAYOUT_ADDRESS=0x<where-the-merchant-receives>
+EOF
+
+set -a && source .env && set +a
+
+forge script script/E2E.s.sol --rpc-url arc_testnet --broadcast -vvv
+```
+
+Top up the payer wallet first (faucet.circle.com, Arc testnet). The
+script needs roughly 3 USDC across the run: 1 USDC for the classic
+payment, 1 USDC for the meta-tx payment, and 1 USDC of allowance
+plus gas headroom for the subscription path. Costs around $3 plus
+~0.1 USDC gas.
+
+Expected tail of the output:
+
+```
+[ok] stage 1
+[ok] stage 2
+[ok] stage 3
+[ok] stage 4
+[ok] stage 5
+=== all stages passed ===
+```
+
+The script reverts loud on any mismatch (`stage N: ... mismatch`).
+You can re-run it cheaply to spot-check after every contract upgrade
+or to catch a regression in the signing helpers before pointing real
+money at the system.
+
+### 8. Commit the audit trail
 
 The JSON deployment log is the canonical record of what's where:
 
