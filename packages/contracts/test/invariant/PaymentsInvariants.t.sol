@@ -22,10 +22,10 @@ import { MockUsdc } from "../Helpers.t.sol";
 ///      the invariants cover the combined state space and rule out
 ///      double-credit between the two paths.
 contract PaymentsHandler is Test {
-    StrimzPayments public immutable payments;
-    MockUsdc public immutable usdc;
-    uint256 public immutable merchantId;
-    uint16 public immutable feeBps;
+    StrimzPayments public immutable PAYMENTS;
+    MockUsdc public immutable USDC;
+    uint256 public immutable MERCHANT_ID;
+    uint16 public immutable FEE_BPS;
 
     address[3] internal payers;
     uint256[3] internal payerKeys;
@@ -33,15 +33,15 @@ contract PaymentsHandler is Test {
     /// @dev Ghost variables that mirror the on-chain state we expect the
     ///      contracts to produce. Updated only on confirmed-successful
     ///      paths; a failed try-catch must not move them.
-    uint256 public ghost_totalIngressed;
-    uint256 public ghost_totalExpectedFees;
-    uint256 public ghost_callCount;
+    uint256 public ghostTotalIngressed;
+    uint256 public ghostTotalExpectedFees;
+    uint256 public ghostCallCount;
 
     constructor(StrimzPayments _payments, MockUsdc _usdc, uint256 _merchantId, uint16 _feeBps) {
-        payments = _payments;
-        usdc = _usdc;
-        merchantId = _merchantId;
-        feeBps = _feeBps;
+        PAYMENTS = _payments;
+        USDC = _usdc;
+        MERCHANT_ID = _merchantId;
+        FEE_BPS = _feeBps;
 
         // makeAddrAndKey is deterministic in `name`, so the handler stores
         // both halves up-front. The same addresses would be produced by
@@ -50,28 +50,28 @@ contract PaymentsHandler is Test {
         (payers[1], payerKeys[1]) = makeAddrAndKey("invariant.payer.1");
         (payers[2], payerKeys[2]) = makeAddrAndKey("invariant.payer.2");
         for (uint256 i = 0; i < payers.length; i++) {
-            usdc.mint(payers[i], 1_000_000_000_000);
+            USDC.mint(payers[i], 1_000_000_000_000);
         }
     }
 
     function pay(uint8 payerIdx, uint128 amountIn) external {
-        ghost_callCount++;
+        ghostCallCount++;
         address payer = payers[payerIdx % payers.length];
         uint256 capped = (uint256(amountIn) % 100_000_000_000) + 1;
 
         vm.prank(payer);
-        usdc.approve(address(payments), capped);
+        USDC.approve(address(PAYMENTS), capped);
 
-        uint256 expectedFee = (capped * feeBps) / 10_000;
+        uint256 expectedFee = (capped * FEE_BPS) / 10_000;
         vm.prank(payer);
-        try payments.pay(merchantId, address(usdc), capped, bytes32(0)) {
-            ghost_totalIngressed += capped;
-            ghost_totalExpectedFees += expectedFee;
+        try PAYMENTS.pay(MERCHANT_ID, address(USDC), capped, bytes32(0)) {
+            ghostTotalIngressed += capped;
+            ghostTotalExpectedFees += expectedFee;
         } catch { }
     }
 
     function payWithAuthorization(uint8 payerIdx, uint128 amountIn) external {
-        ghost_callCount++;
+        ghostCallCount++;
         uint256 idx = payerIdx % payers.length;
         address payer = payers[idx];
         uint256 pk = payerKeys[idx];
@@ -82,20 +82,20 @@ contract PaymentsHandler is Test {
             amount: capped,
             validAfter: block.timestamp == 0 ? 0 : block.timestamp - 1,
             validBefore: block.timestamp + 1 hours,
-            // Per-call unique nonce. `ghost_callCount` is monotone so the
+            // Per-call unique nonce. ghostCallCount is monotone so the
             // fuzzer cannot accidentally produce a replay collision and
             // mask a real double-credit bug.
-            nonce: keccak256(abi.encodePacked("inv.nonce", ghost_callCount))
+            nonce: keccak256(abi.encodePacked("inv.nonce", ghostCallCount))
         });
         (uint8 v, bytes32 r, bytes32 s) = _signReceive(pk, auth);
 
-        uint256 expectedFee = (capped * feeBps) / 10_000;
+        uint256 expectedFee = (capped * FEE_BPS) / 10_000;
         // Anyone may submit — relayer pattern. Handler is the submitter.
-        try payments.payWithAuthorization(
-            merchantId, address(usdc), auth, bytes32(0), v, r, s
+        try PAYMENTS.payWithAuthorization(
+            MERCHANT_ID, address(USDC), auth, bytes32(0), v, r, s
         ) {
-            ghost_totalIngressed += capped;
-            ghost_totalExpectedFees += expectedFee;
+            ghostTotalIngressed += capped;
+            ghostTotalExpectedFees += expectedFee;
         } catch { }
     }
 
@@ -106,9 +106,9 @@ contract PaymentsHandler is Test {
     {
         bytes32 structHash = keccak256(
             abi.encode(
-                usdc.RECEIVE_WITH_AUTHORIZATION_TYPEHASH(),
+                USDC.RECEIVE_WITH_AUTHORIZATION_TYPEHASH(),
                 auth.from,
-                address(payments),
+                address(PAYMENTS),
                 auth.amount,
                 auth.validAfter,
                 auth.validBefore,
@@ -116,7 +116,7 @@ contract PaymentsHandler is Test {
             )
         );
         bytes32 digest =
-            keccak256(abi.encodePacked("\x19\x01", usdc.DOMAIN_SEPARATOR(), structHash));
+            keccak256(abi.encodePacked("\x19\x01", USDC.DOMAIN_SEPARATOR(), structHash));
         (v, r, s) = vm.sign(pk, digest);
     }
 }
@@ -189,13 +189,13 @@ contract PaymentsInvariantsTest is StdInvariant, StrimzTestBase {
     function invariant_accruedEqualsGhostFees() public view {
         assertEq(
             feeCollector.totalAccrued(address(usdc)),
-            handler.ghost_totalExpectedFees(),
+            handler.ghostTotalExpectedFees(),
             "FeeCollector accrued must equal the sum of expected fees across both paths"
         );
     }
 
     function invariant_merchantBalanceEqualsGhostNet() public view {
-        uint256 expectedNet = handler.ghost_totalIngressed() - handler.ghost_totalExpectedFees();
+        uint256 expectedNet = handler.ghostTotalIngressed() - handler.ghostTotalExpectedFees();
         assertEq(
             usdc.balanceOf(merchantPayout),
             expectedNet,

@@ -47,6 +47,12 @@ interface IStrimzRegistry {
     error Registry__MerchantInactive(uint256 merchantId);
     error Registry__UnknownParentMerchant(uint256 parentMerchantId);
 
+    /// @dev Auto-generated getter for the SCREAMING_SNAKE_CASE constant
+    ///      `MAX_FEE_BPS` on the implementation. Solidity convention puts
+    ///      constants in upper case, so the matching getter inherits that
+    ///      casing. Lint suppressions acknowledge the convention.
+    // solhint-disable-next-line func-name-mixedcase
+    // forge-lint: disable-next-line(mixed-case-function)
     function MAX_FEE_BPS() external view returns (uint16);
     function nextMerchantId() external view returns (uint256);
 

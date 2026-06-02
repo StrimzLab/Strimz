@@ -168,11 +168,11 @@ abstract contract StrimzTestBase is Test {
         uint256 value,
         uint256 deadline
     ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
-        bytes32 PERMIT_TYPEHASH = keccak256(
+        bytes32 permitTypehash = keccak256(
             "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
         );
         bytes32 structHash = keccak256(
-            abi.encode(PERMIT_TYPEHASH, owner, spender, value, token.nonces(owner), deadline)
+            abi.encode(permitTypehash, owner, spender, value, token.nonces(owner), deadline)
         );
         bytes32 digest =
             keccak256(abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash));

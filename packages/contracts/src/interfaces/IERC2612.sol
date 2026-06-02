@@ -40,6 +40,10 @@ interface IERC2612 {
     /// @return The EIP-712 domain separator the token uses for signature
     ///         verification. Off-chain SDKs read this to build the typed
     ///         data without hard-coding chain ids or contract addresses.
+    /// @dev The name is fixed by EIP-2612 and must match exactly. The
+    ///      solhint and forge-lint suppressions below acknowledge the
+    ///      external constraint on the casing.
     // solhint-disable-next-line func-name-mixedcase
+    // forge-lint: disable-next-line(mixed-case-function)
     function DOMAIN_SEPARATOR() external view returns (bytes32);
 }
