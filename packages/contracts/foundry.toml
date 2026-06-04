@@ -56,5 +56,10 @@ number_underscore = "thousands"
 arc_testnet = "${ARC_TESTNET_RPC_URL}"
 arc_mainnet = "${ARC_MAINNET_RPC_URL}"
 
+# Kept as a reference for any tool that consults foundry.toml for verifier
+# config. Live verification flows through script/verify.sh, which POSTs
+# directly to the Blockscout v2 endpoint — forge's verify-contract can't
+# resolve custom chain ids.
 [etherscan]
-arc_testnet = { key = "${ARCSCAN_API_KEY}", url = "https://testnet.arcscan.app/api" }
+arc_testnet = { key = "${BLOCKSCOUT_API_KEY}", url = "https://testnet.arcscan.app/api", chain = 5042002 }
+# arc_mainnet entry to land once Arc mainnet is live.

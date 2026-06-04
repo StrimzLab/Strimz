@@ -77,7 +77,9 @@ script/
 ├── DeployCore.s.sol               Deploys core proxies + initialises atomically
 ├── DeployAgent.s.sol              Deploys agent proxies
 ├── Verify.s.sol                   Read-only post-deploy state assertion
-├── E2E.s.sol                      Live-network smoke test (register → pay → permit → cancel)
+├── Digests.s.sol                  EIP-712 digest + signing helpers used by e2e.sh
+├── e2e.sh                         Live-network smoke test (register → pay → permit → cancel)
+├── verify.sh                      Source verification on Arcscan (Blockscout v2)
 └── utils/
     ├── ProxyDeploy.sol            Lightweight ERC-1967 proxy helper (used by unit tests)
     └── DeploymentLog.sol          Append-only JSON deployment audit trail
@@ -117,6 +119,29 @@ deployments/
 6. Append a record to `deployments/<chainId>.json`.
 
 `script/DeployCore.s.sol` does steps 1 to 6 atomically. `script/DeployAgent.s.sol` does the same for the agent layer.
+
+## Live deployment (Arc Testnet)
+
+Chain id `5042002`. Explorer: <https://testnet.arcscan.app>.
+Source for upgradeable contracts is verified at the **implementation**
+address; the proxy renders it automatically once Blockscout indexes
+the impl. The two immutable contracts have `proxy == implementation`.
+
+| Contract            | Address (proxy)                                                                                 | Implementation                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| StrimzRegistry      | [`0x272c…0e77`](https://testnet.arcscan.app/address/0x272c7218ccceebd62a04e284091e0bc702b60e77) | [`0x1d75…696d`](https://testnet.arcscan.app/address/0x1d7542507aa51fe37d4bd0455742632d76b7696d)  |
+| TokenWhitelist      | [`0x8ae2…e0f5`](https://testnet.arcscan.app/address/0x8ae2bae922b7e16a8a55dc1b583960d4c651e0f5) | [`0x274b…a8b3`](https://testnet.arcscan.app/address/0x274b5b124a55ddbd2b6e0055ff9684abaf38a8b3)  |
+| FeeCollector        | [`0x76c0…eb77`](https://testnet.arcscan.app/address/0x76c01321be97b25cc6a302457e61d148761beb77) | [`0x1616…2f1e`](https://testnet.arcscan.app/address/0x1616e3b0734af6e07661082be1eca2585b1d2f1e)  |
+| StrimzPayments      | [`0x3f99…9ca9`](https://testnet.arcscan.app/address/0x3f99a85c6b806ae55027d94bcf5165dc6e0d9ca9) | same as proxy (immutable)                                                                        |
+| StrimzSubscriptions | [`0xe5ff…1524`](https://testnet.arcscan.app/address/0xe5ff3431aa8cbb3345a8cd08f8f369f685821524) | same as proxy (immutable)                                                                        |
+| StrimzAgentRegistry | [`0xf6b9…3be2`](https://testnet.arcscan.app/address/0xf6b929ee0609885af1610921f79b8349dc0e3be2) | [`0x6b01…b087c`](https://testnet.arcscan.app/address/0x6b0165f95943186fe456e41c344b15317fab087c) |
+| StrimzAgentEscrow   | [`0xbe9d…ab78`](https://testnet.arcscan.app/address/0xbe9d797bb1cbce2ed1358af7e105d9c231daab78) | [`0xa47c…4923`](https://testnet.arcscan.app/address/0xa47c43b9be423e1e296ba6fc8caef804fcaa4923)  |
+
+When sending txs (or pasting addresses into the SDK / API), always
+use the **proxy** column. The implementation column is only for
+viewing verified source on Arcscan.
+
+Native USDC on Arc lives at `0x3600000000000000000000000000000000000000`.
 
 ## Deploying to Arc
 
@@ -172,7 +197,8 @@ echo "$ARC_TESTNET_RPC_URL"
 
 ```sh
 forge clean && forge build
-forge script script/DeployCore.s.sol --rpc-url arc_testnet --broadcast -vvv
+forge script script/DeployCore.s.sol \
+  --rpc-url arc_testnet --broadcast -vvv
 ```
 
 > `forge clean && forge build` is needed before any deploy because
@@ -183,6 +209,13 @@ This deploys the three UUPS proxies (Registry, TokenWhitelist,
 FeeCollector), the two immutable contracts (Payments, Subscriptions),
 wires `FEE_ACCRUER_ROLE`, seeds the whitelist with USDC and EURC,
 and appends a record to `deployments/<chainId>.json`.
+
+Source verification is a separate step after deploy — see **6b** below.
+Forge's `--verify` flag isn't used because its chain-name lookup errors
+on custom chain ids (Arc Testnet is 5042002, not in foundry's built-in
+enum). `./script/verify.sh` POSTs each implementation's standard JSON
+input directly to Blockscout's v2 verification endpoint and works
+deterministically.
 
 ### 4. Capture the addresses
 
@@ -228,15 +261,18 @@ set -a && source .env && set +a
 escrow's allowlist dependency:
 
 ```sh
-forge script script/DeployAgent.s.sol --rpc-url arc_testnet --broadcast -vvv
+forge script script/DeployAgent.s.sol \
+  --rpc-url arc_testnet --broadcast -vvv
 ```
 
 A second entry is appended to `deployments/<chainId>.json` with the
-AgentRegistry + AgentEscrow proxies.
+AgentRegistry + AgentEscrow proxies. Source verification is a
+separate step — see **6b**.
 
-### 6. Verify
+### 6a. State verification (on-chain wiring)
 
-Read-only against the deployed addresses, costs nothing:
+Read-only check that asserts the deployed contracts are wired
+correctly. Costs nothing, fails loud on mismatches:
 
 ```sh
 forge script script/Verify.s.sol --rpc-url arc_testnet -vvv
@@ -246,6 +282,32 @@ The script asserts that admin roles, fee-accruer wiring, dependency
 pointers, UUPS implementations, and (when seeded) the USDC + EURC
 whitelist entries all match the expected post-deploy state. It
 reverts loud with a specific message if anything is wrong.
+
+### 6b. Source verification (Arcscan / Blockscout)
+
+```sh
+./script/verify.sh                 # verify everything in the log
+./script/verify.sh core            # only the core deploy
+./script/verify.sh agent           # only the agent deploy
+MAINNET=1 ./script/verify.sh       # mainnet RPC + verifier
+```
+
+`script/verify.sh` reads `deployments/<chainId>.json`, picks the
+most recent entry per label, runs `forge inspect <Contract>
+standardJson` to produce a minimal per-contract standard JSON solc
+input, and `POST`s it to Blockscout's
+`/api/v2/smart-contracts/<addr>/verification/via/standard-input`
+endpoint with the `BLOCKSCOUT_API_KEY` as a bearer token.
+
+For UUPS proxies (Registry, TokenWhitelist, FeeCollector,
+AgentRegistry, AgentEscrow) only the impl is submitted; once
+Blockscout has the impl's source it auto-detects the ERC-1967 slot
+(`get_address_info` already reports `proxy_type: "eip1967"` and the
+linked implementation) and renders the proxy with the impl's ABI.
+The two immutable contracts (Payments, Subscriptions) have
+`proxy == implementation`, so they're verified once at that single
+address. Constructor args are auto-detected by Blockscout from the
+creation tx — no manual abi-encoding step.
 
 Expected tail of the output:
 
@@ -266,21 +328,40 @@ Expected tail of the output:
 
 ### 7. Run the end-to-end smoke test (optional but recommended)
 
-`script/E2E.s.sol` drives the same flows the hosted checkout produces
+`script/e2e.sh` drives the same flows the hosted checkout produces
 against the live deployment: register a fresh merchant, pay via
 classic `pay()`, pay via EIP-3009 `payWithAuthorization`, enrol a
 subscription via EIP-2612 `permitAndCreateSubscription`, then cancel.
-Each stage reads balances back and asserts the fee split is exact.
+Each stage reads balances and struct fields back via `cast call` and
+asserts every observable effect (balance deltas exact to the wei,
+auth nonce consumed, subscription stored intact, cancellation flag
+flipped).
+
+**Why a shell driver, not a forge script.** Arc installs its native
+USDC, blocklist, system-accounting, call-from, and PQ-signature
+behaviours as protocol-level precompiles at `0x1800..0000` through
+`0x1800..0004`. Foundry's local EVM doesn't know about them, so
+`forge script --broadcast` reverts in the local simulation before any
+transaction can be built (USDC's `transferFrom` invokes the first two
+precompiles per call). `cast send` bypasses the local sim entirely
+and submits straight to the RPC, where the precompiles are real.
+This is the same approach Arc's own deploy tutorial uses.
+
+`script/Digests.s.sol` handles the EIP-712 work in Solidity (where
+typed-data hashing is trivial). It reads the payer key from
+`STRIMZ_PAYER_PRIVATE_KEY` at runtime, builds the digest from live
+USDC state, signs locally via `vm.sign`, and emits the (v, r, s)
+markers the shell greps out and feeds to `cast send`.
 
 **Three distinct actors.** This mirrors the production authorization
 model. Strimz (the deployer key) holds `MERCHANT_REGISTRAR_ROLE` and
 calls `registerMerchant` on the merchant's behalf, then acts as the
-relayer for the meta-tx submissions. The merchant is the business
-onboarding on Strimz — their wallet is recorded as the merchant
-entry's `owner` and is the only address (besides the payer) that can
-cancel an active subscription. The payer is the merchant's customer.
-They sign EIP-3009 and EIP-2612 messages but never broadcast a
-transaction.
+relayer for the meta-tx submissions in stages 3 and 4. The merchant
+is the business onboarding on Strimz — their wallet is recorded as
+the merchant entry's `owner` and is the only address (besides the
+payer) that can cancel an active subscription. The payer is the
+merchant's customer. They sign EIP-3009 and EIP-2612 messages but
+never broadcast a transaction except for the stage-2 `approve`.
 
 The script refuses to run if any two of the three keys resolve to
 the same address, so role-side asserts cannot accidentally pass for
@@ -298,7 +379,7 @@ EOF
 
 set -a && source .env && set +a
 
-forge script script/E2E.s.sol --rpc-url arc_testnet --broadcast -vvv
+./script/e2e.sh
 ```
 
 **Funding the actors before you run:**
@@ -310,8 +391,9 @@ forge script script/E2E.s.sol --rpc-url arc_testnet --broadcast -vvv
   is the only transaction the merchant broadcasts; budget ~0.05 USDC
   to cover it comfortably.
 - **Payer** needs roughly 3 USDC for the actual payments plus ~0.05
-  USDC of gas for the stage-2 `approve` and the stage-5-adjacent
-  reads. Top up via `https://faucet.circle.com` (Arc testnet).
+  USDC of gas for the stage-2 `approve`. Top up via
+  `https://faucet.circle.com` (Arc testnet). The script pre-flights
+  this balance and exits early with a clear message if it's short.
 
 Total per run is about $3.10 of testnet USDC, almost all of which
 ends up at the merchant payout address.
@@ -319,18 +401,35 @@ ends up at the merchant payout address.
 Expected tail of the output:
 
 ```
-[ok] stage 1
-[ok] stage 2
-[ok] stage 3
-[ok] stage 4
-[ok] stage 5
-=== all stages passed ===
+[1] Strimz registers the merchant
+  ok owner = 0x...
+  ok feeBps = 200
+  ok active = true
+  ok payoutAddress = 0x...
+[2] Payer pays via classic pay()
+  ok payer delta = 1003678 (1000000 payment + 3678 gas)
+  ok payout delta = 980000
+  ok fee delta = 20000
+[3] Payer signs EIP-3009; relayer broadcasts payWithAuthorization
+  ok nonce used after submit = true
+  ok payer delta = 1000000
+  ok payout delta = 980000
+  ok fee delta = 20000
+[4] Payer signs EIP-2612 permit; relayer broadcasts permitAndCreateSubscription
+  ok sub payer = 0x...
+  ok sub interval = 3600
+  ok sub amount = 1000000
+  ok sub cancelled = false
+[5] Merchant cancels the subscription from their own wallet
+  ok sub cancelled after = true
+
+=== All stages passed ===
 ```
 
-The script reverts loud on any mismatch (`stage N: ... mismatch`).
-You can re-run it cheaply to spot-check after every contract upgrade
-or to catch a regression in the signing helpers before pointing real
-money at the system.
+The script exits non-zero with a precise `FAIL: <reason>` line on
+any mismatch. Re-run it cheaply to spot-check after every contract
+upgrade or to catch a regression in the signing helpers before
+pointing real money at the system.
 
 ### 8. Commit the audit trail
 
@@ -390,7 +489,9 @@ Copy `.env.example` to `.env`:
 | `ARC_TESTNET_RPC_URL`            | RPC for testnet deploys (`https://rpc.testnet.arc.network`)                    |
 | `ARC_MAINNET_RPC_URL`            | RPC for mainnet deploys                                                        |
 | `STRIMZ_DEPLOYER_PRIVATE_KEY`    | Funded deployer. Never commit. Get testnet gas at `https://faucet.circle.com`. |
-| `ARCSCAN_API_KEY`                | For `--verify` on ArcScan                                                      |
+| `BLOCKSCOUT_API_KEY`             | Bearer token for `script/verify.sh`. Get one at `testnet.arcscan.app`.         |
+| `ARC_TESTNET_VERIFIER_URL`       | Blockscout v2 base URL — `https://testnet.arcscan.app/api/`                    |
+| `ARC_MAINNET_VERIFIER_URL`       | Mainnet equivalent — `https://arcscan.app/api/`                                |
 | `ARC_USDC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                              |
 | `ARC_EURC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                              |
 | `STRIMZ_TOKEN_WHITELIST_ADDRESS` | Whitelist proxy address. Required by `DeployAgent`.                            |

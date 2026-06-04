@@ -57,11 +57,21 @@ contract DeployCore is Script {
         FeeCollector(feeCollector).grantRole(accruerRole, address(payments));
         FeeCollector(feeCollector).grantRole(accruerRole, address(subs));
 
-        // Optional initial token allowlist seeding.
+        // Optional initial token allowlist seeding. USDC and EURC on Arc both
+        // implement EIP-2612 (permit) and EIP-3009 (transfer-with-authorisation),
+        // so the capability bitmap is the union of the two flags.
+        uint8 capsBoth =
+            TokenWhitelist(whitelist).CAP_PERMIT_2612() | TokenWhitelist(whitelist).CAP_TRANSFER_AUTH_3009();
         address usdc = vm.envOr("ARC_USDC_ADDRESS", address(0));
         address eurc = vm.envOr("ARC_EURC_ADDRESS", address(0));
-        if (usdc != address(0)) TokenWhitelist(whitelist).add(usdc);
-        if (eurc != address(0)) TokenWhitelist(whitelist).add(eurc);
+        if (usdc != address(0)) {
+            TokenWhitelist(whitelist).add(usdc);
+            TokenWhitelist(whitelist).setCapabilities(usdc, capsBoth);
+        }
+        if (eurc != address(0)) {
+            TokenWhitelist(whitelist).add(eurc);
+            TokenWhitelist(whitelist).setCapabilities(eurc, capsBoth);
+        }
 
         vm.stopBroadcast();
 
