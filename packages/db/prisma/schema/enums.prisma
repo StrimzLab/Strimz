@@ -71,6 +71,8 @@ enum ApiKeyScope {
   storefronts_write
   agents_read
   agents_write
+  relay_read
+  relay_write
 }
 
 // ---------- Payment sessions ----------
@@ -315,4 +317,21 @@ enum AuditActionCategory {
   auth
   member
   settings
+  admin
+}
+
+// ---------- Admin ----------
+
+enum AdminRole {
+  /// Full access. Can manage other admins.
+  super_admin
+  /// Full read + write across merchant data. Cannot manage admins.
+  admin
+  /// Read-only. Analytics, lists, drill-downs. No mutations.
+  read_only
+}
+
+enum AdminUserStatus {
+  active
+  suspended
 }

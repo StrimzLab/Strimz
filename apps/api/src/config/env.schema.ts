@@ -45,7 +45,25 @@ export const envSchema = z.object({
 
   // ----- Email (Resend) -----
   RESEND_API_KEY: z.string().optional(),
-  RESEND_FROM_EMAIL: z.string().email().default('noreply@strimz.io'),
+  /**
+   * Either a bare address (`noreply@mail.strimz.finance`) or RFC-5322
+   * display form (`Strimz <noreply@mail.strimz.finance>`). Resend
+   * rejects malformed values at send time; we don't `.email()` here
+   * because the display form would fail.
+   */
+  RESEND_FROM_EMAIL: z.string().min(1).default('Strimz <noreply@mail.strimz.finance>'),
+  /**
+   * Reply-To header on transactional emails (admin invite, etc.).
+   * Defaults to the Strimz operations mailbox so replies land in a
+   * human inbox rather than bouncing off the noreply alias.
+   */
+  RESEND_REPLY_TO: z.string().email().default('strimztokenstream@gmail.com'),
+  /**
+   * Where admin-facing links in emails point. Defaults to the brand
+   * URL; deployments override per-env (localhost in dev, the Vercel
+   * URL in staging, the apex once it's wired).
+   */
+  STRIMZ_DASHBOARD_URL: z.string().url().default('https://strimz.finance'),
 
   // ----- Chain -----
   ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).default('testnet'),

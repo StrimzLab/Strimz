@@ -14,6 +14,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "DOCKER_HOST=${DOCKER_HOST:-unix://${HOME}/.docker/run/docker.sock} vitest run --config vitest.e2e.config.ts",
+    "seed:test-merchant": "node --env-file=.env scripts/seed-test-merchant.mjs",
+    "e2e:checkout-payment": "node --env-file=.env scripts/e2e-checkout-payment.mjs",
+    "e2e:checkout-subscription": "node --env-file=.env scripts/e2e-checkout-subscription.mjs",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
@@ -28,6 +31,7 @@
     "@privy-io/server-auth": "^1.18.7",
     "@scalar/nestjs-api-reference": "^0.4.0",
     "@strimz/db": "workspace:*",
+    "@strimz/email-templates": "workspace:*",
     "@strimz/sdk": "workspace:*",
     "@strimz/shared-config": "workspace:*",
     "@strimz/shared-crypto": "workspace:*",
