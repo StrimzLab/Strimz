@@ -8,6 +8,7 @@ import {
   CAP_TRANSFER_AUTH_3009,
   eip2612NoncesAbi,
   erc20MetadataAbi,
+  erc20VersionAbi,
   erc5267Eip712DomainAbi,
   tokenWhitelistAbi,
 } from './tokens.abi.js'
@@ -90,11 +91,17 @@ export class TokensService {
       }),
     ])
 
-    // ERC-5267 eip712Domain() is the right place to read the EIP-712
-    // version. OZ's ERC20Permit ships it in v5+, real USDC implements
-    // it. Tokens without ERC-5267 fall back to version "1" — the OZ
-    // default that EIP-2612 itself recommends.
+    // EIP-712 version resolution.
+    //   1. ERC-5267 `eip712Domain()` — structured + canonical, OZ v5+.
+    //   2. Legacy `version()` — USDC, EURC, and most pre-5267 Permit
+    //      tokens expose only this. Skipping this step is what made
+    //      the hosted checkout sign with version "1" when USDC's
+    //      domain separator uses "2", causing every EIP-3009 / 2612
+    //      sig to fail ecrecover at the token contract.
+    //   3. Default "1" — the EIP-2612 spec recommendation for tokens
+    //      that expose neither.
     let version = '1'
+    let versionSource: 'erc5267' | 'legacy' | 'default' = 'default'
     try {
       const domain = await this.chain.client.readContract({
         address: lower,
@@ -102,9 +109,20 @@ export class TokensService {
         functionName: 'eip712Domain',
       })
       version = domain[2]
+      versionSource = 'erc5267'
     } catch {
-      this.log.debug(`${token}: eip712Domain() unavailable, defaulting version="1"`)
+      try {
+        version = await this.chain.client.readContract({
+          address: lower,
+          abi: erc20VersionAbi,
+          functionName: 'version',
+        })
+        versionSource = 'legacy'
+      } catch {
+        // both surfaces unavailable; keep the EIP-2612 default
+      }
     }
+    this.log.debug(`${token}: version="${version}" via ${versionSource}`)
 
     return {
       address: lower,

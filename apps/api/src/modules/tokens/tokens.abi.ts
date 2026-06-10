@@ -36,6 +36,22 @@ export const erc20MetadataAbi = [
   },
 ] as const
 
+/**
+ * Legacy EIP-712 version surface. Predates ERC-5267 — USDC, EURC and
+ * most older Permit tokens expose only this. Tried after ERC-5267
+ * fails so newer tokens still get the structured `eip712Domain()`
+ * answer.
+ */
+export const erc20VersionAbi = [
+  {
+    type: 'function',
+    name: 'version',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'string' }],
+  },
+] as const
+
 export const eip2612NoncesAbi = [
   {
     type: 'function',
