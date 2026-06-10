@@ -1,8 +1,8 @@
 /**
- * StrimzBrowserClient — the publishable-key, browser-safe SDK entry point.
+ * StrimzBrowserClient. The publishable-key, browser-safe SDK entry point.
  *
  * Used by `@strimz/sdk-react` and any other browser code that should
- * never see a secret key. Surfaces a strict subset of resource methods —
+ * never see a secret key. Surfaces a strict subset of resource methods,
  * only those safe to call from a browser with a `pk_test_...` or
  * `pk_live_...` key.
  */
@@ -11,10 +11,16 @@ import { kindFromKey, modeFromKey, type ApiKeyMode } from '@strimz/shared-config
 import { Fetcher } from './http/fetcher.js'
 import { buildBaseHeaders } from './http/headers.js'
 import { StrimzAuthenticationError } from './errors.js'
-import { PaymentSessionsResource } from './resources/payment-sessions.js'
+import { CheckoutResource } from './resources/checkout.js'
+import {
+  TokensResource,
+  selectPaymentPath,
+  selectSubscriptionPath,
+  type RelayPath,
+} from './resources/tokens.js'
 
 export interface StrimzBrowserClientOptions {
-  /** Publishable key — `pk_test_...` or `pk_live_...`. */
+  /** Publishable key. Either `pk_test_...` or `pk_live_...`. */
   publishableKey: string
   /** Override the API base URL. */
   baseUrl?: string
@@ -27,13 +33,25 @@ const DEFAULT_BASE_URL = 'https://api.strimz.io'
 /**
  * Browser-safe Strimz client.
  *
- * Read-only on most resources. Designed for hosted-checkout state polling
- * and the React component family. Will refuse a secret key.
+ * Designed for hosted-checkout state polling and the React component
+ * family. Read-only on most resources. Refuses a secret key.
+ *
+ * The `tokens` resource and the `selectPaymentPath` /
+ * `selectSubscriptionPath` selectors form the capability-detection
+ * layer. Given a token, the SDK asks the API which meta-tx flows the
+ * token supports, and the selectors map that to a `RelayPath` the
+ * checkout UI uses to decide which typed-data to build.
  */
 export class StrimzBrowserClient {
   public readonly mode: ApiKeyMode
-  /** Read-only access to a session by id (fetched with the publishable key). */
-  public readonly paymentSessions: Pick<PaymentSessionsResource, 'retrieve'>
+  /**
+   * Public hosted-checkout reads. Payment sessions and subscription
+   * plans by id. Backed by the `/v1/checkout/*` namespace on the API,
+   * which is intentionally unauthenticated.
+   */
+  public readonly checkout: CheckoutResource
+  /** Token metadata and EIP-2612 permit nonce lookup. */
+  public readonly tokens: TokensResource
 
   constructor(options: StrimzBrowserClientOptions) {
     const key = options.publishableKey
@@ -68,7 +86,12 @@ export class StrimzBrowserClient {
       timeoutMs: options.timeoutMs,
       maxRetries: 2,
     })
-    const sessions = new PaymentSessionsResource({ fetcher })
-    this.paymentSessions = { retrieve: sessions.retrieve.bind(sessions) }
+    this.checkout = new CheckoutResource({ fetcher })
+    this.tokens = new TokensResource({ fetcher })
   }
 }
+
+// Re-export the selectors and path type so consumers don't need a
+// second import: `import { StrimzBrowserClient, selectPaymentPath }
+// from '@strimz/sdk/browser'`.
+export { selectPaymentPath, selectSubscriptionPath, type RelayPath }

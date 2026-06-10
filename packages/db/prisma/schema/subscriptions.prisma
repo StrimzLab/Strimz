@@ -24,6 +24,12 @@ model SubscriptionPlan {
 model Subscription {
   id                      String              @id @default(cuid())
   onchainSubscriptionId   Int?                @unique
+  /// On-chain tx hash for the `permitAndCreateSubscription` call that
+  /// enrolled this subscription. Distinct from per-period charge tx
+  /// hashes (those live on SubscriptionCharge). Used by the relay's
+  /// double-enrolment safety net and surfaced on the hosted checkout's
+  /// "Subscription active" view.
+  enrolmentTxHash         String?             @unique @db.VarChar(66)
   merchantId              String
   customerId              String
   planId                  String
@@ -50,6 +56,10 @@ model Subscription {
 
   mode                    Mode                @default(test)
   metadata                Json                @default("{}")
+  /// Timestamp the scheduler sent the "new subscriber" email to the
+  /// merchant. Null until the notification cron picks the row up;
+  /// guarantees one-shot delivery without a separate event log.
+  merchantNotifiedAt      DateTime?
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
 
@@ -86,6 +96,11 @@ model SubscriptionCharge {
   onchainTxHash     String?                   @db.VarChar(66)
   failureReason     String?                   @db.VarChar(500)
 
+  /// Timestamp the scheduler sent the "recurring charge succeeded"
+  /// email to the merchant. Only stamped after `status = succeeded`.
+  /// Null = un-notified; cron picks it up. Same one-shot pattern as
+  /// `Subscription.merchantNotifiedAt`.
+  merchantNotifiedAt DateTime?
   createdAt         DateTime                  @default(now())
   updatedAt         DateTime                  @updatedAt
 
@@ -95,4 +110,6 @@ model SubscriptionCharge {
 
   @@index([subscriptionId, attemptNumber])
   @@index([status, scheduledAt])
+  /// Drives the recurring-charge notification cron.
+  @@index([status, merchantNotifiedAt])
 }

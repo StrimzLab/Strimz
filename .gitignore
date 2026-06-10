@@ -68,3 +68,4 @@ coverage/
 
 # Local agent runs
 .agent-runs/
+apps/web/.source/

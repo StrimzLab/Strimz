@@ -22,13 +22,13 @@ import { sha256Hex } from './hash.js'
 import { randomBase64Url } from './random.js'
 
 export interface GeneratedApiKey {
-  /** The full plaintext key — display once then discard. */
+  /** The full plaintext key. Display once then discard. */
   secret: string
   /** Stored as the index. */
   hash: string
   /** Stored for display / log redaction. */
   prefix: string
-  /** Stored for display — "my key ending in ...abcd". */
+  /** Stored for display, e.g. "my key ending in ...abcd". */
   lastFour: string
   kind: ApiKeyKind
   mode: ApiKeyMode

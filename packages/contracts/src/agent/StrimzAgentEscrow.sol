@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { ReentrancyGuardTransient } from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 
 import { IStrimzAgentEscrow } from "../interfaces/IStrimzAgentEscrow.sol";
 import { ITokenWhitelist } from "../interfaces/ITokenWhitelist.sol";
@@ -15,8 +15,24 @@ import { StrimzPausable } from "../access/Pausable.sol";
 ///         Full lifecycle: createJob → fundJob → startJob → submitDeliverable
 ///         → approveAndRelease (assessor) or dispute. Funds held in escrow
 ///         until the neutral assessor approves the deliverable.
+/// @dev Uses `ReentrancyGuardTransient` (EIP-1153 transient storage) rather
+///      than the constructor-bearing `ReentrancyGuard`, so the OZ upgrades
+///      safety validator does not flag an inherited constructor that the
+///      proxy would bypass. Arc targets the Prague hard fork, so EIP-1153
+///      is available.
+///
+///      The contract's own `constructor()` is the standard OZ proxy
+///      pattern: it calls `_disableInitializers()` on the implementation
+///      so the impl cannot be initialised directly. The validator only
+///      accepts this when the contract carries the
+///      `oz-upgrades-unsafe-allow` annotation below.
 /// @custom:oz-upgrades-unsafe-allow constructor
-contract StrimzAgentEscrow is IStrimzAgentEscrow, StrimzPausable, ReentrancyGuard, UUPSUpgradeable {
+contract StrimzAgentEscrow is
+    IStrimzAgentEscrow,
+    StrimzPausable,
+    ReentrancyGuardTransient,
+    UUPSUpgradeable
+{
     using SafeERC20 for IERC20;
 
     /// @custom:storage-location erc7201:strimz.storage.StrimzAgentEscrow

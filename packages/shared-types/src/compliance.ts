@@ -1,5 +1,5 @@
 /**
- * Compliance — sanctions/AML screening log.
+ * Compliance: sanctions/AML screening log.
  *
  * Every wallet address that interacts with Strimz (merchant payout,
  * subscriber, payer) is screened. Results are logged; provider and score

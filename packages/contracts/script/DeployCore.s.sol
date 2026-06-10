@@ -16,11 +16,19 @@ import { IFeeCollector } from "../src/interfaces/IFeeCollector.sol";
 import { ITokenWhitelist } from "../src/interfaces/ITokenWhitelist.sol";
 
 /// @title DeployCore
-/// @notice Deploys the non-agent core: Registry, TokenWhitelist, FeeCollector,
-///         Payments, Subscriptions — each as a UUPS proxy via the OpenZeppelin
-///         Foundry Upgrades plugin. The plugin runs a storage-layout safety
-///         check before each deployment. Wires FEE_ACCRUER_ROLE. Appends a
-///         JSON record to `deployments/<chainId>.jsonl`.
+/// @notice Deploys the non-agent core. Three of the contracts are UUPS
+///         proxies (policy-bearing — Registry, TokenWhitelist,
+///         FeeCollector); two are direct deploys without a proxy because
+///         they are deliberately immutable (Payments, Subscriptions). This
+///         split is documented in the Strimz whitepaper Section 4 as a
+///         security-posture choice — the value-moving paths cannot be
+///         upgraded in place. The OpenZeppelin Foundry Upgrades plugin
+///         runs the storage-layout safety check on the upgradeable three.
+///         FEE_ACCRUER_ROLE is wired so Payments and Subscriptions can
+///         credit the FeeCollector. A JSON record of the deployment is
+///         appended to `deployments/<chainId>.jsonl`. For the immutable
+///         contracts, the "implementation address" column duplicates the
+///         contract address — there is no separate implementation.
 contract DeployCore is Script {
     function run() external {
         uint256 pk = vm.envUint("STRIMZ_DEPLOYER_PRIVATE_KEY");
@@ -34,35 +42,42 @@ contract DeployCore is Script {
             Upgrades.deployUUPSProxy("TokenWhitelist.sol", abi.encodeCall(TokenWhitelist.initialize, (admin)));
         address feeCollector =
             Upgrades.deployUUPSProxy("FeeCollector.sol", abi.encodeCall(FeeCollector.initialize, (admin)));
-        address payments = Upgrades.deployUUPSProxy(
-            "StrimzPayments.sol",
-            abi.encodeCall(
-                StrimzPayments.initialize,
-                (admin, IStrimzRegistry(registry), IFeeCollector(feeCollector), ITokenWhitelist(whitelist))
-            )
+
+        // Direct deploys — no proxy. Constructor sets state in one phase
+        // with the `initializer` modifier preventing any re-init.
+        StrimzPayments payments = new StrimzPayments(
+            admin, IStrimzRegistry(registry), IFeeCollector(feeCollector), ITokenWhitelist(whitelist)
         );
-        address subs = Upgrades.deployUUPSProxy(
-            "StrimzSubscriptions.sol",
-            abi.encodeCall(
-                StrimzSubscriptions.initialize,
-                (admin, IStrimzRegistry(registry), IFeeCollector(feeCollector), ITokenWhitelist(whitelist))
-            )
+        StrimzSubscriptions subs = new StrimzSubscriptions(
+            admin, IStrimzRegistry(registry), IFeeCollector(feeCollector), ITokenWhitelist(whitelist)
         );
 
         // Wire FEE_ACCRUER_ROLE so Payments and Subscriptions can credit fees.
         bytes32 accruerRole = StrimzAccessControl(feeCollector).FEE_ACCRUER_ROLE();
-        FeeCollector(feeCollector).grantRole(accruerRole, payments);
-        FeeCollector(feeCollector).grantRole(accruerRole, subs);
+        FeeCollector(feeCollector).grantRole(accruerRole, address(payments));
+        FeeCollector(feeCollector).grantRole(accruerRole, address(subs));
 
-        // Optional initial token allowlist seeding.
+        // Optional initial token allowlist seeding. USDC and EURC on Arc both
+        // implement EIP-2612 (permit) and EIP-3009 (transfer-with-authorisation),
+        // so the capability bitmap is the union of the two flags.
+        uint8 capsBoth =
+            TokenWhitelist(whitelist).CAP_PERMIT_2612() | TokenWhitelist(whitelist).CAP_TRANSFER_AUTH_3009();
         address usdc = vm.envOr("ARC_USDC_ADDRESS", address(0));
         address eurc = vm.envOr("ARC_EURC_ADDRESS", address(0));
-        if (usdc != address(0)) TokenWhitelist(whitelist).add(usdc);
-        if (eurc != address(0)) TokenWhitelist(whitelist).add(eurc);
+        if (usdc != address(0)) {
+            TokenWhitelist(whitelist).add(usdc);
+            TokenWhitelist(whitelist).setCapabilities(usdc, capsBoth);
+        }
+        if (eurc != address(0)) {
+            TokenWhitelist(whitelist).add(eurc);
+            TokenWhitelist(whitelist).setCapabilities(eurc, capsBoth);
+        }
 
         vm.stopBroadcast();
 
         // ----- Append to the deployment audit trail -----
+        // For the immutable contracts, the "implementation" field
+        // duplicates the deployed address — there is no separate impl.
         DeploymentLog.Entry[] memory entries = new DeploymentLog.Entry[](5);
         entries[0] =
             DeploymentLog.Entry("StrimzRegistry", registry, Upgrades.getImplementationAddress(registry));
@@ -70,10 +85,8 @@ contract DeployCore is Script {
             DeploymentLog.Entry("TokenWhitelist", whitelist, Upgrades.getImplementationAddress(whitelist));
         entries[2] =
             DeploymentLog.Entry("FeeCollector", feeCollector, Upgrades.getImplementationAddress(feeCollector));
-        entries[3] =
-            DeploymentLog.Entry("StrimzPayments", payments, Upgrades.getImplementationAddress(payments));
-        entries[4] =
-            DeploymentLog.Entry("StrimzSubscriptions", subs, Upgrades.getImplementationAddress(subs));
+        entries[3] = DeploymentLog.Entry("StrimzPayments", address(payments), address(payments));
+        entries[4] = DeploymentLog.Entry("StrimzSubscriptions", address(subs), address(subs));
         DeploymentLog.append("core", entries);
 
         console2.log("Core deployment recorded in deployments/<chainId>.jsonl");

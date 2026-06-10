@@ -1,5 +1,21 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Check, X } from 'lucide-react'
+import { OG_IMAGE } from '@/lib/seo'
+
+export const metadata: Metadata = {
+  title: 'Pricing',
+  description:
+    'Strimz pricing — pay-as-you-go fees with no monthly minimums. Volume tiers down to 0.5%, no FX, no chargebacks. Free for the first $10K processed.',
+  openGraph: {
+    title: 'Pricing · Strimz',
+    description:
+      'Pay-as-you-go stablecoin billing. Volume tiers, no monthly minimums, no FX, no chargebacks.',
+    url: '/pricing',
+    images: [OG_IMAGE],
+  },
+  alternates: { canonical: '/pricing' },
+}
 
 type Tier = {
   name: string

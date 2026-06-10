@@ -1,0 +1,107 @@
+---
+title: Subscription lifecycle
+description: Subscriptions have six statuses. Most live their whole lives in active. The other five exist because real billing systems have to handle real edge cases.
+---
+
+A subscription is in one of these statuses at any given moment:
+
+- `trialing` — inside the free-trial window. No cycle has charged yet.
+- `active` — cycling normally. Last charge succeeded; the next one is scheduled.
+- `at_risk` — last charge failed. In the recovery window. Retries are pending.
+- `paused` — explicitly paused by the merchant. No charges fire while paused.
+- `cancelled` — cancelled. No more charges. Terminal.
+- `lapsed` — recovery window exhausted. Subscription is dead. Terminal.
+
+That's the whole state machine. Let's walk through how subscriptions move between them.
+
+## Trial to active
+
+If the plan has `trialPeriodDays`, new subscribers enter `trialing`. The trial window is "real" — `nextChargeAt` is set to `now + trialPeriodDays`, and the scheduler won't touch the row until then.
+
+When the scheduler picks up the row at the end of the trial, it calls `batchCharge(...)`. If the charge succeeds, status flips to `active` and `nextChargeAt` advances by the plan's interval. If it fails, status flips to `at_risk` (more on that below).
+
+If the plan has no trial (`trialPeriodDays: null`), the subscription is born in `active`. The first charge happens in the same on-chain transaction as the enrolment — `permitAndCreateSubscription(...)` does `permit + transferFrom` atomically.
+
+## Active to at_risk
+
+A cycle's charge can fail for a small number of reasons. Most common is `insufficient_funds` — the payer's USDC balance dropped below the charge amount. Less common is `revoked_approval` — the payer manually called `USDC.approve(strimzSubscriptions, 0)` to revoke their permit. We've also seen rare cases where the payer's wallet was sanctioned between cycles; the contract refuses to settle and the charge is marked failed.
+
+When `batchCharge` fails for a subscription, the scheduler:
+
+1. Stamps the `SubscriptionCharge` row with `status: 'failed'` and the appropriate `outcome`.
+2. Fires `subscription.charge_failed` to your webhook.
+3. Flips the subscription status to `at_risk`.
+4. Schedules a retry.
+
+The retry schedule is 24h, 72h, and 7 days after the initial failure. We picked these intervals from looking at how stablecoin balances actually recover — most payers who notice a failed charge top up their wallet within a day. Three retries on a stretching schedule catches the vast majority of recoverable cases without spamming the payer's webhook.
+
+## At_risk back to active
+
+If any of the three retries succeeds, the subscription flips back to `active` and the schedule continues normally. The failed cycle's `SubscriptionCharge` row stays in the database for audit; we don't backfill or skip cycles.
+
+The `subscription.recovery_outcome` webhook fires once after the recovery resolves — with `recovered: true` if a retry succeeded or `recovered: false` if all three failed and the subscription is about to lapse.
+
+## At_risk to lapsed
+
+If all three retries fail, the subscription flips to `lapsed`. The status is terminal — once lapsed, the subscription is dead. We don't keep trying.
+
+`gracePeriodHours` on the subscription is the upper bound on how long recovery can run. Default is 48 hours; you can pass a custom value at enrolment time (the React SDK exposes it; the API has a default but the field is settable). If the third retry would fire after `currentPeriodEndAt + gracePeriodHours`, the subscription lapses without firing it.
+
+The way to think about this: the cycle ended; the customer didn't pay; we tried to help them recover; recovery didn't work; the subscription is over. Same as any other billing system in a credit-card world.
+
+To re-engage, the payer has to sign a fresh permit on the plan's checkout URL — a new subscription, new id, new EIP-2612 signature. There's no resurrect-a-lapsed-subscription path. (We also enforce one active subscription per `(planId, payerAddress)` at the API level, so a lapsed subscription has to be replaced by a brand-new one; the same payer can't have two on the same plan.)
+
+## Active to paused
+
+Pause is a merchant-side action. Useful for "freeze my account for 30 days" customer requests.
+
+```ts
+await strimz.subscriptions.pause({ id: 'sub_…' })
+```
+
+The status flips to `paused`. `nextChargeAt` is frozen — it doesn't advance during the pause. When you unpause, the cycle picks up from where it left off.
+
+A 14-day pause partway through a 30-day cycle pushes the next charge back by 14 days. We don't try to "make up" the missed time or charge a prorated catch-up amount on resume; the cycle was paused, the cycle resumes.
+
+```ts
+await strimz.subscriptions.resume({ id: 'sub_…' })
+```
+
+You can pause and resume as many times as you want. The on-chain side doesn't know about pause; the contract's `batchCharge` would still work if called, but the scheduler skips paused rows in its sweep.
+
+## Active to cancelled
+
+Cancellation comes in two flavours, controlled by the `immediate` flag.
+
+`subscriptions.cancel({ id })` is at-period-end. The subscription stays `active` until `currentPeriodEndAt`, then flips to `cancelled` at the next scheduler tick. Customer paid for the cycle; customer gets the cycle.
+
+`subscriptions.cancel({ id, immediate: true })` flips to `cancelled` right now. No further charges fire. If you want to refund the unused portion of the current cycle, you do that via the refunds API — see [Cancellation](/docs/subscriptions/cancellation) for the full pattern.
+
+The dashboard surfaces an at-period-end cancellation as "Cancels in N days" while the row is still `active`. Once the period ends, the status flips and the "Cancels in N days" is gone.
+
+## What fires on each transition
+
+A quick reference for the webhooks. Each transition fires one event:
+
+- `trialing → active` (first cycle succeeded): `subscription.charged`
+- `active → at_risk` (cycle failed): `subscription.charge_failed`
+- `at_risk → at_risk` (retry attempted): `subscription.recovery_attempt`
+- `at_risk → active` (recovery succeeded): `subscription.recovery_outcome` with `recovered: true`
+- `at_risk → lapsed` (recovery failed): `subscription.recovery_outcome` with `recovered: false`, then `subscription.lapsed`
+- `→ paused`: `subscription.paused`
+- `→ cancelled`: `subscription.cancelled`
+- `→ lapsed`: `subscription.lapsed`
+
+The full payload shapes are in [Webhooks → Events](/docs/webhooks/events). If your handler wants to be defensive, idempotency-key on `event.id` (the envelope id) and handle each event exactly once.
+
+## What it doesn't model
+
+A few things subscriptions don't have, by design:
+
+No prorated upgrades. If a payer wants to switch plans, the recommended flow is "cancel the current subscription, sign up for the new one, refund any difference." We don't have an upgrade-in-place flow because the underlying on-chain primitive (the EIP-2612 permit) is plan-specific.
+
+No fixed-term subscriptions. Every Strimz subscription auto-renews until canceled. If you want "Pro for 12 months and then stops," your application has to call `subscriptions.cancel(...)` on month 12. We surface `cancelAt` (a future scheduled cancellation timestamp) on the roadmap.
+
+No multi-currency on the same plan. A plan is one currency. If a customer wants to pay in EURC instead of USDC, you create a EURC plan and they re-subscribe.
+
+These limitations might change later if usage warrants. They're not principled forever-decisions; they're things we haven't built yet.

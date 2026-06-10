@@ -1,6 +1,6 @@
 /**
- * Webhook utilities — re-exports the verified-and-tested Web Crypto
- * primitives from `@strimz/shared-crypto` and the typed event union from
+ * Webhook utilities. Re-exports the verified Web Crypto primitives from
+ * `@strimz/shared-crypto` and the typed event union from
  * `@strimz/shared-types`. Consumers should import from here, not directly
  * from the shared packages.
  */
@@ -57,7 +57,7 @@ import { webhookEventSchema, type StrimzWebhookEvent } from '@strimz/shared-type
 
 /**
  * Parse a webhook payload into a typed `StrimzWebhookEvent`.
- * Use after `verifyWebhookSignature` succeeds — never trust raw payloads.
+ * Use after `verifyWebhookSignature` succeeds. Never trust raw payloads.
  */
 export function parseWebhookEvent(rawJson: string): StrimzWebhookEvent {
   return webhookEventSchema.parse(JSON.parse(rawJson))

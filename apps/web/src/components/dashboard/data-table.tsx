@@ -42,6 +42,12 @@ export interface DataTableProps<TData, TValue> {
   emptyDescription?: string
   /** Page size for client pagination. */
   pageSize?: number
+  /**
+   * When true, renders skeleton rows in place of the empty-state. Used
+   * by data-fetching pages to bridge the first-load gap without
+   * flashing "No results" before the query resolves.
+   */
+  loading?: boolean
 }
 
 export function DataTable<TData, TValue>({
@@ -52,6 +58,7 @@ export function DataTable<TData, TValue>({
   emptyTitle = 'No results',
   emptyDescription = 'Nothing here yet — adjust your filters or check back later.',
   pageSize = 10,
+  loading = false,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -146,7 +153,17 @@ export function DataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {loading && table.getRowModel().rows.length === 0 ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={`skeleton-${i}`}>
+                  {columns.map((_, j) => (
+                    <TableCell key={j} className="py-3">
+                      <div className="bg-muted/60 h-4 w-3/4 animate-pulse rounded" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} className="hover:bg-muted/40 transition-colors">
                   {row.getVisibleCells().map((cell) => (

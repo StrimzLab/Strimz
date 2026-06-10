@@ -59,8 +59,9 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 }
 
-// MarkReady flips /readyz to 200. Called by the runner after the first
-// successful tick.
+// MarkReady flips /readyz to 200. Called by main after the runner has
+// validated chain + DB connectivity — at that point the process is
+// serving even if the projector hasn't drained its first batch yet.
 func (s *Server) MarkReady() { s.ready.Store(true) }
 
 func (s *Server) healthz(w http.ResponseWriter, _ *http.Request) {

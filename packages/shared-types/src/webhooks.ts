@@ -12,8 +12,8 @@ import { httpsUrlSchema, idSchema, isoTimestampSchema, modeSchema } from './comm
 // ---------- Event name ----------
 
 /**
- * Every webhook event name in the system. Listed here (not imported from
- * `@strimz/shared-config`) so Zod can produce a concrete string union.
+ * Every webhook event name in the system. Listed inline so Zod can
+ * produce a concrete string union.
  */
 export const webhookEventNameSchema = z.enum([
   'payment.created',
@@ -71,7 +71,7 @@ export type CreateWebhookEndpointInput = z.infer<typeof createWebhookEndpointInp
 
 export const createWebhookEndpointOutputSchema = z.object({
   endpoint: webhookEndpointSchema,
-  /** Full signing secret — shown exactly once. */
+  /** Full signing secret. Shown exactly once. */
   signingSecret: z.string(),
 })
 export type CreateWebhookEndpointOutput = z.infer<typeof createWebhookEndpointOutputSchema>

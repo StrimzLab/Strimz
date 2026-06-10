@@ -48,13 +48,13 @@ src/
 | `/v1/merchants/*`, `/v1/api-keys/*`, dashboard surface                   | JWT (HS256)   | `Authorization: Bearer <jwt>`       |
 | `/v1/payment-sessions/*`, `/v1/customers/*`, every SDK-callable resource | API key       | `Authorization: Bearer sk_test_...` |
 
-The API-key guard hashes the inbound key with `@strimz/shared-crypto` and looks it up by the indexed sha256 hash. Mode (`test`/`live`) is derived from the key prefix.
+The API-key guard hashes the inbound key with `@strimz/shared-crypto` and looks it up by the indexed sha256 hash. Mode (`test` or `live`) is derived from the key prefix.
 
 `@RequireScopes(...)` enforces granular per-route scope checks against the API key's `scopes` array.
 
 ## Configuration
 
-Strict Zod validation at boot — see `src/config/env.schema.ts`. The process refuses to start with an invalid `.env`.
+Strict Zod validation at boot. See `src/config/env.schema.ts`. The process refuses to start with an invalid `.env`.
 
 | Var                              | Required | Notes                                 |
 | -------------------------------- | -------- | ------------------------------------- |
@@ -83,14 +83,18 @@ Strict Zod validation at boot — see `src/config/env.schema.ts`. The process re
 
 ## Bootstrap behaviour
 
-- Fastify adapter — faster than Express, native streaming, better TS.
-- `helmet` for security headers; CSP off (we control the only consumer for now — the dashboard sets its own CSP).
-- `@fastify/rate-limit` — 600 req/min per IP at the edge. Per-merchant tier limits live in a separate guard.
-- OpenAPI at `/docs` — auto-generated from controllers. Bearer-key security scheme already declared.
+- Fastify adapter. Faster than Express, native streaming, better TypeScript support.
+- `helmet` for security headers. CSP is off here because the dashboard sets its own and there are no other consumers yet.
+- `@fastify/rate-limit` at 600 req/min per IP at the edge. Per-merchant tier limits live in a separate guard.
+- OpenAPI at `/docs`, auto-generated from controllers. Bearer-key security scheme already declared.
 - Global exception filter renders every error in the Strimz envelope shape `{ error: { code, message, requestId, ... } }`. The SDK's `classifyError` parses this directly.
 - Global request-id interceptor echoes any inbound `X-Strimz-Request-Id` or generates a UUID v4. Filters and logs use it for traceability.
-- `app.enableShutdownHooks()` — Prisma/Redis disconnect cleanly on SIGTERM (Render rolling deploys).
+- `app.enableShutdownHooks()` so Prisma and Redis disconnect cleanly on SIGTERM (Render rolling deploys).
 
 ## What's stubbed
 
-Modules tagged _M1 / M2 / M3 — TODO_ in the layout above expose the full route surface but throw `NotImplementedException` for handlers that need integration with chain events, off-chain compliance providers, or aggregation pipelines that don't exist yet. Each stub carries a single-line comment pointing to the work item.
+The modules tagged _M1 / M2 / M3 (TODO)_ in the tree above expose
+their full route surface but throw `NotImplementedException` for
+handlers that depend on chain events, off-chain compliance
+providers, or aggregation pipelines not yet built. Each stub
+carries a single-line comment pointing at the work item.

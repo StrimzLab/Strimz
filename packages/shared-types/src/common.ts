@@ -89,7 +89,7 @@ export const metadataSchema = z
 export const modeSchema = z.enum(['test', 'live'])
 export type Mode = z.infer<typeof modeSchema>
 
-/** Payment token enum — mirrors `@strimz/shared-config`. */
+/** Payment token enum. */
 export const paymentCurrencySchema = z.enum(['USDC', 'EURC'])
 export type PaymentCurrency = z.infer<typeof paymentCurrencySchema>
 
@@ -97,7 +97,7 @@ export type PaymentCurrency = z.infer<typeof paymentCurrencySchema>
 export const tokenSymbolSchema = z.enum(['USDC', 'EURC', 'USYC'])
 export type TokenSymbol = z.infer<typeof tokenSymbolSchema>
 
-/** Merchant tier enum — mirrors `@strimz/shared-config`. */
+/** Merchant tier enum. */
 export const merchantTierSchema = z.enum(['free', 'growth', 'business', 'enterprise'])
 export type MerchantTier = z.infer<typeof merchantTierSchema>
 

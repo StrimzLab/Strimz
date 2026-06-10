@@ -3,14 +3,15 @@ title: Glossary
 description: Strimz-specific terms and what they mean.
 ---
 
-A few terms in these docs are worth defining up front. Some are borrowed
-from existing payment systems. A few are specific to billing on-chain.
+A handful of terms in these docs are worth pinning down up front. Some
+come from card-payments vocabulary. The rest are specific to billing
+on a stablecoin chain.
 
 ## API key kinds
 
-**Secret key** — full-permissions, server-side only. Prefix `sk_test_` / `sk_live_`.
+**Secret key.** Full permissions, server-side only. Prefixed `sk_test_` or `sk_live_`.
 
-**Publishable key** — read + create-session only, safe in browsers. Prefix `pk_test_` / `pk_live_`.
+**Publishable key.** Read access plus the ability to create a payment session. Safe to ship in a browser. Prefixed `pk_test_` or `pk_live_`.
 
 ## Charge attempt ID
 
@@ -20,17 +21,75 @@ A 32-byte deterministic identifier passed to the contract's `batchCharge` so ret
 
 The number of blocks the indexer waits behind the chain head before projecting an event. Default 5. Higher = more reorg-safe, lower = faster updates.
 
+## EIP-2612
+
+The "permit" standard. The payer signs a structured message that
+grants a contract an ERC-20 allowance. USDC and EURC both implement
+it natively. Strimz uses it for the single-signature subscription
+enrolment call (`permitAndCreateSubscription`). The
+[meta-tx flow page](/docs/concepts/meta-tx-flow) walks through the
+full sequence.
+
+## EIP-3009
+
+The "transfer with authorization" standard. The payer signs a
+structured message authorising a specific recipient to pull a specific
+amount of a specific token. USDC and EURC implement it natively.
+Strimz uses it for the single-signature one-shot payment call
+(`payWithAuthorization`). See the
+[meta-tx flow page](/docs/concepts/meta-tx-flow) for the wire-level
+detail.
+
+## EIP-712 typed-data
+
+The format a wallet uses to display a structured message instead of a
+raw transaction or an opaque `personal_sign` blob. EIP-3009 and
+EIP-2612 are both built on top of it, which is how the wallet renders
+human-readable fields like `from`, `to`, `value`, and `deadline`
+rather than a hex string.
+
 ## ERC-7201
 
-The "namespaced storage" pattern. Lets upgradeable contracts declare their state under a deterministic slot, so adding fields in V2 can't collide with V1's layout. Strimz contracts use this so `forge upgrade` is provably safe.
+The "namespaced storage" pattern. It lets a contract park its state
+at a deterministic slot so adding fields later can't collide with the
+previous layout. Strimz's upgradeable contracts use it, which makes
+`forge upgrade` provably safe.
+
+## Idempotency key
+
+A string the client picks per write that the API uses to dedupe
+retries. Sent in the `Idempotency-Key` header on every `POST`. The
+second call with the same key returns the first call's response
+verbatim and does not create a duplicate resource. The SDK adds one
+for you on every request.
 
 ## Indexer cursor
 
 The bookmark that tracks "what block has the indexer projected up to". One row per `(network, contractAddress)` in the `IndexerCursor` table. Truncating it = re-process from genesis.
 
-## Live mode / Test mode
+## KMS-backed signer
 
-Two entirely separate environments — different on-chain deployments, different DBs, different keys. Resources can't cross.
+The pattern Strimz uses to sign relayer transactions on Arc. The
+signing key is held by a Key Management System (software-backed in
+development, hardware-backed in production) and never appears in an
+environment variable or on disk. The relayer asks the KMS for a
+signature; the KMS returns one. The relay section of the API
+reference covers the operator-side configuration.
+
+## Live mode and test mode
+
+Two fully separate environments. Different on-chain deployments,
+different databases, different API keys. A resource created in one
+mode cannot be read or modified from the other.
+
+## Meta-tx
+
+Short for "meta-transaction." The customer signs a structured message
+off-chain. A third party (Strimz's relayer) wraps that signature into
+a transaction and broadcasts it. The customer pays no gas. The
+relayer pays gas but cannot move funds on its own; the contract
+verifies the customer's signature on every call. `payWithAuthorization`
+and `permitAndCreateSubscription` are both meta-tx entrypoints.
 
 ## Mode
 
@@ -38,28 +97,64 @@ A column on most resources (`Subscription.mode`, `Transaction.mode`, etc.) recor
 
 ## On-chain merchant ID
 
-A `uint256` assigned by `StrimzRegistry` when a merchant first connects their payout wallet on-chain. Stored in `Merchant.onchainMerchantId`. The contracts use it (not the off-chain `cuid`) as the canonical merchant identifier.
+A `uint96` assigned by `StrimzRegistry` when a merchant first registers their payout wallet on-chain. Stored in `Merchant.onchainMerchantId` and exposed on session/plan payloads as `chainMerchantId`. The contracts use it (not the off-chain `cuid`) as the canonical merchant identifier.
+
+## Permit nonce
+
+A per-owner monotonic counter that EIP-2612 tokens maintain. The
+current value goes into the signed permit; every successful permit
+increments it on-chain. A stale nonce reverts. Read it just before
+signing via `tokens.permitNonce(token, owner)`.
 
 ## Pull-based subscription
 
-A subscription where the customer signs once, granting the contract a multi-period allowance, and the merchant's scheduler "pulls" payment each period. Contrast with push-based, where the customer initiates each charge.
+The customer signs once, granting the contract a multi-period
+allowance. The merchant's scheduler then "pulls" payment each period.
+The opposite is push-based, where the customer initiates each charge
+themselves.
 
 ## Ref
 
-A `bytes32` identifier passed to `StrimzPayments.pay()` that the indexer uses to link an on-chain payment back to its off-chain `PaymentSession.id`.
+A `bytes32` identifier passed to `StrimzPayments.pay()` and
+`payWithAuthorization()`. The indexer uses it to join an on-chain
+payment back to its `PaymentSession.id`.
 
-## Service wallet
+## Relayer
 
-The private key the scheduler holds. Used to sign every Strimz on-chain write — subscription charges, agent escrow operations, CCTP settlements. Never customer-facing.
+The Strimz process that broadcasts payer-signed authorisations to the
+chain. It holds a KMS-backed signing key it uses only to pay gas. The
+contracts authorise the payer's signature, not the relayer's, so a
+relayer-key compromise costs Strimz some gas and nothing else. It
+cannot be used to move customer funds.
+
+## Sub-tenancy
+
+The `parentMerchantId` field on `StrimzRegistry`. Lets a merchant
+register under another merchant for hierarchical billing arrangements:
+resellers, agency-of-record relationships, multi-brand orgs. Charges
+still settle to the child merchant's own `payoutAddress`. The parent
+field is metadata the reseller can reconcile against.
 
 ## UUPS
 
-Universal Upgradeable Proxy Standard (EIP-1822). Strimz's contracts use this pattern — the upgrade logic lives in the implementation contract rather than a separate `ProxyAdmin`. Cheaper calls and per-contract upgrade authority.
+Universal Upgradeable Proxy Standard (EIP-1822). Used by Strimz's
+policy contracts: Registry, FeeCollector, TokenWhitelist,
+AgentRegistry, AgentEscrow. `StrimzPayments` and `StrimzSubscriptions`
+are not UUPS. They are deliberately immutable.
+[On-chain architecture](/docs/concepts/on-chain-architecture) covers
+why the line falls where it does.
 
 ## Webhook delivery
 
-One attempt to POST a specific event to a specific endpoint. Persisted in the `WebhookDelivery` table so you can see every attempt's response code and body in your dashboard.
+One attempt to POST a specific event to a specific endpoint.
+Persisted in the `WebhookDelivery` table, so you can see every
+attempt's response code and body in your dashboard.
 
 ## Webhook signing secret
 
-The HMAC key used to sign outbound webhook deliveries. Generated at endpoint creation, returned to you exactly once, sha256-hashed at rest.
+The HMAC key Strimz uses to sign outbound webhook deliveries.
+Generated when you create the endpoint and returned to you exactly
+once. Stored on the Strimz side as an AES-256-GCM ciphertext in
+Postgres so a database dump leaks nothing useful. The scheduler
+decrypts it into a Redis cache on startup; that cache is what the
+delivery worker reads on the hot path.

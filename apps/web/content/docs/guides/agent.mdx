@@ -11,13 +11,16 @@ You turn capabilities on and off individually. They live in the dashboard under 
 
 When a subscription charge fails, the customer needs to know. The agent emails them for you on a cadence you set:
 
-| `strategy` | Cadence (relative to `currentPeriodEndAt`) |
-| --- | --- |
-| `once` | T+0 |
-| `twice` | T+0, T+24h |
-| `until_grace_ends` | T+0, T+24h, T+72h |
+| `strategy`         | Cadence (relative to `currentPeriodEndAt`) |
+| ------------------ | ------------------------------------------ |
+| `once`             | T+0                                        |
+| `twice`            | T+0, T+24h                                 |
+| `until_grace_ends` | T+0, T+24h, T+72h                          |
 
-You can override the email body with a custom template via `recoveryNotificationTemplate`. We render it inside our wrapper (header, unsubscribe footer) so brand consistency stays intact.
+You can override the email body with a custom template via
+`recoveryNotificationTemplate`. Strimz renders it inside the
+standard wrapper (header, unsubscribe footer) so the brand stays
+consistent.
 
 If the customer has no email on file (wallet-only checkout), the agent records `recovery_abandoned` in your activity log so finance can follow up manually.
 
@@ -31,11 +34,11 @@ Daily 9am UTC, the agent emails you yesterday's roll-up:
 - Net to your wallet
 - Unique customers
 
-Idempotent per UTC day — if a flapping cron fires twice, you only get one email.
+Idempotent per UTC day. If a flapping cron fires twice, you only get one email.
 
 ## `cashflow.anomaly`
 
-Hourly, the agent computes a z-score for the last completed clock-hour against the trailing 30-day average for that same hour-of-day. If your revenue dropped more than `nσ` (n derived from your `anomalySensitivity` — `low=3σ`, `medium=2σ`, `high=1σ`), you get an email + an `AuditLog` entry. We only flag drops, not surges, because revenue surges aren't actionable.
+Hourly, the agent computes a z-score for the last completed clock-hour against the trailing 30-day average for that same hour-of-day. If your revenue dropped more than `nσ` (n derived from your `anomalySensitivity`: `low=3σ`, `medium=2σ`, `high=1σ`), you get an email plus an `AuditLog` entry. The agent only flags drops because revenue surges aren't actionable.
 
 The math:
 
@@ -44,7 +47,9 @@ z = (this_hour_revenue - mean(prior_30_days_same_hour)) / stddev(prior_30_days_s
 if z < -threshold: alert
 ```
 
-We require at least 7 prior data points before we'll alert; merchants in their first week aren't surprised by false positives.
+The agent needs at least 7 prior data points before it will alert.
+Merchants in their first week don't get surprised by false
+positives.
 
 ## `cashflow.yield`
 
@@ -54,9 +59,11 @@ Daily 9:30am UTC, the agent computes your running net balance:
 balance_cents = sum(Transaction.netAmount where kind != refund) - sum(Refund.amount where status = completed)
 ```
 
-If `balance > cashflowMinimumLiquidReserveCents` and you've enabled `cashflowAutoConvertToYield`, the agent emails you a recommendation: "you have $X in surplus over your $Y reserve target — consider moving the excess to a yield position".
+If `balance > cashflowMinimumLiquidReserveCents` and you've enabled `cashflowAutoConvertToYield`, the agent emails you a recommendation: "you have $X in surplus over your $Y reserve target. Consider moving the excess to a yield position".
 
-The agent **never** signs the deposit. When you confirm in the dashboard, that's when a scheduler job is enqueued to sign on your behalf. We treat fund movement as a strict opt-in-per-transaction action.
+The agent never signs the deposit itself. Confirming the
+recommendation in the dashboard is what enqueues a scheduler job to
+sign on your behalf. Fund movement is opt-in per transaction.
 
 ## `commerce`
 
@@ -67,7 +74,7 @@ Monthly (1st of each month, 9am UTC), the agent emails you last month's vendor a
 - Cap utilisation: `total_spend / commerceMonthlySpendCapUsdCents`
 - Count of jobs awaiting your approval (`status = proposed`)
 
-Plus a one-line nudge if any vendor's monthly spend has increased >50% over their three-month average — possibly worth a closer look.
+Plus a one-line nudge if any vendor's monthly spend has increased >50% over their three-month average. Possibly worth a closer look.
 
 ## `pricing_intelligence`
 
@@ -81,18 +88,20 @@ Monthly, the agent runs the same SQL aggregates the API exposes via `/v1/stats/{
 
 ## `routing`
 
-This one's queue-driven, not cron-driven. When a customer pays from a non-Arc chain (e.g., USDC on Base), the checkout client enqueues a `strimz.routing.cctp.bridge` job. The agent worker:
+This one's queue-driven instead of cron-driven. When a customer pays from a non-Arc chain (e.g., USDC on Base), the checkout client enqueues a `strimz.routing.cctp.bridge` job. The agent worker:
 
 1. Records `routing_bridge_initiated` in your activity log
 2. Polls Circle's CCTP V2 attestation API (re-enqueues itself with a 30-second delay until status=`complete`)
 3. Hands off to the scheduler, which calls `MessageTransmitter.receiveMessage(message, attestation)` on Arc to claim the bridged USDC
 4. Records `routing_payment_completed`
 
-You don't have to do anything. From your perspective, a customer pays, and a USDC payment lands in your Arc wallet a few minutes later — the bridge is invisible.
+You don't have to do anything. The customer pays from whatever
+chain holds their USDC, and the equivalent USDC lands in your Arc
+wallet a few minutes later. The bridge is invisible from your end.
 
 ## `identity`
 
-A capability flag, not an automation. When enabled, your dashboard surfaces extra business-info verification steps (KYB, beneficial-owner declaration, sanctions screening). The agent itself doesn't do anything for this capability — it's a configuration affordance.
+A capability flag rather than an automation. When enabled, your dashboard surfaces extra business-info verification steps (KYB, beneficial-owner declaration, sanctions screening). The agent itself doesn't do anything for this capability. It's a configuration affordance.
 
 ## How to enable
 
@@ -102,7 +111,8 @@ await strimz.agents.updateConfig({
   recovery: {
     gracePeriodHours: 48,
     strategy: 'twice',
-    notificationTemplate: 'Hey — your subscription with Acme couldn\'t be charged. Top up your wallet?',
+    notificationTemplate:
+      "Hey, your subscription with Acme couldn't be charged. Top up your wallet?",
   },
   cashflow: {
     digestEnabled: true,

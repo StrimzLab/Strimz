@@ -3,29 +3,38 @@ pragma solidity ^0.8.28;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import { IStrimzSubscriptions } from "../interfaces/IStrimzSubscriptions.sol";
 import { IStrimzRegistry } from "../interfaces/IStrimzRegistry.sol";
 import { IFeeCollector } from "../interfaces/IFeeCollector.sol";
 import { ITokenWhitelist } from "../interfaces/ITokenWhitelist.sol";
+import { IERC2612 } from "../interfaces/IERC2612.sol";
 import { StrimzPausable } from "../access/Pausable.sol";
 
 /// @title StrimzSubscriptions
 /// @notice Recurring USDC / EURC billing with contract-level idempotency.
-/// @custom:oz-upgrades-unsafe-allow constructor
-contract StrimzSubscriptions is
-    IStrimzSubscriptions,
-    StrimzPausable,
-    ReentrancyGuard,
-    UUPSUpgradeable
-{
+///         Two enrolment entrypoints:
+///         - `createSubscription` — classic approve+create flow.
+///         - `permitAndCreateSubscription` — EIP-2612 single-signature
+///           enrolment for tokens with `CAP_PERMIT_2612` set on
+///           TokenWhitelist.
+/// @dev    **This contract is immutable.** Same security posture as
+///         `StrimzPayments`: no `UUPSUpgradeable`, no `_authorizeUpgrade`.
+///         A discovered bug triggers redeploy + Registry pointer rotation,
+///         not in-place upgrade. The trade-off is documented in the
+///         Strimz whitepaper Section 4.3.
+contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint16 public constant BPS_DENOMINATOR = 10_000;
     uint32 public constant MIN_INTERVAL = 1 hours;
     uint256 public constant MAX_MERCHANT_ID = type(uint96).max;
+
+    /// @dev Mirrors `TokenWhitelist.CAP_PERMIT_2612`. If the bit
+    ///      assignment in TokenWhitelist ever changes, update this
+    ///      constant in lockstep.
+    uint8 private constant CAP_PERMIT_2612 = 1 << 0; // 0x01
 
     /// @custom:storage-location erc7201:strimz.storage.StrimzSubscriptions
     struct Storage {
@@ -50,22 +59,21 @@ contract StrimzSubscriptions is
         }
     }
 
-    constructor() {
-        _disableInitializers();
-    }
-
-    function initialize(
+    /// @dev See `StrimzPayments` for the rationale on single-phase
+    ///      constructor init in a non-upgradeable contract that still
+    ///      uses OZ's *Upgradeable abstract base classes.
+    constructor(
         address admin,
         IStrimzRegistry registry_,
         IFeeCollector feeCollector_,
         ITokenWhitelist tokenWhitelist_
-    ) external initializer {
+    ) initializer {
         __AccessControl_init();
         __Pausable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
-        _grantRole(UPGRADER_ROLE, admin);
         _grantRole(CHARGER_ROLE, admin);
+        // UPGRADER_ROLE deliberately omitted — there is nothing to upgrade.
 
         Storage storage $ = _s();
         $.registry = registry_;
@@ -73,8 +81,6 @@ contract StrimzSubscriptions is
         $.tokenWhitelist = tokenWhitelist_;
         $.nextSubscriptionId = 1;
     }
-
-    function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }
 
     // ----- Dependency views + rotation -----
 
@@ -105,7 +111,8 @@ contract StrimzSubscriptions is
         address token,
         uint256 amount,
         uint32 interval,
-        uint64 startAt
+        uint64 startAt,
+        uint64 endAt
     ) external override whenNotPaused returns (uint256 subscriptionId) {
         if (amount == 0) revert Subscriptions__InvalidAmount();
         if (interval < MIN_INTERVAL) revert Subscriptions__InvalidInterval();
@@ -116,6 +123,9 @@ contract StrimzSubscriptions is
         $.registry.requireActiveMerchant(merchantId);
 
         uint64 firstChargeAt = startAt == 0 ? uint64(block.timestamp) : startAt;
+        // endAt=0 → open-ended. Otherwise it must come after the first
+        // charge — a subscription that ends before it begins is meaningless.
+        if (endAt != 0 && endAt <= firstChargeAt) revert Subscriptions__InvalidEndAt();
 
         subscriptionId = $.nextSubscriptionId;
         unchecked {
@@ -128,10 +138,79 @@ contract StrimzSubscriptions is
             token: token,
             merchantId: uint96(merchantId),
             amount: amount,
+            endAt: endAt,
             cancelled: false
         });
 
         emit SubscriptionCreated(subscriptionId, merchantId, msg.sender, token, amount, interval, firstChargeAt);
+    }
+
+    /// @inheritdoc IStrimzSubscriptions
+    function permitAndCreateSubscription(
+        uint256 merchantId,
+        address token,
+        uint256 amount,
+        uint32 interval,
+        uint64 startAt,
+        uint64 endAt,
+        PermitData calldata permitData,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external override whenNotPaused returns (uint256 subscriptionId) {
+        if (amount == 0) revert Subscriptions__InvalidAmount();
+        if (interval < MIN_INTERVAL) revert Subscriptions__InvalidInterval();
+        if (merchantId > MAX_MERCHANT_ID) revert Subscriptions__InvalidMerchantId();
+
+        Storage storage $ = _s();
+        if (!$.tokenWhitelist.isWhitelisted(token)) revert Subscriptions__InvalidToken(token);
+        // The token must declare EIP-2612 support; calling `permit()` on
+        // a token that doesn't implement it would either revert with no
+        // useful error or, worse, silently no-op on a non-standard fallback.
+        if (!$.tokenWhitelist.supportsCapability(token, CAP_PERMIT_2612)) {
+            revert Subscriptions__UnsupportedCapability(token);
+        }
+        $.registry.requireActiveMerchant(merchantId);
+
+        // Set the allowance via permit. The token verifies the signature
+        // came from `permitData.owner`, that the deadline hasn't passed,
+        // and that the owner's permit nonce hasn't been consumed. Any of
+        // those failures revert atomically — the subscription is not
+        // created on a bad permit.
+        IERC2612(token).permit(
+            permitData.owner,
+            address(this),
+            permitData.value,
+            permitData.deadline,
+            v, r, s
+        );
+
+        uint64 firstChargeAt = startAt == 0 ? uint64(block.timestamp) : startAt;
+        if (endAt != 0 && endAt <= firstChargeAt) revert Subscriptions__InvalidEndAt();
+
+        subscriptionId = $.nextSubscriptionId;
+        unchecked {
+            $.nextSubscriptionId = subscriptionId + 1;
+        }
+        // `payer` is the permit owner, not `msg.sender`. This enables the
+        // meta-tx pattern: a relayer can call this function on behalf of
+        // a customer who only ever signed a permit message. Cancellation
+        // remains the customer's right because `cancel()` checks
+        // `msg.sender == sub.payer`, not the creator of the subscription.
+        $.subscriptions[subscriptionId] = Subscription({
+            payer: permitData.owner,
+            nextChargeAt: firstChargeAt,
+            interval: interval,
+            token: token,
+            merchantId: uint96(merchantId),
+            amount: amount,
+            endAt: endAt,
+            cancelled: false
+        });
+
+        emit SubscriptionCreated(
+            subscriptionId, merchantId, permitData.owner, token, amount, interval, firstChargeAt
+        );
     }
 
     /// @inheritdoc IStrimzSubscriptions
@@ -183,6 +262,14 @@ contract StrimzSubscriptions is
         if (block.timestamp < sub.nextChargeAt) {
             emit SubscriptionChargeSkipped(subscriptionId, chargeAttemptId, ChargeOutcome.NotDue);
             return ChargeOutcome.NotDue;
+        }
+        // endAt=0 means open-ended. Otherwise once block.timestamp reaches
+        // endAt, no further charges fire — even if the customer's allowance
+        // and balance are sufficient. This is the "subscribe for 12 months"
+        // primitive the merchant configures at create time.
+        if (sub.endAt != 0 && block.timestamp >= sub.endAt) {
+            emit SubscriptionChargeSkipped(subscriptionId, chargeAttemptId, ChargeOutcome.Ended);
+            return ChargeOutcome.Ended;
         }
 
         // Cache hot fields in locals to avoid repeated SLOADs.

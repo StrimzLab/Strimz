@@ -27,7 +27,7 @@ contract StrimzSubscriptionsTest is StrimzTestBase {
         vm.startPrank(admin);
         whitelist.add(address(usdc));
         feeCollector.grantRole(StrimzAccessControl(address(feeCollector)).FEE_ACCRUER_ROLE(), address(subs));
-        merchantId = registry.registerMerchant(merchant, merchantPayout, 100);
+        merchantId = registry.registerMerchant(merchant, merchantPayout, 100, 0);
         vm.stopPrank();
 
         _fund(payer, 10_000_000_000);
@@ -37,7 +37,9 @@ contract StrimzSubscriptionsTest is StrimzTestBase {
 
     function _createSub(uint256 amount) internal returns (uint256) {
         vm.prank(payer);
-        return subs.createSubscription(merchantId, address(usdc), amount, 1 hours, uint64(block.timestamp));
+        return subs.createSubscription(
+            merchantId, address(usdc), amount, 1 hours, uint64(block.timestamp), 0
+        );
     }
 
     function test_chargeRejectsDuplicateAttemptId() public {

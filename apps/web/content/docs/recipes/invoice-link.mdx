@@ -1,0 +1,120 @@
+---
+title: Send a payment link
+description: The simplest possible flow — a one-time payment you email to a customer. Useful for invoices, consulting fees, custom enterprise deals.
+---
+
+You owe a customer a payment link. They open the email, they click, they pay. That's the whole flow.
+
+For most one-shot payment cases, you don't need a backend integration — you just need a session URL. This recipe is the shortest path from "I want money from someone" to "they paid me."
+
+## The script
+
+```ts title="scripts/send-invoice.ts"
+import { StrimzClient } from '@strimz/sdk'
+
+const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_API_KEY! })
+
+async function main() {
+  const session = await strimz.paymentSessions.create({
+    amount: '500000000',                    // 500 USDC in 6-decimal raw
+    currency: 'USDC',
+    description: 'Q3 consulting engagement',
+    successUrl: 'https://your-site.com/thanks',
+    metadata: {
+      customerName: 'Acme Inc.',
+      invoiceNumber: 'INV-0042',
+    },
+  })
+
+  console.log('Checkout URL:', session.checkoutUrl)
+  console.log('Session id:', session.id)
+}
+
+main()
+```
+
+Run it. You get a `checkoutUrl` like `https://strimz-finance.vercel.app/pay/cs_…`. Email that URL to the customer with whatever copy fits your business.
+
+## Sending the email yourself
+
+The straightforward case:
+
+```ts
+import { Resend } from 'resend'
+
+const resend = new Resend(process.env.RESEND_API_KEY!)
+
+await resend.emails.send({
+  from: 'invoices@yourdomain.com',
+  to: 'ap@acme.com',
+  subject: 'Invoice INV-0042 — 500 USDC',
+  html: `
+    <p>Hi Acme team,</p>
+    <p>Your invoice for Q3 consulting is ready. Total: 500 USDC.</p>
+    <p><a href="${session.checkoutUrl}">Pay invoice →</a></p>
+    <p>If you have questions, just reply to this email.</p>
+  `,
+})
+```
+
+The customer clicks Pay, gets to the hosted checkout, signs once, the payment confirms.
+
+## When the payment lands
+
+Set up a webhook for `payment.completed` (see [Webhooks → Overview](/docs/webhooks/overview)). When the customer pays, your handler runs.
+
+```ts title="app/api/webhooks/strimz/route.ts"
+case 'payment.completed': {
+  const session = event.data
+  const invoiceNumber = session.metadata?.invoiceNumber
+
+  // Mark the invoice paid in your books.
+  await db.invoice.update({
+    where: { number: invoiceNumber },
+    data: {
+      status: 'paid',
+      paidAt: new Date(),
+      paidAmount: session.amount,
+      onchainTxHash: session.onchainTxHash,
+    },
+  })
+
+  // Email the customer a receipt.
+  await sendReceipt(session)
+  break
+}
+```
+
+That's the integration.
+
+## Using Strimz's Invoices instead
+
+If you want Strimz to host the invoice page (line items, customer name, due date), use the Invoices API:
+
+```ts
+const invoice = await strimz.invoices.create({
+  customerName: 'Acme Inc.',
+  customerEmail: 'ap@acme.com',
+  lineItems: [
+    { description: 'Q3 consulting engagement', quantity: 1, unitAmount: '500000000' },
+  ],
+  currency: 'USDC',
+  dueInDays: 14,
+  note: 'Net 14',
+})
+
+await strimz.invoices.send(invoice.id)
+// Strimz emails ap@acme.com with a link to the hosted invoice page.
+```
+
+The hosted invoice page renders the line items, the total, your branding. Customer clicks "Pay invoice," redirects to the backing PaymentSession, signs, pays.
+
+`strimz.invoices.send` triggers the email. If you want to email it yourself with custom copy, skip the `send` call and use `invoice.id`'s hosted URL: `https://strimz-finance.vercel.app/invoice/<invoiceId>`.
+
+When the customer pays, you get an `invoice.paid` webhook (in addition to the `payment.completed` for the backing session). Use whichever is most convenient.
+
+## Why this is short
+
+Most B2B payment flows are short. You wanted to send a link, you sent a link, the customer paid. You don't need a complicated integration; you need a session URL.
+
+The pieces above scale up to handle more — line items, multiple invoices per customer, automatic dunning emails — but the floor is one API call.

@@ -24,7 +24,7 @@ import { Strimz } from '@strimz/sdk'
 
 const strimz = new Strimz({
   apiKey: process.env.STRIMZ_KEY!,
-  baseUrl: 'https://api.strimz.finance',  // optional override; defaults to live
+  baseUrl: 'https://api.strimz.finance', // optional override; defaults to live
   timeout: 30_000,
   retries: 3,
 })
@@ -123,7 +123,7 @@ const ok = verifyWebhookSignature({
   secret: process.env.STRIMZ_WEBHOOK_SECRET!,
   body: req.rawBody,
   signatureHeader: req.headers['strimz-signature'] as string,
-  toleranceSeconds: 300,  // optional; defaults to 300
+  toleranceSeconds: 300, // optional; defaults to 300
 })
 ```
 
@@ -144,7 +144,7 @@ See [Idempotency](/docs/concepts/idempotency).
 - Node.js ≥ 18 (uses `fetch`)
 - Bun ≥ 1.0
 - Deno via the [npm shim](https://docs.deno.com/runtime/manual/node/npm_specifiers)
-- Cloudflare Workers (`@strimz/sdk` is Edge-runtime safe — it uses `globalThis.fetch` and `Web Crypto API`, no Node-builtins)
+- Cloudflare Workers (`@strimz/sdk` is Edge-runtime safe. It uses `globalThis.fetch` and `Web Crypto API`, no Node-builtins)
 
 ## Source
 

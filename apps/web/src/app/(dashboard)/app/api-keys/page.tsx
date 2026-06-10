@@ -28,15 +28,49 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@strimz/ui'
+import type { ApiKey, ApiKeyScope } from '@strimz/shared-types'
+
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
-import { API_KEYS, ALL_SCOPES, type ApiKey } from '@/data/api-keys'
-import { relativeTime } from '@/data/_seed'
+import { relativeTime } from '@/lib/format'
+import { useApiKeys, useCreateApiKey, useRevokeApiKey } from '@/hooks/api'
+
+/**
+ * Canonical scope list. Kept in sync with the server enum (which is
+ * exported as `apiKeyScopeSchema` in @strimz/shared-types) — we
+ * hardcode it here so dropdowns don't have to do a runtime z.enum walk.
+ * The server validates anyway; this constant exists for UI ordering.
+ */
+const ALL_SCOPES: readonly ApiKeyScope[] = [
+  'sessions_read',
+  'sessions_write',
+  'subscriptions_read',
+  'subscriptions_write',
+  'refunds_read',
+  'refunds_write',
+  'transactions_read',
+  'webhooks_read',
+  'webhooks_write',
+  'invoices_read',
+  'invoices_write',
+  'storefronts_read',
+  'storefronts_write',
+  'agents_read',
+  'agents_write',
+  'relay_read',
+  'relay_write',
+] as const
 
 export default function ApiKeysPage() {
   const [revealed, setRevealed] = React.useState<Record<string, boolean>>({})
 
-  const columns: ColumnDef<ApiKey>[] = React.useMemo(
+  const { data, isLoading, isError, error, refetch } = useApiKeys(
+    { limit: 100 },
+    { select: (page) => ({ rows: page.data }) },
+  )
+  const revokeMutation = useRevokeApiKey()
+
+  const columns = React.useMemo<ColumnDef<ApiKey>[]>(
     () => [
       {
         accessorKey: 'name',
@@ -44,8 +78,8 @@ export default function ApiKeysPage() {
         cell: ({ row }) => (
           <div className="flex flex-col leading-tight">
             <span className="font-medium">{row.original.name}</span>
-            <span className="text-muted-foreground text-xs">
-              Created by {row.original.createdBy}
+            <span className="text-muted-foreground text-xs capitalize">
+              {row.original.kind} key
             </span>
           </div>
         ),
@@ -69,8 +103,8 @@ export default function ApiKeysPage() {
           <div className="flex items-center gap-2">
             <code className="bg-muted/60 rounded px-1.5 py-0.5 text-xs">
               {revealed[row.original.id]
-                ? `${row.original.prefix}${'•'.repeat(20)}`
-                : `${row.original.prefix.slice(0, 9)}${'•'.repeat(12)}`}
+                ? `${row.original.prefix}${'•'.repeat(20)}${row.original.lastFour}`
+                : `${row.original.prefix}${'•'.repeat(12)}${row.original.lastFour}`}
             </code>
             <button
               type="button"
@@ -98,13 +132,13 @@ export default function ApiKeysPage() {
         ),
       },
       {
-        accessorKey: 'status',
+        accessorKey: 'revokedAt',
         header: 'Status',
         cell: ({ row }) =>
-          row.original.status === 'active' ? (
-            <StatusPill tone="positive">active</StatusPill>
-          ) : (
+          row.original.revokedAt ? (
             <StatusPill tone="neutral">revoked</StatusPill>
+          ) : (
+            <StatusPill tone="positive">active</StatusPill>
           ),
       },
       {
@@ -124,39 +158,46 @@ export default function ApiKeysPage() {
         header: '',
         enableHiding: false,
         enableSorting: false,
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="size-8 p-0">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() =>
-                  navigator.clipboard
-                    .writeText(row.original.prefix)
-                    .then(() => toast.success('Prefix copied'))
-                }
-              >
-                <Copy className="mr-2 size-4" /> Copy prefix
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {row.original.status === 'active' ? (
+        cell: ({ row }) => {
+          const key = row.original
+          const isRevoked = Boolean(key.revokedAt)
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="size-8 p-0">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
                 <DropdownMenuItem
-                  className="text-rose-600 focus:text-rose-600"
-                  onClick={() => toast.success(`${row.original.name} revoked`)}
+                  onClick={() =>
+                    navigator.clipboard
+                      .writeText(key.prefix)
+                      .then(() => toast.success('Prefix copied'))
+                  }
                 >
-                  <Ban className="mr-2 size-4" /> Revoke
+                  <Copy className="mr-2 size-4" /> Copy prefix
                 </DropdownMenuItem>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+                {!isRevoked ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-rose-600 focus:text-rose-600"
+                      onClick={() => revokeMutation.mutate(key.id)}
+                      disabled={revokeMutation.isPending}
+                    >
+                      <Ban className="mr-2 size-4" /> Revoke
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        },
       },
     ],
-    [revealed],
+    [revealed, revokeMutation],
   )
 
   return (
@@ -174,28 +215,67 @@ export default function ApiKeysPage() {
         </p>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={API_KEYS}
-        searchPlaceholder="Search by name, prefix…"
-        emptyTitle="No API keys"
-        emptyDescription="Issue your first key to start integrating."
-      />
+      {isError ? (
+        <ErrorBanner message={error?.message ?? 'Failed to load API keys'} onRetry={refetch} />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={data?.rows ?? []}
+          loading={isLoading}
+          searchPlaceholder="Search by name, prefix…"
+          emptyTitle="No API keys"
+          emptyDescription="Issue your first key to start integrating."
+        />
+      )}
     </div>
   )
 }
 
+/**
+ * Issue-key dialog. Holds the plaintext secret in local component
+ * state ONLY while the dialog is open — the secret never reaches any
+ * cache, query store, or localStorage. Closing the dialog drops the
+ * secret from memory.
+ */
 function NewKeyDialog() {
   const [open, setOpen] = React.useState(false)
-  const [created, setCreated] = React.useState<string | null>(null)
-  const [scopes, setScopes] = React.useState<string[]>([...ALL_SCOPES])
+  const [name, setName] = React.useState('')
+  const [mode, setMode] = React.useState<'test' | 'live'>('test')
+  const [scopes, setScopes] = React.useState<ApiKeyScope[]>([...ALL_SCOPES])
+  const [secret, setSecret] = React.useState<string | null>(null)
+
+  const createMutation = useCreateApiKey()
+
+  const reset = () => {
+    setName('')
+    setMode('test')
+    setScopes([...ALL_SCOPES])
+    setSecret(null)
+  }
+
+  const handleGenerate = () => {
+    if (!name.trim() || scopes.length === 0) return
+    createMutation.mutate(
+      {
+        name: name.trim(),
+        kind: 'secret',
+        mode,
+        scopes: scopes as [ApiKeyScope, ...ApiKeyScope[]],
+      },
+      {
+        onSuccess: (result) => {
+          setSecret(result.secret)
+        },
+      },
+    )
+  }
 
   return (
     <Dialog
       open={open}
       onOpenChange={(v) => {
         setOpen(v)
-        if (!v) setCreated(null)
+        if (!v) reset()
       }}
     >
       <DialogTrigger asChild>
@@ -205,25 +285,25 @@ function NewKeyDialog() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{created ? 'Your new API key' : 'Issue a new API key'}</DialogTitle>
+          <DialogTitle>{secret ? 'Your new API key' : 'Issue a new API key'}</DialogTitle>
           <DialogDescription>
-            {created
+            {secret
               ? 'Copy this now — once you close this dialog, the full key will be unrecoverable.'
               : 'Pick a name, mode, and scopes. The full key will be shown once.'}
           </DialogDescription>
         </DialogHeader>
 
-        {created ? (
+        {secret ? (
           <div className="space-y-3 py-2">
             <code className="bg-muted/60 block break-all rounded-md p-3 font-mono text-xs">
-              {created}
+              {secret}
             </code>
             <Button
               variant="outline"
               size="sm"
               className="w-full"
               onClick={() =>
-                navigator.clipboard.writeText(created).then(() => toast.success('Key copied'))
+                navigator.clipboard.writeText(secret).then(() => toast.success('Key copied'))
               }
             >
               <Copy className="mr-1.5 size-4" /> Copy to clipboard
@@ -233,12 +313,17 @@ function NewKeyDialog() {
           <div className="space-y-3 py-2">
             <div className="grid gap-1.5">
               <Label htmlFor="key-name">Name</Label>
-              <Input id="key-name" placeholder="Production server" />
+              <Input
+                id="key-name"
+                placeholder="Production server"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="key-mode">Mode</Label>
-                <Select defaultValue="test">
+                <Select value={mode} onValueChange={(v) => setMode(v as 'test' | 'live')}>
                   <SelectTrigger id="key-mode">
                     <SelectValue />
                   </SelectTrigger>
@@ -301,7 +386,7 @@ function NewKeyDialog() {
         )}
 
         <DialogFooter>
-          {created ? (
+          {secret ? (
             <Button onClick={() => setOpen(false)}>Done</Button>
           ) : (
             <>
@@ -309,18 +394,29 @@ function NewKeyDialog() {
                 Cancel
               </Button>
               <Button
-                onClick={() =>
-                  setCreated(
-                    `sk_test_${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 22)}`,
-                  )
-                }
+                onClick={handleGenerate}
+                disabled={createMutation.isPending || !name.trim() || scopes.length === 0}
               >
-                Generate key
+                {createMutation.isPending ? 'Generating…' : 'Generate key'}
               </Button>
             </>
           )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="border-border/60 bg-background flex items-center justify-between rounded-xl border p-4">
+      <div>
+        <div className="text-sm font-medium">Couldn’t load API keys</div>
+        <div className="text-muted-foreground text-xs">{message}</div>
+      </div>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        Try again
+      </Button>
+    </div>
   )
 }

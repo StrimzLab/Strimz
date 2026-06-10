@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common'
 import type { Transaction } from '@strimz/shared-types'
-import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
+import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
@@ -8,7 +8,7 @@ import {
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { TransactionsService } from './transactions.service.js'
 
-@UseGuards(ApiKeyGuard)
+@UseGuards(MerchantAuthGuard)
 @RequireScopes('transactions_read')
 @Controller('/v1/transactions')
 export class TransactionsController {

@@ -1,0 +1,12 @@
+{
+  "extends": "@strimz/tsconfig/library.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "jsx": "react-jsx",
+    "moduleResolution": "Bundler",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM"],
+    "types": ["react"]
+  },
+  "include": ["src/**/*"]
+}

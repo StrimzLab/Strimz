@@ -28,10 +28,42 @@ export const envSchema = z.object({
   STRIMZ_WEBHOOK_SIGNING_SECRET: z
     .string()
     .min(32, 'webhook signing secret must be at least 32 characters'),
+  /**
+   * 32-byte hex (= 64 chars) AES-256-GCM key used to encrypt the
+   * per-endpoint plaintext signing secret at rest in Postgres. Must
+   * match the scheduler's `WEBHOOK_SECRET_ENCRYPTION_KEY` exactly —
+   * the scheduler decrypts on boot to warm the Redis cache.
+   *
+   * Generate with `openssl rand -hex 32` or
+   * `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.
+   * Rotating means re-encrypting every stored ciphertext; handle as
+   * an ops migration when funded.
+   */
+  WEBHOOK_SECRET_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[0-9a-fA-F]{64}$/u, 'must be a 32-byte hex string (64 chars)'),
 
   // ----- Email (Resend) -----
   RESEND_API_KEY: z.string().optional(),
-  RESEND_FROM_EMAIL: z.string().email().default('noreply@strimz.io'),
+  /**
+   * Either a bare address (`noreply@mail.strimz.finance`) or RFC-5322
+   * display form (`Strimz <noreply@mail.strimz.finance>`). Resend
+   * rejects malformed values at send time; we don't `.email()` here
+   * because the display form would fail.
+   */
+  RESEND_FROM_EMAIL: z.string().min(1).default('Strimz <noreply@mail.strimz.finance>'),
+  /**
+   * Reply-To header on transactional emails (admin invite, etc.).
+   * Defaults to the Strimz operations mailbox so replies land in a
+   * human inbox rather than bouncing off the noreply alias.
+   */
+  RESEND_REPLY_TO: z.string().email().default('strimztokenstream@gmail.com'),
+  /**
+   * Where admin-facing links in emails point. Defaults to the brand
+   * URL; deployments override per-env (localhost in dev, the Vercel
+   * URL in staging, the apex once it's wired).
+   */
+  STRIMZ_DASHBOARD_URL: z.string().url().default('https://strimz.finance'),
 
   // ----- Chain -----
   ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).default('testnet'),
@@ -41,11 +73,34 @@ export const envSchema = z.object({
   STRIMZ_SUBSCRIPTIONS_ADDRESS: z.string().optional(),
   STRIMZ_FEE_COLLECTOR_ADDRESS: z.string().optional(),
   STRIMZ_TOKEN_WHITELIST_ADDRESS: z.string().optional(),
+  // Token contract addresses on the active Arc chain. The session +
+  // plan serialisers map `currency` (USDC | EURC) to one of these so
+  // the hosted checkout can build the EIP-712 typed-data domain
+  // without a separate chain lookup.
+  ARC_USDC_ADDRESS: z.string().optional(),
+  ARC_EURC_ADDRESS: z.string().optional(),
 
   // ----- Compliance -----
   COMPLIANCE_PROVIDER: z.enum(['trm', 'elliptic', 'disabled']).default('disabled'),
   COMPLIANCE_API_KEY: z.string().optional(),
   COMPLIANCE_BLOCK_THRESHOLD: z.coerce.number().int().min(0).max(100).default(80),
+
+  // ----- KMS (signer for meta-tx relayer) -----
+  // The KmsSigner interface is provider-agnostic. We ship with a
+  // software signer (key in process memory, sourced from the hosting
+  // provider's encrypted secrets vault). Future hardware-backed
+  // providers (GCP Cloud KMS, Vault Transit) drop in against the same
+  // env enum without touching call sites.
+  KMS_PROVIDER: z.enum(['software']).default('software'),
+  // 0x-prefixed 32-byte hex private key for the software signer. In dev
+  // and CI this can be omitted — a fresh ephemeral key is generated at
+  // boot and the derived address is logged. In production this MUST be
+  // set explicitly; the module factory refuses to auto-generate keys
+  // when NODE_ENV=production.
+  KMS_SOFTWARE_PRIVATE_KEY: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{64}$/u, 'must be a 0x-prefixed 32-byte hex string')
+    .optional(),
 
   // ----- Hosted checkout origin (for embed postMessage allow-list) -----
   CHECKOUT_ORIGIN: z.string().url().default('http://localhost:3000'),

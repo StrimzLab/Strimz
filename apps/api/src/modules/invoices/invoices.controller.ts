@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
+import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
@@ -11,7 +11,7 @@ import { CreateInvoiceDto } from './invoices.dto.js'
 
 @ApiTags('invoices')
 @ApiBearerAuth()
-@UseGuards(ApiKeyGuard)
+@UseGuards(MerchantAuthGuard)
 @Controller('/v1/invoices')
 export class InvoicesController {
   constructor(private readonly invoices: InvoicesService) {}

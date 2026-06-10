@@ -1,0 +1,100 @@
+---
+title: Safety nets
+description: A handful of defence-in-depth mechanisms that have saved us from real bugs. Each one was added in response to something specific; each one stays out of the happy path.
+---
+
+Safety nets aren't optimizations. They're the layers you build because you've seen the thing they prevent. Every mechanism on this page exists because we hit a real edge case (or someone else's audit caught one for us).
+
+The general principle: critical guarantees should be enforced by *more than one* layer. If your double-pay protection is one line of code, a single bug in that line wipes you out. If your double-pay protection is three independent layers — indexer stamp, API safety net, hosted-page status check — a bug in one of them is recoverable.
+
+Here's what's in production.
+
+## Three layers against double-pay
+
+A payer hits "Pay," the page is slow to react, they click again. Without protection, two on-chain submissions go out and two settlements happen. Strimz prevents this three ways, each independent.
+
+The first layer is in the indexer. Once `PaymentSettled` lands on chain and the indexer projects it, the session's `onchainTxHash` is stamped non-null. The submission API checks this column before kicking off a new broadcast — if there's already a tx hash, the API short-circuits and returns the existing confirmation view. The submission never reaches the relayer.
+
+The second layer is the API safety net. Before broadcasting, the API runs `alreadyPaidView(sessionId)` against Postgres. This query looks for a session in `submitted` or `confirmed` state with a stamped tx hash. If it finds one, the API returns the existing confirmation directly. This catches the race where the indexer has projected the confirmation but the in-memory cache hasn't picked it up.
+
+The third layer is on the hosted checkout page itself. The page polls `GET /v1/payment-sessions/:id` every two seconds while the user is on the page. The moment status flips to `confirmed`, the Sign button is replaced with a "Paid" state. Clicking does nothing.
+
+In normal operation only the third layer matters — most users would never click twice fast enough to escape the polling interval. But the first two layers are there for the edge cases: bots, network re-tries from the user's wallet software, that one customer whose ISP keeps dropping the request mid-flight. Any single layer would catch the duplicate in normal cases. All three together make double-pay structurally impossible.
+
+## Double-enrolment protection for subscriptions
+
+Same problem, different resource. A payer signs the EIP-2612 permit, the page is slow, they sign again — two subscriptions for the same plan.
+
+The first layer is a unique column. `Subscription.enrolmentTxHash` is `UNIQUE` in Postgres. Two rows with the same enrolment tx can't exist; the database rejects the second insert with a constraint violation. The API surfaces this as a clean "already enrolled" error.
+
+The second layer is the same kind of safety-net query as for payments. Before broadcasting `permitAndCreateSubscription(...)`, the API runs `alreadyEnrolledView(planId, payerAddress)`. If there's already an active subscription for the same plan and the same wallet, the API short-circuits and returns the existing subscription. The payer's wallet pops a second prompt, they sign it, but the second signature is never submitted on chain.
+
+The merchant sees one `Subscription` row. The payer sees one charge. The contract sees one `SubscriptionCreated` event.
+
+## Stale charge-lock reclaim
+
+This one came from a real incident. We were running scheduler v1 before we had robust crash handling; a scheduler replica caught a SIGKILL mid-batch (we were doing a rolling deploy and missed a graceful-shutdown signal). The scheduler had set `chargeLock = true` on twelve subscriptions and hadn't unset it. The next scheduler tick saw the rows as locked and skipped them. They sat locked indefinitely.
+
+We caught it the next morning when one of those merchants emailed us asking why their subscriptions hadn't charged. Embarrassing. We added the fix the same day.
+
+The fix is a TTL on the lock. The sweeper's `WHERE` clause:
+
+```sql
+WHERE (
+  "chargeLock" = false
+  OR "chargeLockAcquiredAt" < NOW() - INTERVAL '1 second' * $3
+)
+```
+
+Default `$3` is 600 seconds (10 minutes), configurable via `SUBSCRIPTION_CHARGE_LOCK_TTL_SECONDS`. The TTL is loose by design — a healthy batch finishes in well under a minute; 10 minutes is "the scheduler must have crashed" territory.
+
+The mechanism is self-healing. A scheduler crash mid-batch becomes a 10-minute pause, not an indefinite stall. The next replica that picks up the row reclaims the lock atomically (the `UPDATE ... WHERE chargeLock = false OR chargeLockAcquiredAt < NOW() - INTERVAL ...` happens in one statement; row-level locking ensures only one replica wins the reclaim).
+
+## Callback URL allowlist
+
+This one came from an audit reviewer. The original `successUrl` and `cancelUrl` fields were validated as URLs but didn't restrict the protocol. The reviewer pointed out that a malicious merchant could set `successUrl: 'javascript:alert(1)'` — and when the payer's wallet redirected to that URL, the JavaScript would run in the wallet's WebView context. Not catastrophic in most wallets but absolutely not okay.
+
+The fix is a strict allowlist:
+
+```ts
+const callbackUrlSchema = z.string().url().refine(
+  (v) => v.startsWith('https://') || v.startsWith('http://'),
+  { message: 'must be an http:// or https:// URL' },
+)
+```
+
+The schema is applied at API validation. A `successUrl` or `cancelUrl` that isn't `http://` or `https://` is rejected at `paymentSessions.create`. It never reaches the database; it never reaches the redirect logic.
+
+We allow `http://` because some merchants use it in local dev. Production should always be `https://`; the warning shows up in the dashboard if you create a live-mode session with an `http://` callback.
+
+## The race-condition projector fix
+
+This one is the deepest in the stack. The indexer projects both `SubscriptionCharged` and `SubscriptionChargeSkipped` events. In rare conditions — specifically, when the relayer's tx confirms after a prior tx in the same block already emitted the skip — both events for the same period can land in the same indexer batch.
+
+The naive projector saw the skip event and downgraded the subscription to `at_risk`. Then the success event came in and we'd flip back to `active`. That's wrong twice: the subscription was momentarily in the wrong state, and depending on whether the merchant's webhook handler was idempotent, they got two contradictory events.
+
+The fix is in the projector's SQL:
+
+```sql
+UPDATE "Subscription"
+   SET status = 'at_risk'::"SubscriptionStatus", "updatedAt" = NOW()
+ WHERE id = $1
+   AND status = 'active'::"SubscriptionStatus"
+   AND NOT EXISTS (
+     SELECT 1 FROM "SubscriptionCharge"
+      WHERE "subscriptionId" = $1
+        AND "periodStartAt" = $2
+        AND "periodEndAt" = $3
+        AND status = 'succeeded'::"SubscriptionChargeStatus"
+   )
+```
+
+The projector refuses to downgrade if a successful charge already exists for the same period. The order of arrival doesn't matter anymore: as long as the success eventually lands, the subscription stays `active`.
+
+There's a similar guard on the success-side projector, but it's less likely to trigger because successes are the happy path. The asymmetry is intentional — we lean toward optimism (treating a subscription as healthy unless we're sure it isn't).
+
+## What they have in common
+
+All five are silent during normal operation. None of them log anything in the happy path; none of them slow down a successful payment or a successful charge. They only do work when something unusual happens — a double-click, a crashed scheduler, a malicious URL, a network race. The cost of running them is essentially nothing.
+
+The cost of *not* running them is one bad week per incident. We'd rather have the small ongoing cost than the rare big one.

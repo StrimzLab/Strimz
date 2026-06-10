@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Download, MoreHorizontal, Plus, Copy, ExternalLink } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
+import { parseUnits } from 'viem'
 import { toast } from 'sonner'
 import {
   Button,
@@ -27,24 +28,50 @@ import {
   SelectValue,
   Textarea,
 } from '@strimz/ui'
+import type { Refund, RefundReason, RefundStatus } from '@strimz/shared-types'
+
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
-import { REFUNDS, type Refund, type RefundStatus } from '@/data/refunds'
-import { formatUsdc, relativeTime, shortAddress } from '@/data/_seed'
+import { formatTokenAmount, relativeTime, shortAddress, tokenAmountToNumber } from '@/lib/format'
+import { useCreateRefund, useRefunds } from '@/hooks/api'
 
 const STATUS_TONE: Record<RefundStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
   completed: 'positive',
   submitted: 'info',
   awaiting_signature: 'warning',
+  pending: 'info',
   failed: 'danger',
+  cancelled: 'neutral',
+}
+
+interface RefundsView {
+  rows: Refund[]
+  completed: Refund[]
+  refundedUsdc: number
+  awaiting: number
+  failed: number
+}
+
+function projectRefunds(page: { data: Refund[] }): RefundsView {
+  const completed = page.data.filter((r) => r.status === 'completed')
+  return {
+    rows: page.data,
+    completed,
+    refundedUsdc: completed.reduce((s, r) => s + tokenAmountToNumber(r.amount), 0),
+    awaiting: page.data.filter((r) => r.status === 'awaiting_signature').length,
+    failed: page.data.filter((r) => r.status === 'failed').length,
+  }
 }
 
 export default function RefundsPage() {
-  const completed = REFUNDS.filter((r) => r.status === 'completed')
-  const totalRefundedUsdc = completed.reduce((s, r) => s + r.amountUsdc, 0)
+  const { data, isLoading, isError, error, refetch } = useRefunds(
+    { limit: 100 },
+    { select: projectRefunds },
+  )
 
-  const columns: ColumnDef<Refund>[] = React.useMemo(
+  const columns = React.useMemo<ColumnDef<Refund>[]>(
     () => [
       {
         accessorKey: 'id',
@@ -61,17 +88,20 @@ export default function RefundsPage() {
         ),
       },
       {
-        accessorKey: 'amountUsdc',
+        accessorKey: 'amount',
         header: 'Amount',
         cell: ({ row }) => (
-          <span className="font-mono">{formatUsdc(row.original.amountUsdc)} USDC</span>
+          <span className="inline-flex items-center gap-1.5 font-mono">
+            <TokenLogo symbol={row.original.currency} size={14} />
+            {formatTokenAmount(row.original.amount, row.original.currency)}
+          </span>
         ),
       },
       {
         accessorKey: 'reason',
         header: 'Reason',
         cell: ({ row }) => (
-          <span className="capitalize">{row.original.reason.replace('_', ' ')}</span>
+          <span className="capitalize">{row.original.reason.replace(/_/g, ' ')}</span>
         ),
       },
       {
@@ -79,15 +109,15 @@ export default function RefundsPage() {
         header: 'Status',
         cell: ({ row }) => (
           <StatusPill tone={STATUS_TONE[row.original.status]}>
-            {row.original.status.replace('_', ' ')}
+            {row.original.status.replace(/_/g, ' ')}
           </StatusPill>
         ),
       },
       {
-        accessorKey: 'payerWallet',
+        accessorKey: 'payerAddress',
         header: 'To wallet',
         cell: ({ row }) => (
-          <code className="text-xs">{shortAddress(row.original.payerWallet)}</code>
+          <code className="text-xs">{shortAddress(row.original.payerAddress)}</code>
         ),
       },
       {
@@ -128,16 +158,7 @@ export default function RefundsPage() {
                       .then(() => toast.success('Tx hash copied'))
                   }
                 >
-                  <ExternalLink className="mr-2 size-4" /> View on-chain
-                </DropdownMenuItem>
-              ) : null}
-              {row.original.status === 'awaiting_signature' ? (
-                <DropdownMenuItem
-                  onClick={() =>
-                    toast.success(`Re-prompt sent for ${row.original.id.slice(0, 10)}`)
-                  }
-                >
-                  Re-prompt for signature
+                  <ExternalLink className="mr-2 size-4" /> Copy tx hash
                 </DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
@@ -158,11 +179,14 @@ export default function RefundsPage() {
             <Button
               variant="outline"
               size="sm"
+              disabled={!data || data.rows.length === 0}
               onClick={() => {
-                downloadCsv('refunds.csv', REFUNDS, [
+                if (!data) return
+                downloadCsv('refunds.csv', data.rows, [
                   { key: 'id', header: 'ID' },
                   { key: 'transactionId', header: 'Original transaction' },
-                  { key: 'amountUsdc', header: 'Amount (smallest units)' },
+                  { key: 'amount', header: 'Amount (raw)' },
+                  { key: 'currency', header: 'Currency' },
                   { key: 'reason', header: 'Reason' },
                   { key: 'status', header: 'Status' },
                   { key: 'refundTxHash', header: 'On-chain tx' },
@@ -181,45 +205,123 @@ export default function RefundsPage() {
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat
-          label="Completed (60d)"
-          value={`${formatUsdc(totalRefundedUsdc)} USDC`}
-          note={`${completed.length} refunds`}
+          label="Completed"
+          value={
+            data
+              ? `${data.refundedUsdc.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
+              : '—'
+          }
+          note={data ? `${data.completed.length} refunds` : undefined}
         />
-        <Stat
-          label="Awaiting signature"
-          value={REFUNDS.filter((r) => r.status === 'awaiting_signature').length.toString()}
-        />
+        <Stat label="Awaiting signature" value={data ? data.awaiting.toString() : '—'} />
         <Stat
           label="Failed"
-          value={REFUNDS.filter((r) => r.status === 'failed').length.toString()}
+          value={data ? data.failed.toString() : '—'}
+          tone={data && data.failed > 0 ? 'danger' : undefined}
         />
       </div>
 
-      <DataTable
-        columns={columns}
-        data={REFUNDS}
-        searchPlaceholder="Search by refund ID, original tx, wallet…"
-        emptyTitle="No refunds"
-        emptyDescription="Refunds you create from confirmed transactions appear here."
-      />
+      {isError ? (
+        <ErrorBanner message={error?.message ?? 'Failed to load refunds'} onRetry={refetch} />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={data?.rows ?? []}
+          loading={isLoading}
+          searchPlaceholder="Search by refund ID, original tx, wallet…"
+          emptyTitle="No refunds"
+          emptyDescription="Refunds you create from confirmed transactions appear here."
+        />
+      )}
     </div>
   )
 }
 
-function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
+function Stat({
+  label,
+  value,
+  note,
+  tone,
+}: {
+  label: string
+  value: string
+  note?: string
+  tone?: 'danger'
+}) {
   return (
     <div className="shadow-sub-card border-border/60 bg-background rounded-xl border p-4">
       <div className="text-muted-foreground text-xs">{label}</div>
-      <div className="font-sora mt-1 text-2xl font-semibold">{value}</div>
+      <div
+        className={[
+          'font-sora mt-1 text-2xl font-semibold',
+          tone === 'danger' ? 'text-rose-600' : '',
+        ].join(' ')}
+      >
+        {value}
+      </div>
       {note ? <div className="text-muted-foreground mt-1 text-xs">{note}</div> : null}
     </div>
   )
 }
 
+/**
+ * Refund creation flow.
+ *
+ * The amount field collects USDC as a decimal string (`"50.00"`). We
+ * scale to 6-decimal raw via `parseUnits` before posting — the API
+ * accepts the raw bigint form via `tokenAmountSchema`. Doing the
+ * conversion at the boundary keeps the component shape natural for the
+ * merchant while preserving the API's source of truth.
+ */
 function NewRefundDialog() {
   const [open, setOpen] = React.useState(false)
+  const [transactionId, setTransactionId] = React.useState('')
+  const [amount, setAmount] = React.useState('')
+  const [reason, setReason] = React.useState<RefundReason>('customer_request')
+  const [note, setNote] = React.useState('')
+
+  const createMutation = useCreateRefund()
+
+  const reset = () => {
+    setTransactionId('')
+    setAmount('')
+    setReason('customer_request')
+    setNote('')
+  }
+
+  const handleCreate = () => {
+    if (!transactionId || !amount) return
+    let raw: string
+    try {
+      raw = parseUnits(amount, 6).toString()
+    } catch {
+      toast.error('Enter a valid amount')
+      return
+    }
+    createMutation.mutate(
+      {
+        transactionId,
+        amount: raw,
+        reason,
+        note: note || undefined,
+      },
+      {
+        onSuccess: () => {
+          setOpen(false)
+          reset()
+        },
+      },
+    )
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v)
+        if (!v) reset()
+      }}
+    >
       <DialogTrigger asChild>
         <Button size="sm" variant="default">
           <Plus className="mr-1.5 size-4" /> New refund
@@ -235,16 +337,28 @@ function NewRefundDialog() {
         <div className="space-y-3 py-2">
           <div className="grid gap-1.5">
             <Label htmlFor="rf-tx">Original transaction ID</Label>
-            <Input id="rf-tx" placeholder="tx_…" />
+            <Input
+              id="rf-tx"
+              placeholder="tx_…"
+              value={transactionId}
+              onChange={(e) => setTransactionId(e.target.value)}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="rf-amount">Amount (USDC)</Label>
-              <Input id="rf-amount" type="number" step="0.01" placeholder="50.00" />
+              <Input
+                id="rf-amount"
+                type="number"
+                step="0.01"
+                placeholder="50.00"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="rf-reason">Reason</Label>
-              <Select defaultValue="customer_request">
+              <Select value={reason} onValueChange={(v) => setReason(v as RefundReason)}>
                 <SelectTrigger id="rf-reason">
                   <SelectValue />
                 </SelectTrigger>
@@ -260,7 +374,13 @@ function NewRefundDialog() {
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="rf-note">Note</Label>
-            <Textarea id="rf-note" placeholder="Optional internal note" rows={2} />
+            <Textarea
+              id="rf-note"
+              placeholder="Optional internal note"
+              rows={2}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
           </div>
         </div>
         <DialogFooter>
@@ -268,15 +388,27 @@ function NewRefundDialog() {
             Cancel
           </Button>
           <Button
-            onClick={() => {
-              setOpen(false)
-              toast.success('Refund created — open your wallet to sign')
-            }}
+            onClick={handleCreate}
+            disabled={createMutation.isPending || !transactionId || !amount}
           >
-            Create + sign
+            {createMutation.isPending ? 'Submitting…' : 'Create + sign'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="border-border/60 bg-background flex items-center justify-between rounded-xl border p-4">
+      <div>
+        <div className="text-sm font-medium">Couldn’t load refunds</div>
+        <div className="text-muted-foreground text-xs">{message}</div>
+      </div>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        Try again
+      </Button>
+    </div>
   )
 }

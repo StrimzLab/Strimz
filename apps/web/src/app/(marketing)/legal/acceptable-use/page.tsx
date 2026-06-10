@@ -1,7 +1,18 @@
 import type { Metadata } from 'next'
 import { LegalDoc } from '@/components/marketing/legal-doc'
+import { OG_IMAGE } from '@/lib/seo'
 
-export const metadata: Metadata = { title: 'Acceptable Use Policy' }
+export const metadata: Metadata = {
+  title: 'Acceptable Use Policy',
+  description:
+    'Categories of business and behaviour permitted on Strimz, and the activities prohibited under the Acceptable Use Policy.',
+  alternates: { canonical: '/legal/acceptable-use' },
+  openGraph: {
+    title: 'Acceptable Use Policy · Strimz',
+    url: '/legal/acceptable-use',
+    images: [OG_IMAGE],
+  },
+}
 
 const TOC = [
   { id: 'principles', label: 'Principles' },

@@ -3,19 +3,29 @@ title: Process a refund
 description: Full or partial, with on-chain audit trail.
 ---
 
-A refund happens in two steps. First you create the refund on the server, which validates the amount, checks the original transaction, and gives you wallet-signing instructions. Then you sign the on-chain transfer from your own wallet to the customer's wallet. Our indexer watches Arc and marks the refund completed once the transfer confirms.
+A refund is a two-step flow. First you create the refund on the
+server. Strimz validates the amount against the original
+transaction and returns wallet-signing instructions. Then you sign
+the on-chain transfer from your own wallet to the customer's. The
+indexer watches Arc and marks the refund completed once the
+transfer confirms.
 
-## Why we don't refund for you
+## Why Strimz doesn't refund for you
 
-We could hold your USDC and refund out of it. But then Strimz would be holding your money, which is a regulated activity in most countries, and would mean your funds sit on our balance sheet rather than yours. Instead, every refund is signed from your own wallet. The on-chain trail shows exactly where the money came from and where it went.
+The obvious alternative would be to hold your USDC and refund out
+of it. That would put Strimz in the money-transmission business,
+which is a regulated activity in most jurisdictions, and would put
+your money on the Strimz balance sheet instead of yours. Every
+refund signed from your own wallet leaves a clean on-chain trail
+between you and the customer, with no intermediary in between.
 
 ## Issue a refund
 
 ```ts
 const refund = await strimz.refunds.create({
   transactionId: 'tx_xyz',
-  amount: '50000000',          // 50 USDC, 6 decimals — partial refunds are fine
-  reason: 'customer_request',  // 'customer_request' | 'product_issue' | 'duplicate_charge' | 'fraudulent' | 'other'
+  amount: '50000000', // 50 USDC, 6 decimals. Partial refunds are fine.
+  reason: 'customer_request', // 'customer_request' | 'product_issue' | 'duplicate_charge' | 'fraudulent' | 'other'
   note: 'Customer asked nicely',
 })
 
@@ -66,14 +76,22 @@ Strimz won't let you refund more than the original transaction:
 ```ts
 // Original transaction: 100 USDC
 
-await strimz.refunds.create({ transactionId: 'tx_x', amount: '60000000', reason: 'customer_request' })
-// ✓ ok — 60 of 100 refunded
+await strimz.refunds.create({
+  transactionId: 'tx_x',
+  amount: '60000000',
+  reason: 'customer_request',
+})
+// ok: 60 of 100 refunded
 
-await strimz.refunds.create({ transactionId: 'tx_x', amount: '50000000', reason: 'customer_request' })
-// ✗ 400 invalid_request — 60 + 50 > 100
+await strimz.refunds.create({
+  transactionId: 'tx_x',
+  amount: '50000000',
+  reason: 'customer_request',
+})
+// 400 invalid_request: 60 + 50 > 100
 ```
 
-The cap is computed across refunds with status `submitted` or `completed`. An `awaiting_signature` refund that the merchant abandons doesn't lock funds — you can void it (delete the row) and re-create.
+The cap is computed across refunds with status `submitted` or `completed`. An `awaiting_signature` refund that the merchant abandons doesn't lock funds. You can void it (delete the row) and re-create.
 
 ## What if the indexer never sees the on-chain transfer?
 
@@ -89,4 +107,4 @@ If the merchant submitted a real hash but the on-chain transfer was for the wron
 
 ## What if the customer's address is invalid?
 
-You can't get this far. Strimz validates `Refund.payerAddress` is a valid 20-byte EVM address at create time, and the original transaction's payer address is recorded on-chain — we use that, not anything you pass in. The only way `to` could be wrong is if the customer's wallet itself is wrong, which Strimz can't prevent.
+You can't get this far. Strimz validates `Refund.payerAddress` is a valid 20-byte EVM address at create time, and the original transaction's payer address is recorded on-chain. Strimz uses that recorded address rather than anything you pass in. The only way `to` could be wrong is if the customer's wallet itself is wrong, which Strimz can't prevent.

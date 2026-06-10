@@ -56,19 +56,24 @@ pnpm --filter @strimz/db db:migrate:deploy
 
 ## Idempotency
 
-The indexer's checkpoint is `IndexerCursor`. Truncate it and restart, and the indexer re-processes from the configured `START_BLOCK` — every projection is idempotent (`INSERT … ON CONFLICT DO NOTHING` keyed on natural identifiers), so re-running is safe.
+The indexer's checkpoint is `IndexerCursor`. Truncate it and restart, and the indexer re-processes from the configured `START_BLOCK`. Every projection is idempotent (`INSERT … ON CONFLICT DO NOTHING` keyed on natural identifiers), so re-running is safe.
 
 ## Observability
 
-- `/healthz` — always 200 once the process is alive
-- `/readyz` — 200 once the first batch has been processed
-- `/metrics` — Prometheus endpoint with per-contract block lag, RPC latency, projection counts
+- `/healthz`. Always 200 once the process is alive.
+- `/readyz`. 200 once the first batch has been processed.
+- `/metrics`. Prometheus endpoint with per-contract block lag, RPC latency, projection counts.
 
 ## Failure recovery
 
-If the indexer crashes mid-batch, the `IndexerCursor` only advances on successful batch completion. On restart, it resumes from the last successful batch's end block. There's no double-projection.
+If the indexer crashes mid-batch, the `IndexerCursor` does not
+advance until the batch completes. On restart it picks up at the
+last successful batch's end block. No event gets projected twice.
 
-If the RPC returns malformed data (rare), the indexer logs the error and skips the bad log; the rest of the batch processes normally. Failed projections write to the `AgentActivityLog` (or stderr if it's a structural error like a schema mismatch).
+If the RPC returns malformed data (rare), the indexer logs the
+error and skips the bad log. The rest of the batch processes
+normally. Failed projections write to the `AgentActivityLog`, or to
+stderr for a structural error like a schema mismatch.
 
 ## Source
 

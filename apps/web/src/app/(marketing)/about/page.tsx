@@ -1,5 +1,21 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Coins, Lock, ShieldCheck, Zap } from 'lucide-react'
+import { OG_IMAGE } from '@/lib/seo'
+
+export const metadata: Metadata = {
+  title: 'About',
+  description:
+    'Strimz is the stablecoin billing layer for businesses. Built stablecoin-first on Arc — no card-rails legacy, no chargebacks, no FX surprises. Meet the team and the principles behind the product.',
+  openGraph: {
+    title: 'About Strimz',
+    description:
+      'Stablecoin-first billing infrastructure built on Arc. Why we built it, what it stands for, and how it differs from card-era processors.',
+    url: '/about',
+    images: [OG_IMAGE],
+  },
+  alternates: { canonical: '/about' },
+}
 
 const PRINCIPLES = [
   {

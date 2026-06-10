@@ -23,29 +23,29 @@ The reference implementation lives in [`@strimz/sdk` → `verifyWebhookSignature
 
 ## Headers
 
-| Header | Description |
-| --- | --- |
-| `Strimz-Signature` | `t=<unix>,v1=<hex>` |
-| `Strimz-Event-Id` | `evt_…` — globally unique |
-| `Strimz-Event-Type` | dotted name, e.g. `payment.completed` |
+| Header                 | Description                                           |
+| ---------------------- | ----------------------------------------------------- |
+| `Strimz-Signature`     | `t=<unix>,v1=<hex>`                                   |
+| `Strimz-Event-Id`      | `evt_…` — globally unique                             |
+| `Strimz-Event-Type`    | dotted name, e.g. `payment.completed`                 |
 | `X-Strimz-Delivery-Id` | `whdl_…` — idempotency key for at-least-once delivery |
 
 ## Events
 
-| Event | Fired when |
-| --- | --- |
-| `payment.created` | A `PaymentSession` is created |
-| `payment.completed` | An on-chain payment is confirmed for a session |
-| `payment.failed` | A session expires or fails |
-| `subscription.created` | A subscription lands on-chain |
-| `subscription.charged` | A periodic charge succeeded |
-| `subscription.charge_failed` | A charge attempt failed (insufficient funds, revoked approval, etc.) |
-| `subscription.cancelled` | The merchant or customer cancelled |
-| `subscription.lapsed` | Grace period exceeded — customer didn't pay |
-| `refund.created` | Refund intent created |
-| `refund.completed` | Refund tx confirmed on-chain |
-| `invoice.created` / `invoice.paid` / `invoice.overdue` | Invoice lifecycle |
-| `agent.action_executed` / `agent.job_*` | AutoPay Agent activity |
+| Event                                                  | Fired when                                                           |
+| ------------------------------------------------------ | -------------------------------------------------------------------- |
+| `payment.created`                                      | A `PaymentSession` is created                                        |
+| `payment.completed`                                    | An on-chain payment is confirmed for a session                       |
+| `payment.failed`                                       | A session expires or fails                                           |
+| `subscription.created`                                 | A subscription lands on-chain                                        |
+| `subscription.charged`                                 | A periodic charge succeeded                                          |
+| `subscription.charge_failed`                           | A charge attempt failed (insufficient funds, revoked approval, etc.) |
+| `subscription.cancelled`                               | The merchant or customer cancelled                                   |
+| `subscription.lapsed`                                  | Grace period exceeded — customer didn't pay                          |
+| `refund.created`                                       | Refund intent created                                                |
+| `refund.completed`                                     | Refund tx confirmed on-chain                                         |
+| `invoice.created` / `invoice.paid` / `invoice.overdue` | Invoice lifecycle                                                    |
+| `agent.action_executed` / `agent.job_*`                | AutoPay Agent activity                                               |
 
 ## Retry policy
 
@@ -54,3 +54,29 @@ Strimz retries with exponential backoff (1m → 5m → 30m → 2h → 12h, 5 att
 - The delivery is marked `permanently_failed`
 - The merchant is emailed
 - 5+ permanent failures within 24h on the same endpoint → endpoint auto-disabled
+
+## Durability behind the scenes
+
+A few details about how the delivery pipeline is built. You don't
+need to know any of this to use webhooks, but it's worth understanding
+if you're evaluating Strimz for production traffic.
+
+Signing secrets are stored as AES-256-GCM ciphertext in Postgres. A
+database dump leaks ciphertext, not the key used to sign your
+deliveries. The plaintext lives in Redis as a hot cache for the
+delivery worker; that way we don't pay the decrypt cost on every
+send. If Redis is flushed, the scheduler decrypts the column back
+into the cache on its next boot and webhook delivery resumes with no
+action on your side.
+
+Every attempt is persisted to the `WebhookDelivery` table. You get
+the response code, the response body (truncated to 4 KB), the attempt
+number, the next-attempt time, and the last error, all visible in
+your dashboard. Every attempt also carries a unique
+`X-Strimz-Delivery-Id` header so your endpoint can deduplicate on it.
+
+If your endpoint goes dark for a while (five minutes, an hour, half a
+day) the retry schedule covers it. If you're down for the entire
+twelve-and-a-half-hour window, the delivery lands as
+`permanently_failed`, and you can replay it from the dashboard once
+you're back up.

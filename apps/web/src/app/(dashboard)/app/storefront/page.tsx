@@ -1,18 +1,13 @@
 'use client'
 
 import * as React from 'react'
-import { ExternalLink, MoreHorizontal, Plus, Globe, Eye } from 'lucide-react'
-import type { ColumnDef } from '@tanstack/react-table'
+import { Plus, ExternalLink, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Button,
   Badge,
   Card,
   CardContent,
-  Input,
-  Label,
-  Switch,
-  Textarea,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -20,316 +15,506 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Input,
+  Label,
+  Textarea,
 } from '@strimz/ui'
+import { parseUnits } from 'viem'
+import type {
+  PaymentCurrency,
+  Storefront,
+  StorefrontProduct,
+  StorefrontProductType,
+} from '@strimz/shared-types'
+
 import { PageHeader } from '@/components/dashboard/page-header'
-import { DataTable, StatusPill } from '@/components/dashboard/data-table'
-import { STOREFRONT, STOREFRONT_PRODUCTS, type StorefrontProduct } from '@/data/storefront'
-import { formatUsdc } from '@/data/_seed'
+import { TokenLogo } from '@/components/shared/token-logo'
+import { formatTokenAmount } from '@/lib/format'
+import {
+  useAddStorefrontProduct,
+  useArchiveStorefront,
+  useArchiveStorefrontProduct,
+  usePublishStorefront,
+  useStorefront,
+  useStorefrontProducts,
+  useUpsertStorefront,
+} from '@/hooks/api'
 
 export default function StorefrontPage() {
-  const [published, setPublished] = React.useState(STOREFRONT.status === 'published')
-  const totalRevenue30d = STOREFRONT_PRODUCTS.reduce((s, p) => s + p.revenue30dUsdc, 0)
-  const totalSales30d = STOREFRONT_PRODUCTS.reduce((s, p) => s + p.sales30d, 0)
-
-  const productCols: ColumnDef<StorefrontProduct>[] = React.useMemo(
-    () => [
-      {
-        accessorKey: 'name',
-        header: 'Product',
-        cell: ({ row }) => (
-          <div className="flex flex-col leading-tight">
-            <span className="font-medium">{row.original.name}</span>
-            <span className="text-muted-foreground text-xs">{row.original.description}</span>
-          </div>
-        ),
-      },
-      {
-        accessorKey: 'type',
-        header: 'Type',
-        cell: ({ row }) =>
-          row.original.type === 'subscription' ? (
-            <Badge variant="outline" className="text-[10px]">
-              {row.original.interval ?? 'subscription'}
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-[10px]">
-              one-time
-            </Badge>
-          ),
-      },
-      {
-        accessorKey: 'priceUsdc',
-        header: 'Price',
-        cell: ({ row }) => (
-          <span className="font-mono">{formatUsdc(row.original.priceUsdc)} USDC</span>
-        ),
-      },
-      {
-        accessorKey: 'sales30d',
-        header: 'Sales (30d)',
-        cell: ({ row }) => <span>{row.original.sales30d}</span>,
-      },
-      {
-        accessorKey: 'revenue30dUsdc',
-        header: 'Revenue (30d)',
-        cell: ({ row }) => (
-          <span className="font-mono">{formatUsdc(row.original.revenue30dUsdc)} USDC</span>
-        ),
-      },
-      {
-        accessorKey: 'stock',
-        header: 'Stock',
-        cell: ({ row }) =>
-          row.original.stock === null ? (
-            <span className="text-muted-foreground text-xs">∞</span>
-          ) : (
-            <span className={row.original.stock < 10 ? 'font-medium text-amber-600' : ''}>
-              {row.original.stock}
-            </span>
-          ),
-      },
-      {
-        accessorKey: 'status',
-        header: 'Status',
-        cell: ({ row }) =>
-          row.original.status === 'active' ? (
-            <StatusPill tone="positive">active</StatusPill>
-          ) : (
-            <StatusPill tone="neutral">archived</StatusPill>
-          ),
-      },
-      {
-        id: 'actions',
-        header: '',
-        enableHiding: false,
-        enableSorting: false,
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="size-8 p-0">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{row.original.name}</DropdownMenuLabel>
-              <DropdownMenuItem>
-                <Eye className="mr-2 size-4" /> View on storefront
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => toast.success('Edit dialog (mock)')}>
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-rose-600 focus:text-rose-600"
-                onClick={() => toast.success(`${row.original.name} archived`)}
-              >
-                Archive
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
-      },
-    ],
-    [],
-  )
+  const storefrontQuery = useStorefront()
+  const storefront = storefrontQuery.data ?? null
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Storefront"
-        description="Your hosted, branded landing page. Updates we ship (better mobile layouts, faster image opt) automatically benefit your store."
+        description="A hosted page where customers can buy from you without an integration. One URL, your products listed, USDC payment on Arc."
         action={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <a href={`/store/${STOREFRONT.slug}`} target="_blank" rel="noreferrer">
+          storefront ? (
+            <Button variant="outline" asChild>
+              <a
+                href={`https://strimz-finance.vercel.app/store/${storefront.slug}`}
+                target="_blank"
+                rel="noreferrer"
+              >
                 <ExternalLink className="mr-1.5 size-4" /> View live
               </a>
             </Button>
-            <NewProductDialog />
-          </div>
+          ) : null
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Sales (30d)" value={totalSales30d.toLocaleString()} />
-        <Stat label="Revenue (30d)" value={`${formatUsdc(totalRevenue30d)} USDC`} />
-        <Stat
-          label="Active products"
-          value={STOREFRONT_PRODUCTS.filter((p) => p.status === 'active').length.toString()}
+      {storefrontQuery.isLoading ? (
+        <div className="border-border/60 bg-muted/30 h-32 animate-pulse rounded-xl border" />
+      ) : !storefront ? (
+        <NoStorefront />
+      ) : (
+        <StorefrontDetails storefront={storefront} />
+      )}
+    </div>
+  )
+}
+
+/**
+ * No storefront yet — show the create flow inline. The first storefront
+ * doubles as the configuration step, so this card is the merchant's
+ * onboarding into the feature.
+ */
+function NoStorefront() {
+  return (
+    <Card className="border-border/60">
+      <CardContent className="space-y-3 p-6 text-center">
+        <h3 className="font-sora text-base font-semibold">No storefront yet</h3>
+        <p className="text-muted-foreground mx-auto max-w-md text-xs">
+          Create one to get a public URL. Your customers browse and pay without ever needing your
+          app integrated — useful for digital downloads, services, or curated subscriptions.
+        </p>
+        <UpsertStorefrontDialog
+          trigger={
+            <Button size="sm">
+              <Plus className="mr-1.5 size-4" /> Create storefront
+            </Button>
+          }
         />
+      </CardContent>
+    </Card>
+  )
+}
+
+function StorefrontDetails({ storefront }: { storefront: Storefront }) {
+  const publishMutation = usePublishStorefront()
+  const archiveMutation = useArchiveStorefront()
+
+  return (
+    <div className="space-y-6">
+      <Card className="border-border/60">
+        <CardContent className="space-y-3 p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-sora text-base font-semibold">{storefront.name}</h3>
+                <Badge
+                  variant="outline"
+                  className={
+                    storefront.status === 'published'
+                      ? 'border-[#02C76A]/40 bg-[#02C76A]/10 text-[10px] text-[#02C76A]'
+                      : 'text-[10px]'
+                  }
+                >
+                  {storefront.status}
+                </Badge>
+              </div>
+              <p className="text-muted-foreground mt-1 text-xs">
+                {storefront.description ?? 'No description set.'}
+              </p>
+              <code className="text-muted-foreground mt-2 inline-block text-xs">
+                strimz-finance.vercel.app/store/{storefront.slug}
+              </code>
+            </div>
+            <div className="flex items-center gap-2">
+              <UpsertStorefrontDialog
+                existing={storefront}
+                trigger={
+                  <Button size="sm" variant="outline">
+                    Edit
+                  </Button>
+                }
+              />
+              {storefront.status === 'draft' || storefront.status === 'archived' ? (
+                <Button
+                  size="sm"
+                  onClick={() => publishMutation.mutate()}
+                  disabled={publishMutation.isPending}
+                >
+                  {publishMutation.isPending ? 'Publishing…' : 'Publish'}
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => archiveMutation.mutate()}
+                  disabled={archiveMutation.isPending}
+                >
+                  Archive
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <ProductsSection />
+    </div>
+  )
+}
+
+function ProductsSection() {
+  const productsQuery = useStorefrontProducts({ limit: 50 })
+  const archiveProductMutation = useArchiveStorefrontProduct()
+
+  return (
+    <section>
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h3 className="font-sora text-base font-semibold">Products</h3>
+          <p className="text-muted-foreground text-xs">
+            Each product becomes a buy-now button on your storefront URL.
+          </p>
+        </div>
+        <AddProductDialog />
       </div>
 
-      <section className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <Card className="shadow-sub-card border-border/60">
-          <CardContent className="space-y-5 p-6">
+      {productsQuery.isLoading ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="border-border/60 bg-muted/30 h-40 animate-pulse rounded-xl border"
+            />
+          ))}
+        </div>
+      ) : !productsQuery.data || productsQuery.data.data.length === 0 ? (
+        <div className="border-border/60 text-muted-foreground rounded-xl border border-dashed p-8 text-center text-xs">
+          No products yet. Add one to start selling.
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {productsQuery.data.data.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onArchive={() => archiveProductMutation.mutate(product.id)}
+              isArchiving={archiveProductMutation.isPending}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function ProductCard({
+  product,
+  onArchive,
+  isArchiving,
+}: {
+  product: StorefrontProduct
+  onArchive: () => void
+  isArchiving: boolean
+}) {
+  return (
+    <Card className="border-border/60">
+      <CardContent className="space-y-3 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
             <div className="flex items-center gap-2">
-              <Globe className="size-4 text-[#02C76A]" />
-              <h3 className="font-sora text-base font-semibold">Storefront details</h3>
+              <h4 className="text-sm font-medium">{product.name}</h4>
+              <Badge variant="outline" className="text-[10px] capitalize">
+                {product.type.replace('_', ' ')}
+              </Badge>
             </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-1.5">
-                <Label>Slug</Label>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground text-xs">strimz.finance/store/</span>
-                  <Input defaultValue={STOREFRONT.slug} className="h-9" />
-                </div>
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Display name</Label>
-                <Input defaultValue={STOREFRONT.name} className="h-9" />
-              </div>
-            </div>
-
-            <div className="grid gap-1.5">
-              <Label>Description</Label>
-              <Textarea defaultValue={STOREFRONT.description} rows={2} />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-1.5">
-                <Label>Accent color</Label>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="border-border/60 size-9 rounded-md border"
-                    style={{ backgroundColor: STOREFRONT.accentColor }}
-                  />
-                  <Input defaultValue={STOREFRONT.accentColor} className="h-9 font-mono text-xs" />
-                </div>
-              </div>
-              <div className="grid gap-1.5">
-                <Label>Logo URL</Label>
-                <Input
-                  defaultValue={STOREFRONT.logoUrl ?? ''}
-                  placeholder="https://…/logo.png"
-                  className="h-9"
-                />
-              </div>
-            </div>
-
-            <Button variant="default" onClick={() => toast.success('Storefront updated')}>
-              Save changes
+            {product.description ? (
+              <p className="text-muted-foreground mt-1 line-clamp-2 text-xs">
+                {product.description}
+              </p>
+            ) : null}
+          </div>
+          {!product.isActive ? (
+            <Badge variant="outline" className="text-[10px] text-rose-600">
+              Archived
+            </Badge>
+          ) : null}
+        </div>
+        <div className="font-sora flex items-center gap-1.5 text-lg font-semibold">
+          <TokenLogo symbol={product.currency} size={18} />
+          {formatTokenAmount(product.price, product.currency)}
+          {product.type === 'subscription' && product.interval ? (
+            <span className="text-muted-foreground text-xs">/{product.interval}</span>
+          ) : null}
+        </div>
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-muted-foreground">
+            {product.stock === null ? 'Unlimited' : `${product.stock} in stock`}
+          </span>
+          {product.isActive ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-rose-600 hover:text-rose-600"
+              onClick={onArchive}
+              disabled={isArchiving}
+            >
+              <Trash2 className="mr-1 size-3" /> Archive
             </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sub-card border-border/60">
-          <CardContent className="space-y-4 p-6">
-            <h3 className="font-sora text-base font-semibold">Publishing</h3>
-            <div className="border-border/40 flex items-center justify-between rounded-md border p-3">
-              <div className="text-sm">
-                <div className="font-medium">{published ? 'Published' : 'Draft'}</div>
-                <div className="text-muted-foreground text-xs">
-                  {published ? 'Your storefront is live' : 'Only you can see this'}
-                </div>
-              </div>
-              <Switch
-                checked={published}
-                onCheckedChange={(v) => {
-                  setPublished(v)
-                  toast.success(v ? 'Published' : 'Set to draft')
-                }}
-              />
-            </div>
-            <div className="text-muted-foreground text-xs">
-              Custom domains (`shop.your-site.com`) are available on Growth and above.
-            </div>
-            <Button variant="outline" className="w-full">
-              Configure custom domain
-            </Button>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="font-sora text-base font-semibold">Products</h2>
-        <DataTable
-          columns={productCols}
-          data={STOREFRONT_PRODUCTS}
-          searchPlaceholder="Search products…"
-          emptyTitle="No products yet"
-          emptyDescription="Add your first product to start selling on your storefront."
-        />
-      </section>
-    </div>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="shadow-sub-card border-border/60 bg-background rounded-xl border p-4">
-      <div className="text-muted-foreground text-xs">{label}</div>
-      <div className="font-sora mt-1 text-2xl font-semibold">{value}</div>
-    </div>
-  )
-}
-
-function NewProductDialog() {
+/**
+ * Upsert dialog covers both create (no `existing`) and edit (with one).
+ * Slug is locked on edit because the public URL is baked into wherever
+ * the merchant has already shared it.
+ */
+function UpsertStorefrontDialog({
+  existing,
+  trigger,
+}: {
+  existing?: Storefront
+  trigger: React.ReactNode
+}) {
   const [open, setOpen] = React.useState(false)
+  const [slug, setSlug] = React.useState(existing?.slug ?? '')
+  const [name, setName] = React.useState(existing?.name ?? '')
+  const [description, setDescription] = React.useState<string>(existing?.description ?? '')
+
+  const upsertMutation = useUpsertStorefront()
+
+  const reset = () => {
+    setSlug(existing?.slug ?? '')
+    setName(existing?.name ?? '')
+    setDescription(existing?.description ?? '')
+  }
+
+  const onSubmit = () => {
+    if (!slug || !name) return
+    upsertMutation.mutate(
+      {
+        slug,
+        name,
+        description: description || null,
+        logoUrl: existing?.logoUrl ?? null,
+        coverImageUrl: existing?.coverImageUrl ?? null,
+        accentColor: existing?.accentColor ?? null,
+        socialLinks: existing?.socialLinks ?? [],
+      },
+      { onSuccess: () => setOpen(false) },
+    )
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" variant="default">
-          <Plus className="mr-1.5 size-4" /> New product
-        </Button>
-      </DialogTrigger>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v)
+        if (!v) reset()
+      }}
+    >
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add product</DialogTitle>
+          <DialogTitle>{existing ? 'Edit storefront' : 'Create storefront'}</DialogTitle>
           <DialogDescription>
-            Pick one-time or subscription. Strimz creates the backing plan automatically.
+            Your public URL will be{' '}
+            <code className="bg-muted rounded px-1 py-0.5 text-xs">
+              strimz-finance.vercel.app/store/<strong>{slug || 'your-slug'}</strong>
+            </code>
+            .
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
           <div className="grid gap-1.5">
-            <Label htmlFor="prod-name">Name</Label>
-            <Input id="prod-name" placeholder="Pro Widget" />
+            <Label htmlFor="sf-slug">URL slug</Label>
+            <Input
+              id="sf-slug"
+              placeholder="acme-pro"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value.toLowerCase())}
+              disabled={!!existing}
+            />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="prod-desc">Description</Label>
-            <Textarea id="prod-desc" rows={2} placeholder="Our flagship widget." />
+            <Label htmlFor="sf-name">Storefront name</Label>
+            <Input
+              id="sf-name"
+              placeholder="Acme — Pro"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="prod-price">Price (USDC)</Label>
-              <Input id="prod-price" type="number" step="0.01" placeholder="50.00" />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="prod-type">Type</Label>
-              <Select defaultValue="one_time">
-                <SelectTrigger id="prod-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="one_time">One-time</SelectItem>
-                  <SelectItem value="subscription">Subscription</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="sf-desc">Description</Label>
+            <Textarea
+              id="sf-desc"
+              placeholder="Short pitch shown on the storefront."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+            />
           </div>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={() => {
-              setOpen(false)
-              toast.success('Product added (mock)')
-            }}
-          >
-            Add product
+          <Button onClick={onSubmit} disabled={upsertMutation.isPending || !slug || !name}>
+            {upsertMutation.isPending ? 'Saving…' : existing ? 'Save changes' : 'Create'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function AddProductDialog() {
+  const [open, setOpen] = React.useState(false)
+  const [name, setName] = React.useState('')
+  const [description, setDescription] = React.useState('')
+  const [price, setPrice] = React.useState('')
+  const [type, setType] = React.useState<StorefrontProductType>('one_time')
+  const [stock, setStock] = React.useState('')
+
+  const addMutation = useAddStorefrontProduct()
+
+  const reset = () => {
+    setName('')
+    setDescription('')
+    setPrice('')
+    setType('one_time')
+    setStock('')
+  }
+
+  const onSubmit = () => {
+    if (!name || !price) return
+    let raw: string
+    try {
+      raw = parseUnits(price, 6).toString()
+    } catch {
+      toast.error('Enter a valid price')
+      return
+    }
+    addMutation.mutate(
+      {
+        name,
+        description: description || null,
+        price: raw,
+        currency: 'USDC' as PaymentCurrency,
+        type,
+        interval: type === 'subscription' ? 'monthly' : null,
+        intervalCount: type === 'subscription' ? 1 : null,
+        stock: stock ? Math.max(0, Number(stock) || 0) : null,
+        isActive: true,
+        sortOrder: 0,
+      },
+      {
+        onSuccess: () => {
+          setOpen(false)
+          reset()
+        },
+      },
+    )
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v)
+        if (!v) reset()
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button size="sm">
+          <Plus className="mr-1.5 size-4" /> Add product
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add product</DialogTitle>
+          <DialogDescription>
+            The product appears as a buy-now button on your storefront.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="p-name">Name</Label>
+            <Input
+              id="p-name"
+              placeholder="Annual licence"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="p-desc">Description</Label>
+            <Textarea
+              id="p-desc"
+              placeholder="Short line, max 2000 chars."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="p-price">Price (USDC)</Label>
+              <Input
+                id="p-price"
+                type="number"
+                step="0.01"
+                placeholder="99.00"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="p-stock">Stock</Label>
+              <Input
+                id="p-stock"
+                type="number"
+                placeholder="Unlimited"
+                value={stock}
+                onChange={(e) => setStock(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <Label>Type:</Label>
+            {(['one_time', 'subscription'] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setType(t)}
+                className={[
+                  'h-7 rounded-md border px-2 capitalize transition-colors',
+                  type === t
+                    ? 'border-[#02C76A] bg-[#02C76A]/10 text-[#02C76A]'
+                    : 'border-border/60 hover:bg-muted',
+                ].join(' ')}
+              >
+                {t.replace('_', ' ')}
+              </button>
+            ))}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={onSubmit} disabled={addMutation.isPending || !name || !price}>
+            {addMutation.isPending ? 'Adding…' : 'Add product'}
           </Button>
         </DialogFooter>
       </DialogContent>

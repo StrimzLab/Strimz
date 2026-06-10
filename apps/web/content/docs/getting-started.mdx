@@ -7,11 +7,16 @@ description: From zero to your first stablecoin payment in five minutes.
 
 ## 1. Sign up
 
-Head to [strimz.finance/signup](/signup). Sign in with email, wallet, or Google. We'll create your test-mode account immediately.
+Go to [strimz.finance/signup](/signup) and sign in with email, an
+existing wallet, or Google. Your test-mode account is ready as soon
+as you land in the dashboard.
 
 ## 2. Issue a test API key
 
-In the dashboard, go to **API keys** → **Issue key**. Test-mode keys (prefixed `sk_test_…`) are free; live-mode keys (`sk_live_…`) unlock once you complete onboarding + 2FA.
+Inside the dashboard, open **API keys** and click **Issue key**.
+Test-mode keys (prefixed `sk_test_…`) are free to create. Live-mode
+keys (prefixed `sk_live_…`) unlock after you complete onboarding and
+enable 2FA.
 
 ## 3. Send a test payment
 
@@ -21,20 +26,40 @@ import { Strimz } from '@strimz/sdk'
 const strimz = new Strimz({ apiKey: process.env.STRIMZ_KEY! })
 
 const session = await strimz.paymentSessions.create({
-  amount:   '50000000',  // 50 USDC (6 decimals)
+  amount: '50000000', // 50 USDC (6 decimals)
   currency: 'USDC',
   description: 'Pro plan, August',
+  successUrl: 'https://your-site.com/thanks',
+  cancelUrl: 'https://your-site.com/cancelled',
 })
 
 console.log(session.checkoutUrl)
 // → https://strimz.finance/pay/cmh3lmkw50000xv8dabcdefgh
 ```
 
-Open `session.checkoutUrl`, connect a wallet, and complete the payment. The session lands in your dashboard at **Payment sessions** within seconds.
+Open `session.checkoutUrl`, connect a wallet, and finish the payment.
+
+The customer signs one message: an EIP-3009 `ReceiveWithAuthorization`.
+Strimz's relayer turns that signature into the on-chain transaction
+and pays the gas. The customer never sees a separate approval prompt
+and never has gas in their wallet. The
+[meta-tx flow page](/docs/concepts/meta-tx-flow) covers the security
+model in more detail.
+
+Refresh **Payment sessions** in your dashboard and you'll see the
+new session show up in a few seconds.
 
 ## 4. Wire a webhook
 
-Add an HTTPS URL under **Webhooks** → **Add endpoint**. Strimz signs every request with HMAC-SHA256. Verify on receipt:
+Open **Webhooks**, click **Add endpoint**, and paste in an HTTPS URL.
+Strimz signs every delivery with HMAC-SHA256.
+
+The signing secret comes back exactly once, on the response to the
+create-endpoint call. Save it in your secrets manager immediately. On
+our side it lives only as an AES-256-GCM ciphertext in Postgres, so
+we cannot read it back to you later.
+
+Verify the signature on receipt:
 
 ```ts
 import { verifyWebhookSignature } from '@strimz/sdk'
@@ -53,6 +78,8 @@ app.post('/webhooks/strimz', (req, res) => {
 
 ## What's next?
 
-- **[Subscriptions](/docs/api-reference#subscriptions)** — recurring revenue with one signature
-- **[Refunds](/docs/api-reference#refunds)** — server-intent + wallet-signed transfer
-- **[Webhooks](/docs/webhooks)** — every event we fire
+- [Subscriptions](/docs/api-reference#subscriptions). Recurring revenue with a single payer signature.
+- [Refunds](/docs/api-reference#refunds). Server-side intent, wallet-signed transfer.
+- [Webhooks](/docs/webhooks). The full event list and retry behaviour.
+- [Meta-tx flow](/docs/concepts/meta-tx-flow). The security model behind the single-signature checkout.
+- [On-chain architecture](/docs/concepts/on-chain-architecture). Which contracts are immutable, which are upgradeable, and the reasoning.

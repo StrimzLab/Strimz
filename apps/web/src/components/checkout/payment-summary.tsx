@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { Logo, Glyph } from '@/components/shared/logo'
+import { TokenLogo } from '@/components/shared/token-logo'
 import { Repeat } from 'lucide-react'
 
 export interface SummaryProps {
@@ -46,7 +47,7 @@ export function PaymentSummary({
           </div>
           <div className="flex items-center gap-2.5">
             <div className="shadow-sub-icon bg-background flex size-8 items-center justify-center rounded-full">
-              <span className="font-mono text-xs font-bold">{currency.charAt(0)}</span>
+              <TokenLogo symbol={currency} size={20} />
             </div>
             <h2 className="font-sora text-2xl font-bold md:text-3xl">
               {amount ?? '—'} {currency}

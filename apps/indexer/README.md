@@ -70,13 +70,20 @@ internal/health        /healthz, /readyz, /metrics
 make abi    # rebuilds internal/abi/*.abi.json from packages/contracts/out/
 ```
 
-This runs `forge build` if needed, then extracts each contract's `events` array via `jq` into the embedded JSON files. The Go binary picks them up via `//go:embed` at build time — no runtime filesystem reads.
+This runs `forge build` if needed, then extracts each contract's `events` array via `jq` into the embedded JSON files. The Go binary picks them up via `//go:embed` at build time, so there are no runtime filesystem reads.
 
-The indexer is a _derived_ view — truncating `IndexerCursor` and reprocessing from genesis must produce identical Postgres state. Every projection is `INSERT ... ON CONFLICT DO NOTHING` (or update-by-natural-key) so replays are safe.
+The indexer is a derived view. Truncating `IndexerCursor` and
+reprocessing from genesis must produce identical Postgres state.
+Every projection is `INSERT ... ON CONFLICT DO NOTHING` or
+update-by-natural-key, so replays are safe.
 
 ## Reorg protection
 
-The indexer waits for `CONFIRMATIONS` blocks (default 5) before projecting. `safeHead = head - CONFIRMATIONS`. We never read past it. For deeper reorgs you'd extend the indexer with a hash-chain check on the previous block; M1 trusts Arc's finality guarantees.
+The indexer stays `CONFIRMATIONS` blocks behind the chain head
+(default 5). `safeHead = head - CONFIRMATIONS`; the loop never
+reads past it. For deeper reorg protection you'd extend the indexer
+with a hash-chain check on the previous block. M1 trusts Arc's
+finality guarantees.
 
 ## Configuration
 

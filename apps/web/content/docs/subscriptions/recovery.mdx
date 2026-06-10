@@ -1,0 +1,101 @@
+---
+title: Recovery
+description: Most subscription churn isn't intentional. When a charge fails, Strimz retries with backoff to give the customer a real chance to fix it before the subscription dies.
+---
+
+When a subscription's charge fails, the subscription enters `at_risk`. The scheduler queues retries: 24 hours later, 72 hours later, and 7 days later. If any retry succeeds, the subscription goes back to `active`. If all three fail, it lapses.
+
+This is what the industry calls "dunning." Strimz's recovery flow is conservative — three retries on a stretching schedule — because the data we've seen from B2B SaaS suggests that aggressive recovery (faster retries, more attempts) wins back roughly the same number of customers as the conservative version and just generates more angry emails.
+
+## What triggers recovery
+
+A cycle's charge fails. Most common reasons:
+
+`insufficient_funds`. The payer's USDC balance dropped below the charge amount. This is the dominant cause — probably 80% of recoverable failures.
+
+`revoked_approval`. The payer manually called `USDC.approve(strimzSubscriptions, 0)` to revoke their permit allowance. Unusual; usually a deliberate signal that they want out.
+
+`payer_blocked`. The payer's wallet was sanctioned between cycles and the screening endpoint now returns `blocked`. Rare in B2B but technically possible.
+
+For each of these, the contract emits `SubscriptionChargeSkipped` instead of `SubscriptionCharged`. The indexer flips the subscription to `at_risk` (using the [race-condition guard](/docs/concepts/safety-nets#the-race-condition-projector-fix) to avoid downgrading when a parallel success also exists for the period).
+
+## The retry schedule
+
+24 hours, then 72 hours, then 7 days, all measured from the initial failure. We picked these intervals from looking at actual recovery patterns in stablecoin balances.
+
+The 24-hour retry catches the obvious case: the customer noticed a balance issue, topped up the wallet, and now has enough USDC. This is by far the highest-yield retry.
+
+The 72-hour retry catches the slightly slower case: the customer was traveling, or didn't see the failure email until the weekend was over, or had to wait for a transfer to clear.
+
+The 7-day retry is the last-chance saloon. Recovery rates here are low (single-digit percent), but the customers who do succeed at week one are often valuable — they care enough to come back.
+
+After the 7-day retry, we stop. The subscription lapses, the `subscription.lapsed` webhook fires, and the customer has to re-subscribe to come back (a fresh permit signature, a fresh subscription row).
+
+## Tuning the grace window
+
+The `gracePeriodHours` on a subscription is the upper bound on how long recovery can run.
+
+```ts
+await strimz.subscriptions.create({
+  planId: 'plan_…',
+  customerId: 'cust_…',
+  payerAddress: '0x…',
+  gracePeriodHours: 168,   // 7 days, matches the default schedule
+})
+```
+
+Default is 48 hours, which is shorter than the full 7-day retry window. The implication: a subscription with `gracePeriodHours: 48` would fire the 24-hour retry, but if the 72-hour retry would land after the 48-hour grace window, the subscription lapses without the 72-hour retry firing.
+
+For B2B SaaS, the right value is usually 168 hours (7 days) so all three retries get a chance. The 48-hour default exists for shorter-cycle products (daily / weekly plans) where a 7-day grace would feel longer than the cycle itself.
+
+You can pass `gracePeriodHours` at subscription create time via the SDK. The API doesn't expose it on `create` directly because subscriptions are created via the on-chain enrolment flow, not API call; the value gets read from the plan's metadata at enrolment time.
+
+## What fires on the customer's webhook endpoint
+
+The events you'll see during recovery:
+
+`subscription.charge_failed` — the initial failure. `attemptNumber: 1`. This is the one to email the customer about.
+
+`subscription.recovery_attempt` — each retry. `attemptNumber: 2` for the 24-hour retry, `3` for the 72-hour, etc. Mostly informational; you don't usually need to act on these.
+
+`subscription.recovery_outcome` — after the last retry, with `recovered: true` (some retry succeeded) or `recovered: false` (the subscription is about to lapse).
+
+`subscription.lapsed` — fires after the lapse is final. Use this to revoke product access.
+
+The `charge_failed` event is the one your customer support flow cares about. Email the payer with a "payment failed" notice and a link to top up their wallet. The earlier you ask, the more often recovery succeeds. Strimz can send this email for you (see Settings → Notifications) or you can send it yourself.
+
+## What it costs to retry
+
+Each retry is a real on-chain call. The relayer pays gas; Strimz absorbs the cost. Even at the very worst case — every subscription retrying three times — the gas burn is manageable. We've sized the relayer's USDC float to comfortably cover a few thousand retries a day.
+
+There's no "you ran out of retries" billing event. The merchant doesn't pay for failed retries.
+
+## Manually retrying
+
+If you've contacted the customer and they've topped up their wallet, you can drop the subscription into the next sweep tick rather than waiting for the next scheduled retry:
+
+```ts
+await strimz.subscriptions.chargeNow({ id: 'sub_…' })
+```
+
+This sets `nextChargeAt` to a few seconds out. The next sweep tick (within a minute) picks it up. Works in any status — `active` calls are no-ops; `at_risk` calls retry the failed cycle.
+
+Useful for support flows: customer emails saying "I topped up, please retry," you click a button in your admin tool, the charge fires within 60 seconds.
+
+## Lapse and replay
+
+Once a subscription lapses, the status is terminal. You can't unlapse a subscription, even if the payer's wallet balance has since topped up. The on-chain side stops respecting the permit; the off-chain side won't try to charge.
+
+For the customer to come back, they have to re-subscribe — sign a fresh EIP-2612 permit on the plan's hosted-checkout URL. That creates a new `Subscription` row with a new id.
+
+We enforce one active subscription per `(planId, payerAddress)`. A lapsed subscription doesn't count as active for this check — the payer can immediately re-subscribe to the same plan if they want. The new row has a fresh enrolment tx hash; the old row stays in the database for audit.
+
+## Why "give recovery a real chance"
+
+A bit of editorializing because it matters for your tuning.
+
+Failed-charge customers are not lost customers. The majority of them are valuable customers who hit a temporary issue. Stablecoin balances fluctuate; people forget to top up; payroll is late one week. Treating the first failed charge as "this customer just churned" is wrong; the first failed charge is "this customer probably needs a reminder."
+
+The recovery rate at week one is dramatically higher than at week two; the rate at week two is higher than at month one. The schedule is designed to maximize recovery without spamming. The default `gracePeriodHours` of 48 is too short for most B2B SaaS — set it to 168.
+
+If your product has a lot of failed-charge volume, the right move is upstream of Strimz: make "top up your wallet" a one-click flow inside your product. Don't make the customer leave to fix it. Strimz handles the retry mechanics; your product handles the recovery UX.

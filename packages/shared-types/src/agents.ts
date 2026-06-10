@@ -1,5 +1,5 @@
 /**
- * AI AutoPay Agent — identity, configuration, activity log, and ERC-8183 jobs.
+ * AI AutoPay Agent. Identity, configuration, activity log, and ERC-8183 jobs.
  */
 
 import { z } from 'zod'

@@ -1,6 +1,34 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Badge, Card, CardContent } from '@strimz/ui'
 import { Logo } from '@/components/shared/logo'
+import { OG_IMAGE } from '@/lib/seo'
+
+/**
+ * Per-storefront metadata. The slug is the merchant's chosen handle —
+ * exposing it in the title is fine (storefronts are public surfaces).
+ * Once the API is wired up, swap in the real merchant name + bio so
+ * the OG card shows the storefront's branding.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}): Promise<Metadata> {
+  const { slug } = await params
+  const display = slug.charAt(0).toUpperCase() + slug.slice(1)
+  return {
+    title: display,
+    description: `Buy from ${display} with USDC on Arc — instant, gas-free, no card needed.`,
+    openGraph: {
+      title: `${display} · Strimz Storefront`,
+      description: `Pay ${display} in USDC on Arc.`,
+      url: `/store/${slug}`,
+      images: [OG_IMAGE],
+    },
+    alternates: { canonical: `/store/${slug}` },
+  }
+}
 
 /**
  * Public hosted storefront. SSR'd, no auth — customers land directly

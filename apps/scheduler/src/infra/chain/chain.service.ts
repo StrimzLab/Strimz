@@ -8,7 +8,7 @@ import {
   type PublicClient,
   type WalletClient,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts'
 import { arcMainnet, arcTestnet, getCctpContracts } from '@strimz/shared-config'
 import { TypedConfigService } from '../../config/index.js'
 import { StrimzSubscriptionsAbi, StrimzAgentEscrowAbi, MessageTransmitterAbi } from './abis.js'
@@ -35,7 +35,11 @@ import { StrimzSubscriptionsAbi, StrimzAgentEscrowAbi, MessageTransmitterAbi } f
 export class ChainService {
   public readonly publicClient: PublicClient
   public readonly walletClient: WalletClient
-  public readonly account: { address: Address }
+  // PrivateKeyAccount (not just `{ address }`): viem dispatches to
+  // local signing + eth_sendRawTransaction only when it sees a
+  // LocalAccount object. A bare address string sends viem down the
+  // wallet_sendTransaction path, which RPC nodes don't implement.
+  public readonly account: PrivateKeyAccount
   public readonly subscriptionsAddress: Address
   public readonly agentEscrowAddress: Address
   public readonly messageTransmitterAddress: Address
@@ -62,7 +66,7 @@ export class ChainService {
   /** Cancels a single on-chain subscription. */
   async cancelSubscription(subscriptionId: bigint): Promise<Hash> {
     return this.walletClient.writeContract({
-      account: this.account.address,
+      account: this.account,
       address: this.subscriptionsAddress,
       abi: StrimzSubscriptionsAbi,
       functionName: 'cancel',
@@ -87,7 +91,7 @@ export class ChainService {
       throw new Error('batchCharge: subscriptionIds.length !== chargeAttemptIds.length')
     }
     return this.walletClient.writeContract({
-      account: this.account.address,
+      account: this.account,
       address: this.subscriptionsAddress,
       abi: StrimzSubscriptionsAbi,
       functionName: 'batchCharge',
@@ -116,7 +120,7 @@ export class ChainService {
     description: string
   }): Promise<Hash> {
     return this.walletClient.writeContract({
-      account: this.account.address,
+      account: this.account,
       address: this.agentEscrowAddress,
       abi: StrimzAgentEscrowAbi,
       functionName: 'createJob',
@@ -127,7 +131,7 @@ export class ChainService {
 
   async approveAndReleaseJob(jobId: bigint): Promise<Hash> {
     return this.walletClient.writeContract({
-      account: this.account.address,
+      account: this.account,
       address: this.agentEscrowAddress,
       abi: StrimzAgentEscrowAbi,
       functionName: 'approveAndRelease',
@@ -138,7 +142,7 @@ export class ChainService {
 
   async disputeJob(jobId: bigint, reason: string): Promise<Hash> {
     return this.walletClient.writeContract({
-      account: this.account.address,
+      account: this.account,
       address: this.agentEscrowAddress,
       abi: StrimzAgentEscrowAbi,
       functionName: 'dispute',
@@ -149,7 +153,7 @@ export class ChainService {
 
   async cancelJob(jobId: bigint, reason: string): Promise<Hash> {
     return this.walletClient.writeContract({
-      account: this.account.address,
+      account: this.account,
       address: this.agentEscrowAddress,
       abi: StrimzAgentEscrowAbi,
       functionName: 'cancelJob',
@@ -175,7 +179,7 @@ export class ChainService {
     attestationHex: `0x${string}`
   }): Promise<Hash> {
     return this.walletClient.writeContract({
-      account: this.account.address,
+      account: this.account,
       address: this.messageTransmitterAddress,
       abi: MessageTransmitterAbi,
       functionName: 'receiveMessage',

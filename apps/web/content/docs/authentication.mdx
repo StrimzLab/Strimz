@@ -3,9 +3,9 @@ title: Authentication
 description: How requests authenticate against Strimz, and how to manage keys + scopes.
 ---
 
-Strimz has two ways to authenticate, because two very different kinds of
-clients call the API: the dashboard (running in a merchant's browser) and
-your server-side code.
+The Strimz API has two clients with very different needs: the
+dashboard, which runs in a merchant's browser, and your server-side
+code. Each has its own authentication scheme.
 
 ## Dashboard sessions (Privy access tokens)
 
@@ -37,20 +37,26 @@ Authorization: Bearer sk_live_xxxxxxxxxxxxxxxxxxxxxxxx
 
 Keys come in two kinds and two modes:
 
-| Kind | Mode | Prefix | Use |
-| --- | --- | --- | --- |
-| Secret | Test | `sk_test_` | server-side, test environment |
-| Secret | Live | `sk_live_` | server-side, production |
-| Publishable | Test | `pk_test_` | browser, test environment |
-| Publishable | Live | `pk_live_` | browser, production |
+| Kind        | Mode | Prefix     | Use                           |
+| ----------- | ---- | ---------- | ----------------------------- |
+| Secret      | Test | `sk_test_` | server-side, test environment |
+| Secret      | Live | `sk_live_` | server-side, production       |
+| Publishable | Test | `pk_test_` | browser, test environment     |
+| Publishable | Live | `pk_live_` | browser, production           |
 
-**Secret keys must never reach the browser**. We rotate any leaked key automatically if we detect it in a public source — you'll get an email and the old key will start returning `401`s.
+**Secret keys must never reach the browser.** If GitGuardian or our
+own scanner spots one in a public source, Strimz rotates it
+automatically. You get an email and the old key starts returning
+`401`s.
 
-**Publishable keys** are designed for the browser. They're scoped to read-only methods and the create-session endpoint. The browser SDK uses them so the server doesn't have to round-trip every checkout intent.
+**Publishable keys** are scoped to read-only methods and the
+create-session endpoint, so they're safe in the browser. The browser
+SDK uses them so your server doesn't have to round-trip every
+checkout intent.
 
 ## Scopes
 
-Every secret key has a scope list. When you issue a new key from the dashboard, you tick the actions it can take. The API enforces the list on every request — if your key has `subscriptions_read` but tries to call `POST /v1/subscriptions/{id}/cancel`, you'll get a `permission_denied` error.
+Every secret key has a scope list. When you issue a new key from the dashboard, you tick the actions it can take. The API enforces the list on every request. If your key has `subscriptions_read` but tries to call `POST /v1/subscriptions/{id}/cancel`, you'll get a `permission_denied` error.
 
 Available scopes (underscore-separated, alphabetical):
 
@@ -73,15 +79,21 @@ The dashboard offers preset scope bundles ("read-only", "checkout-only", "full")
 
 You can't issue a live-mode key the moment you sign up. Live-mode unlocks once you've completed:
 
-1. **Email verification** — Privy verifies your email address.
-2. **Two-factor authentication** — enabled in your Privy account settings.
-3. **Business onboarding** — the self-attested form in the dashboard (business name, sector, country, payout address).
+1. **Email verification.** Privy verifies your email address.
+2. **Two-factor authentication.** Enabled in your Privy account settings.
+3. **Business onboarding.** The self-attested form in the dashboard (business name, sector, country, payout address).
 
-The dashboard surfaces what's blocking via `GET /v1/merchants/me/live-mode-eligibility`, which returns structured `reasons` so we can route you to the right step. There's no manual review queue for the basic plan; it unlocks automatically the moment all four checks pass.
+The dashboard checks `GET /v1/merchants/me/live-mode-eligibility`,
+which returns structured `reasons` so the UI can point you at the
+right step. There is no manual review queue on the basic plan. The
+key unlocks the moment all three checks pass.
 
 ## Rotating a key
 
-You can revoke and re-issue at any time. The old key returns `authentication_error` immediately. Strimz never deletes a key — it's marked revoked and stays in your audit log so you can prove later when it stopped accepting traffic.
+Revoke and re-issue at any time. The old key starts returning
+`authentication_error` immediately. Strimz never hard-deletes a key;
+it stays in your audit log as `revoked` so you can prove later when
+it stopped working.
 
 ```ts
 await strimz.apiKeys.revoke('mak_xyz')
@@ -89,4 +101,6 @@ const newKey = await strimz.apiKeys.create({ name: 'production', scopes: [...], 
 console.log(newKey.secret)  // shown once
 ```
 
-If a key is exposed in a public repo, [contact security](mailto:security@strimz.finance) — we'll auto-revoke and audit usage from the leak window.
+If a key is exposed in a public repo,
+[contact security](mailto:security@strimz.finance). Strimz auto-revokes
+it and audits usage from the leak window.

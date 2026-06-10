@@ -2,7 +2,7 @@
  * @strimz/sdk-react
  *
  * Drop-in React components and hooks for Strimz hosted checkout.
- * All exports are 'use client' — they cannot run during SSR / RSC.
+ * All exports are 'use client'. They cannot run during SSR or RSC.
  */
 
 export {

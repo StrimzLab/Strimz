@@ -29,7 +29,7 @@ contract StrimzPaymentsTest is StrimzTestBase {
         feeCollector.grantRole(
             StrimzAccessControl(address(feeCollector)).FEE_ACCRUER_ROLE(), address(payments)
         );
-        merchantId = registry.registerMerchant(merchant, merchantPayout, 150);
+        merchantId = registry.registerMerchant(merchant, merchantPayout, 150, 0);
         vm.stopPrank();
 
         _fund(payer, 1_000_000_000);

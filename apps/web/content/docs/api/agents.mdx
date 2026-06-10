@@ -36,7 +36,7 @@ PATCH /v1/agents/config
 }
 ```
 
-Partial — only the keys you send are updated.
+Partial update. Only the keys you send are applied.
 
 ## Activity log
 
@@ -68,11 +68,11 @@ POST /v1/agents/jobs/{id}/approve
 
 ## Webhook events
 
-| Event | Fires when |
-| --- | --- |
-| `agent.action_executed` | Any capability completed an action |
-| `agent.job_proposed` | A job needs human approval |
-| `agent.job_completed` | A job's escrow was released to the vendor |
-| `agent.job_disputed` | A job was disputed |
+| Event                   | Fires when                                |
+| ----------------------- | ----------------------------------------- |
+| `agent.action_executed` | Any capability completed an action        |
+| `agent.job_proposed`    | A job needs human approval                |
+| `agent.job_completed`   | A job's escrow was released to the vendor |
+| `agent.job_disputed`    | A job was disputed                        |
 
 See [The AutoPay Agent](/docs/guides/agent) for the capability-by-capability breakdown.

@@ -1,15 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { Download, TrendingUp, TrendingDown, Activity } from 'lucide-react'
-import { toast } from 'sonner'
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -17,507 +12,227 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import {
-  Button,
-  Card,
-  CardContent,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@strimz/ui'
+import { AlertCircle, RefreshCcw } from 'lucide-react'
+import { Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } from '@strimz/ui'
+
 import { PageHeader } from '@/components/dashboard/page-header'
-import { downloadCsv } from '@/lib/csv-export'
-import {
-  ACTIVE_SUBSCRIBERS,
-  CHURN,
-  CONVERSION,
-  CURRENT_MRR_USDC,
-  DAILY_VOLUME,
-  FORECAST_CONFIDENCE,
-  FORECAST_NEXT_30,
-  MRR_HISTORY,
-  TOP_CUSTOMERS_LTV,
-} from '@/data/analytics'
-import { formatUsdc, formatUsdcCompact, shortAddress } from '@/data/_seed'
+import { formatTokenAmount, shortAddress } from '@/lib/format'
+import { useChurn, useConversion, useForecast, useLtv, useMrr } from '@/hooks/api'
 
 export default function AnalyticsPage() {
-  const [range, setRange] = React.useState<'30d' | '60d'>('60d')
-  const dailyData = range === '30d' ? DAILY_VOLUME.slice(-30) : DAILY_VOLUME
+  const mrrQuery = useMrr()
+  const forecastQuery = useForecast()
+  const conversionQuery = useConversion({})
+  const churnQuery = useChurn({})
+  const ltvQuery = useLtv({ limit: 10 })
 
-  const grossLast30 = DAILY_VOLUME.slice(-30).reduce((s, p) => s + p.grossUsdc, 0)
-  const grossPrior30 = DAILY_VOLUME.slice(-60, -30).reduce((s, p) => s + p.grossUsdc, 0)
-  const grossDeltaPct = grossPrior30 > 0 ? ((grossLast30 - grossPrior30) / grossPrior30) * 100 : 0
+  const mrr = mrrQuery.data
+  const forecast = forecastQuery.data
 
-  const mrrPrior = MRR_HISTORY.length > 1 ? MRR_HISTORY[MRR_HISTORY.length - 2]!.mrrUsdc : 0
-  const mrrDeltaPct = mrrPrior > 0 ? ((CURRENT_MRR_USDC - mrrPrior) / mrrPrior) * 100 : 0
+  const conversionData = React.useMemo(
+    () =>
+      (conversionQuery.data?.data ?? []).map((p) => ({
+        day: new Date(p.day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        rate: p.created === 0 ? 0 : (100 * p.confirmed) / p.created,
+        created: p.created,
+        confirmed: p.confirmed,
+      })),
+    [conversionQuery.data],
+  )
 
-  const churnAvg12m = CHURN.reduce((s, p) => s + p.churnRate, 0) / CHURN.length
-  const conversionAvg30d = CONVERSION.reduce((s, p) => s + p.rate, 0) / CONVERSION.length
-
-  const projectedNext30 = FORECAST_NEXT_30.reduce((s, p) => s + p.projectedNetUsdc, 0)
+  const churnData = React.useMemo(
+    () =>
+      (churnQuery.data?.data ?? []).map((p) => ({
+        month: new Date(p.month).toLocaleDateString(undefined, {
+          month: 'short',
+          year: '2-digit',
+        }),
+        rate: p.rate * 100,
+        cancelled: p.cancelled,
+      })),
+    [churnQuery.data],
+  )
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Analytics"
-        description="Conversion, churn, MRR, LTV, and a 90-day forecast. The AutoPay Agent uses the same numbers in its monthly summary."
-        action={
-          <div className="flex items-center gap-2">
-            <Select value={range} onValueChange={(v) => setRange(v as '30d' | '60d')}>
-              <SelectTrigger className="h-9 w-[140px] whitespace-nowrap">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="30d">Last 30 days</SelectItem>
-                <SelectItem value="60d">Last 60 days</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                downloadCsv('daily-volume.csv', DAILY_VOLUME, [
-                  { key: 'day', header: 'Day' },
-                  { key: 'grossUsdc', header: 'Gross (smallest units)' },
-                  { key: 'feeUsdc', header: 'Fees (smallest units)' },
-                  { key: 'netUsdc', header: 'Net (smallest units)' },
-                  { key: 'transactionCount', header: 'Transactions' },
-                  { key: 'newCustomers', header: 'New customers' },
-                ])
-                toast.success('Exported daily-volume.csv')
-              }}
-            >
-              <Download className="mr-1.5 size-4" /> Export CSV
-            </Button>
-          </div>
-        }
+        description="The numbers you care about: conversion, churn, MRR, LTV, and a simple 90-day forecast."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          label="Gross volume (30d)"
-          value={`${formatUsdcCompact(grossLast30)} USDC`}
-          delta={grossDeltaPct}
-        />
-        <KpiCard
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi
           label="MRR"
-          value={`${formatUsdcCompact(CURRENT_MRR_USDC)} USDC`}
-          delta={mrrDeltaPct}
-          note={`${ACTIVE_SUBSCRIBERS} active subscribers`}
+          value={mrr ? formatTokenAmount(mrr.mrr, 'USDC') : '—'}
+          loading={mrrQuery.isLoading}
+          subtle={mrr ? `${mrr.activeSubscribers} active subs` : undefined}
         />
-        <KpiCard
+        <Kpi
           label="Conversion (30d avg)"
-          value={`${(conversionAvg30d * 100).toFixed(1)}%`}
-          note="confirmed / created"
+          value={(() => {
+            const points = conversionQuery.data?.data ?? []
+            if (points.length === 0) return '—'
+            // The endpoint returns per-day {created, confirmed}; we
+            // compute the period-wide rate as sum/sum, NOT the mean of
+            // per-day rates. The mean would over-weight days with tiny
+            // sample sizes.
+            const totalCreated = points.reduce((s, p) => s + p.created, 0)
+            const totalConfirmed = points.reduce((s, p) => s + p.confirmed, 0)
+            if (totalCreated === 0) return '0%'
+            return `${Math.round((100 * totalConfirmed) / totalCreated)}%`
+          })()}
+          loading={conversionQuery.isLoading}
+          subtle="Confirmed / created"
         />
-        <KpiCard
-          label="Churn (12m avg)"
-          value={`${(churnAvg12m * 100).toFixed(1)}%`}
-          delta={-((churnAvg12m - CHURN[0]!.churnRate) / CHURN[0]!.churnRate) * 100}
-          inverse
+        <Kpi
+          label="Churn (last month)"
+          value={
+            churnData.length > 0 ? `${churnData[churnData.length - 1]!.rate.toFixed(1)}%` : '—'
+          }
+          loading={churnQuery.isLoading}
+          subtle="Cancelled + lapsed"
+          dangerIfAbove={5}
+          numericForCompare={churnData.length > 0 ? churnData[churnData.length - 1]!.rate : null}
+        />
+        <Kpi
+          label="Forecast — next 30d"
+          value={forecast ? formatTokenAmount(forecast.next30, 'USDC') : '—'}
+          loading={forecastQuery.isLoading}
+          subtle={forecast ? `${forecast.confidence} confidence` : undefined}
         />
       </div>
 
-      <Tabs defaultValue="revenue">
+      <Tabs defaultValue="conversion">
         <TabsList>
-          <TabsTrigger value="revenue">Revenue</TabsTrigger>
-          <TabsTrigger value="mrr">MRR + churn</TabsTrigger>
           <TabsTrigger value="conversion">Conversion</TabsTrigger>
-          <TabsTrigger value="ltv">LTV</TabsTrigger>
+          <TabsTrigger value="churn">Churn</TabsTrigger>
+          <TabsTrigger value="ltv">Top customers (LTV)</TabsTrigger>
           <TabsTrigger value="forecast">Forecast</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="revenue" className="mt-4">
-          <Card className="shadow-sub-card border-border/60">
-            <CardContent className="p-5">
-              <ChartHeader title={`Daily revenue · last ${range === '30d' ? 30 : 60} days`} />
-              <ChartWrap>
-                <AreaChart
-                  data={dailyData.map((p) => ({
-                    day: p.day.slice(5),
-                    gross: p.grossUsdc / 1_000_000,
-                    fees: p.feeUsdc / 1_000_000,
-                    net: p.netUsdc / 1_000_000,
-                  }))}
-                >
-                  <defs>
-                    <linearGradient id="g-gross" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0%" stopColor="#02C76A" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="#02C76A" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    stroke="hsl(var(--border))"
-                    strokeDasharray="3 3"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="day"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                    tickFormatter={(v) => `$${v.toFixed(0)}`}
-                  />
-                  <Tooltip {...tooltipStyle} formatter={(v: number) => `${v.toFixed(2)} USDC`} />
-                  <Area
-                    type="monotone"
-                    dataKey="gross"
-                    stroke="#02C76A"
-                    strokeWidth={2.5}
-                    fill="url(#g-gross)"
-                    name="Gross"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="net"
-                    stroke="#050020"
-                    strokeWidth={1.8}
-                    dot={false}
-                    name="Net"
-                  />
-                </AreaChart>
-              </ChartWrap>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sub-card border-border/60 mt-4">
-            <CardContent className="p-5">
-              <ChartHeader title="Transaction count" />
-              <ChartWrap height={200}>
-                <BarChart
-                  data={dailyData.map((p) => ({ day: p.day.slice(5), count: p.transactionCount }))}
-                >
-                  <CartesianGrid
-                    stroke="hsl(var(--border))"
-                    strokeDasharray="3 3"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="day"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                  />
-                  <Tooltip {...tooltipStyle} />
-                  <Bar dataKey="count" fill="#02C76A" radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ChartWrap>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="mrr" className="mt-4 grid gap-4 lg:grid-cols-2">
-          <Card className="shadow-sub-card border-border/60">
-            <CardContent className="p-5">
-              <ChartHeader title="MRR · last 12 months" />
-              <ChartWrap>
-                <AreaChart
-                  data={MRR_HISTORY.map((p) => ({
-                    month: p.month.slice(2),
-                    mrr: p.mrrUsdc / 1_000_000,
-                    subs: p.activeSubscribers,
-                  }))}
-                >
-                  <defs>
-                    <linearGradient id="g-mrr" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0%" stopColor="#02C76A" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="#02C76A" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    stroke="hsl(var(--border))"
-                    strokeDasharray="3 3"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="month"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                    tickFormatter={(v) => `$${v.toFixed(0)}`}
-                  />
-                  <Tooltip {...tooltipStyle} formatter={(v: number) => `${v.toFixed(2)} USDC`} />
-                  <Area
-                    type="monotone"
-                    dataKey="mrr"
-                    stroke="#02C76A"
-                    strokeWidth={2.5}
-                    fill="url(#g-mrr)"
-                    name="MRR"
-                  />
-                </AreaChart>
-              </ChartWrap>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sub-card border-border/60">
-            <CardContent className="p-5">
-              <ChartHeader title="Churn rate · last 12 months" />
-              <ChartWrap>
-                <LineChart
-                  data={CHURN.map((p) => ({
-                    month: p.month.slice(2),
-                    pct: +(p.churnRate * 100).toFixed(2),
-                  }))}
-                >
-                  <CartesianGrid
-                    stroke="hsl(var(--border))"
-                    strokeDasharray="3 3"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="month"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                    tickFormatter={(v) => `${v.toFixed(1)}%`}
-                  />
-                  <Tooltip {...tooltipStyle} formatter={(v: number) => `${v.toFixed(2)}%`} />
-                  <Line
-                    type="monotone"
-                    dataKey="pct"
-                    stroke="#f97316"
-                    strokeWidth={2.5}
-                    dot={{ r: 3, fill: '#f97316' }}
-                    name="Churn rate"
-                  />
-                </LineChart>
-              </ChartWrap>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="conversion" className="mt-4">
-          <Card className="shadow-sub-card border-border/60">
-            <CardContent className="p-5">
-              <ChartHeader
-                title="Session conversion · last 30 days"
-                subtitle="Confirmed sessions ÷ created sessions per UTC day"
-              />
-              <ChartWrap height={300}>
-                <BarChart
-                  data={CONVERSION.map((p) => ({
-                    day: p.day.slice(5),
-                    created: p.created,
-                    confirmed: p.confirmed,
-                    rate: +(p.rate * 100).toFixed(1),
-                  }))}
-                >
-                  <CartesianGrid
-                    stroke="hsl(var(--border))"
-                    strokeDasharray="3 3"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="day"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                  />
-                  <YAxis
-                    yAxisId="count"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                  />
-                  <YAxis
-                    yAxisId="rate"
-                    orientation="right"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                    tickFormatter={(v) => `${v}%`}
-                    domain={[0, 100]}
-                  />
-                  <Tooltip {...tooltipStyle} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar
-                    yAxisId="count"
-                    dataKey="created"
-                    fill="#cbd5e1"
-                    name="Created"
-                    radius={[2, 2, 0, 0]}
-                  />
-                  <Bar
-                    yAxisId="count"
-                    dataKey="confirmed"
-                    fill="#02C76A"
-                    name="Confirmed"
-                    radius={[2, 2, 0, 0]}
-                  />
-                  <Line
-                    yAxisId="rate"
-                    type="monotone"
-                    dataKey="rate"
-                    stroke="#050020"
-                    strokeWidth={2}
-                    dot={false}
-                    name="Rate %"
-                  />
-                </BarChart>
-              </ChartWrap>
-            </CardContent>
-          </Card>
+          <ChartCard
+            title="Daily conversion rate"
+            description="Confirmed sessions divided by created sessions, last 30 days."
+            isLoading={conversionQuery.isLoading}
+            isError={conversionQuery.isError}
+            onRetry={conversionQuery.refetch}
+            isEmpty={conversionData.length === 0}
+            emptyMessage="No checkout sessions yet."
+          >
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={conversionData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" />
+                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} unit="%" />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey="rate"
+                  name="Conversion %"
+                  stroke="#02C76A"
+                  strokeWidth={2}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </TabsContent>
+
+        <TabsContent value="churn" className="mt-4">
+          <ChartCard
+            title="Monthly churn"
+            description="Subscribers cancelled or lapsed, as a share of total subs each month."
+            isLoading={churnQuery.isLoading}
+            isError={churnQuery.isError}
+            onRetry={churnQuery.refetch}
+            isEmpty={churnData.length === 0}
+            emptyMessage="No subscription history yet."
+          >
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={churnData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} unit="%" />
+                <Tooltip />
+                <Bar dataKey="rate" name="Churn %" fill="#02C76A" />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
         </TabsContent>
 
         <TabsContent value="ltv" className="mt-4">
-          <Card className="shadow-sub-card border-border/60">
-            <CardContent className="p-5">
-              <ChartHeader title="Top customers by lifetime value" />
-              <ChartWrap height={360}>
-                <BarChart
-                  layout="vertical"
-                  data={TOP_CUSTOMERS_LTV.map((c) => ({
-                    wallet: shortAddress(c.walletAddress),
-                    spend: c.totalSpentUsdc / 1_000_000,
-                  }))}
-                >
-                  <CartesianGrid
-                    stroke="hsl(var(--border))"
-                    strokeDasharray="3 3"
-                    horizontal={false}
-                  />
-                  <XAxis
-                    type="number"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                    tickFormatter={(v) => `$${v.toFixed(0)}`}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="wallet"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                    width={120}
-                  />
-                  <Tooltip {...tooltipStyle} formatter={(v: number) => `${v.toFixed(2)} USDC`} />
-                  <Bar dataKey="spend" fill="#02C76A" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ChartWrap>
+          <Card className="border-border/60">
+            <CardContent className="p-6">
+              <h3 className="font-sora text-base font-semibold">Top customers by spend</h3>
+              <p className="text-muted-foreground mt-1 text-xs">
+                The customers who've paid you the most across confirmed transactions.
+              </p>
+              {ltvQuery.isLoading ? (
+                <div className="mt-4 space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="border-border/60 bg-muted/30 h-12 animate-pulse rounded-lg border"
+                    />
+                  ))}
+                </div>
+              ) : ltvQuery.data && ltvQuery.data.data.length > 0 ? (
+                <div className="mt-4 space-y-2">
+                  {ltvQuery.data.data.map((row, idx) => (
+                    <div
+                      key={row.customerId}
+                      className="border-border/60 flex items-center justify-between rounded-lg border px-3 py-2.5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-muted-foreground w-6 font-mono text-xs">
+                          #{idx + 1}
+                        </span>
+                        <code className="text-xs">{shortAddress(row.customerId)}</code>
+                        <span className="text-muted-foreground text-xs">
+                          {row.transactionCount} tx
+                        </span>
+                      </div>
+                      <span className="font-mono text-sm font-medium">
+                        {formatTokenAmount(row.totalSpend, 'USDC')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-muted-foreground mt-4 py-6 text-center text-xs">
+                  No customer transactions yet.
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="forecast" className="mt-4">
-          <Card className="shadow-sub-card border-border/60">
-            <CardContent className="p-5">
-              <div className="mb-4 flex items-end justify-between">
-                <ChartHeader
-                  title="Net revenue forecast · next 30 days"
-                  subtitle="Linear-regression projection based on the last 90 days of confirmed transactions"
-                />
-                <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                  <Activity className="size-3.5" />
-                  Confidence:{' '}
-                  <span className="text-foreground font-medium capitalize">
-                    {FORECAST_CONFIDENCE}
-                  </span>
+          <Card className="border-border/60">
+            <CardContent className="p-6">
+              <h3 className="font-sora text-base font-semibold">90-day forecast</h3>
+              <p className="text-muted-foreground mt-1 text-xs">
+                Linear projection over your last 90 days of confirmed transaction revenue. Cheap
+                model; useful for "next quarter" sizing.
+              </p>
+              {forecastQuery.isLoading ? (
+                <div className="border-border/60 bg-muted/30 mt-4 h-32 animate-pulse rounded-lg border" />
+              ) : forecast ? (
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <ForecastBucket label="Next 30 days" value={forecast.next30} />
+                  <ForecastBucket label="Next 60 days" value={forecast.next60} />
+                  <ForecastBucket label="Next 90 days" value={forecast.next90} />
                 </div>
-              </div>
-              <div className="mb-4 grid gap-3 sm:grid-cols-3">
-                <Stat
-                  label="Projected (next 30d)"
-                  value={`${formatUsdcCompact(projectedNext30)} USDC`}
-                />
-                <Stat label="Daily average" value={`${formatUsdc(projectedNext30 / 30)} USDC`} />
-                <Stat
-                  label="vs. last 30d"
-                  value={`${(((projectedNext30 - DAILY_VOLUME.slice(-30).reduce((s, p) => s + p.netUsdc, 0)) / DAILY_VOLUME.slice(-30).reduce((s, p) => s + p.netUsdc, 0)) * 100).toFixed(1)}%`}
-                />
-              </div>
-              <ChartWrap>
-                <AreaChart
-                  data={[
-                    ...DAILY_VOLUME.slice(-30).map((p) => ({
-                      day: p.day.slice(5),
-                      historical: p.netUsdc / 1_000_000,
-                      projected: null as number | null,
-                    })),
-                    ...FORECAST_NEXT_30.map((p) => ({
-                      day: p.day.slice(5),
-                      historical: null as number | null,
-                      projected: p.projectedNetUsdc / 1_000_000,
-                    })),
-                  ]}
-                >
-                  <defs>
-                    <linearGradient id="g-fc" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0%" stopColor="#02C76A" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#02C76A" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    stroke="hsl(var(--border))"
-                    strokeDasharray="3 3"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="day"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
-                    tickFormatter={(v) => `$${v.toFixed(0)}`}
-                  />
-                  <Tooltip
-                    {...tooltipStyle}
-                    formatter={(v: unknown) =>
-                      typeof v === 'number' ? `${v.toFixed(2)} USDC` : '—'
-                    }
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="historical"
-                    stroke="#050020"
-                    strokeWidth={2}
-                    fill="url(#g-fc)"
-                    name="Historical"
-                    connectNulls
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="projected"
-                    stroke="#02C76A"
-                    strokeWidth={2}
-                    strokeDasharray="6 4"
-                    fill="url(#g-fc)"
-                    name="Projected"
-                    connectNulls
-                  />
-                </AreaChart>
-              </ChartWrap>
+              ) : null}
+              {forecast?.confidence === 'low' ? (
+                <div className="mt-4 flex items-start gap-2 rounded-md bg-amber-50 p-3 text-xs text-amber-800">
+                  <AlertCircle className="size-4 shrink-0" />
+                  <p>
+                    Low confidence — we need at least 30 days of transaction data for a meaningful
+                    projection. Try again after a few more weeks of activity.
+                  </p>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </TabsContent>
@@ -526,77 +241,101 @@ export default function AnalyticsPage() {
   )
 }
 
-const tooltipStyle = {
-  contentStyle: {
-    backgroundColor: 'hsl(var(--background))',
-    border: '1px solid hsl(var(--border))',
-    borderRadius: 8,
-    fontSize: 12,
-  },
-} as const
-
-function ChartWrap({ children, height = 280 }: { children: React.ReactElement; height?: number }) {
-  return (
-    <div className="w-full" style={{ height }}>
-      <ResponsiveContainer width="100%" height="100%">
-        {children}
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-function ChartHeader({ title, subtitle }: { title: string; subtitle?: string }) {
-  return (
-    <div className="mb-4">
-      <h3 className="font-sora text-sm font-semibold">{title}</h3>
-      {subtitle ? <p className="text-muted-foreground mt-0.5 text-xs">{subtitle}</p> : null}
-    </div>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border-border/60 rounded-lg border p-3">
-      <div className="text-muted-foreground text-[11px]">{label}</div>
-      <div className="font-sora mt-1 text-lg font-semibold">{value}</div>
-    </div>
-  )
-}
-
-function KpiCard({
+function Kpi({
   label,
   value,
-  delta,
-  note,
-  inverse,
+  loading,
+  subtle,
+  dangerIfAbove,
+  numericForCompare,
 }: {
   label: string
   value: string
-  delta?: number
-  note?: string
-  inverse?: boolean
+  loading: boolean
+  subtle?: string
+  dangerIfAbove?: number
+  numericForCompare?: number | null
 }) {
-  const isUp = (delta ?? 0) >= 0
-  const positive = inverse ? !isUp : isUp
+  const isDanger =
+    dangerIfAbove !== undefined &&
+    numericForCompare !== null &&
+    numericForCompare !== undefined &&
+    numericForCompare > dangerIfAbove
+
   return (
-    <div className="shadow-sub-card border-border/60 bg-background rounded-xl border p-4">
-      <div className="text-muted-foreground text-xs">{label}</div>
-      <div className="mt-1 flex items-baseline gap-2">
-        <span className="font-sora text-2xl font-semibold">{value}</span>
-        {delta != null ? (
-          <span
+    <Card className="shadow-sub-card border-border/60">
+      <CardContent className="p-4">
+        <div className="text-muted-foreground text-xs">{label}</div>
+        {loading ? (
+          <div className="bg-muted/60 mt-2 h-7 w-3/4 animate-pulse rounded" />
+        ) : (
+          <div
             className={[
-              'inline-flex items-center gap-0.5 text-xs font-medium',
-              positive ? 'text-[#02C76A]' : 'text-rose-600',
+              'font-sora mt-1 text-2xl font-semibold',
+              isDanger ? 'text-rose-600' : '',
             ].join(' ')}
           >
-            {isUp ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-            {delta > 0 ? '+' : ''}
-            {delta.toFixed(1)}%
-          </span>
-        ) : null}
-      </div>
-      {note ? <div className="text-muted-foreground mt-1 text-xs">{note}</div> : null}
+            {value}
+          </div>
+        )}
+        {subtle ? <div className="text-muted-foreground mt-1 text-xs">{subtle}</div> : null}
+      </CardContent>
+    </Card>
+  )
+}
+
+function ForecastBucket({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-border/60 rounded-lg border p-4">
+      <div className="text-muted-foreground text-xs">{label}</div>
+      <div className="font-sora mt-1 text-xl font-semibold">{formatTokenAmount(value, 'USDC')}</div>
     </div>
+  )
+}
+
+function ChartCard({
+  title,
+  description,
+  isLoading,
+  isError,
+  onRetry,
+  isEmpty,
+  emptyMessage,
+  children,
+}: {
+  title: string
+  description: string
+  isLoading: boolean
+  isError: boolean
+  onRetry: () => void
+  isEmpty: boolean
+  emptyMessage: string
+  children: React.ReactNode
+}) {
+  return (
+    <Card className="border-border/60">
+      <CardContent className="space-y-3 p-6">
+        <div>
+          <h3 className="font-sora text-base font-semibold">{title}</h3>
+          <p className="text-muted-foreground mt-1 text-xs">{description}</p>
+        </div>
+        {isError ? (
+          <div className="flex items-center justify-between rounded-md bg-rose-50 p-4">
+            <span className="text-xs text-rose-700">Failed to load. Try again.</span>
+            <Button variant="outline" size="sm" onClick={onRetry}>
+              <RefreshCcw className="mr-1 size-3" /> Retry
+            </Button>
+          </div>
+        ) : isLoading ? (
+          <div className="bg-muted/30 h-[300px] animate-pulse rounded-md" />
+        ) : isEmpty ? (
+          <div className="text-muted-foreground flex h-[300px] items-center justify-center text-xs">
+            {emptyMessage}
+          </div>
+        ) : (
+          children
+        )}
+      </CardContent>
+    </Card>
   )
 }

@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { upsertCustomerInputSchema } from '@strimz/shared-types'
 import type { Customer, UpsertCustomerInput } from '@strimz/shared-types'
-import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
+import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
@@ -9,7 +9,7 @@ import {
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
 import { CustomersService } from './customers.service.js'
 
-@UseGuards(ApiKeyGuard)
+@UseGuards(MerchantAuthGuard)
 @Controller('/v1/customers')
 export class CustomersController {
   constructor(private readonly customers: CustomersService) {}

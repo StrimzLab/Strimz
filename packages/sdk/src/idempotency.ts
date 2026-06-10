@@ -1,9 +1,8 @@
 import { uuid } from '@strimz/shared-crypto'
 
 /**
- * Generate an idempotency key for a mutating SDK call.
- * Stripe convention: a UUID-like value with a stable prefix the merchant
- * can grep for in logs.
+ * Generate an idempotency key for a mutating SDK call. The key is a
+ * UUID with a stable `strimz_` prefix so it stays greppable in logs.
  */
 export function generateIdempotencyKey(): string {
   return `strimz_${uuid()}`

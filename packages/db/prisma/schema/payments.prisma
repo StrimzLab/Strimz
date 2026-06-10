@@ -31,6 +31,10 @@ model PaymentSession {
   metadata             Json                 @default("{}")
 
   expiresAt            DateTime
+  /// Timestamp the scheduler sent the "payment received" email to the
+  /// merchant. Null until the notification cron picks the row up;
+  /// guarantees one-shot delivery without a separate event log.
+  merchantNotifiedAt   DateTime?
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 
@@ -43,4 +47,8 @@ model PaymentSession {
   @@index([merchantId, createdAt])
   @@index([onchainTxHash])
   @@index([status, expiresAt])
+  // Partial index for the email notification cron — only rows that
+  // are confirmed and not yet emailed appear. Keeps the cron query
+  // sub-millisecond even as the table grows.
+  @@index([status, merchantNotifiedAt])
 }

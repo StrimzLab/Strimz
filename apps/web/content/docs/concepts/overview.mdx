@@ -3,9 +3,9 @@ title: How Strimz fits together
 description: A 90-second tour of the six processes and what each one does.
 ---
 
-Strimz is six processes. You only talk to one of them directly (the API),
-but it helps to know what the others do — especially when something goes
-wrong and you need to figure out which logs to read.
+Strimz runs as six processes. You only ever call one of them directly,
+the API. Knowing what the other five do is mostly useful when something
+breaks and you need to pick the right log file.
 
 ## Architecture at a glance
 
@@ -29,7 +29,7 @@ wrong and you need to figure out which logs to read.
  ┌─────────────┐               ┌──────────────┐
  │   indexer   │               │   scheduler  │
  │   (Go)      │  ◀──Arc RPC──▶│  (Nest+BullMQ)
- └─────────────┘               │  signs txns  │
+ └─────────────┘               │  cron+webhook│
         ▲                      └───────┬──────┘
         │                              │
         │           ┌──────────────────┘
@@ -40,11 +40,14 @@ wrong and you need to figure out which logs to read.
              └──────────────┘
 ```
 
-A request comes in to `apps/api`. The API writes to Postgres and pushes any
-background work onto Redis. The `scheduler` picks up jobs from Redis and
-signs the on-chain transactions. Meanwhile the `indexer` watches Arc and
-writes the events it sees back to Postgres. The `agent` reads everything
-in Postgres but never signs anything.
+Requests hit `apps/api`. It writes to Postgres and pushes background
+work onto Redis. When a payer submits an EIP-3009 or EIP-2612
+signature, the relayer module inside `apps/api` signs and broadcasts
+the on-chain transaction with a KMS-managed key. The scheduler runs
+the cron side of the system: subscription charges, retry sweeps, and
+the webhook delivery queue. The indexer watches Arc and writes the
+events it sees back to Postgres. The agent reads from Postgres but
+never signs anything.
 
 ## The six processes
 
@@ -52,7 +55,7 @@ in Postgres but never signs anything.
   <Card
     title="apps/api"
     href="/docs/self-hosting/overview"
-    description="Nest + Fastify entry point. Validates with Zod, persists to Postgres, fires events. Never signs on-chain."
+    description="Nest + Fastify. Validates input with Zod, writes to Postgres, fires events. Also hosts the relayer that broadcasts payer-signed meta-transactions. The relayer's key is held by a KMS provider; the API process never sees raw bytes."
   />
   <Card
     title="apps/indexer"
@@ -62,7 +65,7 @@ in Postgres but never signs anything.
   <Card
     title="apps/scheduler"
     href="/docs/self-hosting/scheduler"
-    description="Nest + BullMQ worker. Owns the service signing key. Charges subscriptions, delivers webhooks, signs CCTP receives."
+    description="Nest + BullMQ. Runs cron jobs (subscription charges and retry sweeps) and the webhook delivery queue. On startup it decrypts the webhook signing secrets out of Postgres so the delivery worker can read them from Redis."
   />
   <Card
     title="apps/agent"
@@ -72,12 +75,12 @@ in Postgres but never signs anything.
   <Card
     title="apps/web"
     href="https://github.com/StrimzLab/strimz/tree/main/apps/web"
-    description="Next.js. Marketing site, merchant dashboard, hosted checkout, public storefronts, these docs — same app."
+    description="Next.js. Marketing site, merchant dashboard, hosted checkout, public storefronts, and these docs all live in the same app."
   />
   <Card
     title="packages/contracts"
     href="https://github.com/StrimzLab/strimz/tree/main/packages/contracts"
-    description="Foundry workspace. UUPS-upgradeable contracts with ERC-7201 namespaced storage."
+    description="Foundry workspace. Payments and Subscriptions are immutable. Registry, FeeCollector, and TokenWhitelist are UUPS-upgradeable. Every contract uses ERC-7201 namespaced storage."
   />
 </Cards>
 
@@ -107,24 +110,27 @@ in Postgres but never signs anything.
 
 ## Where to look when something is wrong
 
-Knowing which process owns each piece of behaviour saves a lot of time
-when you're debugging.
+Each process owns a well-defined slice of behaviour. Knowing which
+slice covers the symptom is usually enough to pick the right log.
 
-| Symptom | Process to check |
-| --- | --- |
-| API returning 5xx | `apps/api` logs |
-| Subscriptions not charging on schedule | `apps/scheduler` (sweeper tick + worker) |
-| Webhooks failing or stuck retrying | `apps/scheduler` (delivery worker) |
-| New on-chain payment not in dashboard | `apps/indexer` (cursor caught up?) |
-| Merchant not getting daily digest | `apps/agent` (cashflow cron logs) |
+| Symptom                                 | Process to check                         |
+| --------------------------------------- | ---------------------------------------- |
+| API returning 5xx                       | `apps/api` logs                          |
+| Subscriptions not charging on schedule  | `apps/scheduler` (sweeper tick + worker) |
+| Webhooks failing or stuck retrying      | `apps/scheduler` (delivery worker)       |
+| New on-chain payment not in dashboard   | `apps/indexer` (cursor caught up?)       |
+| Merchant not getting daily digest       | `apps/agent` (cashflow cron logs)        |
 | CCTP bridge stuck in `bridge_initiated` | `apps/agent` (Circle attestation poller) |
 
 ## What you don't need to think about
 
 <Callout title="Built-in guarantees" type="info">
-  - **On-chain idempotency.** The contract's `usedAttempts[id]` mapping makes every charge attempt safe to retry without duplication.
-  - **Webhook delivery retries.** The scheduler handles `1m → 5m → 30m → 2h → 12h` backoff. After max attempts, you get an email and the endpoint can auto-disable.
-  - **Reorg protection.** The indexer waits `CONFIRMATIONS` blocks (default 5) before projecting. Arc's finality means short reorgs are extremely unlikely, but the safety margin is there.
+  - **On-chain idempotency.** The contract's `usedAttempts[id]` mapping makes every charge attempt
+  safe to retry without duplication. - **Webhook delivery retries.** The scheduler retries on a
+  backoff schedule of 1m, 5m, 30m, 2h, and 12h. If all five attempts fail, you get an email and the
+  endpoint can auto-disable. - **Reorg protection.** The indexer waits `CONFIRMATIONS` blocks
+  (default 5) before projecting an event. Arc's finality makes short reorgs unlikely; the margin is
+  there anyway.
 </Callout>
 
 ## Want to dig deeper?
@@ -133,17 +139,17 @@ when you're debugging.
   <Card
     title="Resources"
     href="/docs/concepts/resources"
-    description="The objects you'll interact with — what they mean, when they exist, what their lifecycles look like."
+    description="The objects you'll interact with: what they mean, when they exist, what their lifecycles look like."
   />
   <Card
     title="Idempotency"
     href="/docs/concepts/idempotency"
-    description="How Strimz makes sure retries are safe — at the API, at the scheduler, and on-chain."
+    description="How Strimz keeps retries safe at every layer: the API, the scheduler, and the contracts."
   />
   <Card
     title="On-chain architecture"
     href="/docs/concepts/on-chain-architecture"
-    description="The contract suite, why it's UUPS-upgradeable, and how you can verify it independently."
+    description="The contract suite. What's immutable, what's upgradeable, why we drew the line where we did, and how to verify the deployment yourself."
   />
   <Card
     title="Modes of failure"

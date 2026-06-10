@@ -1,5 +1,5 @@
 /**
- * Payment session — a one-shot checkout intent.
+ * Payment session. A one-shot checkout intent.
  *
  * State machine:
  *   created → awaiting_payment → submitted → confirmed
@@ -31,9 +31,51 @@ export const paymentSessionStatusSchema = z.enum([
 ])
 export type PaymentSessionStatus = z.infer<typeof paymentSessionStatusSchema>
 
+/**
+ * Merchant-supplied callback URL. The hosted checkout dispatches with
+ * `window.location.href = redirectUrl` on completion / cancellation,
+ * so we MUST reject anything other than `http://` and `https://`.
+ *
+ * Why this is a real risk: Zod's `.url()` validates RFC syntax, which
+ * accepts `javascript:`, `data:`, `vbscript:`, `file:`, blob:`, etc.
+ * A compromised merchant integration or an XSS upstream could ship a
+ * session whose redirect URL executes script (or exfiltrates session
+ * tokens) on every payer's browser. The damage is per-payer, but the
+ * blast radius is "every checkout the merchant runs."
+ *
+ * Mailto / tel and other handler protocols are also rejected — there
+ * is no legitimate flow on a payment checkout that would benefit.
+ */
+export const callbackUrlSchema = z
+  .string()
+  .url()
+  .refine((v) => v.startsWith('https://') || v.startsWith('http://'), {
+    message: 'must be an http:// or https:// URL',
+  })
+
 export const paymentSessionSchema = z.object({
   id: idSchema,
   merchantId: idSchema,
+  /**
+   * On-chain StrimzRegistry merchant id (uint96) as a decimal string.
+   * Set when the merchant has been registered on-chain; null when the
+   * merchant exists in our DB but the registry transaction hasn't
+   * been broadcast yet. Hosted checkout uses this to populate the
+   * meta-tx calldata; if null, the checkout refuses to accept
+   * payments.
+   */
+  chainMerchantId: z
+    .string()
+    .regex(/^[0-9]+$/u, 'must be a non-negative decimal integer string')
+    .nullable(),
+  /**
+   * ERC-20 token contract address resolved from `currency` on the
+   * active chain (Arc Testnet / Mainnet). Used as the `verifyingContract`
+   * in the EIP-712 domain for both EIP-3009 and EIP-2612 signing.
+   * Null on the (vanishingly unlikely) path where the API has no
+   * configured address for the session's currency.
+   */
+  tokenAddress: evmAddressSchema.nullable(),
   customerId: idSchema.nullable(),
   status: paymentSessionStatusSchema,
   amount: tokenAmountSchema,
@@ -43,8 +85,8 @@ export const paymentSessionSchema = z.object({
   description: z.string().max(500).nullable(),
   payerWalletAddress: evmAddressSchema.nullable(),
   payerEmail: z.string().email().nullable(),
-  successUrl: z.string().url().nullable(),
-  cancelUrl: z.string().url().nullable(),
+  successUrl: callbackUrlSchema.nullable(),
+  cancelUrl: callbackUrlSchema.nullable(),
   sourceChain: z
     .enum(['arc', 'ethereum', 'base', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'solana'])
     .nullable(),

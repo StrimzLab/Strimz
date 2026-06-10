@@ -1,8 +1,8 @@
 /**
- * Strimz AutoPay Agent — feature flags and defaults.
+ * Strimz AutoPay Agent feature flags and defaults.
  *
  * The agent is composed of independent capabilities that can be enabled or
- * disabled per merchant. Defaults are conservative; merchants opt in to
+ * disabled per merchant. Defaults are conservative. Merchants opt in to
  * value-moving capabilities (recovery retries, treasury auto-convert).
  */
 

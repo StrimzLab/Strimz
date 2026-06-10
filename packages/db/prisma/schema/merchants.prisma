@@ -18,6 +18,12 @@ model Merchant {
   businessSector       String?        @db.VarChar(80)
   tier                 MerchantTier   @default(free)
   status               MerchantStatus @default(active)
+  /// The merchant's controlling EVM address — used as the on-chain
+  /// `owner` in `StrimzRegistry.registerMerchant`. Sourced from the
+  /// Privy embedded wallet at sync time; stable for the lifetime of
+  /// the Privy account. Distinct from `payoutAddress`, which the
+  /// merchant may direct to a treasury, multi-sig, or other wallet.
+  walletAddress        String?        @db.VarChar(42)
   payoutAddress        String?        @db.VarChar(42)
   defaultCurrency      PaymentCurrency @default(USDC)
   countryCode          String?        @db.VarChar(2)
@@ -30,6 +36,11 @@ model Merchant {
   metadata             Json           @default("{}")
   /// Last successful login timestamp; useful for session-management UI.
   lastLoginAt          DateTime?
+  /// Timestamp the scheduler sent the welcome email. Null until the
+  /// notification cron picks the row up; guarantees one-shot delivery
+  /// without a separate event log. Same pattern as
+  /// `Subscription.merchantNotifiedAt` and `PaymentSession.merchantNotifiedAt`.
+  welcomeNotifiedAt    DateTime?
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
@@ -56,6 +67,8 @@ model Merchant {
 
   @@index([status])
   @@index([tier])
+  /// Drives the welcome-email cron: scan only un-notified merchants.
+  @@index([welcomeNotifiedAt])
 }
 
 model MerchantMember {

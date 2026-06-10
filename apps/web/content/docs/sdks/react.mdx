@@ -3,7 +3,9 @@ title: '@strimz/sdk-react'
 description: React provider, components, and hooks for browser-side Strimz integrations.
 ---
 
-The React SDK gives you read-only client hooks and a few components for embedded checkout. It uses **publishable keys** (`pk_test_…` / `pk_live_…`), which are safe to ship in browser bundles.
+The React SDK gives you read-only client hooks and a few components
+for embedded checkout. It uses publishable keys (`pk_test_…` and
+`pk_live_…`), which are safe to ship in a browser bundle.
 
 ## Install
 
@@ -21,14 +23,12 @@ import { StrimzProvider } from '@strimz/sdk-react'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <StrimzProvider config={{ baseUrl: 'https://api.strimz.finance' }}>
-      {children}
-    </StrimzProvider>
+    <StrimzProvider config={{ baseUrl: 'https://api.strimz.finance' }}>{children}</StrimzProvider>
   )
 }
 ```
 
-`StrimzProvider` doesn't take an API key — the components issue requests through your own backend (server-side Strimz client) for any write operations. Read-only paths can use a publishable key:
+`StrimzProvider` doesn't take an API key. The components issue requests through your own backend (server-side Strimz client) for any write operations. Read-only paths can use a publishable key:
 
 ```tsx
 <StrimzProvider config={{ baseUrl: 'https://api.strimz.finance', publishableKey: 'pk_live_xxx' }}>
@@ -53,7 +53,9 @@ export function Checkout({ session }: { session: { id: string } }) {
 }
 ```
 
-The button uses Reown AppKit internally to connect a wallet, walks the customer through the approve+pay sequence, and resolves once the transaction confirms.
+Internally the button uses Reown AppKit to connect a wallet, asks
+the customer for a single EIP-3009 signature, and resolves once the
+on-chain transaction confirms.
 
 ## `<StrimzCheckoutEmbed />`
 
@@ -72,11 +74,7 @@ Renders the same UI as the hosted page but inline. Useful for cart-style flows w
 ## Hooks
 
 ```tsx
-import {
-  usePaymentSession,
-  useSubscription,
-  useTransaction,
-} from '@strimz/sdk-react'
+import { usePaymentSession, useSubscription, useTransaction } from '@strimz/sdk-react'
 
 function PaymentStatus({ sessionId }: { sessionId: string }) {
   const { data, isLoading, error } = usePaymentSession(sessionId)
@@ -86,7 +84,7 @@ function PaymentStatus({ sessionId }: { sessionId: string }) {
 }
 ```
 
-Hooks use TanStack Query under the hood — bring your own `QueryClient` (or wrap with `<QueryClientProvider>` if you don't already have one).
+Hooks use TanStack Query under the hood. Bring your own `QueryClient`, or wrap with `<QueryClientProvider>` if you don't already have one.
 
 ## Source
 

@@ -10,9 +10,11 @@ interface IStrimzSubscriptions {
     ///        slot 0: payer (160) + nextChargeAt (64) + interval (32)   → 256 ✓
     ///        slot 1: token (160) + merchantId (96)                     → 256 ✓
     ///        slot 2: amount (256)
-    ///        slot 3: cancelled (1 byte) — solo
+    ///        slot 3: endAt (64) + cancelled (8)                        → 72 bits used
     ///      merchantId uses uint96 (≈7.9×10²⁸ merchants — far more than
-    ///      will ever exist).
+    ///      will ever exist). `endAt == 0` means open-ended; this matches
+    ///      the natural zero-value semantics so the field can be added
+    ///      without breaking existing zero-valued storage assumptions.
     struct Subscription {
         address payer;
         uint64 nextChargeAt;
@@ -20,6 +22,7 @@ interface IStrimzSubscriptions {
         address token;
         uint96 merchantId;
         uint256 amount;
+        uint64 endAt;
         bool cancelled;
     }
 
@@ -32,7 +35,20 @@ interface IStrimzSubscriptions {
         InsufficientFunds,
         RevokedApproval,
         Cancelled,
-        NotDue
+        NotDue,
+        Ended
+    }
+
+    /// @notice EIP-2612 permit fields the payer signs over.
+    /// @dev    `nonce` and the EIP-712 domain separator are read by the
+    ///         off-chain SDK from the token contract and baked into the
+    ///         signed message — they don't appear in this struct because
+    ///         the token's `permit()` consumes them implicitly via
+    ///         `nonces(owner)`.
+    struct PermitData {
+        address owner;    // The payer; recovered + checked by the token
+        uint256 value;    // Allowance to grant; type(uint256).max for unlimited
+        uint256 deadline; // Unix timestamp; permit invalid after this
     }
 
     event SubscriptionCreated(
@@ -64,15 +80,58 @@ interface IStrimzSubscriptions {
     error Subscriptions__InvalidInterval();
     error Subscriptions__InvalidAmount();
     error Subscriptions__InvalidMerchantId();
+    error Subscriptions__InvalidEndAt();
     error Subscriptions__UnauthorisedCharger();
     error Subscriptions__DuplicateAttempt(bytes32 chargeAttemptId);
     error Subscriptions__UnknownSubscription(uint256 subscriptionId);
     error Subscriptions__NotSubscriptionParty();
     error Subscriptions__LengthMismatch();
+    error Subscriptions__UnsupportedCapability(address token);
 
-    function createSubscription(uint256 merchantId, address token, uint256 amount, uint32 interval, uint64 startAt)
-        external
-        returns (uint256 subscriptionId);
+    /// @param merchantId The merchant the subscription bills to.
+    /// @param token ERC20 token address — must be whitelisted.
+    /// @param amount Per-period charge amount.
+    /// @param interval Seconds between charges.
+    /// @param startAt Unix timestamp of the first charge; 0 = now.
+    /// @param endAt Unix timestamp after which charges stop; 0 = open-ended.
+    ///        Must be strictly greater than `startAt` (or 0 for open-ended).
+    function createSubscription(
+        uint256 merchantId,
+        address token,
+        uint256 amount,
+        uint32 interval,
+        uint64 startAt,
+        uint64 endAt
+    ) external returns (uint256 subscriptionId);
+
+    /// @notice Enrol a subscription in a single transaction by combining
+    ///         an EIP-2612 `permit` with the standard `createSubscription`
+    ///         logic. The payer signs one EIP-712 message; a relayer (or
+    ///         the payer themselves) submits. The subscription's `payer`
+    ///         field is set from `permitData.owner` rather than `msg.sender`
+    ///         so the meta-tx pattern works.
+    /// @param merchantId The merchant the subscription bills to.
+    /// @param token ERC20 token address — must be whitelisted AND have
+    ///        `CAP_PERMIT_2612` set on TokenWhitelist.
+    /// @param amount Per-period charge amount.
+    /// @param interval Seconds between charges.
+    /// @param startAt Unix timestamp of the first charge; 0 = now.
+    /// @param permitData EIP-2612 permit fields the payer signed.
+    /// @param v Signature v component.
+    /// @param r Signature r component.
+    /// @param s Signature s component.
+    function permitAndCreateSubscription(
+        uint256 merchantId,
+        address token,
+        uint256 amount,
+        uint32 interval,
+        uint64 startAt,
+        uint64 endAt,
+        PermitData calldata permitData,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external returns (uint256 subscriptionId);
 
     function cancel(uint256 subscriptionId) external;
 

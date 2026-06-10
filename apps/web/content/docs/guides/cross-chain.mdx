@@ -1,16 +1,16 @@
 ---
 title: Accept payments from any USDC chain
-description: CCTP V2 routing — customer pays from Ethereum / Base / Arbitrum / Polygon / Solana / etc., you get USDC on Arc.
+description: CCTP V2 routing. Customer pays from Ethereum, Base, Arbitrum, Polygon, Solana, etc., you get USDC on Arc.
 ---
 
-Strimz settles on Arc, where USDC is the native gas token. But your customer might hold their USDC on a different chain — Ethereum, Base, Arbitrum, Polygon, Solana, Avalanche, Optimism. Instead of forcing them to bridge first, Strimz uses Circle's [CCTP V2](https://developers.circle.com/stablecoins/cctp-getting-started) to bridge and settle in one flow.
+Strimz settles on Arc, where USDC is the native gas token. But your customer might hold their USDC on a different chain (Ethereum, Base, Arbitrum, Polygon, Solana, Avalanche, Optimism). Instead of forcing them to bridge first, Strimz uses Circle's [CCTP V2](https://developers.circle.com/stablecoins/cctp-getting-started) to bridge and settle in one flow.
 
 ## How it works
 
 1. **Customer chooses their source chain** in your hosted checkout. (The picker is a `<StrimzPayButton sourceChain="base" />` prop.)
-2. **Customer signs a `depositForBurn`** on their source chain — burns USDC, emits a CCTP `MessageSent` event.
+2. **Customer signs a `depositForBurn`** on their source chain. This burns USDC and emits a CCTP `MessageSent` event.
 3. **Apps/web detects the burn**, enqueues a `strimz.routing.cctp.bridge` job onto the agent's queue with `(sourceDomainId, sourceTxHash, merchantId)`.
-4. **Agent's bridge worker polls Circle's IRIS API** for the attestation — the cryptographic signature that says "the burn happened, here's the message you can replay on the destination". CCTP V2 fast-transfers attest in ~13 seconds.
+4. **Agent's bridge worker polls Circle's IRIS API** for the attestation. That's the cryptographic signature that says "the burn happened, here's the message you can replay on the destination". CCTP V2 fast-transfers attest in ~13 seconds.
 5. **Agent enqueues a settle action** onto the scheduler's queue. Scheduler signs `MessageTransmitter.receiveMessage(message, attestation)` on Arc.
 6. **You get USDC on Arc.** A standard `Transaction` row is written; you receive `payment.completed`.
 
@@ -20,37 +20,45 @@ From your perspective, the customer pays, and a payment lands. From the customer
 
 Strimz supports every chain Circle's CCTP V2 supports:
 
-| Chain | CCTP domain |
-| --- | --- |
-| Ethereum | 0 |
-| Avalanche | 1 |
-| Optimism | 2 |
-| Arbitrum | 3 |
-| Solana | 5 |
-| Base | 6 |
-| Polygon | 7 |
-| Arc (destination) | 26 |
+| Chain             | CCTP domain |
+| ----------------- | ----------- |
+| Ethereum          | 0           |
+| Avalanche         | 1           |
+| Optimism          | 2           |
+| Arbitrum          | 3           |
+| Solana            | 5           |
+| Base              | 6           |
+| Polygon           | 7           |
+| Arc (destination) | 26          |
 
-When Circle adds a new chain, we pick it up automatically — no Strimz-side work needed.
+When Circle adds a new chain, Strimz picks it up automatically.
+There's no integration work on your end.
 
 ## What you'll see in the dashboard
 
 Cross-chain payments show up in your Transactions list with a small flag indicating the source chain. The activity timeline includes:
 
-- `routing_bridge_initiated` — agent received the source-chain hash
-- `routing_payment_completed` — Circle attested, scheduler enqueued
-- `payment.completed` (after the indexer projects the on-chain receipt)
+- `routing_bridge_initiated`. Agent received the source-chain hash.
+- `routing_payment_completed`. Circle attested, scheduler enqueued.
+- `payment.completed` (after the indexer projects the on-chain receipt).
 
 If a bridge gets stuck (Circle attestation never lands, network outage on the destination chain), it sits in `routing_bridge_initiated` and the activity log shows the latest poll attempt. You can manually replay from the dashboard.
 
 ## Failure modes
 
-- **Customer's source-chain transaction reverts**: never reaches Strimz. Customer sees the error in their wallet.
-- **Circle attestation never lands**: extremely rare. After 100 polling attempts (~50 minutes), we mark the bridge `failed` and the customer is refunded automatically by re-burning on the source chain.
-- **Destination-chain settlement fails**: scheduler retries with exponential backoff. If the underlying error is transient (gas spike, RPC blip), it self-resolves. If permanent (destination contract paused), we email you and pause routing for that merchant until manually resumed.
+- **Source-chain tx reverts.** It never reaches Strimz. The customer sees the error in their wallet.
+- **Circle attestation never lands.** Extremely rare. After 100 polling attempts (about 50 minutes), the bridge is marked `failed` and the customer is automatically refunded by re-burning on the source chain.
+- **Destination-chain settle fails.** The scheduler retries with exponential backoff. Transient errors (gas spike, RPC blip) self-resolve. A permanent error (destination contract paused) triggers an email and pauses routing for that merchant until you resume it manually.
 
 ## Why CCTP V2 specifically
 
-V1 has slower attestation (13 minutes vs 13 seconds), narrower chain support, and worse failure semantics. V2's "fast transfer" mode is what makes cross-chain feel like a single payment to your customer instead of a bridging operation.
+V1 attests in around 13 minutes instead of 13 seconds, supports
+fewer chains, and has worse failure semantics. V2's fast-transfer
+mode is what makes the cross-chain experience feel like one payment
+to the customer rather than a bridging step plus a payment.
 
-The full Circle docs are at [developers.circle.com/stablecoins/cctp-getting-started](https://developers.circle.com/stablecoins/cctp-getting-started). Strimz's source-side burn is implemented client-side in `apps/web`; the destination-side settle is server-side in `apps/agent` + `apps/scheduler`.
+The full Circle docs are at
+[developers.circle.com/stablecoins/cctp-getting-started](https://developers.circle.com/stablecoins/cctp-getting-started).
+Strimz's source-side burn is implemented client-side in `apps/web`.
+The destination-side settle is server-side in `apps/agent` and
+`apps/scheduler`.

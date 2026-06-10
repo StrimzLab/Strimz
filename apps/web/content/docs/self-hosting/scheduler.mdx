@@ -1,11 +1,17 @@
 ---
 title: Self-hosting the scheduler
-description: The only process that holds a signing key.
+description: Cron jobs and the webhook delivery queue.
 ---
 
-The scheduler is a Nest+Fastify+BullMQ app. It signs and broadcasts every Strimz transaction (subscription charges, on-chain cancels, agent job operations, CCTP settlements) and delivers webhooks to merchants.
+The scheduler is a Nest, Fastify, and BullMQ app. It owns the cron
+jobs (subscription sweeper, invoice-overdue marker,
+subscription-lapsed transitions) and the webhook delivery queue. At
+boot it also warms the webhook-secret cache so the API can verify
+outgoing signatures without a Postgres round-trip.
 
-**This is the most sensitive process to self-host.** Treat its private key with the same care as a payment-processor production secret.
+The relayer's signing key does not live in the scheduler. It lives
+in `apps/api`, where it is accessed through a KMS provider. The
+scheduler enqueues work and the API signs and broadcasts.
 
 ## Build
 
@@ -25,12 +31,11 @@ REDIS_URL=redis://...
 
 ARC_ENVIRONMENT=mainnet
 ARC_RPC_URL=https://your-arc-rpc.com
-SCHEDULER_PRIVATE_KEY=0x...           # ← guard this carefully
 
-SUBSCRIPTIONS_ADDRESS=0x...
-AGENT_ESCROW_ADDRESS=0x...
+STRIMZ_API_URL=http://api:4000      # the relayer endpoint the scheduler calls
+STRIMZ_API_INTERNAL_TOKEN=...       # shared secret for internal API calls
 
-STRIMZ_WEBHOOK_SIGNING_SECRET=...     # 32+ chars
+STRIMZ_WEBHOOK_SIGNING_SECRET=...   # 32+ chars
 WEBHOOK_DELIVERY_TIMEOUT_MS=10000
 WEBHOOK_MAX_ATTEMPTS=5
 
@@ -42,37 +47,33 @@ RESEND_API_KEY=...
 RESEND_FROM_EMAIL=noreply@your-domain.com
 ```
 
-## Service-wallet key custody
+## Talking to the relayer
 
-The recommended deployment uses a **secrets-manager-injected env var** (Render Environment, Vercel KV, AWS Secrets Manager). The key is loaded once at boot and stays in process memory for the lifetime of the container.
+On every tick that needs a transaction broadcast (subscription charge batches, on-chain cancels, agent job operations, CCTP settlements), the scheduler posts an internal request to `apps/api`. The API loads its KMS-backed key, signs, broadcasts, and writes the resulting `TxRequest` row. The scheduler never sees the key material.
 
-For higher-security deployments:
+Operations the relayer signs on behalf of the scheduler:
 
-- Use a hardware key manager (HSM, Cloud KMS) and a custom signing client.
-- Run the scheduler in a separate VPC from the API.
-- Rotate the key quarterly.
-
-The on-chain operations the key signs are:
-
-| Operation | Contract / Function |
-| --- | --- |
-| Cancel a subscription | `StrimzSubscriptions.cancel(subId)` |
-| Charge subscriptions | `StrimzSubscriptions.batchCharge(ids[], attemptIds[])` |
-| Create an agent job | `StrimzAgentEscrow.createJob(...)` |
-| Release a job | `StrimzAgentEscrow.approveAndRelease(jobId)` |
-| Dispute a job | `StrimzAgentEscrow.dispute(jobId, reason)` |
-| Cancel a job | `StrimzAgentEscrow.cancelJob(jobId, reason)` |
-| Settle CCTP routing | `MessageTransmitter.receiveMessage(...)` |
+| Operation             | Contract / Function                                    |
+| --------------------- | ------------------------------------------------------ |
+| Cancel a subscription | `StrimzSubscriptions.cancel(subId)`                    |
+| Charge subscriptions  | `StrimzSubscriptions.batchCharge(ids[], attemptIds[])` |
+| Create an agent job   | `StrimzAgentEscrow.createJob(...)`                     |
+| Release a job         | `StrimzAgentEscrow.approveAndRelease(jobId)`           |
+| Dispute a job         | `StrimzAgentEscrow.dispute(jobId, reason)`             |
+| Cancel a job          | `StrimzAgentEscrow.cancelJob(jobId, reason)`           |
+| Settle CCTP routing   | `MessageTransmitter.receiveMessage(...)`               |
 
 ## Multi-instance safety
 
-Two scheduler instances behind a load balancer are safe:
+Two scheduler instances behind a load balancer are safe to run side
+by side:
 
-- Subscription sweeper uses Postgres `UPDATE … WHERE chargeLock=false` for atomic claim.
+- The subscription sweeper uses Postgres `UPDATE … WHERE chargeLock=false` to claim work atomically.
 - BullMQ guarantees each job is delivered to exactly one worker.
-- The webhook delivery worker no-ops on already-terminal `WebhookDelivery.status`.
+- The webhook delivery worker no-ops on any `WebhookDelivery.status` that's already terminal.
 
-For deployments processing > 100k webhook deliveries/day, scale horizontally. Each replica adds linear throughput.
+If you're processing over 100k webhook deliveries a day, scale
+horizontally. Throughput grows roughly linearly with replicas.
 
 ## Observability
 
@@ -82,10 +83,10 @@ For deployments processing > 100k webhook deliveries/day, scale horizontally. Ea
 
 ## Failure modes
 
-- **RPC outage** — workers retry with exponential backoff. The chain key isn't compromised.
-- **DB outage** — workers fail their current job; BullMQ retries. The job stays in the queue.
-- **Redis outage** — the scheduler can't pick up new jobs. Existing in-flight work completes.
-- **Scheduler crashes after broadcasting but before recording** — the on-chain side succeeded. The indexer projects the resulting event. The DB row catches up on the next sweep.
+- **API outage.** The scheduler's call to the relayer fails; BullMQ retries with exponential backoff. No transaction is broadcast until the API is back.
+- **DB outage.** Workers fail their current job. BullMQ retries. The job stays in the queue.
+- **Redis outage.** The scheduler can't pick up new jobs. Existing in-flight work completes.
+- **API broadcasts but the scheduler crashes before recording.** The on-chain side succeeded. The indexer projects the resulting event. The DB row catches up on the next sweep.
 
 ## Source
 

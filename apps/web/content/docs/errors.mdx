@@ -17,22 +17,22 @@ Every Strimz error has the same envelope:
 }
 ```
 
-Always include the `requestId` when you reach out for support. It's how
-we find your specific request in our logs.
+Always include the `requestId` when you contact support. It's the
+key support uses to find your request in the logs.
 
 ## Codes
 
-| Code | HTTP | Meaning |
-| --- | --- | --- |
-| `authentication_error` | 401 | Missing, invalid, or expired auth token |
-| `permission_denied` | 403 | Token is valid but lacks the required scope |
-| `merchant_not_synced` | 401 | Privy session is valid but no Merchant row — call `POST /v1/auth/sync` first |
-| `not_found` | 404 | Resource doesn't exist or isn't visible to your token |
-| `invalid_request` | 400 | Validation failure; `details.issues` has the Zod paths |
-| `session_invalid_state` | 403 | The action conflicts with the resource's current status (e.g. cancelling an already-cancelled sub) |
-| `idempotency_error` | 409 | An idempotency key was reused with a different payload |
-| `rate_limited` | 429 | Per-IP or per-key rate limit exceeded; check `Retry-After` |
-| `api_error` | 500 | Unexpected server error; we'll see it in our logs and triage |
+| Code                    | HTTP | Meaning                                                                                            |
+| ----------------------- | ---- | -------------------------------------------------------------------------------------------------- |
+| `authentication_error`  | 401  | Missing, invalid, or expired auth token                                                            |
+| `permission_denied`     | 403  | Token is valid but lacks the required scope                                                        |
+| `merchant_not_synced`   | 401  | Privy session is valid but no Merchant row. Call `POST /v1/auth/sync` first.                       |
+| `not_found`             | 404  | Resource doesn't exist or isn't visible to your token                                              |
+| `invalid_request`       | 400  | Validation failure; `details.issues` has the Zod paths                                             |
+| `session_invalid_state` | 403  | The action conflicts with the resource's current status (e.g. cancelling an already-cancelled sub) |
+| `idempotency_error`     | 409  | An idempotency key was reused with a different payload                                             |
+| `rate_limited`          | 429  | Per-IP or per-key rate limit exceeded; check `Retry-After`                                         |
+| `api_error`             | 500  | Unexpected server error. It surfaces in the Strimz logs and gets triaged.                          |
 
 ## Examples
 
@@ -71,7 +71,11 @@ Your key has read access but not write. Re-issue with broader scopes from the da
     "message": "Validation failed",
     "details": {
       "issues": [
-        { "path": ["amount"], "message": "must be a non-negative integer string", "code": "custom" },
+        {
+          "path": ["amount"],
+          "message": "must be a non-negative integer string",
+          "code": "custom"
+        },
         { "path": ["currency"], "message": "Required", "code": "invalid_type" }
       ]
     }
@@ -105,19 +109,19 @@ Wait 30 seconds, then retry. The `@strimz/sdk` does this automatically.
 
 ## When you should retry
 
-- **5xx errors** → yes, with exponential backoff. The SDK handles this.
-- **`rate_limited`** → yes, after `Retry-After`. The SDK handles this.
-- **`authentication_error`** → no. Your key needs to be fixed.
-- **`permission_denied`** → no. Your scope needs to change.
-- **`invalid_request`** → no. Your payload needs to change.
-- **`session_invalid_state`** → no. The resource's state needs to change first.
+- **5xx errors.** Yes, with exponential backoff. The SDK handles this.
+- **`rate_limited`.** Yes, after `Retry-After`. The SDK handles this.
+- **`authentication_error`.** No. Your key needs to be fixed.
+- **`permission_denied`.** No. Your scope needs to change.
+- **`invalid_request`.** No. Your payload needs to change.
+- **`session_invalid_state`.** No. The resource's state needs to change first.
 
 ## Reporting an issue
 
 If you hit an error you can't make sense of:
 
 1. Save the full response body, including `requestId`.
-2. Note the time (UTC) — we use it to look up the request in our logs.
+2. Note the time in UTC. The logs are indexed by it.
 3. File at [github.com/StrimzLab/strimz/issues](https://github.com/StrimzLab/strimz/issues) or email support@strimz.finance.
 
-We respond to every report within one business day.
+Every report gets a reply within one business day.

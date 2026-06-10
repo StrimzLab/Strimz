@@ -134,6 +134,6 @@ const sizeMap: Record<StrimzPayButtonSize, { padX: number; padY: number; font: n
 function paletteFor(theme: StrimzPayButtonTheme): { background: string; foreground: string } {
   if (theme === 'light') return { background: '#02C76A', foreground: '#FFFFFF' }
   if (theme === 'dark') return { background: '#02C76A', foreground: '#FFFFFF' }
-  // auto — same brand for both modes; the surrounding app's theme handles context
+  // auto. Same brand for both modes; the surrounding app's theme handles context.
   return { background: '#02C76A', foreground: '#FFFFFF' }
 }

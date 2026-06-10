@@ -22,8 +22,19 @@ export class TurnstileService {
     }
   }
 
-  /** True when Turnstile considers the token valid. Disabled mode always true. */
-  async verify(token: string | null | undefined, remoteIp?: string): Promise<boolean> {
+  /**
+   * True when Turnstile considers the token valid. Disabled mode always true.
+   *
+   * `expectedAction` — when provided, the token's `action` field must match
+   * exactly. The signup widget renders with `action: 'signup'`, so the
+   * controller passes that here; this catches a token minted on a different
+   * surface being replayed against the signup endpoint.
+   */
+  async verify(
+    token: string | null | undefined,
+    remoteIp?: string,
+    expectedAction?: string,
+  ): Promise<boolean> {
     if (!this.secretKey) return true
     if (!token) return false
 
@@ -35,11 +46,29 @@ export class TurnstileService {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body,
       })
-      const data = (await res.json()) as { success?: boolean; 'error-codes'?: string[] }
+      const data = (await res.json()) as {
+        success?: boolean
+        action?: string
+        hostname?: string
+        'error-codes'?: string[]
+      }
+
       if (!data.success) {
         this.log.warn(`turnstile rejected token: ${(data['error-codes'] ?? []).join(',')}`)
+        return false
       }
-      return data.success === true
+
+      // Action mismatch — the token is structurally valid but came from
+      // a different surface than the one we're verifying. Treat as a
+      // failure since it could indicate token replay across surfaces.
+      if (expectedAction && data.action !== expectedAction) {
+        this.log.warn(
+          `turnstile action mismatch: expected="${expectedAction}", received="${data.action}"`,
+        )
+        return false
+      }
+
+      return true
     } catch (err) {
       this.log.error(`turnstile verify error: ${(err as Error).message}`)
       // Fail closed in production, fail open in dev to avoid false-positive churn.

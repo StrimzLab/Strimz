@@ -21,14 +21,16 @@ import {
   DropdownMenuTrigger,
   Input,
   Label,
-  Textarea,
 } from '@strimz/ui'
+import { parseUnits } from 'viem'
+import type { Invoice, InvoiceStatus, PaymentCurrency } from '@strimz/shared-types'
+
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
-import { downloadInvoicePdf } from '@/lib/invoice-pdf'
-import { INVOICES, type Invoice, type InvoiceStatus } from '@/data/invoices'
-import { formatUsdc, relativeTime } from '@/data/_seed'
+import { formatTokenAmount, relativeTime, tokenAmountToNumber } from '@/lib/format'
+import { useCreateInvoice, useInvoices, useSendInvoice, useVoidInvoice } from '@/hooks/api'
 
 const STATUS_TONE: Record<InvoiceStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
   paid: 'positive',
@@ -38,15 +40,60 @@ const STATUS_TONE: Record<InvoiceStatus, 'positive' | 'warning' | 'danger' | 'in
   void: 'neutral',
 }
 
-export default function InvoicesPage() {
-  const totalOutstanding = INVOICES.filter(
-    (i) => i.status === 'sent' || i.status === 'overdue',
-  ).reduce((s, i) => s + i.totalUsdc, 0)
-  const totalPaid30d = INVOICES.filter(
-    (i) => i.status === 'paid' && i.paidAt && Date.now() - +new Date(i.paidAt) < 30 * 86_400_000,
-  ).reduce((s, i) => s + i.totalUsdc, 0)
+interface InvoicesView {
+  rows: Invoice[]
+  outstanding: number
+  outstandingCount: number
+  paid30dCount: number
+  paid30d: number
+  overdueCount: number
+  overdueTotal: number
+}
 
-  const columns: ColumnDef<Invoice>[] = React.useMemo(
+function projectInvoices(page: { data: Invoice[] }): InvoicesView {
+  const now = Date.now()
+  const thirtyDays = 30 * 86_400_000
+  let outstanding = 0
+  let outstandingCount = 0
+  let paid30d = 0
+  let paid30dCount = 0
+  let overdueCount = 0
+  let overdueTotal = 0
+  for (const inv of page.data) {
+    const total = tokenAmountToNumber(inv.total)
+    if (inv.status === 'sent' || inv.status === 'overdue') {
+      outstanding += total
+      outstandingCount++
+    }
+    if (inv.status === 'paid' && inv.paidAt && now - +new Date(inv.paidAt) < thirtyDays) {
+      paid30d += total
+      paid30dCount++
+    }
+    if (inv.status === 'overdue') {
+      overdueCount++
+      overdueTotal += total
+    }
+  }
+  return {
+    rows: page.data,
+    outstanding,
+    outstandingCount,
+    paid30d,
+    paid30dCount,
+    overdueCount,
+    overdueTotal,
+  }
+}
+
+export default function InvoicesPage() {
+  const { data, isLoading, isError, error, refetch } = useInvoices(
+    { limit: 100 },
+    { select: projectInvoices },
+  )
+  const sendMutation = useSendInvoice()
+  const voidMutation = useVoidInvoice()
+
+  const columns = React.useMemo<ColumnDef<Invoice>[]>(
     () => [
       {
         accessorKey: 'number',
@@ -60,18 +107,21 @@ export default function InvoicesPage() {
         header: 'Customer',
         cell: ({ row }) => (
           <div className="flex flex-col leading-tight">
-            <span className="font-medium">
-              {row.original.customerCompany ?? row.original.customerName}
+            <span className="font-medium">{row.original.customerName ?? '—'}</span>
+            <span className="text-muted-foreground text-xs">
+              {row.original.customerEmail ?? '— no email on file'}
             </span>
-            <span className="text-muted-foreground text-xs">{row.original.customerEmail}</span>
           </div>
         ),
       },
       {
-        accessorKey: 'totalUsdc',
+        accessorKey: 'total',
         header: 'Amount',
         cell: ({ row }) => (
-          <span className="font-mono">{formatUsdc(row.original.totalUsdc)} USDC</span>
+          <span className="inline-flex items-center gap-1.5 font-mono">
+            <TokenLogo symbol={row.original.currency} size={14} />
+            {formatTokenAmount(row.original.total, row.original.currency)}
+          </span>
         ),
       },
       {
@@ -101,44 +151,52 @@ export default function InvoicesPage() {
         header: '',
         enableHiding: false,
         enableSorting: false,
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="size-8 p-0">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Invoice {row.original.number}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => downloadInvoicePdf(row.original)}>
-                <FileDown className="mr-2 size-4" /> Download PDF
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Eye className="mr-2 size-4" /> View
-              </DropdownMenuItem>
-              {row.original.status === 'draft' || row.original.status === 'sent' ? (
-                <DropdownMenuItem
-                  onClick={() => toast.success(`Invoice ${row.original.number} sent`)}
-                >
-                  <Send className="mr-2 size-4" />{' '}
-                  {row.original.status === 'draft' ? 'Send' : 'Resend'}
+        cell: ({ row }) => {
+          const inv = row.original
+          const canSend = inv.status === 'draft' || inv.status === 'sent'
+          const canVoid = inv.status !== 'paid' && inv.status !== 'void'
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="size-8 p-0">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>Invoice {inv.number}</DropdownMenuLabel>
+                <DropdownMenuItem disabled>
+                  <FileDown className="mr-2 size-4" /> Download PDF
                 </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuSeparator />
-              {row.original.status !== 'paid' && row.original.status !== 'void' ? (
-                <DropdownMenuItem
-                  className="text-rose-600 focus:text-rose-600"
-                  onClick={() => toast.success(`Invoice ${row.original.number} voided`)}
-                >
-                  <Ban className="mr-2 size-4" /> Void
+                <DropdownMenuItem disabled>
+                  <Eye className="mr-2 size-4" /> View
                 </DropdownMenuItem>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+                {canSend ? (
+                  <DropdownMenuItem
+                    onClick={() => sendMutation.mutate(inv.id)}
+                    disabled={sendMutation.isPending}
+                  >
+                    <Send className="mr-2 size-4" /> {inv.status === 'draft' ? 'Send' : 'Resend'}
+                  </DropdownMenuItem>
+                ) : null}
+                {canVoid ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-rose-600 focus:text-rose-600"
+                      onClick={() => voidMutation.mutate(inv.id)}
+                      disabled={voidMutation.isPending}
+                    >
+                      <Ban className="mr-2 size-4" /> Void
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        },
       },
     ],
-    [],
+    [sendMutation, voidMutation],
   )
 
   return (
@@ -151,12 +209,15 @@ export default function InvoicesPage() {
             <Button
               variant="outline"
               size="sm"
+              disabled={!data || data.rows.length === 0}
               onClick={() => {
-                downloadCsv('invoices.csv', INVOICES, [
+                if (!data) return
+                downloadCsv('invoices.csv', data.rows, [
                   { key: 'number', header: 'Number' },
                   { key: 'customerName', header: 'Customer' },
                   { key: 'customerEmail', header: 'Email' },
-                  { key: 'totalUsdc', header: 'Total (smallest units)' },
+                  { key: 'total', header: 'Total (raw)' },
+                  { key: 'currency', header: 'Currency' },
                   { key: 'status', header: 'Status' },
                   { key: 'createdAt', header: 'Created' },
                   { key: 'dueAt', header: 'Due' },
@@ -174,29 +235,46 @@ export default function InvoicesPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat
           label="Outstanding"
-          value={`${formatUsdc(totalOutstanding)} USDC`}
-          note={`${INVOICES.filter((i) => i.status === 'sent' || i.status === 'overdue').length} invoices`}
+          value={
+            data
+              ? `${data.outstanding.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
+              : '—'
+          }
+          note={data ? `${data.outstandingCount} invoices` : undefined}
         />
         <Stat
           label="Paid (30d)"
-          value={`${formatUsdc(totalPaid30d)} USDC`}
-          note={`${INVOICES.filter((i) => i.status === 'paid').length} invoices`}
+          value={
+            data
+              ? `${data.paid30d.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
+              : '—'
+          }
+          note={data ? `${data.paid30dCount} invoices` : undefined}
         />
         <Stat
           label="Overdue"
-          value={INVOICES.filter((i) => i.status === 'overdue').length.toString()}
-          note={`${formatUsdc(INVOICES.filter((i) => i.status === 'overdue').reduce((s, i) => s + i.totalUsdc, 0))} USDC`}
-          tone="danger"
+          value={data ? data.overdueCount.toString() : '—'}
+          note={
+            data
+              ? `${data.overdueTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
+              : undefined
+          }
+          tone={data && data.overdueCount > 0 ? 'danger' : undefined}
         />
       </div>
 
-      <DataTable
-        columns={columns}
-        data={INVOICES}
-        searchPlaceholder="Search by number, customer, email…"
-        emptyTitle="No invoices yet"
-        emptyDescription="Create your first invoice to send a hosted payment link to a customer."
-      />
+      {isError ? (
+        <ErrorBanner message={error?.message ?? 'Failed to load invoices'} onRetry={refetch} />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={data?.rows ?? []}
+          loading={isLoading}
+          searchPlaceholder="Search by number, customer, email…"
+          emptyTitle="No invoices yet"
+          emptyDescription="Create your first invoice to send a hosted payment link to a customer."
+        />
+      )}
     </div>
   )
 }
@@ -225,10 +303,75 @@ function Stat({
   )
 }
 
+/**
+ * Single-line-item invoice dialog. Production invoices support arbitrary
+ * line items (see CreateInvoiceInput.lineItems), but the v1 dashboard
+ * collapses to a single line — covers the 80% case. Multi-line editor
+ * lands on `/app/invoices/new` once the supporting UI primitives ship.
+ */
 function NewInvoiceDialog() {
   const [open, setOpen] = React.useState(false)
+  const [customerName, setCustomerName] = React.useState('')
+  const [customerEmail, setCustomerEmail] = React.useState('')
+  const [description, setDescription] = React.useState('')
+  const [total, setTotal] = React.useState('')
+  const [dueDays, setDueDays] = React.useState('14')
+  const [note, setNote] = React.useState('')
+
+  const createMutation = useCreateInvoice()
+
+  const reset = () => {
+    setCustomerName('')
+    setCustomerEmail('')
+    setDescription('')
+    setTotal('')
+    setDueDays('14')
+    setNote('')
+  }
+
+  const handleCreate = () => {
+    if (!description.trim() || !total) return
+    let amountRaw: string
+    try {
+      amountRaw = parseUnits(total, 6).toString()
+    } catch {
+      toast.error('Enter a valid amount')
+      return
+    }
+    createMutation.mutate(
+      {
+        customerName: customerName || undefined,
+        customerEmail: customerEmail || undefined,
+        lineItems: [
+          {
+            description: description.trim(),
+            quantity: 1,
+            unitAmount: amountRaw,
+          },
+        ],
+        currency: 'USDC' as PaymentCurrency,
+        note: note || undefined,
+        // Server-side clamp is [1, 90]; we apply the same bounds here
+        // so the UI doesn't silently submit a value the API rejects.
+        dueInDays: Math.max(1, Math.min(90, Number(dueDays) || 14)),
+      },
+      {
+        onSuccess: () => {
+          setOpen(false)
+          reset()
+        },
+      },
+    )
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v)
+        if (!v) reset()
+      }}
+    >
       <DialogTrigger asChild>
         <Button size="sm" variant="default">
           <Plus className="mr-1.5 size-4" /> New invoice
@@ -238,31 +381,68 @@ function NewInvoiceDialog() {
         <DialogHeader>
           <DialogTitle>Create invoice</DialogTitle>
           <DialogDescription>
-            Strimz will email it to the customer with a hosted payment link.
+            Single line item. Saves as a draft — send it from the row menu.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
           <div className="grid gap-1.5">
             <Label htmlFor="iv-customer">Customer name</Label>
-            <Input id="iv-customer" placeholder="Acme Inc." />
+            <Input
+              id="iv-customer"
+              placeholder="Acme Inc."
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+            />
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="iv-email">Customer email</Label>
-            <Input id="iv-email" type="email" placeholder="ap@acme.com" />
+            <Input
+              id="iv-email"
+              type="email"
+              placeholder="ap@acme.com"
+              value={customerEmail}
+              onChange={(e) => setCustomerEmail(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="iv-desc">Line item</Label>
+            <Input
+              id="iv-desc"
+              placeholder="Annual licence renewal"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="iv-amount">Total (USDC)</Label>
-              <Input id="iv-amount" type="number" step="0.01" placeholder="500.00" />
+              <Input
+                id="iv-amount"
+                type="number"
+                step="0.01"
+                placeholder="500.00"
+                value={total}
+                onChange={(e) => setTotal(e.target.value)}
+              />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="iv-due">Due in (days)</Label>
-              <Input id="iv-due" type="number" defaultValue={14} />
+              <Input
+                id="iv-due"
+                type="number"
+                value={dueDays}
+                onChange={(e) => setDueDays(e.target.value)}
+              />
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="iv-note">Note (optional)</Label>
-            <Textarea id="iv-note" placeholder="Net 14" rows={2} />
+            <Label htmlFor="iv-note">Note</Label>
+            <Input
+              id="iv-note"
+              placeholder="Net 14"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
           </div>
         </div>
         <DialogFooter>
@@ -270,15 +450,27 @@ function NewInvoiceDialog() {
             Cancel
           </Button>
           <Button
-            onClick={() => {
-              setOpen(false)
-              toast.success('Invoice created (mock)')
-            }}
+            onClick={handleCreate}
+            disabled={createMutation.isPending || !description.trim() || !total}
           >
-            Create invoice
+            {createMutation.isPending ? 'Creating…' : 'Create draft'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="border-border/60 bg-background flex items-center justify-between rounded-xl border p-4">
+      <div>
+        <div className="text-sm font-medium">Couldn’t load invoices</div>
+        <div className="text-muted-foreground text-xs">{message}</div>
+      </div>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        Try again
+      </Button>
+    </div>
   )
 }

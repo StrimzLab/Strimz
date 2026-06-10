@@ -46,7 +46,11 @@ describe('StrimzBrowserClient', () => {
   it('accepts a publishable key', () => {
     const c = new StrimzBrowserClient({ publishableKey: 'pk_test_' + 'a'.repeat(20) })
     expect(c.mode).toBe('test')
-    expect(c.paymentSessions.retrieve).toBeTypeOf('function')
+    // Browser checkout reads went through paymentSessions.retrieve before
+    // #70 dropped that property in favour of the public /v1/checkout/*
+    // namespace. The `checkout` resource is the replacement.
+    expect(c.checkout.session).toBeTypeOf('function')
+    expect(c.checkout.plan).toBeTypeOf('function')
   })
 
   it('rejects a secret key', () => {

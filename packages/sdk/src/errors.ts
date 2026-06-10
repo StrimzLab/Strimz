@@ -1,9 +1,10 @@
 /**
  * Error hierarchy for the Strimz SDK.
  *
- * Every error thrown by the SDK extends `StrimzError`. The SDK never
- * resolves to `{ ok: false }` — it throws. This matches the Stripe / GitHub
- * SDK convention and keeps call sites linear.
+ * Every error thrown by the SDK extends `StrimzError`. The SDK throws
+ * on failure rather than resolving to `{ ok: false }` so call sites
+ * stay linear and consumers can narrow with `instanceof` on the
+ * exported subclasses.
  */
 
 export type StrimzErrorCode =
