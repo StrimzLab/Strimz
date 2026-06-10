@@ -7,6 +7,7 @@ import {
 } from '../../../../src/modules/relay/abi.js'
 import { RelayService } from '../../../../src/modules/relay/relay.service.js'
 import type { QueueService } from '../../../../src/infra/queue/queue.service.js'
+import type { PrismaService } from '../../../../src/infra/prisma/prisma.service.js'
 import type { TypedConfigService } from '../../../../src/config/index.js'
 import type {
   PayWithAuthorizationInput,
@@ -74,6 +75,21 @@ function makeCfg(): TypedConfigService {
   } as unknown as TypedConfigService
 }
 
+/**
+ * Fake Prisma. `RelayService` calls `paymentSession.findUnique` and
+ * `subscription.findFirst` to short-circuit on already-confirmed
+ * sessions / already-enrolled subscriptions; returning `null` keeps
+ * every test exercising the fresh-submission path.
+ */
+function makeFakePrisma(): PrismaService {
+  return {
+    db: {
+      paymentSession: { findUnique: async () => null },
+      subscription: { findFirst: async () => null },
+    },
+  } as unknown as PrismaService
+}
+
 function payInput(over: Partial<PayWithAuthorizationInput> = {}): PayWithAuthorizationInput {
   return {
     idempotencyKey: 'idem-1',
@@ -120,7 +136,7 @@ describe('RelayService', () => {
   beforeEach(() => {
     const { svc, queue: q } = makeFakeQueueService()
     queue = q
-    service = new RelayService(svc, makeCfg())
+    service = new RelayService(svc, makeFakePrisma(), makeCfg())
   })
 
   describe('submitPayWithAuthorization', () => {
@@ -177,7 +193,7 @@ describe('RelayService', () => {
       const cfgEmpty = {
         env: { STRIMZ_PAYMENTS_ADDRESS: undefined },
       } as unknown as TypedConfigService
-      const svcNoAddr = new RelayService(svc, cfgEmpty)
+      const svcNoAddr = new RelayService(svc, makeFakePrisma(), cfgEmpty)
       await expect(svcNoAddr.submitPayWithAuthorization(payInput())).rejects.toThrow(
         /STRIMZ_PAYMENTS_ADDRESS/,
       )

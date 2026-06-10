@@ -45,7 +45,7 @@ export function SubscriptionStartedEmail({
       tone="success"
     >
       <Text style={leadStyle}>
-        Hi {merchantBusinessName ?? 'there'}, a new payer just enrolled. We'll charge them{' '}
+        Hi {merchantBusinessName ?? 'there'}, a new payer just enrolled. We’ll charge them{' '}
         {amountDisplay} {cadenceDisplay} automatically — no further action needed from you.
       </Text>
 

@@ -40,7 +40,7 @@ export function WelcomeEmail({ merchantBusinessName, dashboardUrl, docsUrl }: We
         reach your own ledger in real time.
       </Text>
       <Text style={listItemStyle}>
-        <strong style={strong}>3.</strong> Skim the integration docs — they're short.
+        <strong style={strong}>3.</strong> Skim the integration docs — they’re short.
       </Text>
 
       <Section style={{ textAlign: 'center', margin: '24px 0 8px' }}>
