@@ -1,19 +1,23 @@
 import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { PrivyAuthGuard } from '../../common/guards/privy.guard.js'
+import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
 } from '../../common/decorators/current-merchant.decorator.js'
 import { MerchantsService } from './merchants.service.js'
+import { MerchantChainService } from './merchant-chain.service.js'
 import { ChangeTierDto, OnboardDto, UpdateMerchantDto } from './merchants.dto.js'
 
 @ApiTags('merchants')
 @ApiBearerAuth()
-@UseGuards(PrivyAuthGuard)
+@UseGuards(MerchantAuthGuard)
 @Controller('/v1/merchants')
 export class MerchantsController {
-  constructor(private readonly merchants: MerchantsService) {}
+  constructor(
+    private readonly merchants: MerchantsService,
+    private readonly merchantChain: MerchantChainService,
+  ) {}
 
   @Get('/me')
   @ApiOperation({ summary: 'Read the current merchant profile.' })
@@ -49,5 +53,23 @@ export class MerchantsController {
   })
   liveModeEligibility(@CurrentMerchant() ctx: CurrentMerchantPayload) {
     return this.merchants.liveModeEligibility(ctx.merchantId)
+  }
+
+  @Get('/me/chain-status')
+  @ApiOperation({
+    summary:
+      "Read the merchant's on-chain registry id (if any) and the prerequisites still needed to register.",
+  })
+  async chainStatus(@CurrentMerchant() ctx: CurrentMerchantPayload) {
+    const s = await this.merchantChain.getStatus(ctx.merchantId)
+    return {
+      // bigint isn't JSON-serialisable; keep parity with the rest of the
+      // wire format and stringify.
+      onchainMerchantId: s.onchainMerchantId !== null ? s.onchainMerchantId.toString() : null,
+      walletAddress: s.walletAddress,
+      payoutAddress: s.payoutAddress,
+      eligible: s.eligible,
+      missing: s.missing,
+    }
   }
 }
