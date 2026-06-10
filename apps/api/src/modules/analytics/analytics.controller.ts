@@ -1,6 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { PrivyAuthGuard } from '../../common/guards/privy.guard.js'
+import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
@@ -9,7 +9,7 @@ import { AnalyticsService } from './analytics.service.js'
 
 @ApiTags('analytics')
 @ApiBearerAuth()
-@UseGuards(PrivyAuthGuard)
+@UseGuards(MerchantAuthGuard)
 @Controller('/v1/stats')
 export class AnalyticsController {
   constructor(private readonly analytics: AnalyticsService) {}

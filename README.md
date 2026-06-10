@@ -5,33 +5,70 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/StrimzLab/Strimz/ci.yml?branch=main&label=CI&logo=github)](./.github/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-02C76A.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](./.nvmrc)
-[![pnpm](https://img.shields.io/badge/pnpm-10.x-F69220?logo=pnpm&logoColor=white)](https://pnpm.io)
-[![Turborepo](https://img.shields.io/badge/Turborepo-2.x-EF4444?logo=turborepo&logoColor=white)](https://turbo.build)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Foundry](https://img.shields.io/badge/Foundry-Solidity-FFDB1C)](https://book.getfoundry.sh)
 [![Arc](https://img.shields.io/badge/Chain-Arc-000000)](https://www.arc.network)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-02C76A.svg)](#contributing)
 
 ---
 
-## Overview
+## What this is
 
-Strimz is a USDC billing layer for businesses that want to charge
-customers on-chain without building the on-chain plumbing
-themselves. The platform handles one-shot charges, recurring
-subscriptions, refunds, invoices, agent escrow, and cross-chain
-settlement. Everything settles on [Arc](https://www.arc.network),
-Circle's stablecoin-native L1, in roughly 13 seconds.
+Strimz is a billing platform for businesses that charge customers in
+stablecoins. Subscriptions, one-shot payments, refunds, invoices. We
+built it because the existing options are either "Stripe with no crypto
+support" or "a wallet pretending to be a payments product." Neither one
+is what a B2B finance team actually wants.
 
-Customers see a hosted checkout. Developers see an SDK. The
-contracts enforce idempotency themselves, so a retried charge can
-never become a double charge, and there is no chargeback window.
+Settlement happens on Arc, Circle's stablecoin-native L1. Gas is paid in
+USDC. A payment confirms in around 13 seconds. The merchant gets a webhook,
+the customer gets a receipt, and the loop closes.
 
-This repository is the entire platform: smart contracts, backend
-services, merchant dashboard, hosted checkout, public SDKs, and the
-infrastructure tooling that runs them.
+---
 
-## Quick start
+## Why we're building it
+
+Every team that wants to charge customers in stablecoins discovers the
+same thing about six weeks in: there's no Stripe for this. So they glue
+together a relayer, a hosted checkout, a webhook delivery system, a
+reconciler that turns chain events into customer records, and some kind of
+dunning logic. Then they realise they also need cross-chain settlement for
+the payers who happen to be on Base instead of Arc, and refunds for the
+customer who pinged support last week, and KYB for the legal team. The
+gas balance on the relayer wallet runs low at 3am on a Sunday.
+
+A quarter goes by. The product they actually meant to ship hasn't moved.
+Half of them give up and go back to invoicing customers and accepting a
+wire.
+
+Strimz is the thing they wished existed.
+
+---
+
+## What's in the box
+
+Three product surfaces, plus the infrastructure to make them work.
+
+**Hosted checkout.** Redirect the customer to a Strimz URL. They connect a
+wallet, sign once (EIP-3009), and the relayer broadcasts the on-chain
+transaction. The customer doesn't pay gas and doesn't confirm twice. The
+merchant gets `payment.completed` over a signed webhook within seconds of
+the transaction landing.
+
+**Subscriptions.** Plans, intervals, grace periods, dunning. Enrolment is
+one EIP-2612 permit signature; the scheduler does the rest, period after
+period, using a deterministic charge ID that the contract refuses to
+honour twice. No chargebacks — the chain doesn't have them. No
+expired-card retries — there are no cards.
+
+**The AutoPay Agent.** This one needs its own section; see below.
+
+Around those: refunds, invoices, a storefront surface for merchants who
+don't have a website yet, signed webhooks with retries and dead-letter, a
+server SDK, a React SDK, and a merchant dashboard that doesn't make
+finance people uncomfortable.
+
+---
+
+## A 30-second integration
 
 Server-side, after issuing an `sk_test_` key in the dashboard:
 
@@ -50,94 +87,13 @@ const session = await strimz.paymentSessions.create({
 console.log(session.checkoutUrl)
 ```
 
-Send the customer to `session.checkoutUrl`. They connect a wallet,
-sign one EIP-3009 authorisation, and the relayer broadcasts the
-on-chain transaction. You receive `payment.completed` over a signed
-webhook the moment it confirms.
+Redirect the customer to `session.checkoutUrl` and wait for the webhook.
+That's it. If you've integrated Stripe Checkout before, the surface area
+is roughly the same — wallet step instead of card step.
 
-The full walkthrough lives in
-[`apps/web/content/docs/quickstart.mdx`](./apps/web/content/docs/quickstart.mdx).
+---
 
-## Table of contents
-
-- [Quick start](#quick-start)
-- [Repository layout](#repository-layout)
-- [Tech stack](#tech-stack)
-- [System architecture](#system-architecture)
-  - [High-level topology](#high-level-topology)
-  - [Smart contract layer](#smart-contract-layer)
-  - [Backend services](#backend-services)
-  - [Frontend](#frontend)
-  - [Payment session lifecycle](#payment-session-lifecycle)
-  - [Subscription charging lifecycle](#subscription-charging-lifecycle)
-  - [Security model](#security-model)
-- [Local development](#local-development)
-  - [Prerequisites](#prerequisites)
-  - [First-time setup](#first-time-setup)
-  - [Useful scripts](#useful-scripts)
-  - [Continuous integration](#continuous-integration)
-- [Environment configuration](#environment-configuration)
-- [Project structure](#project-structure)
-- [Deployment targets](#deployment-targets)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Repository layout
-
-The monorepo is split into deployables (`apps/`) and shared libraries (`packages/`). Every cross-cutting concern lives in a package so that no two apps duplicate logic.
-
-### Apps
-
-| App                                  | Runtime          | Purpose                                                                                  |
-| ------------------------------------ | ---------------- | ---------------------------------------------------------------------------------------- |
-| [`apps/web`](./apps/web)             | Next.js 15       | Merchant dashboard, hosted checkout, public marketing, docs                              |
-| [`apps/api`](./apps/api)             | NestJS (Node 22) | HTTP API: auth, merchants, sessions, subscriptions, refunds, webhooks                    |
-| [`apps/indexer`](./apps/indexer)     | Go               | Listens to Arc, projects on-chain events into Postgres, publishes domain events to Redis |
-| [`apps/scheduler`](./apps/scheduler) | NestJS (Node 22) | BullMQ workers: subscription charging, webhook delivery, agent jobs                      |
-| [`apps/agent`](./apps/agent)         | NestJS (Node 22) | Strimz AutoPay Agent. ERC-8004 identity, ERC-8183 commerce, recovery, routing            |
-
-### Packages
-
-| Package                                              | Purpose                                                           |
-| ---------------------------------------------------- | ----------------------------------------------------------------- |
-| [`packages/contracts`](./packages/contracts)         | Foundry workspace. Solidity contracts, tests, deploy scripts      |
-| [`packages/sdk`](./packages/sdk)                     | `@strimz/sdk`. Server SDK for Node and Edge runtimes              |
-| [`packages/sdk-react`](./packages/sdk-react)         | `@strimz/sdk-react`. Drop-in React components and hooks           |
-| [`packages/db`](./packages/db)                       | Prisma schema and generated client, shared by every Node app      |
-| [`packages/shared-types`](./packages/shared-types)   | Zod schemas; TS types inferred from them                          |
-| [`packages/shared-config`](./packages/shared-config) | Chain registry, token registry, fee tiers. Single source of truth |
-| [`packages/shared-crypto`](./packages/shared-crypto) | HMAC, webhook signing, nonces. Runs in Node and Edge              |
-| [`packages/ui`](./packages/ui)                       | shadcn primitives configured with Strimz brand tokens             |
-| [`packages/tsconfig`](./packages/tsconfig)           | Shared TypeScript configurations                                  |
-| [`packages/eslint-config`](./packages/eslint-config) | Shared ESLint configurations                                      |
-
-### Repo-level tooling
-
-| Path                                                 | Purpose                                                          |
-| ---------------------------------------------------- | ---------------------------------------------------------------- |
-| [`docker-compose.yml`](./docker-compose.yml)         | Local dev stack (Postgres, Redis, Anvil) with opt-in app profile |
-| [`.github/workflows`](./.github/workflows)           | CI pipelines (`ci.yml`, `docker.yml`)                            |
-| [`.github/dependabot.yml`](./.github/dependabot.yml) | Weekly auto-PRs for npm, Go modules, and GitHub Actions          |
-
-## Tech stack
-
-| Layer           | Technology                                                               |
-| --------------- | ------------------------------------------------------------------------ |
-| Language        | TypeScript 5.7, Solidity 0.8.x, Go 1.25                                  |
-| Smart contracts | Foundry, OpenZeppelin Contracts                                          |
-| Backend HTTP    | NestJS 11 (Node 22)                                                      |
-| Backend workers | NestJS standalone + BullMQ; Go for the indexer                           |
-| Frontend        | Next.js 15 (App Router), React 19, Tailwind v4, shadcn/ui                |
-| Wallet & chain  | viem 2.x, wagmi 2.x, Privy (merchant auth), Reown AppKit (payer connect) |
-| Database        | PostgreSQL 16, Prisma 7, Redis 7                                         |
-| Validation      | Zod 3                                                                    |
-| Build           | Turborepo 2, pnpm 10, tsup                                               |
-| Observability   | OpenTelemetry, Sentry, Pino                                              |
-| Hosting         | Vercel (web), Render (api, indexer, scheduler, agent, Postgres, Redis)   |
-
-## System architecture
-
-### High-level topology
+## How it works
 
 ```
                          ┌──────────────────────────────────────────┐
@@ -173,286 +129,203 @@ The monorepo is split into deployables (`apps/`) and shared libraries (`packages
    └────────────┘           └──────────────────────────────────┘
 
                             ┌────────────┐
-                            │   agent    │  Read-only. Listens to Redis
-                            │  (NestJS)  │  events, runs ERC-8004 identity
-                            └────────────┘  + ERC-8183 escrow flows.
+                            │   agent    │  Read-only. Drives recovery,
+                            │  (NestJS)  │  cashflow, commerce, routing.
+                            └────────────┘  Holds no signing key.
 ```
 
-The contract is the source of truth for money. Postgres is a read-side projection of the chain. Webhooks are the merchant's view of the projection.
+A few things to know about how this is wired up.
 
-### Smart contract layer
+The contract is the source of truth for money. Postgres sits downstream,
+rebuilt from event logs by a Go indexer. If we lose the database tomorrow,
+we replay from genesis and converge. The merchant's view of the world is a
+projection of the chain, not a separate ledger that could drift.
 
-Located in [`packages/contracts/src`](./packages/contracts/src). Built and tested with [Foundry](https://book.getfoundry.sh).
+Subscription charges are addressed by a deterministic ID,
+`keccak256(subscriptionId, periodEndAt)`, and the contract rejects repeats.
+The "we accidentally double-charged because the cron retried" failure mode
+isn't reachable. We didn't build that in the database layer; we built it
+in Solidity, because billing systems should fail closed.
 
-**Modules.**
+Only one process holds a signing key — the relayer inside `apps/api`. The
+scheduler and the agent push jobs to the API when they want a transaction
+broadcast; they sign nothing themselves. The key is KMS-backed in
+production. A bug in the scheduler can corrupt scheduling, but it can't
+move money. That separation was deliberate.
 
-| Module        | Contracts                                                        |
-| ------------- | ---------------------------------------------------------------- |
-| `core/`       | `StrimzRegistry`, `StrimzPayments`, `StrimzSubscriptions`        |
-| `fees/`       | `FeeCollector`                                                   |
-| `tokens/`     | `TokenWhitelist`                                                 |
-| `access/`     | `StrimzAccessControl`, `Pausable`                                |
-| `agent/`      | `StrimzAgentRegistry` (ERC-8004), `StrimzAgentEscrow` (ERC-8183) |
-| `interfaces/` | One interface per public contract                                |
+---
 
-**Design rules.**
+## Why Arc
 
-- **Registry-backed merchants.** Merchants are identified by an on-chain id. `StrimzRegistry` holds the merchant's payout address, fee bps, and active flag. Payments and subscriptions read from the registry, so payout addresses can rotate without redeploying.
-- **Idempotent subscription charges.** Every charge call carries a `bytes32 chargeAttemptId`. The contract rejects reused ids. This kills the double-charge class of bugs that polling cron jobs are prone to.
-- **Events as the canonical projection source.** Contracts emit rich events (`PaymentExecuted`, `SubscriptionCharged`, `FeeAccrued`, `RefundRecorded`). The indexer rebuilds Postgres from these events, so the database is reconstructable from chain history at any time.
-- **Selective upgradeability.** The policy contracts (`StrimzRegistry`, `FeeCollector`, `TokenWhitelist`, `StrimzAgentRegistry`, `StrimzAgentEscrow`) are UUPS because policy changes. The value-moving contracts (`StrimzPayments` and `StrimzSubscriptions`) are deliberately immutable. A new version of either is a fresh deploy that the registry then points to.
-- **Pull payments for fees.** Fees accrue to `FeeCollector`. The treasury withdraws on a schedule. This shrinks the reentrancy surface and isolates accounting.
-- **Owner-pausable kill switch.** Every value-moving function respects `Pausable`. If something is wrong, all transfers halt at once.
+A few reasons.
 
-### Backend services
+Gas in USDC means the relayer doesn't need an ETH balance. Treasury runs
+on one asset. Cash-flow forecasting on the operator side gets simple.
 
-Three Node services (NestJS) and one Go service. Each runs as its own process. A slow webhook delivery cannot block a payment session, and a stuck cron cannot block the API.
+13-second finality is good enough that the payer gets a confirmation
+before they tab away from the page. Stripe-redirect feel. Conversion
+holds up.
 
-**`apps/api`. HTTP API.** Module-per-bounded-context layout. Examples: `merchants`, `api-keys`, `payment-sessions`, `subscriptions`, `refunds`, `webhooks`, `compliance`, `analytics`, `agents`. Common cross-cutting concerns (`ApiKeyGuard`, `JwtGuard`, `TierGuard`, `ZodValidationPipe`, `StrimzError` filter) live in `common/`. Side effects (Prisma, Redis, BullMQ, Resend, viem) live in `infra/` and are injected through interfaces. Controllers validate and delegate. Services hold the domain rules. Repositories own persistence. The API never reads from the chain directly. It reads from Postgres, which the indexer keeps current.
+EURC and USYC are native on Arc. A merchant can hold revenue in
+interest-bearing collateral (USYC is a tokenised treasury bill) without
+bridging out, and can bill in EUR without picking up bridge risk. We've
+debugged enough multi-chain stablecoin flows to value the absence.
 
-**`apps/indexer`. Chain projector (Go).** Subscribes to Arc events
-through `go-ethereum`. For each event it parses to a domain event,
-writes to Postgres (advancing a per-contract cursor), and publishes
-to a Redis stream so the scheduler and agent can react in real
-time. The indexer is in Go because the workload is bounded by I/O
-concurrency and long-running connections, which Go handles cleanly.
-Resumable on restart, idempotent on replay.
+Payers don't have to be on Arc. If they're on Ethereum, Base, Polygon, or
+OP Mainnet, the bridge runs through Circle CCTP v2 — the agent watches for
+the burn, polls Circle for the attestation, queues the Arc settle. From
+the merchant's side it lands as USDC.
 
-**`apps/scheduler`. Workers.** NestJS standalone app backed by BullMQ. Three queues:
+---
 
-- `subscription.due`. Cron-driven. Reads due subscriptions from Postgres, derives a deterministic `chargeAttemptId = keccak256(subscriptionId, periodEndAt)` per sub, and asks the relayer in `apps/api` to broadcast `batchCharge` on the contract.
-- `webhook.deliver`. Exponential backoff (1m, 5m, 30m, 2h, 12h, five attempts), then dead-lettered with a merchant alert.
-- `agent.action`. Drives the AutoPay Agent's scheduled actions: subscription recovery retries, daily cashflow digests, CCTP settle.
+## The AutoPay Agent
 
-The scheduler does not hold any signing key. When a worker needs an
-on-chain write, it calls into `apps/api`, which signs through its
-KMS provider and broadcasts. This keeps the most sensitive secret
-in exactly one process.
+Once a merchant turns it on, the agent handles seven separate things. Each
+one is independently toggleable from the dashboard.
 
-**`apps/agent`. The AutoPay Agent.** NestJS service that holds the agent's ERC-8004 identity, drives ERC-8183 escrow operations, and orchestrates recovery, routing, cashflow, and commerce flows. Reads the Redis event stream the indexer publishes and reacts within a bounded SLA. Configurable per merchant via `AgentMerchantConfig`. Holds no signing key.
+`recovery` — when a subscription enters `at_risk` because the customer
+was short on funds, the agent emails them on a schedule the merchant
+picks (`once`, `twice`, or `until_grace_ends`). It deduplicates so nobody
+gets spammed.
 
-### Frontend
+`cashflow.digest` — every morning at 9am UTC, a one-screen email
+summarising yesterday's revenue: gross, fees, net, transaction count,
+unique customers. Nothing fancy. It's the email a merchant would have
+written a script for in week three.
 
-`apps/web` is a single Next.js 15 App Router app that serves three distinct audiences:
+`cashflow.anomaly` — once an hour, the agent compares the last completed
+clock-hour's revenue against the same hour-of-day over the trailing 30
+days. If the current hour is far enough below baseline, the merchant gets
+an email. Drops only. Nobody wants a ping for good news.
 
-- `(marketing)`. Public landing, pricing, docs.
-- `(auth)`. Merchant sign-in and sign-up.
-- `(dashboard)`. Authenticated merchant surface: overview, transactions, subscriptions, customers, refunds, webhooks, API keys, agent settings, storefront, invoices, treasury, billing, settings.
-- `pay/[sessionId]` and `sub/[planId]`. Payer-facing hosted checkout, isolated so it can later be embedded in iframes without dashboard chrome leaking through.
-- `invoice/[id]`. Public invoice page.
+`cashflow.yield` — runs daily. If the merchant's balance is comfortably
+above the reserve floor they configured, the agent flags the surplus and
+suggests moving it into yield. The merchant signs the move. The agent
+doesn't hold custody and isn't going to.
 
-Server components are the default. Interactive leaves (wallet connect, charts, forms) are client components. Forms use React Hook Form with the same Zod schemas the API validates against, so client and server cannot disagree on shape. Server state is owned by TanStack Query. Client state is small and lives in component-local React state or thin Zustand slices.
+`commerce` — outbound payments to a merchant-approved vendor allowlist.
+Below the merchant's threshold the agent auto-approves; above it, the job
+sits in the dashboard until a human clicks approve. Monthly summary by
+vendor.
 
-Two wallet ecosystems coexist by design, each scoped to its own audience:
+`pricing_intelligence` — once a month: MRR, 12-month churn, and a 90-day
+forecast from a linear regression over the last quarter. The numbers
+we'd want to see ourselves if we ran a SaaS off Strimz, which we do.
 
-- **Privy.** Merchant identity. Email / Google / wallet login on `/signup` and `/login`, embedded wallet for the dashboard owner. Configured with Arc as `defaultChain` so the embedded wallet is created on Arc rather than Ethereum mainnet.
-- **Reown AppKit.** Anonymous payer wallet connect on the public `/pay/[sessionId]` and `/sub/[planId]` checkout pages. Brings the long tail of WalletConnect-compatible wallets (MetaMask, Rainbow, Coinbase Wallet, Trust, etc.) without requiring the payer to have a Strimz account.
+`routing` — the CCTP bridge worker. Reads bridge jobs from a queue, polls
+Circle's attestation API on a 30-second loop, queues the Arc settle action
+when attestation completes.
 
-The two domains never share connector state. They live in different routes serving different actors. Both wrap the app in `apps/web/src/components/providers.tsx`, with Wagmi/AppKit hydrated via cookies in `apps/web/src/app/layout.tsx` to avoid SSR hydration mismatch on the initial paint.
+Two trust properties that make this work for a finance team.
 
-### Payment session lifecycle
+The agent holds no signing key. Anywhere. Every value-moving action it
+appears to take is actually one of three things: an email, an entry in
+the audit log, or a job queued for the relayer with the merchant's spend
+cap and vendor allowlist attached. The merchant keeps custody.
 
-```
-1. Merchant calls the SDK                strimz.paymentSessions.create({ amount, currency, ... })
-2. SDK posts POST /v1/payment-sessions   apps/api validates, persists, returns { id, checkoutUrl }
-3. Merchant redirects the payer          apps/web/pay/[sessionId]
-4. Payer connects a wallet               viem + wagmi + Reown AppKit (any major wallet)
-5. Payer signs one EIP-3009 message      single wallet prompt, no gas paid by the payer
-6. Relayer (apps/api) broadcasts the tx  StrimzPayments.payWithAuthorization splits the fee atomically
-7. Indexer ingests PaymentExecuted       writes Transaction, advances the cursor, publishes to Redis
-8. Scheduler runs the webhook job        POSTs to the merchant URL, signed with HMAC-SHA256
-9. Merchant verifies the signature       @strimz/sdk verifyWebhookSignature
-```
+Everything is configurable per merchant. Grace period, escalation cadence,
+approval threshold, vendor allowlist, monthly spend cap, anomaly
+sensitivity, reserve floor, yield strategy. It all sits in
+`AgentMerchantConfig`. The agent's behaviour is the merchant's call, not
+ours.
 
-Every step after (6) is asynchronous and idempotent. If any step fails, the chain remains the source of truth and the projection rebuilds.
+---
 
-### Subscription charging lifecycle
+## Safety
 
-```
-A. Merchant defines a SubscriptionPlan   (price, interval, currency, gracePeriod)
-B. Customer subscribes                   (signs an EIP-2612 permit; relayer calls permitAndCreateSubscription)
-C. Scheduler runs subscription.due cron  (every 15 min; selects subs where nextChargeAt <= now)
-D. Worker derives chargeAttemptId        (keccak256(subscriptionId, periodEndAt); deterministic, replay-safe)
-E. Relayer (apps/api) signs and broadcasts batchCharge(ids[], attemptIds[])
-   ├─ Contract verifies each subscription is active and chargeAttemptId is unused
-   ├─ For each: pulls funds, splits fee, emits SubscriptionCharged
-   └─ Returns a per-id outcome (charged | insufficient | revoked)
-F. Indexer ingests the events            (updates SubscriptionCharge status)
-G. On insufficient funds:
-   ├─ Worker schedules a retry inside the merchant's grace period
-   ├─ AutoPay Agent emails the payer a low-balance reminder
-   └─ If grace expires, the subscription flips to lapsed and the subscription.lapsed webhook fires
-H. Webhook delivery follows the same retry path as one-shot payments
-```
+A billing platform feels custodial even when it isn't. One bad day and
+the relationship is over. We've taken that seriously.
 
-Two consequences of how the contract is structured:
+- Subscription charges are idempotent in the contract. A retried charge
+  for the same period is rejected on-chain, not by our database. The race
+  condition can't exist.
+- Three independent layers stop a payment session from being charged
+  twice. The indexer stamps the session on confirmation; the API
+  short-circuits a second relay submission; the checkout page polls
+  status before showing the sign prompt. Any one would catch a duplicate.
+  All three together make it impossible.
+- Every value-moving function on every contract respects a single
+  `Pausable` modifier. If something is wrong, transfers halt across the
+  platform at once.
+- Fees accrue in a separate `FeeCollector` contract that the treasury
+  pulls from on a schedule. Pull, not push — less reentrancy surface,
+  simpler accounting.
+- Webhooks are HMAC-SHA256 signed over `t=<unix>,v1=<hex>`. The SDK
+  verifies them. Signatures older than five minutes are rejected, so a
+  leaked payload can't be replayed later.
+- We hold no keys for anyone. Wallet addresses only. Every value-moving
+  signature comes from the merchant's or the payer's own wallet.
+- Mainnet deploy is gated on a third-party audit. Until that's done, this
+  is testnet, and we're not pretending otherwise.
+- Address screening at signup and at first payer interaction. Application
+  to Circle Compliance Engine is in flight.
 
-1. A subscription is never double-charged for the same period. The contract's `chargeAttemptId` mapping rejects reuse.
-2. A subscription cancelled on-chain between the cron tick and the broadcast is skipped. The contract rejects the call, and the worker records the outcome.
+The longer writeup — indexer race-condition guards, the sweeper's
+stale-lock reclaim, the dual-mode merchant auth guard — lives in the docs.
 
-### Security model
+---
 
-- **Strimz never holds keys.** The platform stores wallet addresses only. Merchants and payers sign every value-moving transaction from their own wallet. There are no encrypted seed phrases anywhere in the database.
-- **API keys.** Stored as `prefix + sha256(key)`. The full key is shown exactly once at creation. Test and live keys are entirely separate; calling a live endpoint with a test key is a typed error.
-- **Webhook signatures.** Every webhook is signed with HMAC-SHA256 over `t=<unix>,v1=<hex>`. Merchants verify with [`@strimz/sdk`](./packages/sdk). Signatures older than 5 minutes are rejected to prevent replay.
-- **Role-based access inside merchants.** Owner / Admin / Developer / Read-only. Refunds, key rotation, and tier changes are gated by role.
-- **Rate limiting.** Per-API-key in Redis, per-IP at the edge. The limits are tier-aware.
-- **Transactional audit log.** Every mutating action writes an `AuditLog` row. Refunds, key rotations, tier changes, agent enable/disable.
-- **Contract security.** Independent third-party audit before any mainnet deployment. `Pausable` kill switch on every value-moving function. `Ownable` and `AccessControl` for privileged ops with a multi-sig treasury.
-- **Secrets.** No secrets in the repo. `.env.example` files are committed; real `.env` files are gitignored. Production secrets live in Render's environment manager.
+## Who it's for
 
-## Local development
+The shortlist of who'll get the most out of Strimz right now.
 
-### Prerequisites
+SaaS companies billing customers in USDC. DePIN protocols. AI-infra
+startups. On-chain SaaS. Any team where "we accept USDC" is a real
+go-to-market line and not a footnote on the pricing page.
 
-- Node 22 (`nvm use` to match `.nvmrc`)
-- pnpm 10 (`corepack enable && corepack prepare pnpm@10 --activate`)
-- Docker (for the local Postgres + Redis + Anvil stack)
-- Foundry (`curl -L https://foundry.paradigm.xyz | bash && foundryup`)
-- Go 1.25 (only required to develop the indexer)
+Stablecoin-native marketplaces and storefronts. The shape of the product
+is checkout-and-webhooks, not custody.
 
-### First-time setup
+Web3 protocols selling subscriptions to their dashboards or APIs. You
+want a Stripe-shaped surface your existing tooling can integrate against.
 
-```sh
-git clone <repo-url> strimz
-cd strimz
-git submodule update --init --recursive       # Foundry deps live in packages/contracts/lib
-pnpm install
+Treasury teams paying suppliers. The `commerce` capability is built for
+exactly this — programmable outbound payments with caps, allowlists, and
+an audit trail.
 
-# Optional — copy compose env template if you need to override defaults
-cp .env.docker.example .env
+What Strimz isn't: a wallet, a CEX, a custodial product, an L2. We're the
+rails between the merchant and the payer. We don't hold funds. We don't
+manage keys.
 
-# Boot local infra (Postgres, Redis, Anvil)
-docker compose up -d
+---
 
-# Apply Prisma migrations against the compose Postgres
-pnpm --filter @strimz/db db:migrate
+## Where we are
 
-# Run every app in watch mode via Turbo
-pnpm dev
-```
+Live on Arc testnet (chain id `5042002`). Contracts deployed, indexer
+running, dashboard live. End-to-end works — merchant signup, plan
+creation, hosted checkout, subscription enrolment, recurring charge,
+refund, webhook. We use it ourselves.
 
-The default `docker compose up` brings up three infra services:
+Shipped so far: the smart contract suite (Payments, Subscriptions,
+Registry, FeeCollector, AgentRegistry, AgentEscrow), the Go indexer, the
+BullMQ scheduler, the merchant dashboard, hosted checkout, the seven
+AutoPay Agent capabilities, the server SDK, the React SDK, transactional
+and operational email on the verified `mail.strimz.finance` domain,
+gas-balance monitoring, audit logging.
 
-| Service    | Host port | Purpose                                               |
-| ---------- | --------- | ----------------------------------------------------- |
-| `postgres` | `5432`    | Source of read state for every Node app               |
-| `redis`    | `6379`    | BullMQ queues, idempotency cache, rate-limit buckets  |
-| `anvil`    | `8545`    | Local EVM devnet (chain id `31337`) for contract work |
+What's next: the independent contract audit, Circle Compliance Engine
+integration, the mainnet deploy, the public SDK release, the first
+production merchants.
 
-For an end-to-end smoke test of the **build artifacts** (rare; mostly pre-deploy), the `full` profile also rebuilds and boots `api`, `scheduler`, `agent`, and `indexer` from their Dockerfiles:
+---
 
-```sh
-docker compose --profile full up
-```
+## Repo layout
 
-Apps in the `full` profile reach Postgres / Redis / Anvil via compose service names; apps run from your shell via `pnpm dev` use `localhost`.
+Turborepo monorepo. Five apps — `web` (Next.js dashboard, checkout,
+marketing), `api` (NestJS HTTP), `indexer` (Go), `scheduler` (NestJS
+workers), `agent` (NestJS) — and a `packages/contracts` Foundry workspace.
+Shared SDKs and brand UI live under `packages/`. Each app has its own
+README with run instructions.
 
-### Useful scripts
+---
 
-| Command                                      | Description                                            |
-| -------------------------------------------- | ------------------------------------------------------ |
-| `pnpm dev`                                   | Run all apps in watch mode                             |
-| `pnpm build`                                 | Build everything via Turbo                             |
-| `pnpm lint`                                  | Lint everything                                        |
-| `pnpm typecheck`                             | Typecheck everything                                   |
-| `pnpm test`                                  | Test everything                                        |
-| `pnpm format`                                | Prettier write                                         |
-| `pnpm format:check`                          | Prettier verify (CI runs this; same rules as `format`) |
-| `pnpm changeset`                             | Create a changeset for an SDK release                  |
-| `pnpm --filter @strimz/contracts forge:test` | Run Foundry tests                                      |
-| `pnpm --filter @strimz/db db:migrate`        | Apply Prisma migrations                                |
-| `pnpm --filter web dev`                      | Run only the web app                                   |
+## Links
 
-### Continuous integration
+- Marketing: [strimz.finance](https://strimz.finance)
+- Docs: going live alongside the public launch
+- Email: strimztokenstream@gmail.com
 
-Three parallel jobs run on every PR via [`.github/workflows/ci.yml`](./.github/workflows/ci.yml):
-
-| Job       | What it runs                                                                                                                       |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `node`    | `pnpm install` → `pnpm build` (turbo `^build`, generates the Prisma client first) → `format:check` → `lint` → `typecheck` → `test` |
-| `go`      | `go vet`, `go build`, race-tested unit tests on `apps/indexer`                                                                     |
-| `foundry` | `forge fmt --check`, `forge build --sizes`, `forge test -vvv`. Checks out submodules so `forge-std` and OpenZeppelin libs resolve. |
-
-A separate [`docker.yml`](./.github/workflows/docker.yml) workflow builds every app's Dockerfile via a matrix, but only when a Dockerfile or `docker-compose.yml` actually changes. Otherwise it would be a slow tax on every unrelated PR.
-
-[Dependabot](./.github/dependabot.yml) opens grouped weekly PRs for npm (`@nestjs/*`, `next + react`, lint/format tooling each in their own group), Go modules (`apps/indexer`), and GitHub Actions.
-
-## Environment configuration
-
-Each app has its own `.env.example` listing required and optional variables. Copy each one to `.env` for local use. Production values live in Render and Vercel, never in the repo. Recurring variables across apps:
-
-| Variable                            | Used by                        | Purpose                                                             |
-| ----------------------------------- | ------------------------------ | ------------------------------------------------------------------- |
-| `DATABASE_URL`                      | api, indexer, scheduler, agent | Postgres connection string                                          |
-| `REDIS_URL`                         | api, scheduler, agent          | Redis connection string                                             |
-| `ARC_RPC_URL`                       | api, indexer, scheduler, agent | Arc JSON-RPC endpoint                                               |
-| `ARC_CHAIN_ID`                      | all                            | Chain id (`5042002` testnet)                                        |
-| `STRIMZ_REGISTRY_ADDRESS`           | all                            | Deployed `StrimzRegistry` address                                   |
-| `STRIMZ_WEBHOOK_SIGNING_SECRET`     | api, scheduler                 | HMAC secret for webhook signatures                                  |
-| `WEBHOOK_SECRET_ENCRYPTION_KEY`     | api, scheduler                 | AES-256-GCM key for encrypting per-endpoint webhook secrets at rest |
-| `JWT_SECRET`                        | api                            | Merchant session JWT secret                                         |
-| `PRIVY_APP_ID` / `PRIVY_APP_SECRET` | web, api                       | Merchant auth (email + embedded wallet)                             |
-| `NEXT_PUBLIC_REOWN_PROJECT_ID`      | web                            | Reown AppKit project id for payer wallet connect on checkout        |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`    | web                            | Cloudflare Turnstile site key for bot-protection on `/signup`       |
-| `TURNSTILE_SECRET_KEY`              | api                            | Cloudflare Turnstile secret for the server-side Siteverify call     |
-| `RESEND_API_KEY`                    | api, scheduler                 | Transactional email                                                 |
-| `SENTRY_DSN`                        | all                            | Error tracking (optional in dev)                                    |
-
-## Project structure
-
-```
-strimz/
-├── apps/
-│   ├── web/                   Next.js 15. Dashboard, checkout, marketing.
-│   ├── api/                   NestJS HTTP API           (Dockerfile)
-│   ├── indexer/               Go chain projector        (Dockerfile)
-│   ├── scheduler/             NestJS BullMQ workers     (Dockerfile)
-│   └── agent/                 NestJS AutoPay Agent       (Dockerfile)
-├── packages/
-│   ├── contracts/             Foundry workspace
-│   ├── sdk/                   @strimz/sdk
-│   ├── sdk-react/             @strimz/sdk-react
-│   ├── db/                    Prisma schema + client
-│   ├── shared-types/          Zod schemas
-│   ├── shared-config/         Chains, tokens, tiers
-│   ├── shared-crypto/         HMAC, webhook verify
-│   ├── ui/                    shadcn + Strimz brand
-│   ├── tsconfig/              Base TS configs
-│   └── eslint-config/         Base ESLint configs
-├── .github/
-│   ├── workflows/
-│   │   ├── ci.yml             Parallel node / go / foundry jobs
-│   │   └── docker.yml         Matrix Dockerfile build (paths-filtered)
-│   └── dependabot.yml         Grouped weekly dependency PRs
-├── docker-compose.yml         Local infra stack + opt-in `full` app profile
-├── .env.docker.example        Compose env override template
-├── pnpm-workspace.yaml
-├── turbo.json
-└── package.json
-```
-
-## Deployment targets
-
-| Surface          | Host                                      |
-| ---------------- | ----------------------------------------- |
-| `apps/web`       | Vercel                                    |
-| `apps/api`       | Render (Web Service)                      |
-| `apps/indexer`   | Render (Background Worker)                |
-| `apps/scheduler` | Render (Background Worker)                |
-| `apps/agent`     | Render (Background Worker)                |
-| Postgres 16      | Render (Managed PostgreSQL)               |
-| Redis 7          | Render (Managed Key Value)                |
-| Smart contracts  | Arc testnet (`5042002`), then Arc mainnet |
-
-## Contributing
-
-- Create a branch from `main`. Branch naming: `feat/<scope>`, `fix/<scope>`, `chore/<scope>`.
-- Conventional commits: `feat(api): ...`, `fix(contracts): ...`, `chore(repo): ...`.
-- Every SDK-touching PR ships a [changeset](https://github.com/changesets/changesets).
-- `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test` must pass. These are the same checks CI runs (see [Continuous integration](#continuous-integration)).
-- Contract changes require Foundry tests, including invariant tests for value-moving functions.
-- The root `package.json` carries a `pnpm.overrides` block pinning `@wagmi/connectors` to `^5.x`. Don't remove it without verifying. `@reown/appkit-adapter-wagmi`'s open-ended optional peer otherwise lets pnpm resolve the broken `@wagmi/connectors@8.x` line, which breaks the web app's build. The `_overridesNote` field in that file carries the full reason.
+---
 
 ## License
 

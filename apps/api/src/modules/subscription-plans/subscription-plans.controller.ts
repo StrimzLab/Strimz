@@ -22,7 +22,7 @@ export class SubscriptionPlansController {
     @Body(new ZodValidationPipe(createSubscriptionPlanInputSchema))
     input: CreateSubscriptionPlanInput,
   ): Promise<SubscriptionPlan> {
-    return this.plans.create(ctx.merchantId, input)
+    return this.plans.create(ctx.merchantId, ctx.mode, input)
   }
 
   @RequireScopes('subscriptions_read')

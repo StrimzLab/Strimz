@@ -7,13 +7,15 @@ through its KMS provider and broadcasts.
 
 ## Responsibilities
 
-| Surface              | Source                                       | Effect                                                                                                                                                                                                                                                                                                                                                       |
-| -------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Webhook delivery     | `strimz.webhook.delivery` queue              | Sign with HMAC-SHA256 (`Strimz-Signature: t=<unix>,v1=<hex>`), POST to merchant URL with timeout, retry with exponential backoff (1m → 5m → 30m → 2h → 12h, default 5 attempts), update `WebhookDelivery` row per attempt. On permanent failure: email merchant; on 5+ permanent failures within 24h: auto-disable the endpoint and email a separate notice. |
-| Subscription charges | Cron sweep + `strimz.subscription.due` queue | Atomically lock due `Subscription` rows, enqueue per sub, worker derives deterministic `chargeAttemptId`, calls `batchCharge`, releases lock                                                                                                                                                                                                                 |
-| Subscription lapsed  | Cron                                         | Flip `at_risk → lapsed` once `currentPeriodEndAt + gracePeriodHours` has elapsed, fire `subscription.lapsed` webhook                                                                                                                                                                                                                                         |
-| Agent escrow ops     | `strimz.agent.action` queue                  | Subscription cancel + full job lifecycle (create / release / dispute / cancel)                                                                                                                                                                                                                                                                               |
-| Invoice overdue      | Cron                                         | Flip past-due `Invoice` rows to `overdue`, fire `invoice.overdue` webhook                                                                                                                                                                                                                                                                                    |
+| Surface                | Source                                       | Effect                                                                                                                                                                                                                                                                                                                                                       |
+| ---------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Webhook delivery       | `strimz.webhook.delivery` queue              | Sign with HMAC-SHA256 (`Strimz-Signature: t=<unix>,v1=<hex>`), POST to merchant URL with timeout, retry with exponential backoff (1m → 5m → 30m → 2h → 12h, default 5 attempts), update `WebhookDelivery` row per attempt. On permanent failure: email merchant; on 5+ permanent failures within 24h: auto-disable the endpoint and email a separate notice. |
+| Subscription charges   | Cron sweep + `strimz.subscription.due` queue | Atomically lock due `Subscription` rows, enqueue per sub, worker derives deterministic `chargeAttemptId`, calls `batchCharge`, releases lock. Sweeper `WHERE` clause reclaims any `chargeLock` older than 10 min so a scheduler crash mid-batch can't strand a sub.                                                                                          |
+| Subscription lapsed    | Cron                                         | Flip `at_risk → lapsed` once `currentPeriodEndAt + gracePeriodHours` has elapsed, fire `subscription.lapsed` webhook                                                                                                                                                                                                                                         |
+| Agent escrow ops       | `strimz.agent.action` queue                  | Subscription cancel + full job lifecycle (create / release / dispute / cancel)                                                                                                                                                                                                                                                                               |
+| Invoice overdue        | Cron                                         | Flip past-due `Invoice` rows to `overdue`, fire `invoice.overdue` webhook                                                                                                                                                                                                                                                                                    |
+| Merchant notifications | Cron                                         | Polls four `*NotifiedAt IS NULL` lanes — `Merchant.welcomeNotifiedAt`, `PaymentSession`, `Subscription`, `SubscriptionCharge` — renders the matching React Email template, sends via Resend, stamps the column. One-shot per row.                                                                                                                            |
+| Gas balance monitor    | Cron                                         | Reads the relayer + scheduler USDC balances on Arc. Edge-triggered alert to `STRIMZ_ADMIN_ALERT_EMAIL` on the transition below `GAS_BALANCE_THRESHOLD_USDC`. 24h Redis dedup flag prevents repeat alerts; the flag self-clears once balance recovers.                                                                                                        |
 
 ## Architecture
 
@@ -26,7 +28,7 @@ src/
     chain/                   viem public + wallet clients, function ABIs
     queue/                   @nestjs/bullmq + Zod payload schemas
     webhook-signing/         HMAC builder + Redis-backed plaintext-secret cache
-    email/                   Resend (failure notifications)
+    email/                   Resend client + default From/Reply-To; stub mode when RESEND_API_KEY is unset
   workers/
     webhook-delivery         POST + retry + DB update state machine
     subscription-due         derive chargeAttemptId, batchCharge, release lock
@@ -35,7 +37,29 @@ src/
     subscription-sweeper     SELECT … FOR UPDATE SKIP LOCKED; multi-instance safe
     subscription-lapsed      flip at_risk → lapsed after grace; fire subscription.lapsed
     invoice-overdue          flip + fire invoice.overdue webhook
+    merchant-notifications   four-lane email cron; one-shot stamps on the source row
+    gas-balance-monitor      relayer + scheduler USDC watchdog; edge-triggered alerts
 ```
+
+## Admin endpoints (non-prod only)
+
+`AdminController` exposes manual triggers so dev + CI can step each cron deterministically instead of waiting for the schedule. The handler refuses to dispatch when `NODE_ENV === 'production'` — the route 404s rather than 403 so it never advertises its existence to unauthorised callers.
+
+| Endpoint                                 | Effect                                         |
+| ---------------------------------------- | ---------------------------------------------- |
+| `POST /admin/sweep-now`                  | Run the subscription sweeper once.             |
+| `POST /admin/run/gas-balance-monitor`    | Check both EOA balances; alert if newly below. |
+| `POST /admin/run/merchant-notifications` | Drain all four notification lanes once.        |
+
+## Email sending
+
+Transactional email goes through Resend on `mail.strimz.finance`. `EmailService` is a thin wrapper:
+
+- **From** is fixed to `RESEND_FROM_EMAIL` — callers cannot override; Resend rejects any from-address outside the verified subdomain.
+- **Reply-To** defaults to `RESEND_REPLY_TO` (the Strimz support mailbox) so when a merchant hits Reply on a payment confirmation, the response lands in a human inbox rather than bouncing off `noreply@`.
+- **Stub mode** activates when `RESEND_API_KEY` is unset. Sends are logged with the `to=` and `subject=` and return `{queued: false}`. The merchant-notifications cron still stamps `*NotifiedAt` in stub mode to avoid retry churn in dev — the alternative would be every-tick repeat sends behind constant churn that would mask real Resend errors later.
+
+Templates ship in [`@strimz/email-templates`](../../packages/email-templates) and are rendered to HTML at send time. Brand display (footer "Sent by Strimz — strimz.finance") is decoupled from operational URLs (CTAs, logo) so the apex can read on emails before it's actually pointed at the deployment.
 
 ## Multi-instance safety
 

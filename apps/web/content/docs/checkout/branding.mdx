@@ -1,0 +1,56 @@
+---
+title: Branding
+description: Making the hosted checkout page look like your product. Logo, name, optional accent colour, and the whitelabel option for enterprise.
+---
+
+The hosted checkout page reads from your merchant profile. Brand settings are one-time setup; they apply to every session you've ever created or will create. The configuration lives in **Settings → Business** in the dashboard.
+
+## Logo
+
+Set under **Settings → Business → Logo URL**. PNG or SVG hosted on a publicly accessible URL.
+
+A few practical notes. Use at least 256×256 if you can; the page renders the logo at about 96px wide and a small source image looks soft on a Retina screen. SVG is ideal because we don't have to deal with raster scaling. If you only have a tiny favicon-sized logo, the wordmark fallback is usually better than a stretched image.
+
+We fetch the image at session creation and cache it on the hosted-page CDN. A logo URL change takes up to ten minutes to fully propagate; new sessions pick up the new URL immediately, but in-flight sessions show the cached previous image until expiry.
+
+We don't proxy or re-host the image. If your URL goes 404, the page renders your business name as a wordmark and logs the failure on our side. We'll email you if it happens.
+
+## Business name
+
+Under **Settings → Business → Business name**. Maximum 120 characters; we truncate at render time if a name is longer than the layout allows.
+
+This is what shows up in three places: under the logo on hosted checkout, in receipt emails Strimz sends your customers, and in the from-name of the merchant notification emails (`Acme Inc. <noreply@…>` for example). Set it to whatever your customers know you as. If your legal entity is "Acme Holdings LLC" but your product is called "Acme," use "Acme."
+
+## Accent colour (enterprise)
+
+By default the Sign button is Strimz green (#02C76A). Enterprise-tier merchants can override.
+
+The colour goes in **Settings → Business → Brand colour** as a CSS hex (`#0033cc`). We validate two things at save time: it parses as a hex colour, and it has at least WCAG AA contrast against white. The contrast check exists because we've had merchants try to set the button to pale-yellow on white and then come back asking why nobody could see it. Buttons need contrast; we enforce it.
+
+The colour applies to the primary button and the underline accent on inline links inside the checkout page. It doesn't apply to the typed-data prompt — that's wallet-rendered, no theming exposed.
+
+## Whitelabel (enterprise)
+
+Whitelabel removes the "Powered by Strimz" footer from hosted checkout and replaces the EIP-712 domain name shown in the wallet prompt with your business name.
+
+That last part is the important one. By default the payer's wallet shows them a typed-data prompt with `domain: { name: 'StrimzPayments', version: '1', ... }`. With whitelabel, it shows `domain: { name: 'Acme', version: '1', ... }`. To them, the signature reads as if it's directly from your product, not from a third-party gateway.
+
+This is a deeper change than just CSS. The EIP-712 domain name is signed into the payer's authorization; the contract verifies it. To change the domain name, we deploy a per-merchant fork of the `StrimzPayments` contract with your business name baked in. The fork is a separate contract address; the payer's signature is bound to that address; settlements go through your specific contract.
+
+Setup is manual. We need to coordinate the contract deploy, the role grants, and the dashboard configuration. Talk to sales before turning this on. It's not a checkbox.
+
+For most merchants, the default brand surface (logo + name + accent colour) is enough. Whitelabel is for the customer who's whitelabeling Strimz itself — the platform-on-top-of-a-platform — or who has hard regulatory requirements about third-party branding in their checkout.
+
+## Custom domain (coming)
+
+Hosting checkout at `pay.yourdomain.com` instead of `strimz-finance.vercel.app/pay/:id` is on the roadmap. It needs DNS verification on your end and a TLS cert provisioned by Strimz; we're building the cert-management piece. No date yet; track the issue at github.com/Signor1/strimz/issues if you want to know when it ships.
+
+In the meantime, if you really need a custom domain, you can build a thin shim that takes a `?session=…` query param, redirects to the matching `checkoutUrl`, and works fine. It's a couple of lines of Next.js.
+
+## What you can't change
+
+The contract address shown in the typed-data prompt. (Whitelabel changes the contract address but not whether one is shown.)
+
+The signing prompt copy. The wallet renders EIP-712 in its own format; MetaMask, Phantom, Coinbase Wallet all show the same authorization slightly differently and that's outside Strimz's control.
+
+The page layout. The vertical stack of header → description → amount → button → footer is the format; we don't expose layout configuration. If you want a different layout, [embedded checkout](/docs/checkout/embed) is the right answer.

@@ -172,9 +172,18 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 		rows = tag.RowsAffected()
 
 		if rows > 0 && sessionID != nil {
+			// Stamp the tx hash onto the session row too. The browser
+			// loads the session payload directly; without this it
+			// would need a follow-up Transaction lookup to render the
+			// confirmation tx on the success card. The API also reads
+			// this field as part of the double-pay safety net.
 			if _, err := tx.Exec(ctx,
-				`UPDATE "PaymentSession" SET status = 'confirmed'::"PaymentSessionStatus" WHERE id = $1 AND status != 'confirmed'`,
-				*sessionID); err != nil {
+				`UPDATE "PaymentSession"
+				    SET status = 'confirmed'::"PaymentSessionStatus",
+				        "onchainTxHash" = $2
+				  WHERE id = $1
+				    AND status != 'confirmed'`,
+				*sessionID, in.OnchainTxHash); err != nil {
 				return fmt.Errorf("confirm session: %w", err)
 			}
 		}
@@ -228,19 +237,19 @@ func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in Subscripti
 
 		tag, err := tx.Exec(ctx, `
 			INSERT INTO "Subscription" (
-			  id, "onchainSubscriptionId", "merchantId", "customerId", "planId",
+			  id, "onchainSubscriptionId", "enrolmentTxHash", "merchantId", "customerId", "planId",
 			  status, "payerAddress", currency, amount, interval, "intervalCount",
 			  "currentPeriodStartAt", "currentPeriodEndAt", "nextChargeAt",
 			  "gracePeriodHours", mode, "createdAt", "updatedAt"
 			) VALUES (
-			  gen_random_uuid()::text, $1, $2, $3, $4,
-			  'active'::"SubscriptionStatus", $5, $6::"PaymentCurrency", $7, $8::"SubscriptionInterval", $9,
-			  $10, $11, $12,
-			  48, $13::"Mode", NOW(), NOW()
+			  gen_random_uuid()::text, $1, $2, $3, $4, $5,
+			  'active'::"SubscriptionStatus", $6, $7::"PaymentCurrency", $8, $9::"SubscriptionInterval", $10,
+			  $11, $12, $13,
+			  48, $14::"Mode", NOW(), NOW()
 			)
 			ON CONFLICT ("onchainSubscriptionId") DO NOTHING
 		`,
-			in.OnchainSubscriptionID.Int64(), merchantID, customerID, planID,
+			in.OnchainSubscriptionID.Int64(), in.OnchainTxHash, merchantID, customerID, planID,
 			in.PayerAddress, in.Currency, in.Amount, in.Interval, in.IntervalCount,
 			in.StartAt, in.NextChargeAt, in.NextChargeAt,
 			in.Mode,
@@ -443,13 +452,31 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 		}
 		rows = tag.RowsAffected()
 
-		// Move the subscription to `at_risk` so the dashboard can highlight.
+		// Move the subscription to `at_risk` — but only if the same
+		// period doesn't already have a successful charge. Background:
+		// the scheduler cron runs every minute. The chain confirms a
+		// successful batchCharge in < 1s, but the indexer may take
+		// several seconds to project the success. If the next sweep
+		// fires in that window, the worker calls batchCharge again,
+		// the contract recognises the chargeAttemptId as already used
+		// and emits `SubscriptionChargeSkipped`. Naively projecting
+		// that skip downgrades a payer who DID pay this period to
+		// `at_risk` on the dashboard. Filter by the period boundaries
+		// so an in-period success masks the duplicate skip.
 		if _, err := tx.Exec(ctx, `
 			UPDATE "Subscription"
-			   SET status = CASE WHEN status = 'active'::"SubscriptionStatus" THEN 'at_risk'::"SubscriptionStatus" ELSE status END,
+			   SET status = 'at_risk'::"SubscriptionStatus",
 			       "updatedAt" = NOW()
 			 WHERE id = $1
-		`, subID); err != nil {
+			   AND status = 'active'::"SubscriptionStatus"
+			   AND NOT EXISTS (
+			     SELECT 1 FROM "SubscriptionCharge"
+			      WHERE "subscriptionId" = $1
+			        AND "periodStartAt" = $2
+			        AND "periodEndAt" = $3
+			        AND status = 'succeeded'::"SubscriptionChargeStatus"
+			   )
+		`, subID, periodStart, periodEnd); err != nil {
 			return fmt.Errorf("flag at_risk: %w", err)
 		}
 		return nil

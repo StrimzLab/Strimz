@@ -28,6 +28,9 @@ import { RelayService } from './relay.service.js'
 @Module({
   controllers: [RelayController],
   providers: [NonceManager, GasPricingService, RelayService, RelayProcessor],
-  exports: [RelayService],
+  // NonceManager + GasPricingService are exported so other call sites
+  // (e.g. MerchantChainService) that sign from the same KMS key share
+  // a single nonce sequence and gas-pricing source of truth.
+  exports: [RelayService, NonceManager, GasPricingService],
 })
 export class RelayModule {}

@@ -6,6 +6,7 @@ import type {
 } from '@strimz/shared-types'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { tokenAddressForCurrency } from '../payment-sessions/token-resolver.js'
 
 const WITH_MERCHANT = { include: { merchant: { select: { onchainMerchantId: true } } } } as const
@@ -33,9 +34,20 @@ export class SubscriptionPlansService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cfg: TypedConfigService,
+    private readonly merchantChain: MerchantChainService,
   ) {}
 
-  async create(merchantId: string, input: CreateSubscriptionPlanInput): Promise<SubscriptionPlan> {
+  async create(
+    merchantId: string,
+    mode: 'test' | 'live',
+    input: CreateSubscriptionPlanInput,
+  ): Promise<SubscriptionPlan> {
+    // Live plans need a chain merchant id at enrolment time; register
+    // eagerly at plan creation so the public checkout never blocks on
+    // an on-chain submission. Test plans skip the chain entirely.
+    if (mode === 'live') {
+      await this.merchantChain.ensureRegistered(merchantId)
+    }
     const row = await this.prisma.db.subscriptionPlan.create({
       data: {
         merchantId,

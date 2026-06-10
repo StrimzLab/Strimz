@@ -6,6 +6,8 @@
     "idempotency",
     "meta-tx-flow",
     "modes-of-failure",
-    "on-chain-architecture"
+    "on-chain-architecture",
+    "safety-nets",
+    "compliance"
   ]
 }

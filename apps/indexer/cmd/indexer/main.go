@@ -12,14 +12,17 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
 
 	"github.com/StrimzLab/strimz/apps/indexer/internal/config"
+	"github.com/StrimzLab/strimz/apps/indexer/internal/health"
 	"github.com/StrimzLab/strimz/apps/indexer/internal/processor"
 )
 
@@ -48,6 +51,19 @@ func runCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			// Apply the configured log level. The main()-scope logger was
+			// pinned at INFO for cobra startup; now that cfg is loaded we
+			// swap in a level-aware handler so LOG_LEVEL=debug actually
+			// surfaces the per-batch "processed batch" lines.
+			level, err := parseSlogLevel(cfg.LogLevel)
+			if err != nil {
+				return err
+			}
+			slog.SetDefault(slog.New(slog.NewJSONHandler(
+				os.Stdout, &slog.HandlerOptions{Level: level},
+			)))
+
 			ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer cancel()
 
@@ -56,8 +72,40 @@ func runCmd() *cobra.Command {
 				return err
 			}
 			defer runner.Close()
+
+			// Stand the health server up alongside the runner. NewRunner
+			// has already validated chain + DB connectivity, so /readyz
+			// can flip immediately — it reports the process is serving,
+			// not the catchup queue's depth.
+			healthSrv := health.New(cfg.HTTPPort)
+			go func() {
+				if err := healthSrv.Start(ctx); err != nil {
+					slog.Error("health server stopped", "err", err)
+				}
+			}()
+			healthSrv.MarkReady()
+
 			return runner.Run(ctx)
 		},
+	}
+}
+
+// parseSlogLevel maps a config string ("info", "debug", …) to a
+// `slog.Level`. The config layer already constrains the value to a
+// small enum, so a mismatch here is a programmer error rather than a
+// user input error — surface it loudly.
+func parseSlogLevel(s string) (slog.Level, error) {
+	switch strings.ToLower(s) {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info":
+		return slog.LevelInfo, nil
+	case "warn":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, fmt.Errorf("unknown LOG_LEVEL %q", s)
 	}
 }
 

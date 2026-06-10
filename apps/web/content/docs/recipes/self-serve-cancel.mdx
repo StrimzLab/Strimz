@@ -1,0 +1,209 @@
+---
+title: Self-serve subscription cancel
+description: Give your customers a "Cancel my subscription" button without exposing your secret key or building a custom auth flow.
+---
+
+Customers should be able to cancel their subscription themselves. It's the friendliest thing to do, and it cuts down support volume. Strimz doesn't ship a hosted "Cancel my subscription" page because cancellation almost always involves business logic that's specific to your product. But the API call is one line; building the surrounding UI is straightforward.
+
+Here's the pattern that works.
+
+## The shape
+
+The customer is already authenticated in your app. They have a session cookie, a JWT, whatever you use. From their billing page, they click "Cancel subscription." Your server makes the Strimz API call. The Strimz secret key never reaches the browser.
+
+```
+[Customer's browser]
+        │
+        │  POST /api/account/cancel-subscription
+        ▼
+[Your server]
+        │
+        │  1. Verify their session.
+        │  2. Look up their Strimz subscription id.
+        │  3. Call strimz.subscriptions.cancel({ id }).
+        ▼
+[Strimz]
+```
+
+The Strimz API key stays on your server. The customer's auth happens however you already auth them — you don't need a separate Strimz-specific login.
+
+## Setup
+
+You need the customer's Strimz subscription id. This was given to you in the `subscription.created` webhook when they signed up; you stored it on their account row.
+
+```sql
+-- Your users table
+ALTER TABLE users ADD COLUMN strimz_subscription_id TEXT;
+```
+
+When `subscription.created` fires:
+
+```ts title="webhooks handler"
+case 'subscription.created': {
+  await db.user.update({
+    where: { walletAddress: event.data.payerAddress },
+    data: { strimzSubscriptionId: event.data.id },
+  })
+  break
+}
+```
+
+Now your server can look up the subscription id from the authenticated user.
+
+## The cancel route
+
+```ts title="app/api/account/cancel-subscription/route.ts"
+import { StrimzClient } from '@strimz/sdk'
+import { getCurrentUser } from '@/lib/auth'   // your existing auth
+
+const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_API_KEY! })
+
+export async function POST(req: Request) {
+  // 1. Verify their session.
+  const user = await getCurrentUser(req)
+  if (!user) {
+    return Response.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
+  // 2. Look up their subscription id.
+  if (!user.strimzSubscriptionId) {
+    return Response.json({ error: 'no_active_subscription' }, { status: 404 })
+  }
+
+  // 3. Read the cancel mode from the body. Default is at-period-end.
+  const { immediate = false } = await req.json().catch(() => ({}))
+
+  // 4. Call Strimz.
+  try {
+    const subscription = await strimz.subscriptions.cancel({
+      id: user.strimzSubscriptionId,
+      immediate,
+    })
+
+    return Response.json({
+      success: true,
+      cancelledAt: subscription.cancelledAt,
+      accessUntil: immediate ? new Date().toISOString() : subscription.currentPeriodEndAt,
+    })
+  } catch (err) {
+    // already-cancelled, etc.
+    return Response.json({ error: err.message }, { status: 400 })
+  }
+}
+```
+
+## The button
+
+```tsx title="app/account/billing/page.tsx"
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+
+export function CancelSubscriptionButton({ accessUntil }: { accessUntil: string }) {
+  const [confirming, setConfirming] = useState(false)
+  const [isPending, setIsPending] = useState(false)
+  const router = useRouter()
+
+  const cancel = async (immediate: boolean) => {
+    setIsPending(true)
+    const res = await fetch('/api/account/cancel-subscription', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ immediate }),
+    })
+
+    if (res.ok) {
+      router.refresh()   // re-fetch billing state
+    } else {
+      alert('Something went wrong. Please contact support.')
+    }
+    setIsPending(false)
+    setConfirming(false)
+  }
+
+  if (!confirming) {
+    return (
+      <button onClick={() => setConfirming(true)}>
+        Cancel subscription
+      </button>
+    )
+  }
+
+  return (
+    <div className="confirm">
+      <p>Are you sure? Your access will end {new Date(accessUntil).toLocaleDateString()}.</p>
+      <button onClick={() => cancel(false)} disabled={isPending}>
+        Yes, cancel at period end
+      </button>
+      <button onClick={() => cancel(true)} disabled={isPending}>
+        Cancel immediately (no refund)
+      </button>
+      <button onClick={() => setConfirming(false)} disabled={isPending}>
+        Never mind
+      </button>
+    </div>
+  )
+}
+```
+
+The page that uses it:
+
+```tsx title="app/account/billing/page.tsx"
+import { getCurrentUser } from '@/lib/auth'
+import { CancelSubscriptionButton } from './cancel-button'
+
+export default async function BillingPage() {
+  const user = await getCurrentUser()
+  const subscription = await strimz.subscriptions.retrieve(user.strimzSubscriptionId)
+
+  return (
+    <div>
+      <h1>Billing</h1>
+      <p>Plan: <strong>Pro</strong> · {subscription.amount} {subscription.currency} / month</p>
+      <p>Next charge: {new Date(subscription.nextChargeAt).toLocaleDateString()}</p>
+      <CancelSubscriptionButton accessUntil={subscription.currentPeriodEndAt} />
+    </div>
+  )
+}
+```
+
+That's the whole flow.
+
+## When the cancellation lands
+
+Your webhook handler will see `subscription.cancelled` shortly after the API call. The handler updates your local state with the cancellation details — you already have them from the API call's response, so the webhook is mostly redundant here. But it's the source of truth, so don't skip it.
+
+```ts
+case 'subscription.cancelled': {
+  const sub = event.data
+  await db.user.update({
+    where: { strimzSubscriptionId: sub.id },
+    data: {
+      cancelledAt: new Date(sub.cancelledAt),
+      accessUntil: new Date(sub.currentPeriodEndAt),
+    },
+  })
+  break
+}
+```
+
+For at-period-end cancellations, you'll also see `subscription.lapsed` later when the period actually ends. At that point you revoke access:
+
+```ts
+case 'subscription.lapsed': {
+  await db.user.update({
+    where: { strimzSubscriptionId: event.data.id },
+    data: { planTier: 'free', accessUntil: new Date() },
+  })
+  break
+}
+```
+
+For immediate cancellations, you handle this in the cancel route — set `accessUntil: new Date()` right there. No waiting for the webhook.
+
+## Why this pattern
+
+The Strimz API key never touches the browser. The customer's auth uses your existing system; you don't need to give them a Strimz-specific login. The cancellation is one API call from your server; your server controls the policy (do they need to confirm? do they get a refund? do they see a "are you sure?" page?).
+
+We don't ship a Strimz-hosted cancel page because the right cancellation policy varies. Some products refund unused time; some don't. Some run a win-back flow; some let customers leave immediately. Building one cancel UX into Strimz would be wrong for most merchants. The primitive is what you need; the policy is yours to compose.

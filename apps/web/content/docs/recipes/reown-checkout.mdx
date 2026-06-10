@@ -1,0 +1,189 @@
+---
+title: Embedded checkout with Reown AppKit
+description: A drop-in embedded checkout using Reown AppKit for wallet connect and our React hooks for the payment flow. About 60 lines of code.
+---
+
+If you want full control over the checkout UI but you'd rather not write a wallet connector from scratch, [Reown AppKit](https://docs.reown.com/appkit) is the right pairing. AppKit handles the wallet picker; the Strimz React hooks handle everything after the wallet is connected.
+
+This recipe is the minimal embedded checkout — your own button, your own layout, AppKit for connect, Strimz for the payment flow.
+
+## Install
+
+```bash
+pnpm add @strimz/sdk @strimz/sdk-react @reown/appkit @reown/appkit-adapter-wagmi wagmi viem @tanstack/react-query
+```
+
+The wagmi adapter is what bridges AppKit and the Strimz hooks (which read from wagmi internally).
+
+## Wire the providers
+
+The tree order matters: Reown's AppKit init has to happen, then WagmiProvider, then QueryClientProvider, then StrimzProvider.
+
+```tsx title="app/providers.tsx"
+'use client'
+
+import { ReactNode, useState } from 'react'
+import { WagmiProvider } from 'wagmi'
+import { createAppKit } from '@reown/appkit/react'
+import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
+import { arcTestnet } from '@reown/appkit/networks'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { StrimzProvider } from '@strimz/sdk-react'
+
+const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID!
+const networks = [arcTestnet]
+
+const wagmiAdapter = new WagmiAdapter({
+  networks,
+  projectId,
+})
+
+createAppKit({
+  adapters: [wagmiAdapter],
+  networks,
+  projectId,
+  defaultNetwork: arcTestnet,
+  metadata: {
+    name: 'Acme',
+    description: 'Pay with USDC on Arc',
+    url: 'https://acme.com',
+    icons: ['https://acme.com/icon.png'],
+  },
+})
+
+export function Providers({ children }: { children: ReactNode }) {
+  const [queryClient] = useState(() => new QueryClient())
+
+  return (
+    <WagmiProvider config={wagmiAdapter.wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <StrimzProvider publishableKey={process.env.NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY!}>
+          {children}
+        </StrimzProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
+  )
+}
+```
+
+Mount it in your root layout:
+
+```tsx title="app/layout.tsx"
+import { Providers } from './providers'
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  )
+}
+```
+
+## Server-side: create the session
+
+Same as any Strimz integration. Your server creates the session, returns the id to the client.
+
+```ts title="app/api/checkout/route.ts"
+import { StrimzClient } from '@strimz/sdk'
+
+const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_API_KEY! })
+
+export async function POST(req: Request) {
+  const { description, amount } = await req.json()
+
+  const session = await strimz.paymentSessions.create({
+    amount,            // raw 6-decimal integer string
+    currency: 'USDC',
+    description,
+  })
+
+  return Response.json({ sessionId: session.id })
+}
+```
+
+## Client-side: the embedded button
+
+The full embedded button:
+
+```tsx title="app/checkout/page.tsx"
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useAccount } from 'wagmi'
+import { usePayCheckout } from '@strimz/sdk-react'
+
+export default function CheckoutPage() {
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const { isConnected } = useAccount()
+
+  // Create the session when the page loads.
+  useEffect(() => {
+    fetch('/api/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ description: 'Pro plan — monthly', amount: '99000000' }),
+    })
+      .then((r) => r.json())
+      .then((data) => setSessionId(data.sessionId))
+  }, [])
+
+  if (!sessionId) return <div>Loading…</div>
+
+  return (
+    <div className="checkout">
+      <h1>Pay 99 USDC</h1>
+      <p>Pro plan — monthly. Pay once, use Acme for the month.</p>
+
+      {!isConnected ? (
+        // Reown's web component — handles wallet picker, connection state.
+        <w3m-button />
+      ) : (
+        <PayButton sessionId={sessionId} />
+      )}
+    </div>
+  )
+}
+
+function PayButton({ sessionId }: { sessionId: string }) {
+  const { mutate, isPending, isConfirmed, session, error } = usePayCheckout(sessionId)
+
+  if (isConfirmed) {
+    return (
+      <div>
+        ✓ Paid. <a href={`https://testnet.arcscan.app/tx/${session?.onchainTxHash}`}>View on chain</a>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <button onClick={() => mutate()} disabled={isPending}>
+        {isPending ? 'Confirming…' : 'Pay 99 USDC'}
+      </button>
+      {error && <p style={{ color: 'red' }}>{error.message}</p>}
+    </div>
+  )
+}
+```
+
+That's the integration. About 60 lines total counting the providers; less if you skip the loading state.
+
+## What's happening
+
+The user lands on `/checkout`. The page creates a session on mount (one fetch to your server). They see "Loading…" briefly.
+
+The session loads. If they haven't connected a wallet, we show Reown's `<w3m-button />` which renders a "Connect Wallet" button. Clicking it opens AppKit's wallet picker; the user picks MetaMask or whatever; the wallet connects.
+
+Once connected, the page swaps to the Pay button. Clicking Pay triggers `usePayCheckout`'s `mutate()` which fetches the session, builds the EIP-3009 typed data, prompts the wallet to sign, submits the signature, and polls for confirmation.
+
+When the session confirms, the page shows the success state with a link to Arcscan.
+
+## Customizing further
+
+The button is yours. Style it however. Add a loading spinner; show the wallet address; render the amount in a more elaborate way. The hook gives you `session`, `isPending`, `isConfirmed`, `error` — that's everything you need.
+
+The Reown modal can be themed too — see [their docs](https://docs.reown.com/appkit/react/core/options#themevariables). Match it to your brand and the connect flow feels native.
+
+If you want to handle the wallet connect entirely on your own (no Reown), you can — just wire up a wagmi config directly. The Strimz hooks read from wagmi regardless of how it got there.

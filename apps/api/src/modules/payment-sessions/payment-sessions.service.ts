@@ -7,6 +7,7 @@ import type {
 } from '@strimz/shared-types'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { tokenAddressForCurrency } from './token-resolver.js'
 
 /**
@@ -22,6 +23,7 @@ export class PaymentSessionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cfg: TypedConfigService,
+    private readonly merchantChain: MerchantChainService,
   ) {}
 
   async create(
@@ -30,6 +32,13 @@ export class PaymentSessionsService {
     input: CreatePaymentSessionInput,
   ): Promise<PaymentSession> {
     const merchant = await this.prisma.db.merchant.findUniqueOrThrow({ where: { id: merchantId } })
+    // Lazy on-chain merchant registration. Test sessions get a synthetic
+    // wire payload (chainMerchantId stays null); live sessions block
+    // here until the merchant has a registry id. Idempotent — subsequent
+    // live sessions return the cached id in O(1).
+    if (mode === 'live') {
+      await this.merchantChain.ensureRegistered(merchantId)
+    }
     const feeBps = effectiveFeeBps(merchant.tier as never, 'one_shot') ?? 150
     const amount = BigInt(input.amount)
     const feeAmount = (amount * BigInt(feeBps)) / 10_000n

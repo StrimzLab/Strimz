@@ -1,0 +1,70 @@
+---
+title: Hosted checkout
+description: The page your customer lands on when they click your "Pay" link. Strimz owns the UI; you control its content via the PaymentSession.
+---
+
+Hosted checkout is what most merchants use, because it's the path that takes the least integration work. You create a payment session from your server, redirect the customer to `session.checkoutUrl`, and Strimz handles everything from there: wallet connect, signature collection, on-chain broadcast, redirect-on-success.
+
+You don't write any front-end code. You don't think about wagmi configs or which wallet supports EIP-3009 or what to do if the user's wallet is on the wrong chain. The page is updated when we update; you get the improvements automatically.
+
+## What the customer sees
+
+They click your "Pay" link and land on `strimz-finance.vercel.app/pay/cs_…`. The page renders:
+
+- Your logo at the top (from your merchant profile).
+- Your business name as a wordmark below the logo.
+- The session description in slightly larger text — whatever you set on `paymentSessions.create`.
+- The amount, prominently. `10.00 USDC`, not `10000000`.
+- A Connect Wallet button at the bottom.
+
+That's the visible UI. They tap Connect Wallet, our Reown AppKit modal pops with the wallet options (MetaMask, Coinbase Wallet, WalletConnect, Phantom for EVM, the usual list). They pick one, the wallet shows them the EIP-3009 prompt with the recipient, amount, and deadline, they review and sign.
+
+Once they sign, the Connect button is replaced with a "Confirming…" state. The page is polling the session status every two seconds. As soon as the indexer projects the on-chain settlement (a few seconds), the page either redirects to your `successUrl` or, if you didn't set one, shows a Strimz-branded "Paid" state.
+
+The whole thing is mobile-first. We test on iOS Safari + Chrome Android with MetaMask Mobile, Coinbase Wallet, and Phantom; they all sign cleanly. If you're targeting B2B SaaS the buyer is often on mobile because they're forwarding an invoice from email; the page is built for that.
+
+## What you can customize
+
+The customizations all live on your merchant profile, not on the session. Configure them once and they apply to every session forever.
+
+**Business name** in Settings → Business. Shows up under the logo. Maximum 120 chars; we'll truncate at render if needed.
+
+**Logo URL** in Settings → Business. PNG or SVG, hosted publicly, minimum 96×96 (256×256 is better). We fetch the image at session creation and cache it on the hosted-page CDN. A logo URL change can take up to ten minutes to propagate to in-flight sessions; new sessions pick up the change immediately. We don't proxy or re-host the image; if your URL 404s, we fall back to the wordmark.
+
+**Default currency** in Settings → Payout. Just affects the default rendering on the dashboard's create-session form; doesn't change what the payer sees on hosted checkout (the session's `currency` field is what shows).
+
+On enterprise tier:
+
+**Brand colour** — CSS hex. Replaces the Strimz green on the primary button. We refuse to accept a colour that fails WCAG AA contrast against white; we'd rather your button still be readable than your brand be perfect.
+
+**Whitelabel** — drops the "Powered by Strimz" footer and replaces the typed-data domain name shown in the wallet prompt with your business name. This requires a per-merchant contract deployment because the EIP-712 domain name is signed into the payer's authorization. Talk to sales before turning this on.
+
+What you can customize per-session is much narrower. Just three fields:
+
+`description` is the line above the amount. Keep it short — "Pro plan — monthly", "Invoice #4012", "Annual subscription". The page truncates at about 80 characters.
+
+`payerEmail` pre-fills the optional email capture if you've already collected it (most invoice flows have this).
+
+`metadata` is opaque key-value pairs. We store it, we return it on the session, we include it in webhook events. We never display it to the payer.
+
+## What you can't customize
+
+The Strimz contract address. The payer sees it in the typed-data prompt; it's part of the EIP-712 domain. Changing it would invalidate the signature.
+
+The signing prompt itself. Different wallets render EIP-712 differently — MetaMask shows it one way, Phantom another, Rabby with its custom security review pane. Strimz has no control over that surface; it's wallet software's job. The fields in the prompt are what we put in the signed envelope, but the layout is the wallet's.
+
+The page layout. The form factor is fixed — header, description, amount, action button, footer. We don't expose a layout configuration because letting people move pieces around invariably leads to "where's the amount" support tickets.
+
+If you need full control of the layout, you want [embedded checkout](/docs/checkout/embed) instead. That gives you the SDK + the typed-data builder; you write the UI. The trade-off is you maintain it yourself.
+
+## When hosted vs embedded
+
+Hosted is the right default. Stripe Checkout taught us that "redirect to a hosted page" is fine for almost every flow that isn't a single-page app trying to be especially fancy. You ship faster; the page improves without you doing anything; you don't own the surface that's most likely to break.
+
+Embedded makes sense when:
+
+- The checkout lives inside a multi-step flow you don't want to break with a redirect.
+- Your app uses Privy embedded wallets and you want the payer to use those (Privy's embedded wallet works with Strimz, but hosted checkout doesn't know about it because it's per-merchant authentication).
+- Strimz branding anywhere in the flow is unacceptable. Whitelabel-tier customers usually want embedded.
+
+For most B2B SaaS, hosted is what you ship first and stay on.

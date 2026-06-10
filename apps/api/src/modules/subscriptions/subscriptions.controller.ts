@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
-import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
+import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
@@ -11,7 +11,7 @@ import { CancelSubscriptionDto } from './subscriptions.dto.js'
 
 @ApiTags('subscriptions')
 @ApiBearerAuth()
-@UseGuards(ApiKeyGuard)
+@UseGuards(MerchantAuthGuard)
 @Controller('/v1/subscriptions')
 export class SubscriptionsController {
   constructor(private readonly subs: SubscriptionsService) {}

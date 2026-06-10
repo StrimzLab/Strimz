@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Download, MoreHorizontal, Mail, Eye, Copy } from 'lucide-react'
+import { Download, MoreHorizontal, Mail, Copy } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import {
@@ -12,27 +12,56 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@strimz/ui'
+import type { Customer } from '@strimz/shared-types'
+
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable } from '@/components/dashboard/data-table'
-import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
-import { CUSTOMERS, type Customer } from '@/data/customers'
-import { formatUsdc, relativeTime, shortAddress } from '@/data/_seed'
+import { relativeTime, shortAddress } from '@/lib/format'
+import { useCustomers } from '@/hooks/api'
+
+/**
+ * Customers page.
+ *
+ * The API's `Customer` shape is intentionally minimal — no aggregated
+ * LTV, no transaction count. Those are derived metrics that belong on
+ * the analytics surface, not here. This page renders identity +
+ * activity (first/last seen) and routes deeper for spend history.
+ *
+ * Re-render hygiene:
+ *   - `select` projects the page envelope into `{rows, count}` so the
+ *     two cards above the table don't subscribe to wallet address
+ *     changes.
+ *   - Search input is debounced via local state → query params. We
+ *     don't memoise the params object because the change ID *is* the
+ *     thing we want to re-key the query on.
+ */
+
+interface CustomersView {
+  rows: Customer[]
+  count: number
+}
 
 export default function CustomersPage() {
-  const totalLtv = CUSTOMERS.reduce((s, c) => s + c.totalSpentUsdc, 0)
-  const withSubs = CUSTOMERS.filter((c) => c.activeSubscriptions > 0).length
+  const [search, setSearch] = React.useState('')
 
-  const columns: ColumnDef<Customer>[] = React.useMemo(
+  // Debounce so a typed query doesn't fire a request per keystroke.
+  const debouncedSearch = useDebounced(search, 250)
+
+  const { data, isLoading, isError, error, refetch } = useCustomers(
+    { query: debouncedSearch || undefined, limit: 100 },
+    { select: (page): CustomersView => ({ rows: page.data, count: page.data.length }) },
+  )
+
+  const columns = React.useMemo<ColumnDef<Customer>[]>(
     () => [
       {
-        accessorKey: 'name',
+        accessorKey: 'displayName',
         header: 'Customer',
         cell: ({ row }) => (
           <div className="flex flex-col leading-tight">
             <span className="font-medium">
-              {row.original.name ?? 'Anonymous'}
-              {row.original.company ? ` · ${row.original.company}` : ''}
+              {row.original.displayName ?? row.original.email ?? 'Anonymous'}
             </span>
             <span className="text-muted-foreground text-xs">
               {row.original.email ?? '— no email on file'}
@@ -48,33 +77,21 @@ export default function CustomersPage() {
         ),
       },
       {
-        accessorKey: 'totalSpentUsdc',
-        header: 'Lifetime spend',
-        cell: ({ row }) => (
-          <span className="inline-flex items-center gap-1.5 font-mono">
-            <TokenLogo symbol="USDC" size={14} />
-            {formatUsdc(row.original.totalSpentUsdc)}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'transactionCount',
-        header: 'Transactions',
-        cell: ({ row }) => (
-          <span className="text-muted-foreground">{row.original.transactionCount}</span>
-        ),
-      },
-      {
-        accessorKey: 'activeSubscriptions',
-        header: 'Active subs',
+        accessorKey: 'externalRef',
+        header: 'External ref',
         cell: ({ row }) =>
-          row.original.activeSubscriptions > 0 ? (
-            <span className="rounded-full bg-[#02C76A]/10 px-2 py-0.5 text-xs font-medium text-[#02C76A]">
-              {row.original.activeSubscriptions}
-            </span>
+          row.original.externalRef ? (
+            <code className="text-muted-foreground text-xs">{row.original.externalRef}</code>
           ) : (
-            <span className="text-muted-foreground">0</span>
+            <span className="text-muted-foreground">—</span>
           ),
+      },
+      {
+        accessorKey: 'firstSeenAt',
+        header: 'First seen',
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">{relativeTime(row.original.firstSeenAt)}</span>
+        ),
       },
       {
         accessorKey: 'lastSeenAt',
@@ -106,12 +123,15 @@ export default function CustomersPage() {
               >
                 <Copy className="mr-2 size-4" /> Copy wallet
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Eye className="mr-2 size-4" /> View timeline
-              </DropdownMenuItem>
               {row.original.email ? (
-                <DropdownMenuItem>
-                  <Mail className="mr-2 size-4" /> Email customer
+                <DropdownMenuItem
+                  onClick={() =>
+                    navigator.clipboard
+                      .writeText(row.original.email!)
+                      .then(() => toast.success('Email copied'))
+                  }
+                >
+                  <Mail className="mr-2 size-4" /> Copy email
                 </DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
@@ -131,17 +151,16 @@ export default function CustomersPage() {
           <Button
             variant="outline"
             size="sm"
+            disabled={!data || data.rows.length === 0}
             onClick={() => {
-              downloadCsv('customers.csv', CUSTOMERS, [
+              if (!data) return
+              downloadCsv('customers.csv', data.rows, [
                 { key: 'id', header: 'ID' },
                 { key: 'walletAddress', header: 'Wallet' },
                 { key: 'email', header: 'Email' },
-                { key: 'name', header: 'Name' },
-                { key: 'company', header: 'Company' },
-                { key: 'totalSpentUsdc', header: 'Total spent (smallest units)' },
-                { key: 'transactionCount', header: 'Transactions' },
-                { key: 'activeSubscriptions', header: 'Active subs' },
-                { key: 'createdAt', header: 'Created' },
+                { key: 'displayName', header: 'Display name' },
+                { key: 'externalRef', header: 'External ref' },
+                { key: 'firstSeenAt', header: 'First seen' },
                 { key: 'lastSeenAt', header: 'Last seen' },
               ])
               toast.success('Exported customers.csv')
@@ -152,21 +171,52 @@ export default function CustomersPage() {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Total customers" value={CUSTOMERS.length.toLocaleString()} />
-        <Stat label="With active subscription" value={withSubs.toLocaleString()} />
-        <Stat label="Combined LTV" value={`${formatUsdc(totalLtv)} USDC`} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Stat label="Total customers" value={data ? data.count.toLocaleString() : '—'} />
+        <Stat
+          label="Matching this search"
+          value={debouncedSearch ? `${data?.count ?? '—'} of ${data?.count ?? '—'}` : '—'}
+        />
       </div>
 
-      <DataTable
-        columns={columns}
-        data={CUSTOMERS}
-        searchPlaceholder="Search by name, email, wallet…"
-        emptyTitle="No customers yet"
-        emptyDescription="Once a wallet pays you, they show up here automatically."
-      />
+      {isError ? (
+        <ErrorBanner message={error?.message ?? 'Failed to load customers'} onRetry={refetch} />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={data?.rows ?? []}
+          loading={isLoading}
+          searchPlaceholder="Search by name, email, wallet…"
+          emptyTitle="No customers yet"
+          emptyDescription="Once a wallet pays you, they show up here automatically."
+          toolbar={
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter…"
+              className="border-border/60 bg-background h-9 rounded-md border px-3 text-xs"
+            />
+          }
+        />
+      )}
     </div>
   )
+}
+
+/**
+ * Local debouncer — keeps the search query stable for 250ms after the
+ * last keystroke. Avoids hammering the API while the merchant is still
+ * typing. Lives in this file because no other page uses it yet; if a
+ * third call site lands, lift to `@/hooks/use-debounced.ts`.
+ */
+function useDebounced<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = React.useState(value)
+  React.useEffect(() => {
+    const id = window.setTimeout(() => setDebounced(value), delayMs)
+    return () => window.clearTimeout(id)
+  }, [value, delayMs])
+  return debounced
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -174,6 +224,20 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="shadow-sub-card border-border/60 bg-background rounded-xl border p-4">
       <div className="text-muted-foreground text-xs">{label}</div>
       <div className="font-sora mt-1 text-2xl font-semibold">{value}</div>
+    </div>
+  )
+}
+
+function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="border-border/60 bg-background flex items-center justify-between rounded-xl border p-4">
+      <div>
+        <div className="text-sm font-medium">Couldn’t load customers</div>
+        <div className="text-muted-foreground text-xs">{message}</div>
+      </div>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        Try again
+      </Button>
     </div>
   )
 }

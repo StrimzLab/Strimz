@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { Public } from '../../common/decorators/public.decorator.js'
-import { PrivyAuthGuard } from '../../common/guards/privy.guard.js'
+import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
@@ -17,7 +17,7 @@ export class StorefrontsController {
   // ----- Authed merchant-side -----
 
   @ApiBearerAuth()
-  @UseGuards(PrivyAuthGuard)
+  @UseGuards(MerchantAuthGuard)
   @Get('/v1/storefront')
   @ApiOperation({ summary: 'Retrieve the merchant’s own storefront.' })
   retrieve(@CurrentMerchant() ctx: CurrentMerchantPayload) {
@@ -25,7 +25,7 @@ export class StorefrontsController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(PrivyAuthGuard)
+  @UseGuards(MerchantAuthGuard)
   @Post('/v1/storefront')
   @ApiOperation({ summary: 'Create or update the merchant storefront.' })
   upsert(@CurrentMerchant() ctx: CurrentMerchantPayload, @Body() dto: CreateStorefrontDto) {
@@ -33,21 +33,21 @@ export class StorefrontsController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(PrivyAuthGuard)
+  @UseGuards(MerchantAuthGuard)
   @Post('/v1/storefront/publish')
   publish(@CurrentMerchant() ctx: CurrentMerchantPayload) {
     return this.storefronts.setStatus(ctx.merchantId, 'published')
   }
 
   @ApiBearerAuth()
-  @UseGuards(PrivyAuthGuard)
+  @UseGuards(MerchantAuthGuard)
   @Post('/v1/storefront/archive')
   archive(@CurrentMerchant() ctx: CurrentMerchantPayload) {
     return this.storefronts.setStatus(ctx.merchantId, 'archived')
   }
 
   @ApiBearerAuth()
-  @UseGuards(PrivyAuthGuard)
+  @UseGuards(MerchantAuthGuard)
   @Get('/v1/storefront/products')
   listProducts(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
@@ -61,7 +61,7 @@ export class StorefrontsController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(PrivyAuthGuard)
+  @UseGuards(MerchantAuthGuard)
   @Post('/v1/storefront/products')
   createProduct(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
@@ -71,14 +71,14 @@ export class StorefrontsController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(PrivyAuthGuard)
+  @UseGuards(MerchantAuthGuard)
   @Get('/v1/storefront/products/:id')
   retrieveProduct(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string) {
     return this.storefronts.retrieveProduct(ctx.merchantId, id)
   }
 
   @ApiBearerAuth()
-  @UseGuards(PrivyAuthGuard)
+  @UseGuards(MerchantAuthGuard)
   @Post('/v1/storefront/products/:id/archive')
   archiveProduct(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string) {
     return this.storefronts.archiveProduct(ctx.merchantId, id)

@@ -4,8 +4,12 @@
   "extends": "./base.json",
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
-    "moduleResolution": "node",
+    // Every NestJS app in the repo (api, scheduler, agent) declares
+    // "type": "module" in package.json. CommonJS emit would mismatch
+    // and fail at runtime with "exports is not defined". Node16
+    // resolution is the format Node 22+ runs natively.
+    "module": "Node16",
+    "moduleResolution": "Node16",
     "lib": ["ES2022"],
     "types": ["node", "jest"],
     "outDir": "dist",

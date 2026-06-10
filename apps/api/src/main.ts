@@ -41,7 +41,15 @@ async function bootstrap(): Promise<void> {
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'API key' }, 'apiKey')
     .build()
   const doc = SwaggerModule.createDocument(app, swaggerConfig)
-  SwaggerModule.setup('/openapi.json', app, doc, { jsonDocumentUrl: '/openapi.json' })
+  // Expose only the JSON spec; Scalar (mounted just below at /docs) is the
+  // interactive UI. SwaggerModule.setup ships a Swagger-UI HTML page that
+  // needs @fastify/static for its assets and would duplicate Scalar.
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .get('/openapi.json', (_req, reply) => {
+      void reply.send(doc)
+    })
 
   // Scalar — beautiful interactive API reference at /docs.
   app.use(

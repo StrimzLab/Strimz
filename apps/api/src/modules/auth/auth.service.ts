@@ -72,6 +72,11 @@ export class AuthService {
           email,
           emailVerified,
           twoFactorEnabled,
+          // walletAddress: source of truth is the Privy embedded wallet,
+          // refreshed every sync. payoutAddress: only seeded from the
+          // wallet on a row that's never had one — never overwrite a
+          // merchant's deliberate payout choice.
+          walletAddress: wallet ?? existing.walletAddress,
           payoutAddress: existing.payoutAddress ?? wallet,
           lastLoginAt: new Date(),
         },
@@ -85,6 +90,7 @@ export class AuthService {
         email,
         emailVerified,
         twoFactorEnabled,
+        walletAddress: wallet,
         payoutAddress: wallet,
         lastLoginAt: new Date(),
       },

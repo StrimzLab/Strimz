@@ -3,6 +3,7 @@ import type { Job } from 'bullmq'
 import { encodeFunctionData, padHex } from 'viem'
 
 import { TypedConfigService } from '../../config/index.js'
+import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QUEUE_NAMES, QueueService } from '../../infra/queue/queue.service.js'
 import { payWithAuthorizationAbi, permitAndCreateSubscriptionAbi } from './abi.js'
 import type { RelayJobResult } from './relay.processor.js'
@@ -51,6 +52,7 @@ export class RelayService {
 
   constructor(
     private readonly queue: QueueService,
+    private readonly prisma: PrismaService,
     cfg: TypedConfigService,
   ) {
     this.paymentsAddress = cfg.env.STRIMZ_PAYMENTS_ADDRESS as `0x${string}` | undefined
@@ -63,6 +65,19 @@ export class RelayService {
     if (!this.paymentsAddress) {
       throw new Error('STRIMZ_PAYMENTS_ADDRESS is not configured')
     }
+
+    // Durable double-pay guard. BullMQ-only idempotency expires when
+    // a completed job is aged out (`removeOnComplete: { age: 3600 }`),
+    // so a re-submission of the same session more than an hour after
+    // a successful pay would otherwise pass through, broadcast a fresh
+    // signed authorization, and charge the payer twice. The indexer
+    // stamps `onchainTxHash` onto the session at confirmation time;
+    // that's the source of truth the chain itself respects.
+    if (input.sessionId) {
+      const alreadyPaid = await this.alreadyPaidView(input.sessionId, input.idempotencyKey)
+      if (alreadyPaid) return alreadyPaid
+    }
+
     const callData = encodeFunctionData({
       abi: payWithAuthorizationAbi,
       functionName: 'payWithAuthorization',
@@ -99,6 +114,21 @@ export class RelayService {
     if (!this.subscriptionsAddress) {
       throw new Error('STRIMZ_SUBSCRIPTIONS_ADDRESS is not configured')
     }
+
+    // Durable double-enrolment guard. Same shape as the payment-side
+    // safety net: a refresh past BullMQ's 1h retention would otherwise
+    // sign a fresh permit (different USDC nonce) and create a SECOND
+    // on-chain subscription for the same payer-plan pair. The scheduler
+    // would then charge both every period.
+    if (input.subscriptionInternalId) {
+      const alreadyEnrolled = await this.alreadyEnrolledView(
+        input.subscriptionInternalId,
+        input.permitData.owner,
+        input.idempotencyKey,
+      )
+      if (alreadyEnrolled) return alreadyEnrolled
+    }
+
     const callData = encodeFunctionData({
       abi: permitAndCreateSubscriptionAbi,
       functionName: 'permitAndCreateSubscription',
@@ -177,6 +207,81 @@ export class RelayService {
       `relay submission ${job.id} enqueued (reason=${data.reason}, gasLimit=${data.gasLimit})`,
     )
     return this.viewFromJob(job)
+  }
+
+  /**
+   * Build a synthetic confirmed RelaySubmissionView from an existing
+   * PaymentSession that has already been paid. Returned in place of
+   * enqueueing a new BullMQ job so a refresh-after-success (or any
+   * client re-submission past the BullMQ retention window) never
+   * results in a second on-chain charge. The shape matches a
+   * successful job view exactly so the BFF and browser flow continue
+   * to drive the same "confirmed → CompletionPanel" path.
+   */
+  private async alreadyPaidView(
+    sessionId: string,
+    idempotencyKey: string,
+  ): Promise<RelaySubmissionView | null> {
+    const session = await this.prisma.db.paymentSession.findUnique({
+      where: { id: sessionId },
+      select: { status: true, onchainTxHash: true, updatedAt: true },
+    })
+    if (!session || session.status !== 'confirmed') return null
+    this.log.log(
+      `relay submission ${idempotencyKey}: session ${sessionId} already confirmed; returning tx ${session.onchainTxHash ?? '<unknown>'}`,
+    )
+    return {
+      id: idempotencyKey,
+      idempotencyKey,
+      status: 'confirmed',
+      txHash: (session.onchainTxHash ?? null) as `0x${string}` | null,
+      reason: 'payWithAuthorization',
+      errorReason: null,
+      attemptCount: 0,
+      enqueuedAt: session.updatedAt.toISOString(),
+    }
+  }
+
+  /**
+   * Build a synthetic confirmed RelaySubmissionView when the
+   * (plan, payer) pair already has an active on-chain subscription.
+   * The indexer stamps `enrolmentTxHash` on the Subscription row at
+   * projection time, so the returned shape matches a real confirmed
+   * job view including the original enrolment tx.
+   *
+   * Cancelled subscriptions are NOT treated as already-enrolled — a
+   * cancelled payer can re-enrol legitimately and that path should go
+   * through the chain.
+   */
+  private async alreadyEnrolledView(
+    planId: string,
+    payerAddress: string,
+    idempotencyKey: string,
+  ): Promise<RelaySubmissionView | null> {
+    const existing = await this.prisma.db.subscription.findFirst({
+      where: {
+        planId,
+        payerAddress: payerAddress.toLowerCase(),
+        cancelledAt: null,
+        onchainSubscriptionId: { not: null },
+      },
+      select: { id: true, enrolmentTxHash: true, updatedAt: true },
+      orderBy: { createdAt: 'desc' },
+    })
+    if (!existing) return null
+    this.log.log(
+      `relay submission ${idempotencyKey}: ${payerAddress} already enrolled in plan ${planId} (subscription=${existing.id}); returning enrolment tx ${existing.enrolmentTxHash ?? '<unknown>'}`,
+    )
+    return {
+      id: idempotencyKey,
+      idempotencyKey,
+      status: 'confirmed',
+      txHash: (existing.enrolmentTxHash ?? null) as `0x${string}` | null,
+      reason: 'permitAndCreateSubscription',
+      errorReason: null,
+      attemptCount: 0,
+      enqueuedAt: existing.updatedAt.toISOString(),
+    }
   }
 
   private async viewFromJob(job: Job<RelayJobData, RelayJobResult>): Promise<RelaySubmissionView> {
