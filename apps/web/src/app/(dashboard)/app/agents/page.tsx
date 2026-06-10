@@ -2,19 +2,17 @@
 
 import * as React from 'react'
 import {
-  Bot,
   Mail,
   Activity,
-  Wallet,
   ShoppingBag,
   BarChart3,
   Globe2,
   Check,
   X,
   Clock,
+  Shield,
 } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { toast } from 'sonner'
 import {
   Button,
   Badge,
@@ -26,17 +24,23 @@ import {
   TabsList,
   TabsTrigger,
 } from '@strimz/ui'
+import type {
+  AgentActivityLog,
+  AgentCapability,
+  AgentJob,
+  AgentMerchantConfig,
+} from '@strimz/shared-types'
+
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
-import { TokenLogo } from '@/components/shared/token-logo'
+import { relativeTime, shortAddress } from '@/lib/format'
 import {
-  AGENT_CONFIG,
-  AGENT_ACTIVITY,
-  AGENT_JOBS,
-  type AgentJob,
-  type AgentCapability,
-} from '@/data/agents'
-import { formatUsdc, relativeTime, shortAddress } from '@/data/_seed'
+  useAgentActivity,
+  useAgentConfig,
+  useAgentJobs,
+  useApproveAgentJob,
+  useUpdateAgentConfig,
+} from '@/hooks/api'
 
 const CAPABILITIES: {
   key: AgentCapability
@@ -44,6 +48,12 @@ const CAPABILITIES: {
   icon: React.ComponentType<{ className?: string }>
   desc: string
 }[] = [
+  {
+    key: 'identity',
+    icon: Shield,
+    name: 'Identity',
+    desc: 'On-chain agent identity registration. Required for every other capability.',
+  },
   {
     key: 'recovery',
     icon: Mail,
@@ -54,25 +64,13 @@ const CAPABILITIES: {
     key: 'cashflow',
     icon: Activity,
     name: 'Cashflow digest',
-    desc: "Daily summary of yesterday's gross, fees, net, customers.",
-  },
-  {
-    key: 'cashflow_anomaly',
-    icon: Activity,
-    name: 'Cashflow anomaly',
-    desc: 'Hourly z-score against your trailing 30-day baseline.',
-  },
-  {
-    key: 'cashflow_yield',
-    icon: Wallet,
-    name: 'Yield recommendations',
-    desc: 'Surplus-over-reserve detection. You sign every move.',
+    desc: "Daily summary of yesterday's gross, fees, net, customers. Anomaly alerts and optional yield recommendations.",
   },
   {
     key: 'commerce',
     icon: ShoppingBag,
     name: 'Commerce',
-    desc: 'Vendor allowlist, monthly cap, awaiting-approval gating.',
+    desc: 'Agent-driven escrow jobs with vendor allowlist and approval thresholds.',
   },
   {
     key: 'pricing_intelligence',
@@ -83,43 +81,207 @@ const CAPABILITIES: {
   {
     key: 'routing',
     icon: Globe2,
-    name: 'CCTP V2 routing',
-    desc: 'Cross-chain settlement so customers can pay from any USDC chain.',
+    name: 'CCTP routing',
+    desc: 'Cross-chain USDC settlement so customers can pay from any chain.',
   },
 ]
 
 const OUTCOME_TONE: Record<string, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
   success: 'positive',
+  pending: 'info',
   skipped: 'neutral',
-  failed: 'danger',
+  failure: 'danger',
+}
+
+const JOB_STATUS_TONE: Record<string, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
+  proposed: 'warning',
+  accepted: 'info',
+  in_progress: 'info',
+  delivered: 'info',
+  approved: 'info',
+  completed: 'positive',
+  disputed: 'danger',
+  cancelled: 'neutral',
 }
 
 export default function AgentsPage() {
-  const [enabled, setEnabled] = React.useState<Set<AgentCapability>>(
-    new Set(AGENT_CONFIG.enabledCapabilities),
-  )
-  const successRate24h =
-    AGENT_ACTIVITY.filter((a) => a.outcome === 'success').length / AGENT_ACTIVITY.length
+  const configQuery = useAgentConfig()
+  const activityQuery = useAgentActivity({ limit: 50 })
+  const jobsQuery = useAgentJobs({ limit: 50 })
+  const approveMutation = useApproveAgentJob()
+  const updateConfigMutation = useUpdateAgentConfig()
 
-  const activityCols: ColumnDef<(typeof AGENT_ACTIVITY)[number]>[] = React.useMemo(
+  const config = configQuery.data
+  const enabledSet = React.useMemo(
+    () => new Set<AgentCapability>(config?.enabledCapabilities ?? []),
+    [config?.enabledCapabilities],
+  )
+
+  const toggleCapability = (cap: AgentCapability, on: boolean) => {
+    if (!config) return
+    const next = new Set(config.enabledCapabilities)
+    if (on) next.add(cap)
+    else next.delete(cap)
+    updateConfigMutation.mutate({ enabledCapabilities: Array.from(next) })
+  }
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Agents"
+        description="Opt-in AI agents that act on your behalf — recovery emails, cashflow alerts, escrow flows. You sign every value-moving action."
+      />
+
+      <Tabs defaultValue="capabilities">
+        <TabsList>
+          <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="jobs">Jobs</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="capabilities" className="mt-4">
+          <CapabilitiesTab
+            config={config}
+            isLoading={configQuery.isLoading}
+            enabledSet={enabledSet}
+            onToggle={toggleCapability}
+            isUpdating={updateConfigMutation.isPending}
+          />
+        </TabsContent>
+
+        <TabsContent value="activity" className="mt-4">
+          <ActivityTab
+            data={activityQuery.data?.data ?? []}
+            isLoading={activityQuery.isLoading}
+            isError={activityQuery.isError}
+            error={activityQuery.error}
+            onRetry={activityQuery.refetch}
+          />
+        </TabsContent>
+
+        <TabsContent value="jobs" className="mt-4">
+          <JobsTab
+            data={jobsQuery.data?.data ?? []}
+            isLoading={jobsQuery.isLoading}
+            isError={jobsQuery.isError}
+            error={jobsQuery.error}
+            onRetry={jobsQuery.refetch}
+            onApprove={(id) => approveMutation.mutate(id)}
+            isApproving={approveMutation.isPending}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+
+function CapabilitiesTab({
+  config,
+  isLoading,
+  enabledSet,
+  onToggle,
+  isUpdating,
+}: {
+  config: AgentMerchantConfig | undefined
+  isLoading: boolean
+  enabledSet: Set<AgentCapability>
+  onToggle: (cap: AgentCapability, on: boolean) => void
+  isUpdating: boolean
+}) {
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="border-border/60 bg-muted/30 h-24 animate-pulse rounded-xl border"
+          />
+        ))}
+      </div>
+    )
+  }
+
+  if (!config) {
+    return (
+      <Card className="border-border/60">
+        <CardContent className="p-6 text-center text-sm">
+          Agents aren't enabled for this account yet. Contact{' '}
+          <a className="text-[#02C76A]" href="mailto:strimztokenstream@gmail.com">
+            support
+          </a>{' '}
+          to provision the agent identity for your merchant.
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {CAPABILITIES.map((cap) => {
+        const Icon = cap.icon
+        const isEnabled = enabledSet.has(cap.key)
+        return (
+          <Card key={cap.key} className="border-border/60">
+            <CardContent className="flex items-start justify-between gap-4 p-4">
+              <div className="flex flex-1 items-start gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#02C76A]/10 text-[#02C76A]">
+                  <Icon className="size-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-medium">{cap.name}</h3>
+                    {isEnabled ? (
+                      <Badge
+                        variant="outline"
+                        className="border-[#02C76A]/40 bg-[#02C76A]/10 text-[10px] text-[#02C76A]"
+                      >
+                        Enabled
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <p className="text-muted-foreground mt-1 text-xs">{cap.desc}</p>
+                </div>
+              </div>
+              <Switch
+                checked={isEnabled}
+                onCheckedChange={(v) => onToggle(cap.key, v)}
+                disabled={isUpdating}
+              />
+            </CardContent>
+          </Card>
+        )
+      })}
+    </div>
+  )
+}
+
+function ActivityTab({
+  data,
+  isLoading,
+  isError,
+  error,
+  onRetry,
+}: {
+  data: AgentActivityLog[]
+  isLoading: boolean
+  isError: boolean
+  error: Error | null
+  onRetry: () => void
+}) {
+  const columns = React.useMemo<ColumnDef<AgentActivityLog>[]>(
     () => [
+      {
+        accessorKey: 'actionType',
+        header: 'Action',
+        cell: ({ row }) => <code className="text-xs font-medium">{row.original.actionType}</code>,
+      },
       {
         accessorKey: 'capability',
         header: 'Capability',
         cell: ({ row }) => (
-          <Badge variant="outline" className="text-[10px]">
-            {row.original.capability.replace('_', ' ')}
-          </Badge>
-        ),
-      },
-      {
-        accessorKey: 'summary',
-        header: 'Action',
-        cell: ({ row }) => (
-          <div className="flex flex-col leading-tight">
-            <span className="font-medium">{row.original.summary}</span>
-            <code className="text-muted-foreground text-[11px]">{row.original.actionType}</code>
-          </div>
+          <span className="text-muted-foreground text-xs capitalize">
+            {row.original.capability.replace(/_/g, ' ')}
+          </span>
         ),
       },
       {
@@ -130,16 +292,6 @@ export default function AgentsPage() {
             {row.original.outcome}
           </StatusPill>
         ),
-      },
-      {
-        accessorKey: 'ref',
-        header: 'Ref',
-        cell: ({ row }) =>
-          row.original.ref ? (
-            <code className="text-muted-foreground text-xs">{row.original.ref.slice(0, 12)}…</code>
-          ) : (
-            <span className="text-muted-foreground text-xs">—</span>
-          ),
       },
       {
         accessorKey: 'createdAt',
@@ -154,194 +306,136 @@ export default function AgentsPage() {
     [],
   )
 
-  const jobsCols: ColumnDef<AgentJob>[] = React.useMemo(
+  if (isError) {
+    return <ErrorBanner message={error?.message ?? 'Failed to load activity'} onRetry={onRetry} />
+  }
+
+  return (
+    <DataTable
+      columns={columns}
+      data={data}
+      loading={isLoading}
+      searchPlaceholder="Search activity…"
+      emptyTitle="No agent activity yet"
+      emptyDescription="When you enable a capability and it runs, you'll see the log here."
+    />
+  )
+}
+
+function JobsTab({
+  data,
+  isLoading,
+  isError,
+  error,
+  onRetry,
+  onApprove,
+  isApproving,
+}: {
+  data: AgentJob[]
+  isLoading: boolean
+  isError: boolean
+  error: Error | null
+  onRetry: () => void
+  onApprove: (id: string) => void
+  isApproving: boolean
+}) {
+  const columns = React.useMemo<ColumnDef<AgentJob>[]>(
     () => [
       {
-        accessorKey: 'vendor',
-        header: 'Vendor',
+        accessorKey: 'description',
+        header: 'Job',
         cell: ({ row }) => (
           <div className="flex flex-col leading-tight">
-            <span className="font-medium">{row.original.vendor}</span>
+            <span className="text-sm font-medium">
+              {row.original.description ?? row.original.id}
+            </span>
             <code className="text-muted-foreground text-[11px]">
-              {shortAddress(row.original.vendorWallet)}
+              {row.original.id.slice(0, 14)}…
             </code>
           </div>
         ),
       },
-      { accessorKey: 'description', header: 'Description' },
       {
-        accessorKey: 'amountUsdc',
-        header: 'Amount',
+        accessorKey: 'vendorAddress',
+        header: 'Vendor',
         cell: ({ row }) => (
-          <span className="inline-flex items-center gap-1.5 font-mono">
-            <TokenLogo symbol="USDC" size={14} />
-            {formatUsdc(row.original.amountUsdc)}
-          </span>
+          <code className="text-xs">{shortAddress(row.original.vendorAddress)}</code>
         ),
       },
       {
         accessorKey: 'status',
         header: 'Status',
-        cell: ({ row }) =>
-          row.original.status === 'proposed' ? (
-            <StatusPill tone="warning">awaiting approval</StatusPill>
-          ) : (
-            <StatusPill tone="info">{row.original.status.replace('_', ' ')}</StatusPill>
-          ),
+        cell: ({ row }) => (
+          <StatusPill tone={JOB_STATUS_TONE[row.original.status] ?? 'neutral'}>
+            {row.original.status.replace(/_/g, ' ')}
+          </StatusPill>
+        ),
+      },
+      {
+        accessorKey: 'createdAt',
+        header: 'Created',
+        cell: ({ row }) => (
+          <span className="text-muted-foreground text-xs">
+            {relativeTime(row.original.createdAt)}
+          </span>
+        ),
       },
       {
         id: 'actions',
         header: '',
         enableHiding: false,
         enableSorting: false,
-        cell: ({ row }) =>
-          row.original.requiresApproval && row.original.status === 'proposed' ? (
-            <div className="flex gap-1">
+        cell: ({ row }) => {
+          const job = row.original
+          if (job.status === 'proposed' || job.status === 'delivered') {
+            return (
               <Button
                 size="sm"
-                className="h-8"
-                onClick={() => toast.success(`Approved job ${row.original.id.slice(0, 10)}`)}
+                variant="outline"
+                className="h-7 px-2 text-xs"
+                onClick={() => onApprove(job.id)}
+                disabled={isApproving}
               >
-                <Check className="mr-1 size-3.5" /> Approve
+                <Check className="mr-1 size-3" /> Approve
               </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 text-rose-600"
-                onClick={() => toast.success('Rejected')}
-              >
-                <X className="mr-1 size-3.5" /> Reject
-              </Button>
-            </div>
-          ) : null,
+            )
+          }
+          if (job.status === 'completed') return <Check className="size-4 text-[#02C76A]" />
+          if (job.status === 'disputed') return <X className="size-4 text-rose-600" />
+          if (job.status === 'cancelled') return <X className="text-muted-foreground size-4" />
+          return <Clock className="text-muted-foreground size-4" />
+        },
       },
     ],
-    [],
+    [isApproving, onApprove],
   )
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="AutoPay Agent"
-        description="An automated assistant that runs the tasks you turn on. It holds no keys and never moves funds without your approval."
-        action={
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="gap-1.5">
-              <span className="inline-block size-1.5 animate-pulse rounded-full bg-[#02C76A]" />
-              Healthy
-            </Badge>
-          </div>
-        }
-      />
+  if (isError) {
+    return <ErrorBanner message={error?.message ?? 'Failed to load jobs'} onRetry={onRetry} />
+  }
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Active capabilities" value={`${enabled.size} of ${CAPABILITIES.length}`} />
-        <Stat label="Actions (14d)" value={AGENT_ACTIVITY.length.toLocaleString()} />
-        <Stat label="Success rate" value={`${Math.round(successRate24h * 100)}%`} />
-        <Stat
-          label="Awaiting approval"
-          value={AGENT_JOBS.filter((j) => j.status === 'proposed').length.toString()}
-        />
+  return (
+    <DataTable
+      columns={columns}
+      data={data}
+      loading={isLoading}
+      searchPlaceholder="Search jobs…"
+      emptyTitle="No agent jobs yet"
+      emptyDescription="Once the Commerce capability creates a job, it appears here for approval."
+    />
+  )
+}
+
+function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="border-border/60 bg-background flex items-center justify-between rounded-xl border p-4">
+      <div>
+        <div className="text-sm font-medium">Couldn’t load</div>
+        <div className="text-muted-foreground text-xs">{message}</div>
       </div>
-
-      <section>
-        <div className="mb-3 flex items-center gap-2">
-          <Bot className="size-4 text-[#02C76A]" />
-          <h2 className="font-sora text-base font-semibold">Capabilities</h2>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          {CAPABILITIES.map((c) => {
-            const Icon = c.icon
-            return (
-              <Card key={c.key} className="shadow-sub-card border-border/60">
-                <CardContent className="flex items-start justify-between gap-4 p-5">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <span className="shadow-sub-icon flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#02C76A]/10 text-[#02C76A]">
-                      <Icon className="size-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="font-medium">{c.name}</div>
-                      <p className="text-muted-foreground mt-0.5 text-xs">{c.desc}</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={enabled.has(c.key)}
-                    onCheckedChange={(v) => {
-                      const next = new Set(enabled)
-                      if (v) next.add(c.key)
-                      else next.delete(c.key)
-                      setEnabled(next)
-                      toast.success(`${c.name} ${v ? 'enabled' : 'disabled'}`)
-                    }}
-                  />
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      </section>
-
-      <Tabs defaultValue="activity">
-        <TabsList>
-          <TabsTrigger value="activity">
-            <Activity className="mr-1.5 size-4" /> Activity log
-          </TabsTrigger>
-          <TabsTrigger value="jobs">
-            <ShoppingBag className="mr-1.5 size-4" /> Commerce jobs ({AGENT_JOBS.length})
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="activity" className="mt-4">
-          <DataTable
-            columns={activityCols}
-            data={AGENT_ACTIVITY}
-            searchPlaceholder="Search agent activity…"
-            emptyTitle="No agent activity"
-            emptyDescription="Agent capabilities will log here as they fire."
-          />
-        </TabsContent>
-        <TabsContent value="jobs" className="mt-4">
-          <DataTable
-            columns={jobsCols}
-            data={AGENT_JOBS}
-            searchPlaceholder="Search jobs…"
-            emptyTitle="No commerce jobs"
-            emptyDescription="The commerce capability will create jobs here when it fires."
-          />
-        </TabsContent>
-      </Tabs>
-
-      <section className="shadow-sub-card border-border/60 bg-background rounded-xl border p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <Clock className="text-muted-foreground size-4" />
-          <h3 className="font-sora text-base font-semibold">Cron schedule</h3>
-        </div>
-        <div className="grid gap-2 text-sm sm:grid-cols-2">
-          <ScheduleRow label="Recovery sweep" cron="hourly" />
-          <ScheduleRow label="Cashflow digest" cron="daily 09:00 UTC" />
-          <ScheduleRow label="Cashflow anomaly" cron="hourly" />
-          <ScheduleRow label="Yield recommendation" cron="daily 09:30 UTC" />
-          <ScheduleRow label="Commerce summary" cron="monthly 1st 09:00 UTC" />
-          <ScheduleRow label="Pricing intelligence" cron="monthly 1st 09:00 UTC" />
-        </div>
-      </section>
-    </div>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="shadow-sub-card border-border/60 bg-background rounded-xl border p-4">
-      <div className="text-muted-foreground text-xs">{label}</div>
-      <div className="font-sora mt-1 text-2xl font-semibold">{value}</div>
-    </div>
-  )
-}
-
-function ScheduleRow({ label, cron }: { label: string; cron: string }) {
-  return (
-    <div className="border-border/40 flex items-center justify-between rounded-md border px-3 py-2">
-      <span>{label}</span>
-      <code className="text-muted-foreground text-xs">{cron}</code>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        Try again
+      </Button>
     </div>
   )
 }

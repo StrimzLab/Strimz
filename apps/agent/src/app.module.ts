@@ -12,6 +12,7 @@ import { CommerceModule } from './capabilities/commerce/commerce.module.js'
 import { PricingModule } from './capabilities/pricing/pricing.module.js'
 import { RoutingModule } from './capabilities/routing/routing.module.js'
 import { HealthModule } from './common/health/health.module.js'
+import { AdminModule } from './common/admin/admin.module.js'
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { HealthModule } from './common/health/health.module.js'
 
     // Public surface
     HealthModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

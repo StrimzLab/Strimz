@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAccount, useChainId, useSignTypedData } from 'wagmi'
 import { buildReceiveWithAuthorizationTypedData } from '@strimz/sdk/eip712'
 import type { TokenMetadata } from '@strimz/shared-types'
-import { keccak256, toHex } from 'viem'
+import { stringToHex } from 'viem'
 
 import { env } from '@/lib/env'
 import type { RelaySubmissionView } from '@/lib/strimz-bff'
@@ -38,7 +38,9 @@ export interface PayCheckoutInputs {
   tokenMeta: TokenMetadata
   /** Gross amount in token base units (e.g. 50.00 USDC = 50_000_000n). */
   amount: bigint
-  /** Off-chain reference (typically `keccak256(sessionId)`). */
+  /** Off-chain reference. Defaults to the PaymentSession id encoded as raw
+   *  ASCII bytes padded to bytes32 — the form the indexer reverses to
+   *  reconnect the on-chain Transaction back to its session row. */
   ref?: `0x${string}`
   /** Signature validity window in seconds. Default 5 minutes — matches the
    *  whitepaper's signed window for one-shot payments. */
@@ -118,7 +120,12 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
       const validAfter = BigInt(Math.max(0, now - 60)) // 60s clock-skew tolerance
       const validBefore = BigInt(now + validForSeconds)
       const nonce = randomBytes32()
-      const ref = inputs.ref ?? keccak256(toHex(sessionId))
+      // The on-chain `bytes32 ref` carries the PaymentSession id as raw
+      // ASCII bytes, right-padded with NULL to 32 bytes. The indexer
+      // decodes the same shape and links the resulting Transaction back
+      // to its session. CUIDs are ≤ 32 printable ASCII chars so this
+      // fits without truncation.
+      const ref = inputs.ref ?? stringToHex(sessionId, { size: 32 })
 
       // `tokenMeta.address` is validated server-side as a 0x-prefixed
       // 20-byte hex (TokensService normalises to lower-case before

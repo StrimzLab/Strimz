@@ -9,6 +9,8 @@ import { createAppKit } from '@reown/appkit/react'
 import { arcMainnet, arcTestnet, getArcChain } from '@strimz/shared-config'
 import { appkitMetadata, defaultNetwork, networks, projectId, wagmiAdapter } from '@/lib/wagmi'
 import { env } from '@/lib/env'
+import { MerchantApiProvider } from '@/hooks/api/merchant-api-context'
+import { AdminApiProvider } from '@/hooks/admin/admin-context'
 
 /**
  * Root-provider tree. Strimz is light-mode only — `next-themes` and the
@@ -88,11 +90,22 @@ export function Providers({
   )
 
   // Wagmi + Query + Strimz SDK form the inner tree.
+  //
+  // `MerchantApiProvider` sits inside QueryClientProvider so that the
+  // browser-side typed API client (which dashboard hooks compose
+  // against) shares the same Query cache. It does not depend on the
+  // Strimz SDK provider — the SDK is for SDK consumers; the dashboard
+  // uses its own client because it authenticates with a Privy access
+  // token, not a publishable/secret key.
   let tree: ReactNode = (
     <QueryClientProvider client={queryClient}>
-      <StrimzProvider publishableKey={env.strimzPublishableKey} apiBaseUrl={env.apiUrl}>
-        {children}
-      </StrimzProvider>
+      <MerchantApiProvider>
+        <AdminApiProvider>
+          <StrimzProvider publishableKey={env.strimzPublishableKey} apiBaseUrl={env.apiUrl}>
+            {children}
+          </StrimzProvider>
+        </AdminApiProvider>
+      </MerchantApiProvider>
     </QueryClientProvider>
   )
 
@@ -100,10 +113,25 @@ export function Providers({
   // either way (its module-level construction is stable), but mounting
   // the provider with a placeholder projectId would surface "invalid
   // project" errors in the modal at runtime.
+  //
+  // `reconnectOnMount={false}` matters here: this provider hosts the
+  // payer-facing checkout pages, where any page mount that silently
+  // reconnects a wallet ends up triggering a popup in some wallet
+  // implementations (Coinbase, Phantom, Smart Wallet variants) — the
+  // payer sees a signature/connection prompt for a page they merely
+  // refreshed. Hosted checkouts model connection as an explicit step
+  // the payer initiates by clicking "Connect wallet"; the EIP-3009 /
+  // EIP-2612 signature is the actual proof-of-ownership. Disabling
+  // auto-reconnect keeps the page silent on mount and aligns with
+  // how Stripe / Coinbase Commerce / Lemon Squeezy handle wallets.
   if (projectId) {
     const initialState = cookieToInitialState(wagmiAdapter.wagmiConfig as Config, cookies)
     tree = (
-      <WagmiProvider config={wagmiAdapter.wagmiConfig as Config} initialState={initialState}>
+      <WagmiProvider
+        config={wagmiAdapter.wagmiConfig as Config}
+        initialState={initialState}
+        reconnectOnMount={false}
+      >
         {tree}
       </WagmiProvider>
     )
