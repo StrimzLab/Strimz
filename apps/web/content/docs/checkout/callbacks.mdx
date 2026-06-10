@@ -1,0 +1,88 @@
+---
+title: Success and cancel URLs
+description: How Strimz redirects the payer after they finish, the placeholders you can use, and the security rules around what's allowed.
+---
+
+When a payer confirms a payment, or when they hit the Cancel button on hosted checkout, we redirect them somewhere. You decide where by setting `successUrl` and `cancelUrl` on `paymentSessions.create`.
+
+```ts
+const session = await strimz.paymentSessions.create({
+  amount: '10000000',
+  currency: 'USDC',
+  successUrl: 'https://your-site.com/thanks?session={CHECKOUT_SESSION_ID}',
+  cancelUrl: 'https://your-site.com/cancelled',
+})
+```
+
+Both are optional. If you don't set them, the hosted page shows a Strimz-branded "Paid" or "Cancelled" state with a link back to your business URL (the one in your merchant profile). Most merchants set them.
+
+## Placeholders
+
+You can embed three placeholders in the URL and Strimz fills them in at redirect time:
+
+`{CHECKOUT_SESSION_ID}` is the PaymentSession `id`. You'll want this so you can look the session up server-side and confirm payment.
+
+`{ON_CHAIN_TX_HASH}` is the transaction hash. Only available on `successUrl` after the session confirms — if you put it on `cancelUrl`, it'll be blank. Useful for showing the customer a link to Arcscan ("View your transaction on chain").
+
+`{AMOUNT}` is the raw 6-decimal integer the payer paid. You won't usually need this; if you do, you have it.
+
+The substitution is straightforward — find-and-replace in the URL string. Values are URL-encoded so they survive your query-string parser:
+
+```ts
+successUrl: 'https://your-site.com/thanks?session={CHECKOUT_SESSION_ID}&tx={ON_CHAIN_TX_HASH}'
+// → https://your-site.com/thanks?session=cmq4wck6a0002je6lfmb5bgjp&tx=0x4d32...
+```
+
+## Validation
+
+We're strict about the URLs you can pass.
+
+The URL has to be `https://` or `http://`. Anything else — `javascript:`, `data:`, `file:` — fails validation at API call time with `422 invalid_callback_url`. The session is never created with a bad value; you get the error before anything else happens.
+
+We allow `http://` because some merchants need it for local dev (`http://localhost:3000/thanks`). Production should always be `https://`; the dashboard surfaces a warning if you create a live-mode session with an `http://` URL.
+
+We don't allow relative paths. The URL has to be absolute, including the protocol. If you pass `/thanks`, validation rejects it.
+
+We cap the URL at 2048 characters. Browsers vary on what they tolerate; 2048 is conservative enough to work everywhere.
+
+That's the whole validation. We don't try to verify the domain belongs to your merchant or that the URL responds to a request — there's no useful guarantee we could give there. The validation exists to keep dangerous protocols out of the redirect path; everything else is your responsibility.
+
+## Don't rely on callbacks for security
+
+This is the part to internalize before going to production. The callback URL is public. Anyone can navigate to your success page without ever paying. Don't grant the entitlement at the success page; grant it on the webhook.
+
+The pattern that works:
+
+1. Customer pays on hosted checkout.
+2. Strimz redirects them to your `successUrl?session=cs_…`.
+3. Your success page shows a "thanks, your payment is confirming" UI. Optimistic.
+4. Meanwhile, your `payment.completed` webhook handler runs on your server and grants the entitlement (creates the order, sends the receipt, unlocks the feature).
+5. If your success page is server-rendered and the webhook ran before the page render, the page shows "confirmed" immediately. If not, the page polls the session via your own API and updates when it sees the webhook-projected state.
+
+The thing you don't want to do is "if `?session=cs_…` is in the URL, grant the entitlement." A bored attacker who reads your URL structure can forge that query string. The webhook is signed; query strings aren't.
+
+## Multi-environment URLs
+
+Standard advice — pass the env-appropriate base URL:
+
+```ts
+const session = await strimz.paymentSessions.create({
+  amount: '10000000',
+  currency: 'USDC',
+  successUrl: `${process.env.NEXT_PUBLIC_APP_URL}/thanks?session={CHECKOUT_SESSION_ID}`,
+  cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/cancelled`,
+})
+```
+
+Strimz doesn't allowlist URLs on the merchant; we accept any URL that passes validation. We do log every redirect for audit purposes — if you ever see redirect traffic going somewhere unexpected, rotate your API keys.
+
+## The cancel path
+
+If the payer hits Cancel on hosted checkout — or if the session expires without anyone signing — Strimz redirects to `cancelUrl` with:
+
+- `{CHECKOUT_SESSION_ID}` substituted to the session id.
+- A `cancelled=1` query param appended if you didn't already include the placeholder.
+
+There's no on-chain interaction at this point; the session is just terminal in `cancelled` state. Your handler probably just needs to log the abandonment and clear any in-progress cart state.
+
+If you didn't set a `cancelUrl`, the page shows a Strimz-branded "Payment cancelled" message with a Back link to your business URL. The session still flips to `cancelled` on Strimz's side either way.

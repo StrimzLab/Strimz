@@ -1,0 +1,152 @@
+---
+title: Embedded checkout
+description: When the hosted page isn't enough — drop the SDK into your own UI and own the wallet flow. Strimz still owns the relayer and the on-chain submission.
+---
+
+Hosted is the path most merchants take. Embedded is the answer when hosted doesn't fit — usually because the checkout is one step inside a multi-step product flow that you don't want to break with a redirect, or because you have hard requirements about Strimz branding not appearing anywhere.
+
+With embedded, you write the UI. Strimz still owns the relayer and the on-chain submission. The trade-off is honest: you ship a bit more code, you maintain more of the surface, you get total control.
+
+## When to actually pick embedded
+
+A few cases where it makes sense:
+
+You have a multi-step checkout where the customer's already authenticated and has a Privy embedded wallet that they're using inside your product. You don't want to redirect them to a Strimz page where they'd have to connect a different wallet.
+
+You're whitelabeling Strimz. The customer should never see a Strimz domain anywhere; the entire payment experience has to read as your product.
+
+You have a specific UI requirement — inline forms, side-panel checkouts, modal-based flows — that doesn't map onto a redirect. (Most "I want a different layout" cases actually want hosted with a slightly different framing; embedded is for when the layout genuinely can't redirect.)
+
+If none of those apply, stay on hosted. You'll ship faster and have less to maintain.
+
+## Install
+
+<Tabs items={["pnpm", "npm", "yarn"]}>
+  <Tab value="pnpm">
+
+```bash
+pnpm add @strimz/sdk @strimz/sdk-react
+```
+
+  </Tab>
+  <Tab value="npm">
+
+```bash
+npm install @strimz/sdk @strimz/sdk-react
+```
+
+  </Tab>
+  <Tab value="yarn">
+
+```bash
+yarn add @strimz/sdk @strimz/sdk-react
+```
+
+  </Tab>
+</Tabs>
+
+The two packages: `@strimz/sdk` is the universal client (works in Node and the browser). `@strimz/sdk-react` is the React layer with hooks. Both are required for the embedded flow; you don't need React Query as a peer because the SDK ships with its own internal cache.
+
+## Server-side: create the session
+
+Same as hosted. The session doesn't care where the payer is going to sign.
+
+```ts title="app/api/checkout/route.ts"
+import { StrimzClient } from '@strimz/sdk'
+
+const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_API_KEY! })
+
+export async function POST() {
+  const session = await strimz.paymentSessions.create({
+    amount: '10000000',
+    currency: 'USDC',
+    description: 'Pro plan — monthly',
+  })
+
+  // Return the session id, not the checkoutUrl — we're handling the UI ourselves.
+  return Response.json({ sessionId: session.id })
+}
+```
+
+## Client-side: mount the provider
+
+`StrimzProvider` carries the publishable key and bridges into whatever wallet stack you've already wired (wagmi, Privy, Reown — it reads from whichever is present).
+
+```tsx title="app/layout.tsx"
+import { StrimzProvider } from '@strimz/sdk-react'
+
+export default function RootLayout({ children }) {
+  return (
+    <StrimzProvider publishableKey={process.env.NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY!}>
+      {children}
+    </StrimzProvider>
+  )
+}
+```
+
+The publishable key is browser-safe. See [API keys](/docs/getting-started/api-keys) for what it can and can't authorize.
+
+## Client-side: collect the signature
+
+The high-level hook is `usePayCheckout`. It handles the full flow — fetch the session, build the typed data, prompt the wallet, submit the signature, poll for confirmation.
+
+```tsx title="components/checkout-button.tsx"
+'use client'
+
+import { usePayCheckout } from '@strimz/sdk-react'
+
+export function PayButton({ sessionId }: { sessionId: string }) {
+  const { mutate, isPending, isConfirmed, session } = usePayCheckout(sessionId)
+
+  if (isConfirmed) {
+    return (
+      <div>
+        Paid! <a href={`https://testnet.arcscan.app/tx/${session.onchainTxHash}`}>view on chain</a>
+      </div>
+    )
+  }
+
+  return (
+    <button onClick={() => mutate()} disabled={isPending}>
+      {isPending ? 'Confirming…' : `Pay ${session?.amount} ${session?.currency}`}
+    </button>
+  )
+}
+```
+
+Internally `mutate()` does:
+
+1. Fetches the session if it isn't already in cache.
+2. Reads the connected wallet from your wallet provider (wagmi, Privy, etc.).
+3. Builds the EIP-3009 typed-data payload from the session's contract address, amount, deadline, and a fresh random nonce.
+4. Calls the wallet's `signTypedData` with the EIP-712 envelope. This is the prompt the user sees.
+5. Posts the signature + payer address + nonce to Strimz's API.
+6. Polls the session every two seconds until status flips to `confirmed` or `failed`.
+
+You don't have to thread any of that yourself. The hook does it. You write the button.
+
+## What you still own
+
+Connect-wallet UI. The SDK assumes a wallet is already connected via whatever stack you're using. If you need a "Connect Wallet" button, you wire that up with wagmi or your wallet provider directly. (Reown AppKit's `<w3m-button />` works.)
+
+The error UI. The hook exposes `isError` and `error` (typed). You decide what to render when a signature fails or the on-chain submission reverts.
+
+The success UI. We give you `isConfirmed` and the session object; what you do with it is up to you. Most merchants show a confirmation screen and link to their next step.
+
+The wallet network switch, if needed. Most wallets handle this themselves once they see a chain id they don't have selected; if yours doesn't, wagmi exposes a `switchNetwork` hook.
+
+## What Strimz still owns
+
+The relayer. We pay the gas. We broadcast.
+
+The indexer. We watch for the on-chain confirmation and project it into the session.
+
+The webhook. Once the indexer confirms, we fire `payment.completed` to whatever endpoints you've subscribed.
+
+The state machine. The session statuses are driven entirely by Strimz's backend; the embedded SDK reads them but doesn't write them directly.
+
+## Subscriptions, briefly
+
+The pattern is the same for recurring billing — there's a `useSubscriptionCheckout(planId)` hook with the same shape. Internally it builds an EIP-2612 permit + the subscription enrolment, signs once, broadcasts. The first cycle charges in the same transaction.
+
+See [SDK → React hooks](/docs/sdk/react-hooks) for the full hook surface.

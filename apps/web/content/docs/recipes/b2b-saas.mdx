@@ -1,0 +1,272 @@
+---
+title: A B2B SaaS subscription, end to end
+description: The complete integration for a typical B2B SaaS — checkout signup, recurring billing, grace handling, cancellation. Real code that ships.
+---
+
+This is what a B2B SaaS subscription billing integration actually looks like. Not pseudo-code; you can copy-paste this into a Next.js app and it works.
+
+The scenario: you're shipping a SaaS product called Acme. You have a Pro plan at $99/month (well, 99 USDC/month). Customers sign up, pay monthly, and you want to know when they're churning before it becomes a problem.
+
+## What we're building
+
+Three routes plus a webhook handler:
+
+- `/pricing` — shows the plan; has a "Subscribe" button.
+- `/api/checkout/subscribe` — creates the subscription plan checkout URL.
+- `/api/webhooks/strimz` — receives the events that matter.
+- `/thanks?session=…` — the post-signup success page.
+
+We'll skip a bunch of standard Next.js boilerplate (Tailwind setup, env config, etc.) and focus on the Strimz parts.
+
+## One-time setup
+
+In your dashboard, create the plan:
+
+```ts title="scripts/setup-plan.ts"
+import { StrimzClient } from '@strimz/sdk'
+
+const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_API_KEY! })
+
+const plan = await strimz.subscriptionPlans.create({
+  name: 'Acme — Pro',
+  description: 'Everything, unlimited seats, priority support.',
+  amount: '99000000',           // 99 USDC
+  currency: 'USDC',
+  interval: 'monthly',
+  intervalCount: 1,
+  trialPeriodDays: 14,
+})
+
+console.log('Plan id:', plan.id)
+// Plan id: plan_acme_pro_8K3jK...
+```
+
+Save the plan id in your env: `STRIMZ_PRO_PLAN_ID=plan_acme_pro_…`. You'll use it in the checkout route.
+
+Also create a webhook endpoint, subscribed to the events you care about:
+
+```ts title="scripts/setup-webhooks.ts"
+const { signingSecret } = await strimz.webhookEndpoints.create({
+  url: 'https://acme.com/api/webhooks/strimz',
+  description: 'Production',
+  events: [
+    'subscription.created',
+    'subscription.charged',
+    'subscription.charge_failed',
+    'subscription.recovery_outcome',
+    'subscription.cancelled',
+    'subscription.lapsed',
+  ],
+  mode: 'test',   // 'live' once you're ready
+})
+
+console.log('Signing secret (saving this once):', signingSecret)
+// Save it: STRIMZ_WEBHOOK_SECRET=whsec_...
+```
+
+## The pricing page
+
+A "Subscribe" button. When clicked, POSTs to the checkout route and redirects to the URL the route returns.
+
+```tsx title="app/pricing/page.tsx"
+'use client'
+
+export default function PricingPage() {
+  return (
+    <div>
+      <h1>Acme Pro — 99 USDC / month</h1>
+      <ul>
+        <li>14-day free trial</li>
+        <li>Everything in our product</li>
+        <li>Pay in USDC on Arc</li>
+      </ul>
+      <form action="/api/checkout/subscribe" method="POST">
+        <button type="submit">Subscribe</button>
+      </form>
+    </div>
+  )
+}
+```
+
+## The checkout route
+
+```ts title="app/api/checkout/subscribe/route.ts"
+import { redirect } from 'next/navigation'
+
+export async function POST() {
+  // The Pro plan's checkout URL is just based on its id. No API call needed
+  // for the simple case — Strimz hosts the plan checkout page itself.
+  redirect(`https://strimz-finance.vercel.app/sub/${process.env.STRIMZ_PRO_PLAN_ID}`)
+}
+```
+
+For a basic flow, that's literally it — the plan id maps to a Strimz-hosted page that handles wallet connect, EIP-2612 permit signing, and the first-cycle charge. You don't need to call the SDK for the signup itself.
+
+If you want to pass metadata or pre-fill the payer's email, you'd create a custom subscription session via the API. We're keeping this minimal; for most cases the plan URL is enough.
+
+## The webhook handler
+
+This is where the meaningful logic lives. The events you care about are subscription state transitions.
+
+```ts title="app/api/webhooks/strimz/route.ts"
+import { strimzWebhooks } from '@strimz/sdk'
+import { db } from '@/lib/db'
+
+const SECRET = process.env.STRIMZ_WEBHOOK_SECRET!
+
+export async function POST(req: Request) {
+  const signature = req.headers.get('strimz-signature')
+  const body = await req.text()
+
+  let event
+  try {
+    event = strimzWebhooks.constructEvent(body, signature, SECRET)
+  } catch {
+    return new Response('signature failed', { status: 401 })
+  }
+
+  // Idempotency. If we've seen this event before, no-op.
+  const seen = await db.processedWebhook.findUnique({ where: { id: event.id } })
+  if (seen) return new Response('ok', { status: 200 })
+
+  switch (event.type) {
+    case 'subscription.created':
+      await onSubscriptionCreated(event.data)
+      break
+    case 'subscription.charged':
+      await onSubscriptionCharged(event.data)
+      break
+    case 'subscription.charge_failed':
+      await onSubscriptionChargeFailed(event.data)
+      break
+    case 'subscription.recovery_outcome':
+      await onRecoveryOutcome(event.data)
+      break
+    case 'subscription.cancelled':
+      await onSubscriptionCancelled(event.data)
+      break
+    case 'subscription.lapsed':
+      await onSubscriptionLapsed(event.data)
+      break
+  }
+
+  await db.processedWebhook.create({ data: { id: event.id, processedAt: new Date() } })
+  return new Response('ok', { status: 200 })
+}
+```
+
+The actual handlers — what your business logic does for each:
+
+```ts
+async function onSubscriptionCreated(sub) {
+  // A new subscriber signed up. Create their account in your product.
+  await db.user.upsert({
+    where: { walletAddress: sub.payerAddress },
+    create: {
+      walletAddress: sub.payerAddress,
+      strimzSubscriptionId: sub.id,
+      planTier: 'pro',
+      // In trial. They have access; you charge them after the trial ends.
+      accessUntil: new Date(sub.trialEndsAt),
+    },
+    update: {
+      strimzSubscriptionId: sub.id,
+      planTier: 'pro',
+      accessUntil: new Date(sub.trialEndsAt),
+    },
+  })
+}
+
+async function onSubscriptionCharged(charge) {
+  // A cycle succeeded. Extend their access.
+  const sub = await strimz.subscriptions.retrieve(charge.subscriptionId)
+  await db.user.update({
+    where: { strimzSubscriptionId: sub.id },
+    data: { accessUntil: new Date(sub.currentPeriodEndAt) },
+  })
+}
+
+async function onSubscriptionChargeFailed(charge) {
+  // A cycle failed. Email the customer.
+  const sub = await strimz.subscriptions.retrieve(charge.subscriptionId)
+  const user = await db.user.findUnique({ where: { strimzSubscriptionId: sub.id } })
+
+  await sendEmail({
+    to: user.email,
+    template: 'subscription-charge-failed',
+    data: {
+      amount: '99 USDC',
+      retryAt: sub.nextChargeAt,
+      topUpUrl: 'https://acme.com/wallet',
+    },
+  })
+}
+
+async function onRecoveryOutcome(sub) {
+  if (sub.status === 'active') {
+    // Recovery succeeded. They're fine.
+    return
+  }
+  // Recovery failed. We'll get a `subscription.lapsed` next.
+}
+
+async function onSubscriptionCancelled(sub) {
+  // At-period-end cancellation. They keep access until currentPeriodEndAt.
+  await db.user.update({
+    where: { strimzSubscriptionId: sub.id },
+    data: { cancelledAt: new Date(), accessUntil: new Date(sub.currentPeriodEndAt) },
+  })
+}
+
+async function onSubscriptionLapsed(sub) {
+  // Subscription is dead. Revoke access at the end of the current cycle.
+  // (For most products, immediate revocation is fine — they didn't pay.)
+  await db.user.update({
+    where: { strimzSubscriptionId: sub.id },
+    data: { planTier: 'free', accessUntil: new Date() },
+  })
+
+  // Trigger your win-back flow.
+  await scheduleWinBackEmail(sub)
+}
+```
+
+## The success page
+
+After the subscription enrolment confirms, Strimz redirects to the plan's `successUrl`. By default the plan doesn't have one configured; you can set it per-plan in the dashboard or override at the subscription create level.
+
+If you set `https://acme.com/thanks?session={CHECKOUT_SESSION_ID}` as the success URL, the page lands with the session id in the query.
+
+```tsx title="app/thanks/page.tsx"
+export default function ThanksPage({ searchParams }) {
+  return (
+    <div>
+      <h1>Welcome to Acme Pro 🎉</h1>
+      <p>
+        Your 14-day trial has started. We'll charge 99 USDC at the end of the
+        trial. You can cancel anytime from <a href="/account/billing">your billing page</a>.
+      </p>
+    </div>
+  )
+}
+```
+
+Don't grant the access here — the webhook handler does that. The success page is purely UI; the entitlement is granted asynchronously when `subscription.created` lands.
+
+If you want the success page to wait for the entitlement (so customers don't see a "trial active" page before your DB knows about them), poll your own DB for a few seconds, then show the welcome state. The webhook usually arrives in under a second, but it can be a beat slower under load.
+
+## What's not in this recipe
+
+Cancellation flow. See [Self-serve cancel](/docs/recipes/self-serve-cancel).
+
+The customer-facing dashboard showing subscription state. Standard CRUD; nothing Strimz-specific.
+
+Failed-charge recovery UI. The email above is the minimum; for a smoother UX you'd build a "Top up your wallet" page in your product and link the customer to it.
+
+Plans-by-tier (Pro + Team + Enterprise). Create one plan per tier; the rest of the integration is the same.
+
+## What's also not in this recipe
+
+The "what if Strimz is down" failure mode. The honest answer is: if Strimz is down, your checkout breaks. Your existing customers' renewals also won't fire during the outage (they'll fire when we come back). You should subscribe to our status page and treat sustained outages as a customer-comms event.
+
+This is the same trade-off any third-party billing system has. The argument for Strimz is that we're cheaper than Stripe and our customers are paying in dollars they hold in stablecoins anyway. The argument against is the dependency. Make the call that's right for your business.

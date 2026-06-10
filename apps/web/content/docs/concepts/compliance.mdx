@@ -1,0 +1,67 @@
+---
+title: Compliance
+description: Wallet address screening, where it sits in the request path, and what we log. Today: a stub screener in test mode and Circle Compliance Engine integration in flight for live.
+---
+
+Stablecoin payments are still payments. They're subject to OFAC's sanctions list, SDN matches, and the various country-level sanctions regimes that follow. Strimz screens wallet addresses before money moves so we don't accidentally settle a payment to a sanctioned address.
+
+The screener runs at two points.
+
+The first is merchant signup. When you finish onboarding, your payout address is screened. A hit blocks live-mode access — you stay in test mode and we surface a "compliance review required" notice. Most legitimate businesses clear instantly; if you don't and you think there's been a mistake, email support and a human takes a look.
+
+The second is payer first-interaction. When a payer connects a wallet on hosted checkout, the wallet address is screened. A hit returns 403 with `code: 'wallet_screening_failed'` from the meta-tx submission endpoint, and the hosted page shows a "we can't process this payment" message. The payer doesn't see anything beyond that — no specific reason code, no ability to retry, just a hard block.
+
+## Caching
+
+Address screenings are cached for 24 hours in Redis. Repeat sessions from the same payer don't re-screen, which keeps us under Circle's rate limits and keeps latency low. The cache key is `compliance:address-screen:{lowercased-address}` and lives at `mode`-scoped scope (test and live cache separately).
+
+A cleared block stays cleared for the cache lifetime. A freshly-flagged address starts being blocked at the next cache miss. We don't proactively invalidate; the 24-hour TTL is the safety net.
+
+If you need a forced re-screen (e.g. an address was wrongly flagged and Circle cleared it), there's an internal API for ops to bust the cache. Reach out; it's not exposed to merchants.
+
+## The log
+
+Every screening call writes a `ComplianceLog` row. It's append-only — we don't update past rows even if a later screening returns a different decision.
+
+```ts
+{
+  id: 'cl_…',
+  merchantId: 'mer_…',
+  walletAddress: '0xfd02…7150',
+  decision: 'cleared' | 'flagged' | 'blocked',
+  source: 'compliance_engine' | 'stub_test_mode',
+  reasonCode: 'sdn_match' | 'ofac_match' | null,
+  checkedAt: '2026-06-09T17:00:00Z',
+}
+```
+
+The dashboard has a Compliance tab that shows the logs for any wallet that's interacted with your account. Read-only — you can see history, you can see decisions, you can't override.
+
+We log decisions to support exactly two operations: you reviewing why a customer of yours was blocked (to decide whether to email them with the bad news), and us proving to a regulator after the fact that we screened. Neither operation needs mutable history.
+
+## What's running today
+
+This is the honest part. Circle Compliance Engine eligibility is application-based and we're in flight on it. Until we're approved, the test-mode screener is a stub that returns `cleared` for everything. We log every call with `source: 'stub_test_mode'` so the audit trail shows what happened.
+
+Live mode is different. The `StrimzPayments` contract refuses to settle unless the screening endpoint returns a `cleared` decision. There's no live-mode code path that skips the check. If our Circle integration is down for any reason, live-mode payments would queue and not broadcast — we'd rather no payments than unscreened ones.
+
+When Circle approves us, we flip the live screener over and remove the "no live mode without Circle" guard from the deploy gate. Test mode stays on the stub forever — testing your integration against real-money sanctions checks is not something you want anywhere near your CI.
+
+## What it doesn't cover
+
+A few things compliance screening doesn't do, in case anyone gets the wrong idea:
+
+- It doesn't do KYC on the payer. Strimz doesn't know who's behind a wallet; we know the wallet address and we screen it.
+- It doesn't do AML investigation. If a wallet is moving suspicious amounts to and from your business, we don't surface that. (We log it; we don't analyze it.)
+- It doesn't do travel-rule data exchange. That's on the roadmap for the over-threshold transfer flows.
+- It doesn't do tax reporting. Also on the roadmap.
+
+If you have a regulated use case that needs more than address screening — a money services business, anything that does customer due diligence — you need to layer your own KYC on top of Strimz. We give you the wallet address; you can hook a Persona / Sumsub / etc. flow at signup.
+
+## When something gets blocked
+
+The merchant view: a `compliance.wallet_flagged` or `compliance.wallet_blocked` webhook lands on your endpoint with the full `ComplianceLog` payload. The session that triggered it is in `failed` state with `failureReason: 'wallet_screening_failed'`.
+
+The recommended action is to email the payer (you have their email if you collected it as part of the session, or you can email through whatever support channel they reached you on). Tell them the payment was blocked for compliance reasons and that you'd be happy to clarify if they reach out. We don't recommend telling them exactly what triggered the flag — that information helps actually-sanctioned actors evade screening, and the legitimate ones can resolve it through proper channels.
+
+Most flagged payers we've seen in test mode are false positives. Real sanctioned actors don't typically try to subscribe to your B2B SaaS.

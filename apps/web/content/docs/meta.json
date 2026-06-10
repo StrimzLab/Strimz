@@ -1,4 +1,27 @@
 {
   "title": "Strimz Docs",
-  "pages": ["index", "getting-started", "api-reference", "sdks", "webhooks"]
+  "pages": [
+    "index",
+    "---Get started---",
+    "getting-started",
+    "quickstart",
+    "authentication",
+    "modes",
+    "---Concepts---",
+    "concepts",
+    "checkout",
+    "subscriptions",
+    "---Reference---",
+    "sdks",
+    "api-reference",
+    "api",
+    "webhooks",
+    "errors",
+    "glossary",
+    "---Patterns---",
+    "guides",
+    "recipes",
+    "---Operations---",
+    "self-hosting"
+  ]
 }
