@@ -31,6 +31,28 @@ export const paymentSessionStatusSchema = z.enum([
 ])
 export type PaymentSessionStatus = z.infer<typeof paymentSessionStatusSchema>
 
+/**
+ * Merchant-supplied callback URL. The hosted checkout dispatches with
+ * `window.location.href = redirectUrl` on completion / cancellation,
+ * so we MUST reject anything other than `http://` and `https://`.
+ *
+ * Why this is a real risk: Zod's `.url()` validates RFC syntax, which
+ * accepts `javascript:`, `data:`, `vbscript:`, `file:`, blob:`, etc.
+ * A compromised merchant integration or an XSS upstream could ship a
+ * session whose redirect URL executes script (or exfiltrates session
+ * tokens) on every payer's browser. The damage is per-payer, but the
+ * blast radius is "every checkout the merchant runs."
+ *
+ * Mailto / tel and other handler protocols are also rejected — there
+ * is no legitimate flow on a payment checkout that would benefit.
+ */
+export const callbackUrlSchema = z
+  .string()
+  .url()
+  .refine((v) => v.startsWith('https://') || v.startsWith('http://'), {
+    message: 'must be an http:// or https:// URL',
+  })
+
 export const paymentSessionSchema = z.object({
   id: idSchema,
   merchantId: idSchema,
@@ -63,8 +85,8 @@ export const paymentSessionSchema = z.object({
   description: z.string().max(500).nullable(),
   payerWalletAddress: evmAddressSchema.nullable(),
   payerEmail: z.string().email().nullable(),
-  successUrl: z.string().url().nullable(),
-  cancelUrl: z.string().url().nullable(),
+  successUrl: callbackUrlSchema.nullable(),
+  cancelUrl: callbackUrlSchema.nullable(),
   sourceChain: z
     .enum(['arc', 'ethereum', 'base', 'polygon', 'arbitrum', 'optimism', 'avalanche', 'solana'])
     .nullable(),

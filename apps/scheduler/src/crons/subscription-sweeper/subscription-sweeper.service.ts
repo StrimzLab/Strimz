@@ -58,6 +58,15 @@ export class SubscriptionSweeperService {
     // Step 1+2: atomic select-and-lock. We do this with a single UPDATE
     // that returns the rows it locked, so two scheduler replicas never
     // see the same subscription as available.
+    // Stale-lock reclaim window. If the worker crashed between
+    // acquiring the lock and broadcasting (OOM, redeploy, RPC hang
+    // past worker timeout), the row would stay `chargeLock=true`
+    // forever and never get charged again. 10 minutes is far past
+    // any healthy worker round-trip on Arc (sub-second finality, low
+    // single-digit RPC retries) so it can't accidentally race a live
+    // worker, but is short enough that a stuck subscription resumes
+    // charging on the very next sweep tick.
+    const staleLockSeconds = 600
     const candidates = (await this.prisma.db.$queryRawUnsafe(
       `
       UPDATE "Subscription"
@@ -65,7 +74,10 @@ export class SubscriptionSweeperService {
              "chargeLockAcquiredAt" = NOW()
        WHERE id IN (
          SELECT id FROM "Subscription"
-          WHERE "chargeLock" = false
+          WHERE (
+                  "chargeLock" = false
+               OR "chargeLockAcquiredAt" < NOW() - INTERVAL '1 second' * $3
+                )
             AND "nextChargeAt" IS NOT NULL
             AND "nextChargeAt" <= $1
             AND status IN ('active'::"SubscriptionStatus", 'at_risk'::"SubscriptionStatus")
@@ -78,6 +90,7 @@ export class SubscriptionSweeperService {
     `,
       now,
       limit,
+      staleLockSeconds,
     )) as Array<{ id: string }>
 
     if (candidates.length === 0) {
