@@ -382,22 +382,26 @@ A separate [`docker.yml`](./.github/workflows/docker.yml) workflow builds every 
 
 Each app has its own `.env.example` listing required and optional variables. Copy each one to `.env` for local use. Production values live in Render and Vercel, never in the repo. Recurring variables across apps:
 
-| Variable                            | Used by                        | Purpose                                                             |
-| ----------------------------------- | ------------------------------ | ------------------------------------------------------------------- |
-| `DATABASE_URL`                      | api, indexer, scheduler, agent | Postgres connection string                                          |
-| `REDIS_URL`                         | api, scheduler, agent          | Redis connection string                                             |
-| `ARC_RPC_URL`                       | api, indexer, scheduler, agent | Arc JSON-RPC endpoint                                               |
-| `ARC_CHAIN_ID`                      | all                            | Chain id (`5042002` testnet)                                        |
-| `STRIMZ_REGISTRY_ADDRESS`           | all                            | Deployed `StrimzRegistry` address                                   |
-| `STRIMZ_WEBHOOK_SIGNING_SECRET`     | api, scheduler                 | HMAC secret for webhook signatures                                  |
-| `WEBHOOK_SECRET_ENCRYPTION_KEY`     | api, scheduler                 | AES-256-GCM key for encrypting per-endpoint webhook secrets at rest |
-| `JWT_SECRET`                        | api                            | Merchant session JWT secret                                         |
-| `PRIVY_APP_ID` / `PRIVY_APP_SECRET` | web, api                       | Merchant auth (email + embedded wallet)                             |
-| `NEXT_PUBLIC_REOWN_PROJECT_ID`      | web                            | Reown AppKit project id for payer wallet connect on checkout        |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`    | web                            | Cloudflare Turnstile site key for bot-protection on `/signup`       |
-| `TURNSTILE_SECRET_KEY`              | api                            | Cloudflare Turnstile secret for the server-side Siteverify call     |
-| `RESEND_API_KEY`                    | api, scheduler                 | Transactional email                                                 |
-| `SENTRY_DSN`                        | all                            | Error tracking (optional in dev)                                    |
+| Variable                            | Used by                        | Purpose                                                                       |
+| ----------------------------------- | ------------------------------ | ----------------------------------------------------------------------------- |
+| `DATABASE_URL`                      | api, indexer, scheduler, agent | Postgres connection string                                                    |
+| `REDIS_URL`                         | api, scheduler, agent          | Redis connection string                                                       |
+| `ARC_RPC_URL`                       | api, indexer, scheduler, agent | Arc JSON-RPC endpoint                                                         |
+| `ARC_CHAIN_ID`                      | all                            | Chain id (`5042002` testnet)                                                  |
+| `STRIMZ_REGISTRY_ADDRESS`           | all                            | Deployed `StrimzRegistry` address                                             |
+| `STRIMZ_WEBHOOK_SIGNING_SECRET`     | api, scheduler                 | HMAC secret for webhook signatures                                            |
+| `WEBHOOK_SECRET_ENCRYPTION_KEY`     | api, scheduler                 | AES-256-GCM key for encrypting per-endpoint webhook secrets at rest           |
+| `JWT_SECRET`                        | api                            | Merchant session JWT secret                                                   |
+| `PRIVY_APP_ID` / `PRIVY_APP_SECRET` | web, api                       | Merchant auth (email + embedded wallet)                                       |
+| `NEXT_PUBLIC_REOWN_PROJECT_ID`      | web                            | Reown AppKit project id for payer wallet connect on checkout                  |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY`    | web                            | Cloudflare Turnstile site key for bot-protection on `/signup`                 |
+| `TURNSTILE_SECRET_KEY`              | api                            | Cloudflare Turnstile secret for the server-side Siteverify call               |
+| `RESEND_API_KEY`                    | api, scheduler                 | Transactional email — sending-scoped key, restricted to `mail.strimz.finance` |
+| `RESEND_FROM_EMAIL`                 | scheduler                      | From header; defaults to `Strimz <noreply@mail.strimz.finance>`               |
+| `RESEND_REPLY_TO`                   | scheduler                      | Reply-To header; defaults to the Strimz ops mailbox                           |
+| `STRIMZ_ADMIN_ALERT_EMAIL`          | scheduler                      | Where gas-balance + ops alerts are sent                                       |
+| `STRIMZ_DASHBOARD_URL`              | scheduler                      | CTA destination for merchant email links                                      |
+| `SENTRY_DSN`                        | all                            | Error tracking (optional in dev)                                              |
 
 ## Project structure
 
@@ -444,6 +448,44 @@ strimz/
 | Postgres 16      | Render (Managed PostgreSQL)               |
 | Redis 7          | Render (Managed Key Value)                |
 | Smart contracts  | Arc testnet (`5042002`), then Arc mainnet |
+
+### Post-deploy runbook
+
+After a fresh contract deploy (or after rotating a hot key), the operator EOAs need their on-chain roles. The deployer EOA is cold and holds `DEFAULT_ADMIN_ROLE`; the API relayer needs `MERCHANT_REGISTRAR_ROLE` and the scheduler needs `CHARGER_ROLE`. Run:
+
+```sh
+cd packages/contracts
+set -a && source .env && set +a    # exposes deployer key + addresses
+./script/grant-operator-roles.sh   # MAINNET=1 for mainnet
+```
+
+The script is idempotent — it `hasRole`-checks before every `grantRole`, so a re-run after a key rotation only sends the grants that are genuinely missing. See [`packages/contracts/script/grant-operator-roles.sh`](./packages/contracts/script/grant-operator-roles.sh) for the env it expects.
+
+### Operational safety nets
+
+A handful of defence-in-depth mechanisms live across the data model and the scheduler. They're invisible during the happy path but worth knowing when reading logs:
+
+- **Double-pay protection.** Three independent layers: the indexer stamps `PaymentSession.onchainTxHash` once a `PaymentSettled` event lands; the API's `alreadyPaidView` query short-circuits a second relay submission for the same session; the hosted-checkout page polls the session status before showing a sign prompt. Any one of the three would catch a duplicate; all three together make double-pay structurally impossible.
+- **Double-enrolment protection.** `Subscription.enrolmentTxHash` is a unique column; the API's `alreadyEnrolledView` query rejects any second permit submission for the same `(planId, payerAddress)`. The merchant sees the same `Subscription` row, not two.
+- **Stale charge-lock reclaim.** `Subscription.chargeLock` is held by the scheduler while a `batchCharge` is in-flight. The sweeper's `WHERE` clause reclaims any lock older than 10 minutes (configurable via `SUBSCRIPTION_CHARGE_LOCK_TTL_SECONDS`), so a scheduler crash mid-batch can't strand a subscription forever.
+- **Callback URL allowlist.** `successUrl` and `cancelUrl` on a `PaymentSession` are validated against an http(s)-only schema before persistence. `javascript:`, `data:`, `file:` URLs are rejected at the API boundary — they never reach the merchant's redirect.
+- **Idempotent onchain projection.** The indexer's `InsertSubscriptionChargeSkip` projection refuses to downgrade a `Subscription` from `active` → `at_risk` if a `succeeded` `SubscriptionCharge` already exists for the same period. Prevents a duplicate-skip event racing with a successful charge.
+
+### Email notifications
+
+Transactional and operational email is owned by the scheduler — one cron (`merchant-notifications`) polls four lanes (welcome, payment received, subscription started, subscription charged), one cron (`gas-balance-monitor`) watches the relayer + scheduler USDC balances with edge-triggered alerting. Both go through Resend on the verified `mail.strimz.finance` domain.
+
+| Variable                           | Default                                | Purpose                                                                                       |
+| ---------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `RESEND_API_KEY`                   | _(unset — stub mode)_                  | Sending-scoped API key from resend.com. Empty value logs sends locally; set in prod.          |
+| `RESEND_FROM_EMAIL`                | `Strimz <noreply@mail.strimz.finance>` | From header. Must live on the verified subdomain.                                             |
+| `RESEND_REPLY_TO`                  | `strimztokenstream@gmail.com`          | Reply-To header; recipients hit Reply and land on the Strimz ops mailbox.                     |
+| `STRIMZ_ADMIN_ALERT_EMAIL`         | _(required)_                           | Recipient for gas-balance + ops alerts. Distinct from `RESEND_FROM_EMAIL`.                    |
+| `STRIMZ_DASHBOARD_URL`             | falls back to brand origin             | CTA destination for merchant email links. Set per env (localhost in dev, deploy URL in prod). |
+| `GAS_BALANCE_CRON`                 | `0 */15 * * * *`                       | Schedule for the relayer/scheduler balance check.                                             |
+| `GAS_BALANCE_THRESHOLD_USDC`       | `5`                                    | Alert fires when either EOA's USDC balance drops below this value.                            |
+| `MERCHANT_NOTIFICATION_CRON`       | `*/30 * * * * *`                       | Schedule for the merchant-notifications cron.                                                 |
+| `MERCHANT_NOTIFICATION_BATCH_SIZE` | `50`                                   | Per-tick cap for each notification lane.                                                      |
 
 ## Contributing
 

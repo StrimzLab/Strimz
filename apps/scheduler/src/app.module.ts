@@ -13,7 +13,10 @@ import { AgentActionModule } from './workers/agent-action/agent-action.module.js
 import { SubscriptionSweeperModule } from './crons/subscription-sweeper/subscription-sweeper.module.js'
 import { SubscriptionLapsedModule } from './crons/subscription-lapsed/subscription-lapsed.module.js'
 import { InvoiceOverdueModule } from './crons/invoice-overdue/invoice-overdue.module.js'
+import { GasBalanceMonitorModule } from './crons/gas-balance-monitor/gas-balance-monitor.module.js'
+import { MerchantNotificationsModule } from './crons/merchant-notifications/merchant-notifications.module.js'
 import { HealthModule } from './common/health/health.module.js'
+import { AdminModule } from './common/admin/admin.module.js'
 
 @Module({
   imports: [
@@ -35,9 +38,12 @@ import { HealthModule } from './common/health/health.module.js'
     SubscriptionSweeperModule,
     SubscriptionLapsedModule,
     InvoiceOverdueModule,
+    GasBalanceMonitorModule,
+    MerchantNotificationsModule,
 
     // Public surface
     HealthModule,
+    AdminModule,
   ],
 })
 export class AppModule {}
