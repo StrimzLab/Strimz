@@ -1,69 +1,82 @@
 // Merchants, team members, and API keys.
 
 model Merchant {
-  id                   String         @id @default(cuid())
+  id                  String          @id @default(cuid())
   /// Privy DID (`did:privy:...`). Issued on first sign-in via Privy.
   /// Server verifies inbound Privy access tokens; this is the join key.
-  privyUserId          String?        @unique
-  onchainMerchantId    Int?           @unique
-  businessName         String?        @db.VarChar(120)
-  email                String         @unique @db.VarChar(320)
+  privyUserId         String?         @unique
+  onchainMerchantId   Int?            @unique
+  businessName        String?         @db.VarChar(120)
+  email               String          @unique @db.VarChar(320)
   /// True after Privy confirms the email address. Required for live mode.
-  emailVerified        Boolean        @default(false)
+  emailVerified       Boolean         @default(false)
   /// True after the merchant has enrolled MFA in Privy. Required for live mode.
-  twoFactorEnabled     Boolean        @default(false)
+  twoFactorEnabled    Boolean         @default(false)
   /// True after the self-attested business onboarding form is submitted.
-  onboardingCompleted  Boolean        @default(false)
+  onboardingCompleted Boolean         @default(false)
   /// Free-text business sector (Software, eCommerce, etc.); collected at onboarding.
-  businessSector       String?        @db.VarChar(80)
-  tier                 MerchantTier   @default(free)
-  status               MerchantStatus @default(active)
+  businessSector      String?         @db.VarChar(80)
+  tier                MerchantTier    @default(free)
+  status              MerchantStatus  @default(active)
   /// The merchant's controlling EVM address — used as the on-chain
   /// `owner` in `StrimzRegistry.registerMerchant`. Sourced from the
   /// Privy embedded wallet at sync time; stable for the lifetime of
   /// the Privy account. Distinct from `payoutAddress`, which the
   /// merchant may direct to a treasury, multi-sig, or other wallet.
-  walletAddress        String?        @db.VarChar(42)
-  payoutAddress        String?        @db.VarChar(42)
-  defaultCurrency      PaymentCurrency @default(USDC)
-  countryCode          String?        @db.VarChar(2)
+  walletAddress       String?         @db.VarChar(42)
+  /// DEPRECATED for new code — kept for backwards compatibility on
+  /// existing rows. New code reads from `payoutAddresses[chain]`. The
+  /// `merchant-chain` registration flow continues to read this column
+  /// for the EVM payout until the per-chain rollout completes.
+  payoutAddress       String?         @db.VarChar(42)
+  /// Chain ids the merchant has opted in to for incoming payments. A
+  /// subset of currently-enabled `SupportedChain`s. Populated at
+  /// onboarding; surfaced in the chain picker on checkout.
+  supportedChains     String[]        @default([])
+  /// Per-chain payout addresses keyed by `SupportedChain.id`. Shape:
+  ///   { 'evm:base': '0x…', 'stellar:pubnet': 'G…' | 'C…' }
+  /// Address widths and validation belong in the chain adapter, not
+  /// the database. Adding a new chain = appending one entry.
+  payoutAddresses     Json            @default("{}")
+  defaultCurrency     PaymentCurrency @default(USDC)
+  countryCode         String?         @db.VarChar(2)
   /// E.164 phone number, optional, captured at onboarding.
-  phone                String?        @db.VarChar(20)
-  websiteUrl           String?
-  logoUrl              String?
-  whitelabelEnabled    Boolean        @default(false)
-  arcEnvironment       ArcEnvironment @default(testnet)
-  metadata             Json           @default("{}")
+  phone               String?         @db.VarChar(20)
+  websiteUrl          String?
+  logoUrl             String?
+  whitelabelEnabled   Boolean         @default(false)
+  arcEnvironment      ArcEnvironment  @default(testnet)
+  metadata            Json            @default("{}")
   /// Last successful login timestamp; useful for session-management UI.
-  lastLoginAt          DateTime?
+  lastLoginAt         DateTime?
   /// Timestamp the scheduler sent the welcome email. Null until the
   /// notification cron picks the row up; guarantees one-shot delivery
   /// without a separate event log. Same pattern as
   /// `Subscription.merchantNotifiedAt` and `PaymentSession.merchantNotifiedAt`.
-  welcomeNotifiedAt    DateTime?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
+  welcomeNotifiedAt   DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
   // Relations
-  members              MerchantMember[]
-  apiKeys              MerchantApiKey[]
-  webhookEndpoints     MerchantWebhookEndpoint[]
-  webhookEvents        WebhookEvent[]
-  webhookDeliveries    WebhookDelivery[]
-  customers            Customer[]
-  paymentSessions      PaymentSession[]
-  transactions         Transaction[]
-  subscriptionPlans    SubscriptionPlan[]
-  subscriptions        Subscription[]
-  subscriptionCharges  SubscriptionCharge[]
-  refunds              Refund[]
-  complianceLogs       ComplianceLog[]
-  agentConfig          AgentMerchantConfig?
-  agentActivityLogs    AgentActivityLog[]
-  agentJobs            AgentJob[]
-  storefront           Storefront?
-  invoices             Invoice[]
-  auditLogs            AuditLog[]
+  members             MerchantMember[]
+  apiKeys             MerchantApiKey[]
+  webhookEndpoints    MerchantWebhookEndpoint[]
+  webhookEvents       WebhookEvent[]
+  webhookDeliveries   WebhookDelivery[]
+  customers           Customer[]
+  paymentSessions     PaymentSession[]
+  transactions        Transaction[]
+  subscriptionPlans   SubscriptionPlan[]
+  subscriptions       Subscription[]
+  subscriptionCharges SubscriptionCharge[]
+  refunds             Refund[]
+  complianceLogs      ComplianceLog[]
+  agentConfig         AgentMerchantConfig?
+  agentActivityLogs   AgentActivityLog[]
+  agentJobs           AgentJob[]
+  storefront          Storefront?
+  invoices            Invoice[]
+  auditLogs           AuditLog[]
 
   @@index([status])
   @@index([tier])
@@ -72,38 +85,38 @@ model Merchant {
 }
 
 model MerchantMember {
-  id             String       @id @default(cuid())
-  merchantId     String
-  email          String       @db.VarChar(320)
-  role           MerchantRole @default(developer)
-  invitationToken String?     @unique
-  invitedAt      DateTime     @default(now())
-  acceptedAt     DateTime?
+  id              String       @id @default(cuid())
+  merchantId      String
+  email           String       @db.VarChar(320)
+  role            MerchantRole @default(developer)
+  invitationToken String?      @unique
+  invitedAt       DateTime     @default(now())
+  acceptedAt      DateTime?
 
-  merchant       Merchant     @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
 
   @@unique([merchantId, email])
   @@index([merchantId])
 }
 
 model MerchantApiKey {
-  id           String      @id @default(cuid())
-  merchantId   String
-  name         String      @db.VarChar(60)
-  kind         ApiKeyKind
-  mode         Mode
+  id         String        @id @default(cuid())
+  merchantId String
+  name       String        @db.VarChar(60)
+  kind       ApiKeyKind
+  mode       Mode
   /// sha256(secret) in lowercase hex — the O(1) lookup index.
-  hash         String      @unique
+  hash       String        @unique
   /// First N chars of the secret for display.
-  prefix       String      @db.VarChar(24)
+  prefix     String        @db.VarChar(24)
   /// Last 4 chars for "ending in ..." display.
-  lastFour     String      @db.VarChar(4)
-  scopes       ApiKeyScope[]
-  lastUsedAt   DateTime?
-  revokedAt    DateTime?
-  createdAt    DateTime    @default(now())
+  lastFour   String        @db.VarChar(4)
+  scopes     ApiKeyScope[]
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime      @default(now())
 
-  merchant     Merchant    @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Restrict)
 
   @@index([merchantId, mode])
   @@index([revokedAt])

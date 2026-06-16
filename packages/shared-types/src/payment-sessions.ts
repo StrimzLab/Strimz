@@ -11,6 +11,7 @@
 
 import { z } from 'zod'
 import {
+  chainIdSchema,
   evmAddressSchema,
   evmTxHashSchema,
   idSchema,
@@ -18,6 +19,7 @@ import {
   metadataSchema,
   paymentCurrencySchema,
   tokenAmountSchema,
+  walletAddressSchema,
 } from './common.js'
 
 export const paymentSessionStatusSchema = z.enum([
@@ -83,8 +85,22 @@ export const paymentSessionSchema = z.object({
   feeAmount: tokenAmountSchema,
   netAmount: tokenAmountSchema,
   description: z.string().max(500).nullable(),
-  payerWalletAddress: evmAddressSchema.nullable(),
+  /** Widened from EVM-only to accept Stellar G-/C- addresses too. */
+  payerWalletAddress: walletAddressSchema.nullable(),
   payerEmail: z.string().email().nullable(),
+  /**
+   * Chains the payer may settle on. Subset of the merchant's
+   * `supportedChains` at session-creation time. The payer picks one
+   * at checkout; the API exposes a `select-chain` endpoint that
+   * returns the chain-specific signing envelope.
+   */
+  acceptedChains: z.array(chainIdSchema),
+  /**
+   * Chain the payment actually landed on. Null until the indexer
+   * projects the on-chain confirm. Resolves the correct payout
+   * address + adapter for webhook delivery.
+   */
+  settledOn: chainIdSchema.nullable(),
   successUrl: callbackUrlSchema.nullable(),
   cancelUrl: callbackUrlSchema.nullable(),
   sourceChain: z

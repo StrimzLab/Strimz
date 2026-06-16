@@ -8,12 +8,12 @@
 
 import { z } from 'zod'
 import {
-  evmAddressSchema,
-  evmTxHashSchema,
+  chainIdSchema,
   idSchema,
   isoTimestampSchema,
   paymentCurrencySchema,
   tokenAmountSchema,
+  walletAddressSchema,
 } from './common.js'
 
 export const transactionKindSchema = z.enum([
@@ -42,9 +42,21 @@ export const transactionSchema = z.object({
   feeAmount: tokenAmountSchema,
   netAmount: tokenAmountSchema,
   currency: paymentCurrencySchema,
-  payerAddress: evmAddressSchema,
-  merchantAddress: evmAddressSchema,
-  onchainTxHash: evmTxHashSchema,
+  /**
+   * Chain this transaction settled on. The indexer (Go for EVM,
+   * TypeScript for Stellar) sets this when projecting the event.
+   */
+  chain: chainIdSchema,
+  /** Widened from EVM-only to accept Stellar G-/C- addresses. */
+  payerAddress: walletAddressSchema,
+  /** Widened from EVM-only to accept Stellar G-/C- addresses. */
+  merchantAddress: walletAddressSchema,
+  /**
+   * EVM tx hash is 0x + 64 hex (66 chars). Stellar tx hash is 64 hex
+   * (no 0x prefix). Both fit; format is validated per-chain in the
+   * adapter, not here.
+   */
+  onchainTxHash: z.string().min(1).max(80),
   blockNumber: z.number().int().nonnegative(),
   blockTimestamp: isoTimestampSchema,
   createdAt: isoTimestampSchema,

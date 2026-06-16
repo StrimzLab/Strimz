@@ -1,47 +1,59 @@
 // One-shot payment sessions (the hosted checkout intent).
 
 model PaymentSession {
-  id                   String               @id @default(cuid())
-  merchantId           String
-  customerId           String?
-  status               PaymentSessionStatus @default(created)
+  id         String               @id @default(cuid())
+  merchantId String
+  customerId String?
+  status     PaymentSessionStatus @default(created)
 
   /// Token smallest-unit integer as a string (e.g. "1000000" for 1 USDC).
-  amount               String               @db.VarChar(78)
-  currency             PaymentCurrency
-  feeAmount            String               @db.VarChar(78)
-  netAmount            String               @db.VarChar(78)
+  amount    String          @db.VarChar(78)
+  currency  PaymentCurrency
+  feeAmount String          @db.VarChar(78)
+  netAmount String          @db.VarChar(78)
 
-  description          String?              @db.VarChar(500)
-  payerWalletAddress   String?              @db.VarChar(42)
-  payerEmail           String?              @db.VarChar(320)
-  successUrl           String?
-  cancelUrl            String?
+  description        String? @db.VarChar(500)
+  /// Widened from VarChar(42) (EVM hex) to VarChar(80) so a Stellar
+  /// `G…` (56 chars) or `C…` (Soroban contract address, 56 chars) fits
+  /// without truncation.
+  payerWalletAddress String? @db.VarChar(80)
+  payerEmail         String? @db.VarChar(320)
+  successUrl         String?
+  cancelUrl          String?
 
-  sourceChain          SourceChain?
-  bridgeTxHash         String?              @db.VarChar(66)
-  onchainTxHash        String?              @db.VarChar(66)
+  /// Chains the payer can settle on. Subset of the merchant's
+  /// `supportedChains` at session-creation time. The payer picks one
+  /// at checkout via /select-chain; the adapter dispatches from there.
+  acceptedChains String[] @default([])
+  /// Chain the payment actually landed on. Null until the indexer
+  /// projects the on-chain confirm. Becomes the key for resolving the
+  /// correct payout address + adapter for webhook delivery.
+  settledOn      String?  @db.VarChar(40)
 
-  checkoutUrl          String
+  sourceChain   SourceChain?
+  bridgeTxHash  String?      @db.VarChar(66)
+  onchainTxHash String?      @db.VarChar(66)
+
+  checkoutUrl String
 
   /// Mode at the time of creation — a live key cannot charge a test session.
-  mode                 Mode                 @default(test)
+  mode Mode @default(test)
 
   /// Merchant-supplied metadata bag (arbitrary keys, bounded in the API layer).
-  metadata             Json                 @default("{}")
+  metadata Json @default("{}")
 
-  expiresAt            DateTime
+  expiresAt          DateTime
   /// Timestamp the scheduler sent the "payment received" email to the
   /// merchant. Null until the notification cron picks the row up;
   /// guarantees one-shot delivery without a separate event log.
-  merchantNotifiedAt   DateTime?
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
+  merchantNotifiedAt DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  merchant             Merchant             @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  customer             Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  transaction          Transaction?
-  invoice              Invoice?             @relation("InvoiceSession")
+  merchant    Merchant     @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  customer    Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  transaction Transaction?
+  invoice     Invoice?     @relation("InvoiceSession")
 
   @@index([merchantId, status])
   @@index([merchantId, createdAt])

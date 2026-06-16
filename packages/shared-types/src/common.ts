@@ -23,6 +23,27 @@ export const evmTxHashSchema = z
   .string()
   .regex(/^0x[a-fA-F0-9]{64}$/, 'must be a 0x-prefixed 64-character hex EVM transaction hash')
 
+/**
+ * Strimz chain identifier — `<family>:<network>`. Stable across the SDK,
+ * webhook payloads, audit logs, and Prisma columns. Concrete values:
+ *   `evm:base`, `evm:arc`, `stellar:pubnet`, `stellar:testnet`
+ * Chain-specific numeric ids (EVM chainId, Stellar passphrase) live
+ * inside the adapter, not in this string.
+ */
+export const chainIdSchema = z
+  .string()
+  .min(3)
+  .max(40)
+  .regex(/^[a-z0-9]+:[a-z0-9-]+$/, 'must be `<family>:<network>` (e.g. `evm:base`)')
+
+/**
+ * Chain-agnostic wallet address. EVM is `0x` + 40 hex; Stellar G-account /
+ * C-contract is base32 strkey, 56 chars. The shared type only enforces
+ * shape (non-empty, fits the widened column); strict per-chain validation
+ * belongs in the chain adapter where the chain id is available.
+ */
+export const walletAddressSchema = z.string().min(1).max(80)
+
 /** Email address, trimmed and lower-cased. */
 export const emailSchema = z.string().email().trim().toLowerCase().max(320)
 

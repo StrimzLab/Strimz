@@ -19,6 +19,12 @@ import (
 	"strings"
 	"syscall"
 
+	// Auto-load a sibling .env file when present. Mirrors how the Node
+	// services handle `.env` via @nestjs/config so local-dev parity is the
+	// default. In production, no .env exists — envconfig reads from the
+	// platform-injected environment as before, and this import is a no-op.
+	_ "github.com/joho/godotenv/autoload"
+
 	"github.com/spf13/cobra"
 
 	"github.com/StrimzLab/strimz/apps/indexer/internal/config"

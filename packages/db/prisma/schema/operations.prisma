@@ -2,33 +2,33 @@
 
 model IndexerCursor {
   /// The contract address being indexed.
-  contractAddress      String   @id @db.VarChar(42)
-  environment          ArcEnvironment
+  contractAddress       String         @id @db.VarChar(42)
+  environment           ArcEnvironment
   /// Last confirmed block successfully processed.
-  lastProcessedBlock   BigInt
+  lastProcessedBlock    BigInt
   /// Log index within that block (for within-block resumability).
-  lastProcessedLogIndex Int     @default(-1)
-  updatedAt            DateTime @updatedAt
+  lastProcessedLogIndex Int            @default(-1)
+  updatedAt             DateTime       @updatedAt
 
   @@index([environment])
 }
 
 model AuditLog {
-  id            String              @id @default(cuid())
-  merchantId    String?
-  actorId       String?
-  actorEmail    String?             @db.VarChar(320)
-  category      AuditActionCategory
-  action        String              @db.VarChar(100)
-  targetType    String              @db.VarChar(60)
-  targetId      String              @db.VarChar(64)
+  id         String              @id @default(cuid())
+  merchantId String?
+  actorId    String?
+  actorEmail String?             @db.VarChar(320)
+  category   AuditActionCategory
+  action     String              @db.VarChar(100)
+  targetType String              @db.VarChar(60)
+  targetId   String              @db.VarChar(64)
   /// Arbitrary diff or context for the action.
-  metadata      Json                @default("{}")
-  ipAddress     String?             @db.VarChar(45)
-  userAgent     String?             @db.VarChar(500)
-  createdAt     DateTime            @default(now())
+  metadata   Json                @default("{}")
+  ipAddress  String?             @db.VarChar(45)
+  userAgent  String?             @db.VarChar(500)
+  createdAt  DateTime            @default(now())
 
-  merchant      Merchant?           @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  merchant Merchant? @relation(fields: [merchantId], references: [id], onDelete: SetNull)
 
   @@index([merchantId, createdAt])
   @@index([category, createdAt])

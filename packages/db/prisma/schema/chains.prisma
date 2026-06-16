@@ -1,0 +1,33 @@
+// Chain registry — every chain Strimz can dispatch payments to.
+//
+// Rows are seeded at migration time and managed in-cluster via the
+// admin platform. Disabling a row removes it from new sessions but
+// keeps existing rows queryable for analytics + history.
+//
+// Adapter dispatch reads `id` directly — keep the format stable
+// (`<family>:<network>`) since it appears in webhook payloads,
+// audit logs, and the Stripe-compatible SDK surface.
+
+model SupportedChain {
+  /// Stable chain identifier — e.g. 'evm:base', 'evm:arc', 'stellar:pubnet'.
+  /// Used as the dispatch key in the @strimz/chain-adapter registry.
+  id        String      @id @db.VarChar(40)
+  family    ChainFamily
+  /// Display label surfaced in dashboard + checkout UI ('Base', 'Stellar').
+  display   String      @db.VarChar(40)
+  /// Optional asset key the frontend resolves to a chain logo.
+  iconAsset String?     @db.VarChar(120)
+  /// Live in checkout + new sessions. Disabled chains stay queryable
+  /// but no longer appear in the merchant's chain picker.
+  enabled   Boolean     @default(true)
+  /// Adapter-specific config. EVM shape:
+  ///   { chainId, rpcUrlEnv, contracts: { registry, payments, subscriptions, ... } }
+  /// Stellar shape:
+  ///   { network, horizonUrl, rpcUrl, usdcSac, subscriptionContract, feeCollectorContract }
+  rpcConfig Json
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([family])
+  @@index([enabled])
+}

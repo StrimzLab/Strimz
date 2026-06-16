@@ -2,41 +2,47 @@
 // The indexer writes these by projecting contract events.
 
 model Transaction {
-  id                     String             @id @default(cuid())
-  merchantId             String
-  kind                   TransactionKind
-  status                 TransactionStatus  @default(pending)
+  id         String            @id @default(cuid())
+  merchantId String
+  kind       TransactionKind
+  status     TransactionStatus @default(pending)
 
   // One of these is set depending on `kind`.
-  sessionId              String?            @unique
-  subscriptionId         String?
-  subscriptionChargeId   String?            @unique
-  refundId               String?            @unique
-  customerId             String?
+  sessionId            String? @unique
+  subscriptionId       String?
+  subscriptionChargeId String? @unique
+  refundId             String? @unique
+  customerId           String?
 
-  amount                 String             @db.VarChar(78)
-  feeAmount              String             @db.VarChar(78)
-  netAmount              String             @db.VarChar(78)
-  currency               PaymentCurrency
+  amount    String          @db.VarChar(78)
+  feeAmount String          @db.VarChar(78)
+  netAmount String          @db.VarChar(78)
+  currency  PaymentCurrency
 
-  payerAddress           String             @db.VarChar(42)
-  merchantAddress        String             @db.VarChar(42)
+  /// Chain this transaction settled on. The indexer (Go for EVM,
+  /// TypeScript for Stellar) sets this when projecting the event.
+  /// Default keeps legacy rows on `evm:arc`; backfilled by migration.
+  chain           String @default("evm:arc") @db.VarChar(40)
+  /// Widened from VarChar(42) so a Stellar `G…` / `C…` fits.
+  payerAddress    String @db.VarChar(80)
+  /// Widened from VarChar(42) so a Stellar `G…` / `C…` fits.
+  merchantAddress String @db.VarChar(80)
 
-  onchainTxHash          String             @unique @db.VarChar(66)
-  blockNumber            BigInt
-  blockTimestamp         DateTime
-  logIndex               Int
+  onchainTxHash  String   @unique @db.VarChar(66)
+  blockNumber    BigInt
+  blockTimestamp DateTime
+  logIndex       Int
 
-  mode                   Mode               @default(test)
+  mode Mode @default(test)
 
-  createdAt              DateTime           @default(now())
+  createdAt DateTime @default(now())
 
-  merchant               Merchant           @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  session                PaymentSession?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  subscription           Subscription?      @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-  subscriptionCharge     SubscriptionCharge? @relation(fields: [subscriptionChargeId], references: [id], onDelete: SetNull)
-  refund                 Refund?            @relation(fields: [refundId], references: [id], onDelete: SetNull)
-  customer               Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  merchant           Merchant            @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  session            PaymentSession?     @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  subscription       Subscription?       @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  subscriptionCharge SubscriptionCharge? @relation(fields: [subscriptionChargeId], references: [id], onDelete: SetNull)
+  refund             Refund?             @relation(fields: [refundId], references: [id], onDelete: SetNull)
+  customer           Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   @@index([merchantId, kind, blockTimestamp])
   @@index([merchantId, status])

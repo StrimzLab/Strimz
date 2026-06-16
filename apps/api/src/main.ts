@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core'
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify'
 import { Logger } from '@nestjs/common'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
-import { apiReference } from '@scalar/nestjs-api-reference'
+import fastifyApiReference from '@scalar/fastify-api-reference'
 import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
 import { patchNestJsSwagger } from 'nestjs-zod'
@@ -52,13 +52,17 @@ async function bootstrap(): Promise<void> {
     })
 
   // Scalar — beautiful interactive API reference at /docs.
-  app.use(
-    '/docs',
-    apiReference({
+  // We use @scalar/fastify-api-reference (not the NestJS adapter), because
+  // the NestJS adapter is Express-shaped — it calls `res.send()`, which the
+  // Fastify response object doesn't have. The Fastify plugin registers a
+  // native route handler that hands back the reference HTML directly.
+  await app.register(fastifyApiReference, {
+    routePrefix: '/docs',
+    configuration: {
       content: doc,
       theme: 'purple',
-    }),
-  )
+    },
+  })
 
   app.enableShutdownHooks()
   await app.listen({ port: cfg.env.PORT, host: '0.0.0.0' })

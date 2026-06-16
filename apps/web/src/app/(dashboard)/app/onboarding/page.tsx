@@ -2,11 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { toast } from 'sonner'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { Card, CardContent, Input, Label } from '@strimz/ui'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { SubmitButton } from '@/components/auth/submit-button'
+import { useOnboardMerchant } from '@/hooks/api/use-merchant'
 
 const SECTORS = [
   'SaaS',
@@ -19,7 +19,7 @@ const SECTORS = [
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const [submitting, setSubmitting] = useState(false)
+  const onboard = useOnboardMerchant()
   const [form, setForm] = useState({
     businessName: '',
     businessSector: SECTORS[0] as (typeof SECTORS)[number],
@@ -31,16 +31,21 @@ export default function OnboardingPage() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setSubmitting(true)
     try {
-      // Wired through @strimz/sdk-react in production.
-      await new Promise((r) => setTimeout(r, 400))
-      toast.success('Onboarding complete. Welcome!')
+      await onboard.mutateAsync({
+        businessName: form.businessName,
+        businessSector: form.businessSector,
+        countryCode: form.countryCode,
+        payoutAddress: form.payoutAddress as `0x${string}`,
+        // Empty strings are not valid URLs / phone numbers; let the API
+        // see `undefined` instead so the optional schema accepts them.
+        websiteUrl: form.websiteUrl || undefined,
+        phone: form.phone || undefined,
+      })
       router.push('/app')
-    } catch (err) {
-      toast.error((err as Error).message)
-    } finally {
-      setSubmitting(false)
+    } catch {
+      // Error toast is handled inside useMutationWithToast; nothing extra
+      // to do here — the form stays on screen so the merchant can retry.
     }
   }
 
@@ -132,7 +137,7 @@ export default function OnboardingPage() {
               />
             </Field>
 
-            <SubmitButton type="submit" isLoading={submitting} loadingText="Saving…">
+            <SubmitButton type="submit" isLoading={onboard.isPending} loadingText="Saving…">
               Complete onboarding
               <ArrowRight className="size-4" />
             </SubmitButton>

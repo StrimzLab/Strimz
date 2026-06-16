@@ -26,50 +26,50 @@ model MerchantWebhookEndpoint {
   createdAt               DateTime              @default(now())
   updatedAt               DateTime              @updatedAt
 
-  merchant              Merchant              @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  deliveries            WebhookDelivery[]
+  merchant   Merchant          @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  deliveries WebhookDelivery[]
 
   @@index([merchantId, mode, status])
 }
 
 model WebhookEvent {
-  id           String              @id @default(cuid())
-  merchantId   String
-  type         WebhookEventName
-  apiVersion   String              @db.VarChar(10)
-  mode         Mode
+  id         String           @id @default(cuid())
+  merchantId String
+  type       WebhookEventName
+  apiVersion String           @db.VarChar(10)
+  mode       Mode
   /// The fully-serialised envelope, exactly as it is signed and delivered.
-  payload      Json
-  createdAt    DateTime            @default(now())
+  payload    Json
+  createdAt  DateTime         @default(now())
 
-  merchant     Merchant            @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  deliveries   WebhookDelivery[]
+  merchant   Merchant          @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  deliveries WebhookDelivery[]
 
   @@index([merchantId, type, createdAt])
   @@index([merchantId, mode, createdAt])
 }
 
 model WebhookDelivery {
-  id               String                @id @default(cuid())
+  id            String                @id @default(cuid())
   /// Opaque idempotency key sent in the X-Strimz-Delivery-Id header.
-  deliveryId       String                @unique
-  merchantId       String
-  endpointId       String
-  eventId          String
-  eventName        WebhookEventName
-  status           WebhookDeliveryStatus @default(pending)
-  attempt          Int                   @default(1)
-  responseCode     Int?
-  responseMs       Int?
-  responseBody     String?               @db.Text
-  lastError        String?               @db.VarChar(1000)
-  nextAttemptAt    DateTime?
-  deliveredAt      DateTime?
-  createdAt        DateTime              @default(now())
+  deliveryId    String                @unique
+  merchantId    String
+  endpointId    String
+  eventId       String
+  eventName     WebhookEventName
+  status        WebhookDeliveryStatus @default(pending)
+  attempt       Int                   @default(1)
+  responseCode  Int?
+  responseMs    Int?
+  responseBody  String?               @db.Text
+  lastError     String?               @db.VarChar(1000)
+  nextAttemptAt DateTime?
+  deliveredAt   DateTime?
+  createdAt     DateTime              @default(now())
 
-  merchant         Merchant              @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  endpoint         MerchantWebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Restrict)
-  event            WebhookEvent          @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  merchant Merchant                @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  endpoint MerchantWebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Restrict)
+  event    WebhookEvent            @relation(fields: [eventId], references: [id], onDelete: Restrict)
 
   @@index([status, nextAttemptAt])
   @@index([merchantId, createdAt])
