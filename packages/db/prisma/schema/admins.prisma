@@ -10,25 +10,25 @@
 // collision.
 
 model AdminUser {
-  id            String           @id @default(cuid())
+  id          String          @id @default(cuid())
   /// Privy DID, claimed on first login via the email match below.
   /// Null only between bootstrap (a row inserted by migration with
   /// just an email) and the operator's first sign-in.
-  privyUserId   String?          @unique
-  email         String           @unique @db.VarChar(320)
-  name          String?          @db.VarChar(120)
-  role          AdminRole
-  status        AdminUserStatus  @default(active)
+  privyUserId String?         @unique
+  email       String          @unique @db.VarChar(320)
+  name        String?         @db.VarChar(120)
+  role        AdminRole
+  status      AdminUserStatus @default(active)
   /// AdminUser.id of the operator who issued this invite. Null for
   /// the bootstrap super_admin (no one to attribute that to).
-  invitedById   String?
-  invitedAt     DateTime         @default(now())
-  lastLoginAt   DateTime?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  invitedById String?
+  invitedAt   DateTime        @default(now())
+  lastLoginAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
-  invitedBy     AdminUser?       @relation("AdminUserInvites", fields: [invitedById], references: [id], onDelete: SetNull)
-  invited       AdminUser[]      @relation("AdminUserInvites")
+  invitedBy AdminUser?  @relation("AdminUserInvites", fields: [invitedById], references: [id], onDelete: SetNull)
+  invited   AdminUser[] @relation("AdminUserInvites")
 
   @@index([role])
   @@index([status])

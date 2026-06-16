@@ -3,27 +3,27 @@
 // intent and reconciles via the resulting transaction.
 
 model Refund {
-  id              String        @id @default(cuid())
-  merchantId      String
-  transactionId   String
+  id            String @id @default(cuid())
+  merchantId    String
+  transactionId String
 
-  amount          String        @db.VarChar(78)
-  currency        PaymentCurrency
-  reason          RefundReason
-  note            String?       @db.VarChar(500)
-  status          RefundStatus  @default(pending)
-  payerAddress    String        @db.VarChar(42)
-  refundTxHash    String?       @unique @db.VarChar(66)
-  failureReason   String?       @db.VarChar(500)
-  initiatedById   String
+  amount        String          @db.VarChar(78)
+  currency      PaymentCurrency
+  reason        RefundReason
+  note          String?         @db.VarChar(500)
+  status        RefundStatus    @default(pending)
+  payerAddress  String          @db.VarChar(42)
+  refundTxHash  String?         @unique @db.VarChar(66)
+  failureReason String?         @db.VarChar(500)
+  initiatedById String
 
-  mode            Mode          @default(test)
-  metadata        Json          @default("{}")
-  createdAt       DateTime      @default(now())
-  completedAt     DateTime?
+  mode        Mode      @default(test)
+  metadata    Json      @default("{}")
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
 
-  merchant        Merchant      @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  transaction     Transaction?
+  merchant    Merchant     @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  transaction Transaction?
 
   @@index([merchantId, status])
   @@index([merchantId, createdAt])

@@ -13,6 +13,16 @@ enum ArcEnvironment {
   mainnet
 }
 
+// ---------- Chains ----------
+
+/// Strimz settles on multiple chains. Adapter dispatch keys live in
+/// `SupportedChain.id` (e.g. `evm:base`, `stellar:pubnet`); the family
+/// here lets queries filter by underlying chain shape without parsing.
+enum ChainFamily {
+  evm
+  stellar
+}
+
 // ---------- Tokens ----------
 
 enum PaymentCurrency {

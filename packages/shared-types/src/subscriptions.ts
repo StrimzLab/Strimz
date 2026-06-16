@@ -10,6 +10,7 @@
 
 import { z } from 'zod'
 import {
+  chainIdSchema,
   evmAddressSchema,
   evmTxHashSchema,
   idSchema,
@@ -17,6 +18,7 @@ import {
   metadataSchema,
   paymentCurrencySchema,
   tokenAmountSchema,
+  walletAddressSchema,
 } from './common.js'
 
 // ---------- Plans ----------
@@ -102,7 +104,22 @@ export const subscriptionSchema = z.object({
   customerId: idSchema,
   planId: idSchema,
   status: subscriptionStatusSchema,
-  payerAddress: evmAddressSchema,
+  /**
+   * Chain this subscription is enrolled on. Chain-locked at enrolment
+   * because the on-chain contract instance lives on one chain — the
+   * `SubscriptionPlan` it points at is chain-agnostic, but the
+   * subscription itself isn't.
+   */
+  chain: chainIdSchema,
+  /**
+   * Stellar-only: ledger-bound expiry of the SEP-41 allowance the
+   * subscription contract pulls from. Null on EVM chains (where
+   * EIP-2612 permits don't have a wallet-clock expiry that affects
+   * recurring charges). Drives the 14d-warning dunning lane.
+   */
+  approvalExpiresAt: isoTimestampSchema.nullable(),
+  /** Widened from EVM-only to accept Stellar G-/C- addresses. */
+  payerAddress: walletAddressSchema,
   currency: paymentCurrencySchema,
   amount: tokenAmountSchema,
   interval: subscriptionIntervalSchema,

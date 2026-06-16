@@ -1,112 +1,155 @@
 // Subscription plans, active subscriptions, and individual charges.
 
 model SubscriptionPlan {
-  id               String                 @id @default(cuid())
-  merchantId       String
-  name             String                 @db.VarChar(120)
-  description      String?                @db.VarChar(500)
-  amount           String                 @db.VarChar(78)
-  currency         PaymentCurrency
-  interval         SubscriptionInterval
-  intervalCount    Int                    @default(1)
-  trialPeriodDays  Int?
-  status           SubscriptionPlanStatus @default(active)
-  metadata         Json                   @default("{}")
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
+  id              String                 @id @default(cuid())
+  merchantId      String
+  name            String                 @db.VarChar(120)
+  description     String?                @db.VarChar(500)
+  amount          String                 @db.VarChar(78)
+  currency        PaymentCurrency
+  interval        SubscriptionInterval
+  intervalCount   Int                    @default(1)
+  trialPeriodDays Int?
+  status          SubscriptionPlanStatus @default(active)
+  metadata        Json                   @default("{}")
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 
-  merchant         Merchant               @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  subscriptions    Subscription[]
+  merchant      Merchant       @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  subscriptions Subscription[]
 
   @@index([merchantId, status])
 }
 
 model Subscription {
-  id                      String              @id @default(cuid())
-  onchainSubscriptionId   Int?                @unique
+  id                    String             @id @default(cuid())
+  onchainSubscriptionId Int?               @unique
   /// On-chain tx hash for the `permitAndCreateSubscription` call that
   /// enrolled this subscription. Distinct from per-period charge tx
   /// hashes (those live on SubscriptionCharge). Used by the relay's
   /// double-enrolment safety net and surfaced on the hosted checkout's
   /// "Subscription active" view.
-  enrolmentTxHash         String?             @unique @db.VarChar(66)
-  merchantId              String
-  customerId              String
-  planId                  String
-  status                  SubscriptionStatus  @default(active)
+  enrolmentTxHash       String?            @unique @db.VarChar(66)
+  merchantId            String
+  customerId            String
+  planId                String
+  status                SubscriptionStatus @default(active)
 
-  payerAddress            String              @db.VarChar(42)
-  currency                PaymentCurrency
-  amount                  String              @db.VarChar(78)
-  interval                SubscriptionInterval
-  intervalCount           Int                 @default(1)
+  /// Chain this subscription is enrolled on. A subscription is
+  /// chain-locked because the on-chain contract instance lives on one
+  /// chain — the `SubscriptionPlan` it points at is chain-agnostic,
+  /// but the on-chain enrolment isn't. Default keeps legacy rows on
+  /// `evm:arc`; the migration backfills the same.
+  chain             String               @default("evm:arc") @db.VarChar(40)
+  /// Widened from VarChar(42) so a Stellar `G…` / `C…` fits.
+  payerAddress      String               @db.VarChar(80)
+  currency          PaymentCurrency
+  amount            String               @db.VarChar(78)
+  interval          SubscriptionInterval
+  intervalCount     Int                  @default(1)
+  /// Stellar-only: ledger-bound expiry of the SEP-41 allowance the
+  /// subscription contract pulls from. Null on EVM chains (where
+  /// EIP-2612 permits don't have a wallet-clock expiry that affects
+  /// recurring charges). Drives the 14d-warning dunning lane.
+  approvalExpiresAt DateTime?
 
-  trialEndsAt             DateTime?
-  currentPeriodStartAt    DateTime
-  currentPeriodEndAt      DateTime
-  nextChargeAt            DateTime?
-  gracePeriodHours        Int                 @default(48)
+  trialEndsAt          DateTime?
+  currentPeriodStartAt DateTime
+  currentPeriodEndAt   DateTime
+  nextChargeAt         DateTime?
+  gracePeriodHours     Int       @default(48)
 
   /// Soft lock used by the scheduler to prevent concurrent charge attempts.
-  chargeLock              Boolean             @default(false)
-  chargeLockAcquiredAt    DateTime?
+  chargeLock           Boolean   @default(false)
+  chargeLockAcquiredAt DateTime?
 
-  cancelledAt             DateTime?
-  cancellationReason      String?             @db.VarChar(500)
+  cancelledAt        DateTime?
+  cancellationReason String?   @db.VarChar(500)
 
-  mode                    Mode                @default(test)
-  metadata                Json                @default("{}")
+  mode               Mode      @default(test)
+  metadata           Json      @default("{}")
   /// Timestamp the scheduler sent the "new subscriber" email to the
   /// merchant. Null until the notification cron picks the row up;
   /// guarantees one-shot delivery without a separate event log.
-  merchantNotifiedAt      DateTime?
-  createdAt               DateTime            @default(now())
-  updatedAt               DateTime            @updatedAt
+  merchantNotifiedAt DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  merchant                Merchant            @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  customer                Customer            @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  plan                    SubscriptionPlan    @relation(fields: [planId], references: [id], onDelete: Restrict)
-  charges                 SubscriptionCharge[]
-  transactions            Transaction[]
+  merchant     Merchant             @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  plan         SubscriptionPlan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  charges      SubscriptionCharge[]
+  transactions Transaction[]
+  allowance    OnchainAllowance?
 
   @@index([merchantId, status])
   @@index([nextChargeAt, status])
   @@index([customerId])
 }
 
+/// Tracks a Stellar SEP-41 allowance for a subscription. Stellar's
+/// `approve(..., live_until_ledger)` is a hard expiry — there is no
+/// chain-side grace period. The scheduler reads this table to warn
+/// the payer 14 days before expiry and to flip the subscription to
+/// `at_risk` the moment it lapses.
+///
+/// One row per active subscription on a Stellar chain. EVM
+/// subscriptions never get a row here (no allowance-shaped permit).
+model OnchainAllowance {
+  id              String       @id @default(cuid())
+  subscriptionId  String       @unique
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  chain           String       @db.VarChar(40)
+  /// Ledger sequence at which the SEP-41 allowance expires on-chain.
+  liveUntilLedger Int
+  /// Approximate wall-clock expiry, populated from ledger close time
+  /// at write. Indexed for the cron `WHERE expiresAt <= now() + 14d`.
+  expiresAt       DateTime
+  /// Set when the 14-day expiry warning email was sent.
+  notifiedAt      DateTime?
+  /// Set when the payer signed a fresh `approve()` that pushed the
+  /// expiry out. Resets `notifiedAt` so future warnings can fire.
+  refreshedAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([expiresAt])
+  @@index([chain, expiresAt])
+}
+
 model SubscriptionCharge {
-  id                String                    @id @default(cuid())
-  subscriptionId    String
-  merchantId        String
+  id             String @id @default(cuid())
+  subscriptionId String
+  merchantId     String
 
   /// 32-byte contract-idempotency key carried on the charge call.
-  chargeAttemptId   String                    @unique @db.VarChar(66)
+  chargeAttemptId String @unique @db.VarChar(66)
 
-  periodStartAt     DateTime
-  periodEndAt       DateTime
-  amount            String                    @db.VarChar(78)
-  currency          PaymentCurrency
+  periodStartAt DateTime
+  periodEndAt   DateTime
+  amount        String          @db.VarChar(78)
+  currency      PaymentCurrency
 
-  status            SubscriptionChargeStatus  @default(pending)
-  outcome           SubscriptionChargeOutcome?
-  attemptNumber     Int                       @default(1)
+  status        SubscriptionChargeStatus   @default(pending)
+  outcome       SubscriptionChargeOutcome?
+  attemptNumber Int                        @default(1)
 
-  scheduledAt       DateTime
-  executedAt        DateTime?
-  onchainTxHash     String?                   @db.VarChar(66)
-  failureReason     String?                   @db.VarChar(500)
+  scheduledAt   DateTime
+  executedAt    DateTime?
+  onchainTxHash String?   @db.VarChar(66)
+  failureReason String?   @db.VarChar(500)
 
   /// Timestamp the scheduler sent the "recurring charge succeeded"
   /// email to the merchant. Only stamped after `status = succeeded`.
   /// Null = un-notified; cron picks it up. Same one-shot pattern as
   /// `Subscription.merchantNotifiedAt`.
   merchantNotifiedAt DateTime?
-  createdAt         DateTime                  @default(now())
-  updatedAt         DateTime                  @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  subscription      Subscription              @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
-  merchant          Merchant                  @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  transaction       Transaction?
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  merchant     Merchant     @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  transaction  Transaction?
 
   @@index([subscriptionId, attemptNumber])
   @@index([status, scheduledAt])

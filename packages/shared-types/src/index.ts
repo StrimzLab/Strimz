@@ -7,6 +7,7 @@
  */
 
 export * from './common.js'
+export * from './chains.js'
 export * from './merchants.js'
 export * from './api-keys.js'
 export * from './customers.js'

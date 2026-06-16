@@ -35,6 +35,22 @@ export const merchantSchema = z.object({
   websiteUrl: z.string().url().nullable(),
   logoUrl: z.string().url().nullable(),
   whitelabelEnabled: z.boolean(),
+  // Onboarding + security flags drive the dashboard's "Unlock live mode"
+  // banner and gate live-key issuance server-side. Exposed in the shared
+  // type so the merchant frontend can derive UI from them without a
+  // second round-trip.
+  onboardingCompleted: z.boolean(),
+  twoFactorEnabled: z.boolean(),
+  // Chain ids the merchant has opted in to for incoming payments — a
+  // subset of currently-enabled SupportedChains. Drives the chain
+  // picker on checkout. Empty for legacy rows that pre-date the
+  // multi-chain rollout.
+  supportedChains: z.array(z.string()),
+  // Per-chain payout addresses, keyed by chain id. Shape:
+  //   { 'evm:base': '0x…', 'stellar:pubnet': 'G…' | 'C…' }
+  // The chain adapter validates the address format against the chain
+  // it's mapped to; the shared type treats values as opaque strings.
+  payoutAddresses: z.record(z.string(), z.string()),
   metadata: metadataSchema,
   createdAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema,
@@ -69,6 +85,20 @@ export const changeTierInputSchema = z.object({
   tier: merchantTierSchema,
 })
 export type ChangeTierInput = z.infer<typeof changeTierInputSchema>
+
+export const onboardMerchantInputSchema = z.object({
+  businessName: z.string().min(2).max(120),
+  businessSector: z.string().min(2).max(80),
+  countryCode: z
+    .string()
+    .length(2)
+    .regex(/^[A-Z]{2}$/, 'must be a 2-letter ISO country code'),
+  websiteUrl: z.string().url().optional(),
+  phone: z.string().min(6).max(20).optional(),
+  payoutAddress: evmAddressSchema,
+  defaultCurrency: z.enum(['USDC', 'EURC']).optional(),
+})
+export type OnboardMerchantInput = z.infer<typeof onboardMerchantInputSchema>
 
 // ---------- Team members ----------
 

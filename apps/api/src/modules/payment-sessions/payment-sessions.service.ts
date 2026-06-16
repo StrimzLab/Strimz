@@ -182,6 +182,8 @@ export class PaymentSessionsService {
       payerEmail: row.payerEmail,
       successUrl: row.successUrl,
       cancelUrl: row.cancelUrl,
+      acceptedChains: (row.acceptedChains ?? []) as string[],
+      settledOn: row.settledOn ?? null,
       sourceChain: row.sourceChain,
       bridgeTxHash: row.bridgeTxHash,
       onchainTxHash: row.onchainTxHash,

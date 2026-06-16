@@ -1,44 +1,44 @@
 // Hosted merchant storefronts and their products.
 
 model Storefront {
-  id              String            @id @default(cuid())
-  merchantId      String            @unique
-  slug            String            @unique @db.VarChar(40)
-  name            String            @db.VarChar(120)
-  description     String?           @db.VarChar(2000)
-  logoUrl         String?
-  coverImageUrl   String?
-  accentColor     String?           @db.VarChar(7)
-  socialLinks     String[]          @default([])
-  status          StorefrontStatus  @default(draft)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id            String           @id @default(cuid())
+  merchantId    String           @unique
+  slug          String           @unique @db.VarChar(40)
+  name          String           @db.VarChar(120)
+  description   String?          @db.VarChar(2000)
+  logoUrl       String?
+  coverImageUrl String?
+  accentColor   String?          @db.VarChar(7)
+  socialLinks   String[]         @default([])
+  status        StorefrontStatus @default(draft)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
-  merchant        Merchant          @relation(fields: [merchantId], references: [id], onDelete: Restrict)
-  products        StorefrontProduct[]
+  merchant Merchant            @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  products StorefrontProduct[]
 
   @@index([status])
 }
 
 model StorefrontProduct {
-  id              String                @id @default(cuid())
-  storefrontId    String
-  name            String                @db.VarChar(120)
-  description     String?               @db.VarChar(2000)
-  imageUrl        String?
-  price           String                @db.VarChar(78)
-  currency        PaymentCurrency
-  type            StorefrontProductType
-  interval        SubscriptionInterval?
-  intervalCount   Int?
-  stock           Int?
-  planId          String?
-  isActive        Boolean               @default(true)
-  sortOrder       Int                   @default(0)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
+  id            String                @id @default(cuid())
+  storefrontId  String
+  name          String                @db.VarChar(120)
+  description   String?               @db.VarChar(2000)
+  imageUrl      String?
+  price         String                @db.VarChar(78)
+  currency      PaymentCurrency
+  type          StorefrontProductType
+  interval      SubscriptionInterval?
+  intervalCount Int?
+  stock         Int?
+  planId        String?
+  isActive      Boolean               @default(true)
+  sortOrder     Int                   @default(0)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
 
-  storefront      Storefront            @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+  storefront Storefront @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
 
   @@index([storefrontId, isActive, sortOrder])
 }
