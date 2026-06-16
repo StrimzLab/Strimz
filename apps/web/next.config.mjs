@@ -17,6 +17,14 @@ const config = {
       // Fumadocs MDX generates `.source` at the project root; resolve it
       // explicitly since `@/*` would otherwise look in `./src/*`.
       '@/.source': path.resolve(__dirname, '.source'),
+      // `@metamask/sdk` (pulled in transitively by @wagmi/connectors)
+      // imports `@react-native-async-storage/async-storage` for its React
+      // Native code path. The browser bundle never executes that path, but
+      // webpack still tries to resolve it at build time and emits a noisy
+      // "Module not found" warning. Alias to `false` so webpack treats it
+      // as an intentionally missing module — the import is behind a runtime
+      // feature detect that's always false in browsers.
+      '@react-native-async-storage/async-storage': false,
     }
 
     // Reown AppKit's wagmi adapter pulls Node-only optional deps. Mark
