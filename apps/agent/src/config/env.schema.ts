@@ -23,7 +23,12 @@ export const envSchema = z.object({
   ANOMALY_THRESHOLD_HIGH: z.coerce.number().positive().default(1.0),
 
   RESEND_API_KEY: z.string().optional(),
-  RESEND_FROM_EMAIL: z.string().email().default('noreply@strimz.io'),
+  // Accept either a bare address (`noreply@strimz.io`) or the display form
+  // (`Strimz <noreply@strimz.io>`) — Resend supports both, and the display
+  // form is what the merchant inbox actually renders. `.email()` rejected
+  // the display form on boot.
+  RESEND_FROM_EMAIL: z.string().min(1).default('Strimz <noreply@mail.strimz.finance>'),
+  RESEND_REPLY_TO: z.string().min(1).default('strimztokenstream@gmail.com'),
 
   // Circle CCTP V2 — used by the routing capability to fetch attestations.
   // Default to Circle's sandbox; mainnet deployments override.
