@@ -8,6 +8,7 @@ import { RedisModule } from './infra/redis/redis.module.js'
 import { QueueModule } from './infra/queue/queue.module.js'
 import { EmailModule } from './infra/email/email.module.js'
 import { ChainModule } from './infra/chain/chain.module.js'
+import { ChainRegistryModule } from './infra/chain-registry/chain-registry.module.js'
 import { KmsModule } from './infra/kms/kms.module.js'
 import { PrivyModule } from './infra/privy/privy.module.js'
 import { TurnstileModule } from './infra/turnstile/turnstile.module.js'
@@ -45,6 +46,7 @@ import { AdminModule } from './modules/admin/admin.module.js'
     QueueModule,
     EmailModule,
     ChainModule,
+    ChainRegistryModule,
     KmsModule,
     PrivyModule,
     TurnstileModule,
