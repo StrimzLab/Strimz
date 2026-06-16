@@ -1,4 +1,4 @@
-import type { Merchant, UpdateMerchantInput } from '@strimz/shared-types'
+import type { Merchant, OnboardMerchantInput, UpdateMerchantInput } from '@strimz/shared-types'
 
 import type { MerchantApiClient } from '../client'
 import type { CallOptions } from '../types'
@@ -18,5 +18,14 @@ export class MerchantResource {
 
   update(input: UpdateMerchantInput, options?: CallOptions): Promise<Merchant> {
     return this.client.patch<Merchant>('/v1/merchants/me', input, options)
+  }
+
+  /**
+   * POST /v1/merchants/me/onboard — submits the self-attested onboarding
+   * form. Flips `onboardingCompleted` to true, which the sidebar
+   * "Unlock live mode" banner and the live-key issuance gate read from.
+   */
+  onboard(input: OnboardMerchantInput, options?: CallOptions): Promise<Merchant> {
+    return this.client.post<Merchant>('/v1/merchants/me/onboard', input, options)
   }
 }

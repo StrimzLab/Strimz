@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { Logo } from '@/components/shared/logo'
 import { cn } from '@strimz/ui'
+import { useMerchantMe } from '@/hooks/api/use-merchant'
 
 const SECTIONS: ReadonlyArray<{
   label: string
@@ -156,7 +157,7 @@ export function DashboardSidebar({ open, onClose }: Props) {
 
         {/* Sticky bottom block */}
         <div className="shrink-0 space-y-1 border-t border-[#E5E7EB] p-3">
-          <UpgradeCard />
+          <UpgradeBanner />
           <Link
             href="/docs"
             target="_blank"
@@ -181,18 +182,41 @@ export function DashboardSidebar({ open, onClose }: Props) {
   )
 }
 
-function UpgradeCard() {
+/**
+ * Live-mode readiness banner. Renders only while there's still gating
+ * work to do (onboarding form, or 2FA). The copy + CTA changes to match
+ * whichever step is missing, so the user always sees the next action.
+ * Once both flips are true, the banner disappears entirely — the
+ * onboarding mutation's cache invalidation drives the re-render.
+ */
+function UpgradeBanner() {
+  const { data: merchant } = useMerchantMe()
+
+  // Loading the merchant — render nothing rather than flash a banner
+  // that immediately disappears once data arrives.
+  if (!merchant) return null
+
+  const needsOnboarding = !merchant.onboardingCompleted
+  const needs2FA = !merchant.twoFactorEnabled
+
+  if (!needsOnboarding && !needs2FA) return null
+
+  const title = needsOnboarding ? 'Unlock live mode ⚡' : 'Almost there ⚡'
+  const body = needsOnboarding
+    ? 'Finish onboarding and turn on 2FA to issue live keys.'
+    : 'Turn on 2FA to issue live keys.'
+  const ctaHref = needsOnboarding ? '/app/onboarding' : '/app/settings/security'
+  const ctaLabel = needsOnboarding ? 'Continue' : 'Enable 2FA'
+
   return (
     <div className="strimz-alert-gradient mb-2 rounded-xl p-4 text-white shadow-lg shadow-[#02C76A]/15">
-      <p className="font-poppins text-sm font-[500]">Unlock live mode ⚡</p>
-      <p className="font-poppins mt-1 text-xs text-white/80">
-        Finish onboarding and turn on 2FA to issue live keys.
-      </p>
+      <p className="font-poppins text-sm font-[500]">{title}</p>
+      <p className="font-poppins mt-1 text-xs text-white/80">{body}</p>
       <Link
-        href="/app/onboarding"
+        href={ctaHref}
         className="font-poppins mt-3 inline-flex h-8 w-full items-center justify-center rounded-md bg-white/95 text-xs font-[500] text-[#050020] transition-transform hover:scale-[1.02]"
       >
-        Continue
+        {ctaLabel}
       </Link>
     </div>
   )

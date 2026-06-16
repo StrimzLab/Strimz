@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query'
-import type { Merchant, UpdateMerchantInput } from '@strimz/shared-types'
+import type { Merchant, OnboardMerchantInput, UpdateMerchantInput } from '@strimz/shared-types'
 
 import { useMerchantApi } from './merchant-api-context'
 import { useMutationWithToast } from './use-mutation-with-toast'
@@ -28,6 +28,28 @@ export function useMerchantMe<TData = Merchant>(options?: MeOptions<TData>) {
     queryFn: ({ signal }) => api.merchant.retrieve({ signal }),
     staleTime: 5 * 60_000, // 5 minutes — overrides the global 30s default.
     ...options,
+  })
+}
+
+/**
+ * One-shot onboarding submission. Flips `onboardingCompleted` on the
+ * merchant row and invalidates the merchant cache so the sidebar
+ * "Unlock live mode" banner re-evaluates and any guards that depend on
+ * onboardingCompleted (live-key issuance, etc.) refresh.
+ */
+export function useOnboardMerchant() {
+  const api = useMerchantApi()
+  const qc = useQueryClient()
+
+  return useMutationWithToast({
+    mutationFn: (input: OnboardMerchantInput) => api.merchant.onboard(input),
+    messages: {
+      loading: 'Saving your details…',
+      success: 'Onboarding complete. Welcome!',
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: merchantKeys.me() })
+    },
   })
 }
 
