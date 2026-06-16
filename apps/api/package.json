@@ -30,6 +30,8 @@
     "@nestjs/swagger": "^11.0.3",
     "@privy-io/server-auth": "^1.18.7",
     "@scalar/fastify-api-reference": "^1.59.2",
+    "@strimz/chain-adapter": "workspace:*",
+    "@strimz/chain-adapter-evm": "workspace:*",
     "@strimz/db": "workspace:*",
     "@strimz/email-templates": "workspace:*",
     "@strimz/sdk": "workspace:*",
