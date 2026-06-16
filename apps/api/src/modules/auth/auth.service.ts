@@ -61,31 +61,14 @@ export class AuthService {
     const emailVerified = Boolean(user.email?.address) // Privy verifies email-login addresses
     const twoFactorEnabled = this.privy.hasMfa(user)
 
-    const existing = await this.prisma.db.merchant.findUnique({
+    // Atomic upsert so concurrent sync calls (React StrictMode double-mount,
+    // a retry, or two browser tabs racing) can't both reach the create
+    // branch and collide on the unique privyUserId. The `created` flag is
+    // derived from createdAt vs updatedAt — Prisma upsert doesn't expose
+    // which branch ran, so we infer it after the fact.
+    const merchant = await this.prisma.db.merchant.upsert({
       where: { privyUserId: claims.userId },
-    })
-
-    if (existing) {
-      const updated = await this.prisma.db.merchant.update({
-        where: { id: existing.id },
-        data: {
-          email,
-          emailVerified,
-          twoFactorEnabled,
-          // walletAddress: source of truth is the Privy embedded wallet,
-          // refreshed every sync. payoutAddress: only seeded from the
-          // wallet on a row that's never had one — never overwrite a
-          // merchant's deliberate payout choice.
-          walletAddress: wallet ?? existing.walletAddress,
-          payoutAddress: existing.payoutAddress ?? wallet,
-          lastLoginAt: new Date(),
-        },
-      })
-      return { merchant: serialiseMerchant(updated), isNewMerchant: false }
-    }
-
-    const created = await this.prisma.db.merchant.create({
-      data: {
+      create: {
         privyUserId: claims.userId,
         email,
         emailVerified,
@@ -94,8 +77,28 @@ export class AuthService {
         payoutAddress: wallet,
         lastLoginAt: new Date(),
       },
+      update: {
+        email,
+        emailVerified,
+        twoFactorEnabled,
+        // walletAddress: source of truth is the Privy embedded wallet,
+        // refreshed every sync. Passing `undefined` to Prisma is "skip"
+        // — we only overwrite when Privy actually returns a wallet.
+        walletAddress: wallet ?? undefined,
+        // payoutAddress: deliberately NOT updated here. It's seeded once
+        // on create and never overwritten — the merchant may have
+        // pointed it elsewhere on purpose. Re-seeding null-payout rows
+        // from the embedded wallet on a later sync is rare enough to
+        // not justify the raw-SQL COALESCE that would be needed inside
+        // an upsert.
+        lastLoginAt: new Date(),
+      },
     })
-    this.log.log(`merchant created via privy: ${created.id} (${email})`)
-    return { merchant: serialiseMerchant(created), isNewMerchant: true }
+
+    const isNewMerchant = merchant.createdAt.getTime() === merchant.updatedAt.getTime()
+    if (isNewMerchant) {
+      this.log.log(`merchant created via privy: ${merchant.id} (${email})`)
+    }
+    return { merchant: serialiseMerchant(merchant), isNewMerchant }
   }
 }
