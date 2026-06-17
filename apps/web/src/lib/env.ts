@@ -22,4 +22,11 @@ export const env = {
   // a different token; the checkout reads the canonical address from
   // the session payload first, falls back to this for demo seeds.
   usdcAddress: (process.env.NEXT_PUBLIC_STRIMZ_USDC_ADDRESS ?? '') as `0x${string}` | '',
+  // Stellar config for the merchant onboarding passkey flow. Network
+  // picks the passphrase that binds the derived smart-wallet contract
+  // address to the right chain. Deployer is Strimz's operator account
+  // (a G-account) that funds the wallet contract's account reserve on
+  // first deploy — kept off the merchant's hot path.
+  stellarNetwork: (process.env.NEXT_PUBLIC_STELLAR_NETWORK ?? 'testnet') as 'testnet' | 'pubnet',
+  stellarDeployerAddress: process.env.NEXT_PUBLIC_STELLAR_DEPLOYER_ADDRESS ?? '',
 } as const

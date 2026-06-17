@@ -25,6 +25,7 @@
     "@strimz/sdk-react": "workspace:*",
     "@strimz/shared-config": "workspace:*",
     "@strimz/shared-types": "workspace:*",
+    "@strimz/stellar-passkey": "workspace:*",
     "@strimz/ui": "workspace:*",
     "@tanstack/react-query": "^5.62.16",
     "@tanstack/react-table": "^8.21.3",
