@@ -30,6 +30,14 @@ export const merchantSchema = z.object({
   tier: merchantTierSchema,
   status: merchantStatusSchema,
   payoutAddress: evmAddressSchema.nullable(),
+  /**
+   * Merchant's controlling EVM address — the Privy embedded wallet
+   * captured at sign-in. Exposed so the dashboard can pre-fill the
+   * EVM payout entry at onboarding without a separate Privy round-trip.
+   * Distinct from `payoutAddresses['evm:*']`, which can point at a
+   * treasury / multisig / external wallet.
+   */
+  walletAddress: evmAddressSchema.nullable(),
   defaultCurrency: z.enum(['USDC', 'EURC']),
   countryCode: z.string().length(2).nullable(),
   websiteUrl: z.string().url().nullable(),
@@ -95,7 +103,18 @@ export const onboardMerchantInputSchema = z.object({
     .regex(/^[A-Z]{2}$/, 'must be a 2-letter ISO country code'),
   websiteUrl: z.string().url().optional(),
   phone: z.string().min(6).max(20).optional(),
-  payoutAddress: evmAddressSchema,
+  /**
+   * Per-chain payout addresses, keyed by chain id (`evm:base`,
+   * `stellar:pubnet`, …). At minimum, one chain must be configured.
+   * Address shape validation per chain is delegated to the chain
+   * adapter at the API layer — the shared schema only enforces the
+   * map structure + non-empty constraint here.
+   */
+  payoutAddresses: z
+    .record(z.string(), z.string().min(1).max(80))
+    .refine((map) => Object.keys(map).length > 0, {
+      message: 'at least one chain must be configured',
+    }),
   defaultCurrency: z.enum(['USDC', 'EURC']).optional(),
 })
 export type OnboardMerchantInput = z.infer<typeof onboardMerchantInputSchema>

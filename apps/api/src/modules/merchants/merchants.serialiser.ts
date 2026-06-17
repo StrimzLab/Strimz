@@ -10,6 +10,7 @@ export function serialiseMerchant(m: any): Merchant {
     tier: m.tier,
     status: m.status,
     payoutAddress: m.payoutAddress,
+    walletAddress: m.walletAddress,
     defaultCurrency: m.defaultCurrency,
     countryCode: m.countryCode,
     websiteUrl: m.websiteUrl,
