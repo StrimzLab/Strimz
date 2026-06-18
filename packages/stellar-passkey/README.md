@@ -1,30 +1,58 @@
 # @strimz/stellar-passkey
 
-Strimz-side integration of [`stellar-passkeyUI`](https://github.com/jes-labs/stellar-passkeyui) —
-a themed passkey enrolment flow + Soroban smart-wallet address derivation,
-sized for the Strimz merchant onboarding form.
+Strimz-native passkey enrolment + Soroban smart-wallet address
+derivation for merchant onboarding. Owns every byte: WebAuthn glue,
+capability detection, deterministic contract-address derivation, and
+the React component that drives it.
 
-## What's in the box
+No external SDK dependency beyond `@stellar/stellar-sdk` (canonical
+XDR + Strkey + hash) and `@noble/hashes` (for SHA-256). Strimz
+controls the surface end-to-end.
 
-| Export                        | Where                           | Purpose                                                                                                                                                                                                                                                                           |
-| ----------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `<MerchantPasskeyEnrol />`    | `@strimz/stellar-passkey/react` | A drop-in React component for the onboarding step — runs the create-passkey ceremony, derives the merchant's smart-wallet contract address, returns it to the caller via `onEnrolled`.                                                                                            |
-| `deriveMerchantWalletAddress` | `@strimz/stellar-passkey`       | Framework-free helper. Given a passkey credential id + deployer + network passphrase, returns the deterministic Soroban contract address the smart wallet will deploy to. Mirrors the upstream `deriveWalletAddress` so the merchant address is known before any on-chain action. |
-| `StellarNetwork`              | `@strimz/stellar-passkey`       | Convenience type — `'testnet'                                                                                                                                                                                                                                                     | 'pubnet'`. |
+## What's here
 
-## Why a Strimz wrapper
+| Export                                         | Where                           | Purpose                                                                                                                              |
+| ---------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `<MerchantPasskeyEnrol />`                     | `@strimz/stellar-passkey/react` | Drop-in component for the onboarding form. Runs the WebAuthn ceremony, derives the contract address, hands it back via `onEnrolled`. |
+| `deriveMerchantWalletAddress`                  | `@strimz/stellar-passkey`       | Pure function. Given a credential id + deployer + network, returns the C-prefixed Strkey the smart wallet will deploy to.            |
+| `createPasskey` / `signWithPasskey`            | `@strimz/stellar-passkey`       | WebAuthn wrappers. Used by the React component; reusable by future checkout / sign flows.                                            |
+| `detectCapabilities` / `isPasskeySupported`    | `@strimz/stellar-passkey`       | Browser capability snapshot. Drives the "passkeys aren't available" branch in the UI.                                                |
+| `toBase64Url` / `fromBase64Url` / `bytesToHex` | `@strimz/stellar-passkey`       | Byte-encoding helpers used at the wire boundary.                                                                                     |
+| `NETWORK_PASSPHRASE` / `StellarNetwork`        | `@strimz/stellar-passkey`       | Stellar network passphrase map + type.                                                                                               |
 
-Apps/web (and any other Strimz consumer) imports `@strimz/stellar-passkey`
-only. Versioning, theming, and the underlying `@passkey-ui/*` lineage are
-private to this package. If stellar-passkeyUI ships a breaking change, the
-fix is contained here — not spread across every consumer.
+## Design notes
 
-## Upstream
+**Contract address derivation matches Soroban's host formula.** The
+smart wallet contract id is `SHA-256(envelopeTypeContractId(networkId,
+deployer, salt))`, where `salt = SHA-256(credentialId)`. Same input →
+same address forever. The address is known at onboarding; deploy is
+lazy (M5, on first incoming payment).
 
-`@passkey-ui/core` + `@passkey-ui/ui` are linked via `file:` to the sibling
-`stellar-passkeyUI/` checkout (`../../../stellar-passkeyUI/packages/{core,ui}`).
-The upstream must be built first (`pnpm -r --filter "./packages/*" run build`
-inside `stellar-passkeyUI/`) so `dist/` exists. CI does this as a pre-step.
+**WebAuthn surface is intentionally minimal.** No compatibility matrix,
+no fallback-rule engine. The browser detect either supports passkeys
+or it doesn't; if it doesn't, the UI shows a clear message and falls
+back to "paste an existing Stellar address." This trades some breadth
+for an interface we fully understand and own.
 
-When the upstream library ships an npm release, swap the `file:` deps for
-semver — no consumer changes required.
+**Public key extraction uses `getPublicKey()`**, the modern WebAuthn
+API. On browsers that don't expose it (older Safari, embedded
+webviews), the credential id is still captured + the contract address
+is still derivable; M5 can re-fetch the public key when the wallet
+actually deploys.
+
+**Framework-free first, React second.** Server code (the API server,
+future indexer) imports from `@strimz/stellar-passkey` without
+pulling React. The React component lives under `/react` and reuses
+the same primitives.
+
+## Tests
+
+```sh
+pnpm --filter @strimz/stellar-passkey test
+```
+
+Covers the deterministic address derivation (same input → same
+address; different credential / network → different address) + the
+base64url + hex encoding round-trips. Browser-dependent paths
+(`createPasskey`, `signWithPasskey`, capability detection) are not
+unit-tested — they're exercised end-to-end via the onboarding flow.

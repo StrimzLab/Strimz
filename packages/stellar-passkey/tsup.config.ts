@@ -10,5 +10,5 @@ export default defineConfig({
   treeshake: true,
   target: 'es2022',
   outDir: 'dist',
-  external: ['react', 'react-dom', '@passkey-ui/core', '@passkey-ui/ui'],
+  external: ['react', 'react-dom', '@stellar/stellar-sdk', '@noble/hashes'],
 })

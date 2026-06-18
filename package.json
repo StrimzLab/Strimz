@@ -41,11 +41,9 @@
     "typescript": "^5.7.3"
   },
   "pnpm": {
-    "_overridesNote": "Two unrelated overrides packed into one block.\n\n@wagmi/connectors: @reown/appkit-adapter-wagmi@1.8.x declares `@wagmi/connectors: >=5.9.9` as an open-ended optionalDependency. With no upper bound, pnpm picks @wagmi/connectors@8.x (the wagmi 3.x companion line) which ships a broken peer pin: it pins @wagmi/core@3.4.9 exact, but its `exports/index.js` re-exports `tempoWallet from '@wagmi/core/tempo'` — a path @wagmi/core@3.4.9 doesn't export. Result: cold install fails with `Module not found: ./tempo`. We cap connectors to ^5.x — the line matching wagmi 2.x that the Reown adapter was built against — so the @wagmi/* tree resolves consistently.\n\n@passkey-ui/core + @passkey-ui/ui: the upstream stellar-passkeyUI monorepo references its own packages with `workspace:*`. When @strimz/stellar-passkey consumes them via `file:`, pnpm reads the upstream package.json and sees an unresolvable workspace specifier. The overrides force every reference (including @passkey-ui/ui → @passkey-ui/core internally) to use the local file: path. When stellar-passkeyUI ships an npm release, swap these for semver and remove the override.",
+    "_overridesNote": "@reown/appkit-adapter-wagmi@1.8.x declares `@wagmi/connectors: >=5.9.9` as an open-ended optionalDependency. With no upper bound, pnpm picks @wagmi/connectors@8.x (the wagmi 3.x companion line) which ships a broken peer pin: it pins @wagmi/core@3.4.9 exact, but its `exports/index.js` re-exports `tempoWallet from '@wagmi/core/tempo'` — a path @wagmi/core@3.4.9 doesn't export. Result: cold install fails with `Module not found: ./tempo`. We cap connectors to ^5.x — the line matching wagmi 2.x that the Reown adapter was built against — so the @wagmi/* tree resolves consistently.",
     "overrides": {
-      "@wagmi/connectors": "^5.11.0",
-      "@passkey-ui/core": "file:../stellar-passkeyUI/packages/core",
-      "@passkey-ui/ui": "file:../stellar-passkeyUI/packages/ui"
+      "@wagmi/connectors": "^5.11.0"
     },
     "_onlyBuiltDependenciesNote": "Lefthook ships a Go binary that pnpm post-install fetches into node_modules — that's a build script, and pnpm@10 blocks them by default for safety. We explicitly opt this in so `pnpm install` wires the git hooks via the root `prepare` script.",
     "onlyBuiltDependencies": [

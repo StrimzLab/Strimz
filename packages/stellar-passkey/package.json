@@ -2,7 +2,7 @@
   "name": "@strimz/stellar-passkey",
   "version": "0.0.0",
   "private": true,
-  "description": "Strimz integration of stellar-passkeyUI — themed passkey enrolment + smart-wallet address derivation for merchant onboarding.",
+  "description": "Strimz-native passkey enrolment + Soroban smart-wallet address derivation. WebAuthn glue, capability detection, deterministic contract-address derivation, React component for the onboarding form.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -29,11 +29,12 @@
     "dev": "tsup --watch",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
-    "@passkey-ui/core": "file:../../../stellar-passkeyUI/packages/core",
-    "@passkey-ui/ui": "file:../../../stellar-passkeyUI/packages/ui"
+    "@noble/hashes": "^2.2.0",
+    "@stellar/stellar-sdk": "^16.0.0"
   },
   "peerDependencies": {
     "react": ">=18",
@@ -42,12 +43,14 @@
   "devDependencies": {
     "@strimz/eslint-config": "workspace:*",
     "@strimz/tsconfig": "workspace:*",
+    "@types/node": "^22.10.5",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.18.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tsup": "^8.3.5",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
   }
 }
