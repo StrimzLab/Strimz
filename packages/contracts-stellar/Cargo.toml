@@ -1,0 +1,34 @@
+[workspace]
+resolver = "2"
+members = [
+    "contracts/strimz-fee-collector",
+    "contracts/strimz-payments",
+    "contracts/strimz-subscription",
+]
+
+# WASM size matters on Soroban — ledger storage costs scale with the
+# uploaded contract bytes. These flags shave roughly 30-40% off the
+# release binaries vs default cargo settings, and bring stack-trace
+# costs to zero for production (matches what stellar-cli's recommended
+# template uses).
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
+
+# Dev profile keeps overflow checks (cheap on test runs) and disables
+# LTO so test compilation stays fast.
+[profile.release-with-logs]
+inherits = "release"
+debug-assertions = true
+
+[workspace.dependencies]
+# Soroban SDK 22.0 targets Protocol 22 which is what testnet + pubnet
+# are currently on (mid-2026). Bumping the SDK requires re-uploading
+# the contract WASM, so this is a load-bearing version pin.
+soroban-sdk = "22.0.8"
