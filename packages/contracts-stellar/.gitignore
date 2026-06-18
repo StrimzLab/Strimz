@@ -1,0 +1,5 @@
+# Cargo build artefacts (WASM + native dev binaries)
+target/
+
+# Stellar CLI tx outputs, cached identities, etc.
+.stellar/
