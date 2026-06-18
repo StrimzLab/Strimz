@@ -1,12 +1,24 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import type { Merchant, UpdateMerchantInput, ChangeTierInput } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { ChainRegistryService } from '../../infra/chain-registry/chain-registry.service.js'
 import { serialiseMerchant } from './merchants.serialiser.js'
 import type { OnboardInput } from './merchants.dto.js'
 
+/**
+ * Stellar address shape (G-account or C-contract): base32 Strkey,
+ * exactly 56 chars. The chain registry's StellarChainAdapter (M5)
+ * will replace this with a proper StrKey checksum validator; the
+ * regex covers the structural check until that lands.
+ */
+const STELLAR_ADDRESS_REGEX = /^[GC][A-Z2-7]{55}$/
+
 @Injectable()
 export class MerchantsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly chains: ChainRegistryService,
+  ) {}
 
   async findById(id: string): Promise<Merchant> {
     const m = await this.prisma.db.merchant.findUnique({ where: { id } })
@@ -31,11 +43,62 @@ export class MerchantsService {
   }
 
   /**
-   * One-shot self-attested onboarding form. Captures business name, sector,
-   * country, etc. and flips `onboardingCompleted` so the dashboard exits
-   * the onboarding wizard.
+   * One-shot self-attested onboarding form. Captures business profile +
+   * per-chain payout addresses, flips `onboardingCompleted` so the
+   * dashboard exits the wizard, and seeds `supportedChains` from the
+   * payout map keys.
+   *
+   * Address validation runs per chain via the registry — `evm:*`
+   * adapters use viem's checksummed-EVM check, Stellar entries fall
+   * back to a Strkey regex until the M5 adapter ships.
+   *
+   * The legacy `payoutAddress` column is populated from the first EVM
+   * entry (if any) so the on-chain merchant-registration flow continues
+   * to work without a separate migration.
    */
   async onboard(id: string, input: OnboardInput): Promise<Merchant> {
+    const chains = Object.keys(input.payoutAddresses)
+    const normalised: Record<string, string> = {}
+
+    for (const chainId of chains) {
+      const address = input.payoutAddresses[chainId]
+      if (!address) continue
+
+      const adapter = this.chains.find(chainId)
+      if (adapter) {
+        if (!adapter.validateAddress(address)) {
+          throw new BadRequestException({
+            code: 'invalid_address',
+            message: `"${address}" is not a valid address on ${chainId}`,
+          })
+        }
+        normalised[chainId] = adapter.normaliseAddress(address)
+        continue
+      }
+
+      // No adapter wired yet (Stellar pre-M5) — fall back to regex.
+      if (chainId.startsWith('stellar:')) {
+        if (!STELLAR_ADDRESS_REGEX.test(address)) {
+          throw new BadRequestException({
+            code: 'invalid_address',
+            message: `"${address}" is not a valid Stellar G-account or C-contract address`,
+          })
+        }
+        normalised[chainId] = address
+        continue
+      }
+
+      // Unknown chain family — refuse.
+      throw new BadRequestException({
+        code: 'chain_not_supported',
+        message: `chain "${chainId}" is not registered`,
+      })
+    }
+
+    // Derive legacy payoutAddress from the first EVM entry (for the
+    // on-chain registry registration flow, until M5 generalises that).
+    const legacyEvmPayout = Object.entries(normalised).find(([c]) => c.startsWith('evm:'))?.[1]
+
     const updated = await this.prisma.db.merchant.update({
       where: { id },
       data: {
@@ -44,7 +107,9 @@ export class MerchantsService {
         countryCode: input.countryCode,
         websiteUrl: input.websiteUrl ?? null,
         phone: input.phone ?? null,
-        payoutAddress: input.payoutAddress,
+        payoutAddresses: normalised,
+        supportedChains: Object.keys(normalised),
+        ...(legacyEvmPayout ? { payoutAddress: legacyEvmPayout } : {}),
         defaultCurrency: input.defaultCurrency ?? 'USDC',
         onboardingCompleted: true,
       },
