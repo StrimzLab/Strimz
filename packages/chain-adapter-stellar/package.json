@@ -1,0 +1,45 @@
+{
+  "name": "@strimz/chain-adapter-stellar",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Stellar family adapter — implements @strimz/chain-adapter for Stellar pubnet and testnet (Soroban smart wallets, SEP-41 allowances, fee-bump submission).",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^16.0.0",
+    "@strimz/chain-adapter": "workspace:*"
+  },
+  "devDependencies": {
+    "@strimz/eslint-config": "workspace:*",
+    "@strimz/tsconfig": "workspace:*",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
