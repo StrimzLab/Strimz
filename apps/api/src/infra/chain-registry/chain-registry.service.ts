@@ -1,6 +1,11 @@
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common'
 import { ChainAdapterRegistry, type ChainAdapter } from '@strimz/chain-adapter'
 import { EvmChainAdapter, type EvmChainConfig } from '@strimz/chain-adapter-evm'
+import {
+  StellarChainAdapter,
+  type StellarChainConfig,
+  type StellarNetwork,
+} from '@strimz/chain-adapter-stellar'
 
 import { PrismaService } from '../prisma/prisma.service.js'
 
@@ -9,15 +14,14 @@ import { PrismaService } from '../prisma/prisma.service.js'
  *
  * On boot:
  *   1. Reads the enabled rows from `SupportedChain`.
- *   2. For each EVM row, builds an `EvmChainConfig` from its `rpcConfig`
- *      + environment variables, and registers an `EvmChainAdapter`.
+ *   2. For each row, dispatches to the family-specific builder:
+ *      - EVM → `EvmChainAdapter` against `rpcConfig.{chainId, rpcUrlEnv,
+ *        contracts}`
+ *      - Stellar → `StellarChainAdapter` against `rpcConfig.{network,
+ *        horizonUrl, rpcUrl, contracts, usdcSac}`
  *   3. Skips rows whose contracts are empty (e.g. `evm:base` until the
- *      deploy lands) — logs once at warn so the operator surface is
- *      visible.
- *
- * Stellar rows are not registered yet — the Stellar adapter ships in
- * M5. They sit in the registry as "known but unhandled"; any call
- * targeting them surfaces a `chain_not_found` 4xx until then.
+ *      deploy lands, or `stellar:pubnet` until audit completes) — logs
+ *      once at warn so the operator surface is visible.
  *
  * Re-registration mid-process is safe — useful when the admin
  * platform updates a chain's contract addresses without a restart.
@@ -39,23 +43,18 @@ export class ChainRegistryService extends ChainAdapterRegistry implements OnModu
     let registered = 0
     let skipped = 0
     for (const row of rows) {
-      if (row.family === 'evm') {
-        const adapter = this.buildEvmAdapter(row.id, row.display, row.rpcConfig)
-        if (!adapter) {
-          skipped++
-          continue
-        }
-        this.register(adapter)
-        registered++
+      const adapter =
+        row.family === 'evm'
+          ? this.buildEvmAdapter(row.id, row.display, row.rpcConfig)
+          : row.family === 'stellar'
+            ? this.buildStellarAdapter(row.id, row.display, row.rpcConfig)
+            : null
+      if (!adapter) {
+        skipped++
         continue
       }
-
-      // Stellar adapters arrive in M5. Recording the skip so a future
-      // M5 PR can confirm it stops appearing.
-      this.log.log(
-        `chain ${row.id} (${row.family}) recognised but no adapter implementation is wired yet`,
-      )
-      skipped++
+      this.register(adapter)
+      registered++
     }
 
     this.log.log(`chain-registry boot: ${registered} adapter(s) registered, ${skipped} skipped`)
@@ -109,6 +108,47 @@ export class ChainRegistryService extends ChainAdapterRegistry implements OnModu
   }
 
   /**
+   * Build a `StellarChainAdapter` from a SupportedChain row's
+   * `rpcConfig`. Returns `null` when contract addresses haven't been
+   * populated yet (M4 deploy still pending for the network). The
+   * adapter's identity surface (`chainId`, `family`, `capabilities`)
+   * is usable today; submission methods throw
+   * `AdapterNotImplementedError` until M5b–e land.
+   */
+  private buildStellarAdapter(
+    chainId: string,
+    display: string,
+    rpcConfig: unknown,
+  ): StellarChainAdapter | null {
+    const parsed = parseStellarConfig(rpcConfig)
+    if (!parsed) {
+      this.log.warn(`chain ${chainId}: rpcConfig is not a valid Stellar shape; skipping`)
+      return null
+    }
+    if (!parsed.contracts.payments || !parsed.contracts.subscription) {
+      this.log.warn(
+        `chain ${chainId}: Soroban contracts not yet deployed (payments/subscription empty); skipping`,
+      )
+      return null
+    }
+
+    const config: StellarChainConfig = {
+      chainId,
+      display,
+      network: parsed.network,
+      horizonUrl: parsed.horizonUrl,
+      rpcUrl: parsed.rpcUrl,
+      contracts: {
+        payments: parsed.contracts.payments,
+        subscription: parsed.contracts.subscription,
+        feeCollector: parsed.contracts.feeCollector,
+      },
+      usdcSac: parsed.usdcSac,
+    }
+    return new StellarChainAdapter(config)
+  }
+
+  /**
    * Convenience method matching the (synchronous) `get` semantics of
    * the underlying registry but returning the typed adapter shape.
    */
@@ -142,4 +182,44 @@ function parseEvmConfig(raw: unknown): ParsedEvmConfig | null {
       ? (obj.contracts as Record<string, string>)
       : {}
   return { numericChainId, rpcUrlEnv, contracts }
+}
+
+interface ParsedStellarConfig {
+  network: StellarNetwork
+  horizonUrl: string
+  rpcUrl: string
+  contracts: {
+    payments: string
+    subscription: string
+    feeCollector: string
+  }
+  usdcSac: string | null
+}
+
+function parseStellarConfig(raw: unknown): ParsedStellarConfig | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const obj = raw as Record<string, unknown>
+  const network = obj.network === 'testnet' || obj.network === 'pubnet' ? obj.network : null
+  const horizonUrl = typeof obj.horizonUrl === 'string' ? obj.horizonUrl : null
+  const rpcUrl = typeof obj.rpcUrl === 'string' ? obj.rpcUrl : null
+  if (!network || !horizonUrl || !rpcUrl) return null
+
+  const contractsRaw =
+    typeof obj.contracts === 'object' && obj.contracts !== null
+      ? (obj.contracts as Record<string, unknown>)
+      : {}
+  const payments = typeof contractsRaw.payments === 'string' ? contractsRaw.payments : ''
+  const subscription =
+    typeof contractsRaw.subscription === 'string' ? contractsRaw.subscription : ''
+  const feeCollector =
+    typeof contractsRaw.feeCollector === 'string' ? contractsRaw.feeCollector : ''
+  const usdcSac = typeof obj.usdcSac === 'string' ? obj.usdcSac : null
+
+  return {
+    network,
+    horizonUrl,
+    rpcUrl,
+    contracts: { payments, subscription, feeCollector },
+    usdcSac,
+  }
 }
