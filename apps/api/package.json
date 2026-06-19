@@ -32,6 +32,7 @@
     "@scalar/fastify-api-reference": "^1.59.2",
     "@strimz/chain-adapter": "workspace:*",
     "@strimz/chain-adapter-evm": "workspace:*",
+    "@strimz/chain-adapter-stellar": "workspace:*",
     "@strimz/db": "workspace:*",
     "@strimz/email-templates": "workspace:*",
     "@strimz/sdk": "workspace:*",

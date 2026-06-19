@@ -180,6 +180,9 @@ importers:
       '@strimz/chain-adapter-evm':
         specifier: workspace:*
         version: link:../../packages/chain-adapter-evm
+      '@strimz/chain-adapter-stellar':
+        specifier: workspace:*
+        version: link:../../packages/chain-adapter-stellar
       '@strimz/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -613,6 +616,37 @@ importers:
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
+
+  packages/chain-adapter-stellar:
+    dependencies:
+      '@stellar/stellar-sdk':
+        specifier: ^16.0.0
+        version: 16.0.0
+      '@strimz/chain-adapter':
+        specifier: workspace:*
+        version: link:../chain-adapter
+    devDependencies:
+      '@strimz/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@strimz/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.17
+      eslint:
+        specifier: ^9.18.0
+        version: 9.39.4(jiti@2.6.1)
+      tsup:
+        specifier: ^8.3.5
+        version: 8.5.1(@swc/core@1.15.32(@swc/helpers@0.5.21))(jiti@2.6.1)(postcss@8.5.10)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.17)(jsdom@25.0.1(bufferutil@4.1.0)(utf-8-validate@6.0.6))(lightningcss@1.32.0)(terser@5.46.2)
 
   packages/contracts: {}
 
