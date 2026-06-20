@@ -33,12 +33,25 @@ import type { ChainFamily, ChainId, RelaySubmission } from './types.js'
 export interface PreparePaymentInput {
   /** Merchant the funds settle to. */
   merchantId: string
+  /**
+   * Merchant's on-chain payout address for this chain — caller looks
+   * it up from `Merchant.payoutAddresses[chainId]` before calling. The
+   * adapter consumes this directly; chain-aware address resolution
+   * doesn't belong in the adapter.
+   */
+  merchantAddress: string
   /** Idempotency key carried through to the relayer. */
   idempotencyKey: string
   /** Currency the session is denominated in. */
   currency: 'USDC' | 'EURC'
   /** Smallest-unit integer (string for bigint safety). */
   amount: string
+  /**
+   * Fee in basis points (1/10_000) the contract should split off the
+   * amount before transferring the net to the merchant. Driven by the
+   * merchant's tier; caller resolves the mapping.
+   */
+  feeBps: number
   /** Payer wallet address — chain-specific shape. */
   payerAddress: string
   /** Free-form reference for the indexer to project later. */
@@ -47,6 +60,12 @@ export interface PreparePaymentInput {
 
 export interface PrepareEnrolmentInput {
   merchantId: string
+  /**
+   * Merchant's on-chain payout address — same resolution rule as
+   * `PreparePaymentInput.merchantAddress`. Mandatory because the
+   * subscription contract stores this directly on every charge.
+   */
+  merchantAddress: string
   idempotencyKey: string
   planId: string
   customerId: string
@@ -54,6 +73,12 @@ export interface PrepareEnrolmentInput {
   /** Amount per period. */
   amount: string
   intervalSeconds: number
+  /**
+   * Per-period fee in basis points. The subscription contract pulls
+   * `(amount * (10_000 - feeBps)) / 10_000` to the merchant and the
+   * remaining `(amount * feeBps) / 10_000` to the fee collector.
+   */
+  feeBps: number
   payerAddress: string
   /** Optional end-time epoch seconds; null = open-ended. */
   endAt: number | null
