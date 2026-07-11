@@ -139,7 +139,7 @@ export class MerchantNotificationsService {
   private async runPaymentLane(): Promise<LaneResult> {
     const rows = await this.prisma.db.paymentSession.findMany({
       where: { status: 'confirmed', merchantNotifiedAt: null },
-      include: { merchant: { select: { email: true, businessName: true } } },
+      include: { merchant: { select: { email: true, businessName: true, metadata: true } } },
       orderBy: { updatedAt: 'asc' },
       take: this.cfg.env.MERCHANT_NOTIFICATION_BATCH_SIZE,
     })
@@ -150,6 +150,13 @@ export class MerchantNotificationsService {
     let sent = 0
     let failed = 0
     for (const row of rows) {
+      if (!prefEnabled(row.merchant.metadata, 'paymentReceived')) {
+        await this.prisma.db.paymentSession.update({
+          where: { id: row.id },
+          data: { merchantNotifiedAt: new Date() },
+        })
+        continue
+      }
       try {
         const amountDisplay = `${formatUnits(BigInt(row.amount), 6)} ${row.currency}`
         const payerShort = this.shortAddr(row.payerWalletAddress)
@@ -253,7 +260,7 @@ export class MerchantNotificationsService {
     const rows = await this.prisma.db.subscriptionCharge.findMany({
       where: { status: 'succeeded', merchantNotifiedAt: null },
       include: {
-        merchant: { select: { email: true, businessName: true } },
+        merchant: { select: { email: true, businessName: true, metadata: true } },
         subscription: {
           select: {
             payerAddress: true,
@@ -272,6 +279,13 @@ export class MerchantNotificationsService {
     let sent = 0
     let failed = 0
     for (const row of rows) {
+      if (!prefEnabled(row.merchant.metadata, 'subscriptionCharged')) {
+        await this.prisma.db.subscriptionCharge.update({
+          where: { id: row.id },
+          data: { merchantNotifiedAt: new Date() },
+        })
+        continue
+      }
       try {
         const amountDisplay = `${formatUnits(BigInt(row.amount), 6)} ${row.currency}`
         const payerShort = this.shortAddr(row.subscription.payerAddress)
@@ -355,6 +369,14 @@ export class MerchantNotificationsService {
     const msg = err instanceof Error ? err.message : String(err)
     this.log.warn(`${lane} notification failed for ${id}: ${msg} — will retry next tick`)
   }
+}
+
+function prefEnabled(metadata: unknown, key: 'paymentReceived' | 'subscriptionCharged'): boolean {
+  const bag =
+    metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : null
+  const prefs = bag?.emailPrefs as Record<string, unknown> | undefined
+  const value = prefs?.[key]
+  return typeof value === 'boolean' ? value : true
 }
 
 export interface LaneResult {

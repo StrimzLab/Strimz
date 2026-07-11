@@ -110,6 +110,20 @@ export class ChainService {
     })
   }
 
+  /** True if the on-chain subscription is currently due for a charge. */
+  async isChargeDue(subscriptionId: bigint): Promise<boolean> {
+    const sub = await this.publicClient.readContract({
+      address: this.subscriptionsAddress,
+      abi: StrimzSubscriptionsAbi,
+      functionName: 'getSubscription',
+      args: [subscriptionId],
+    })
+    if (sub.cancelled) return false
+    const now = BigInt(Math.floor(Date.now() / 1000))
+    if (sub.endAt !== 0n && now >= sub.endAt) return false
+    return now >= sub.nextChargeAt
+  }
+
   // ----- Agent escrow writes -----
 
   async createJob(input: {

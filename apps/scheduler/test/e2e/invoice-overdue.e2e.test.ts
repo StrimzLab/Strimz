@@ -5,6 +5,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant, seedWebhookEndpoint } from '../helpers/fixtures.js'
 import { InvoiceOverdueService } from '../../src/crons/invoice-overdue/invoice-overdue.service.js'
+import { WebhookOutboxService } from '../../src/infra/webhook-outbox/webhook-outbox.service.js'
 import { QUEUE_NAMES } from '../../src/infra/queue/queue-names.js'
 
 describe('invoice-overdue cron e2e', () => {
@@ -75,13 +76,18 @@ describe('invoice-overdue cron e2e', () => {
     const cron = t.app.get(InvoiceOverdueService)
     const result = await cron.sweepNow()
     expect(result.flipped).toBe(1)
-    expect(result.deliveriesQueued).toBe(1)
 
     const states = await t.prisma.db.invoice.findMany({ orderBy: { number: 'asc' } })
     expect(states.map((s) => s.status)).toEqual(['overdue', 'draft', 'paid'])
 
+    // The cron writes an undispatched outbox event; the dispatcher fans out.
     const events = await t.prisma.db.webhookEvent.findMany({ where: { type: 'invoice_overdue' } })
     expect(events).toHaveLength(1)
+    expect(events[0]!.dispatchedAt).toBeNull()
+
+    const outbox = t.app.get(WebhookOutboxService)
+    const dispatched = await outbox.tickNow()
+    expect(dispatched.deliveriesQueued).toBe(1)
 
     const deliveries = await t.prisma.db.webhookDelivery.findMany()
     expect(deliveries).toHaveLength(1)
@@ -92,10 +98,9 @@ describe('invoice-overdue cron e2e', () => {
     expect(queued).toHaveLength(1)
   })
 
-  it('returns 0/0 when nothing is overdue', async () => {
+  it('returns 0 when nothing is overdue', async () => {
     const cron = t.app.get(InvoiceOverdueService)
     const result = await cron.sweepNow()
     expect(result.flipped).toBe(0)
-    expect(result.deliveriesQueued).toBe(0)
   })
 })
