@@ -88,4 +88,28 @@ export class ActivityLogService {
     })
     return found != null
   }
+
+  /**
+   * True if a specific recovery attempt number was already sent
+   * successfully for this subscription since `since`. Lets recovery
+   * send each attempt exactly once per period instead of re-sending
+   * whenever the time-window dedup ages out.
+   */
+  async hasSuccessfulRecoveryAttempt(input: {
+    subscriptionId: string
+    attemptNumber: number
+    since: Date
+  }): Promise<boolean> {
+    const found = await this.prisma.db.agentActivityLog.findFirst({
+      where: {
+        subscriptionId: input.subscriptionId,
+        actionType: 'recovery_notification_sent',
+        outcome: 'success',
+        createdAt: { gte: input.since },
+        metadata: { path: ['attemptNumber'], equals: input.attemptNumber },
+      },
+      select: { id: true },
+    })
+    return found != null
+  }
 }

@@ -23,7 +23,12 @@ export const envSchema = z.object({
   ANOMALY_THRESHOLD_HIGH: z.coerce.number().positive().default(1.0),
 
   RESEND_API_KEY: z.string().optional(),
-  RESEND_FROM_EMAIL: z.string().email().default('noreply@strimz.io'),
+  // Accept RFC 5322 `Display Name <address>` format as well as a bare
+  // address — matches apps/api and apps/scheduler, both of which ship
+  // the branded `Strimz <noreply@mail.strimz.finance>` sender. A
+  // strict `.email()` here rejects that shape and diverges from the
+  // rest of the platform.
+  RESEND_FROM_EMAIL: z.string().min(1).default('Strimz <noreply@mail.strimz.finance>'),
 
   // Circle CCTP V2 — used by the routing capability to fetch attestations.
   // Default to Circle's sandbox; mainnet deployments override.

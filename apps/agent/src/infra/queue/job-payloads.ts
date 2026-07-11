@@ -22,6 +22,8 @@ export const cctpBridgeJobSchema = z.object({
    * dashboard can link back.
    */
   ref: z.string().optional(),
+  /** Poll count. Incremented on each re-enqueue; bounds the attestation wait. */
+  pollCount: z.number().int().nonnegative().default(0),
 })
 export type CctpBridgeJob = z.infer<typeof cctpBridgeJobSchema>
 
