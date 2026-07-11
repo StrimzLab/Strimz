@@ -1,6 +1,8 @@
 import {
+  merchantPublicBrandSchema,
   paymentSessionSchema,
   subscriptionPlanSchema,
+  type MerchantPublicBrand,
   type PaymentSession,
   type SubscriptionPlan,
 } from '@strimz/shared-types'
@@ -28,5 +30,10 @@ export class CheckoutResource extends BaseResource {
   /** Load a subscription plan by id (public, no merchant scoping). */
   plan(id: string): Promise<SubscriptionPlan> {
     return this.get(`/v1/checkout/plans/${encodeURIComponent(id)}`, subscriptionPlanSchema)
+  }
+
+  /** Load the merchant's public brand card by id. */
+  merchant(id: string): Promise<MerchantPublicBrand> {
+    return this.get(`/v1/checkout/merchants/${encodeURIComponent(id)}`, merchantPublicBrandSchema)
   }
 }

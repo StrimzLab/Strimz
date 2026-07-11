@@ -66,3 +66,22 @@ export const submitRefundSignatureInputSchema = z.object({
   refundTxHash: evmTxHashSchema,
 })
 export type SubmitRefundSignatureInput = z.infer<typeof submitRefundSignatureInputSchema>
+
+/**
+ * Response envelope for `POST /v1/refunds`. The API returns the newly
+ * created refund plus the concrete ERC-20 transfer the merchant now
+ * has to sign from their payout wallet.
+ */
+export const refundSigningInstructionsSchema = z.object({
+  token: evmAddressSchema,
+  to: evmAddressSchema,
+  amount: tokenAmountSchema,
+  note: z.string(),
+})
+export type RefundSigningInstructions = z.infer<typeof refundSigningInstructionsSchema>
+
+export const refundCreateOutputSchema = z.object({
+  refund: refundSchema,
+  signingInstructions: refundSigningInstructionsSchema,
+})
+export type RefundCreateOutput = z.infer<typeof refundCreateOutputSchema>
