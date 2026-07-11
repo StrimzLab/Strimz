@@ -50,9 +50,9 @@ The indexer expects the Prisma schema from `packages/db` to be applied. From the
 pnpm --filter @strimz/db db:migrate:deploy
 ```
 
-## Reorg protection
+## Confirmations
 
-`CONFIRMATIONS=5` means the indexer waits 5 blocks behind the chain head before projecting any event. On Arc this is ~13 seconds × 5 = ~65 seconds of finality margin. Increase if you're running a high-stakes deployment.
+`CONFIRMATIONS=1` keeps the indexer one block behind head. Arc has deterministic BFT finality — a committed block never reorgs — so one confirmation is plenty; the extra block only shields against an RPC replica that hasn't yet caught up to head.
 
 ## Idempotency
 

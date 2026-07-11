@@ -5,10 +5,9 @@ import type { ReactNode } from 'react'
 
 /**
  * Wraps the app in Strimz's React context so `<StrimzPayButton>` +
- * `useStrimzCheckout()` know where to open the hosted checkout. We
- * point `checkoutOrigin` at the payment-session path segment because
- * the SDK builds URLs as `${checkoutOrigin}/${sessionId}` — the actual
- * hosted checkout for one-shot payments lives at /pay/{sessionId}.
+ * `useStrimzCheckout()` know where to open the hosted checkout.
+ * `checkoutOrigin` is the bare web origin; the SDK's payment primitives
+ * append `/pay/{sessionId}` themselves.
  */
 
 interface Props {
@@ -34,7 +33,7 @@ export function StrimzClientProvider({ children }: Props) {
     <StrimzProvider
       publishableKey={publishableKey}
       apiBaseUrl={process.env.STRIMZ_API_URL || 'http://localhost:4000'}
-      checkoutOrigin={`${origin}/pay`}
+      checkoutOrigin={origin}
     >
       {children}
     </StrimzProvider>
