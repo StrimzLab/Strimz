@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: 0 0% 100%;
+    --fg: 240 10% 6%;
+    --muted: 240 5% 45%;
+    --card: 0 0% 100%;
+    --card-fg: 240 10% 6%;
+    --border: 240 6% 90%;
+  }
+
+  .dark {
+    --bg: 240 10% 4%;
+    --fg: 0 0% 98%;
+    --muted: 240 5% 65%;
+    --card: 240 8% 8%;
+    --card-fg: 0 0% 98%;
+    --border: 240 6% 16%;
+  }
+
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    background: hsl(var(--bg));
+    color: hsl(var(--fg));
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@layer components {
+  .card {
+    background: hsl(var(--card));
+    color: hsl(var(--card-fg));
+    border: 1px solid hsl(var(--border));
+  }
+
+  .muted {
+    color: hsl(var(--muted));
+  }
+}
+
+/* Fanline-specific vibes — a soft gradient behind the hero that survives
+   dark mode transitions. */
+.hero-gradient {
+  background:
+    radial-gradient(60rem 40rem at 20% -10%, rgba(255, 43, 98, 0.15), transparent 60%),
+    radial-gradient(50rem 35rem at 80% 10%, rgba(147, 51, 234, 0.12), transparent 55%);
+}
