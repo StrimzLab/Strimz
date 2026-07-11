@@ -3,7 +3,7 @@
  *
  * The OG image is `public/thumbnail.png` (1200×630, the standard OG
  * card aspect). Defined here so the file path and dimensions live in
- * one place — every per-page `openGraph` override in the app pulls
+ * one place. Every per-page `openGraph` override in the app pulls
  * from this constant rather than hard-coding the path.
  *
  * Why this matters: Next.js does NOT deep-merge the `openGraph` field.
@@ -17,7 +17,7 @@ export const OG_IMAGE = {
   url: '/thumbnail.png',
   width: 1200,
   height: 630,
-  alt: 'Strimz — the billing layer for stablecoins. One API for one-time payments and recurring subscriptions, settled in USDC on Arc.',
+  alt: 'Strimz. The billing layer for stablecoins. One API for one-time payments and recurring subscriptions, settled in USDC on Arc.',
 } as const
 
 /** Twitter accepts a string-or-array; we expose the bare URL for that field. */

@@ -52,7 +52,7 @@ const FILTER_OPTIONS: ReadonlyArray<PaymentSessionStatus | 'all'> = [
 ]
 
 /**
- * Pre-computed view-model — what the page actually renders. Lives
+ * Pre-computed view-model. What the page actually renders. Lives
  * outside React state so the `usePaymentSessions` `select` projection
  * returns the same shape every page.
  */
@@ -87,7 +87,7 @@ export default function PaymentSessionsPage() {
   const [statusFilter, setStatusFilter] = React.useState<PaymentSessionStatus | 'all'>('all')
 
   // Query params object is memoised so the TanStack Query key stays
-  // referentially stable — otherwise every parent re-render bumps the
+  // referentially stable. Otherwise every parent re-render bumps the
   // key and refetches.
   const queryParams = React.useMemo(
     () => ({ status: statusFilter === 'all' ? undefined : statusFilter, limit: 100 }),
@@ -97,7 +97,7 @@ export default function PaymentSessionsPage() {
   const { data, isLoading, isError, error, refetch } = usePaymentSessions(queryParams, {
     // `select` projects the page shape into the view-model the page
     // renders. The reference is stable across re-renders as long as
-    // the underlying page didn't change — saves the JSX from
+    // the underlying page didn't change. Saves the JSX from
     // re-deriving stats on every parent render.
     select: project,
   })
@@ -114,7 +114,7 @@ export default function PaymentSessionsPage() {
           <code
             className="text-muted-foreground text-xs"
             // Prefetch the session detail when the row is in the user's
-            // cursor — clicking through feels instant. Hover-prefetch
+            // cursor. Clicking through feels instant. Hover-prefetch
             // is the cheapest UX win TanStack Query offers.
             onMouseEnter={() => void prefetch(row.original.id)}
             onFocus={() => void prefetch(row.original.id)}
@@ -228,6 +228,7 @@ export default function PaymentSessionsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Payment sessions"
+        docsSlug="payment-sessions"
         description="One-time hosted checkouts you've created. Each session has its own link you can send to a customer."
         action={
           <Button

@@ -13,7 +13,7 @@ Strimz-Signature: t=1714003200,v1=ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a1
 
 `t` is the Unix timestamp at signing time. `v1` is the lowercase hex of `hmac_sha256(secret, "${t}.${rawBody}")`.
 
-We sign the raw body, byte-for-byte, before any framework parses it. If your framework re-serialises JSON in a slightly different shape (whitespace, key order), the signature won't match — capture the raw body before parsing.
+We sign the raw body, byte-for-byte, before any framework parses it. If your framework re-serialises JSON in a slightly different shape (whitespace, key order), the signature won't match. Capture the raw body before parsing.
 
 ## The receiver
 
@@ -83,7 +83,7 @@ The `t` timestamp is your defence against an attacker capturing a real webhook a
 
 ## Idempotency on your end
 
-Strimz uses at-least-once delivery — a flaky transport can cause us to retry a delivery you've already processed. Every delivery has a unique `X-Strimz-Delivery-Id` header. Persist it; if you've already seen this ID, skip the work and return `200`.
+Strimz uses at-least-once delivery. A flaky transport can cause us to retry a delivery you've already processed. Every delivery has a unique `X-Strimz-Delivery-Id` header. Persist it; if you've already seen this ID, skip the work and return `200`.
 
 ```ts
 const deliveryId = req.headers['x-strimz-delivery-id'] as string
@@ -95,7 +95,7 @@ await db.webhookSeen.create({ data: { id: deliveryId } })
 
 ## Rotating the secret
 
-In the dashboard, **Webhooks** → endpoint → **Rotate secret**. You'll get a new secret immediately. The old one stops working _the same instant_ — there's no overlap window. To roll without downtime:
+In the dashboard, **Webhooks** → endpoint → **Rotate secret**. You'll get a new secret immediately. The old one stops working _the same instant_. There's no overlap window. To roll without downtime:
 
 1. Update your env to accept either the old or new secret.
 2. Rotate in the dashboard.
@@ -135,4 +135,4 @@ re-encrypting any data.
 
 HMAC-SHA256 is symmetric, which means there's no public-key infrastructure for you to manage. One shared secret per endpoint, rotatable on demand. That tradeoff matches how most teams already build webhook receivers.
 
-If you want asymmetric signing — so leaking the endpoint's secret can't compromise the signing key itself — [open an issue](https://github.com/StrimzLab/strimz/issues/new). We'd consider it for the Enterprise plan.
+If you want asymmetric signing. So leaking the endpoint's secret can't compromise the signing key itself. [open an issue](https://github.com/StrimzLab/strimz/issues/new). We'd consider it for the Enterprise plan.

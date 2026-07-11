@@ -4,7 +4,6 @@ import type { MerchantApiClient } from '../client'
 import type { CallOptions, Page, PaginationParams } from '../types'
 
 export interface ListApiKeysParams extends PaginationParams {
-  /** Filter to active (un-revoked) or revoked keys. Omit for both. */
   revoked?: boolean
 }
 
@@ -14,7 +13,11 @@ export class ApiKeysResource {
   list(params: ListApiKeysParams = {}, options?: CallOptions): Promise<Page<ApiKey>> {
     return this.client.get<Page<ApiKey>>('/v1/api-keys', {
       ...options,
-      query: { cursor: params.cursor, limit: params.limit, revoked: params.revoked },
+      query: {
+        cursor: params.cursor,
+        limit: params.limit,
+        revoked: params.revoked === true ? 'true' : params.revoked === false ? 'false' : undefined,
+      },
     })
   }
 
@@ -22,16 +25,19 @@ export class ApiKeysResource {
     return this.client.get<ApiKey>(`/v1/api-keys/${encodeURIComponent(id)}`, options)
   }
 
-  /**
-   * Creates a new API key. The plaintext secret is returned exactly
-   * once — the dashboard surface must capture it for the merchant to
-   * copy (the API never stores or re-emits it).
-   */
   create(input: CreateApiKeyInput, options?: CallOptions): Promise<CreateApiKeyOutput> {
     return this.client.post<CreateApiKeyOutput>('/v1/api-keys', input, options)
   }
 
   revoke(id: string, options?: CallOptions): Promise<ApiKey> {
     return this.client.post<ApiKey>(`/v1/api-keys/${encodeURIComponent(id)}/revoke`, {}, options)
+  }
+
+  rotate(id: string, options?: CallOptions): Promise<CreateApiKeyOutput> {
+    return this.client.post<CreateApiKeyOutput>(
+      `/v1/api-keys/${encodeURIComponent(id)}/rotate`,
+      {},
+      options,
+    )
   }
 }

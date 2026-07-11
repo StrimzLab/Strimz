@@ -12,7 +12,7 @@ type MobileLink = { href: string; label: string; external?: boolean }
  * Mobile bottom-sheet navigation. Mirrors the strimz-subscription
  * `MobileNav` (Radix Sheet, large stacked links, auto-close on tap).
  *
- * `SheetTitle` is rendered visually-hidden — Radix Dialog (which Sheet
+ * `SheetTitle` is rendered visually-hidden. Radix Dialog (which Sheet
  * extends) requires a labelled title for screen readers.
  */
 export function MobileNav({ links }: { links: MobileLink[] }) {

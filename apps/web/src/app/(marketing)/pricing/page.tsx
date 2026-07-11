@@ -6,7 +6,7 @@ import { OG_IMAGE } from '@/lib/seo'
 export const metadata: Metadata = {
   title: 'Pricing',
   description:
-    'Strimz pricing — pay-as-you-go fees with no monthly minimums. Volume tiers down to 0.5%, no FX, no chargebacks. Free for the first $10K processed.',
+    'Strimz pricing. Pay-as-you-go fees with no monthly minimums. Volume tiers down to 0.5%, no FX, no chargebacks. Free for the first $10K processed.',
   openGraph: {
     title: 'Pricing · Strimz',
     description:
@@ -97,7 +97,7 @@ const COMPARISON_ROWS: ReadonlyArray<{
   { label: 'Accept payments from any USDC chain', values: [false, false, true, true] },
   { label: 'Custom domain for checkout', values: [false, false, true, true] },
   { label: 'Priority support', values: [false, true, true, true] },
-  { label: 'Uptime SLA', values: ['—', '—', '99.9%', '99.99%'] },
+  { label: 'Uptime SLA', values: [', ', ', ', '99.9%', '99.99%'] },
   { label: 'Dedicated solutions engineer', values: [false, false, false, true] },
 ]
 
@@ -223,7 +223,7 @@ export default function PricingPage() {
             Need something the plans don&apos;t cover?
           </h3>
           <p className="font-poppins mx-auto mt-2 max-w-xl text-sm text-[#58556A]">
-            Custom workflows, dedicated regions, custom SLAs, custom legal terms — these all come
+            Custom workflows, dedicated regions, custom SLAs, custom legal terms. These all come
             with Enterprise. Tell us what you need.
           </p>
           <Link

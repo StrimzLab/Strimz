@@ -5,7 +5,7 @@ import Marquee from 'react-fast-marquee'
 import strimzBlueLogoIcon from '@/../public/logoIcons/strimzBlueLogoPNG.svg'
 
 /**
- * Horizontally scrolling marquee — direct match to strimz-subscription's
+ * Horizontally scrolling marquee. Direct match to strimz-subscription's
  * `MovingText`. `bg-[#F9FAFB]` strip with the blue Strimz icon and the
  * brand line repeating. Sits underneath the hero.
  */

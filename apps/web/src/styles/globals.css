@@ -13,8 +13,8 @@
  * App-level extensions on top of the @strimz/ui token base.
  *
  * Brand
- *   #02C76A  — accent (green CTAs / active states / progress bars)
- *   #050020  — primary (dark navy backgrounds + headlines)
+ *   #02C76A  accent (green CTAs / active states / progress bars)
+ *   #050020  primary (dark navy backgrounds + headlines)
  *
  * Custom shadows are direct ports of strimz-subscription's tailwind v3
  * `boxShadow` keys, re-expressed as Tailwind v4 `--shadow-*` tokens so
@@ -95,7 +95,7 @@
 }
 
 @layer utilities {
-  /* Concentric wave gradients — the strimz-subscription hero orb. Light
+  /* Concentric wave gradients for the strimz-subscription hero orb. Light
    * mode only; the design never ships a dark variant. */
   .strimz-wave-1 { background: linear-gradient(to bottom, #f0fff8 0%, #ffffff 100%); }
   .strimz-wave-2 { background: linear-gradient(to bottom, #ccffe7 0%, #ffffff 100%); }
@@ -120,6 +120,54 @@
   /* Hide scrollbars where appropriate (sidebar, marquee). */
   .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
   .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  /* driver.js popover skinning to match the Strimz palette. Applied
+   * via the `popoverClass: 'strimz-tour'` config in use-dashboard-tour. */
+  .driver-popover.strimz-tour {
+    background: #ffffff;
+    color: #050020;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    box-shadow: 0 20px 40px -20px rgba(2, 199, 106, 0.25), 0 6px 20px -8px rgba(5, 0, 32, 0.15);
+    font-family: var(--font-poppins), system-ui, sans-serif;
+  }
+  .driver-popover.strimz-tour .driver-popover-title {
+    font-family: var(--font-sora), system-ui, sans-serif;
+    font-weight: 600;
+    color: #050020;
+  }
+  .driver-popover.strimz-tour .driver-popover-description {
+    color: #58556A;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .driver-popover.strimz-tour .driver-popover-progress-text {
+    color: #8B8896;
+    font-size: 11px;
+  }
+  .driver-popover.strimz-tour .driver-popover-navigation-btns button {
+    background: #02C76A;
+    color: #ffffff;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 8px;
+    text-shadow: none;
+    border: none;
+  }
+  .driver-popover.strimz-tour .driver-popover-prev-btn {
+    background: transparent !important;
+    color: #58556A !important;
+    border: 1px solid #E5E7EB !important;
+  }
+  .driver-popover.strimz-tour .driver-popover-close-btn {
+    color: #8B8896;
+    top: 10px;
+    right: 12px;
+  }
+  .driver-popover-arrow-side-bottom.strimz-tour,
+  .driver-popover.strimz-tour .driver-popover-arrow {
+    border-color: #ffffff !important;
+  }
 
   /* Strip number-input spinners site-wide (matches strimz-subscription's
    * global declaration). */

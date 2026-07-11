@@ -1,0 +1,68 @@
+---
+title: Agents page
+description: Opt-in AI agents that email customers, watch cashflow, and manage escrow jobs.
+---
+
+The AutoPay Agent is a set of scheduled background workers that run for your merchant account. Every capability is opt-in, none of them hold a signing key, and every value-moving action ends up in your inbox for approval before anything on-chain executes.
+
+For the "what does each capability actually do" reference, see [The AutoPay Agent](/docs/guides/agent). This page covers the dashboard surface.
+
+## The layout
+
+Three tabs at the top:
+
+- **Capabilities** — turn agent features on and off; configure their behaviour.
+- **Activity** — chronological log of everything the agent has done for you.
+- **Jobs** — the queue of escrow jobs that need your attention.
+
+## Capabilities tab
+
+One card per capability. Each card shows a summary, an enable switch, and (when enabled) a **Configure** button that opens a settings dialog.
+
+| Capability                | What it does                                                                           |
+| ------------------------- | -------------------------------------------------------------------------------------- |
+| **Identity**              | On-chain agent registration. Managed by Strimz; required for every other capability.   |
+| **Recovery**              | Emails customers on failed subscription charges per the strategy you set.              |
+| **Cashflow digest**       | Daily summary email of yesterday's revenue, plus optional anomaly alerts and yield.    |
+| **Commerce**              | Agent-driven escrow jobs with a vendor allowlist and human-approval threshold.         |
+| **Pricing intelligence**  | Monthly MRR, churn, and 90-day forecast email.                                         |
+| **CCTP routing**          | Cross-chain settlement so payers can pay from any chain. Coming with Whisk.            |
+
+### Configure dialogs
+
+Clicking **Configure** opens a per-capability dialog:
+
+- **Recovery** — grace period (24 / 48 / 72 h), retry strategy (`once` / `twice` / `until_grace_ends`), and a custom email template.
+- **Cashflow** — digest on/off, anomaly sensitivity (low / medium / high), auto-convert-to-yield switch, and the minimum liquid reserve floor in USD.
+- **Commerce** — approval threshold in USD, monthly spend cap in USD (optional), and an EVM-address allowlist for approved vendors (one per line).
+
+The nested settings only take effect when the capability is enabled — flipping the switch off doesn't erase them, so re-enabling later restores your config.
+
+## Activity tab
+
+A rolling log of every agent action, most recent first. Columns:
+
+- **Action** — dotted action name (`recovery_notification_sent`, `cashflow_digest_sent`, etc.)
+- **Capability** — which capability produced it
+- **Outcome** — `success`, `failure`, `pending`, or `skipped`
+- **When**
+
+Use this tab to prove to yourself the agent is doing what you asked and not doing anything you didn't. Anything with `failure` is worth clicking into; skipped events are usually benign (feature-flagged off, quota hit).
+
+## Jobs tab
+
+Escrow jobs created by the Commerce agent. Each row is a delivery agreement between you (buyer) and a vendor (seller): agent proposes → vendor accepts → vendor delivers → you approve → escrow releases.
+
+Columns: job description, vendor, status, created date.
+
+Jobs approaching your involvement point (statuses `proposed` and `delivered`) get an inline **Approve** action button. Click through to the job detail page for the full envelope, on-chain job id, escrow tx hash, release tx hash, and an approval control that requires your signature.
+
+You can also create jobs manually with **New job** — the button opens a dialog to escrow directly to a vendor address without going through an agent proposal. Useful when you already trust the vendor and just need to lock funds.
+
+## Common workflows
+
+**I want failed-charge emails to go out automatically.** Turn on **Recovery**, click Configure, pick a grace period, save. Fire a test subscription and force a failure to see the email.
+
+**I don't want the agent doing anything I haven't seen.** Turn everything off. Activity tab will show every proposed action; you can enable pieces one at a time as you get comfortable.
+
+**A commerce job showed up and I don't recognise the vendor.** Open the job detail. Cross-reference the vendor address against your allowlist under Commerce settings. If it isn't on the allowlist, the agent shouldn't have proposed it — file a bug via [support](mailto:strimztokenstream@gmail.com).

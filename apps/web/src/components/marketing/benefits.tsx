@@ -38,7 +38,7 @@ const BLOCKS = [
   {
     chip: 'Analytics',
     title: 'Forecasts, not just dashboards.',
-    body: 'Conversion, churn, MRR, LTV, and a 90-day forecast. Every metric runs as SQL against your own Postgres — the AutoPay Agent uses the same queries to put together its monthly summary.',
+    body: 'Conversion, churn, MRR, LTV, and a 90-day forecast. Every metric runs as SQL against your own Postgres. The AutoPay Agent uses the same queries to put together its monthly summary.',
     bullets: [
       'Daily conversion rate per session created',
       '12-month trailing churn',
@@ -121,7 +121,7 @@ export function Benefits() {
               </Link>
             </div>
 
-            {/* Mock side — fills the cell, no negative space */}
+            {/* Mock side. Fills the cell, no negative space */}
             <div
               className={[
                 'from-[#02C76A]/8 relative flex items-stretch overflow-hidden bg-gradient-to-br via-[#F9FAFB] to-[#F9FAFB] p-6 md:p-8 lg:p-10',

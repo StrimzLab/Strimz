@@ -27,7 +27,7 @@ import {
 /**
  * Admin overview / platform dashboard.
  *
- * Four KPI cards across the top — total merchants, MRR, 30-day volume,
+ * Four KPI cards across the top. Total merchants, MRR, 30-day volume,
  * fees collected lifetime. Below, two charts (volume + signups) and a
  * top-merchants table. This is the page investors will see first; the
  * read paths feed straight from `/v1/admin/*` without any BFF hop.

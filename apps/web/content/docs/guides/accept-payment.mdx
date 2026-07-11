@@ -52,7 +52,7 @@ export function CheckoutButton({ orderId }: { orderId: string }) {
 
 That's the entire client side. The customer lands on
 `strimz.finance/pay/<sessionId>`, picks a wallet (Reown handles the
-picker for every major one), and signs one message.
+picker for every major one), and signs two typed-data messages: the token authorization and the Strimz `PayIntent`.
 
 The signature is an EIP-3009 `ReceiveWithAuthorization`. Strimz's
 relayer turns it into the on-chain `payWithAuthorization` call, pays

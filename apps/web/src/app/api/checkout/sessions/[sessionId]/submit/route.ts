@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { bffSubmitPayment, bffSubmitSubscription } from '@/lib/strimz-bff'
 
 /**
- * Checkout BFF — accepts a payer-signed EIP-3009 or EIP-2612 payload
+ * Checkout BFF. Accepts a payer-signed EIP-3009 or EIP-2612 payload
  * from the hosted checkout page and forwards it to Strimz's relay
  * endpoints with the server-only internal API key.
  *
@@ -16,7 +16,7 @@ import { bffSubmitPayment, bffSubmitSubscription } from '@/lib/strimz-bff'
  * Trust model: the request body carries the payer's signature, which
  * the on-chain contract validates via ecrecover. The session id in
  * the path acts as a soft binding for operator diagnostics (the relay
- * service stores it under `sessionId`) — it is NOT what authorises
+ * service stores it under `sessionId`). It is NOT what authorises
  * the submission. Anyone who has the signature can submit it; the
  * permissionless meta-tx model is already designed for that.
  *
@@ -49,7 +49,8 @@ const paymentBodySchema = z.object({
     nonce: bytes32Schema,
   }),
   ref: bytes32Schema,
-  signature: vrsSchema,
+  authSignature: vrsSchema,
+  intentSignature: vrsSchema,
 })
 
 const subscriptionBodySchema = z.object({
@@ -66,7 +67,8 @@ const subscriptionBodySchema = z.object({
     value: bigintStringSchema,
     deadline: bigintStringSchema,
   }),
-  signature: vrsSchema,
+  permitSignature: vrsSchema,
+  intentSignature: vrsSchema,
 })
 
 const bodySchema = z.discriminatedUnion('kind', [paymentBodySchema, subscriptionBodySchema])
@@ -101,10 +103,15 @@ export async function POST(
           nonce: body.auth.nonce as `0x${string}`,
         },
         ref: body.ref as `0x${string}`,
-        signature: {
-          v: body.signature.v,
-          r: body.signature.r as `0x${string}`,
-          s: body.signature.s as `0x${string}`,
+        authSignature: {
+          v: body.authSignature.v,
+          r: body.authSignature.r as `0x${string}`,
+          s: body.authSignature.s as `0x${string}`,
+        },
+        intentSignature: {
+          v: body.intentSignature.v,
+          r: body.intentSignature.r as `0x${string}`,
+          s: body.intentSignature.s as `0x${string}`,
         },
         sessionId,
       })
@@ -119,10 +126,15 @@ export async function POST(
         value: body.permitData.value,
         deadline: body.permitData.deadline,
       },
-      signature: {
-        v: body.signature.v,
-        r: body.signature.r as `0x${string}`,
-        s: body.signature.s as `0x${string}`,
+      permitSignature: {
+        v: body.permitSignature.v,
+        r: body.permitSignature.r as `0x${string}`,
+        s: body.permitSignature.s as `0x${string}`,
+      },
+      intentSignature: {
+        v: body.intentSignature.v,
+        r: body.intentSignature.r as `0x${string}`,
+        s: body.intentSignature.s as `0x${string}`,
       },
       subscriptionInternalId: sessionId,
     })

@@ -27,7 +27,7 @@ By default the Sign button is Strimz green (#02C76A). Enterprise-tier merchants 
 
 The colour goes in **Settings → Business → Brand colour** as a CSS hex (`#0033cc`). We validate two things at save time: it parses as a hex colour, and it has at least WCAG AA contrast against white. The contrast check exists because we've had merchants try to set the button to pale-yellow on white and then come back asking why nobody could see it. Buttons need contrast; we enforce it.
 
-The colour applies to the primary button and the underline accent on inline links inside the checkout page. It doesn't apply to the typed-data prompt — that's wallet-rendered, no theming exposed.
+The colour applies to the primary button and the underline accent on inline links inside the checkout page. It doesn't apply to the typed-data prompt. That's wallet-rendered, no theming exposed.
 
 ## Whitelabel (enterprise)
 
@@ -39,7 +39,7 @@ This is a deeper change than just CSS. The EIP-712 domain name is signed into th
 
 Setup is manual. We need to coordinate the contract deploy, the role grants, and the dashboard configuration. Talk to sales before turning this on. It's not a checkbox.
 
-For most merchants, the default brand surface (logo + name + accent colour) is enough. Whitelabel is for the customer who's whitelabeling Strimz itself — the platform-on-top-of-a-platform — or who has hard regulatory requirements about third-party branding in their checkout.
+For most merchants, the default brand surface (logo + name + accent colour) is enough. Whitelabel is for the customer who's whitelabeling Strimz itself. The platform-on-top-of-a-platform. Or who has hard regulatory requirements about third-party branding in their checkout.
 
 ## Custom domain (coming)
 

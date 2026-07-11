@@ -5,12 +5,12 @@ import { env } from './env'
 /**
  * Strimz API client used by the checkout BFF route handlers.
  *
- * Server-only — uses `STRIMZ_INTERNAL_API_KEY` to call relay
+ * Server-only. Uses `STRIMZ_INTERNAL_API_KEY` to call relay
  * endpoints that aren't reachable with a publishable key. Browser
  * code must NEVER import this module (the `'server-only'` guard
  * trips at build time if it does).
  *
- * Kept as a tiny fetch wrapper rather than a full SDK resource —
+ * Kept as a tiny fetch wrapper rather than a full SDK resource ,
  * the BFF is just a two-endpoint proxy, and routing through
  * `@strimz/sdk`'s machinery would add no value for that surface
  * area. When the SDK grows a proper `RelayResource` (separate task),
@@ -44,7 +44,10 @@ interface SubmitPaymentBody {
     nonce: `0x${string}`
   }
   ref: `0x${string}`
-  signature: { v: number; r: `0x${string}`; s: `0x${string}` }
+  /** EIP-3009 sig. Token verifies. */
+  authSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
+  /** PayIntent sig. Contract verifies. */
+  intentSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
   sessionId?: string
 }
 
@@ -61,7 +64,10 @@ interface SubmitSubscriptionBody {
   startAt: string
   endAt: string
   permitData: { owner: `0x${string}`; value: string; deadline: string }
-  signature: { v: number; r: `0x${string}`; s: `0x${string}` }
+  /** EIP-2612 permit sig. Token verifies. */
+  permitSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
+  /** SubscriptionIntent sig. Contract verifies. */
+  intentSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
   subscriptionInternalId?: string
 }
 
@@ -99,7 +105,7 @@ async function bffPost<T>(path: string, body: unknown): Promise<T> {
 function authHeaders(): Record<string, string> {
   if (!internalApiKey) {
     throw new Error(
-      'STRIMZ_INTERNAL_API_KEY is not configured — the checkout BFF cannot reach the Strimz API.',
+      'STRIMZ_INTERNAL_API_KEY is not configured. The checkout BFF cannot reach the Strimz API.',
     )
   }
   return { authorization: `Bearer ${internalApiKey}` }

@@ -8,6 +8,7 @@ import {
   Badge,
   Card,
   CardContent,
+  FieldLabel,
   Input,
   Label,
   Switch,
@@ -25,13 +26,15 @@ import {
 import type { Merchant, PaymentCurrency, UpdateMerchantInput } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
+import { ImageUpload } from '@/components/dashboard/image-upload'
+import { OnchainPolicySection } from '@/components/dashboard/onchain-policy-section'
 import { useMerchantMe, useUpdateMerchant } from '@/hooks/api'
 
 /**
  * Settings page.
  *
  * The Business and Payout tabs are the only ones backed by real
- * `UpdateMerchantInput` fields — everything in Notifications, Team,
+ * `UpdateMerchantInput` fields. Everything in Notifications, Team,
  * and Billing is either auth-managed by Privy or scheduled for a
  * later API milestone. Those tabs stay rendered as static UI so the
  * IA doesn't shift under the merchant's feet, but their controls
@@ -42,7 +45,7 @@ import { useMerchantMe, useUpdateMerchant } from '@/hooks/api'
  *     controlled and we can compute "is dirty?" before allowing save.
  *   - The merchant query owns the source of truth; on save, the
  *     mutation patches it and the next render re-reads from cache.
- *   - The form does NOT subscribe to per-field merchant updates —
+ *   - The form does NOT subscribe to per-field merchant updates ,
  *     the `useMerchantMe` hook reads once on mount + on the explicit
  *     mutation invalidation.
  */
@@ -54,6 +57,7 @@ export default function SettingsPage() {
       <div className="space-y-6">
         <PageHeader
           title="Settings"
+          docsSlug="settings"
           description="Account, business, payout, notifications, and team."
         />
         <div className="space-y-3">
@@ -134,7 +138,7 @@ function useMerchantDraft(merchant: Merchant) {
 
   // Value-or-merchant: form inputs read from draft if present, else
   // fall back to the persisted merchant. Lets the form behave like a
-  // diff editor — only changed fields go to the API.
+  // diff editor. Only changed fields go to the API.
   const value = React.useCallback(
     <K extends keyof UpdateMerchantInput>(key: K): UpdateMerchantInput[K] | undefined => {
       if (key in draft) return draft[key]
@@ -166,7 +170,9 @@ function BusinessSection({ merchant }: { merchant: Merchant }) {
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-1.5">
-            <Label htmlFor="biz-name">Business name</Label>
+            <FieldLabel htmlFor="biz-name" required>
+              Business name
+            </FieldLabel>
             <Input
               id="biz-name"
               value={draft.value('businessName') ?? ''}
@@ -175,7 +181,9 @@ function BusinessSection({ merchant }: { merchant: Merchant }) {
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="biz-country">Country (ISO-2)</Label>
+            <FieldLabel htmlFor="biz-country" required={false}>
+              Country (ISO-2)
+            </FieldLabel>
             <Input
               id="biz-country"
               maxLength={2}
@@ -186,7 +194,9 @@ function BusinessSection({ merchant }: { merchant: Merchant }) {
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="biz-web">Website</Label>
+            <FieldLabel htmlFor="biz-web" required={false}>
+              Website
+            </FieldLabel>
             <Input
               id="biz-web"
               type="url"
@@ -197,15 +207,22 @@ function BusinessSection({ merchant }: { merchant: Merchant }) {
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="biz-logo">Logo URL</Label>
-            <Input
-              id="biz-logo"
-              type="url"
-              value={(draft.value('logoUrl') as string | null | undefined) ?? ''}
-              onChange={(e) => draft.set('logoUrl', e.target.value || null)}
-              className="h-9"
-              placeholder="https://…/logo.png"
+            <FieldLabel htmlFor="biz-logo" required={false}>
+              Logo
+            </FieldLabel>
+            <ImageUpload
+              endpoint="merchantLogo"
+              value={(draft.value('logoUrl') as string | null | undefined) ?? null}
+              onChange={(url) => draft.set('logoUrl', url)}
+              aspect="square"
+              maxSizeLabel="up to 2MB"
+              alt={(draft.value('businessName') as string | undefined) ?? 'Merchant logo'}
+              className="w-40"
             />
+            <p className="text-muted-foreground text-xs">
+              Shown to your payers on every checkout page. Skip and your customers see a
+              wallet-derived placeholder.
+            </p>
           </div>
         </div>
         <SaveBar
@@ -218,7 +235,7 @@ function BusinessSection({ merchant }: { merchant: Merchant }) {
 
       <SettingsCard
         title="Security"
-        description="Two-factor authentication is enforced by Privy — Strimz never sees or stores the secret."
+        description="Two-factor authentication is enforced by Privy. Strimz never sees or stores the secret."
       >
         <div className="border-border/60 flex items-center justify-between rounded-md border p-3">
           <div className="text-sm">
@@ -255,24 +272,19 @@ function PayoutSection({ merchant }: { merchant: Merchant }) {
   return (
     <>
       <SettingsCard
-        title="Payout wallet"
-        description="USDC lands in this wallet whenever a customer pays you."
+        title="Payout settings"
+        description="Your payout wallet is your Strimz-embedded wallet by default. To route payouts elsewhere, use the On-chain policy panel below — that path enforces a 24-hour safety delay."
       >
         <div className="grid gap-1.5">
-          <Label htmlFor="payout-wallet">Payout wallet (Arc)</Label>
-          <Input
-            id="payout-wallet"
-            value={(draft.value('payoutAddress') as string | undefined) ?? ''}
-            onChange={(e) => draft.set('payoutAddress', e.target.value as `0x${string}`)}
-            className="h-9 font-mono"
-            placeholder="0x…"
-          />
-          <p className="text-muted-foreground text-xs">
-            We validate the format on save. Changes apply immediately to new sessions.
-          </p>
+          <Label>Current payout wallet</Label>
+          <div className="border-border/60 bg-muted/30 rounded-md border px-3 py-2 font-mono text-xs">
+            {merchant.payoutAddress ?? '0x…'}
+          </div>
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="payout-currency">Settlement currency</Label>
+          <FieldLabel htmlFor="payout-currency" required>
+            Settlement currency
+          </FieldLabel>
           <Select
             value={draft.value('defaultCurrency') ?? merchant.defaultCurrency}
             onValueChange={(v) => draft.set('defaultCurrency', v as PaymentCurrency)}
@@ -308,6 +320,8 @@ function PayoutSection({ merchant }: { merchant: Merchant }) {
           </p>
         </div>
       </SettingsCard>
+
+      <OnchainPolicySection />
     </>
   )
 }
@@ -320,44 +334,41 @@ function PayoutSection({ merchant }: { merchant: Merchant }) {
  * a non-existent endpoint. Replace when the matching API ships.
  */
 function NotificationsSection() {
+  const { data: merchant } = useMerchantMe()
+  const updateMutation = useUpdateMerchant()
+
+  const prefsRaw = (merchant?.metadata as Record<string, unknown> | undefined)?.emailPrefs as
+    | Partial<{ paymentReceived: boolean; subscriptionCharged: boolean }>
+    | undefined
+  const paymentReceived = prefsRaw?.paymentReceived ?? true
+  const subscriptionCharged = prefsRaw?.subscriptionCharged ?? true
+
+  const toggle = (key: 'paymentReceived' | 'subscriptionCharged', value: boolean) => {
+    updateMutation.mutate({ emailPrefs: { [key]: value } })
+  }
+
   return (
     <SettingsCard
       title="Email notifications"
-      description="Pick what shows up in your inbox. (Backed by the merchant-notifications cron — see scheduler README.)"
+      description="You control which events email you. Payer receipts (the ones your customers get) always send and are not affected here."
     >
       <ToggleRow
         id="notif-payment"
         label="Payment received"
-        desc="One per confirmed PaymentSession."
-        defaultChecked
-        readOnly
-      />
-      <ToggleRow
-        id="notif-sub-started"
-        label="New subscriber"
-        desc="One per Subscription row."
-        defaultChecked
-        readOnly
+        desc="One per confirmed PaymentSession. Sent to your merchant inbox."
+        checked={paymentReceived}
+        onCheckedChange={(v) => toggle('paymentReceived', v)}
       />
       <ToggleRow
         id="notif-sub-charged"
         label="Recurring charge succeeded"
-        desc="One per succeeded SubscriptionCharge."
-        defaultChecked
-        readOnly
-      />
-      <ToggleRow
-        id="notif-failed"
-        label="Subscription charge failed"
-        desc="One per failed charge attempt."
-      />
-      <ToggleRow
-        id="notif-webhook"
-        label="Webhook endpoint disabled"
-        desc="Auto-fires after 5+ permanent failures."
+        desc="One per succeeded SubscriptionCharge. Off is quieter if you have many active subs."
+        checked={subscriptionCharged}
+        onCheckedChange={(v) => toggle('subscriptionCharged', v)}
       />
       <div className="text-muted-foreground border-border/60 border-t pt-3 text-xs">
-        Notification preferences ship in the next iteration — for now every event above is sent.
+        Refund receipts and welcome emails always send. Gas-balance alerts go to Strimz ops, not
+        you.
       </div>
     </SettingsCard>
   )
@@ -404,7 +415,7 @@ function BillingSection({ merchant }: { merchant: Merchant }) {
         <Button
           variant="outline"
           className="border-rose-500/40 text-rose-600 hover:bg-rose-500/10"
-          onClick={() => toast.error('Account deletion is API-only — contact support.')}
+          onClick={() => toast.error('Account deletion is API-only. Contact support.')}
         >
           Delete account
         </Button>
@@ -442,12 +453,16 @@ function ToggleRow({
   label,
   desc,
   defaultChecked,
+  checked,
+  onCheckedChange,
   readOnly,
 }: {
   id: string
   label: string
   desc: string
   defaultChecked?: boolean
+  checked?: boolean
+  onCheckedChange?: (v: boolean) => void
   readOnly?: boolean
 }) {
   return (
@@ -458,7 +473,13 @@ function ToggleRow({
         </Label>
         <div className="text-muted-foreground text-xs">{desc}</div>
       </div>
-      <Switch id={id} defaultChecked={defaultChecked} disabled={readOnly} />
+      <Switch
+        id={id}
+        defaultChecked={defaultChecked}
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        disabled={readOnly}
+      />
     </div>
   )
 }

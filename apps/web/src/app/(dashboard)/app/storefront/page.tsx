@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
   Input,
+  FieldLabel,
   Label,
   Textarea,
 } from '@strimz/ui'
@@ -27,6 +28,7 @@ import type {
   StorefrontProductType,
 } from '@strimz/shared-types'
 
+import { ImageUpload } from '@/components/dashboard/image-upload'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { formatTokenAmount } from '@/lib/format'
@@ -48,12 +50,13 @@ export default function StorefrontPage() {
     <div className="space-y-6">
       <PageHeader
         title="Storefront"
+        docsSlug="storefront"
         description="A hosted page where customers can buy from you without an integration. One URL, your products listed, USDC payment on Arc."
         action={
           storefront ? (
             <Button variant="outline" asChild>
               <a
-                href={`https://strimz-finance.vercel.app/store/${storefront.slug}`}
+                href={`https://strimz.finance/store/${storefront.slug}`}
                 target="_blank"
                 rel="noreferrer"
               >
@@ -76,7 +79,7 @@ export default function StorefrontPage() {
 }
 
 /**
- * No storefront yet — show the create flow inline. The first storefront
+ * No storefront yet. Show the create flow inline. The first storefront
  * doubles as the configuration step, so this card is the merchant's
  * onboarding into the feature.
  */
@@ -87,7 +90,7 @@ function NoStorefront() {
         <h3 className="font-sora text-base font-semibold">No storefront yet</h3>
         <p className="text-muted-foreground mx-auto max-w-md text-xs">
           Create one to get a public URL. Your customers browse and pay without ever needing your
-          app integrated — useful for digital downloads, services, or curated subscriptions.
+          app integrated. Useful for digital downloads, services, or curated subscriptions.
         </p>
         <UpsertStorefrontDialog
           trigger={
@@ -128,7 +131,7 @@ function StorefrontDetails({ storefront }: { storefront: Storefront }) {
                 {storefront.description ?? 'No description set.'}
               </p>
               <code className="text-muted-foreground mt-2 inline-block text-xs">
-                strimz-finance.vercel.app/store/{storefront.slug}
+                strimz.finance/store/{storefront.slug}
               </code>
             </div>
             <div className="flex items-center gap-2">
@@ -289,6 +292,10 @@ function UpsertStorefrontDialog({
   const [slug, setSlug] = React.useState(existing?.slug ?? '')
   const [name, setName] = React.useState(existing?.name ?? '')
   const [description, setDescription] = React.useState<string>(existing?.description ?? '')
+  const [logoUrl, setLogoUrl] = React.useState<string | null>(existing?.logoUrl ?? null)
+  const [coverImageUrl, setCoverImageUrl] = React.useState<string | null>(
+    existing?.coverImageUrl ?? null,
+  )
 
   const upsertMutation = useUpsertStorefront()
 
@@ -296,6 +303,8 @@ function UpsertStorefrontDialog({
     setSlug(existing?.slug ?? '')
     setName(existing?.name ?? '')
     setDescription(existing?.description ?? '')
+    setLogoUrl(existing?.logoUrl ?? null)
+    setCoverImageUrl(existing?.coverImageUrl ?? null)
   }
 
   const onSubmit = () => {
@@ -305,8 +314,8 @@ function UpsertStorefrontDialog({
         slug,
         name,
         description: description || null,
-        logoUrl: existing?.logoUrl ?? null,
-        coverImageUrl: existing?.coverImageUrl ?? null,
+        logoUrl,
+        coverImageUrl,
         accentColor: existing?.accentColor ?? null,
         socialLinks: existing?.socialLinks ?? [],
       },
@@ -329,14 +338,16 @@ function UpsertStorefrontDialog({
           <DialogDescription>
             Your public URL will be{' '}
             <code className="bg-muted rounded px-1 py-0.5 text-xs">
-              strimz-finance.vercel.app/store/<strong>{slug || 'your-slug'}</strong>
+              strimz.finance/store/<strong>{slug || 'your-slug'}</strong>
             </code>
             .
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
           <div className="grid gap-1.5">
-            <Label htmlFor="sf-slug">URL slug</Label>
+            <FieldLabel htmlFor="sf-slug" required>
+              URL slug
+            </FieldLabel>
             <Input
               id="sf-slug"
               placeholder="acme-pro"
@@ -346,22 +357,46 @@ function UpsertStorefrontDialog({
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="sf-name">Storefront name</Label>
+            <FieldLabel htmlFor="sf-name" required>
+              Storefront name
+            </FieldLabel>
             <Input
               id="sf-name"
-              placeholder="Acme — Pro"
+              placeholder="Acme. Pro"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="sf-desc">Description</Label>
+            <FieldLabel htmlFor="sf-desc" required={false}>
+              Description
+            </FieldLabel>
             <Textarea
               id="sf-desc"
               placeholder="Short pitch shown on the storefront."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ImageUpload
+              endpoint="storefrontLogo"
+              value={logoUrl}
+              onChange={setLogoUrl}
+              label="Logo"
+              aspect="square"
+              maxSizeLabel="2MB"
+              alt="Storefront logo"
+            />
+            <ImageUpload
+              endpoint="storefrontCover"
+              value={coverImageUrl}
+              onChange={setCoverImageUrl}
+              label="Cover image"
+              aspect="wide"
+              maxSizeLabel="4MB"
+              alt="Storefront cover"
             />
           </div>
         </div>
@@ -385,6 +420,7 @@ function AddProductDialog() {
   const [price, setPrice] = React.useState('')
   const [type, setType] = React.useState<StorefrontProductType>('one_time')
   const [stock, setStock] = React.useState('')
+  const [imageUrl, setImageUrl] = React.useState<string | null>(null)
 
   const addMutation = useAddStorefrontProduct()
 
@@ -394,6 +430,7 @@ function AddProductDialog() {
     setPrice('')
     setType('one_time')
     setStock('')
+    setImageUrl(null)
   }
 
   const onSubmit = () => {
@@ -409,6 +446,9 @@ function AddProductDialog() {
       {
         name,
         description: description || null,
+        // Optional field on the create schema. Send only when set so a
+        // blank string doesn't fail the url() validator.
+        ...(imageUrl ? { imageUrl } : {}),
         price: raw,
         currency: 'USDC' as PaymentCurrency,
         type,
@@ -449,7 +489,9 @@ function AddProductDialog() {
         </DialogHeader>
         <div className="space-y-3 py-2">
           <div className="grid gap-1.5">
-            <Label htmlFor="p-name">Name</Label>
+            <FieldLabel htmlFor="p-name" required>
+              Name
+            </FieldLabel>
             <Input
               id="p-name"
               placeholder="Annual licence"
@@ -458,7 +500,9 @@ function AddProductDialog() {
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="p-desc">Description</Label>
+            <FieldLabel htmlFor="p-desc" required={false}>
+              Description
+            </FieldLabel>
             <Textarea
               id="p-desc"
               placeholder="Short line, max 2000 chars."
@@ -469,7 +513,9 @@ function AddProductDialog() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="p-price">Price (USDC)</Label>
+              <FieldLabel htmlFor="p-price" required>
+                Price (USDC)
+              </FieldLabel>
               <Input
                 id="p-price"
                 type="number"
@@ -480,7 +526,9 @@ function AddProductDialog() {
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="p-stock">Stock</Label>
+              <FieldLabel htmlFor="p-stock" required={false}>
+                Stock
+              </FieldLabel>
               <Input
                 id="p-stock"
                 type="number"
@@ -508,6 +556,15 @@ function AddProductDialog() {
               </button>
             ))}
           </div>
+          <ImageUpload
+            endpoint="productImage"
+            value={imageUrl}
+            onChange={setImageUrl}
+            label="Product image"
+            aspect="square"
+            maxSizeLabel="4MB"
+            alt="Product image"
+          />
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>

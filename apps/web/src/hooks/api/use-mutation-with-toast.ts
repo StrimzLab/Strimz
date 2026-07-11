@@ -12,7 +12,7 @@ import {
 } from '@/lib/merchant-api/errors'
 
 /**
- * Standard messages a mutation surfaces through sonner — three states
+ * Standard messages a mutation surfaces through sonner. Three states
  * the merchant should see for any non-trivial server action.
  */
 export interface MutationToastMessages<TInput, TResult> {
@@ -29,7 +29,7 @@ export interface MutationToastMessages<TInput, TResult> {
 }
 
 /**
- * Internal wrapper context — combines what the caller returns from
+ * Internal wrapper context. Combines what the caller returns from
  * `onMutate` (their cache snapshot, for rollback) with the sonner toast
  * id we hold across the lifecycle.
  */
@@ -37,7 +37,7 @@ type WithToastContext<T> = T & { toastId?: string | number }
 
 /**
  * Wraps `useMutation` to attach a sonner loading→success/error toast
- * lifecycle. Returns the same mutation object — UI code keeps using
+ * lifecycle. Returns the same mutation object. UI code keeps using
  * `mutation.mutate(...)`, `mutation.isPending`, `mutation.data`.
  *
  * Why a wrapper rather than threading toast calls per hook:
@@ -91,7 +91,7 @@ export function useMutationWithToast<TResult, TInput, TOnMutateResult = unknown>
 
       // Forward to the caller's onMutate so optimistic cache snapshots
       // are captured. Cast through `as` because we widen the context
-      // shape to include `toastId` — TS can't infer the caller's exact
+      // shape to include `toastId` ,  TS can't infer the caller's exact
       // TOnMutateResult through the wrapper.
       const userResult = (await (onMutate as typeof options.onMutate | undefined)?.(
         variables,
@@ -146,19 +146,19 @@ export function useMutationWithToast<TResult, TInput, TOnMutateResult = unknown>
  * `StrimzApiError.code` for codes we don't subclass (5xx, network).
  */
 function defaultErrorMessage(error: unknown): string {
-  if (isAuthError(error)) return 'Your session expired — please sign in again.'
+  if (isAuthError(error)) return 'Your session expired. Please sign in again.'
   if (isNotFound(error)) return 'That resource no longer exists.'
   if (isValidation(error)) return 'Please check the highlighted fields and try again.'
   if (error && typeof error === 'object' && 'status' in error) {
     const e = error as StrimzApiError
-    if (e.status === 429) return "You're going too fast — try again in a moment."
-    if (e.status >= 500) return 'Strimz is having trouble — we’re on it.'
+    if (e.status === 429) return "You're going too fast. Try again in a moment."
+    if (e.status >= 500) return 'Strimz is having trouble. We’re on it.'
   }
   return 'Something went wrong.'
 }
 
 /**
- * Sub-line of the error toast. We use it for the raw server message —
+ * Sub-line of the error toast. We use it for the raw server message ,
  * helps support diagnose without forcing the merchant to read a code.
  */
 function describeError(error: unknown): string | undefined {

@@ -33,26 +33,50 @@ export function useApiKeys<TData = Page<ApiKey>>(
   })
 }
 
-/**
- * Create an API key. Returns the plaintext secret — the caller must
- * surface it to the merchant exactly once. We deliberately do NOT
- * write the plaintext secret to any cache; only the `ApiKey` envelope
- * gets seeded into the lists.
- */
+type DetailOptions<TData = ApiKey> = Omit<
+  UseQueryOptions<ApiKey, Error, TData, ReturnType<typeof apiKeyKeys.detail>>,
+  'queryKey' | 'queryFn'
+>
+
+export function useApiKey<TData = ApiKey>(
+  id: string | null | undefined,
+  options?: DetailOptions<TData>,
+) {
+  const api = useMerchantApi()
+  return useQuery({
+    queryKey: apiKeyKeys.detail(id ?? '__unset'),
+    queryFn: ({ signal }) => api.apiKeys.retrieve(id as string, { signal }),
+    enabled: typeof id === 'string' && id.length > 0,
+    ...options,
+  })
+}
+
 export function useCreateApiKey() {
   const api = useMerchantApi()
   const qc = useQueryClient()
   return useMutationWithToast<CreateApiKeyOutput, CreateApiKeyInput>({
     mutationFn: (input) => api.apiKeys.create(input),
     onSuccess: () => {
-      // Lists need a refetch; we don't seed details because creation
-      // doesn't return a hashed `prefix`/`hash` shape consistent with
-      // the cached list row — let the server be the source of truth.
       qc.invalidateQueries({ queryKey: apiKeyKeys.lists() })
     },
     messages: {
       loading: (input) => `Creating ${input.name}…`,
-      success: (result) => `${result.apiKey.name} created — copy the secret now`,
+      success: (result) => `${result.apiKey.name} created. Copy the secret now.`,
+    },
+  })
+}
+
+export function useRotateApiKey() {
+  const api = useMerchantApi()
+  const qc = useQueryClient()
+  return useMutationWithToast<CreateApiKeyOutput, string>({
+    mutationFn: (id) => api.apiKeys.rotate(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: apiKeyKeys.lists() })
+    },
+    messages: {
+      loading: 'Rotating key…',
+      success: 'New key issued. Copy the secret now.',
     },
   })
 }

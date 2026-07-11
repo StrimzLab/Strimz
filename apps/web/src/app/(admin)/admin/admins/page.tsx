@@ -22,7 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
-  Label,
+  FieldLabel,
   Select,
   SelectContent,
   SelectItem,
@@ -246,7 +246,9 @@ function InviteAdminDialog() {
         </DialogHeader>
         <div className="space-y-3 py-2">
           <div className="grid gap-1.5">
-            <Label htmlFor="adm-email">Email</Label>
+            <FieldLabel htmlFor="adm-email" required>
+              Email
+            </FieldLabel>
             <Input
               id="adm-email"
               type="email"
@@ -256,7 +258,9 @@ function InviteAdminDialog() {
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="adm-name">Name (optional)</Label>
+            <FieldLabel htmlFor="adm-name" required={false}>
+              Name
+            </FieldLabel>
             <Input
               id="adm-name"
               placeholder="Alice Chen"
@@ -265,7 +269,9 @@ function InviteAdminDialog() {
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="adm-role">Role</Label>
+            <FieldLabel htmlFor="adm-role" required>
+              Role
+            </FieldLabel>
             <Select value={role} onValueChange={(v) => setRole(v as AdminRole)}>
               <SelectTrigger id="adm-role" className="capitalize">
                 <SelectValue />

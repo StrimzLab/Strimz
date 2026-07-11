@@ -1,12 +1,16 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { Logo, Glyph } from '@/components/shared/logo'
 import { TokenLogo } from '@/components/shared/token-logo'
+import { BlockieAvatar } from '@/components/dashboard/blockie-avatar'
 import { Repeat } from 'lucide-react'
 
 export interface SummaryProps {
   merchantName?: string
+  merchantLogoUrl?: string | null
+  merchantWalletAddress?: string | null
   amount?: string
   currency?: string
   description?: string
@@ -15,26 +19,28 @@ export interface SummaryProps {
 
 /**
  * Left-rail payment summary. Stays static during the checkout step
- * machine on the right — anchors the eye and reduces "did I just pay?"
+ * machine on the right. Anchors the eye and reduces "did I just pay?"
  * anxiety.
  */
 export function PaymentSummary({
   merchantName,
+  merchantLogoUrl,
+  merchantWalletAddress,
   amount,
   currency = 'USDC',
   description,
   interval,
 }: SummaryProps) {
-  const merchantInitial = merchantName?.charAt(0).toUpperCase() || 'S'
-
   return (
     <aside className="flex h-full flex-col">
       <div className="shadow-sub-card bg-muted/30 flex flex-1 flex-col gap-10 rounded-2xl p-8">
-        {/* Merchant identity */}
+        {/* Merchant identity: uploaded logo, else wallet blockie, else initial. */}
         <div className="flex items-center gap-3">
-          <div className="font-sora flex size-10 items-center justify-center rounded-full bg-[#02C76A] text-base font-semibold text-white">
-            {merchantInitial}
-          </div>
+          <MerchantMark
+            name={merchantName}
+            logoUrl={merchantLogoUrl ?? null}
+            walletAddress={merchantWalletAddress ?? null}
+          />
           <h4 className="font-poppins text-base font-medium md:text-lg">
             {merchantName ?? 'Loading…'}
           </h4>
@@ -99,6 +105,37 @@ export function PaymentSummary({
         </div>
       </div>
     </aside>
+  )
+}
+
+function MerchantMark({
+  name,
+  logoUrl,
+  walletAddress,
+}: {
+  name?: string
+  logoUrl: string | null
+  walletAddress: string | null
+}) {
+  if (logoUrl) {
+    return (
+      <Image
+        src={logoUrl}
+        alt={name ? `${name} logo` : 'Merchant logo'}
+        width={40}
+        height={40}
+        className="size-10 rounded-full object-cover"
+        unoptimized
+      />
+    )
+  }
+  if (walletAddress) {
+    return <BlockieAvatar seed={walletAddress} size={40} className="rounded-full" />
+  }
+  return (
+    <div className="font-sora flex size-10 items-center justify-center rounded-full bg-[#02C76A] text-base font-semibold text-white">
+      {name?.charAt(0).toUpperCase() || 'S'}
+    </div>
   )
 }
 

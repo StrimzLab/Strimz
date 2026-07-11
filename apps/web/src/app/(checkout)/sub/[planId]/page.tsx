@@ -5,15 +5,17 @@ import { useRouter } from 'next/navigation'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useAppKit } from '@reown/appkit/react'
 import { Loader2, Repeat, ShieldCheck, Wallet } from 'lucide-react'
-import { Badge } from '@strimz/ui'
-import type { SubscriptionPlan, TokenMetadata } from '@strimz/shared-types'
+import { Badge, FieldLabel, Input } from '@strimz/ui'
+import type { MerchantPublicBrand, SubscriptionPlan, TokenMetadata } from '@strimz/shared-types'
 
 import { CheckoutShell, StepIndicator } from '@/components/checkout/checkout-shell'
+import { WalletPickerGuard } from '@/components/checkout/wallet-picker-guard'
 import { SubmitButton } from '@/components/auth/submit-button'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { projectId as reownProjectId } from '@/lib/wagmi'
 import { env } from '@/lib/env'
 import { strimzBrowserClient } from '@/lib/strimz-browser'
+import { attachPlanPayer } from '@/lib/checkout-payer'
 import { useSubscriptionCheckout, type SubscriptionPhase } from '@/hooks/use-subscription-checkout'
 
 /**
@@ -36,7 +38,11 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
 
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null)
   const [tokenMeta, setTokenMeta] = useState<TokenMetadata | null>(null)
+  const [brand, setBrand] = useState<MerchantPublicBrand | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [email, setEmail] = useState('')
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [attaching, setAttaching] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -45,8 +51,14 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
         const p = await strimzBrowserClient().checkout.plan(planId)
         if (cancelled) return
         setPlan(p)
+        void strimzBrowserClient()
+          .checkout.merchant(p.merchantId)
+          .then((b) => {
+            if (!cancelled) setBrand(b)
+          })
+          .catch(() => {})
         if (!p.tokenAddress) {
-          throw new Error('plan has no token address configured — set ARC_USDC_ADDRESS on the API')
+          throw new Error('plan has no token address configured. Set ARC_USDC_ADDRESS on the API')
         }
         const meta = await strimzBrowserClient().tokens.retrieve(p.tokenAddress)
         if (!cancelled) setTokenMeta(meta)
@@ -86,7 +98,9 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
   return (
     <CheckoutShell
       summary={{
-        merchantName: 'Merchant',
+        merchantName: brand?.businessName,
+        merchantLogoUrl: brand?.logoUrl ?? null,
+        merchantWalletAddress: brand?.walletAddress ?? null,
         amount: amountDisplay,
         currency: tokenMeta?.symbol ?? plan?.currency ?? 'USDC',
         interval: plan?.interval ?? 'monthly',
@@ -94,6 +108,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
       }}
       onCancel={() => router.push('/')}
     >
+      <WalletPickerGuard />
       <div className="space-y-6">
         <div>
           <Badge variant="outline" className="mb-3 gap-1.5">
@@ -130,7 +145,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
           <>
             {!reownProjectId && (
               <div className="font-poppins rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700">
-                Wallet connect is unavailable — set <code>NEXT_PUBLIC_REOWN_PROJECT_ID</code>.
+                Wallet connect is unavailable. Set <code>NEXT_PUBLIC_REOWN_PROJECT_ID</code>.
               </div>
             )}
             <SubmitButton type="button" onClick={() => open()} disabled={!reownProjectId}>
@@ -143,13 +158,54 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
         {phase === 'ready' && (
           <>
             {address && <ConnectedRow address={address} onChange={disconnect} />}
+            <div className="space-y-1.5">
+              <FieldLabel htmlFor="payer-email" required>
+                Email for receipts
+              </FieldLabel>
+              <Input
+                id="payer-email"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  if (emailError) setEmailError(null)
+                }}
+                aria-invalid={emailError ? true : undefined}
+                aria-describedby={emailError ? 'payer-email-error' : undefined}
+              />
+              {emailError ? (
+                <p id="payer-email-error" className="text-xs text-red-600">
+                  {emailError}
+                </p>
+              ) : (
+                <p className="text-muted-foreground text-xs">
+                  We send an enrolment receipt now and one for each renewal.
+                </p>
+              )}
+            </div>
             <SubmitButton
               type="button"
-              onClick={() => void subscribe.submit()}
-              disabled={!env.subscriptionsAddress}
+              onClick={() =>
+                void handleSubscribeClick({
+                  email,
+                  address,
+                  planId,
+                  setEmailError,
+                  setAttaching,
+                  onReady: () => void subscribe.submit(),
+                })
+              }
+              disabled={!env.subscriptionsAddress || attaching}
             >
-              <TokenLogo symbol={tokenMeta?.symbol ?? 'USDC'} size={18} />
-              Subscribe — {amountDisplay} {tokenMeta?.symbol ?? 'USDC'}/{intervalLabel}
+              {attaching ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <TokenLogo symbol={tokenMeta?.symbol ?? 'USDC'} size={18} />
+              )}
+              Subscribe. {amountDisplay} {tokenMeta?.symbol ?? 'USDC'}/{intervalLabel}
             </SubmitButton>
           </>
         )}
@@ -171,7 +227,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
             )}
             <p className="text-muted-foreground mt-2 text-xs">
               Your first charge has been recorded on-chain. Strimz will charge automatically each
-              period — cancel anytime.
+              period. Cancel anytime.
             </p>
           </div>
         )}
@@ -187,7 +243,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
           <p className="text-foreground font-medium">How it works</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
             <li>Connect a wallet that holds {tokenMeta?.symbol ?? 'USDC'} on Arc.</li>
-            <li>Sign once — Strimz creates the subscription on-chain.</li>
+            <li>Sign once. Strimz creates the subscription on-chain.</li>
             <li>Strimz settles each scheduled charge automatically.</li>
           </ol>
         </div>
@@ -197,6 +253,42 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
 }
 
 // ---- helpers ----
+
+async function handleSubscribeClick(args: {
+  email: string
+  address: string | undefined
+  planId: string
+  setEmailError: (v: string | null) => void
+  setAttaching: (v: boolean) => void
+  onReady: () => void
+}): Promise<void> {
+  const trimmed = args.email.trim()
+  if (!isValidEmail(trimmed)) {
+    args.setEmailError('Enter a valid email address so we can send your receipts.')
+    return
+  }
+  if (!args.address) {
+    args.setEmailError('Reconnect your wallet and try again.')
+    return
+  }
+  args.setAttaching(true)
+  try {
+    await attachPlanPayer({
+      planId: args.planId,
+      email: trimmed,
+      walletAddress: args.address,
+    })
+    args.onReady()
+  } catch (err) {
+    args.setEmailError((err as Error).message)
+  } finally {
+    args.setAttaching(false)
+  }
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(value)
+}
 
 type VisiblePhase =
   | 'loading'

@@ -1,11 +1,11 @@
 ---
 title: Send a payment link
-description: The simplest possible flow — a one-time payment you email to a customer. Useful for invoices, consulting fees, custom enterprise deals.
+description: The simplest possible flow. A one-time payment you email to a customer. Useful for invoices, consulting fees, custom enterprise deals.
 ---
 
 You owe a customer a payment link. They open the email, they click, they pay. That's the whole flow.
 
-For most one-shot payment cases, you don't need a backend integration — you just need a session URL. This recipe is the shortest path from "I want money from someone" to "they paid me."
+For most one-shot payment cases, you don't need a backend integration. You just need a session URL. This recipe is the shortest path from "I want money from someone" to "they paid me."
 
 ## The script
 
@@ -47,7 +47,7 @@ const resend = new Resend(process.env.RESEND_API_KEY!)
 await resend.emails.send({
   from: 'invoices@yourdomain.com',
   to: 'ap@acme.com',
-  subject: 'Invoice INV-0042 — 500 USDC',
+  subject: 'Invoice INV-0042, 500 USDC',
   html: `
     <p>Hi Acme team,</p>
     <p>Your invoice for Q3 consulting is ready. Total: 500 USDC.</p>
@@ -117,4 +117,4 @@ When the customer pays, you get an `invoice.paid` webhook (in addition to the `p
 
 Most B2B payment flows are short. You wanted to send a link, you sent a link, the customer paid. You don't need a complicated integration; you need a session URL.
 
-The pieces above scale up to handle more — line items, multiple invoices per customer, automatic dunning emails — but the floor is one API call.
+The pieces above scale up to handle more. Line items, multiple invoices per customer, automatic dunning emails. But the floor is one API call.

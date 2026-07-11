@@ -12,13 +12,13 @@ import { Faqs } from '@/components/marketing/faqs'
 import { ClosingCta } from '@/components/marketing/cta'
 
 export const metadata: Metadata = {
-  // Override the title template for the homepage — we want the bare
+  // Override the title template for the homepage. We want the bare
   // brand line, not "Home · Strimz".
-  title: { absolute: 'Strimz — Stablecoin billing infrastructure' },
+  title: { absolute: 'Strimz. Stablecoin billing infrastructure' },
   description:
-    'B2B subscription billing on stablecoins. One API for one-shot payments, recurring charges, refunds, webhooks, and an AI AutoPay Agent — all settled in USDC on Arc.',
+    'B2B subscription billing on stablecoins. One API for one-shot payments, recurring charges, refunds, webhooks, and an AI AutoPay Agent. All settled in USDC on Arc.',
   openGraph: {
-    title: 'Strimz — Stablecoin billing infrastructure',
+    title: 'Strimz. Stablecoin billing infrastructure',
     description:
       'One API for stablecoin one-shot, subscription, and AI-driven payments. Settled in USDC on Arc.',
     url: '/',

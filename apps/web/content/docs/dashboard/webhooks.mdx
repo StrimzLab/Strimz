@@ -1,0 +1,104 @@
+---
+title: Webhooks page
+description: Register endpoints, watch deliveries, replay failed ones.
+---
+
+The Webhooks page is where you point Strimz at *your* server. Instead of your app polling us for state changes, we POST a signed JSON envelope to a URL you own the moment something happens — a payment confirms, a subscription charges, an invoice gets paid.
+
+If you're new to webhooks in general, start with the [webhook signing reference](/docs/webhooks). This page just covers what the dashboard surface does.
+
+## The layout
+
+Four cards at the top:
+
+- **Endpoints** — how many URLs you've registered
+- **Delivered (recent)** — successful deliveries in the last ~50 attempts
+- **Failed (recent)** — permanently failed in the same window; turns red if it exceeds 5
+- **Success rate** — delivered ÷ (delivered + permanently failed)
+
+Below the cards, two tables: **Endpoints** and **Recent deliveries**. Deliveries auto-refresh every 10 seconds — you can leave the page open while testing your receiver.
+
+## Endpoints
+
+One row per URL you've registered. Each row shows:
+
+- The URL and any description you gave it
+- Which mode it listens to (test or live)
+- How many event types it's subscribed to
+- Whether it's currently active or disabled
+- The first 12 characters of its signing secret (so you can tell them apart)
+
+The row is a link. Click through to the endpoint detail page for the full event list, delivery history for that specific endpoint, and rotate / disable / enable actions.
+
+Every row also has a `⋯` menu with the same actions inline.
+
+### Adding an endpoint
+
+The **Add endpoint** button opens a dialog with four inputs:
+
+1. **URL** — must be `https://`. Local dev URLs are blocked server-side.
+2. **Description** — optional label so you remember which environment this is.
+3. **Mode** — Test today, Live coming with mainnet.
+4. **Events** — check every event type this endpoint should receive.
+
+After you save, the dialog reveals your signing secret exactly once. Copy it right then — Strimz never shows it again. Losing it means you have to rotate.
+
+### Rotating the secret
+
+Rotate replaces the signing secret. The old one stops working the moment the call returns, so schedule the rotation for a window where you can update your receiver's env vars quickly. The new secret is revealed once, same rule as `create`.
+
+### Disable vs delete
+
+Disable pauses delivery — nothing gets sent, but the endpoint config stays. Re-enable restores it. Strimz also auto-disables an endpoint after too many consecutive permanent failures; when this happens you get an email so you can fix your receiver and re-enable.
+
+There's no delete action today — disable is the escape hatch.
+
+## Recent deliveries
+
+Every attempted delivery lands in this table, most recent first. Columns:
+
+- **Event** — dotted event name (`payment.completed`, `subscription.charged`, etc.)
+- **Endpoint** — a short prefix of the endpoint id
+- **Status** — `delivered` / `pending` / `retrying` / `permanently_failed`
+- **Response** — the HTTP status your server returned. Turns red for 4xx and 5xx.
+- **Attempt** — which retry this is
+- **Duration** — round-trip time to your server in milliseconds
+- **When** — how long ago the attempt was made
+
+### Replaying a delivery
+
+Rows in `permanently_failed` or `retrying` get a **Replay** button. Clicking it resets the delivery to `pending` and re-enqueues it from attempt 1. Use this after you've fixed a bug in your receiver and want to catch up on missed events.
+
+Delivery IDs are stable — replaying doesn't create a new row, it reuses the same one and increments the attempt count.
+
+### Delivery detail
+
+Click any row to open the delivery detail page. You see:
+
+- The full JSON envelope that was signed and sent (`Request payload`)
+- The response body your server returned (`Response body`, if there was one)
+- The `deliveryId` header sent to your receiver — you can search your own logs for it
+- The last error message when the delivery failed
+- A **Replay** button for terminal deliveries
+
+This is the page you open when a merchant tells you "the webhook never arrived" — start by finding the delivery, then check whether it was sent (delivered), refused (4xx), or timed out.
+
+## Retry behaviour
+
+Failed deliveries retry with exponential backoff up to a configurable ceiling (`WEBHOOK_MAX_ATTEMPTS`, default 5). After the ceiling:
+
+- The delivery moves to `permanently_failed`
+- You get an email
+- If enough of them stack up in a short window, Strimz auto-disables the endpoint to stop wasting retry budget
+
+None of this is silent — every step writes to the deliveries table and the merchant audit log.
+
+## Common workflows
+
+**I'm setting up a new receiver.** Register the endpoint, copy the secret, verify signatures on your side using the reference implementation in [`@strimz/sdk`](/docs/sdks). Trigger a test payment. Watch the delivery show up in the table within seconds.
+
+**A delivery failed and I don't know why.** Open the delivery detail page. Check the response code and the response body. If your server returned 4xx you probably broke signature verification. If 5xx, your handler threw. If duration is timing out, your handler is too slow — you have five seconds before we treat it as a failure.
+
+**I fixed my receiver, now what about the events I missed?** Filter the deliveries table for `permanently_failed`, replay each one. Or if the volume is huge, use the API's `POST /v1/webhook-deliveries/:id/replay` endpoint from a script.
+
+**I want to stop receiving a specific event type.** Rotate the endpoint's subscription list: today that means creating a new endpoint with the reduced list and disabling the old one. A first-class "edit events" flow is on the roadmap.

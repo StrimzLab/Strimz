@@ -1,0 +1,52 @@
+---
+title: Settings page
+description: Business details, on-chain policy, email preferences.
+---
+
+Settings is where you configure your merchant account itself, as opposed to what you do with it. Grouped into sections; scroll through them or use the anchor links at the top of the page.
+
+## Business
+
+- **Business name.** Used as the sender name on customer receipts. Change any time.
+- **Support email.** Reply-to on receipt emails. Payers who reply to their receipt land in your inbox.
+
+## On-chain policy
+
+The on-chain policy panel reads live from the Registry contract. Nothing you see here comes from Postgres; it's the source of truth as the chain sees it.
+
+- **Payout address.** Where every payment lands. Changing it triggers a 24-hour cooldown before the new address takes effect — mitigation for a compromised dashboard session pointing your revenue at an attacker.
+- **Ownership.** Two-step nominate + accept flow. You nominate a new owner; the new owner has to accept from their wallet. Only the accepting wallet can complete the handover.
+- **Fee ceiling and current fee.** The maximum platform fee the Registry allows for your account, and what Strimz is charging you today.
+
+Every action here writes to the chain and requires you to sign with your Privy embedded wallet.
+
+## Email preferences
+
+Merchant-side notifications you can toggle:
+
+- **Payment received.** Email when a payment session confirms on-chain.
+- **Subscription charged.** Email when a subscription successfully bills a customer.
+
+Both default on. Turn them off if the volume gets noisy — the Cashflow digest agent gives you a daily roll-up as an alternative.
+
+## Onboarding checklist
+
+If you haven't completed the on-chain onboarding steps, the top of the settings page shows a checklist:
+
+- Wallet connected
+- Registered on the Registry contract
+- Payout address set
+
+Every step completed lights green. Complete all and the checklist disappears; the dashboard treats you as fully onboarded and unlocks features like invoices.
+
+## Danger zone
+
+- **Delete account.** Not exposed in the UI. Contact [support](mailto:strimztokenstream@gmail.com) if you need this — it involves cleaning up on-chain state Strimz can't touch on your behalf.
+
+## Common workflows
+
+**I want to point payments at a different wallet.** Set the new payout address. Wait 24 hours. It takes effect at that point. During the 24-hour window, payments continue to land at the current address.
+
+**I'm handing this account to a co-founder.** Nominate their wallet under Ownership. Have them sign the accept transaction from their wallet. Once they accept, the account is theirs and you lose access.
+
+**I'm getting too many receipt emails.** Turn off Payment received and Subscription charged. Enable the Cashflow digest instead — one email a day covering the same ground.

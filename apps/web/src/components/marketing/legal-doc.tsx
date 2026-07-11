@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 
 /**
- * Shared chrome for the marketing legal pages — Terms, Privacy, AUP.
+ * Shared chrome for the marketing legal pages. Terms, Privacy, AUP.
  * Provides consistent header, table of contents, last-updated stamp,
  * and side-rail of related documents.
  */

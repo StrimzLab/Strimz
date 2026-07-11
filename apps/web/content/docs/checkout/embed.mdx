@@ -1,9 +1,9 @@
 ---
 title: Embedded checkout
-description: When the hosted page isn't enough — drop the SDK into your own UI and own the wallet flow. Strimz still owns the relayer and the on-chain submission.
+description: When the hosted page isn't enough. Drop the SDK into your own UI and own the wallet flow. Strimz still owns the relayer and the on-chain submission.
 ---
 
-Hosted is the path most merchants take. Embedded is the answer when hosted doesn't fit — usually because the checkout is one step inside a multi-step product flow that you don't want to break with a redirect, or because you have hard requirements about Strimz branding not appearing anywhere.
+Hosted is the path most merchants take. Embedded is the answer when hosted doesn't fit. Usually because the checkout is one step inside a multi-step product flow that you don't want to break with a redirect, or because you have hard requirements about Strimz branding not appearing anywhere.
 
 With embedded, you write the UI. Strimz still owns the relayer and the on-chain submission. The trade-off is honest: you ship a bit more code, you maintain more of the surface, you get total control.
 
@@ -15,7 +15,7 @@ You have a multi-step checkout where the customer's already authenticated and ha
 
 You're whitelabeling Strimz. The customer should never see a Strimz domain anywhere; the entire payment experience has to read as your product.
 
-You have a specific UI requirement — inline forms, side-panel checkouts, modal-based flows — that doesn't map onto a redirect. (Most "I want a different layout" cases actually want hosted with a slightly different framing; embedded is for when the layout genuinely can't redirect.)
+You have a specific UI requirement. Inline forms, side-panel checkouts, modal-based flows. That doesn't map onto a redirect. (Most "I want a different layout" cases actually want hosted with a slightly different framing; embedded is for when the layout genuinely can't redirect.)
 
 If none of those apply, stay on hosted. You'll ship faster and have less to maintain.
 
@@ -60,17 +60,17 @@ export async function POST() {
   const session = await strimz.paymentSessions.create({
     amount: '10000000',
     currency: 'USDC',
-    description: 'Pro plan — monthly',
+    description: 'Pro plan, monthly',
   })
 
-  // Return the session id, not the checkoutUrl — we're handling the UI ourselves.
+  // Return the session id, not the checkoutUrl, we're handling the UI ourselves.
   return Response.json({ sessionId: session.id })
 }
 ```
 
 ## Client-side: mount the provider
 
-`StrimzProvider` carries the publishable key and bridges into whatever wallet stack you've already wired (wagmi, Privy, Reown — it reads from whichever is present).
+`StrimzProvider` carries the publishable key and bridges into whatever wallet stack you've already wired (wagmi, Privy, Reown. It reads from whichever is present).
 
 ```tsx title="app/layout.tsx"
 import { StrimzProvider } from '@strimz/sdk-react'
@@ -88,7 +88,7 @@ The publishable key is browser-safe. See [API keys](/docs/getting-started/api-ke
 
 ## Client-side: collect the signature
 
-The high-level hook is `usePayCheckout`. It handles the full flow — fetch the session, build the typed data, prompt the wallet, submit the signature, poll for confirmation.
+The high-level hook is `usePayCheckout`. It handles the full flow. Fetch the session, build the typed data, prompt the wallet, submit the signature, poll for confirmation.
 
 ```tsx title="components/checkout-button.tsx"
 'use client'
@@ -147,6 +147,6 @@ The state machine. The session statuses are driven entirely by Strimz's backend;
 
 ## Subscriptions, briefly
 
-The pattern is the same for recurring billing — there's a `useSubscriptionCheckout(planId)` hook with the same shape. Internally it builds an EIP-2612 permit + the subscription enrolment, signs once, broadcasts. The first cycle charges in the same transaction.
+The pattern is the same for recurring billing. There's a `useSubscriptionCheckout(planId)` hook with the same shape. Internally it builds an EIP-2612 permit + the subscription enrolment, signs once, broadcasts. The first cycle charges in the same transaction.
 
 See [SDK → React hooks](/docs/sdk/react-hooks) for the full hook surface.

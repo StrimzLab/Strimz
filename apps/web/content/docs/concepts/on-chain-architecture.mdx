@@ -13,7 +13,7 @@ Foundry workspace is open source at
 | Contract              | Job                                                                                                                                                                                | Upgradeable?   |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
 | `StrimzRegistry`      | Off-chain merchants register here to get an `onchainMerchantId`. Holds payout addresses, fee bps, active flags, and `parentMerchantId` for sub-tenancy.                            | UUPS           |
-| `StrimzPayments`      | One-shot payments. Exposes `pay()` (classic approve-then-pay) and `payWithAuthorization()` (EIP-3009, single signature). Splits the fee to FeeCollector and the net to the payout. | No, immutable. |
+| `StrimzPayments`      | One-shot payments. Exposes `pay()` (classic approve-then-pay) and `payWithAuthorization()` (EIP-3009 token auth plus Strimz `PayIntent`, two signatures). Splits the fee to FeeCollector and the net to the payout. | No, immutable. |
 | `StrimzSubscriptions` | Subscription enrolment via `createSubscription()` or `permitAndCreateSubscription()` (EIP-2612). The scheduler calls `batchCharge()` for renewals. Owns the `usedAttempts` ledger. | No, immutable. |
 | `StrimzAgentEscrow`   | ERC-8183 escrow used by the AutoPay Agent's commerce capability.                                                                                                                   | UUPS           |
 | `FeeCollector`        | Per-token, per-merchant fee accounting. Withdrawals are gated by `TREASURY_ROLE`.                                                                                                  | UUPS           |
@@ -38,17 +38,22 @@ should not.
 
 ## The two payment paths
 
-Each value-moving contract exposes a classic entrypoint and a
-single-signature entrypoint. The classic path is there for integrators
-who want to drive the wallet themselves; the signature path is what
-the hosted checkout uses.
+Each value-moving contract exposes a classic entrypoint and a meta-tx
+entrypoint. The classic path is there for integrators who want to
+drive the wallet themselves. The meta-tx path is what the hosted
+checkout uses.
 
-| Flow                   | Classic                                                           | Single-signature (default)                                                                             |
-| ---------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| One-shot payment       | `pay()`. Payer approves USDC, then calls `pay()` themselves.      | `payWithAuthorization()`. Payer signs an EIP-3009 message. The relayer broadcasts it.                  |
-| Subscription enrolment | `createSubscription()`. Payer approves, then calls it themselves. | `permitAndCreateSubscription()`. Payer signs an EIP-2612 permit. The relayer creates the sub for them. |
-| Wallet prompts         | Two                                                               | One                                                                                                    |
-| Who pays gas           | The payer                                                         | The Strimz relayer                                                                                     |
+| Flow                   | Classic                                                           | Meta-tx (default)                                                                                                                          |
+| ---------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| One-shot payment       | `pay()`. Payer approves USDC, then calls `pay()` themselves.      | `payWithAuthorization()`. Payer signs an EIP-3009 authorization plus a Strimz `PayIntent`. The relayer broadcasts.                         |
+| Subscription enrolment | `createSubscription()`. Payer approves, then calls it themselves. | `permitAndCreateSubscription()`. Payer signs an EIP-2612 permit plus a Strimz `SubscriptionIntent`. The relayer creates the sub for them.  |
+| Wallet prompts         | Two on-chain transactions                                         | Two off-chain typed-data signatures, one on-chain transaction                                                                              |
+| Who pays gas           | The payer                                                         | The Strimz relayer                                                                                                                         |
+
+The second signature (`PayIntent` or `SubscriptionIntent`) binds the
+merchant, amount, and routing fields the token never sees. Without it,
+an intercepted EIP-3009 or permit signature could be replayed against
+a different merchant.
 
 Both paths land in the same `Transaction` row, emit the same
 `PaymentExecuted` event, and pay the same fees. The full security

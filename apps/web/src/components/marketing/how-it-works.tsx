@@ -36,7 +36,7 @@ const STEPS = [
 ] as const
 
 /**
- * "How it works" — 4-step horizontal flow on desktop, vertical stack
+ * "How it works". 4-step horizontal flow on desktop, vertical stack
  * on mobile. SVG dashed connector lines with travelling pulse dots
  * between cards (desktop only) communicate the request flowing through
  * the system.
@@ -73,7 +73,7 @@ export function HowItWorks() {
         </motion.p>
       </motion.div>
 
-      {/* Steps grid — cards stand alone; the small inter-card gap is
+      {/* Steps grid. Cards stand alone; the small inter-card gap is
        * the visual rhythm. No decorative connector line. */}
       <motion.div
         {...inViewOnce}

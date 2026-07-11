@@ -3,11 +3,11 @@
  *
  * Two wallet ecosystems coexist in this app:
  *
- *   - **Privy** — merchant identity. Email/Google/wallet login on
+ *   - **Privy**. Merchant identity. Email/Google/wallet login on
  *     `/signup` and `/login`, embedded wallets for the dashboard owner.
  *     See `components/providers.tsx`.
  *
- *   - **Reown AppKit (this file)** — payer wallet connect on the public
+ *   - **Reown AppKit (this file)**. Payer wallet connect on the public
  *     `/pay/[sessionId]` and `/sub/[planId]` checkout pages. Anonymous
  *     payers connect any WalletConnect-compatible wallet (MetaMask,
  *     Rainbow, Coinbase Wallet, etc.) to sign the on-chain payment.
@@ -24,22 +24,20 @@
 import { cookieStorage, createStorage } from '@wagmi/core'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import type { AppKitNetwork } from '@reown/appkit/networks'
-import { arcMainnet, arcTestnet, getArcChain } from '@strimz/shared-config'
+import { arcTestnet } from '@strimz/shared-config'
 import { env } from './env'
 
 export const projectId = env.reownProjectId
 
 /**
- * Both Arc chains expressed as AppKit networks. AppKit's `Network` type
- * is structurally compatible with viem's `Chain`, so the cast is safe —
- * shared-config defines the chains via viem's `defineChain`. We avoid
- * importing AppKit's preset networks (`mainnet`, `arbitrum`, etc.) since
- * Strimz only operates on Arc.
+ * Arc testnet is the only supported network today. Add `arcMainnet`
+ * back to `networks` and switch `defaultNetwork` on it once Arc mainnet
+ * launches.
  */
-export const networks = [arcTestnet, arcMainnet] as unknown as [AppKitNetwork, ...AppKitNetwork[]]
+export const networks = [arcTestnet] as unknown as [AppKitNetwork, ...AppKitNetwork[]]
 
-/** Active network resolved from `NEXT_PUBLIC_ARC_ENVIRONMENT`. */
-export const defaultNetwork = getArcChain(env.arcEnvironment) as unknown as AppKitNetwork
+/** Active network. Testnet-only until Arc mainnet ships. */
+export const defaultNetwork = arcTestnet as unknown as AppKitNetwork
 
 /**
  * The wagmi adapter is always constructed (so imports are stable) but

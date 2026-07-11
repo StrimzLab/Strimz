@@ -57,6 +57,7 @@ export default function AnalyticsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Analytics"
+        docsSlug="analytics"
         description="The numbers you care about: conversion, churn, MRR, LTV, and a simple 90-day forecast."
       />
 
@@ -71,7 +72,7 @@ export default function AnalyticsPage() {
           label="Conversion (30d avg)"
           value={(() => {
             const points = conversionQuery.data?.data ?? []
-            if (points.length === 0) return '—'
+            if (points.length === 0) return ', '
             // The endpoint returns per-day {created, confirmed}; we
             // compute the period-wide rate as sum/sum, NOT the mean of
             // per-day rates. The mean would over-weight days with tiny
@@ -95,7 +96,7 @@ export default function AnalyticsPage() {
           numericForCompare={churnData.length > 0 ? churnData[churnData.length - 1]!.rate : null}
         />
         <Kpi
-          label="Forecast — next 30d"
+          label="Forecast. Next 30d"
           value={forecast ? formatTokenAmount(forecast.next30, 'USDC') : '—'}
           loading={forecastQuery.isLoading}
           subtle={forecast ? `${forecast.confidence} confidence` : undefined}
@@ -228,7 +229,7 @@ export default function AnalyticsPage() {
                 <div className="mt-4 flex items-start gap-2 rounded-md bg-amber-50 p-3 text-xs text-amber-800">
                   <AlertCircle className="size-4 shrink-0" />
                   <p>
-                    Low confidence — we need at least 30 days of transaction data for a meaningful
+                    Low confidence. We need at least 30 days of transaction data for a meaningful
                     projection. Try again after a few more weeks of activity.
                   </p>
                 </div>

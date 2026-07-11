@@ -154,7 +154,7 @@ export default function AdminMerchantDetailPage() {
           <div>
             <h3 className="font-sora text-base font-semibold">Admin actions</h3>
             <p className="text-muted-foreground text-xs">
-              These run through `/api/admin/*` BFF routes — audited server-side, gated on the admin
+              These run through `/api/admin/*` BFF routes. Audited server-side, gated on the admin
               role.
             </p>
           </div>

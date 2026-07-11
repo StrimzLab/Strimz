@@ -1,0 +1,36 @@
+---
+title: Customers page
+description: Every wallet that's paid you, with email history and lifetime value.
+---
+
+Customers is a merchant-view of every payer wallet that has interacted with your account. A "customer" in Strimz is the pair `(merchantId, walletAddress)`. If the same wallet pays two different merchants, each merchant sees their own separate customer record.
+
+## The layout
+
+A single table, one row per customer. Columns:
+
+- **Wallet** — a short-form of the payer's on-chain address. Click through to see the full address.
+- **Emails** — the email addresses this wallet has ever entered at your checkout. Displayed as a chip; if there's more than one, a `+N more` badge opens a dialog listing every email in order.
+- **Lifetime value** — sum of every succeeded payment, in USD equivalent.
+- **First seen** and **last seen** — relative time.
+
+## The email history dialog
+
+The dialog is worth calling out because it's the answer to a question merchants ask a lot: "which email did this customer give me?"
+
+Strimz treats email as a payer-provided field on the checkout envelope. It never overrides the wallet-based identity. So the same wallet can enter different emails on different visits — spouse, work, personal, etc. The dialog shows every email that wallet has given you, most recent first, with the timestamp of the checkout that captured it.
+
+This is also how the payer notifier cron decides where to send receipts: it uses the most recent email a customer has entered for a given checkout, not a global "primary" email.
+
+## Common workflows
+
+**A customer says "I paid but didn't get a receipt".** Look them up by wallet address. Check the email history — the receipt went to whatever email they entered at that specific checkout. If they entered a typo, that's why they didn't get the mail.
+
+**I want to build a mailing list from paying customers.** Not exposed as a bulk export yet — for now, filter the payment sessions table and export CSV, then dedupe by wallet.
+
+**I want to see everything one customer has done.** Click the wallet. The customer detail page shows every payment session, subscription, refund, and invoice associated with that wallet.
+
+## What's *not* on this page
+
+- **No account creation for customers.** Strimz doesn't require payers to sign up. If you need customer accounts, you build that layer on your side using the wallet as the primary key.
+- **No PII beyond email.** Strimz does not collect names, addresses, or phone numbers at checkout. Everything you see here comes from what the payer voluntarily entered.

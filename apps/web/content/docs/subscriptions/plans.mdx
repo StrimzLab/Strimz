@@ -1,15 +1,15 @@
 ---
 title: Plans
-description: A SubscriptionPlan is the template — name, amount, interval, optional trial. One plan, many subscribers. Plans are immutable after creation; that's an intentional choice.
+description: A SubscriptionPlan is the template. Name, amount, interval, optional trial. One plan, many subscribers. Plans are immutable after creation; that's an intentional choice.
 ---
 
-A plan is the thing your customers subscribe to. "Pro Monthly," "Team Annual," "Starter — 5 USDC/month." You create the plan once with `subscriptionPlans.create`; payers subscribe by signing an EIP-2612 permit on the plan's hosted-checkout URL; each one becomes a `Subscription` row that points back at the plan.
+A plan is the thing your customers subscribe to. "Pro Monthly," "Team Annual," "Starter. 5 USDC/month." You create the plan once with `subscriptionPlans.create`; payers subscribe by signing an EIP-2612 permit on the plan's hosted-checkout URL; each one becomes a `Subscription` row that points back at the plan.
 
 ## Creating one
 
 ```ts
 const plan = await strimz.subscriptionPlans.create({
-  name: 'Pro — Monthly',
+  name: 'Pro, Monthly',
   description: 'All features, unlimited seats, monthly billing.',
   amount: '9990000',       // 9.99 USDC, 6-decimal raw
   currency: 'USDC',
@@ -21,7 +21,7 @@ const plan = await strimz.subscriptionPlans.create({
 
 What each field does:
 
-`name` shows up everywhere — on the hosted subscription checkout page, on receipt emails, on the dashboard's plan list, in the merchant-notification email when someone subscribes. Make it specific. "Pro — Monthly" is better than "Pro" if you have a yearly version too. Maximum 120 chars.
+`name` shows up everywhere. On the hosted subscription checkout page, on receipt emails, on the dashboard's plan list, in the merchant-notification email when someone subscribes. Make it specific. "Pro. Monthly" is better than "Pro" if you have a yearly version too. Maximum 120 chars.
 
 `description` is optional but useful. Goes under the name on hosted checkout. Maximum 500 chars; we don't render Markdown so plain text.
 
@@ -31,7 +31,7 @@ What each field does:
 
 `interval` is `'daily'`, `'weekly'`, `'monthly'`, or `'yearly'`. `intervalCount` multiplies it. `intervalCount: 2` with `interval: 'monthly'` is every two months. Default `intervalCount` is 1.
 
-`trialPeriodDays` is the free-trial length. The payer signs the permit on day zero; we don't charge until `trialPeriodDays` later. Null or omitted means no trial — the first charge fires in the same transaction as the enrolment.
+`trialPeriodDays` is the free-trial length. The payer signs the permit on day zero; we don't charge until `trialPeriodDays` later. Null or omitted means no trial. The first charge fires in the same transaction as the enrolment.
 
 ## Plans are immutable
 
@@ -45,7 +45,7 @@ If you genuinely need to give one specific customer a different price (B2B negot
 
 - Create a one-off plan with their negotiated price. Ugly in the dashboard but works.
 - Run the standard plan and issue periodic refunds for the difference.
-- Use [invoices](/docs/api-reference/invoices) for the enterprise account — one-off pricing without the subscription scaffolding.
+- Use [invoices](/docs/api-reference/invoices) for the enterprise account. One-off pricing without the subscription scaffolding.
 
 The third one is what most B2B SaaS does for enterprise; subscriptions are for the SMB self-serve flow.
 
@@ -80,9 +80,9 @@ Each plan has a hosted-checkout URL:
 https://strimz-finance.vercel.app/sub/<planId>
 ```
 
-You send this to anyone you want to subscribe. The page handles wallet connect, the EIP-2612 permit signature, and the first-cycle charge in one prompt. Same UX as one-shot hosted checkout; one signature.
+You send this to anyone you want to subscribe. The page handles wallet connect, the EIP-2612 permit signature, and a Strimz `SubscriptionIntent` signature that binds the plan the payer is enrolling in. Two typed-data prompts in one checkout flow. The first cycle charge lands in the same on-chain transaction as the enrolment.
 
-You don't need to call `subscriptions.create` from the API for this flow. The hosted checkout flow handles it end-to-end — payer signs, our relayer broadcasts `permitAndCreateSubscription(...)`, the indexer projects the resulting `Subscription`, and your `subscription.created` webhook fires.
+You don't need to call `subscriptions.create` from the API for this flow. The hosted checkout flow handles it end-to-end. Payer signs, our relayer broadcasts `permitAndCreateSubscription(...)`, the indexer projects the resulting `Subscription`, and your `subscription.created` webhook fires.
 
 If you want to embed the enrolment in your own UI, use `useSubscriptionCheckout(planId)` from the React SDK. See [Embedded checkout](/docs/checkout/embed).
 
@@ -102,12 +102,12 @@ Subscription
   ├─ status (trialing | active | at_risk | paused | cancelled | lapsed)
 ```
 
-We snapshot the pricing onto the subscription because it makes the contract simpler — `batchCharge` reads the amount from the subscription row, not from the plan. The plan and the subscription drift if you create new plans later; that drift is the whole point.
+We snapshot the pricing onto the subscription because it makes the contract simpler ,  `batchCharge` reads the amount from the subscription row, not from the plan. The plan and the subscription drift if you create new plans later; that drift is the whole point.
 
 ## Pricing notes
 
 Round to multiples of 0.01 USDC. Sub-cent pricing technically works (`'9999900'` is 9.9999 USDC) but reads weird on receipts and confuses fee calculations.
 
-Use the `yearly` interval for annual plans. Don't fake it with `intervalCount: 12` and `interval: 'monthly'` — receipts will say "every 12 months," wallets will show the timing as monthly, and customers will get confused. The `yearly` interval is its own thing for good reasons.
+Use the `yearly` interval for annual plans. Don't fake it with `intervalCount: 12` and `interval: 'monthly'` ,  receipts will say "every 12 months," wallets will show the timing as monthly, and customers will get confused. The `yearly` interval is its own thing for good reasons.
 
 Trial-period free days are part of the plan, not part of the subscription. If you want a custom trial length for one specific customer, create a one-off plan for them. We don't support per-subscription trial overrides because the plan's `trialPeriodDays` is signed into the contract's understanding of when the first charge should fire.

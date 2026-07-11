@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 }
 
 /**
- * Two-column auth shell — direct match to strimz-subscription's auth
+ * Two-column auth shell. Direct match to strimz-subscription's auth
  * layout. Dark navy left panel with the white logo + tagline + decorative
  * pattern overlays; light right panel hosts the form.
  *
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-screen w-full md:grid-cols-8">
-      {/* Left — dark panel (hidden on mobile) */}
+      {/* Left. Dark panel (hidden on mobile) */}
       <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#050020] p-10 text-white md:col-span-3 md:flex lg:p-12">
         <Image
           src={authPattern}
@@ -66,7 +66,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
       </aside>
 
-      {/* Right — form panel */}
+      {/* Right. Form panel */}
       <section className="relative flex flex-col bg-[#F9FAFB] md:col-span-5">
         <header className="flex items-center justify-between px-4 py-5 sm:px-8 md:px-10">
           <Logo className="md:hidden" />
