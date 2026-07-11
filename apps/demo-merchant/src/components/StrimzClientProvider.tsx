@@ -17,18 +17,19 @@ interface Props {
 
 export function StrimzClientProvider({ children }: Props) {
   const origin = process.env.NEXT_PUBLIC_STRIMZ_CHECKOUT_ORIGIN ?? 'http://localhost:3000'
-  const publishableKey = process.env.NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY
-  if (!publishableKey) {
-    // Fail loudly in the browser, where the demo actually runs and needs
-    // the key. During a production build the static prerender runs on the
-    // server with no env set — don't crash it there, or CI can't build.
-    if (typeof window !== 'undefined') {
-      throw new Error(
-        'NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY is not set. Paste the pk_live_... printed by the seed script into apps/demo-merchant/.env.',
-      )
-    }
-    return <>{children}</>
+  const key = process.env.NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY
+  if (!key && typeof window !== 'undefined') {
+    // Real demo run in the browser with no key — fail loudly instead of
+    // silently pointing an unauthenticated client at the API.
+    throw new Error(
+      'NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY is not set. Paste the pk_live_... printed by the seed script into apps/demo-merchant/.env.',
+    )
   }
+  // The provider always mounts so `useStrimzContext` never throws. During a
+  // production build the static prerender runs server-side with no env; the
+  // placeholder is a valid-shaped key that lets the client construct. A real
+  // deploy always has the key inlined, and the guard above catches misconfig.
+  const publishableKey = key ?? 'pk_test_prerender_placeholder'
   return (
     <StrimzProvider
       publishableKey={publishableKey}
