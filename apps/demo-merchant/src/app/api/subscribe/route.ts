@@ -11,10 +11,10 @@ import { dollarsToUsdcBaseUnits } from '@/lib/format'
  * every button click — the first call creates it, later calls
  * `list()` first and reuse the existing one by handle.
  *
- * The demo plan is $9.99/month, USDC, monthly interval.
+ * The demo plan is $5/month, USDC, monthly interval.
  */
 
-const PLAN_HANDLE = 'fanline-pro-monthly'
+const PLAN_HANDLE = 'fanline-pro-monthly-5'
 
 async function findOrCreatePlan() {
   const strimz = getStrimzServerClient()
@@ -32,7 +32,7 @@ async function findOrCreatePlan() {
     name: 'Fanline Pro',
     description: 'Ad-free, unlimited streams, early access, VIP DMs.',
     currency: 'USDC',
-    amount: dollarsToUsdcBaseUnits('9.99'),
+    amount: dollarsToUsdcBaseUnits('5.00'),
     interval: 'monthly',
     intervalCount: 1,
     metadata: {

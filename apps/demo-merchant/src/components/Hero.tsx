@@ -32,7 +32,7 @@ export function Hero() {
               href="#pro"
               className="hover:border-brand-500 inline-flex items-center gap-2 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--card))] px-6 py-3 text-sm font-semibold text-[hsl(var(--fg))] transition"
             >
-              Go Pro — $9.99/mo
+              Go Pro — $5/mo
             </a>
           </div>
           <p className="muted mt-4 text-xs">
