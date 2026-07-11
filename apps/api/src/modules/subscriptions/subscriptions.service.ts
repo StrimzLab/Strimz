@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
-import type { CancelSubscriptionInput, Subscription } from '@strimz/shared-types'
+import type { CancelSubscriptionInput, Mode, Subscription } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QueueService, QUEUE_NAMES } from '../../infra/queue/queue.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
@@ -16,20 +16,22 @@ export class SubscriptionsService {
     private readonly events: WebhookEventService,
   ) {}
 
-  async retrieve(merchantId: string, id: string): Promise<Subscription> {
-    const row = await this.prisma.db.subscription.findFirst({ where: { id, merchantId } })
+  async retrieve(merchantId: string, mode: Mode, id: string): Promise<Subscription> {
+    const row = await this.prisma.db.subscription.findFirst({ where: { id, merchantId, mode } })
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'subscription not found' })
     return serialise(row)
   }
 
   async list(
     merchantId: string,
+    mode: Mode,
     params: { limit?: number; cursor?: string | null; status?: string; planId?: string },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.subscription.findMany({
       where: {
         merchantId,
+        mode,
         status: (params.status as never) ?? undefined,
         planId: params.planId ?? undefined,
       },
@@ -59,9 +61,13 @@ export class SubscriptionsService {
    * lands; the contract's `requireActiveMerchant` + `cancelled` storage
    * is the final source of truth.
    */
-  async cancel(merchantId: string, input: CancelSubscriptionInput): Promise<Subscription> {
+  async cancel(
+    merchantId: string,
+    mode: Mode,
+    input: CancelSubscriptionInput,
+  ): Promise<Subscription> {
     const sub = await this.prisma.db.subscription.findFirst({
-      where: { id: input.id, merchantId },
+      where: { id: input.id, merchantId, mode },
     })
     if (!sub) throw new NotFoundException({ code: 'not_found', message: 'subscription not found' })
     if (sub.status === 'cancelled' || sub.status === 'lapsed') {

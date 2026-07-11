@@ -3,6 +3,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import type { TokenMetadata, TokenPermitNonce } from '@strimz/shared-types'
 
 import { Public } from '../../common/decorators/public.decorator.js'
+import { RateLimit } from '../../common/decorators/rate-limit.decorator.js'
 import { TokensService } from './tokens.service.js'
 
 /**
@@ -48,6 +49,10 @@ export class TokensController {
       'nonces.',
   })
   @Public()
+  // Chain reads over RPC are free but not costless — bound scraper
+  // traffic against Strimz's RPC quota. Real checkout flows read this
+  // once per subscription enrolment; 30/hr per IP is far above that.
+  @RateLimit({ max: 30, windowMs: 60 * 60 * 1000, keyBy: 'ip', label: 'tokens.permitNonce' })
   @Get('/:address/permit-nonce')
   async getPermitNonce(
     @Param('address') addressParam: string,

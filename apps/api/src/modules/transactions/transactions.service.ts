@@ -1,25 +1,27 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import type { Transaction } from '@strimz/shared-types'
+import type { Mode, Transaction } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 
 @Injectable()
 export class TransactionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async retrieve(merchantId: string, id: string): Promise<Transaction> {
-    const row = await this.prisma.db.transaction.findFirst({ where: { id, merchantId } })
+  async retrieve(merchantId: string, mode: Mode, id: string): Promise<Transaction> {
+    const row = await this.prisma.db.transaction.findFirst({ where: { id, merchantId, mode } })
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'transaction not found' })
     return serialise(row)
   }
 
   async list(
     merchantId: string,
+    mode: Mode,
     params: { limit?: number; cursor?: string | null; kind?: string; status?: string },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.transaction.findMany({
       where: {
         merchantId,
+        mode,
         kind: (params.kind as never) ?? undefined,
         status: (params.status as never) ?? undefined,
       },

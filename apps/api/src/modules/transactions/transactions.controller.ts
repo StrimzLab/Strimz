@@ -6,6 +6,8 @@ import {
   type CurrentMerchantPayload,
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
+import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
 import { TransactionsService } from './transactions.service.js'
 
 @UseGuards(MerchantAuthGuard)
@@ -19,22 +21,19 @@ export class TransactionsController {
     @CurrentMerchant() ctx: CurrentMerchantPayload,
     @Param('id') id: string,
   ): Promise<Transaction> {
-    return this.transactions.retrieve(ctx.merchantId, id)
+    return this.transactions.retrieve(ctx.merchantId, ctx.mode, id)
   }
 
   @Get()
   list(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
-    @Query('kind') kind?: string,
-    @Query('status') status?: string,
+    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
   ) {
-    return this.transactions.list(ctx.merchantId, {
-      limit: limit ? Number(limit) : undefined,
-      cursor: cursor ?? null,
-      kind,
-      status,
+    return this.transactions.list(ctx.merchantId, ctx.mode, {
+      limit: q.limit,
+      cursor: q.cursor ?? null,
+      kind: q.kind,
+      status: q.status,
     })
   }
 }

@@ -46,7 +46,11 @@ export interface PayWithAuthorizationInput {
   token: `0x${string}`
   auth: PayAuthorization
   ref: `0x${string}` // bytes32 — typically `keccak256(sessionId)`
-  signature: VRSSignature
+  /** EIP-3009 sig — token verifies. */
+  authSignature: VRSSignature
+  /** PayIntent sig — contract verifies. Binds merchantId, token,
+   *  amount, nonce, validBefore, ref. */
+  intentSignature: VRSSignature
   // Optional diagnostics for the operator dashboard. Not used on-chain.
   merchantInternalId?: string
   sessionId?: string
@@ -64,7 +68,10 @@ export interface PermitAndCreateSubscriptionInput {
   startAt: bigint // uint64
   endAt: bigint // uint64, 0 = open-ended
   permitData: PermitData
-  signature: VRSSignature
+  /** EIP-2612 permit sig — token verifies. */
+  permitSignature: VRSSignature
+  /** SubscriptionIntent sig — contract verifies. Binds every plan param. */
+  intentSignature: VRSSignature
   merchantInternalId?: string
   subscriptionInternalId?: string
 }

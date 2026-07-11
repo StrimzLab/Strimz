@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import type { Mode } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 
 export interface DateRange {
@@ -14,7 +15,7 @@ export class AnalyticsService {
    * Conversion rate: (sessions that ended in `confirmed`) / (sessions created)
    * Returned as daily buckets across the requested range.
    */
-  async conversion(merchantId: string, range: DateRange) {
+  async conversion(merchantId: string, mode: Mode, range: DateRange) {
     const from = range.from ? new Date(range.from) : new Date(Date.now() - 30 * 86_400_000)
     const to = range.to ? new Date(range.to) : new Date()
     type Row = { day: Date; created: bigint; confirmed: bigint }
@@ -24,12 +25,13 @@ export class AnalyticsService {
          count(*)                              AS created,
          count(*) FILTER (WHERE status='confirmed') AS confirmed
        FROM "PaymentSession"
-       WHERE "merchantId" = $1 AND "createdAt" BETWEEN $2 AND $3
+       WHERE "merchantId" = $1 AND mode = $4::"Mode" AND "createdAt" BETWEEN $2 AND $3
        GROUP BY day
        ORDER BY day ASC`,
       merchantId,
       from,
       to,
+      mode,
     )) as Row[]
     return {
       from: from.toISOString(),
@@ -47,7 +49,7 @@ export class AnalyticsService {
    * Subscription churn rate per month. churn = cancelled / (active + cancelled)
    * computed at the end of each month.
    */
-  async churn(merchantId: string, range: DateRange) {
+  async churn(merchantId: string, mode: Mode, range: DateRange) {
     const from = range.from ? new Date(range.from) : new Date(Date.now() - 365 * 86_400_000)
     const to = range.to ? new Date(range.to) : new Date()
     type Row = { month: Date; cancelled: bigint; total: bigint }
@@ -57,12 +59,13 @@ export class AnalyticsService {
          count(*) FILTER (WHERE status IN ('cancelled','lapsed')) AS cancelled,
          count(*) AS total
        FROM "Subscription"
-       WHERE "merchantId" = $1 AND "createdAt" BETWEEN $2 AND $3
+       WHERE "merchantId" = $1 AND mode = $4::"Mode" AND "createdAt" BETWEEN $2 AND $3
        GROUP BY month
        ORDER BY month ASC`,
       merchantId,
       from,
       to,
+      mode,
     )) as Row[]
     return {
       from: from.toISOString(),
@@ -80,9 +83,9 @@ export class AnalyticsService {
    * Monthly Recurring Revenue: sum of active-subscription amounts, normalised
    * to monthly. Daily/weekly/quarterly/yearly all converted to a monthly value.
    */
-  async mrr(merchantId: string) {
+  async mrr(merchantId: string, mode: Mode) {
     const subs = await this.prisma.db.subscription.findMany({
-      where: { merchantId, status: 'active' },
+      where: { merchantId, mode, status: 'active' },
       select: { amount: true, interval: true, intervalCount: true, currency: true },
     })
     let mrrUnits = 0n
@@ -100,18 +103,19 @@ export class AnalyticsService {
   /**
    * Customer Lifetime Value — total spend per unique customer, paginated.
    */
-  async ltv(merchantId: string, params: { limit?: number; cursor?: string | null }) {
+  async ltv(merchantId: string, mode: Mode, params: { limit?: number; cursor?: string | null }) {
     const limit = Math.min(params.limit ?? 25, 100)
     type Row = { customerId: string; totalSpend: bigint; transactionCount: bigint }
     const rows = (await this.prisma.db.$queryRawUnsafe(
       `SELECT "customerId", sum(("amount")::numeric)::bigint AS "totalSpend", count(*) AS "transactionCount"
        FROM "Transaction"
-       WHERE "merchantId" = $1 AND "customerId" IS NOT NULL AND status='confirmed'
+       WHERE "merchantId" = $1 AND mode = $3::"Mode" AND "customerId" IS NOT NULL AND status='confirmed'
        GROUP BY "customerId"
        ORDER BY "totalSpend" DESC
        LIMIT $2`,
       merchantId,
       limit,
+      mode,
     )) as Row[]
     return {
       data: rows.map((r: Row) => ({
@@ -130,17 +134,18 @@ export class AnalyticsService {
    * quarter" merchant signal; if we want more we'll plug in time-series
    * later.
    */
-  async forecast(merchantId: string) {
+  async forecast(merchantId: string, mode: Mode) {
     const since = new Date(Date.now() - 90 * 86_400_000)
     type Row = { day: Date; revenue: bigint }
     const rows = (await this.prisma.db.$queryRawUnsafe(
       `SELECT date_trunc('day', "blockTimestamp") AS day, sum(("netAmount")::numeric)::bigint AS revenue
        FROM "Transaction"
-       WHERE "merchantId" = $1 AND status='confirmed' AND "blockTimestamp" >= $2
+       WHERE "merchantId" = $1 AND mode = $3::"Mode" AND status='confirmed' AND "blockTimestamp" >= $2
        GROUP BY day
        ORDER BY day ASC`,
       merchantId,
       since,
+      mode,
     )) as Row[]
     if (rows.length < 7) {
       return { confidence: 'low', last90DayRevenue: '0', next30: '0', next60: '0', next90: '0' }

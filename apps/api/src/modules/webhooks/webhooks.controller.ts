@@ -6,6 +6,8 @@ import {
   type CurrentMerchantPayload,
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
+import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
 import { WebhooksService } from './webhooks.service.js'
 import { CreateWebhookEndpointDto } from './webhooks.dto.js'
 
@@ -38,12 +40,11 @@ export class WebhooksController {
   @Get('/webhook-endpoints')
   listEndpoints(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
+    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
   ) {
     return this.webhooks.listEndpoints(ctx.merchantId, {
-      limit: limit ? Number(limit) : undefined,
-      cursor: cursor ?? null,
+      limit: q.limit,
+      cursor: q.cursor ?? null,
     })
   }
 
@@ -78,18 +79,14 @@ export class WebhooksController {
   @Get('/webhook-deliveries')
   listDeliveries(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
-    @Query('endpointId') endpointId?: string,
-    @Query('status') status?: string,
-    @Query('eventName') eventName?: string,
+    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
   ) {
     return this.webhooks.listDeliveries(ctx.merchantId, {
-      limit: limit ? Number(limit) : undefined,
-      cursor: cursor ?? null,
-      endpointId,
-      status,
-      eventName,
+      limit: q.limit,
+      cursor: q.cursor ?? null,
+      endpointId: q.endpointId,
+      status: q.status,
+      eventName: q.eventName,
     })
   }
 

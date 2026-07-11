@@ -72,4 +72,22 @@ export class MerchantsController {
       missing: s.missing,
     }
   }
+
+  @Get('/me/onchain-state')
+  @ApiOperation({
+    summary:
+      "Live on-chain merchant record from the Registry. Backs the Settings page's payout-rotation and ownership-transfer flows.",
+  })
+  async onchainState(@CurrentMerchant() ctx: CurrentMerchantPayload) {
+    return this.merchantChain.getOnchainState(ctx.merchantId)
+  }
+
+  @Get('/me/balance')
+  @ApiOperation({
+    summary:
+      'Live on-chain USDC + EURC balance at the merchant`s payout address. Backs the /app/withdraw page.',
+  })
+  balance(@CurrentMerchant() ctx: CurrentMerchantPayload) {
+    return this.merchants.getBalance(ctx.merchantId)
+  }
 }

@@ -5,7 +5,13 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common'
-import type { CreateRefundInput, Refund, SubmitRefundSignatureInput } from '@strimz/shared-types'
+import type {
+  CreateRefundInput,
+  Mode,
+  Refund,
+  SubmitRefundSignatureInput,
+} from '@strimz/shared-types'
+import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
 
@@ -30,15 +36,28 @@ export class RefundsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: WebhookEventService,
+    private readonly cfg: TypedConfigService,
   ) {}
+
+  private tokenAddressFor(currency: string): string {
+    const addr = currency === 'EURC' ? this.cfg.env.ARC_EURC_ADDRESS : this.cfg.env.ARC_USDC_ADDRESS
+    if (!addr) {
+      throw new BadRequestException({
+        code: 'invalid_request',
+        message: `no on-chain address configured for ${currency}. Set ARC_${currency}_ADDRESS on the API`,
+      })
+    }
+    return addr
+  }
 
   async create(
     merchantId: string,
+    mode: Mode,
     actorId: string,
     input: CreateRefundInput,
   ): Promise<RefundCreateOutput> {
     const tx = await this.prisma.db.transaction.findFirst({
-      where: { id: input.transactionId, merchantId },
+      where: { id: input.transactionId, merchantId, mode },
     })
     if (!tx) {
       throw new NotFoundException({ code: 'not_found', message: 'transaction not found' })
@@ -100,7 +119,7 @@ export class RefundsService {
     return {
       refund: serialise(refund),
       signingInstructions: {
-        token: tokenAddressFor(tx.currency, tx.mode),
+        token: this.tokenAddressFor(tx.currency),
         to: tx.payerAddress,
         amount: input.amount,
         note: input.note ?? `Refund for transaction ${tx.id}`,
@@ -108,19 +127,20 @@ export class RefundsService {
     }
   }
 
-  async retrieve(merchantId: string, id: string): Promise<Refund> {
-    const row = await this.prisma.db.refund.findFirst({ where: { id, merchantId } })
+  async retrieve(merchantId: string, mode: Mode, id: string): Promise<Refund> {
+    const row = await this.prisma.db.refund.findFirst({ where: { id, merchantId, mode } })
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'refund not found' })
     return serialise(row)
   }
 
   async list(
     merchantId: string,
+    mode: Mode,
     params: { limit?: number; cursor?: string | null; status?: string },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.refund.findMany({
-      where: { merchantId, status: (params.status as never) ?? undefined },
+      where: { merchantId, mode, status: (params.status as never) ?? undefined },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,
       ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
@@ -135,9 +155,13 @@ export class RefundsService {
    * tx hash and transition the refund. Final `completed` status is written
    * by the indexer when the on-chain ERC20 Transfer is observed.
    */
-  async submitSignature(merchantId: string, input: SubmitRefundSignatureInput): Promise<Refund> {
+  async submitSignature(
+    merchantId: string,
+    mode: Mode,
+    input: SubmitRefundSignatureInput,
+  ): Promise<Refund> {
     const refund = await this.prisma.db.refund.findFirst({
-      where: { id: input.id, merchantId },
+      where: { id: input.id, merchantId, mode },
     })
     if (!refund) throw new NotFoundException({ code: 'not_found', message: 'refund not found' })
     if (refund.status !== 'awaiting_signature') {
@@ -172,15 +196,4 @@ function serialise(row: any): Refund {
     createdAt: row.createdAt.toISOString(),
     completedAt: row.completedAt?.toISOString() ?? null,
   } as Refund
-}
-
-/**
- * Map internal currency → on-chain ERC20 address. The agent worker /
- * scheduler resolves this against `@strimz/shared-config/tokens`; the API
- * only needs to surface a readable hint to the merchant's wallet.
- */
-function tokenAddressFor(currency: string, _mode: string): string {
-  // The actual address is resolved by the wallet from chain config; this is
-  // just a hint for human-readable display ("Sign to send 100 USDC...").
-  return currency
 }

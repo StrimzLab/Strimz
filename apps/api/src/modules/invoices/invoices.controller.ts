@@ -6,6 +6,8 @@ import {
   type CurrentMerchantPayload,
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
+import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
 import { InvoicesService } from './invoices.service.js'
 import { CreateInvoiceDto } from './invoices.dto.js'
 
@@ -26,21 +28,19 @@ export class InvoicesController {
   @RequireScopes('invoices_read')
   @Get('/:id')
   retrieve(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string) {
-    return this.invoices.retrieve(ctx.merchantId, id)
+    return this.invoices.retrieve(ctx.merchantId, ctx.mode, id)
   }
 
   @RequireScopes('invoices_read')
   @Get()
   list(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
-    @Query('status') status?: string,
+    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
   ) {
-    return this.invoices.list(ctx.merchantId, {
-      limit: limit ? Number(limit) : undefined,
-      cursor: cursor ?? null,
-      status,
+    return this.invoices.list(ctx.merchantId, ctx.mode, {
+      limit: q.limit,
+      cursor: q.cursor ?? null,
+      status: q.status,
     })
   }
 
@@ -48,12 +48,12 @@ export class InvoicesController {
   @Post('/:id/send')
   @ApiOperation({ summary: 'Send the invoice via email to the customer email recorded on it.' })
   send(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string) {
-    return this.invoices.send(ctx.merchantId, id)
+    return this.invoices.send(ctx.merchantId, ctx.mode, id)
   }
 
   @RequireScopes('invoices_write')
   @Post('/:id/void')
   void(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string) {
-    return this.invoices.voidInvoice(ctx.merchantId, id)
+    return this.invoices.voidInvoice(ctx.merchantId, ctx.mode, id)
   }
 }

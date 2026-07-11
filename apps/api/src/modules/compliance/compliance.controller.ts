@@ -5,6 +5,8 @@ import {
   CurrentMerchant,
   type CurrentMerchantPayload,
 } from '../../common/decorators/current-merchant.decorator.js'
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
+import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
 import { ComplianceService } from './compliance.service.js'
 
 @ApiTags('compliance')
@@ -18,14 +20,12 @@ export class ComplianceController {
   @ApiOperation({ summary: 'List compliance screening results scoped to the current merchant.' })
   listLogs(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
-    @Query('status') status?: string,
+    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
   ) {
     return this.compliance.listLogs(ctx.merchantId, {
-      limit: limit ? Number(limit) : undefined,
-      cursor: cursor ?? null,
-      status,
+      limit: q.limit,
+      cursor: q.cursor ?? null,
+      status: q.status,
     })
   }
 }

@@ -39,15 +39,14 @@ export class SubscriptionPlansService {
 
   async create(
     merchantId: string,
-    mode: 'test' | 'live',
+    _mode: 'test' | 'live',
     input: CreateSubscriptionPlanInput,
   ): Promise<SubscriptionPlan> {
-    // Live plans need a chain merchant id at enrolment time; register
-    // eagerly at plan creation so the public checkout never blocks on
-    // an on-chain submission. Test plans skip the chain entirely.
-    if (mode === 'live') {
-      await this.merchantChain.ensureRegistered(merchantId)
-    }
+    // Every plan enrolment needs a chain merchant id, so register at
+    // plan creation regardless of mode. Idempotent. `mode` is preserved
+    // in the signature for parity with other create() methods; the
+    // SubscriptionPlan row itself has no per-mode field today.
+    await this.merchantChain.ensureRegistered(merchantId)
     const row = await this.prisma.db.subscriptionPlan.create({
       data: {
         merchantId,
@@ -87,7 +86,8 @@ export class SubscriptionPlansService {
       ...WITH_MERCHANT,
     })
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'plan not found' })
-    return this.serialise(row)
+    // Public checkout view: drop merchant-internal metadata.
+    return { ...this.serialise(row), metadata: {} }
   }
 
   async list(

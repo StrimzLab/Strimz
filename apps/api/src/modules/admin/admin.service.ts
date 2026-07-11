@@ -1,11 +1,13 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common'
 import type { AdminRole, AdminUserStatus, MerchantTier } from '@strimz/db'
 import {
+  AdminBroadcastEmail,
   AdminInviteEmail,
   AdminRoleChangedEmail,
   AdminStatusChangedEmail,
   renderToHtml,
 } from '@strimz/email-templates'
+import type { BroadcastAudience, CreateBroadcastInput } from '@strimz/shared-types'
 
 import { TypedConfigService } from '../../config/index.js'
 import { EmailService } from '../../infra/email/email.service.js'
@@ -687,6 +689,175 @@ export class AdminService {
         metadata: (args.metadata ?? {}) as never,
       },
     })
+  }
+
+  // ---------- Broadcasts ----------
+
+  /**
+   * Fans a message out to every affected merchant. Two audiences:
+   *
+   *   - `all` — every currently-active merchant. Used for platform
+   *     announcements (new features, maintenance).
+   *   - `merchant` — a single merchant. Used by ops responding to
+   *     support tickets or tier changes.
+   *
+   * The row is committed first, then emails go out. Email failures
+   * DON'T roll back the row — a dashboard notification is still a
+   * successful delivery. `emailedAt` records the moment the fan-out
+   * finished so ops can see delivery status. Closed / suspended
+   * merchants are skipped from email fan-out but still see the tray
+   * notification on next login.
+   */
+  async createBroadcast(input: CreateBroadcastInput, senderId: string) {
+    const sender = await this.prisma.db.adminUser.findUnique({
+      where: { id: senderId },
+      select: { id: true, email: true, name: true },
+    })
+    if (!sender) {
+      throw new NotFoundException({ code: 'not_found', message: 'admin not found' })
+    }
+    if (input.audience === 'merchant') {
+      if (!input.merchantId) {
+        throw new BadRequestException({
+          code: 'invalid_request',
+          message: 'merchantId is required for merchant-audience broadcasts',
+        })
+      }
+      const merchant = await this.prisma.db.merchant.findUnique({
+        where: { id: input.merchantId },
+        select: { id: true },
+      })
+      if (!merchant) {
+        throw new BadRequestException({
+          code: 'invalid_request',
+          message: 'merchantId does not exist',
+        })
+      }
+    }
+
+    const row = await this.prisma.db.adminBroadcast.create({
+      data: {
+        senderId,
+        title: input.title,
+        body: input.body,
+        audience: input.audience,
+        merchantId: input.audience === 'merchant' ? input.merchantId! : null,
+      },
+      include: {
+        sender: { select: { id: true, email: true, name: true } },
+        merchant: { select: { id: true, email: true, businessName: true } },
+      },
+    })
+
+    const recipients =
+      input.audience === 'merchant'
+        ? row.merchant
+          ? [
+              {
+                id: row.merchant.id,
+                email: row.merchant.email,
+                businessName: row.merchant.businessName,
+              },
+            ]
+          : []
+        : await this.prisma.db.merchant.findMany({
+            where: { status: 'active' },
+            select: { id: true, email: true, businessName: true },
+          })
+
+    const senderDisplay = sender.name ?? sender.email
+    const dashboardUrl = `${this.cfg.env.STRIMZ_DASHBOARD_URL.replace(/\/$/, '')}/app`
+
+    let deliveryFailed = 0
+    await Promise.all(
+      recipients.map(async (r) => {
+        try {
+          const html = await renderToHtml(
+            AdminBroadcastEmail({
+              recipientName: r.businessName,
+              title: input.title,
+              body: input.body,
+              senderDisplay,
+              senderEmail: sender.email,
+              dashboardUrl,
+              audience: input.audience,
+            }),
+          )
+          await this.email.send({
+            to: r.email,
+            subject: input.title,
+            html,
+            replyTo: sender.email,
+          })
+        } catch (err) {
+          deliveryFailed += 1
+          this.log.warn(
+            `broadcast email to ${r.email} failed: ${(err as Error).message} — dashboard notification still delivered`,
+          )
+        }
+      }),
+    )
+
+    await this.prisma.db.adminBroadcast.update({
+      where: { id: row.id },
+      data: { emailedAt: new Date() },
+    })
+
+    await this.writeAudit({
+      actorId: senderId,
+      action: 'admin.broadcast.create',
+      targetType: 'AdminBroadcast',
+      targetId: row.id,
+      metadata: {
+        audience: input.audience,
+        merchantId: input.merchantId ?? null,
+        recipients: recipients.length,
+        emailFailed: deliveryFailed,
+      },
+    })
+
+    this.log.log(
+      `broadcast ${row.id} sent by ${sender.email}: audience=${input.audience} recipients=${recipients.length} emailFailed=${deliveryFailed}`,
+    )
+
+    return serialiseBroadcast(row)
+  }
+
+  /**
+   * Recent broadcasts, sorted newest-first. Powers the admin
+   * dashboard's "Broadcasts" table so operators can see what they've
+   * sent, when, and to whom.
+   */
+  async listBroadcasts(params: { audience?: BroadcastAudience; limit?: number }) {
+    // 100 max, matching every other list endpoint. Callers that need
+    // deep history should paginate.
+    const limit = Math.min(Math.max(params.limit ?? 50, 1), 100)
+    const rows = await this.prisma.db.adminBroadcast.findMany({
+      where: params.audience ? { audience: params.audience } : undefined,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: {
+        sender: { select: { id: true, email: true, name: true } },
+        merchant: { select: { id: true, email: true, businessName: true } },
+      },
+    })
+    return { data: rows.map(serialiseBroadcast) }
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function serialiseBroadcast(row: any) {
+  return {
+    id: row.id as string,
+    title: row.title as string,
+    body: row.body as string,
+    audience: row.audience as BroadcastAudience,
+    merchantId: (row.merchantId as string | null) ?? null,
+    merchantEmail: (row.merchant?.email as string | null) ?? null,
+    senderId: row.senderId as string,
+    senderEmail: row.sender?.email as string,
+    emailedAt: row.emailedAt ? (row.emailedAt as Date).toISOString() : null,
+    createdAt: (row.createdAt as Date).toISOString(),
   }
 }
 
