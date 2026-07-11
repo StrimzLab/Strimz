@@ -46,8 +46,11 @@ export function DashboardTopbar({ title, onMenuClick, menuOpen }: Props) {
   const [copied, setCopied] = useState(false)
 
   async function handleLogout() {
-    await privy?.logout?.()
-    router.push('/')
+    try {
+      await privy?.logout?.()
+    } finally {
+      router.replace('/login')
+    }
   }
 
   const email =

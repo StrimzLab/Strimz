@@ -50,6 +50,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   const meQuery = useAdminMe({ enabled: ready && authenticated })
 
+  async function handleSignOut() {
+    try {
+      await logout()
+    } finally {
+      router.replace('/login')
+    }
+  }
+
   // Privy still hydrating.
   if (!ready) {
     return (
@@ -90,7 +98,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <Button asChild variant="outline">
               <Link href="/app">Go to merchant dashboard</Link>
             </Button>
-            <Button onClick={() => logout()}>Sign out</Button>
+            <Button onClick={handleSignOut}>Sign out</Button>
           </div>
         </div>
       </div>
@@ -146,7 +154,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             variant="ghost"
             size="sm"
             className="mt-2 h-7 w-full justify-start px-2 text-xs"
-            onClick={() => logout()}
+            onClick={handleSignOut}
           >
             <LogOut className="mr-1.5 size-3" /> Sign out
           </Button>
