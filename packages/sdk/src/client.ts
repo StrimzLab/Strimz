@@ -26,7 +26,7 @@ import { AgentsResource } from './resources/agents.js'
 export interface StrimzClientOptions {
   /** Secret key. Either `sk_test_...` or `sk_live_...`. Mode is auto-detected. */
   apiKey: string
-  /** Override the API base URL. Defaults to `https://api.strimz.io`. */
+  /** Override the API base URL. Defaults to `https://api.strimz.finance`. */
   baseUrl?: string
   /** Per-request timeout in milliseconds. Default 30s. */
   timeoutMs?: number
@@ -39,7 +39,7 @@ export interface StrimzClientOptions {
   fetch?: typeof globalThis.fetch
 }
 
-const DEFAULT_BASE_URL = 'https://api.strimz.io'
+const DEFAULT_BASE_URL = 'https://api.strimz.finance'
 
 export class StrimzClient {
   /** Resolved mode, either `test` or `live`. Derived from the API key prefix. */

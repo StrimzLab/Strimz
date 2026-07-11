@@ -81,7 +81,7 @@ async function bootstrap(): Promise<void> {
     .setTitle('Strimz API')
     .setDescription('B2B subscription billing infrastructure for stablecoin commerce on Arc.')
     .setVersion('2026-04-27')
-    .setContact('Strimz', 'https://strimz.io', 'developers@strimz.io')
+    .setContact('Strimz', 'https://strimz.finance', 'support@strimz.finance')
     .addServer(cfg.env.API_BASE_URL)
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'privy')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'API key' }, 'apiKey')

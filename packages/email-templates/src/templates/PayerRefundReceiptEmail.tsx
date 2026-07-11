@@ -71,8 +71,8 @@ export function PayerRefundReceiptEmail({
       </Text>
       <Text style={secondaryLinkRowStyle}>
         Receipt delivered by Strimz on behalf of the merchant. Learn more at{' '}
-        <Link href="https://strimz.io" style={{ color: colors.link, fontFamily: fonts.body }}>
-          strimz.io
+        <Link href="https://strimz.finance" style={{ color: colors.link, fontFamily: fonts.body }}>
+          strimz.finance
         </Link>
         .
       </Text>

@@ -109,7 +109,7 @@ app.post('/webhooks/strimz', async (req, res) => {
 
 The customer's wallet signed an EIP-3009 authorisation. Strimz's
 relayer wrapped it into a `StrimzPayments.payWithAuthorization` call
-and broadcast the transaction. Arc settled in roughly 13 seconds.
+and broadcast the transaction. Arc settled it in under a second.
 Your `payoutAddress` received `amount - feeAmount` USDC immediately.
 The indexer picked up the `PaymentExecuted` event, matched its
 `ref` to your `PaymentSession.id`, inserted a
