@@ -27,8 +27,9 @@ model AdminUser {
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
-  invitedBy     AdminUser?       @relation("AdminUserInvites", fields: [invitedById], references: [id], onDelete: SetNull)
-  invited       AdminUser[]      @relation("AdminUserInvites")
+  invitedBy       AdminUser?         @relation("AdminUserInvites", fields: [invitedById], references: [id], onDelete: SetNull)
+  invited         AdminUser[]        @relation("AdminUserInvites")
+  broadcastsSent  AdminBroadcast[]   @relation("AdminBroadcastSender")
 
   @@index([role])
   @@index([status])

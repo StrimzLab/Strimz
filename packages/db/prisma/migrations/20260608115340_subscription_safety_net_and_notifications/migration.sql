@@ -1,33 +1,27 @@
-Loaded Prisma config from prisma.config.ts.
+-- Safety-net + email-notification fields.
+--
+-- Subscription.enrolmentTxHash: tx hash for the on-chain
+-- permitAndCreateSubscription call. Distinct from per-period charge
+-- hashes (those live on SubscriptionCharge). Backs the relay's double-
+-- enrolment guard and the hosted-checkout "Subscription active" panel.
+--
+-- *.merchantNotifiedAt: one-shot delivery flag for the merchant-facing
+-- "payment received" / "new subscriber" transactional emails. Nullable
+-- timestamp; the scheduler's notification cron only picks rows where it
+-- is still null. Eliminates the need for a separate notification log.
 
-Error: 
-`--to-schema-datamodel` was removed. Please use `--[from/to]-schema` instead.
+ALTER TABLE "Subscription"
+    ADD COLUMN "enrolmentTxHash" VARCHAR(66),
+    ADD COLUMN "merchantNotifiedAt" TIMESTAMP(3);
 
-Usage
+CREATE UNIQUE INDEX "Subscription_enrolmentTxHash_key"
+    ON "Subscription"("enrolmentTxHash");
 
-  $ prisma migrate diff [options]
+ALTER TABLE "PaymentSession"
+    ADD COLUMN "merchantNotifiedAt" TIMESTAMP(3);
 
-Options
-
-  -h, --help               Display this help message
-  --config                 Custom path to your Prisma config file
-  -o, --output             Writes to a file instead of stdout
-
-From and To inputs (1 `--from-...` and 1 `--to-...` must be provided):
-  --from-empty             Flag to assume from or to is an empty datamodel
-  --to-empty
-
-  --from-schema            Path to a Prisma schema file, uses the datamodel for the diff
-  --to-schema
-
-  --from-migrations        Path to the Prisma Migrate migrations directory
-  --to-migrations
-
-  --from-config-datasource Flag to use the datasource from the Prisma config file
-  --to-config-datasource
-
-Flags
-
-  --script                 Render a SQL script to stdout instead of the default human readable summary (not supported on MongoDB)
-  --exit-code              Change the exit code behavior to signal if the diff is empty or not (Empty: 0, Error: 1, Not empty: 2). Default behavior is Success: 0, Error: 1.
-
+-- Partial index supporting the notification cron: it scans confirmed
+-- sessions where the email hasn't fired yet. Kept narrow so the index
+-- size doesn't grow with old fully-handled rows.
+CREATE INDEX "PaymentSession_status_merchantNotifiedAt_idx"
+    ON "PaymentSession"("status", "merchantNotifiedAt");

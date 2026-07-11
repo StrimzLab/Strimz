@@ -60,6 +60,8 @@ model Subscription {
   /// merchant. Null until the notification cron picks the row up;
   /// guarantees one-shot delivery without a separate event log.
   merchantNotifiedAt      DateTime?
+  /// Payer-side enrolment receipt one-shot stamp.
+  customerNotifiedAt      DateTime?
   createdAt               DateTime            @default(now())
   updatedAt               DateTime            @updatedAt
 
@@ -72,6 +74,7 @@ model Subscription {
   @@index([merchantId, status])
   @@index([nextChargeAt, status])
   @@index([customerId])
+  @@index([customerNotifiedAt])
 }
 
 model SubscriptionCharge {
@@ -101,6 +104,8 @@ model SubscriptionCharge {
   /// Null = un-notified; cron picks it up. Same one-shot pattern as
   /// `Subscription.merchantNotifiedAt`.
   merchantNotifiedAt DateTime?
+  /// Payer-side recurring-charge receipt one-shot stamp.
+  customerNotifiedAt DateTime?
   createdAt         DateTime                  @default(now())
   updatedAt         DateTime                  @updatedAt
 
@@ -112,4 +117,5 @@ model SubscriptionCharge {
   @@index([status, scheduledAt])
   /// Drives the recurring-charge notification cron.
   @@index([status, merchantNotifiedAt])
+  @@index([status, customerNotifiedAt])
 }

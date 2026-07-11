@@ -41,6 +41,12 @@ model Merchant {
   /// without a separate event log. Same pattern as
   /// `Subscription.merchantNotifiedAt` and `PaymentSession.merchantNotifiedAt`.
   welcomeNotifiedAt    DateTime?
+  /// Dashboard notification tray "last read" marker. `GET
+  /// /v1/notifications` derives per-item read state from
+  /// `event.createdAt <= notificationsLastReadAt`; the mark-all-read
+  /// endpoint sets this to `now()`. Server-side so the unread badge
+  /// stays consistent across the merchant's devices.
+  notificationsLastReadAt DateTime?
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
@@ -48,6 +54,7 @@ model Merchant {
   members              MerchantMember[]
   apiKeys              MerchantApiKey[]
   webhookEndpoints     MerchantWebhookEndpoint[]
+  adminBroadcasts      AdminBroadcast[]
   webhookEvents        WebhookEvent[]
   webhookDeliveries    WebhookDelivery[]
   customers            Customer[]
