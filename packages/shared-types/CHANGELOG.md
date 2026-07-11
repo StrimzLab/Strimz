@@ -1,5 +1,11 @@
 # @strimz/shared-types
 
+## 0.2.0
+
+### Minor Changes
+
+- 832c104: Add EIP-712 typed-data intent builders (pay + subscription) to the SDK, with the supporting Zod schemas and inferred types.
+
 ## 0.1.1
 
 ### Patch Changes
