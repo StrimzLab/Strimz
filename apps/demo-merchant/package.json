@@ -1,6 +1,6 @@
 {
   "name": "@strimz/demo-merchant",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "description": "Fanline — sample creator platform that pays out in stablecoins via Strimz. Demo dApp for the Arc grant submission.",
   "scripts": {
