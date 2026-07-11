@@ -24,6 +24,7 @@ interface TurnstileApi {
     },
   ) => string
   reset: (id?: string) => void
+  remove?: (id: string) => void
 }
 
 function getTurnstile(): TurnstileApi | undefined {
@@ -38,48 +39,76 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (!env.turnstileSiteKey) return
-    // Idempotent script load. Guards against StrictMode's double-mount
-    // in dev re-running the effect.
-    if (document.querySelector('script[data-strimz-turnstile]')) return
-    const s = document.createElement('script')
-    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
-    s.async = true
-    s.defer = true
-    s.dataset.strimzTurnstile = 'true'
-    s.onload = () => {
-      const widget = document.getElementById('strimz-turnstile')
+    const container = document.getElementById('strimz-turnstile')
+    if (!container) return
+
+    let widgetId: string | undefined
+    let pollTimer = 0
+    let cancelled = false
+
+    // Render (or re-render) the widget into a clean container. Called on
+    // every mount — the earlier version only rendered inside the script's
+    // one-time `onload`, so navigating back to /signup (script already
+    // loaded) left the container empty and blocked "create account".
+    const renderWidget = () => {
       const turnstile = getTurnstile()
-      if (widget && turnstile) {
-        turnstile.render(widget, {
-          sitekey: env.turnstileSiteKey,
-          // `action` lets Cloudflare differentiate signup-page tokens
-          // from any future Turnstile usage (e.g. contact form) in
-          // analytics, and lets the api-side validator confirm the
-          // token came from this specific surface.
-          action: 'signup',
-          theme: 'light',
-          callback: (token) => setTurnstileToken(token),
-          // Token expired before the user submitted. Clear it so the
-          // user gets a fresh challenge instead of submitting a stale
-          // token the api would reject with timeout-or-duplicate.
-          'expired-callback': () => {
-            setTurnstileToken(null)
-            toast.info('Bot-protection check expired. Please try again.')
-          },
-          'error-callback': (code) => {
-            setTurnstileToken(null)
-            // eslint-disable-next-line no-console
-            console.warn('[turnstile] error', code)
-            toast.error('Bot-protection check failed. Please refresh and try again.')
-          },
-          'timeout-callback': () => {
-            setTurnstileToken(null)
-            toast.info('Verification timed out. Please try again.')
-          },
-        })
-      }
+      if (cancelled || !turnstile || !container) return
+      container.innerHTML = ''
+      widgetId = turnstile.render(container, {
+        sitekey: env.turnstileSiteKey,
+        // `action` lets Cloudflare differentiate signup-page tokens and
+        // lets the api-side validator confirm the surface the token came from.
+        action: 'signup',
+        theme: 'light',
+        callback: (token) => setTurnstileToken(token),
+        // Token expired before submit — clear it so the user gets a fresh
+        // challenge instead of a stale token the api would reject.
+        'expired-callback': () => {
+          setTurnstileToken(null)
+          toast.info('Bot-protection check expired. Please try again.')
+        },
+        'error-callback': (code) => {
+          setTurnstileToken(null)
+          // eslint-disable-next-line no-console
+          console.warn('[turnstile] error', code)
+          toast.error('Bot-protection check failed. Please refresh and try again.')
+        },
+        'timeout-callback': () => {
+          setTurnstileToken(null)
+          toast.info('Verification timed out. Please try again.')
+        },
+      })
     }
-    document.head.appendChild(s)
+
+    if (getTurnstile()) {
+      // Script already loaded on an earlier visit — render immediately.
+      renderWidget()
+    } else if (!document.querySelector('script[data-strimz-turnstile]')) {
+      // First load: inject the script once, render when it's ready.
+      const s = document.createElement('script')
+      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+      s.async = true
+      s.defer = true
+      s.dataset.strimzTurnstile = 'true'
+      s.onload = renderWidget
+      document.head.appendChild(s)
+    } else {
+      // Script tag is present but the API hasn't finished loading — poll.
+      pollTimer = window.setInterval(() => {
+        if (getTurnstile()) {
+          window.clearInterval(pollTimer)
+          renderWidget()
+        }
+      }, 120)
+    }
+
+    return () => {
+      cancelled = true
+      if (pollTimer) window.clearInterval(pollTimer)
+      const turnstile = getTurnstile()
+      if (widgetId && turnstile?.remove) turnstile.remove(widgetId)
+      else container.innerHTML = ''
+    }
   }, [])
 
   async function handleStart() {

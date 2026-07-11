@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
 import { AdminShell } from '@/components/admin/admin-shell'
+import { InactivityLogout } from '@/components/auth/inactivity-logout'
 
 /**
  * Group-wide metadata for `/admin/*`. Same noindex stance as the
@@ -17,5 +18,10 @@ export const metadata: Metadata = {
 }
 
 export default function AdminLayoutRoot({ children }: { children: ReactNode }) {
-  return <AdminShell>{children}</AdminShell>
+  return (
+    <>
+      <InactivityLogout />
+      <AdminShell>{children}</AdminShell>
+    </>
+  )
 }

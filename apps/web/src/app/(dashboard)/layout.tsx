@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { DashboardShell } from '@/components/dashboard/dashboard-shell'
+import { InactivityLogout } from '@/components/auth/inactivity-logout'
 
 /**
  * Group-wide metadata for the merchant dashboard at `/app/*`. The title
@@ -16,5 +17,10 @@ export const metadata: Metadata = {
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  return <DashboardShell>{children}</DashboardShell>
+  return (
+    <>
+      <InactivityLogout />
+      <DashboardShell>{children}</DashboardShell>
+    </>
+  )
 }
