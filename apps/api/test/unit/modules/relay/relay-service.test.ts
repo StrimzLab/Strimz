@@ -103,7 +103,8 @@ function payInput(over: Partial<PayWithAuthorizationInput> = {}): PayWithAuthori
       nonce: keccak256(toHex('nonce-1')),
     },
     ref: keccak256(toHex('session-1')),
-    signature: { v: 27, r: padHex('0xab', { size: 32 }), s: padHex('0xcd', { size: 32 }) },
+    authSignature: { v: 27, r: padHex('0xab', { size: 32 }), s: padHex('0xcd', { size: 32 }) },
+    intentSignature: { v: 27, r: padHex('0x1a', { size: 32 }), s: padHex('0x1b', { size: 32 }) },
     ...over,
   }
 }
@@ -124,7 +125,8 @@ function subsInput(
       value: (1n << 256n) - 1n,
       deadline: 1_800_000_000n,
     },
-    signature: { v: 28, r: padHex('0xde', { size: 32 }), s: padHex('0xef', { size: 32 }) },
+    permitSignature: { v: 28, r: padHex('0xde', { size: 32 }), s: padHex('0xef', { size: 32 }) },
+    intentSignature: { v: 28, r: padHex('0x2a', { size: 32 }), s: padHex('0x2b', { size: 32 }) },
     ...over,
   }
 }
@@ -168,9 +170,14 @@ describe('RelayService', () => {
       expect(authArg.amount).toBe(input.auth.amount)
       expect(authArg.nonce).toBe(input.auth.nonce)
       expect(decoded.args[3]).toBe(input.ref)
-      expect(decoded.args[4]).toBe(input.signature.v)
-      expect(decoded.args[5]).toBe(input.signature.r)
-      expect(decoded.args[6]).toBe(input.signature.s)
+      const authSig = decoded.args[4] as { v: number; r: string; s: string }
+      expect(authSig.v).toBe(input.authSignature.v)
+      expect(authSig.r).toBe(input.authSignature.r)
+      expect(authSig.s).toBe(input.authSignature.s)
+      const intentSig = decoded.args[5] as { v: number; r: string; s: string }
+      expect(intentSig.v).toBe(input.intentSignature.v)
+      expect(intentSig.r).toBe(input.intentSignature.r)
+      expect(intentSig.s).toBe(input.intentSignature.s)
     })
 
     it('is idempotent on the idempotencyKey', async () => {
