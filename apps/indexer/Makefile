@@ -9,8 +9,15 @@ CONTRACTS := StrimzRegistry StrimzPayments StrimzSubscriptions StrimzAgentEscrow
 build:
 	go build -o bin/indexer ./cmd/indexer
 
+# `make dev` sources `.env` (if present) before handing to Go. The
+# indexer reads config strictly from process env via envconfig — Go has
+# no framework-level dotenv the way NestJS / Next.js do — so without
+# this step the shell must be pre-exported, which is easy to forget on
+# a fresh terminal. `set -a` re-exports every variable the file
+# declares; `set +a` returns the shell to normal after the load.
 dev:
-	go run ./cmd/indexer run
+	set -a; [ -f .env ] && . ./.env; set +a; \
+	  go run ./cmd/indexer run
 
 lint:
 	go vet ./...

@@ -46,6 +46,14 @@ func NewProjector(s *store.Store, registry *indabi.Registry, env string, tokens 
 	}
 }
 
+// WithStore returns a shallow copy of the projector whose writes go
+// through the given store (typically a tx-scoped one from RunBatch).
+func (p *Projector) WithStore(s *store.Store) *Projector {
+	c := *p
+	c.store = s
+	return &c
+}
+
 // Apply decodes a single log and dispatches to the right writer.
 //
 // `blockTime` is supplied by the runner (resolved once per block, cached
@@ -111,7 +119,9 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 		ev := payload.(*indabi.SubscriptionCreated)
 		interval, intervalCount := store.IntervalFromSeconds(ev.IntervalSecs)
 		startAt := time.Unix(int64(ev.StartAt), 0).UTC()
-		nextCharge := startAt.Add(time.Duration(ev.IntervalSecs) * time.Second)
+		// Contract sets nextChargeAt = startAt: the first charge is due
+		// at enrolment, not one interval later.
+		nextCharge := startAt
 		_, err = p.store.UpsertSubscriptionFromOnchain(ctx, store.SubscriptionCreatedInput{
 			OnchainSubscriptionID: ev.SubscriptionID,
 			MerchantOnchainID:     ev.MerchantID,
