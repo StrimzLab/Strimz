@@ -63,8 +63,10 @@ if [ -d /repo/packages/db ]; then
   cd /repo/packages/db
   # Migration deploy uses the DATABASE_URL from the env we inherit from
   # `docker run --env-file`.
+  # pnpm keeps the prisma CLI in the package's own node_modules, not the
+  # hoisted root — @strimz/db depends on it directly.
   DATABASE_URL="${DATABASE_URL:-postgresql://postgres@localhost:5432/strimz}" \
-    /repo/node_modules/.bin/prisma migrate deploy || {
+    /repo/packages/db/node_modules/.bin/prisma migrate deploy || {
       log "Prisma migrations failed — check /tmp/pg-boot.log for DB issues, then re-run container."
       exit 1
     }
