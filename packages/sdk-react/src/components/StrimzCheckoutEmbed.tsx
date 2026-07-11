@@ -37,12 +37,21 @@ export function StrimzCheckoutEmbed({
   height = 600,
 }: StrimzCheckoutEmbedProps) {
   const { checkoutOrigin } = useStrimzContext()
+  // `checkoutOrigin` may carry a path (e.g. https://strimz.finance/pay); a
+  // postMessage `ev.origin` is scheme+host only, so compare against that.
+  const expectedOrigin = React.useMemo(() => {
+    try {
+      return new URL(checkoutOrigin).origin
+    } catch {
+      return checkoutOrigin
+    }
+  }, [checkoutOrigin])
   const handlersRef = React.useRef({ onSuccess, onCancel, onError })
   handlersRef.current = { onSuccess, onCancel, onError }
 
   React.useEffect(() => {
     function onMessage(ev: MessageEvent) {
-      if (ev.origin !== checkoutOrigin) return
+      if (ev.origin !== expectedOrigin) return
       const data = ev.data as { type?: string; txHash?: string; message?: string }
       if (!data || typeof data.type !== 'string') return
 
@@ -60,9 +69,10 @@ export function StrimzCheckoutEmbed({
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [checkoutOrigin])
+  }, [expectedOrigin])
 
-  const src = `${checkoutOrigin}/${encodeURIComponent(sessionId)}?embed=1`
+  // Payment sessions are hosted at /pay/{id}.
+  const src = `${checkoutOrigin}/pay/${encodeURIComponent(sessionId)}?embed=1`
 
   return (
     <div className={className} style={{ width: '100%', ...(style ?? {}) }}>

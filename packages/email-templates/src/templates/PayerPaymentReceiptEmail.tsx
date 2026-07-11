@@ -63,8 +63,8 @@ export function PayerPaymentReceiptEmail({
       <Text style={secondaryLinkRowStyle}>
         This receipt was sent by Strimz, the payment gateway {merchantBusinessName} uses. Learn more
         at{' '}
-        <Link href="https://strimz.io" style={{ color: colors.link, fontFamily: fonts.body }}>
-          strimz.io
+        <Link href="https://strimz.finance" style={{ color: colors.link, fontFamily: fonts.body }}>
+          strimz.finance
         </Link>
         .
       </Text>

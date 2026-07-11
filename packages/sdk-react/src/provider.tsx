@@ -16,7 +16,7 @@ export interface StrimzProviderProps {
   publishableKey: string
   /** Override the API base URL. */
   apiBaseUrl?: string
-  /** Override the hosted-checkout origin. Defaults to https://checkout.strimz.io. */
+  /** Override the hosted-checkout origin (scheme + host, no path). Defaults to https://strimz.finance. */
   checkoutOrigin?: string
   children: React.ReactNode
 }
@@ -28,7 +28,7 @@ export interface StrimzProviderProps {
 export function StrimzProvider({
   publishableKey,
   apiBaseUrl,
-  checkoutOrigin = 'https://checkout.strimz.io',
+  checkoutOrigin = 'https://strimz.finance',
   children,
 }: StrimzProviderProps) {
   const value = React.useMemo<StrimzContextValue>(
