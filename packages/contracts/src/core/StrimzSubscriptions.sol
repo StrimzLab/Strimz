@@ -4,6 +4,8 @@ pragma solidity ^0.8.28;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import { IStrimzSubscriptions } from "../interfaces/IStrimzSubscriptions.sol";
 import { IStrimzRegistry } from "../interfaces/IStrimzRegistry.sol";
@@ -13,28 +15,33 @@ import { IERC2612 } from "../interfaces/IERC2612.sol";
 import { StrimzPausable } from "../access/Pausable.sol";
 
 /// @title StrimzSubscriptions
-/// @notice Recurring USDC / EURC billing with contract-level idempotency.
-///         Two enrolment entrypoints:
-///         - `createSubscription` — classic approve+create flow.
-///         - `permitAndCreateSubscription` — EIP-2612 single-signature
-///           enrolment for tokens with `CAP_PERMIT_2612` set on
-///           TokenWhitelist.
-/// @dev    **This contract is immutable.** Same security posture as
-///         `StrimzPayments`: no `UUPSUpgradeable`, no `_authorizeUpgrade`.
-///         A discovered bug triggers redeploy + Registry pointer rotation,
-///         not in-place upgrade. The trade-off is documented in the
-///         Strimz whitepaper Section 4.3.
-contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, ReentrancyGuard {
+/// @notice Recurring stablecoin billing. Enrol with `createSubscription`
+///         (approve + create) or `permitAndCreateSubscription` (EIP-2612
+///         single-signature). Charged in batches by the scheduler; every
+///         per-row failure surfaces as a ChargeOutcome instead of
+///         reverting the batch.
+/// @dev    Immutable. No proxy, no upgrade. Bugs mean redeploy + Registry
+///         pointer rotation.
+contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, ReentrancyGuard, EIP712 {
     using SafeERC20 for IERC20;
 
     uint16 public constant BPS_DENOMINATOR = 10_000;
     uint32 public constant MIN_INTERVAL = 1 hours;
     uint256 public constant MAX_MERCHANT_ID = type(uint96).max;
+    /// @notice Hard cap on batch size. Scheduler chunks to 200; 500
+    ///         keeps a safety margin below block gas.
+    uint256 public constant MAX_BATCH_SIZE = 500;
 
-    /// @dev Mirrors `TokenWhitelist.CAP_PERMIT_2612`. If the bit
-    ///      assignment in TokenWhitelist ever changes, update this
-    ///      constant in lockstep.
+    /// @dev Mirrors TokenWhitelist.CAP_PERMIT_2612.
     uint8 private constant CAP_PERMIT_2612 = 1 << 0; // 0x01
+
+    /// @dev Signed by the payer alongside the ERC-2612 permit. Binds
+    ///      every subscription parameter to the specific permit so a
+    ///      valid permit alone cannot enrol the payer in an arbitrary
+    ///      subscription.
+    bytes32 private constant SUBSCRIPTION_INTENT_TYPEHASH = keccak256(
+        "SubscriptionIntent(uint256 merchantId,address token,uint256 amount,uint32 interval,uint64 startAt,uint64 endAt,uint256 permitDeadline)"
+    );
 
     /// @custom:storage-location erc7201:strimz.storage.StrimzSubscriptions
     struct Storage {
@@ -50,6 +57,11 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
     bytes32 private constant STORAGE_SLOT =
         0x0367d7d30481502848b36438ae11253600da0cf9a855e998795b9d9352001500;
 
+    error Subscriptions__BatchTooLarge(uint256 provided, uint256 max);
+    error Subscriptions__ZeroAddress();
+    error Subscriptions__OnlySelf();
+    error Subscriptions__NonStandardTransfer();
+
     event DependencyUpdated(string name, address newAddress);
 
     function _s() private pure returns (Storage storage $) {
@@ -59,21 +71,24 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         }
     }
 
-    /// @dev See `StrimzPayments` for the rationale on single-phase
-    ///      constructor init in a non-upgradeable contract that still
-    ///      uses OZ's *Upgradeable abstract base classes.
     constructor(
         address admin,
         IStrimzRegistry registry_,
         IFeeCollector feeCollector_,
         ITokenWhitelist tokenWhitelist_
-    ) initializer {
+    ) EIP712("StrimzSubscriptions", "1") initializer {
+        if (
+            admin == address(0)
+                || address(registry_) == address(0)
+                || address(feeCollector_) == address(0)
+                || address(tokenWhitelist_) == address(0)
+        ) revert Subscriptions__ZeroAddress();
+
         __AccessControl_init();
         __Pausable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(CHARGER_ROLE, admin);
-        // UPGRADER_ROLE deliberately omitted — there is nothing to upgrade.
 
         Storage storage $ = _s();
         $.registry = registry_;
@@ -88,17 +103,23 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
     function feeCollector() external view returns (IFeeCollector) { return _s().feeCollector; }
     function tokenWhitelist() external view returns (ITokenWhitelist) { return _s().tokenWhitelist; }
 
-    function setRegistry(IStrimzRegistry v) external onlyRole(ADMIN_ROLE) {
+    /// @dev Rotation only while paused — a compromised admin cannot
+    ///      hot-swap dependencies against a live subscription flow.
+
+    function setRegistry(IStrimzRegistry v) external onlyRole(ADMIN_ROLE) whenPaused {
+        if (address(v) == address(0)) revert Subscriptions__ZeroAddress();
         _s().registry = v;
         emit DependencyUpdated("registry", address(v));
     }
 
-    function setFeeCollector(IFeeCollector v) external onlyRole(ADMIN_ROLE) {
+    function setFeeCollector(IFeeCollector v) external onlyRole(ADMIN_ROLE) whenPaused {
+        if (address(v) == address(0)) revert Subscriptions__ZeroAddress();
         _s().feeCollector = v;
         emit DependencyUpdated("feeCollector", address(v));
     }
 
-    function setTokenWhitelist(ITokenWhitelist v) external onlyRole(ADMIN_ROLE) {
+    function setTokenWhitelist(ITokenWhitelist v) external onlyRole(ADMIN_ROLE) whenPaused {
+        if (address(v) == address(0)) revert Subscriptions__ZeroAddress();
         _s().tokenWhitelist = v;
         emit DependencyUpdated("tokenWhitelist", address(v));
     }
@@ -123,8 +144,6 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         $.registry.requireActiveMerchant(merchantId);
 
         uint64 firstChargeAt = startAt == 0 ? uint64(block.timestamp) : startAt;
-        // endAt=0 → open-ended. Otherwise it must come after the first
-        // charge — a subscription that ends before it begins is meaningless.
         if (endAt != 0 && endAt <= firstChargeAt) revert Subscriptions__InvalidEndAt();
 
         subscriptionId = $.nextSubscriptionId;
@@ -154,9 +173,8 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         uint64 startAt,
         uint64 endAt,
         PermitData calldata permitData,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        IStrimzSubscriptions.Sig calldata permitSig,
+        IStrimzSubscriptions.Sig calldata intentSig
     ) external override whenNotPaused returns (uint256 subscriptionId) {
         if (amount == 0) revert Subscriptions__InvalidAmount();
         if (interval < MIN_INTERVAL) revert Subscriptions__InvalidInterval();
@@ -164,25 +182,23 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
 
         Storage storage $ = _s();
         if (!$.tokenWhitelist.isWhitelisted(token)) revert Subscriptions__InvalidToken(token);
-        // The token must declare EIP-2612 support; calling `permit()` on
-        // a token that doesn't implement it would either revert with no
-        // useful error or, worse, silently no-op on a non-standard fallback.
         if (!$.tokenWhitelist.supportsCapability(token, CAP_PERMIT_2612)) {
             revert Subscriptions__UnsupportedCapability(token);
         }
         $.registry.requireActiveMerchant(merchantId);
 
-        // Set the allowance via permit. The token verifies the signature
-        // came from `permitData.owner`, that the deadline hasn't passed,
-        // and that the owner's permit nonce hasn't been consumed. Any of
-        // those failures revert atomically — the subscription is not
-        // created on a bad permit.
+        // Verify the Strimz intent BEFORE calling permit — a bad intent
+        // must not consume the permit's nonce on the token.
+        _verifySubscriptionIntent(
+            merchantId, token, amount, interval, startAt, endAt, permitData, intentSig
+        );
+
         IERC2612(token).permit(
             permitData.owner,
             address(this),
             permitData.value,
             permitData.deadline,
-            v, r, s
+            permitSig.v, permitSig.r, permitSig.s
         );
 
         uint64 firstChargeAt = startAt == 0 ? uint64(block.timestamp) : startAt;
@@ -192,11 +208,6 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         unchecked {
             $.nextSubscriptionId = subscriptionId + 1;
         }
-        // `payer` is the permit owner, not `msg.sender`. This enables the
-        // meta-tx pattern: a relayer can call this function on behalf of
-        // a customer who only ever signed a permit message. Cancellation
-        // remains the customer's right because `cancel()` checks
-        // `msg.sender == sub.payer`, not the creator of the subscription.
         $.subscriptions[subscriptionId] = Subscription({
             payer: permitData.owner,
             nextChargeAt: firstChargeAt,
@@ -213,6 +224,58 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         );
     }
 
+    /// @dev Recovers the intent signer and requires it to equal
+    ///      `permitData.owner`. Same key must authorise both the token
+    ///      allowance and the subscription parameters.
+    function _verifySubscriptionIntent(
+        uint256 merchantId,
+        address token,
+        uint256 amount,
+        uint32 interval,
+        uint64 startAt,
+        uint64 endAt,
+        PermitData calldata permitData,
+        IStrimzSubscriptions.Sig calldata intentSig
+    ) internal view {
+        bytes32 structHash = keccak256(abi.encode(
+            SUBSCRIPTION_INTENT_TYPEHASH,
+            merchantId,
+            token,
+            amount,
+            interval,
+            startAt,
+            endAt,
+            permitData.deadline
+        ));
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address recovered = ECDSA.recover(digest, intentSig.v, intentSig.r, intentSig.s);
+        if (recovered != permitData.owner) revert Subscriptions__InvalidIntent();
+    }
+
+    /// @notice Exposed so off-chain SDKs can derive the same digest they
+    ///         need to sign.
+    function subscriptionIntentDigest(
+        uint256 merchantId,
+        address token,
+        uint256 amount,
+        uint32 interval,
+        uint64 startAt,
+        uint64 endAt,
+        uint256 permitDeadline
+    ) external view returns (bytes32) {
+        bytes32 structHash = keccak256(abi.encode(
+            SUBSCRIPTION_INTENT_TYPEHASH,
+            merchantId,
+            token,
+            amount,
+            interval,
+            startAt,
+            endAt,
+            permitDeadline
+        ));
+        return _hashTypedDataV4(structHash);
+    }
+
     /// @inheritdoc IStrimzSubscriptions
     function cancel(uint256 subscriptionId) external override {
         Storage storage $ = _s();
@@ -227,6 +290,8 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
     }
 
     /// @inheritdoc IStrimzSubscriptions
+    /// @dev No per-row error reverts the batch. Every failure returns
+    ///      a ChargeOutcome instead.
     function batchCharge(uint256[] calldata subscriptionIds, bytes32[] calldata chargeAttemptIds)
         external
         override
@@ -237,6 +302,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
     {
         uint256 n = subscriptionIds.length;
         if (n != chargeAttemptIds.length) revert Subscriptions__LengthMismatch();
+        if (n > MAX_BATCH_SIZE) revert Subscriptions__BatchTooLarge(n, MAX_BATCH_SIZE);
         outcomes = new ChargeOutcome[](n);
         Storage storage $ = _s();
         for (uint256 i; i < n;) {
@@ -249,11 +315,19 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         private
         returns (ChargeOutcome)
     {
-        if ($.usedAttempts[chargeAttemptId]) revert Subscriptions__DuplicateAttempt(chargeAttemptId);
+        // Idempotency. An attempt id is spent on first use even if the
+        // downstream check fails; retries need a fresh id.
+        if ($.usedAttempts[chargeAttemptId]) {
+            emit SubscriptionChargeSkipped(subscriptionId, chargeAttemptId, ChargeOutcome.Duplicate);
+            return ChargeOutcome.Duplicate;
+        }
         $.usedAttempts[chargeAttemptId] = true;
 
         Subscription storage sub = $.subscriptions[subscriptionId];
-        if (sub.payer == address(0)) revert Subscriptions__UnknownSubscription(subscriptionId);
+        if (sub.payer == address(0)) {
+            emit SubscriptionChargeSkipped(subscriptionId, chargeAttemptId, ChargeOutcome.Unknown);
+            return ChargeOutcome.Unknown;
+        }
 
         if (sub.cancelled) {
             emit SubscriptionChargeSkipped(subscriptionId, chargeAttemptId, ChargeOutcome.Cancelled);
@@ -263,16 +337,11 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
             emit SubscriptionChargeSkipped(subscriptionId, chargeAttemptId, ChargeOutcome.NotDue);
             return ChargeOutcome.NotDue;
         }
-        // endAt=0 means open-ended. Otherwise once block.timestamp reaches
-        // endAt, no further charges fire — even if the customer's allowance
-        // and balance are sufficient. This is the "subscribe for 12 months"
-        // primitive the merchant configures at create time.
         if (sub.endAt != 0 && block.timestamp >= sub.endAt) {
             emit SubscriptionChargeSkipped(subscriptionId, chargeAttemptId, ChargeOutcome.Ended);
             return ChargeOutcome.Ended;
         }
 
-        // Cache hot fields in locals to avoid repeated SLOADs.
         address payer = sub.payer;
         uint256 amount = sub.amount;
         IERC20 token = IERC20(sub.token);
@@ -286,25 +355,76 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
             return ChargeOutcome.InsufficientFunds;
         }
 
-        IStrimzRegistry.Merchant memory m = $.registry.requireActiveMerchant(sub.merchantId);
+        // Wrapped so an admin freezing a merchant mid-batch doesn't lose
+        // the rest of the batch.
+        IStrimzRegistry.Merchant memory m;
+        try $.registry.requireActiveMerchant(sub.merchantId) returns (IStrimzRegistry.Merchant memory _m) {
+            m = _m;
+        } catch {
+            emit SubscriptionChargeSkipped(subscriptionId, chargeAttemptId, ChargeOutcome.MerchantInactive);
+            return ChargeOutcome.MerchantInactive;
+        }
+
         uint256 feeAmount;
         unchecked {
             feeAmount = (amount * m.feeBps) / BPS_DENOMINATOR;
         }
         uint256 netAmount = amount - feeAmount;
 
+        // Self-external call so a token transfer revert (Circle
+        // blocklist, rogue token) surfaces as an outcome instead of
+        // unwinding the whole batch.
+        try this._settleCharge(
+            payer,
+            token,
+            address($.feeCollector),
+            sub.merchantId,
+            feeAmount,
+            m.payoutAddress,
+            netAmount
+        ) {
+            unchecked {
+                // Advance one period only. A scheduler outage silently
+                // drops missed periods — we bias predictable billing
+                // over surprise multi-charges.
+                sub.nextChargeAt += sub.interval;
+            }
+            emit SubscriptionCharged(subscriptionId, chargeAttemptId, amount, feeAmount, netAmount, sub.nextChargeAt);
+            return ChargeOutcome.Charged;
+        } catch {
+            emit SubscriptionChargeSkipped(subscriptionId, chargeAttemptId, ChargeOutcome.TransferFailed);
+            return ChargeOutcome.TransferFailed;
+        }
+    }
+
+    /// @notice Called only by `_charge` under try/catch. External so we
+    ///         can catch its reverts without unwinding the outer batch.
+    /// @dev    Balance-delta check on each leg — fee-on-transfer tokens
+    ///         make actual delivery drift from what's booked. Reject
+    ///         instead of silently accepting a partial payment.
+    function _settleCharge(
+        address payer,
+        IERC20 token,
+        address feeCollectorAddr,
+        uint256 merchantId,
+        uint256 feeAmount,
+        address payoutAddr,
+        uint256 netAmount
+    ) external {
+        if (msg.sender != address(this)) revert Subscriptions__OnlySelf();
         if (feeAmount > 0) {
-            token.safeTransferFrom(payer, address($.feeCollector), feeAmount);
-            $.feeCollector.accrue(address(token), sub.merchantId, feeAmount);
+            uint256 fBefore = token.balanceOf(feeCollectorAddr);
+            token.safeTransferFrom(payer, feeCollectorAddr, feeAmount);
+            if (token.balanceOf(feeCollectorAddr) - fBefore != feeAmount) {
+                revert Subscriptions__NonStandardTransfer();
+            }
+            IFeeCollector(feeCollectorAddr).accrue(address(token), merchantId, feeAmount);
         }
-        token.safeTransferFrom(payer, m.payoutAddress, netAmount);
-
-        unchecked {
-            sub.nextChargeAt += sub.interval;
+        uint256 mBefore = token.balanceOf(payoutAddr);
+        token.safeTransferFrom(payer, payoutAddr, netAmount);
+        if (token.balanceOf(payoutAddr) - mBefore != netAmount) {
+            revert Subscriptions__NonStandardTransfer();
         }
-
-        emit SubscriptionCharged(subscriptionId, chargeAttemptId, amount, feeAmount, netAmount, sub.nextChargeAt);
-        return ChargeOutcome.Charged;
     }
 
     /// @inheritdoc IStrimzSubscriptions

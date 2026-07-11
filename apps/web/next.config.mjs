@@ -17,6 +17,13 @@ const config = {
       // Fumadocs MDX generates `.source` at the project root; resolve it
       // explicitly since `@/*` would otherwise look in `./src/*`.
       '@/.source': path.resolve(__dirname, '.source'),
+      // MetaMask SDK conditionally imports @react-native-async-storage
+      // for RN environments. In a Next.js web bundle it will never run,
+      // but webpack still tries to resolve the module and errors out.
+      // Aliasing to `false` tells webpack "this module doesn't exist for
+      // this target" — MetaMask SDK's runtime guard skips it cleanly.
+      // See wagmi issue #3928 + MetaMask SDK docs.
+      '@react-native-async-storage/async-storage': false,
     }
 
     // Reown AppKit's wagmi adapter pulls Node-only optional deps. Mark

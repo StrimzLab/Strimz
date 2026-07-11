@@ -19,6 +19,12 @@ const TOKEN = '0x3600000000000000000000000000000000000000'
 const PAYER = '0x4444444444444444444444444444444444444444'
 const OWNER = '0x5555555555555555555555555555555555555555'
 
+// Both relay entrypoints take two signatures: the token sig (EIP-3009 /
+// EIP-2612) and the Strimz intent sig. Reusable valid v/r/s objects.
+const AUTH_SIG = { v: 27, r: padHex('0xab', { size: 32 }), s: padHex('0xcd', { size: 32 }) }
+const PERMIT_SIG = { v: 28, r: padHex('0xde', { size: 32 }), s: padHex('0xef', { size: 32 }) }
+const INTENT_SIG = { v: 27, r: padHex('0x1a', { size: 32 }), s: padHex('0x1b', { size: 32 }) }
+
 const VIEW: RelaySubmissionView = {
   id: 'idem-1',
   idempotencyKey: 'idem-1',
@@ -62,7 +68,8 @@ function parsedPaymentBody() {
       nonce: keccak256(toHex('n1')),
     },
     ref: keccak256(toHex('ref1')),
-    signature: { v: 27, r: padHex('0xab', { size: 32 }), s: padHex('0xcd', { size: 32 }) },
+    authSignature: AUTH_SIG,
+    intentSignature: INTENT_SIG,
     sessionId: 'ses_abc',
   })
 }
@@ -81,7 +88,8 @@ function parsedSubscriptionBody() {
       value: ((1n << 256n) - 1n).toString(),
       deadline: '1800000000',
     },
-    signature: { v: 28, r: padHex('0xde', { size: 32 }), s: padHex('0xef', { size: 32 }) },
+    permitSignature: PERMIT_SIG,
+    intentSignature: { ...INTENT_SIG, v: 28 },
     subscriptionInternalId: 'sub_abc',
   })
 }
@@ -107,7 +115,8 @@ describe('RelayController', () => {
       expect(arg.merchantId).toBe(7n) // bigint, not string
       expect(arg.auth.amount).toBe(100_000_000n)
       expect(arg.auth.from).toBe(PAYER)
-      expect(arg.signature.v).toBe(27)
+      expect(arg.authSignature.v).toBe(27)
+      expect(arg.intentSignature.v).toBe(27)
       expect(arg.sessionId).toBe('ses_abc')
       expect(arg.merchantInternalId).toBe(ctx.merchantId)
     })
@@ -126,7 +135,8 @@ describe('RelayController', () => {
             nonce: keccak256(toHex('n')),
           },
           ref: keccak256(toHex('r')),
-          signature: { v: 27, r: padHex('0x1', { size: 32 }), s: padHex('0x2', { size: 32 }) },
+          authSignature: AUTH_SIG,
+          intentSignature: INTENT_SIG,
         }),
       ).toThrow(/20-byte address/)
     })
@@ -145,7 +155,8 @@ describe('RelayController', () => {
             nonce: keccak256(toHex('n')),
           },
           ref: keccak256(toHex('r')),
-          signature: { v: 0, r: padHex('0x1', { size: 32 }), s: padHex('0x2', { size: 32 }) },
+          authSignature: { v: 0, r: padHex('0x1', { size: 32 }), s: padHex('0x2', { size: 32 }) },
+          intentSignature: INTENT_SIG,
         }),
       ).toThrow(/27 or 28/)
     })
@@ -164,7 +175,8 @@ describe('RelayController', () => {
             nonce: keccak256(toHex('n')),
           },
           ref: keccak256(toHex('r')),
-          signature: { v: 27, r: padHex('0x1', { size: 32 }), s: padHex('0x2', { size: 32 }) },
+          authSignature: AUTH_SIG,
+          intentSignature: INTENT_SIG,
         }),
       ).toThrow(/url-safe ASCII/)
     })
@@ -183,7 +195,8 @@ describe('RelayController', () => {
             nonce: keccak256(toHex('n')),
           },
           ref: keccak256(toHex('r')),
-          signature: { v: 27, r: padHex('0x1', { size: 32 }), s: padHex('0x2', { size: 32 }) },
+          authSignature: AUTH_SIG,
+          intentSignature: INTENT_SIG,
         }),
       ).toThrow(/non-negative decimal/)
     })
@@ -204,7 +217,8 @@ describe('RelayController', () => {
       expect(arg.permitData.owner).toBe(OWNER)
       // type(uint256).max preserves through bigint coerce.
       expect(arg.permitData.value).toBe((1n << 256n) - 1n)
-      expect(arg.signature.v).toBe(28)
+      expect(arg.permitSignature.v).toBe(28)
+      expect(arg.intentSignature.v).toBe(28)
       expect(arg.merchantInternalId).toBe(ctx.merchantId)
     })
 
@@ -219,7 +233,8 @@ describe('RelayController', () => {
           startAt: '0',
           endAt: '0',
           permitData: { owner: OWNER, value: '1', deadline: '1' },
-          signature: { v: 27, r: padHex('0x1', { size: 32 }), s: padHex('0x2', { size: 32 }) },
+          permitSignature: PERMIT_SIG,
+          intentSignature: { ...INTENT_SIG, v: 28 },
         }),
       ).toThrow()
     })

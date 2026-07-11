@@ -38,8 +38,18 @@ model WebhookEvent {
   type         WebhookEventName
   apiVersion   String              @db.VarChar(10)
   mode         Mode
-  /// The fully-serialised envelope, exactly as it is signed and delivered.
+  /// The delivered envelope. Producers that build it inline (apps/api)
+  /// store the final shape here. Producers that only know entity ids at
+  /// write time (the Go indexer) store a `{ ref: {...} }` marker that the
+  /// scheduler outbox dispatcher hydrates into the final envelope.
   payload      Json
+  /// Set when the outbox dispatcher has created deliveries + enqueued
+  /// jobs for this event. Null = not yet dispatched (the dispatcher's
+  /// claim target). Inline producers stamp it at write time.
+  dispatchedAt DateTime?
+  /// Last dispatch error (schema-validation / hydration failure). Non-null
+  /// means the event is quarantined and needs a code fix + manual redispatch.
+  dispatchError String?            @db.VarChar(1000)
   createdAt    DateTime            @default(now())
 
   merchant     Merchant            @relation(fields: [merchantId], references: [id], onDelete: Restrict)
@@ -47,6 +57,7 @@ model WebhookEvent {
 
   @@index([merchantId, type, createdAt])
   @@index([merchantId, mode, createdAt])
+  @@index([dispatchedAt])
 }
 
 model WebhookDelivery {

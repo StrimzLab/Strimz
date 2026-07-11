@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import { Sora, Poppins } from 'next/font/google'
-import { headers } from 'next/headers'
 import { Providers } from '@/components/providers'
 import { Toaster } from '@strimz/ui'
 import { OG_IMAGE, TWITTER_IMAGE } from '@/lib/seo'
@@ -17,11 +16,11 @@ const poppins = Poppins({
 export const metadata: Metadata = {
   metadataBase: new URL('https://strimz-finance.vercel.app'),
   title: {
-    default: 'Strimz — Stablecoin billing infrastructure',
+    default: 'Strimz. Stablecoin billing infrastructure',
     template: '%s · Strimz',
   },
   description:
-    'B2B subscription billing on stablecoins. One API for one-shot payments, recurring charges, refunds, webhooks, and an AI AutoPay Agent — all settled in USDC on Arc.',
+    'B2B subscription billing on stablecoins. One API for one-shot payments, recurring charges, refunds, webhooks, and an AI AutoPay Agent. All settled in USDC on Arc.',
   applicationName: 'Strimz',
   keywords: [
     'stablecoin payments',
@@ -34,14 +33,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'Strimz',
-    title: 'Strimz — Stablecoin billing infrastructure',
+    title: 'Strimz. Stablecoin billing infrastructure',
     description:
       'One API for stablecoin one-shot, subscription, and AI-driven payments. Settled in USDC on Arc.',
     images: [OG_IMAGE],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Strimz — Stablecoin billing infrastructure',
+    title: 'Strimz. Stablecoin billing infrastructure',
     description:
       'One API for stablecoin one-shot, subscription, and AI-driven payments. Settled in USDC on Arc.',
     images: [TWITTER_IMAGE],
@@ -55,25 +54,16 @@ export const viewport: Viewport = {
   ],
 }
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // Reown's WagmiAdapter (in `@/lib/wagmi`) uses cookieStorage so wallet
-  // connector state survives a page refresh and SSR. We forward the
-  // request `Cookie` header to the Providers tree so the initial paint
-  // can reflect a connected wallet rather than flashing from
-  // disconnected → connected on hydration. `null` is a valid value when
-  // no cookie was sent.
-  const cookies = (await headers()).get('cookie')
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className={`${sora.variable} ${poppins.variable}`}>
       <head>
         {/* Pre-resolve DNS + TLS for Cloudflare Turnstile so the bot-
-            check on /signup loads with no network hiccup. Recommended
-            in Cloudflare's official embed guide for performance. */}
+            check on /signup loads with no network hiccup. */}
         <link rel="preconnect" href="https://challenges.cloudflare.com" />
       </head>
       <body className="bg-background text-foreground antialiased">
-        <Providers cookies={cookies}>{children}</Providers>
+        <Providers>{children}</Providers>
         <Toaster richColors position="top-right" />
       </body>
     </html>

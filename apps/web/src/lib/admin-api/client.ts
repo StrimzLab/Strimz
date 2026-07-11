@@ -7,6 +7,10 @@ import type {
   AdminMerchantListResponse,
   AdminProfile,
   AdminListItem,
+  Broadcast,
+  BroadcastAudience,
+  BroadcastListResponse,
+  CreateBroadcastInput,
   HealthResponse,
   InviteAdminInput,
   PlatformOverview,
@@ -44,7 +48,7 @@ interface RequestOptions {
 
 export class AdminApiClient {
   private readonly apiBaseUrl: string
-  /** Origin of this app — used for the BFF base. Set at module load. */
+  /** Origin of this app. Used for the BFF base. Set at module load. */
   private readonly bffBaseUrl: string
   private readonly getAccessToken: AccessTokenProvider
   private readonly defaultTimeoutMs = 30_000
@@ -120,6 +124,23 @@ export class AdminApiClient {
   removeAdmin = (id: string) =>
     this.bffDelete<AdminListItem>(`/api/admin/admins/${encodeURIComponent(id)}`)
 
+  // ----- Broadcasts -----
+  listBroadcasts = (
+    params: { audience?: BroadcastAudience; limit?: number } = {},
+    options?: RequestOptions,
+  ) => {
+    const search = new URLSearchParams()
+    if (params.audience) search.set('audience', params.audience)
+    if (params.limit !== undefined) search.set('limit', String(params.limit))
+    const query = search.toString()
+    return this.directGet<BroadcastListResponse>(
+      `/v1/admin/broadcasts${query ? `?${query}` : ''}`,
+      options,
+    )
+  }
+  createBroadcast = (input: CreateBroadcastInput) =>
+    this.bff<Broadcast>('/api/admin/broadcasts', input)
+
   // ------------------------------------------------------------------
 
   private async directGet<T>(path: string, options?: RequestOptions): Promise<T> {
@@ -148,7 +169,7 @@ export class AdminApiClient {
       if (!token) {
         throw new AuthenticationError({
           code: 'authentication_error',
-          message: 'no Privy access token available — sign in to continue',
+          message: 'no Privy access token available. Sign in to continue',
         })
       }
       headers.authorization = `Bearer ${token}`

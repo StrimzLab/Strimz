@@ -13,7 +13,7 @@ const KNOWN_LOGOS: Record<string, string> = {
 
 export interface TokenLogoProps {
   symbol: string
-  /** Pixel size — defaults to 24, matches Tailwind `size-6`. */
+  /** Pixel size. Defaults to 24, matches Tailwind `size-6`. */
   size?: number
   className?: string
 }
@@ -24,7 +24,7 @@ export interface TokenLogoProps {
  * icon next to a USDC amount.
  *
  * Falls back to the symbol's first character (in the same circular
- * frame) when the asset isn't bundled — keeps the layout stable
+ * frame) when the asset isn't bundled. Keeps the layout stable
  * regardless of whether the brand mark loads.
  */
 export function TokenLogo({ symbol, size = 24, className }: TokenLogoProps) {
@@ -49,7 +49,7 @@ export function TokenLogo({ symbol, size = 24, className }: TokenLogoProps) {
       alt={symbol}
       width={size}
       height={size}
-      // Brand marks are intentionally not lazy — the checkout shell
+      // Brand marks are intentionally not lazy. The checkout shell
       // wants them immediately visible on first paint.
       priority
       className={'shrink-0 rounded-full ' + (className ?? '')}

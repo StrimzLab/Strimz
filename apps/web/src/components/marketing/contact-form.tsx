@@ -3,11 +3,11 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { Loader2, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Input,
+  FieldLabel,
   Label,
   Textarea,
   Select,
@@ -16,21 +16,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@strimz/ui'
+import { contactRequestInputSchema, type ContactRequestInput } from '@strimz/shared-types'
+import { env } from '@/lib/env'
 
-const ContactSchema = z.object({
-  name: z.string().min(2, 'Name is too short'),
-  email: z.string().email('Enter a valid email address'),
-  company: z.string().optional(),
-  topic: z.enum(['sales', 'support', 'partnership', 'security', 'other']),
-  message: z.string().min(20, 'Tell us a bit more (min 20 characters)'),
-})
-
-type FormValues = z.infer<typeof ContactSchema>
+type FormValues = ContactRequestInput
 
 /**
- * Marketing contact form. Validates with Zod via RHF, mocks a 600ms
- * submit, fires a sonner toast. Replace the `await new Promise` line
- * with the real `/v1/contact` POST when the backend ships.
+ * Marketing contact form. Validates client-side with the shared
+ * `contactRequestInputSchema` (same shape apps/api enforces) and
+ * POSTs to `POST /v1/contact` ,  the backend routes the message
+ * straight into Strimz's support inbox via Resend and replies to
+ * the submitter's own email address.
  */
 export function ContactForm() {
   const [submitted, setSubmitted] = useState(false)
@@ -41,15 +37,27 @@ export function ContactForm() {
     formState: { errors, isSubmitting },
     reset,
   } = useForm<FormValues>({
-    resolver: zodResolver(ContactSchema),
+    resolver: zodResolver(contactRequestInputSchema),
     defaultValues: { topic: 'sales' },
   })
 
-  async function onSubmit(_values: FormValues) {
-    await new Promise((r) => setTimeout(r, 600))
-    toast.success("Message sent — we'll reply within 1 business day")
-    setSubmitted(true)
-    reset()
+  async function onSubmit(values: FormValues) {
+    try {
+      const res = await fetch(`${env.apiUrl.replace(/\/$/, '')}/v1/contact`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(values),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error?.message ?? `Something went wrong (${res.status})`)
+      }
+      toast.success("Message sent. We'll reply within 1 business day")
+      setSubmitted(true)
+      reset()
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
   }
 
   if (submitted) {
@@ -110,9 +118,9 @@ export function ContactForm() {
       />
 
       <div className="grid gap-1.5">
-        <Label htmlFor="topic" className="text-[13px] text-[#58556A]">
+        <FieldLabel htmlFor="topic" className="text-[13px] text-[#58556A]" required>
           What&apos;s this about?
-        </Label>
+        </FieldLabel>
         <Select
           defaultValue="sales"
           onValueChange={(v) => setValue('topic', v as FormValues['topic'])}
@@ -121,8 +129,8 @@ export function ContactForm() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="sales">Sales — pricing, plans, contracts</SelectItem>
-            <SelectItem value="support">Support — bugs, integration help</SelectItem>
+            <SelectItem value="sales">Sales. Pricing, plans, contracts</SelectItem>
+            <SelectItem value="support">Support. Bugs, integration help</SelectItem>
             <SelectItem value="partnership">Partnership / co-marketing</SelectItem>
             <SelectItem value="security">Security disclosure</SelectItem>
             <SelectItem value="other">Something else</SelectItem>

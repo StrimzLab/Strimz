@@ -1,0 +1,36 @@
+---
+title: Withdraw page
+description: Move stablecoin from your Strimz payout balance to an external wallet.
+---
+
+Strimz is non-custodial. Every payment settles directly to the payout address you registered on-chain — Strimz never holds your money. The Withdraw page is where you *send* that balance out of the payout address to a wallet you control on the outside.
+
+## The layout
+
+Two panels:
+
+- **Balance card.** Live on-chain balance of the payout address, refreshed on load. Broken down by stablecoin (USDC, EURC).
+- **Withdraw form.** Choose the stablecoin, enter the amount, enter the destination address, sign.
+
+Below, a small history of past withdrawals with tx hashes linking to Arc Explorer.
+
+## How the flow works
+
+1. You fill in the form.
+2. The dashboard prompts your Privy embedded wallet to sign an ERC-20 `transfer` targeting the destination address.
+3. Strimz relays the signed transaction to Arc.
+4. Once confirmed, the row appears in the history.
+
+There's no server-side custody at any step. If Strimz went dark tomorrow, you'd still be able to withdraw by pointing any wallet at the payout address and calling `transfer` directly.
+
+## The destination check
+
+The destination address input runs a checksum validation. Beyond that, it's your responsibility to make sure the address is correct. There is no reversal, no chargeback, no "cancel withdrawal" button.
+
+## Common workflows
+
+**I want to move earnings to a hardware wallet.** Enter the hardware wallet address, enter the amount, sign. Two minutes and it's on-chain.
+
+**I want to bridge to Ethereum mainnet.** Withdraw to a wallet you control on Arc first, then use Circle CCTP (or an alternative bridge) from there. Strimz doesn't run its own bridge.
+
+**My balance shows zero but I know I received payments.** Payments credit the payout address, not a Strimz-held balance. Make sure the payout address on the [Settings page](/docs/dashboard/settings) matches what you're expecting. If someone changed it recently, older payments landed at the previous address.

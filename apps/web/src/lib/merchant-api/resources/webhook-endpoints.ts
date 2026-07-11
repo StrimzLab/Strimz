@@ -2,6 +2,7 @@ import type {
   CreateWebhookEndpointInput,
   CreateWebhookEndpointOutput,
   WebhookDelivery,
+  WebhookDeliveryDetail,
   WebhookEndpoint,
 } from '@strimz/shared-types'
 
@@ -32,7 +33,7 @@ export class WebhookEndpointsResource {
 
   /**
    * Returns the signing secret in plaintext exactly once. Subsequent
-   * GETs return the endpoint without the secret — the merchant must
+   * GETs return the endpoint without the secret. The merchant must
    * rotate to recover access.
    */
   create(
@@ -60,7 +61,7 @@ export class WebhookEndpointsResource {
 
   /**
    * Rotates the signing secret. The returned plaintext is shown once
-   * (same contract as `create`) — the previous secret is invalidated
+   * (same contract as `create`). The previous secret is invalidated
    * server-side at the moment this call returns.
    */
   rotateSecret(id: string, options?: CallOptions): Promise<CreateWebhookEndpointOutput> {
@@ -84,5 +85,20 @@ export class WebhookEndpointsResource {
         eventName: params.eventName,
       },
     })
+  }
+
+  retrieveDelivery(id: string, options?: CallOptions): Promise<WebhookDeliveryDetail> {
+    return this.client.get<WebhookDeliveryDetail>(
+      `/v1/webhook-deliveries/${encodeURIComponent(id)}`,
+      options,
+    )
+  }
+
+  replayDelivery(id: string, options?: CallOptions): Promise<WebhookDelivery> {
+    return this.client.post<WebhookDelivery>(
+      `/v1/webhook-deliveries/${encodeURIComponent(id)}/replay`,
+      {},
+      options,
+    )
   }
 }

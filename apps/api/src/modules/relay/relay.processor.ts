@@ -6,6 +6,7 @@ import { ChainService } from '../../infra/chain/chain.service.js'
 import { KMS_SIGNER } from '../../infra/kms/kms.tokens.js'
 import type { KmsSigner } from '../../infra/kms/kms.types.js'
 import { toKmsAccount } from '../../infra/kms/kms-account.js'
+import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QUEUE_NAMES } from '../../infra/queue/queue.service.js'
 import { RedisService } from '../../infra/redis/redis.service.js'
 import { GasPricingService } from './gas-pricing.service.js'
@@ -50,6 +51,7 @@ export class RelayProcessor implements OnModuleInit, OnModuleDestroy {
     private readonly chain: ChainService,
     private readonly nonces: NonceManager,
     private readonly gas: GasPricingService,
+    private readonly prisma: PrismaService,
     @Inject(KMS_SIGNER) private readonly signer: KmsSigner,
   ) {}
 
@@ -139,6 +141,19 @@ export class RelayProcessor implements OnModuleInit, OnModuleDestroy {
       // the same calldata and revert again. Mark and fail without retry.
       throw new RelayPermanentError(`tx ${txHash} reverted in block ${receipt.blockNumber}`)
     }
+
+    // Stamp the session as submitted so the dashboard reflects the
+    // payment seconds after mining. The indexer completes the flip to
+    // confirmed (and sets payerWalletAddress) when it projects the event.
+    if (data.sessionId) {
+      await this.prisma.db.paymentSession
+        .updateMany({
+          where: { id: data.sessionId, status: { in: ['created', 'awaiting_payment'] } },
+          data: { status: 'submitted', onchainTxHash: txHash },
+        })
+        .catch((err) => this.log.warn(`session stamp failed for ${data.sessionId}: ${err}`))
+    }
+
     return {
       txHash,
       blockNumber: receipt.blockNumber.toString(),

@@ -1,36 +1,29 @@
 'use client'
 
 import * as React from 'react'
-import { Download, FileDown, MoreHorizontal, Plus, Send, Ban, Eye } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Ban, Download, Eye, FileDown, MoreHorizontal, Plus, Send } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Input,
-  Label,
 } from '@strimz/ui'
-import { parseUnits } from 'viem'
-import type { Invoice, InvoiceStatus, PaymentCurrency } from '@strimz/shared-types'
+import type { Invoice, InvoiceStatus } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
+import { downloadInvoicePdf } from '@/lib/invoice-pdf'
 import { formatTokenAmount, relativeTime, tokenAmountToNumber } from '@/lib/format'
-import { useCreateInvoice, useInvoices, useSendInvoice, useVoidInvoice } from '@/hooks/api'
+import { useInvoices, useMerchantMe, useSendInvoice, useVoidInvoice } from '@/hooks/api'
 
 const STATUS_TONE: Record<InvoiceStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
   paid: 'positive',
@@ -86,12 +79,25 @@ function projectInvoices(page: { data: Invoice[] }): InvoicesView {
 }
 
 export default function InvoicesPage() {
+  const router = useRouter()
   const { data, isLoading, isError, error, refetch } = useInvoices(
     { limit: 100 },
     { select: projectInvoices },
   )
+  const { data: merchant } = useMerchantMe()
   const sendMutation = useSendInvoice()
   const voidMutation = useVoidInvoice()
+
+  const handleDownload = React.useCallback(
+    async (inv: Invoice) => {
+      try {
+        await downloadInvoicePdf(inv, merchant ?? null)
+      } catch (err) {
+        toast.error(`Could not render PDF: ${(err as Error).message}`)
+      }
+    },
+    [merchant],
+  )
 
   const columns = React.useMemo<ColumnDef<Invoice>[]>(
     () => [
@@ -99,7 +105,12 @@ export default function InvoicesPage() {
         accessorKey: 'number',
         header: 'Invoice',
         cell: ({ row }) => (
-          <span className="font-mono text-sm font-medium">{row.original.number}</span>
+          <Link
+            href={`/app/invoices/${row.original.id}`}
+            className="font-mono text-sm font-medium hover:text-[#02C76A] hover:underline"
+          >
+            {row.original.number}
+          </Link>
         ),
       },
       {
@@ -109,7 +120,7 @@ export default function InvoicesPage() {
           <div className="flex flex-col leading-tight">
             <span className="font-medium">{row.original.customerName ?? '—'}</span>
             <span className="text-muted-foreground text-xs">
-              {row.original.customerEmail ?? '— no email on file'}
+              {row.original.customerEmail ?? 'no email on file'}
             </span>
           </div>
         ),
@@ -164,11 +175,11 @@ export default function InvoicesPage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuLabel>Invoice {inv.number}</DropdownMenuLabel>
-                <DropdownMenuItem disabled>
-                  <FileDown className="mr-2 size-4" /> Download PDF
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled>
+                <DropdownMenuItem onClick={() => router.push(`/app/invoices/${inv.id}`)}>
                   <Eye className="mr-2 size-4" /> View
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void handleDownload(inv)}>
+                  <FileDown className="mr-2 size-4" /> Download PDF
                 </DropdownMenuItem>
                 {canSend ? (
                   <DropdownMenuItem
@@ -196,13 +207,14 @@ export default function InvoicesPage() {
         },
       },
     ],
-    [sendMutation, voidMutation],
+    [handleDownload, router, sendMutation, voidMutation],
   )
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Invoices"
+        docsSlug="invoices"
         description="Hosted, branded payment pages with line items. Each invoice is backed by a real PaymentSession."
         action={
           <div className="flex items-center gap-2">
@@ -227,7 +239,11 @@ export default function InvoicesPage() {
             >
               <Download className="mr-1.5 size-4" /> Export CSV
             </Button>
-            <NewInvoiceDialog />
+            <Button size="sm" asChild>
+              <Link href="/app/invoices/new">
+                <Plus className="mr-1.5 size-4" /> New invoice
+              </Link>
+            </Button>
           </div>
         }
       />
@@ -303,169 +319,11 @@ function Stat({
   )
 }
 
-/**
- * Single-line-item invoice dialog. Production invoices support arbitrary
- * line items (see CreateInvoiceInput.lineItems), but the v1 dashboard
- * collapses to a single line — covers the 80% case. Multi-line editor
- * lands on `/app/invoices/new` once the supporting UI primitives ship.
- */
-function NewInvoiceDialog() {
-  const [open, setOpen] = React.useState(false)
-  const [customerName, setCustomerName] = React.useState('')
-  const [customerEmail, setCustomerEmail] = React.useState('')
-  const [description, setDescription] = React.useState('')
-  const [total, setTotal] = React.useState('')
-  const [dueDays, setDueDays] = React.useState('14')
-  const [note, setNote] = React.useState('')
-
-  const createMutation = useCreateInvoice()
-
-  const reset = () => {
-    setCustomerName('')
-    setCustomerEmail('')
-    setDescription('')
-    setTotal('')
-    setDueDays('14')
-    setNote('')
-  }
-
-  const handleCreate = () => {
-    if (!description.trim() || !total) return
-    let amountRaw: string
-    try {
-      amountRaw = parseUnits(total, 6).toString()
-    } catch {
-      toast.error('Enter a valid amount')
-      return
-    }
-    createMutation.mutate(
-      {
-        customerName: customerName || undefined,
-        customerEmail: customerEmail || undefined,
-        lineItems: [
-          {
-            description: description.trim(),
-            quantity: 1,
-            unitAmount: amountRaw,
-          },
-        ],
-        currency: 'USDC' as PaymentCurrency,
-        note: note || undefined,
-        // Server-side clamp is [1, 90]; we apply the same bounds here
-        // so the UI doesn't silently submit a value the API rejects.
-        dueInDays: Math.max(1, Math.min(90, Number(dueDays) || 14)),
-      },
-      {
-        onSuccess: () => {
-          setOpen(false)
-          reset()
-        },
-      },
-    )
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        setOpen(v)
-        if (!v) reset()
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm" variant="default">
-          <Plus className="mr-1.5 size-4" /> New invoice
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Create invoice</DialogTitle>
-          <DialogDescription>
-            Single line item. Saves as a draft — send it from the row menu.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3 py-2">
-          <div className="grid gap-1.5">
-            <Label htmlFor="iv-customer">Customer name</Label>
-            <Input
-              id="iv-customer"
-              placeholder="Acme Inc."
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="iv-email">Customer email</Label>
-            <Input
-              id="iv-email"
-              type="email"
-              placeholder="ap@acme.com"
-              value={customerEmail}
-              onChange={(e) => setCustomerEmail(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="iv-desc">Line item</Label>
-            <Input
-              id="iv-desc"
-              placeholder="Annual licence renewal"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="iv-amount">Total (USDC)</Label>
-              <Input
-                id="iv-amount"
-                type="number"
-                step="0.01"
-                placeholder="500.00"
-                value={total}
-                onChange={(e) => setTotal(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="iv-due">Due in (days)</Label>
-              <Input
-                id="iv-due"
-                type="number"
-                value={dueDays}
-                onChange={(e) => setDueDays(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="iv-note">Note</Label>
-            <Input
-              id="iv-note"
-              placeholder="Net 14"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleCreate}
-            disabled={createMutation.isPending || !description.trim() || !total}
-          >
-            {createMutation.isPending ? 'Creating…' : 'Create draft'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="border-border/60 bg-background flex items-center justify-between rounded-xl border p-4">
       <div>
-        <div className="text-sm font-medium">Couldn’t load invoices</div>
+        <div className="text-sm font-medium">Couldn&apos;t load invoices</div>
         <div className="text-muted-foreground text-xs">{message}</div>
       </div>
       <Button variant="outline" size="sm" onClick={onRetry}>

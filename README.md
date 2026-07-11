@@ -296,6 +296,20 @@ running, dashboard live. End-to-end works — merchant signup, plan
 creation, hosted checkout, subscription enrolment, recurring charge,
 refund, webhook. We use it ourselves.
 
+### Deployed contracts (Arc testnet)
+
+Every address is source-verified on [ArcScan](https://testnet.arcscan.app).
+
+| Contract            | Address                                      |
+| ------------------- | -------------------------------------------- |
+| StrimzRegistry      | `0x23Bb25315107BF7463a84913eCCD450A43F71ae3` |
+| TokenWhitelist      | `0xC907412e31a35fCFac9336285a34c0007425066c` |
+| FeeCollector        | `0x1aB0e7f7C787B9474488e615096Ec3E1BAE5cfE2` |
+| StrimzPayments      | `0x2dfA72f9564BdfEb1b32e77C2fdf7040c69bDc7B` |
+| StrimzSubscriptions | `0xed374f8B4d22361D2487404dE34224f74F85Fb4C` |
+| StrimzAgentRegistry | `0x2a498efB64256235E3cc622daA4a3553dC332451` |
+| StrimzAgentEscrow   | `0x3e3407650c22cD982D36C429d262403106F49b1e` |
+
 Shipped so far: the smart contract suite (Payments, Subscriptions,
 Registry, FeeCollector, AgentRegistry, AgentEscrow), the Go indexer, the
 BullMQ scheduler, the merchant dashboard, hosted checkout, the seven

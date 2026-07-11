@@ -9,16 +9,16 @@ import { fadeUp, stagger } from '@/lib/motion'
 import { DashboardPreview } from './dashboard-preview'
 
 /**
- * Marketing hero — text-on-left + product preview on right at lg+,
+ * Marketing hero. Text-on-left + product preview on right at lg+,
  * stacks to a single column on mobile/tablet. The product preview is
  * the visual centrepiece (not a generic logo orb): it sells Strimz's
- * USP — recurring stablecoin billing — in one frame.
+ * USP. Recurring stablecoin billing. In one frame.
  */
 export function Hero() {
   const router = useRouter()
   return (
     <section className="relative w-full overflow-hidden bg-white">
-      {/* Soft brand backdrop — wave gradient blobs that mirror
+      {/* Soft brand backdrop. Wave gradient blobs that mirror
        * strimz-subscription's hero waves but as ambient backdrops
        * instead of orb foreground. */}
       <div

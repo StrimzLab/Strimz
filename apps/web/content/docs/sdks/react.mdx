@@ -53,9 +53,17 @@ export function Checkout({ session }: { session: { id: string } }) {
 }
 ```
 
-Internally the button uses Reown AppKit to connect a wallet, asks
-the customer for a single EIP-3009 signature, and resolves once the
-on-chain transaction confirms.
+Internally the button uses Reown AppKit to connect a wallet. It then
+prompts the customer for two typed-data signatures. The first is an
+EIP-3009 `ReceiveWithAuthorization` that authorises USDC (or EURC) to
+move. The second is a Strimz `PayIntent` that binds the payment to
+this specific merchant, amount, and session. The button resolves once
+the on-chain transaction confirms.
+
+The `PayIntent` signature is what stops an intercepted EIP-3009 auth
+from being replayed to a different merchant. Same story on
+subscriptions: the wallet prompts once for the EIP-2612 permit and
+once for a `SubscriptionIntent` that pins the plan.
 
 ## `<StrimzCheckoutEmbed />`
 

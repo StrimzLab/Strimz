@@ -8,13 +8,13 @@ import { cn } from '@strimz/ui'
 /**
  * Animated dashboard preview shown in the marketing hero.
  *
- * Three scenes cycle, each one its own time-driven state machine — a
+ * Three scenes cycle, each one its own time-driven state machine. A
  * step counter advances on a timer and individual elements appear,
  * morph, or exit on cue. Framer Motion handles the choreography.
  *
- *   Scene 1 — subscription billing (~7s) — 7-month history fills cell-by-cell
- *   Scene 2 — one-time payment confirming on-chain (~6s) — pending → confirming → confirmed
- *   Scene 3 — failed charge → recovery (~7s) — timeline events stagger in
+ *   Scene 1. Subscription billing (~7s). 7-month history fills cell-by-cell
+ *   Scene 2. One-time payment confirming on-chain (~6s). Pending → confirming → confirmed
+ *   Scene 3. Failed charge → recovery (~7s). Timeline events stagger in
  *
  * Browser-chrome shell + halo stay mounted; only the inner content +
  * URL + floating chips swap. Pauses while the tab is hidden, and

@@ -3,12 +3,9 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { ChevronDown, KeyRound, LogOut, Menu, User, X } from 'lucide-react'
+import { KeyRound, LogOut, Menu, Sparkles, User, X } from 'lucide-react'
 import { usePrivy } from '@privy-io/react-auth'
 import {
-  Avatar,
-  AvatarFallback,
-  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -17,6 +14,10 @@ import {
   DropdownMenuTrigger,
 } from '@strimz/ui'
 import { cn } from '@strimz/ui'
+import { runDashboardTour } from '@/hooks/use-dashboard-tour'
+import { BlockieAvatar } from './blockie-avatar'
+import { ModeToggle } from './mode-toggle'
+import { NotificationsPopover } from './notifications-popover'
 
 interface Props {
   title?: string
@@ -24,6 +25,21 @@ interface Props {
   menuOpen: boolean
 }
 
+/**
+ * Dashboard topbar. Two identity-related upgrades vs the previous
+ * layout:
+ *
+ *   1. **Blockies avatar** replaces the "first letter of email" fallback.
+ *      Seeded from the merchant's Privy embedded-wallet address (falls
+ *      back to the login email so a merchant with no wallet yet still
+ *      renders a stable avatar). Clicking it opens the profile
+ *      dropdown, same as before. Email is no longer rendered next
+ *      to it, per feedback that it clutters the header.
+ *   2. **Notifications bell**. Sits left of the avatar, shows an
+ *      unread count based on activity since the last time the tray
+ *      was opened. Feed pulls from `usePaymentSessions` +
+ *      `useSubscriptions` + `useRefunds`.
+ */
 export function DashboardTopbar({ title, onMenuClick, menuOpen }: Props) {
   const router = useRouter()
   const privy = usePrivyOrNull()
@@ -38,7 +54,11 @@ export function DashboardTopbar({ title, onMenuClick, menuOpen }: Props) {
     (privy?.user as { email?: { address?: string } } | undefined)?.email?.address ?? null
   const wallet =
     (privy?.user as { wallet?: { address?: string } } | undefined)?.wallet?.address ?? null
-  const initials = (email ?? 'A').slice(0, 1).toUpperCase()
+
+  // Deterministic seed for the blockies avatar: wallet address if we
+  // have it (cheap uniqueness + spans a wide colour range), else the
+  // login email so the render stays stable across page loads.
+  const avatarSeed = wallet ?? email
 
   async function copyAddress() {
     if (!wallet) return
@@ -87,24 +107,42 @@ export function DashboardTopbar({ title, onMenuClick, menuOpen }: Props) {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <ModeToggle />
+        <button
+          type="button"
+          onClick={() => runDashboardTour()}
+          className="hover:shadow-sub-icon border-border/60 inline-flex h-9 items-center gap-1.5 rounded-md border bg-white px-2 text-xs font-medium text-[#050020] transition-colors hover:bg-[#F9FAFB] sm:px-3"
+          aria-label="Take the dashboard tour"
+        >
+          <Sparkles className="size-3.5 text-[#02C76A]" />
+          <span className="hidden sm:inline">Take a tour</span>
+        </button>
+        <NotificationsPopover />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="shadow-sub-icon focus-within:none focus:none focus-visible:none border-border/60 gap-2 rounded-md border px-2"
+            <button
+              type="button"
+              aria-label="Open account menu"
+              className="hover:shadow-sub-icon border-border/60 focus-visible:outline-brand flex size-9 items-center justify-center overflow-hidden rounded-full border transition-transform hover:scale-105 focus:outline-none"
             >
-              <Avatar className="size-7">
-                <AvatarFallback className="bg-[#02C76A]/15 text-xs font-medium text-[#02C76A]">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <span className="hidden text-sm sm:inline">{email ?? 'Account'}</span>
-              <ChevronDown className="size-4 opacity-60" />
-            </Button>
+              <BlockieAvatar seed={avatarSeed} size={32} />
+            </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="mt-1.5 w-40">
-            <DropdownMenuLabel>My account</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="mt-1.5 w-56">
+            <DropdownMenuLabel className="flex items-center gap-2">
+              <BlockieAvatar seed={avatarSeed} size={28} />
+              <div className="flex min-w-0 flex-col leading-tight">
+                <span className="font-poppins truncate text-xs font-medium text-[#050020]">
+                  {email ?? 'Account'}
+                </span>
+                {wallet && (
+                  <span className="font-mono text-[10px] text-[#58556A]">
+                    {wallet.slice(0, 6)}…{wallet.slice(-4)}
+                  </span>
+                )}
+              </div>
+            </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/app/settings">

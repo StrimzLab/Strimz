@@ -1,6 +1,6 @@
 ---
 title: A B2B SaaS subscription, end to end
-description: The complete integration for a typical B2B SaaS — checkout signup, recurring billing, grace handling, cancellation. Real code that ships.
+description: The complete integration for a typical B2B SaaS. Checkout signup, recurring billing, grace handling, cancellation. Real code that ships.
 ---
 
 This is what a B2B SaaS subscription billing integration actually looks like. Not pseudo-code; you can copy-paste this into a Next.js app and it works.
@@ -11,10 +11,10 @@ The scenario: you're shipping a SaaS product called Acme. You have a Pro plan at
 
 Three routes plus a webhook handler:
 
-- `/pricing` — shows the plan; has a "Subscribe" button.
-- `/api/checkout/subscribe` — creates the subscription plan checkout URL.
-- `/api/webhooks/strimz` — receives the events that matter.
-- `/thanks?session=…` — the post-signup success page.
+- `/pricing` ,  shows the plan; has a "Subscribe" button.
+- `/api/checkout/subscribe` ,  creates the subscription plan checkout URL.
+- `/api/webhooks/strimz` ,  receives the events that matter.
+- `/thanks?session=…` ,  the post-signup success page.
 
 We'll skip a bunch of standard Next.js boilerplate (Tailwind setup, env config, etc.) and focus on the Strimz parts.
 
@@ -28,7 +28,7 @@ import { StrimzClient } from '@strimz/sdk'
 const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_API_KEY! })
 
 const plan = await strimz.subscriptionPlans.create({
-  name: 'Acme — Pro',
+  name: 'Acme, Pro',
   description: 'Everything, unlimited seats, priority support.',
   amount: '99000000',           // 99 USDC
   currency: 'USDC',
@@ -74,7 +74,7 @@ A "Subscribe" button. When clicked, POSTs to the checkout route and redirects to
 export default function PricingPage() {
   return (
     <div>
-      <h1>Acme Pro — 99 USDC / month</h1>
+      <h1>Acme Pro, 99 USDC / month</h1>
       <ul>
         <li>14-day free trial</li>
         <li>Everything in our product</li>
@@ -95,12 +95,12 @@ import { redirect } from 'next/navigation'
 
 export async function POST() {
   // The Pro plan's checkout URL is just based on its id. No API call needed
-  // for the simple case — Strimz hosts the plan checkout page itself.
+  // for the simple case, Strimz hosts the plan checkout page itself.
   redirect(`https://strimz-finance.vercel.app/sub/${process.env.STRIMZ_PRO_PLAN_ID}`)
 }
 ```
 
-For a basic flow, that's literally it — the plan id maps to a Strimz-hosted page that handles wallet connect, EIP-2612 permit signing, and the first-cycle charge. You don't need to call the SDK for the signup itself.
+For a basic flow, that's literally it. The plan id maps to a Strimz-hosted page that handles wallet connect, EIP-2612 permit signing, and the first-cycle charge. You don't need to call the SDK for the signup itself.
 
 If you want to pass metadata or pre-fill the payer's email, you'd create a custom subscription session via the API. We're keeping this minimal; for most cases the plan URL is enough.
 
@@ -155,7 +155,7 @@ export async function POST(req: Request) {
 }
 ```
 
-The actual handlers — what your business logic does for each:
+The actual handlers. What your business logic does for each:
 
 ```ts
 async function onSubscriptionCreated(sub) {
@@ -220,7 +220,7 @@ async function onSubscriptionCancelled(sub) {
 
 async function onSubscriptionLapsed(sub) {
   // Subscription is dead. Revoke access at the end of the current cycle.
-  // (For most products, immediate revocation is fine — they didn't pay.)
+  // (For most products, immediate revocation is fine, they didn't pay.)
   await db.user.update({
     where: { strimzSubscriptionId: sub.id },
     data: { planTier: 'free', accessUntil: new Date() },
@@ -251,7 +251,7 @@ export default function ThanksPage({ searchParams }) {
 }
 ```
 
-Don't grant the access here — the webhook handler does that. The success page is purely UI; the entitlement is granted asynchronously when `subscription.created` lands.
+Don't grant the access here. The webhook handler does that. The success page is purely UI; the entitlement is granted asynchronously when `subscription.created` lands.
 
 If you want the success page to wait for the entitlement (so customers don't see a "trial active" page before your DB knows about them), poll your own DB for a few seconds, then show the welcome state. The webhook usually arrives in under a second, but it can be a beat slower under load.
 

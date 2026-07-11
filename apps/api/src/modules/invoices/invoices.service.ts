@@ -1,10 +1,11 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
-import type { CreateInvoiceInput, Invoice } from '@strimz/shared-types'
+import type { CreateInvoiceInput, Invoice, Mode } from '@strimz/shared-types'
 import { effectiveFeeBps } from '@strimz/shared-config'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { TypedConfigService } from '../../config/index.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
+import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -17,6 +18,7 @@ export class InvoicesService {
     private readonly cfg: TypedConfigService,
     private readonly email: EmailService,
     private readonly events: WebhookEventService,
+    private readonly merchantChain: MerchantChainService,
   ) {}
 
   async create(
@@ -24,6 +26,12 @@ export class InvoicesService {
     mode: 'test' | 'live',
     input: CreateInvoiceInput,
   ): Promise<Invoice> {
+    // Every invoice backs a real PaymentSession that funnels through the
+    // hosted checkout, so the merchant needs a chain merchant id no
+    // matter which mode we are in. Currently only Arc testnet is live;
+    // when mainnet lands we'll route by mode to the right Registry.
+    await this.merchantChain.ensureRegistered(merchantId)
+
     const subtotal = input.lineItems
       .reduce((acc, li) => acc + BigInt(li.unitAmount) * BigInt(li.quantity), 0n)
       .toString()
@@ -83,19 +91,20 @@ export class InvoicesService {
     return serialise(invoice)
   }
 
-  async retrieve(merchantId: string, id: string): Promise<Invoice> {
-    const row = await this.prisma.db.invoice.findFirst({ where: { id, merchantId } })
+  async retrieve(merchantId: string, mode: Mode, id: string): Promise<Invoice> {
+    const row = await this.prisma.db.invoice.findFirst({ where: { id, merchantId, mode } })
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'invoice not found' })
     return serialise(row)
   }
 
   async list(
     merchantId: string,
+    mode: Mode,
     params: { limit?: number; cursor?: string | null; status?: string },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.invoice.findMany({
-      where: { merchantId, status: (params.status as never) ?? undefined },
+      where: { merchantId, mode, status: (params.status as never) ?? undefined },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,
       ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
@@ -105,8 +114,8 @@ export class InvoicesService {
     return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
   }
 
-  async send(merchantId: string, id: string): Promise<Invoice> {
-    const row = await this.prisma.db.invoice.findFirst({ where: { id, merchantId } })
+  async send(merchantId: string, mode: Mode, id: string): Promise<Invoice> {
+    const row = await this.prisma.db.invoice.findFirst({ where: { id, merchantId, mode } })
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'invoice not found' })
     if (!row.customerEmail) {
       throw new ForbiddenException({
@@ -138,8 +147,8 @@ export class InvoicesService {
     return serialise(updated)
   }
 
-  async voidInvoice(merchantId: string, id: string): Promise<Invoice> {
-    const row = await this.prisma.db.invoice.findFirst({ where: { id, merchantId } })
+  async voidInvoice(merchantId: string, mode: Mode, id: string): Promise<Invoice> {
+    const row = await this.prisma.db.invoice.findFirst({ where: { id, merchantId, mode } })
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'invoice not found' })
     if (row.status === 'paid') {
       throw new ForbiddenException({
@@ -160,30 +169,7 @@ export class InvoicesService {
     return serialise(updated)
   }
 
-  /**
-   * Daily cron — flips overdue invoices to `overdue` and fires a webhook.
-   * Called by the scheduler app's overdue-invoices job.
-   */
-  async sweepOverdue(): Promise<{ marked: number }> {
-    const overdue = await this.prisma.db.invoice.findMany({
-      where: { status: { in: ['draft', 'sent'] }, dueAt: { lt: new Date() } },
-    })
-    for (const inv of overdue) {
-      await this.prisma.db.invoice.update({
-        where: { id: inv.id },
-        data: { status: 'overdue' },
-      })
-      void this.events
-        .fire({
-          merchantId: inv.merchantId,
-          mode: inv.mode as 'test' | 'live',
-          name: 'invoice.overdue',
-          data: serialise(inv),
-        })
-        .catch(() => undefined)
-    }
-    return { marked: overdue.length }
-  }
+  // Overdue sweeping lives in the scheduler's invoice-overdue cron.
 
   // ----- Helpers -----
 
@@ -194,7 +180,7 @@ export class InvoicesService {
   }
 
   private buildCheckoutUrl(sessionId: string): string {
-    return `${this.cfg.env.CHECKOUT_ORIGIN.replace(/\/$/, '')}/${sessionId}`
+    return `${this.cfg.env.CHECKOUT_ORIGIN.replace(/\/$/, '')}/pay/${sessionId}`
   }
 
   private renderInvoiceEmail(row: any, checkoutUrl: string): string {

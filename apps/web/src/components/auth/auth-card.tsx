@@ -6,7 +6,7 @@ import { fadeUp } from '@/lib/motion'
 import { cn } from '@strimz/ui'
 
 /**
- * Centred auth card — direct evolution of the prior `AuthFormContainer`.
+ * Centred auth card. Direct evolution of the prior `AuthFormContainer`.
  * 380px on desktop, full-bleed on mobile, with the signature
  * `shadow-auth-card` and a bordered green chip above the title.
  */

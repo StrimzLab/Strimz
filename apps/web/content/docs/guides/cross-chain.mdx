@@ -3,6 +3,14 @@ title: Accept payments from any USDC chain
 description: CCTP V2 routing. Customer pays from Ethereum, Base, Arbitrum, Polygon, Solana, etc., you get USDC on Arc.
 ---
 
+<Callout type="warn" title="Roadmap, not shipped">
+Cross-chain via CCTP V2 is on the roadmap. The database schema and
+scheduler wiring are in place, and the design below is how it will
+work when shipped. The checkout `<StrimzPayButton sourceChain=...>` prop
+is not live yet. Merchants who need cross-chain today should keep the
+customer on Arc.
+</Callout>
+
 Strimz settles on Arc, where USDC is the native gas token. But your customer might hold their USDC on a different chain (Ethereum, Base, Arbitrum, Polygon, Solana, Avalanche, Optimism). Instead of forcing them to bridge first, Strimz uses Circle's [CCTP V2](https://developers.circle.com/stablecoins/cctp-getting-started) to bridge and settle in one flow.
 
 ## How it works

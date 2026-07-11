@@ -43,7 +43,7 @@ export default function AdminAnalyticsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Analytics"
-        description="Volume + signups across the platform. Bare numbers, no projections — this is what already happened."
+        description="Volume + signups across the platform. Bare numbers, no projections. This is what already happened."
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

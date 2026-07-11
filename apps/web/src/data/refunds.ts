@@ -40,11 +40,11 @@ const STATUSES: RefundStatus[] = [
 ]
 const NOTES = [
   'Buyer cancelled within 24h window',
-  'Product shipped damaged — replaced + refunded',
+  'Product shipped damaged. Replaced + refunded',
   'Duplicate session created on retry',
   'Reported as fraudulent by issuing wallet',
   'Goodwill refund (customer reported confusion)',
-  'Subscription cancelled mid-period — pro-rated',
+  'Subscription cancelled mid-period. Pro-rated',
 ]
 
 const rng = mulberry32(19)

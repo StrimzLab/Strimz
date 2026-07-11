@@ -1,7 +1,17 @@
 'use client'
 
 import * as React from 'react'
-import { Download, MoreHorizontal, Plus, Pause, Play, Copy, KeyRound } from 'lucide-react'
+import Link from 'next/link'
+import {
+  Download,
+  MoreHorizontal,
+  Plus,
+  Pause,
+  Play,
+  Copy,
+  KeyRound,
+  RotateCcw,
+} from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import {
@@ -21,52 +31,37 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
+  FieldLabel,
   Label,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@strimz/ui'
-import type {
-  WebhookDelivery,
-  WebhookDeliveryStatus,
-  WebhookEndpoint,
-  WebhookEventName,
+import {
+  webhookEventNameSchema,
+  type WebhookDelivery,
+  type WebhookDeliveryStatus,
+  type WebhookEndpoint,
+  type WebhookEventName,
 } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { downloadCsv } from '@/lib/csv-export'
+import { useDashboardMode } from '@/lib/dashboard-mode'
 import { relativeTime } from '@/lib/format'
 import {
   useCreateWebhookEndpoint,
   useDisableWebhookEndpoint,
   useEnableWebhookEndpoint,
+  useReplayWebhookDelivery,
   useRotateWebhookSecret,
   useWebhookDeliveries,
   useWebhookEndpoints,
 } from '@/hooks/api'
 
-const ALL_EVENT_TYPES: readonly WebhookEventName[] = [
-  'payment.created',
-  'payment.completed',
-  'payment.failed',
-  'subscription.created',
-  'subscription.charged',
-  'subscription.charge_failed',
-  'subscription.recovery_attempt',
-  'subscription.recovery_outcome',
-  'subscription.cancelled',
-  'subscription.lapsed',
-  'refund.created',
-  'refund.completed',
-  'refund.failed',
-  'invoice.created',
-  'invoice.paid',
-  'invoice.overdue',
-  'agent.action_executed',
-  'agent.job_proposed',
-  'agent.job_completed',
-  'agent.job_disputed',
-  'compliance.wallet_flagged',
-  'compliance.wallet_blocked',
-] as const
+const ALL_EVENT_TYPES: readonly WebhookEventName[] = webhookEventNameSchema.options
 
 const DELIVERY_TONE: Record<
   WebhookDeliveryStatus,
@@ -78,20 +73,12 @@ const DELIVERY_TONE: Record<
   permanently_failed: 'danger',
 }
 
+const EM_DASH = '—'
+
 /**
- * Webhooks page.
- *
- * Two TanStack Query subscriptions on the same screen — endpoints
- * (slow-changing) and deliveries (auto-refresh every 10s via the
- * hook's `refetchInterval`). They're separate queries so a delivery
- * tick doesn't flush the endpoints table.
- *
- * Re-render hygiene:
- *   - Endpoint stats are computed in a `select` projection so the cards
- *     re-render only when their values actually change.
- *   - Mutation hooks are read once at the top and shared across
- *     dropdown items; column callbacks reference the stable mutation
- *     objects, not freshly-bound closures.
+ * Two TanStack Query subscriptions on the same screen. Endpoints
+ * (slow-changing) and deliveries (auto-refreshed every 10s in the hook).
+ * They're separate queries so a delivery tick doesn't flush endpoints.
  */
 export default function WebhooksPage() {
   const endpointsQuery = useWebhookEndpoints(
@@ -118,6 +105,11 @@ export default function WebhooksPage() {
   const disableMutation = useDisableWebhookEndpoint()
   const enableMutation = useEnableWebhookEndpoint()
   const rotateMutation = useRotateWebhookSecret()
+  const replayMutation = useReplayWebhookDelivery()
+
+  const [rotatedSecret, setRotatedSecret] = React.useState<{ url: string; secret: string } | null>(
+    null,
+  )
 
   const successRate = React.useMemo(() => {
     if (!deliveriesQuery.data) return 0
@@ -131,10 +123,15 @@ export default function WebhooksPage() {
         accessorKey: 'url',
         header: 'Endpoint',
         cell: ({ row }) => (
-          <div className="flex flex-col leading-tight">
+          <Link
+            href={`/app/webhooks/endpoints/${row.original.id}`}
+            className="flex flex-col leading-tight hover:underline"
+          >
             <span className="font-medium">{row.original.url}</span>
-            <span className="text-muted-foreground text-xs">{row.original.description ?? '—'}</span>
-          </div>
+            <span className="text-muted-foreground text-xs">
+              {row.original.description ?? EM_DASH}
+            </span>
+          </Link>
         ),
       },
       {
@@ -196,7 +193,12 @@ export default function WebhooksPage() {
                   <Copy className="mr-2 size-4" /> Copy URL
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => rotateMutation.mutate(ep.id)}
+                  onClick={() =>
+                    rotateMutation.mutate(ep.id, {
+                      onSuccess: (result) =>
+                        setRotatedSecret({ url: ep.url, secret: result.signingSecret }),
+                    })
+                  }
                   disabled={rotateMutation.isPending}
                 >
                   <KeyRound className="mr-2 size-4" /> Rotate secret
@@ -231,15 +233,25 @@ export default function WebhooksPage() {
       {
         accessorKey: 'eventName',
         header: 'Event',
-        cell: ({ row }) => <code className="text-xs font-medium">{row.original.eventName}</code>,
+        cell: ({ row }) => (
+          <Link
+            href={`/app/webhooks/deliveries/${row.original.id}`}
+            className="text-xs font-medium hover:underline"
+          >
+            <code>{row.original.eventName}</code>
+          </Link>
+        ),
       },
       {
         accessorKey: 'endpointId',
         header: 'Endpoint',
         cell: ({ row }) => (
-          <code className="text-muted-foreground text-xs">
-            {row.original.endpointId.slice(0, 14)}…
-          </code>
+          <Link
+            href={`/app/webhooks/endpoints/${row.original.endpointId}`}
+            className="text-muted-foreground text-xs hover:underline"
+          >
+            <code>{row.original.endpointId.slice(0, 14)}…</code>
+          </Link>
         ),
       },
       {
@@ -265,13 +277,13 @@ export default function WebhooksPage() {
               HTTP {row.original.responseCode}
             </code>
           ) : (
-            <span className="text-muted-foreground text-xs">—</span>
+            <span className="text-muted-foreground text-xs">{EM_DASH}</span>
           ),
       },
       {
         accessorKey: 'attempt',
-        header: 'Attempts',
-        cell: ({ row }) => <span className="text-xs">{row.original.attempt}/6</span>,
+        header: 'Attempt',
+        cell: ({ row }) => <span className="text-xs">#{row.original.attempt}</span>,
       },
       {
         accessorKey: 'responseMs',
@@ -280,7 +292,7 @@ export default function WebhooksPage() {
           row.original.responseMs !== null ? (
             <span className="font-mono text-xs">{row.original.responseMs}ms</span>
           ) : (
-            <span className="text-muted-foreground text-xs">—</span>
+            <span className="text-muted-foreground text-xs">{EM_DASH}</span>
           ),
       },
       {
@@ -292,14 +304,40 @@ export default function WebhooksPage() {
           </span>
         ),
       },
+      {
+        id: 'actions',
+        header: '',
+        enableHiding: false,
+        enableSorting: false,
+        cell: ({ row }) => {
+          const d = row.original
+          const canReplay = d.status === 'permanently_failed' || d.status === 'retrying'
+          if (!canReplay) return null
+          return (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs"
+              onClick={(e) => {
+                e.preventDefault()
+                replayMutation.mutate(d.id)
+              }}
+              disabled={replayMutation.isPending}
+            >
+              <RotateCcw className="mr-1 size-3" /> Replay
+            </Button>
+          )
+        },
+      },
     ],
-    [],
+    [replayMutation],
   )
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Webhooks"
+        docsSlug="webhooks"
         description="Endpoints that receive event notifications from Strimz. Failed deliveries retry automatically; persistent failures auto-disable the endpoint."
         action={
           <div className="flex items-center gap-2">
@@ -333,18 +371,18 @@ export default function WebhooksPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Endpoints"
-          value={endpointsQuery.data ? endpointsQuery.data.rows.length.toString() : '—'}
+          value={endpointsQuery.data ? endpointsQuery.data.rows.length.toString() : EM_DASH}
         />
         <Stat
           label="Delivered (recent)"
-          value={deliveriesQuery.data ? deliveriesQuery.data.delivered.toLocaleString() : '—'}
+          value={deliveriesQuery.data ? deliveriesQuery.data.delivered.toLocaleString() : EM_DASH}
         />
         <Stat
           label="Failed (recent)"
-          value={deliveriesQuery.data ? deliveriesQuery.data.failed.toLocaleString() : '—'}
+          value={deliveriesQuery.data ? deliveriesQuery.data.failed.toLocaleString() : EM_DASH}
           tone={deliveriesQuery.data && deliveriesQuery.data.failed > 5 ? 'danger' : undefined}
         />
-        <Stat label="Success rate" value={deliveriesQuery.data ? `${successRate}%` : '—'} />
+        <Stat label="Success rate" value={deliveriesQuery.data ? `${successRate}%` : EM_DASH} />
       </div>
 
       <section className="space-y-2">
@@ -384,6 +422,13 @@ export default function WebhooksPage() {
           />
         )}
       </section>
+
+      <RotatedSecretDialog
+        state={rotatedSecret}
+        onOpenChange={(open) => {
+          if (!open) setRotatedSecret(null)
+        }}
+      />
     </div>
   )
 }
@@ -404,20 +449,21 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'da
   )
 }
 
-/**
- * Add-endpoint dialog. The signing secret returned by Resend is shown
- * once and held in component state only — closing the dialog drops it.
- * The form re-uses the merchant's active mode by default (test vs
- * live); merchants in production-only environments don't see the
- * mode toggle.
- */
 function NewEndpointDialog() {
+  const activeMode = useDashboardMode()
+  // Live mode is disabled until Arc Mainnet ships, so we clamp the
+  // initial value even when the global toggle somehow reports 'live'.
+  const seedMode: 'test' | 'live' = activeMode === 'live' ? 'test' : activeMode
   const [open, setOpen] = React.useState(false)
   const [url, setUrl] = React.useState('')
   const [description, setDescription] = React.useState('')
-  const [mode, setMode] = React.useState<'test' | 'live'>('test')
+  const [mode, setMode] = React.useState<'test' | 'live'>(seedMode)
   const [events, setEvents] = React.useState<WebhookEventName[]>([])
   const [signingSecret, setSigningSecret] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (!open) setMode(seedMode)
+  }, [seedMode, open])
 
   const createMutation = useCreateWebhookEndpoint()
 
@@ -426,7 +472,12 @@ function NewEndpointDialog() {
     setDescription('')
     setEvents([])
     setSigningSecret(null)
-    setMode('test')
+    setMode(seedMode)
+  }
+
+  const closeDialog = () => {
+    setOpen(false)
+    reset()
   }
 
   const toggle = (e: WebhookEventName) =>
@@ -465,33 +516,19 @@ function NewEndpointDialog() {
           <DialogTitle>{signingSecret ? 'Signing secret' : 'Add webhook endpoint'}</DialogTitle>
           <DialogDescription>
             {signingSecret
-              ? 'Copy this now — once you close this dialog the full secret is unrecoverable.'
+              ? 'Copy this now. Once you close this dialog the full secret is unrecoverable.'
               : "You'll get a signing secret once it's created. Copy it immediately, we don't show it again."}
           </DialogDescription>
         </DialogHeader>
 
         {signingSecret ? (
-          <div className="space-y-3 py-2">
-            <code className="bg-muted/60 block break-all rounded-md p-3 font-mono text-xs">
-              {signingSecret}
-            </code>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() =>
-                navigator.clipboard
-                  .writeText(signingSecret)
-                  .then(() => toast.success('Secret copied'))
-              }
-            >
-              <Copy className="mr-1.5 size-4" /> Copy to clipboard
-            </Button>
-          </div>
+          <SecretReveal secret={signingSecret} />
         ) : (
           <div className="space-y-3 py-2">
             <div className="grid gap-1.5">
-              <Label htmlFor="wh-url">URL</Label>
+              <FieldLabel htmlFor="wh-url" required>
+                URL
+              </FieldLabel>
               <Input
                 id="wh-url"
                 placeholder="https://your-site.com/webhooks/strimz"
@@ -500,7 +537,9 @@ function NewEndpointDialog() {
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="wh-desc">Description</Label>
+              <FieldLabel htmlFor="wh-desc" required={false}>
+                Description
+              </FieldLabel>
               <Input
                 id="wh-desc"
                 placeholder="Production receiver"
@@ -508,24 +547,44 @@ function NewEndpointDialog() {
                 onChange={(e) => setDescription(e.target.value)}
               />
             </div>
-            <div className="flex items-center gap-2 text-xs">
-              <Label>Mode:</Label>
-              {(['test', 'live'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMode(m)}
-                  className={[
-                    'h-7 rounded-md border px-2 capitalize transition-colors',
-                    mode === m
-                      ? 'border-[#02C76A] bg-[#02C76A]/10 text-[#02C76A]'
-                      : 'border-border/60 hover:bg-muted',
-                  ].join(' ')}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
+            <TooltipProvider delayDuration={100}>
+              <div className="flex items-center gap-2 text-xs">
+                <Label>Mode:</Label>
+                {(['test', 'live'] as const).map((m) => {
+                  const disabled = m === 'live'
+                  const button = (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => !disabled && setMode(m)}
+                      disabled={disabled}
+                      aria-disabled={disabled}
+                      className={[
+                        'h-7 rounded-md border px-2 capitalize transition-colors',
+                        disabled
+                          ? 'border-border/60 text-muted-foreground cursor-not-allowed opacity-70'
+                          : mode === m
+                            ? 'border-[#02C76A] bg-[#02C76A]/10 text-[#02C76A]'
+                            : 'border-border/60 hover:bg-muted',
+                      ].join(' ')}
+                    >
+                      {m}
+                    </button>
+                  )
+                  if (!disabled) return button
+                  return (
+                    <Tooltip key={m}>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex">{button}</span>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-[220px] text-xs">
+                        Mainnet coming soon. Live mode unlocks when Arc Mainnet launches.
+                      </TooltipContent>
+                    </Tooltip>
+                  )
+                })}
+              </div>
+            </TooltipProvider>
             <div className="grid gap-1.5">
               <Label>Events ({events.length} selected)</Label>
               <div className="border-border/60 grid max-h-48 grid-cols-2 gap-1 overflow-y-auto rounded-md border p-2 text-xs">
@@ -549,10 +608,10 @@ function NewEndpointDialog() {
 
         <DialogFooter>
           {signingSecret ? (
-            <Button onClick={() => setOpen(false)}>Done</Button>
+            <Button onClick={closeDialog}>Done</Button>
           ) : (
             <>
-              <Button variant="ghost" onClick={() => setOpen(false)}>
+              <Button variant="ghost" onClick={closeDialog}>
                 Cancel
               </Button>
               <Button
@@ -566,6 +625,57 @@ function NewEndpointDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function RotatedSecretDialog({
+  state,
+  onOpenChange,
+}: {
+  state: { url: string; secret: string } | null
+  onOpenChange: (open: boolean) => void
+}) {
+  return (
+    <Dialog open={state != null} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>New signing secret</DialogTitle>
+          <DialogDescription>
+            Copy this now. Once you close this dialog the full secret is unrecoverable. The previous
+            secret is already invalidated.
+          </DialogDescription>
+        </DialogHeader>
+        {state ? (
+          <>
+            <div className="text-muted-foreground text-xs">
+              Endpoint: <span className="font-medium">{state.url}</span>
+            </div>
+            <SecretReveal secret={state.secret} />
+          </>
+        ) : null}
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)}>Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function SecretReveal({ secret }: { secret: string }) {
+  return (
+    <div className="space-y-3 py-2">
+      <code className="bg-muted/60 block break-all rounded-md p-3 font-mono text-xs">{secret}</code>
+      <Button
+        variant="outline"
+        size="sm"
+        className="w-full"
+        onClick={() =>
+          navigator.clipboard.writeText(secret).then(() => toast.success('Secret copied'))
+        }
+      >
+        <Copy className="mr-1.5 size-4" /> Copy to clipboard
+      </Button>
+    </div>
   )
 }
 

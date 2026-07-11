@@ -26,7 +26,7 @@ type auditEntry struct {
 // FK link). Used for system-level events that affect a merchant by their
 // on-chain id only.
 func (s *Store) appendAudit(ctx context.Context, e auditEntry) error {
-	_, err := s.pool.Exec(ctx, `
+	_, err := s.db().Exec(ctx, `
 		INSERT INTO "AuditLog" (
 		  id, "merchantId", category, action, "targetType", "targetId", metadata, "createdAt"
 		) VALUES (
@@ -39,7 +39,7 @@ func (s *Store) appendAudit(ctx context.Context, e auditEntry) error {
 // appendAuditWithMerchant writes an AuditLog row scoped to a specific
 // off-chain merchant (FK populated).
 func (s *Store) appendAuditWithMerchant(ctx context.Context, merchantID string, e auditEntry) error {
-	_, err := s.pool.Exec(ctx, `
+	_, err := s.db().Exec(ctx, `
 		INSERT INTO "AuditLog" (
 		  id, "merchantId", category, action, "targetType", "targetId", metadata, "createdAt"
 		) VALUES (

@@ -34,6 +34,57 @@ export class CustomersService {
     return serialise(row)
   }
 
+  async upsertFromCheckout(input: {
+    merchantId: string
+    walletAddress: string
+    email: string
+  }): Promise<Customer> {
+    // Lowercase to match the indexer's Customer upsert; a checksummed
+    // wallet here would create a second, email-less row from chain events.
+    const walletAddress = input.walletAddress.toLowerCase()
+    const now = new Date()
+    const existing = await this.prisma.db.customer.findUnique({
+      where: {
+        merchantId_walletAddress: {
+          merchantId: input.merchantId,
+          walletAddress,
+        },
+      },
+    })
+
+    if (!existing) {
+      const created = await this.prisma.db.customer.create({
+        data: {
+          merchantId: input.merchantId,
+          walletAddress,
+          email: input.email,
+          metadata: {
+            emailHistory: [{ email: input.email, seenAt: now.toISOString() }],
+          } as never,
+        },
+      })
+      return serialise(created)
+    }
+
+    const priorHistory = readEmailHistory(existing.metadata)
+    const emailChanged = existing.email !== input.email
+    const nextHistory =
+      emailChanged || priorHistory.length === 0
+        ? [...priorHistory, { email: input.email, seenAt: now.toISOString() }]
+        : priorHistory
+    const nextMetadata = { ...toRecord(existing.metadata), emailHistory: nextHistory }
+
+    const updated = await this.prisma.db.customer.update({
+      where: { id: existing.id },
+      data: {
+        email: input.email,
+        metadata: nextMetadata as never,
+        lastSeenAt: now,
+      },
+    })
+    return serialise(updated)
+  }
+
   async list(
     merchantId: string,
     params: { limit?: number; cursor?: string | null; externalRef?: string },
@@ -59,4 +110,28 @@ function serialise(row: any): Customer {
     firstSeenAt: row.firstSeenAt.toISOString(),
     lastSeenAt: row.lastSeenAt.toISOString(),
   }
+}
+
+interface EmailHistoryEntry {
+  email: string
+  seenAt: string
+}
+
+function toRecord(metadata: unknown): Record<string, unknown> {
+  return metadata && typeof metadata === 'object'
+    ? { ...(metadata as Record<string, unknown>) }
+    : {}
+}
+
+function readEmailHistory(metadata: unknown): EmailHistoryEntry[] {
+  const bag = toRecord(metadata)
+  const raw = bag.emailHistory
+  if (!Array.isArray(raw)) return []
+  return raw.filter(
+    (entry): entry is EmailHistoryEntry =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      typeof (entry as EmailHistoryEntry).email === 'string' &&
+      typeof (entry as EmailHistoryEntry).seenAt === 'string',
+  )
 }

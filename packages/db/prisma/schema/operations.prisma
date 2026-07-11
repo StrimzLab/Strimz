@@ -8,6 +8,8 @@ model IndexerCursor {
   lastProcessedBlock   BigInt
   /// Log index within that block (for within-block resumability).
   lastProcessedLogIndex Int     @default(-1)
+  /// Hash of lastProcessedBlock. Checked each poll to detect reorgs.
+  lastBlockHash        String?  @db.VarChar(66)
   updatedAt            DateTime @updatedAt
 
   @@index([environment])

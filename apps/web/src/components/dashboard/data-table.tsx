@@ -56,7 +56,7 @@ export function DataTable<TData, TValue>({
   searchPlaceholder,
   toolbar,
   emptyTitle = 'No results',
-  emptyDescription = 'Nothing here yet — adjust your filters or check back later.',
+  emptyDescription = 'Nothing here yet. Adjust your filters or check back later.',
   pageSize = 10,
   loading = false,
 }: DataTableProps<TData, TValue>) {

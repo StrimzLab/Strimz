@@ -9,6 +9,12 @@ import {
 
 import { useMutationWithToast } from '@/hooks/api/use-mutation-with-toast'
 import type {
+  Broadcast,
+  BroadcastAudience,
+  BroadcastListResponse,
+  CreateBroadcastInput,
+} from '@strimz/shared-types'
+import type {
   AdminListItem,
   AdminMerchantDetail,
   AdminMerchantListResponse,
@@ -43,6 +49,8 @@ export const adminKeys = {
   topMerchants: (limit: number) => [...adminKeys.analytics(), 'top', limit] as const,
   health: () => [...adminKeys.all, 'health'] as const,
   admins: () => [...adminKeys.all, 'admins'] as const,
+  broadcasts: (audience?: BroadcastAudience) =>
+    [...adminKeys.all, 'broadcasts', audience ?? 'any'] as const,
 }
 
 // ---- Queries ----
@@ -299,5 +307,38 @@ export function useRemoveAdmin() {
     mutationFn: (id: string) => api.removeAdmin(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: adminKeys.admins() }),
     messages: { loading: 'Removing admin…', success: 'Admin removed' },
+  })
+}
+
+// ---- Broadcasts ----
+
+export function useAdminBroadcasts<TData = BroadcastListResponse>(
+  params: { audience?: BroadcastAudience; limit?: number } = {},
+  options?: Omit<
+    UseQueryOptions<BroadcastListResponse, Error, TData, ReturnType<typeof adminKeys.broadcasts>>,
+    'queryKey' | 'queryFn'
+  >,
+) {
+  const api = useAdminApi()
+  return useQuery({
+    queryKey: adminKeys.broadcasts(params.audience),
+    queryFn: ({ signal }) => api.listBroadcasts(params, { signal }),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    ...options,
+  })
+}
+
+export function useCreateBroadcast() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast<Broadcast, CreateBroadcastInput>({
+    mutationFn: (input) => api.createBroadcast(input),
+    onSuccess: () => {
+      // Invalidate every audience slice so the operator sees their
+      // new broadcast in whichever tab they're viewing.
+      qc.invalidateQueries({ queryKey: [...adminKeys.all, 'broadcasts'] })
+    },
+    messages: { loading: 'Sending broadcast…', success: 'Broadcast sent' },
   })
 }

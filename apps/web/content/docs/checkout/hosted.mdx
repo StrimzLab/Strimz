@@ -13,7 +13,7 @@ They click your "Pay" link and land on `strimz-finance.vercel.app/pay/cs_…`. T
 
 - Your logo at the top (from your merchant profile).
 - Your business name as a wordmark below the logo.
-- The session description in slightly larger text — whatever you set on `paymentSessions.create`.
+- The session description in slightly larger text. Whatever you set on `paymentSessions.create`.
 - The amount, prominently. `10.00 USDC`, not `10000000`.
 - A Connect Wallet button at the bottom.
 
@@ -35,13 +35,13 @@ The customizations all live on your merchant profile, not on the session. Config
 
 On enterprise tier:
 
-**Brand colour** — CSS hex. Replaces the Strimz green on the primary button. We refuse to accept a colour that fails WCAG AA contrast against white; we'd rather your button still be readable than your brand be perfect.
+**Brand colour**. CSS hex. Replaces the Strimz green on the primary button. We refuse to accept a colour that fails WCAG AA contrast against white; we'd rather your button still be readable than your brand be perfect.
 
-**Whitelabel** — drops the "Powered by Strimz" footer and replaces the typed-data domain name shown in the wallet prompt with your business name. This requires a per-merchant contract deployment because the EIP-712 domain name is signed into the payer's authorization. Talk to sales before turning this on.
+**Whitelabel**. Drops the "Powered by Strimz" footer and replaces the typed-data domain name shown in the wallet prompt with your business name. This requires a per-merchant contract deployment because the EIP-712 domain name is signed into the payer's authorization. Talk to sales before turning this on.
 
 What you can customize per-session is much narrower. Just three fields:
 
-`description` is the line above the amount. Keep it short — "Pro plan — monthly", "Invoice #4012", "Annual subscription". The page truncates at about 80 characters.
+`description` is the line above the amount. Keep it short. "Pro plan. Monthly", "Invoice #4012", "Annual subscription". The page truncates at about 80 characters.
 
 `payerEmail` pre-fills the optional email capture if you've already collected it (most invoice flows have this).
 
@@ -51,9 +51,9 @@ What you can customize per-session is much narrower. Just three fields:
 
 The Strimz contract address. The payer sees it in the typed-data prompt; it's part of the EIP-712 domain. Changing it would invalidate the signature.
 
-The signing prompt itself. Different wallets render EIP-712 differently — MetaMask shows it one way, Phantom another, Rabby with its custom security review pane. Strimz has no control over that surface; it's wallet software's job. The fields in the prompt are what we put in the signed envelope, but the layout is the wallet's.
+The signing prompt itself. Different wallets render EIP-712 differently. MetaMask shows it one way, Phantom another, Rabby with its custom security review pane. Strimz has no control over that surface; it's wallet software's job. The fields in the prompt are what we put in the signed envelope, but the layout is the wallet's.
 
-The page layout. The form factor is fixed — header, description, amount, action button, footer. We don't expose a layout configuration because letting people move pieces around invariably leads to "where's the amount" support tickets.
+The page layout. The form factor is fixed. Header, description, amount, action button, footer. We don't expose a layout configuration because letting people move pieces around invariably leads to "where's the amount" support tickets.
 
 If you need full control of the layout, you want [embedded checkout](/docs/checkout/embed) instead. That gives you the SDK + the typed-data builder; you write the UI. The trade-off is you maintain it yourself.
 

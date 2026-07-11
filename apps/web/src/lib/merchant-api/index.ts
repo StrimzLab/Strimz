@@ -1,5 +1,5 @@
 /**
- * Merchant API — browser-side typed client for the Strimz dashboard.
+ * Merchant API. Browser-side typed client for the Strimz dashboard.
  *
  * Composition: every dashboard hook calls into one of the resource
  * methods on this aggregator. The aggregator carries one
@@ -14,6 +14,7 @@ import { ApiKeysResource } from './resources/api-keys'
 import { CustomersResource } from './resources/customers'
 import { InvoicesResource } from './resources/invoices'
 import { MerchantResource } from './resources/merchant'
+import { NotificationsResource } from './resources/notifications'
 import { PaymentSessionsResource } from './resources/payment-sessions'
 import { RefundsResource } from './resources/refunds'
 import { StorefrontsResource } from './resources/storefronts'
@@ -40,6 +41,7 @@ export class MerchantApi {
   readonly agents: AgentsResource
   readonly storefronts: StorefrontsResource
   readonly analytics: AnalyticsResource
+  readonly notifications: NotificationsResource
 
   constructor(opts: MerchantApiClientOptions = {}) {
     this.client = new MerchantApiClient(opts)
@@ -56,6 +58,7 @@ export class MerchantApi {
     this.agents = new AgentsResource(this.client)
     this.storefronts = new StorefrontsResource(this.client)
     this.analytics = new AnalyticsResource(this.client)
+    this.notifications = new NotificationsResource(this.client)
   }
 }
 

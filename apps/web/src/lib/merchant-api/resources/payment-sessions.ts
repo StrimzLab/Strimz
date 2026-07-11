@@ -13,7 +13,7 @@ export interface ListPaymentSessionsParams extends PaginationParams {
 
 /**
  * Resource binding for `/v1/payment-sessions`. Returns the entity types
- * straight from `@strimz/shared-types` — same source of truth as the API
+ * straight from `@strimz/shared-types` ,  same source of truth as the API
  * + the SDK, so the dashboard, the SDK consumers, and apps/api never
  * drift on field names.
  */

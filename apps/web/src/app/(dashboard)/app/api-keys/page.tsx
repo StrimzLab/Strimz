@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { MoreHorizontal, Plus, Eye, EyeOff, Copy, Ban } from 'lucide-react'
+import Link from 'next/link'
+import { AlertTriangle, MoreHorizontal, Plus, Copy, Ban, KeyRound } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import {
@@ -21,54 +22,59 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
+  FieldLabel,
   Label,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@strimz/ui'
-import type { ApiKey, ApiKeyScope } from '@strimz/shared-types'
+import {
+  apiKeyScopeSchema,
+  type ApiKey,
+  type ApiKeyKind,
+  type ApiKeyScope,
+} from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { useDashboardMode } from '@/lib/dashboard-mode'
 import { relativeTime } from '@/lib/format'
-import { useApiKeys, useCreateApiKey, useRevokeApiKey } from '@/hooks/api'
+import { useApiKeys, useCreateApiKey, useRevokeApiKey, useRotateApiKey } from '@/hooks/api'
 
-/**
- * Canonical scope list. Kept in sync with the server enum (which is
- * exported as `apiKeyScopeSchema` in @strimz/shared-types) — we
- * hardcode it here so dropdowns don't have to do a runtime z.enum walk.
- * The server validates anyway; this constant exists for UI ordering.
- */
-const ALL_SCOPES: readonly ApiKeyScope[] = [
-  'sessions_read',
-  'sessions_write',
-  'subscriptions_read',
-  'subscriptions_write',
-  'refunds_read',
-  'refunds_write',
-  'transactions_read',
-  'webhooks_read',
-  'webhooks_write',
-  'invoices_read',
-  'invoices_write',
-  'storefronts_read',
-  'storefronts_write',
-  'agents_read',
-  'agents_write',
-  'relay_read',
-  'relay_write',
-] as const
+const ALL_SCOPES: readonly ApiKeyScope[] = apiKeyScopeSchema.options
+
+const READ_SCOPES = ALL_SCOPES.filter((s) => s.endsWith('_read'))
+
+type RevokedFilter = 'active' | 'revoked' | 'all'
 
 export default function ApiKeysPage() {
-  const [revealed, setRevealed] = React.useState<Record<string, boolean>>({})
+  const [filter, setFilter] = React.useState<RevokedFilter>('active')
 
-  const { data, isLoading, isError, error, refetch } = useApiKeys(
-    { limit: 100 },
-    { select: (page) => ({ rows: page.data }) },
+  const params = React.useMemo(
+    () => ({
+      limit: 100,
+      revoked: filter === 'active' ? false : filter === 'revoked' ? true : undefined,
+    }),
+    [filter],
   )
+
+  const { data, isLoading, isError, error, refetch } = useApiKeys(params, {
+    select: (page) => ({ rows: page.data }),
+  })
+
   const revokeMutation = useRevokeApiKey()
+  const rotateMutation = useRotateApiKey()
+
+  const [rotatedSecret, setRotatedSecret] = React.useState<{
+    name: string
+    secret: string
+  } | null>(null)
 
   const columns = React.useMemo<ColumnDef<ApiKey>[]>(
     () => [
@@ -76,12 +82,15 @@ export default function ApiKeysPage() {
         accessorKey: 'name',
         header: 'Name',
         cell: ({ row }) => (
-          <div className="flex flex-col leading-tight">
+          <Link
+            href={`/app/api-keys/${row.original.id}`}
+            className="flex flex-col leading-tight hover:underline"
+          >
             <span className="font-medium">{row.original.name}</span>
             <span className="text-muted-foreground text-xs capitalize">
               {row.original.kind} key
             </span>
-          </div>
+          </Link>
         ),
       },
       {
@@ -100,24 +109,11 @@ export default function ApiKeysPage() {
         accessorKey: 'prefix',
         header: 'Key',
         cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <code className="bg-muted/60 rounded px-1.5 py-0.5 text-xs">
-              {revealed[row.original.id]
-                ? `${row.original.prefix}${'•'.repeat(20)}${row.original.lastFour}`
-                : `${row.original.prefix}${'•'.repeat(12)}${row.original.lastFour}`}
-            </code>
-            <button
-              type="button"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => setRevealed((s) => ({ ...s, [row.original.id]: !s[row.original.id] }))}
-            >
-              {revealed[row.original.id] ? (
-                <EyeOff className="size-3.5" />
-              ) : (
-                <Eye className="size-3.5" />
-              )}
-            </button>
-          </div>
+          <code className="bg-muted/60 rounded px-1.5 py-0.5 text-xs">
+            {row.original.prefix}
+            {'•'.repeat(12)}
+            {row.original.lastFour}
+          </code>
         ),
       },
       {
@@ -172,15 +168,24 @@ export default function ApiKeysPage() {
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                 <DropdownMenuItem
                   onClick={() =>
-                    navigator.clipboard
-                      .writeText(key.prefix)
-                      .then(() => toast.success('Prefix copied'))
+                    navigator.clipboard.writeText(key.id).then(() => toast.success('Id copied'))
                   }
                 >
-                  <Copy className="mr-2 size-4" /> Copy prefix
+                  <Copy className="mr-2 size-4" /> Copy id
                 </DropdownMenuItem>
                 {!isRevoked ? (
                   <>
+                    <DropdownMenuItem
+                      onClick={() =>
+                        rotateMutation.mutate(key.id, {
+                          onSuccess: (result) =>
+                            setRotatedSecret({ name: key.name, secret: result.secret }),
+                        })
+                      }
+                      disabled={rotateMutation.isPending}
+                    >
+                      <KeyRound className="mr-2 size-4" /> Rotate
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-rose-600 focus:text-rose-600"
@@ -197,22 +202,39 @@ export default function ApiKeysPage() {
         },
       },
     ],
-    [revealed, revokeMutation],
+    [revokeMutation, rotateMutation],
   )
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="API keys"
-        description="Server keys with scoped permissions. You can revoke any key right away — once you do, it stops working immediately."
+        docsSlug="api-keys"
+        description="Server keys with scoped permissions. You can revoke any key right away. Once you do, it stops working immediately."
         action={<NewKeyDialog />}
       />
 
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm">
-        <p className="font-medium">Secret keys are shown only once.</p>
-        <p className="text-muted-foreground mt-0.5 text-xs">
-          If you lose a key, revoke it and issue a new one. Strimz never stores the full secret.
-        </p>
+      <KeyHygieneCallout />
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs">
+          <Label className="text-muted-foreground">Show:</Label>
+          {(['active', 'revoked', 'all'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setFilter(v)}
+              className={[
+                'h-7 rounded-md border px-2 capitalize transition-colors',
+                filter === v
+                  ? 'border-[#02C76A] bg-[#02C76A]/10 text-[#02C76A]'
+                  : 'border-border/60 hover:bg-muted',
+              ].join(' ')}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
       </div>
 
       {isError ? (
@@ -227,28 +249,37 @@ export default function ApiKeysPage() {
           emptyDescription="Issue your first key to start integrating."
         />
       )}
+
+      <RotatedSecretDialog
+        state={rotatedSecret}
+        onOpenChange={(open) => {
+          if (!open) setRotatedSecret(null)
+        }}
+      />
     </div>
   )
 }
 
-/**
- * Issue-key dialog. Holds the plaintext secret in local component
- * state ONLY while the dialog is open — the secret never reaches any
- * cache, query store, or localStorage. Closing the dialog drops the
- * secret from memory.
- */
 function NewKeyDialog() {
+  const activeMode = useDashboardMode()
+  const seedMode: 'test' | 'live' = activeMode === 'live' ? 'test' : activeMode
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState('')
-  const [mode, setMode] = React.useState<'test' | 'live'>('test')
+  const [kind, setKind] = React.useState<ApiKeyKind>('secret')
+  const [mode, setMode] = React.useState<'test' | 'live'>(seedMode)
   const [scopes, setScopes] = React.useState<ApiKeyScope[]>([...ALL_SCOPES])
   const [secret, setSecret] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (!open) setMode(seedMode)
+  }, [seedMode, open])
 
   const createMutation = useCreateApiKey()
 
   const reset = () => {
     setName('')
-    setMode('test')
+    setKind('secret')
+    setMode(seedMode)
     setScopes([...ALL_SCOPES])
     setSecret(null)
   }
@@ -258,16 +289,19 @@ function NewKeyDialog() {
     createMutation.mutate(
       {
         name: name.trim(),
-        kind: 'secret',
+        kind,
         mode,
         scopes: scopes as [ApiKeyScope, ...ApiKeyScope[]],
       },
       {
-        onSuccess: (result) => {
-          setSecret(result.secret)
-        },
+        onSuccess: (result) => setSecret(result.secret),
       },
     )
+  }
+
+  const closeDialog = () => {
+    setOpen(false)
+    reset()
   }
 
   return (
@@ -288,31 +322,19 @@ function NewKeyDialog() {
           <DialogTitle>{secret ? 'Your new API key' : 'Issue a new API key'}</DialogTitle>
           <DialogDescription>
             {secret
-              ? 'Copy this now — once you close this dialog, the full key will be unrecoverable.'
-              : 'Pick a name, mode, and scopes. The full key will be shown once.'}
+              ? 'Copy this now. Once you close this dialog, the full key will be unrecoverable.'
+              : 'Pick a name, kind, mode, and scopes. The full key will be shown once.'}
           </DialogDescription>
         </DialogHeader>
 
         {secret ? (
-          <div className="space-y-3 py-2">
-            <code className="bg-muted/60 block break-all rounded-md p-3 font-mono text-xs">
-              {secret}
-            </code>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() =>
-                navigator.clipboard.writeText(secret).then(() => toast.success('Key copied'))
-              }
-            >
-              <Copy className="mr-1.5 size-4" /> Copy to clipboard
-            </Button>
-          </div>
+          <SecretReveal secret={secret} />
         ) : (
           <div className="space-y-3 py-2">
             <div className="grid gap-1.5">
-              <Label htmlFor="key-name">Name</Label>
+              <FieldLabel htmlFor="key-name" required>
+                Name
+              </FieldLabel>
               <Input
                 id="key-name"
                 placeholder="Production server"
@@ -320,27 +342,59 @@ function NewKeyDialog() {
                 onChange={(e) => setName(e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+
+            <div className="grid grid-cols-3 gap-3">
               <div className="grid gap-1.5">
-                <Label htmlFor="key-mode">Mode</Label>
-                <Select value={mode} onValueChange={(v) => setMode(v as 'test' | 'live')}>
-                  <SelectTrigger id="key-mode">
+                <FieldLabel htmlFor="key-kind" required>
+                  Kind
+                </FieldLabel>
+                <Select value={kind} onValueChange={(v) => setKind(v as ApiKeyKind)}>
+                  <SelectTrigger id="key-kind">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="test">Test</SelectItem>
-                    <SelectItem value="live">Live</SelectItem>
+                    <SelectItem value="secret">Secret</SelectItem>
+                    <SelectItem value="publishable">Publishable</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="key-preset">Preset</Label>
+                <FieldLabel htmlFor="key-mode" required>
+                  Mode
+                </FieldLabel>
+                <TooltipProvider delayDuration={100}>
+                  <Select value={mode} onValueChange={(v) => setMode(v as 'test' | 'live')}>
+                    <SelectTrigger id="key-mode">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="test">Test</SelectItem>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex w-full">
+                            <SelectItem value="live" disabled>
+                              Live
+                            </SelectItem>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-[220px] text-xs">
+                          Mainnet coming soon. Live mode unlocks when Arc Mainnet launches.
+                        </TooltipContent>
+                      </Tooltip>
+                    </SelectContent>
+                  </Select>
+                </TooltipProvider>
+              </div>
+              <div className="grid gap-1.5">
+                <FieldLabel htmlFor="key-preset" required>
+                  Preset
+                </FieldLabel>
                 <Select
                   defaultValue="full"
                   onValueChange={(v) =>
                     setScopes(
                       v === 'read'
-                        ? ALL_SCOPES.filter((s) => s.endsWith('_read'))
+                        ? [...READ_SCOPES]
                         : v === 'sessions'
                           ? ['sessions_read', 'sessions_write']
                           : [...ALL_SCOPES],
@@ -358,6 +412,9 @@ function NewKeyDialog() {
                 </Select>
               </div>
             </div>
+
+            <DialogHygieneNote />
+
             <div className="grid gap-1.5">
               <Label>
                 Scopes ({scopes.length} of {ALL_SCOPES.length})
@@ -387,10 +444,10 @@ function NewKeyDialog() {
 
         <DialogFooter>
           {secret ? (
-            <Button onClick={() => setOpen(false)}>Done</Button>
+            <Button onClick={closeDialog}>Done</Button>
           ) : (
             <>
-              <Button variant="ghost" onClick={() => setOpen(false)}>
+              <Button variant="ghost" onClick={closeDialog}>
                 Cancel
               </Button>
               <Button
@@ -404,6 +461,92 @@ function NewKeyDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function RotatedSecretDialog({
+  state,
+  onOpenChange,
+}: {
+  state: { name: string; secret: string } | null
+  onOpenChange: (open: boolean) => void
+}) {
+  return (
+    <Dialog open={state != null} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>New key issued</DialogTitle>
+          <DialogDescription>
+            Copy this now. The previous key is already revoked; anything using it will stop working
+            immediately.
+          </DialogDescription>
+        </DialogHeader>
+        {state ? (
+          <>
+            <div className="text-muted-foreground text-xs">
+              Key: <span className="font-medium">{state.name}</span>
+            </div>
+            <SecretReveal secret={state.secret} />
+          </>
+        ) : null}
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)}>Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function SecretReveal({ secret }: { secret: string }) {
+  return (
+    <div className="space-y-3 py-2">
+      <code className="bg-muted/60 block break-all rounded-md p-3 font-mono text-xs">{secret}</code>
+      <Button
+        variant="outline"
+        size="sm"
+        className="w-full"
+        onClick={() =>
+          navigator.clipboard.writeText(secret).then(() => toast.success('Key copied'))
+        }
+      >
+        <Copy className="mr-1.5 size-4" /> Copy to clipboard
+      </Button>
+    </div>
+  )
+}
+
+function KeyHygieneCallout() {
+  return (
+    <div className="rounded-xl border border-amber-300/50 bg-amber-100/40 p-4">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          <AlertTriangle className="size-3.5" />
+        </span>
+        <div className="space-y-1 text-base">
+          <p className="font-medium">One key per service, minimum scopes.</p>
+          <p className="text-muted-foreground text-sm">
+            A single Full-access key shared across every service means one leak nukes everything —
+            you can't rotate it without breaking every consumer at once, and the Last used column
+            can't tell you which service touched what. Instead, mint a separate key per workload
+            (checkout server, analytics cron, one-off migration), pick only the scopes that workload
+            needs, and give each key a distinctive name so you can rotate exactly the affected one
+            when something goes wrong.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DialogHygieneNote() {
+  return (
+    <div className="text-muted-foreground flex items-start gap-2 rounded-md border border-amber-300/50 bg-amber-100/40 p-2.5 text-xs">
+      <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+      <p>
+        Give this key only the scopes the workload actually needs. Full access is convenient but
+        expands the blast radius on any leak.
+      </p>
+    </div>
   )
 }
 

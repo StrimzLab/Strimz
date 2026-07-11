@@ -32,29 +32,32 @@ const PACKAGES = [
 ] as const
 
 const CHECKOUT_SAMPLE = `'use client'
+import { useRouter } from 'next/navigation'
 import { StrimzPayButton } from '@strimz/sdk-react'
 
-export function Checkout({ session }) {
+export function Checkout({ session }: { session: { id: string } }) {
+  const router = useRouter()
   return (
     <StrimzPayButton
       sessionId={session.id}
-      onSuccess={(tx) => router.push('/thanks')}
-      onError={(err) => toast.error(err.message)}
+      onSuccess={(txHash) => router.push(\`/thanks?tx=\${txHash}\`)}
+      onError={(err) => console.error(err.message)}
     />
   )
 }`
 
 const WEBHOOK_SAMPLE = `import { verifyWebhookSignature } from '@strimz/sdk'
 
-app.post('/webhooks/strimz', (req, res) => {
-  const ok = verifyWebhookSignature({
-    secret: process.env.STRIMZ_WEBHOOK_SECRET,
-    body: req.rawBody,
-    signatureHeader: req.headers['strimz-signature'],
-  })
-  if (!ok) return res.status(401).end()
+app.post('/webhooks/strimz', async (req, res) => {
+  const payload = req.rawBody.toString()
+  const result = await verifyWebhookSignature(
+    payload,
+    req.headers['strimz-signature'] as string,
+    process.env.STRIMZ_WEBHOOK_SECRET!,
+  )
+  if (!result.valid) return res.status(401).end()
 
-  const event = JSON.parse(req.rawBody.toString())
+  const event = JSON.parse(payload)
   // ... handle event ...
   res.status(200).end()
 })`
@@ -97,7 +100,7 @@ export function Developers() {
           </motion.p>
         </motion.div>
 
-        {/* Package cards — stacked vertically so each has full width */}
+        {/* Package cards. Stacked vertically so each has full width */}
         <motion.div
           {...inViewOnce}
           variants={stagger(0.05, 0.08)}

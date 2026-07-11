@@ -1,6 +1,6 @@
 ---
 title: Cancellation
-description: Two cancellation modes — at_period_end and immediate. Which one to use, and how to handle the refund-for-unused-time question.
+description: Two cancellation modes. At_period_end and immediate. Which one to use, and how to handle the refund-for-unused-time question.
 ---
 
 Cancellation comes in two shapes. The right one depends on whether the customer has already paid for the current cycle.
@@ -9,7 +9,7 @@ At-period-end is the default and the friendlier option. The customer paid for th
 
 Immediate is for when the customer wants out *now*. Maybe their company is dissolving; maybe they accidentally subscribed and want it reversed. The subscription dies on the call; whatever they paid for that they didn't use is gone unless you separately refund them.
 
-Both are explicit choices from your side. Strimz doesn't auto-cancel anything (except `lapsed`, which comes from recovery failure, not your action). The customer can't self-cancel through Strimz — they go through your support flow and you make the API call.
+Both are explicit choices from your side. Strimz doesn't auto-cancel anything (except `lapsed`, which comes from recovery failure, not your action). The customer can't self-cancel through Strimz. They go through your support flow and you make the API call.
 
 ## At period end
 
@@ -28,9 +28,9 @@ What happens:
 
 The dashboard surfaces this as "Cancels in N days" while the row is still active. The customer keeps service through the end of the cycle they already paid for.
 
-`subscription.cancelled` fires at the moment you call the API. The webhook payload's `data.status` will be `active` and `cancelledAt` will be set — that's the signal that this is a scheduled cancellation, not an immediate one.
+`subscription.cancelled` fires at the moment you call the API. The webhook payload's `data.status` will be `active` and `cancelledAt` will be set. That's the signal that this is a scheduled cancellation, not an immediate one.
 
-You'll see a second event later — typically a `subscription.lapsed` or a service-stop trigger from your own product — when the period actually ends. Whether you want to react to the cancellation-scheduled event or the cancellation-effective event is up to your business logic. Most merchants react to the scheduled one (start the "win back" email sequence, show a "your subscription is ending" banner) and use the period-end transition just to revoke product access.
+You'll see a second event later. Typically a `subscription.lapsed` or a service-stop trigger from your own product. When the period actually ends. Whether you want to react to the cancellation-scheduled event or the cancellation-effective event is up to your business logic. Most merchants react to the scheduled one (start the "win back" email sequence, show a "your subscription is ending" banner) and use the period-end transition just to revoke product access.
 
 ## Immediate
 
@@ -41,7 +41,7 @@ await strimz.subscriptions.cancel({
 })
 ```
 
-The subscription flips to `cancelled` right now. The next charge would have fired in N days; it doesn't. The customer's access stops based on your service logic — Strimz doesn't enforce a service window, it just stops charging.
+The subscription flips to `cancelled` right now. The next charge would have fired in N days; it doesn't. The customer's access stops based on your service logic. Strimz doesn't enforce a service window, it just stops charging.
 
 You'll see one `subscription.cancelled` webhook with `data.status: 'cancelled'`. That's it.
 
@@ -89,7 +89,7 @@ In practice, the contract-level cancellation is the binding control. The allowan
 
 There's no Strimz-hosted "Cancel my subscription" page that the payer can navigate to. Subscriptions are cancelled through the merchant.
 
-If you want to give your customers a self-service cancel button — the right move for most B2B SaaS — the pattern is:
+If you want to give your customers a self-service cancel button. The right move for most B2B SaaS. The pattern is:
 
 1. Build the page in your app.
 2. Authenticate the customer however you usually do (their existing session in your product).
@@ -97,7 +97,7 @@ If you want to give your customers a self-service cancel button — the right mo
 
 The Strimz API key stays server-side. The customer's authentication is yours to verify. You wire the business rules (do they get the rest of the cycle? do they get a refund?) and Strimz just does what you tell it.
 
-We don't build a payer-facing cancel UI because subscription cancellation almost always involves business logic that's specific to the merchant — proration policy, win-back flow, end-of-life confirmation, data export, account closure. Building a one-size-fits-all cancellation flow would be wrong for everyone. The primitive is what you need; the policy is yours.
+We don't build a payer-facing cancel UI because subscription cancellation almost always involves business logic that's specific to the merchant. Proration policy, win-back flow, end-of-life confirmation, data export, account closure. Building a one-size-fits-all cancellation flow would be wrong for everyone. The primitive is what you need; the policy is yours.
 
 ## When the merchant cancels for the customer
 

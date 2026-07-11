@@ -35,6 +35,7 @@ model PaymentSession {
   /// merchant. Null until the notification cron picks the row up;
   /// guarantees one-shot delivery without a separate event log.
   merchantNotifiedAt   DateTime?
+  customerNotifiedAt   DateTime?
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 
@@ -51,4 +52,5 @@ model PaymentSession {
   // are confirmed and not yet emailed appear. Keeps the cron query
   // sub-millisecond even as the table grows.
   @@index([status, merchantNotifiedAt])
+  @@index([status, customerNotifiedAt])
 }

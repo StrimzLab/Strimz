@@ -4,6 +4,8 @@ pragma solidity ^0.8.28;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import { IStrimzPayments } from "../interfaces/IStrimzPayments.sol";
 import { IStrimzRegistry } from "../interfaces/IStrimzRegistry.sol";
@@ -13,33 +15,25 @@ import { IERC3009 } from "../interfaces/IERC3009.sol";
 import { StrimzPausable } from "../access/Pausable.sol";
 
 /// @title StrimzPayments
-/// @notice One-shot USDC / EURC payments with fee-on-transfer split and
-///         pull-based ERC20 settlement. Two entrypoints:
-///         - `pay()` — classic approve+pay flow for any whitelisted token.
-///         - `payWithAuthorization()` — EIP-3009 meta-tx flow for tokens
-///           whose `TokenWhitelist` capability bitmap has `CAP_TRANSFER_AUTH_3009`.
-/// @dev    **This contract is immutable.** It does NOT inherit
-///         `UUPSUpgradeable` and has no `_authorizeUpgrade` function. If
-///         a vulnerability is discovered, the remediation is to deploy a
-///         new `StrimzPayments` to a fresh address and rotate the
-///         Registry's dependency pointers. This is the deliberate
-///         security posture documented in the Strimz whitepaper —
-///         policy-bearing contracts (Registry, FeeCollector,
-///         TokenWhitelist) remain upgradeable, but the value-moving
-///         path is closed against upgrade-as-attack-vector.
-/// @dev    Dependency references live in namespaced storage so the
-///         admin can still rotate them via `setRegistry` /
-///         `setFeeCollector` / `setTokenWhitelist`.
-contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard {
+/// @notice One-shot payments. `pay` for classic ERC20 approve+pull;
+///         `payWithAuthorization` for the EIP-3009 meta-tx flow.
+/// @dev    Immutable. No proxy, no upgrade. Bugs mean redeploy + Registry
+///         pointer rotation.
+contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, EIP712 {
     using SafeERC20 for IERC20;
 
     uint16 public constant BPS_DENOMINATOR = 10_000;
 
-    /// @dev Mirrors `TokenWhitelist.CAP_TRANSFER_AUTH_3009`. If the bit
-    ///      assignment in TokenWhitelist ever changes, update this
-    ///      constant in lockstep. Cheaper than reading via the interface
-    ///      on every call.
+    /// @dev Mirrors TokenWhitelist.CAP_TRANSFER_AUTH_3009.
     uint8 private constant CAP_TRANSFER_AUTH_3009 = 1 << 1; // 0x02
+
+    /// @dev The payer signs this alongside the EIP-3009 auth. Binds
+    ///      every parameter that decides where the money goes so an
+    ///      attacker holding the EIP-3009 sig can't redirect the
+    ///      payment to a different merchant.
+    bytes32 private constant PAY_INTENT_TYPEHASH = keccak256(
+        "PayIntent(uint256 merchantId,address token,uint256 amount,bytes32 nonce,uint256 validBefore,bytes32 ref)"
+    );
 
     /// @custom:storage-location erc7201:strimz.storage.StrimzPayments
     struct Storage {
@@ -61,25 +55,19 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard {
         }
     }
 
-    /// @dev Single-phase init. The `initializer` modifier from OZ's
-    ///      Initializable guards the OZ `__init` functions and prevents
-    ///      double-initialisation. Because this contract is non-upgradeable
-    ///      and never sits behind a proxy, the `_disableInitializers`
-    ///      pattern (used by the upgradeable contracts) is unnecessary.
+    /// @dev Single-phase init. The `initializer` modifier guards OZ's
+    ///      `__init` calls; `_disableInitializers` is unnecessary
+    ///      because this contract is not behind a proxy.
     constructor(
         address admin,
         IStrimzRegistry registry_,
         IFeeCollector feeCollector_,
         ITokenWhitelist tokenWhitelist_
-    ) initializer {
+    ) EIP712("StrimzPayments", "1") initializer {
         __AccessControl_init();
         __Pausable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
-        // UPGRADER_ROLE is not granted here — there is nothing to upgrade.
-        // The role still exists in StrimzAccessControl (it's used by the
-        // upgradeable contracts), but `StrimzPayments` simply never
-        // consults it because there is no `_authorizeUpgrade` function.
 
         Storage storage $ = _s();
         $.registry = registry_;
@@ -95,17 +83,25 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard {
 
     // ----- Dependency rotation -----
 
-    function setRegistry(IStrimzRegistry v) external onlyRole(ADMIN_ROLE) {
+    /// @dev Dependency rotation is only permitted while paused. Blocks a
+    ///      compromised admin from hot-swapping a live money-mover to a
+    ///      malicious registry / fee collector in the middle of a block.
+    ///      Legitimate operator flow: pause → rotate → unpause.
+
+    function setRegistry(IStrimzRegistry v) external onlyRole(ADMIN_ROLE) whenPaused {
+        if (address(v) == address(0)) revert Payments__InvalidAmount();
         _s().registry = v;
         emit DependencyUpdated("registry", address(v));
     }
 
-    function setFeeCollector(IFeeCollector v) external onlyRole(ADMIN_ROLE) {
+    function setFeeCollector(IFeeCollector v) external onlyRole(ADMIN_ROLE) whenPaused {
+        if (address(v) == address(0)) revert Payments__InvalidAmount();
         _s().feeCollector = v;
         emit DependencyUpdated("feeCollector", address(v));
     }
 
-    function setTokenWhitelist(ITokenWhitelist v) external onlyRole(ADMIN_ROLE) {
+    function setTokenWhitelist(ITokenWhitelist v) external onlyRole(ADMIN_ROLE) whenPaused {
+        if (address(v) == address(0)) revert Payments__InvalidAmount();
         _s().tokenWhitelist = v;
         emit DependencyUpdated("tokenWhitelist", address(v));
     }
@@ -128,19 +124,16 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard {
 
         uint256 feeAmount;
         unchecked {
-            // feeBps <= MAX_FEE_BPS (500); amount * 500 cannot overflow for
-            // any realistic `amount` < 2^247. Safe under Solidity 0.8.
+            // feeBps ≤ 500 and amount < 2^247 in any realistic scenario.
             feeAmount = (amount * m.feeBps) / BPS_DENOMINATOR;
         }
         uint256 netAmount = amount - feeAmount;
 
-        // Payer → FeeCollector (fee)
         if (feeAmount > 0) {
-            IERC20(token).safeTransferFrom(msg.sender, address($.feeCollector), feeAmount);
+            _exactTransferFrom(IERC20(token), msg.sender, address($.feeCollector), feeAmount);
             $.feeCollector.accrue(token, merchantId, feeAmount);
         }
-        // Payer → Merchant (net)
-        IERC20(token).safeTransferFrom(msg.sender, m.payoutAddress, netAmount);
+        _exactTransferFrom(IERC20(token), msg.sender, m.payoutAddress, netAmount);
 
         emit PaymentExecuted(merchantId, msg.sender, token, amount, feeAmount, netAmount, ref);
     }
@@ -151,29 +144,26 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard {
         address token,
         PayAuthorization calldata auth,
         bytes32 ref,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        Sig calldata authSig,
+        Sig calldata intentSig
     ) external override whenNotPaused nonReentrant {
         if (auth.amount == 0) revert Payments__InvalidAmount();
 
         Storage storage $ = _s();
         if (!$.tokenWhitelist.isWhitelisted(token)) revert Payments__InvalidToken(token);
-        // The token must declare EIP-3009 support; we don't want a relayer
-        // to accidentally call a non-3009 token's fallback function with
-        // these arguments and have something unintended happen.
         if (!$.tokenWhitelist.supportsCapability(token, CAP_TRANSFER_AUTH_3009)) {
             revert Payments__UnsupportedCapability(token);
         }
 
+        // Verify the Strimz intent BEFORE calling the token. Cheap fail
+        // path — the intent binds every param that decides fund routing.
+        _verifyPayIntent(merchantId, token, auth, ref, intentSig);
+
         IStrimzRegistry.Merchant memory m = $.registry.requireActiveMerchant(merchantId);
 
-        // Pull the full amount into this contract via EIP-3009. The token
-        // verifies the signature and the validity window, enforces that
-        // msg.sender == to (this contract), and records the nonce as used
-        // so the same authorization cannot be replayed. Any failure
-        // (bad signature, expired window, replayed nonce) reverts the
-        // entire payWithAuthorization call atomically.
+        // Pull the gross to this contract. The token verifies the sig,
+        // checks the validity window, and burns the nonce.
+        uint256 beforeSelf = IERC20(token).balanceOf(address(this));
         IERC3009(token).receiveWithAuthorization(
             auth.from,
             address(this),
@@ -181,28 +171,88 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard {
             auth.validAfter,
             auth.validBefore,
             auth.nonce,
-            v, r, s
+            authSig.v, authSig.r, authSig.s
         );
+        // Fee-on-transfer / rebase check: this contract must have
+        // received exactly auth.amount.
+        if (IERC20(token).balanceOf(address(this)) - beforeSelf != auth.amount) {
+            revert Payments__NonStandardTransfer();
+        }
 
         uint256 feeAmount;
         unchecked {
-            // Same overflow reasoning as pay(): feeBps <= MAX_FEE_BPS (500),
-            // auth.amount < 2^247 in any realistic scenario, so the product
-            // cannot overflow under Solidity 0.8.
             feeAmount = (auth.amount * m.feeBps) / BPS_DENOMINATOR;
         }
         uint256 netAmount = auth.amount - feeAmount;
 
-        // The funds are now in address(this). Forward them: fee to the
-        // FeeCollector, net to the merchant's payout address. SafeERC20
-        // handles non-standard tokens that return false instead of
-        // reverting on failure.
         if (feeAmount > 0) {
-            IERC20(token).safeTransfer(address($.feeCollector), feeAmount);
+            _exactTransfer(IERC20(token), address($.feeCollector), feeAmount);
             $.feeCollector.accrue(token, merchantId, feeAmount);
         }
-        IERC20(token).safeTransfer(m.payoutAddress, netAmount);
+        _exactTransfer(IERC20(token), m.payoutAddress, netAmount);
 
         emit PaymentExecuted(merchantId, auth.from, token, auth.amount, feeAmount, netAmount, ref);
+    }
+
+    /// @dev Balance-delta guard around `safeTransferFrom`. If the token
+    ///      delivers less than requested (fee-on-transfer, rebasing,
+    ///      blocklist-in-flight), revert the whole call.
+    function _exactTransferFrom(IERC20 token, address from, address to, uint256 amount) private {
+        uint256 before = token.balanceOf(to);
+        token.safeTransferFrom(from, to, amount);
+        if (token.balanceOf(to) - before != amount) revert Payments__NonStandardTransfer();
+    }
+
+    /// @dev Balance-delta guard around `safeTransfer`.
+    function _exactTransfer(IERC20 token, address to, uint256 amount) private {
+        uint256 before = token.balanceOf(to);
+        token.safeTransfer(to, amount);
+        if (token.balanceOf(to) - before != amount) revert Payments__NonStandardTransfer();
+    }
+
+    /// @dev Recovers the intent signer via EIP-712 and requires it to
+    ///      match `auth.from` — the same key that signed the EIP-3009
+    ///      authorization must also authorise the Strimz routing.
+    function _verifyPayIntent(
+        uint256 merchantId,
+        address token,
+        PayAuthorization calldata auth,
+        bytes32 ref,
+        Sig calldata intentSig
+    ) internal view {
+        bytes32 structHash = keccak256(abi.encode(
+            PAY_INTENT_TYPEHASH,
+            merchantId,
+            token,
+            auth.amount,
+            auth.nonce,
+            auth.validBefore,
+            ref
+        ));
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address recovered = ECDSA.recover(digest, intentSig.v, intentSig.r, intentSig.s);
+        if (recovered != auth.from) revert Payments__InvalidIntent();
+    }
+
+    /// @notice Exposed so off-chain SDKs can derive the same digest
+    ///         they need to sign.
+    function payIntentDigest(
+        uint256 merchantId,
+        address token,
+        uint256 amount,
+        bytes32 nonce,
+        uint256 validBefore,
+        bytes32 ref
+    ) external view returns (bytes32) {
+        bytes32 structHash = keccak256(abi.encode(
+            PAY_INTENT_TYPEHASH,
+            merchantId,
+            token,
+            amount,
+            nonce,
+            validBefore,
+            ref
+        ));
+        return _hashTypedDataV4(structHash);
     }
 }

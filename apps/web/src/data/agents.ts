@@ -41,7 +41,7 @@ export const AGENT_CONFIG: AgentConfig = {
     gracePeriodHours: 48,
     strategy: 'twice',
     notificationTemplate:
-      "Hey — your subscription with us couldn't be charged. Top up and we'll retry automatically.",
+      "Hey. Your subscription with us couldn't be charged. Top up and we'll retry automatically.",
   },
   cashflow: {
     digestEnabled: true,
@@ -91,7 +91,7 @@ export const AGENT_ACTIVITY: AgentActivity[] = range(36)
       cashflow_anomaly: ['cashflow_anomaly_detected', 'Hourly revenue 2.4σ below 30-day baseline'],
       cashflow_yield: [
         'cashflow_yield_recommended',
-        'Surplus over reserve detected — yield recommendation issued',
+        'Surplus over reserve detected. Yield recommendation issued',
       ],
       commerce: ['commerce_monthly_summary_sent', 'Monthly vendor summary emailed'],
       pricing_intelligence: [

@@ -6,16 +6,9 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query'
-import type {
-  CancelSubscriptionInput,
-  Subscription,
-  SubscriptionCharge,
-} from '@strimz/shared-types'
+import type { CancelSubscriptionInput, Subscription } from '@strimz/shared-types'
 
-import type {
-  ListSubscriptionChargesParams,
-  ListSubscriptionsParams,
-} from '@/lib/merchant-api/resources/subscriptions'
+import type { ListSubscriptionsParams } from '@/lib/merchant-api/resources/subscriptions'
 import type { Page } from '@/lib/merchant-api'
 
 import { useMerchantApi } from './merchant-api-context'
@@ -29,16 +22,6 @@ type ListOptions<TData = Page<Subscription>> = Omit<
 
 type DetailOptions<TData = Subscription> = Omit<
   UseQueryOptions<Subscription, Error, TData, ReturnType<typeof subscriptionKeys.detail>>,
-  'queryKey' | 'queryFn'
->
-
-type ChargesOptions<TData = Page<SubscriptionCharge>> = Omit<
-  UseQueryOptions<
-    Page<SubscriptionCharge>,
-    Error,
-    TData,
-    ReturnType<typeof subscriptionKeys.charges>
-  >,
   'queryKey' | 'queryFn'
 >
 
@@ -68,27 +51,13 @@ export function useSubscription<TData = Subscription>(
   })
 }
 
-export function useSubscriptionCharges<TData = Page<SubscriptionCharge>>(
-  params: ListSubscriptionChargesParams,
-  options?: ChargesOptions<TData>,
-) {
-  const api = useMerchantApi()
-  return useQuery({
-    queryKey: subscriptionKeys.charges(params),
-    queryFn: ({ signal }) => api.subscriptions.listCharges(params, { signal }),
-    placeholderData: keepPreviousData,
-    enabled: typeof params.subscriptionId === 'string' && params.subscriptionId.length > 0,
-    ...options,
-  })
-}
-
 /**
  * Cancel a subscription. Two cancellation modes are supported server-side:
  *   - `at_period_end`: status stays `active`, `cancelledAt` is stamped.
  *   - `immediate`: status flips to `cancelled` immediately.
  *
  * We don't optimistic-flip the status because the at-period-end variant
- * keeps the row "active" — easier to invalidate-and-refetch than to
+ * keeps the row "active". Easier to invalidate-and-refetch than to
  * fork the optimistic patch on the input shape.
  */
 export function useCancelSubscription() {

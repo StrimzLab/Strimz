@@ -1,0 +1,35 @@
+---
+title: Analytics page
+description: MRR, churn, conversion, and cohort retention for your account.
+---
+
+Analytics is where you go when the operational pages ("did this refund clear?") aren't enough and you need the business-level view ("is MRR growing?"). Every chart is scoped to your merchant and to the mode toggle at the top of the dashboard.
+
+## The layout
+
+Tabs across the top group the charts by question.
+
+- **Overview** — MRR, active subscribers, gross today / this month / last 30 days.
+- **Revenue** — volume by day for the selected window; gross vs net (after Strimz fees).
+- **Subscriptions** — new starts, cancellations, churn rate, average revenue per user.
+- **Conversion** — payment sessions created vs succeeded, funnel drop-off.
+
+Each chart has a date-range picker that persists in the URL, so you can share a chart at a specific window by copying the link.
+
+## What the numbers count
+
+**MRR (Monthly Recurring Revenue).** Sum of every active subscription normalised to a monthly cadence. A weekly $10 sub contributes ~$43.33; a yearly $120 sub contributes $10.
+
+**Churn.** Subscriptions that moved from `active` to `cancelled` or `lapsed` in the selected window, divided by the count of active subs at the start of the window.
+
+**Conversion.** Payment sessions that reached `succeeded` divided by every session `created` in the window. Expired sessions count against the denominator.
+
+**Gross vs net.** Gross is the customer-facing total. Net subtracts Strimz platform fees (see [Settings](/docs/dashboard/settings) for your account's fee tier).
+
+## Common workflows
+
+**I'm pitching investors, I need a chart of MRR over time.** Analytics → Overview → set the window to the last 12 months → screenshot. All numbers on the page are ground-truth from Postgres, no rounding tricks.
+
+**Sales are down this week, is it me or the platform?** Analytics → Revenue → 30-day view. Compare this week vs prior weeks. If the drop is uniform across all pages, it's likely you; if it aligns with a specific event type failure, cross-check the Webhooks page for delivery failures around the same time.
+
+**I want to see cohort retention.** Not exposed in the dashboard yet — the SQL is available in the API's `analyticsService` if you want to pull it directly via a database read replica.

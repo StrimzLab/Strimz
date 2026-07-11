@@ -179,6 +179,41 @@ abstract contract StrimzTestBase is Test {
         (v, r, s) = vm.sign(signerPk, digest);
     }
 
+    /// @dev Sign a Strimz PayIntent for `StrimzPayments`. The
+    ///      contract's `payIntentDigest` is authoritative; we hit it
+    ///      directly so the test tracks the on-chain hashing exactly.
+    function _signPayIntent(
+        StrimzPayments payments,
+        uint256 signerPk,
+        uint256 merchantId,
+        address token,
+        uint256 amount,
+        bytes32 nonce,
+        uint256 validBefore,
+        bytes32 ref
+    ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
+        bytes32 digest = payments.payIntentDigest(merchantId, token, amount, nonce, validBefore, ref);
+        (v, r, s) = vm.sign(signerPk, digest);
+    }
+
+    /// @dev Sign a Strimz SubscriptionIntent for `StrimzSubscriptions`.
+    function _signSubscriptionIntent(
+        StrimzSubscriptions subs,
+        uint256 signerPk,
+        uint256 merchantId,
+        address token,
+        uint256 amount,
+        uint32 interval,
+        uint64 startAt,
+        uint64 endAt,
+        uint256 permitDeadline
+    ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
+        bytes32 digest = subs.subscriptionIntentDigest(
+            merchantId, token, amount, interval, startAt, endAt, permitDeadline
+        );
+        (v, r, s) = vm.sign(signerPk, digest);
+    }
+
     // ----- Proxy-deploy helpers -----
 
     function _deployTokenWhitelist(address admin_) internal returns (TokenWhitelist) {

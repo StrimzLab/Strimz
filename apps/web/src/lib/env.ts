@@ -1,6 +1,6 @@
 /**
  * Public client environment. Anything `NEXT_PUBLIC_` is inlined into
- * the browser bundle at build time, so values are not secrets — never
+ * the browser bundle at build time, so values are not secrets. Never
  * put a private key here.
  */
 export const env = {

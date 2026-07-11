@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 /**
  * Default metadata for `/app` (the overview / home of the merchant
  * dashboard). Sub-routes under `/app/*` override this via their own
- * sibling layout.tsx — child segment metadata wins.
+ * sibling layout.tsx. Child segment metadata wins.
  */
 export const metadata: Metadata = {
   title: 'Overview',

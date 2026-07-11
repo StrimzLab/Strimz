@@ -276,23 +276,34 @@ type SubscriptionCharged struct {
 	NextChargeAt    uint64
 }
 
-// ChargeOutcome mirrors the on-chain enum in `IStrimzSubscriptions.sol`:
+// ChargeOutcome mirrors the on-chain enum in IStrimzSubscriptions.sol.
+// Order is frozen: new outcomes append, never insert.
 //
-//	0 = None       (must never appear in a successful event)
-//	1 = Charged
-//	2 = InsufficientFunds
-//	3 = RevokedApproval
-//	4 = Cancelled
-//	5 = NotDue
+//	0  None              never emitted; guards uninitialised slots
+//	1  Charged
+//	2  InsufficientFunds
+//	3  RevokedApproval
+//	4  Cancelled
+//	5  NotDue
+//	6  Ended             past endAt
+//	7  Duplicate         chargeAttemptId already spent
+//	8  Unknown           subscriptionId never existed
+//	9  MerchantInactive  merchant frozen/unknown at charge time
+//	10 TransferFailed    token transfer reverted mid-charge
 type ChargeOutcome uint8
 
 const (
-	ChargeOutcomeNone               ChargeOutcome = 0
-	ChargeOutcomeCharged            ChargeOutcome = 1
-	ChargeOutcomeInsufficientFunds  ChargeOutcome = 2
-	ChargeOutcomeRevokedApproval    ChargeOutcome = 3
-	ChargeOutcomeCancelled          ChargeOutcome = 4
-	ChargeOutcomeNotDue             ChargeOutcome = 5
+	ChargeOutcomeNone              ChargeOutcome = 0
+	ChargeOutcomeCharged           ChargeOutcome = 1
+	ChargeOutcomeInsufficientFunds ChargeOutcome = 2
+	ChargeOutcomeRevokedApproval   ChargeOutcome = 3
+	ChargeOutcomeCancelled         ChargeOutcome = 4
+	ChargeOutcomeNotDue            ChargeOutcome = 5
+	ChargeOutcomeEnded             ChargeOutcome = 6
+	ChargeOutcomeDuplicate         ChargeOutcome = 7
+	ChargeOutcomeUnknown           ChargeOutcome = 8
+	ChargeOutcomeMerchantInactive  ChargeOutcome = 9
+	ChargeOutcomeTransferFailed    ChargeOutcome = 10
 )
 
 // String returns the DB enum value (`SubscriptionChargeOutcome`) for the
@@ -307,7 +318,14 @@ func (c ChargeOutcome) DBString() string {
 		return "revoked_approval"
 	case ChargeOutcomeCancelled:
 		return "cancelled"
-	case ChargeOutcomeNotDue:
+	case ChargeOutcomeNotDue,
+		ChargeOutcomeEnded,
+		ChargeOutcomeDuplicate,
+		ChargeOutcomeUnknown,
+		ChargeOutcomeMerchantInactive,
+		ChargeOutcomeTransferFailed:
+		// Bucket into "skipped". Split into per-reason values later
+		// when the dashboard needs to tell retryable from terminal.
 		return "skipped"
 	default:
 		return "skipped"

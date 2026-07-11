@@ -1,12 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { Download, MoreHorizontal, Plus, Ban } from 'lucide-react'
+import { Download, MoreHorizontal, Ban } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import {
   Button,
-  Badge,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -14,14 +13,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@strimz/ui'
-import type { Subscription, SubscriptionPlan, SubscriptionStatus } from '@strimz/shared-types'
+import type { Subscription, SubscriptionStatus } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
-import { useCancelSubscription, useSubscriptionPlans, useSubscriptions } from '@/hooks/api'
+import { useCancelSubscription, useSubscriptions } from '@/hooks/api'
 
 const STATUS_TONE: Record<
   SubscriptionStatus,
@@ -48,7 +47,7 @@ const FILTERS: ReadonlyArray<SubscriptionStatus | 'all'> = [
 /**
  * View-model returned by the `select` projection. Pre-computing the
  * status-bucket counts here means the page's stat cards render from
- * memoised data — the per-row mapping happens once per query result.
+ * memoised data. The per-row mapping happens once per query result.
  */
 interface SubscriptionsView {
   rows: Subscription[]
@@ -195,6 +194,7 @@ export default function SubscriptionsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Subscriptions"
+        docsSlug="subscriptions"
         description="Every customer signed up to a recurring plan. Each row tracks one subscription."
         action={
           <div className="flex items-center gap-2">
@@ -272,70 +272,6 @@ export default function SubscriptionsPage() {
           }
         />
       )}
-
-      <PlansSection />
-    </div>
-  )
-}
-
-/**
- * Plans block. Independent query so the subscriptions list re-fetch
- * doesn't churn this surface. Single-shot list — pagination + creation
- * lives on a dedicated `/app/subscriptions/plans` page in the next
- * iteration.
- */
-function PlansSection() {
-  const { data, isLoading } = useSubscriptionPlans(
-    { status: 'active', limit: 12 },
-    { select: (page) => page.data },
-  )
-
-  return (
-    <section className="shadow-sub-card border-border/60 bg-background rounded-xl border p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="font-sora text-base font-semibold">Plans</h3>
-          <p className="text-muted-foreground mt-0.5 text-xs">
-            Templates customers subscribe to. Created via the API or hosted checkout.
-          </p>
-        </div>
-        <Button variant="outline" size="sm">
-          <Plus className="mr-1.5 size-4" /> New plan
-        </Button>
-      </div>
-      {isLoading ? (
-        <div className="text-muted-foreground text-xs">Loading plans…</div>
-      ) : !data || data.length === 0 ? (
-        <div className="text-muted-foreground py-4 text-center text-xs">
-          No plans yet — create one to start accepting recurring payments.
-        </div>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {data.map((p) => (
-            <PlanCard key={p.id} plan={p} />
-          ))}
-        </div>
-      )}
-    </section>
-  )
-}
-
-function PlanCard({ plan }: { plan: SubscriptionPlan }) {
-  return (
-    <div className="border-border/60 rounded-lg border p-4 transition-colors hover:border-[#02C76A]/40">
-      <div className="flex items-center justify-between">
-        <div className="text-sm font-medium">{plan.name}</div>
-        <Badge variant="outline" className="text-[10px] capitalize">
-          {plan.interval}
-        </Badge>
-      </div>
-      <div className="font-sora mt-2 flex items-center gap-1.5 text-xl font-semibold">
-        <TokenLogo symbol={plan.currency} size={18} />
-        {formatTokenAmount(plan.amount, plan.currency)}
-      </div>
-      {plan.trialPeriodDays && plan.trialPeriodDays > 0 ? (
-        <div className="text-muted-foreground mt-2 text-xs">{plan.trialPeriodDays}-day trial</div>
-      ) : null}
     </div>
   )
 }

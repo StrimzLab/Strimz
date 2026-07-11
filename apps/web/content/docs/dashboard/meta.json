@@ -1,0 +1,23 @@
+{
+  "title": "Dashboard",
+  "pages": [
+    "overview",
+    "---Money in---",
+    "payment-sessions",
+    "subscriptions",
+    "invoices",
+    "customers",
+    "---Money out---",
+    "refunds",
+    "withdraw",
+    "---Automation---",
+    "agents",
+    "storefront",
+    "---Developer---",
+    "api-keys",
+    "webhooks",
+    "---Account---",
+    "analytics",
+    "settings"
+  ]
+}

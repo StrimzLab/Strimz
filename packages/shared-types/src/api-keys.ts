@@ -36,6 +36,11 @@ export const apiKeyScopeSchema = z.enum([
   // hosted checkout and merchants embedding the SDK.
   'relay_read',
   'relay_write',
+  // Self-service key management from an API key holder. Rarely used
+  // day-to-day; needed for partner onboarding flows that mint scoped
+  // keys per sub-tenant.
+  'api_keys_read',
+  'api_keys_write',
 ])
 export type ApiKeyScope = z.infer<typeof apiKeyScopeSchema>
 

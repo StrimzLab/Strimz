@@ -7,7 +7,11 @@ import {
   type CurrentMerchantPayload,
 } from '../../common/decorators/current-merchant.decorator.js'
 import { StorefrontsService } from './storefronts.service.js'
-import { CreateStorefrontDto, CreateStorefrontProductDto } from './storefronts.dto.js'
+import {
+  CreateStorefrontDto,
+  CreateStorefrontProductDto,
+  StorefrontCheckoutDto,
+} from './storefronts.dto.js'
 
 @ApiTags('storefronts')
 @Controller()
@@ -91,5 +95,26 @@ export class StorefrontsController {
   @ApiOperation({ summary: 'Public storefront page by slug. Used by apps/web.' })
   retrievePublic(@Param('slug') slug: string) {
     return this.storefronts.retrievePublic(slug)
+  }
+
+  /**
+   * Public "Buy" endpoint used by the hosted storefront pages. The
+   * customer clicks a product, we mint a payment session (one-time)
+   * or resolve the linked subscription plan (recurring), and hand the
+   * frontend back the checkout URL. No auth: the storefront's slug +
+   * `published` status IS the authorisation model.
+   */
+  @Public()
+  @Post('/store/:slug/products/:productId/checkout')
+  @ApiOperation({
+    summary:
+      'Mint a checkout URL for a storefront product. Called by the public /store/[slug]/products/[id] page when the shopper clicks Buy.',
+  })
+  checkoutFromProduct(
+    @Param('slug') slug: string,
+    @Param('productId') productId: string,
+    @Body() dto: StorefrontCheckoutDto,
+  ) {
+    return this.storefronts.checkoutFromProduct(slug, productId, dto)
   }
 }

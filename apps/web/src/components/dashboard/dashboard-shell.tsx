@@ -1,19 +1,32 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 import { DashboardSidebar } from './sidebar'
 import { DashboardTopbar } from './topbar'
 import { DashboardFooter } from './dashboard-footer'
+import { useMerchantMe } from '@/hooks/api/use-merchant'
 
-/**
- * Client-side wrapper that owns sidebar open/close state.
- *
- * The right column is `min-h-screen flex-col`. The page-content `<main>`
- * grows with `flex-1` so the `<DashboardFooter />` always sits at the
- * viewport bottom even when content is short.
- */
 export function DashboardShell({ children, title }: { children: React.ReactNode; title?: string }) {
+  const router = useRouter()
+  const { data: merchant, isPending } = useMerchantMe()
+  const needsOnboarding = !!merchant && !merchant.onboardingCompleted
+
+  useEffect(() => {
+    if (needsOnboarding) router.replace('/onboarding')
+  }, [needsOnboarding, router])
+
   const [open, setOpen] = useState(false)
+
+  if (isPending || needsOnboarding) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white">
+        <Loader2 className="size-6 animate-spin text-[#02C76A]" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen bg-white">
       <DashboardSidebar open={open} onClose={() => setOpen(false)} />

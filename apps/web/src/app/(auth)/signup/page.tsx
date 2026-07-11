@@ -38,7 +38,7 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (!env.turnstileSiteKey) return
-    // Idempotent script load — guards against StrictMode's double-mount
+    // Idempotent script load. Guards against StrictMode's double-mount
     // in dev re-running the effect.
     if (document.querySelector('script[data-strimz-turnstile]')) return
     const s = document.createElement('script')
@@ -59,7 +59,7 @@ export default function SignupPage() {
           action: 'signup',
           theme: 'light',
           callback: (token) => setTurnstileToken(token),
-          // Token expired before the user submitted — clear it so the
+          // Token expired before the user submitted. Clear it so the
           // user gets a fresh challenge instead of submitting a stale
           // token the api would reject with timeout-or-duplicate.
           'expired-callback': () => {
@@ -93,7 +93,7 @@ export default function SignupPage() {
         // Verify against the local Next.js route handler at
         // `/api/auth/turnstile/verify`, not apps/api. The verify is just
         // a thin Cloudflare Siteverify proxy that doesn't need the
-        // database or merchant context — keeping it in apps/web means
+        // database or merchant context. Keeping it in apps/web means
         // signup works without apps/api having to be deployed yet, and
         // sidesteps the cross-origin call.
         let ok = false
@@ -106,7 +106,7 @@ export default function SignupPage() {
           ok = r.ok
         } catch (err) {
           // Network / CORS / offline. Surface this rather than silently
-          // killing the flow — the previous implementation had no catch
+          // killing the flow. The previous implementation had no catch
           // here and a failed fetch left the user staring at a dead
           // Continue button with no feedback.
           // eslint-disable-next-line no-console
@@ -117,7 +117,7 @@ export default function SignupPage() {
           return
         }
         if (!ok) {
-          toast.error('Bot-protection check failed — please try again.')
+          toast.error('Bot-protection check failed. Please try again.')
           getTurnstile()?.reset()
           setTurnstileToken(null)
           return

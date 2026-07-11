@@ -1,5 +1,6 @@
 import { createZodDto } from 'nestjs-zod'
 import { z } from 'zod'
+import { createBroadcastInputSchema } from '@strimz/shared-types'
 
 export const setMerchantStatusInputSchema = z.object({
   status: z.enum(['active', 'suspended', 'closed']),
@@ -27,3 +28,10 @@ export const setAdminStatusInputSchema = z.object({
   status: z.enum(['active', 'suspended']),
 })
 export class SetAdminStatusDto extends createZodDto(setAdminStatusInputSchema) {}
+
+/**
+ * Body for POST /v1/admin/broadcasts. Shape lives in
+ * `@strimz/shared-types` so the admin dashboard's client-side form
+ * validates against the same rules the server enforces.
+ */
+export class CreateBroadcastDto extends createZodDto(createBroadcastInputSchema) {}

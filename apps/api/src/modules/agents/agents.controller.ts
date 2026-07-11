@@ -6,6 +6,8 @@ import {
   type CurrentMerchantPayload,
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
+import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
 import { AgentsService } from './agents.service.js'
 import { CreateAgentJobDto, UpdateAgentConfigDto } from './agents.dto.js'
 
@@ -37,16 +39,13 @@ export class AgentsController {
   @ApiOperation({ summary: 'Paginated activity log for AutoPay Agent.' })
   listActivity(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
-    @Query('capability') capability?: string,
-    @Query('outcome') outcome?: string,
+    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
   ) {
     return this.agents.listActivity(ctx.merchantId, {
-      limit: limit ? Number(limit) : undefined,
-      cursor: cursor ?? null,
-      capability,
-      outcome,
+      limit: q.limit,
+      cursor: q.cursor ?? null,
+      capability: q.capability,
+      outcome: q.outcome,
     })
   }
 
@@ -54,14 +53,12 @@ export class AgentsController {
   @Get('/jobs')
   listJobs(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
-    @Query('status') status?: string,
+    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
   ) {
     return this.agents.listJobs(ctx.merchantId, {
-      limit: limit ? Number(limit) : undefined,
-      cursor: cursor ?? null,
-      status,
+      limit: q.limit,
+      cursor: q.cursor ?? null,
+      status: q.status,
     })
   }
 

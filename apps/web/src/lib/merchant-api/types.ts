@@ -1,7 +1,7 @@
 /**
  * Cross-resource types for the merchant API client.
  *
- * Keeps the resource modules small — each one re-exports the entity it
+ * Keeps the resource modules small. Each one re-exports the entity it
  * owns and pulls shared shapes (pagination, common params) from here.
  */
 

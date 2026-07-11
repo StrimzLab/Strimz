@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 import {
   ArrowLeft,
+  ArrowUpFromLine,
   BarChart3,
   Bot,
   Boxes,
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react'
 import { Logo } from '@/components/shared/logo'
 import { cn } from '@strimz/ui'
+import { useMerchantMe } from '@/hooks/api/use-merchant'
 
 const SECTIONS: ReadonlyArray<{
   label: string
@@ -44,6 +46,7 @@ const SECTIONS: ReadonlyArray<{
       { href: '/app/subscriptions', label: 'Subscriptions', icon: Receipt },
       { href: '/app/invoices', label: 'Invoices', icon: Receipt },
       { href: '/app/refunds', label: 'Refunds', icon: RefreshCcw },
+      { href: '/app/withdraw', label: 'Withdraw', icon: ArrowUpFromLine },
     ],
   },
   {
@@ -75,7 +78,7 @@ interface Props {
 }
 
 /**
- * Dashboard sidebar — full-height (`100dvh`), three-row flex column:
+ * Dashboard sidebar. Full-height (`100dvh`), three-row flex column:
  *
  * Mobile slides in from the left with a backdrop. On `lg+` it's
  * sticky-positioned to the viewport.
@@ -109,7 +112,7 @@ export function DashboardSidebar({ open, onClose }: Props) {
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
       >
-        {/* Sticky logo block — close button shows on mobile only */}
+        {/* Sticky logo block. Close button shows on mobile only */}
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-[#E5E7EB] bg-[#F9FAFB] px-5">
           <Logo />
           <button
@@ -137,6 +140,7 @@ export function DashboardSidebar({ open, onClose }: Props) {
                       key={link.href}
                       href={link.href}
                       onClick={onClose}
+                      data-tour={tourKeyFor(link.href)}
                       className={cn(
                         'font-poppins flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-all',
                         active
@@ -156,7 +160,7 @@ export function DashboardSidebar({ open, onClose }: Props) {
 
         {/* Sticky bottom block */}
         <div className="shrink-0 space-y-1 border-t border-[#E5E7EB] p-3">
-          <UpgradeCard />
+          <OnboardingCard />
           <Link
             href="/docs"
             target="_blank"
@@ -181,7 +185,20 @@ export function DashboardSidebar({ open, onClose }: Props) {
   )
 }
 
-function UpgradeCard() {
+const TOUR_KEYS: Record<string, string> = {
+  '/app/api-keys': 'nav-api-keys',
+  '/app/payment-sessions': 'nav-payment-sessions',
+  '/app/webhooks': 'nav-webhooks',
+  '/app/settings': 'nav-settings',
+}
+
+function tourKeyFor(href: string): string | undefined {
+  return TOUR_KEYS[href]
+}
+
+function OnboardingCard() {
+  const { data: merchant } = useMerchantMe()
+  if (!merchant || merchant.onboardingCompleted) return null
   return (
     <div className="strimz-alert-gradient mb-2 rounded-xl p-4 text-white shadow-lg shadow-[#02C76A]/15">
       <p className="font-poppins text-sm font-[500]">Unlock live mode ⚡</p>
@@ -189,7 +206,7 @@ function UpgradeCard() {
         Finish onboarding and turn on 2FA to issue live keys.
       </p>
       <Link
-        href="/app/onboarding"
+        href="/onboarding"
         className="font-poppins mt-3 inline-flex h-8 w-full items-center justify-center rounded-md bg-white/95 text-xs font-[500] text-[#050020] transition-transform hover:scale-[1.02]"
       >
         Continue

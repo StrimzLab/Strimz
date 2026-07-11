@@ -2,110 +2,58 @@ import { Injectable, Logger } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { uuid } from '@strimz/shared-crypto'
-import { InjectQueue } from '@nestjs/bullmq'
-import type { Queue } from 'bullmq'
-import { QUEUE_NAMES } from '../../infra/queue/queue-names.js'
+
+const API_VERSION = '2026-04-27'
 
 /**
- * Daily cron that flips invoices past their due date to `overdue` and
- * fires the `invoice.overdue` webhook event for each.
- *
- * The webhook event row + delivery rows are written here directly — same
- * pattern the API uses in `WebhookEventService` — and the delivery jobs
- * land on the standard `strimz.webhook.delivery` queue.
+ * Hourly cron: flips `sent` invoices past their due date to `overdue`
+ * and writes an outbox event per row. Only `sent` invoices flip — a
+ * `draft` was never delivered to anyone. The dispatcher creates the
+ * webhook deliveries.
  */
 @Injectable()
 export class InvoiceOverdueService {
   private readonly log = new Logger(InvoiceOverdueService.name)
-  private readonly apiVersion = '2026-04-27'
 
-  constructor(
-    private readonly prisma: PrismaService,
-    @InjectQueue(QUEUE_NAMES.webhookDelivery)
-    private readonly deliveryQueue: Queue,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  /** Default cadence: hourly on the hour. Configurable via env. */
   @Cron(process.env.INVOICE_OVERDUE_CRON || '0 0 * * * *', { name: 'invoice-overdue' })
-  async sweep(): Promise<{ flipped: number; deliveriesQueued: number }> {
+  async sweep(): Promise<{ flipped: number }> {
     return this.sweepNow()
   }
 
-  async sweepNow(): Promise<{ flipped: number; deliveriesQueued: number }> {
-    const now = new Date()
-    const overdue = await this.prisma.db.invoice.findMany({
-      where: { status: { in: ['draft', 'sent'] }, dueAt: { lt: now } },
-    })
-    if (overdue.length === 0) return { flipped: 0, deliveriesQueued: 0 }
+  async sweepNow(): Promise<{ flipped: number }> {
+    // Atomic flip + return the rows, so two ticks never double-process.
+    const flipped = (await this.prisma.db.$queryRawUnsafe(`
+      WITH due AS (
+        SELECT id, "merchantId", mode
+          FROM "Invoice"
+         WHERE status = 'sent'::"InvoiceStatus" AND "dueAt" < NOW()
+      )
+      UPDATE "Invoice"
+         SET status = 'overdue'::"InvoiceStatus",
+             "updatedAt" = NOW()
+        FROM due
+       WHERE "Invoice".id = due.id
+       RETURNING "Invoice".id,
+                 "Invoice"."merchantId",
+                 "Invoice".mode::text AS mode
+    `)) as Array<{ id: string; merchantId: string; mode: string }>
 
-    let deliveriesQueued = 0
-    for (const inv of overdue) {
-      const updated = await this.prisma.db.invoice.update({
-        where: { id: inv.id },
-        data: { status: 'overdue' },
-      })
-
-      const eventId = `evt_${uuid()}`
-      const envelope = {
-        id: eventId,
-        type: 'invoice.overdue',
-        apiVersion: this.apiVersion,
-        mode: inv.mode,
-        createdAt: new Date().toISOString(),
-        data: { id: updated.id, number: updated.number, dueAt: updated.dueAt.toISOString() },
-      }
-
+    for (const inv of flipped) {
       await this.prisma.db.webhookEvent.create({
         data: {
-          id: eventId,
+          id: `evt_${uuid()}`,
           merchantId: inv.merchantId,
           type: 'invoice_overdue',
-          apiVersion: this.apiVersion,
-          mode: inv.mode,
-          payload: envelope as never,
+          apiVersion: API_VERSION,
+          mode: inv.mode as 'test' | 'live',
+          payload: { ref: { kind: 'invoice.overdue', invoiceId: inv.id } } as never,
         },
       })
-
-      const endpoints = await this.prisma.db.merchantWebhookEndpoint.findMany({
-        where: {
-          merchantId: inv.merchantId,
-          mode: inv.mode,
-          status: 'active',
-          events: { has: 'invoice_overdue' },
-        },
-      })
-      for (const ep of endpoints) {
-        const deliveryId = `whdl_${uuid()}`
-        await this.prisma.db.webhookDelivery.create({
-          data: {
-            id: deliveryId,
-            deliveryId,
-            merchantId: inv.merchantId,
-            endpointId: ep.id,
-            eventId,
-            eventName: 'invoice_overdue',
-            status: 'pending',
-            attempt: 1,
-          },
-        })
-        await this.deliveryQueue.add(
-          'deliver',
-          {
-            deliveryId,
-            endpointId: ep.id,
-            url: ep.url,
-            signingSecretHash: ep.signingSecretHash,
-            eventId,
-          },
-          { removeOnComplete: 1_000, removeOnFail: 1_000 },
-        )
-        deliveriesQueued++
-      }
     }
 
-    this.log.log(
-      `flipped ${overdue.length} invoices to overdue, queued ${deliveriesQueued} deliveries`,
-    )
-    return { flipped: overdue.length, deliveriesQueued }
+    if (flipped.length > 0) this.log.log(`flipped ${flipped.length} invoices to overdue`)
+    return { flipped: flipped.length }
   }
 }

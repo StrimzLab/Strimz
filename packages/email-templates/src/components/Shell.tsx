@@ -87,7 +87,14 @@ export function Shell({ preview, title, subtitle, tone = 'success', children }: 
             {title}
           </Heading>
 
-          {children}
+          {/* React 19 widened `ReactNode` to include `Promise<ReactNode>` for
+              Server Components. `@react-email/components` was compiled
+              against an older `@types/react` whose `ReactNode` doesn't
+              accept the widened one, and every attempted structural cast
+              hits the same wall. The values are always synchronous React
+              elements at runtime — the `any` cast is scoped tightly to
+              this render slot. */}
+          {children as never}
 
           <Hr style={hrStyle} />
           <Text style={footerStyle}>

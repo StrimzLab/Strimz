@@ -3,18 +3,23 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 
 import { AdminAuthGuard } from '../../common/guards/admin-auth.guard.js'
 import { RequireAdminRoles } from '../../common/decorators/admin-role.decorator.js'
+import { RateLimit } from '../../common/decorators/rate-limit.decorator.js'
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
+import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
 import {
   CurrentAdmin,
   type CurrentAdminPayload,
 } from '../../common/decorators/current-admin.decorator.js'
 import { AdminService } from './admin.service.js'
 import {
+  CreateBroadcastDto,
   InviteAdminDto,
   SetAdminRoleDto,
   SetAdminStatusDto,
   SetMerchantStatusDto,
   SetMerchantTierDto,
 } from './admin.dto.js'
+import type { BroadcastAudience } from '@strimz/shared-types'
 
 /**
  * `/v1/admin/*` surface for Strimz operators.
@@ -57,19 +62,13 @@ export class AdminController {
   // ------------------------------------------------------------------
   @Get('/merchants')
   @ApiOperation({ summary: 'List merchants with filters + pagination.' })
-  listMerchants(
-    @Query('status') status?: string,
-    @Query('tier') tier?: string,
-    @Query('query') query?: string,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
-  ) {
+  listMerchants(@Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery) {
     return this.admin.listMerchants({
-      status,
-      tier,
-      query,
-      limit: limit ? Number(limit) : undefined,
-      cursor: cursor ?? null,
+      status: q.status,
+      tier: q.tier,
+      query: q.query,
+      limit: q.limit,
+      cursor: q.cursor ?? null,
     })
   }
 
@@ -164,6 +163,9 @@ export class AdminController {
   }
 
   @RequireAdminRoles('super_admin')
+  // Tight per-admin cap. Legit ops rarely need more than a handful of
+  // invites/hour; anything above that is a UI bug or a compromised key.
+  @RateLimit({ max: 5, windowMs: 60 * 60 * 1000, keyBy: 'actor', label: 'admin.invite' })
   @Post('/admins')
   @ApiOperation({ summary: 'Invite a new admin (by email).' })
   inviteAdmin(@CurrentAdmin() ctx: CurrentAdminPayload, @Body() dto: InviteAdminDto) {
@@ -202,5 +204,30 @@ export class AdminController {
   @ApiOperation({ summary: 'Suspend an admin (alias for setAdminStatus → suspended).' })
   removeAdmin(@CurrentAdmin() ctx: CurrentAdminPayload, @Param('id') id: string) {
     return this.admin.setAdminStatus(id, 'suspended', ctx.adminId)
+  }
+
+  // ------------------------------------------------------------------
+  // Broadcasts — platform announcements + merchant-scoped messages
+  // ------------------------------------------------------------------
+
+  @RequireAdminRoles('super_admin', 'admin')
+  @Post('/broadcasts')
+  @ApiOperation({
+    summary:
+      'Send a broadcast. Audience `all` fans out to every active merchant; `merchant` messages one merchant by id.',
+  })
+  createBroadcast(@CurrentAdmin() ctx: CurrentAdminPayload, @Body() dto: CreateBroadcastDto) {
+    return this.admin.createBroadcast(dto, ctx.adminId)
+  }
+
+  @Get('/broadcasts')
+  @ApiOperation({
+    summary: 'Recent broadcasts sent by any admin. Read for any active admin.',
+  })
+  listBroadcasts(@Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery) {
+    return this.admin.listBroadcasts({
+      audience: q.audience as BroadcastAudience | undefined,
+      limit: q.limit,
+    })
   }
 }

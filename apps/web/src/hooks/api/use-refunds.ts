@@ -6,7 +6,12 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query'
-import type { CreateRefundInput, Refund } from '@strimz/shared-types'
+import type {
+  CreateRefundInput,
+  Refund,
+  RefundCreateOutput,
+  SubmitRefundSignatureInput,
+} from '@strimz/shared-types'
 
 import type { ListRefundsParams } from '@/lib/merchant-api/resources/refunds'
 import type { Page } from '@/lib/merchant-api'
@@ -61,19 +66,40 @@ export function useCreateRefund() {
   return useMutationWithToast({
     mutationFn: (input: CreateRefundInput) => api.refunds.create(input),
     messages: {
-      loading: 'Issuing refund…',
-      success: (refund) => `Refund of ${refund.amount} ${refund.currency} issued`,
+      loading: 'Preparing refund…',
+      success: (out: RefundCreateOutput) =>
+        `Refund draft ready. Sign the ${out.refund.currency} transfer to send it.`,
     },
-    onSuccess: (created) => {
+    onSuccess: (out: RefundCreateOutput) => {
+      const created = out.refund
       qc.setQueryData(refundKeys.detail(created.id), created)
       qc.invalidateQueries({ queryKey: refundKeys.lists() })
-      // The originating transaction's refunded-total + downstream
-      // payment-session view both shift — flush both axes. We don't
-      // know the session id directly (refund references a transaction),
-      // so we invalidate the session lists wholesale.
       qc.invalidateQueries({ queryKey: transactionKeys.detail(created.transactionId) })
       qc.invalidateQueries({ queryKey: transactionKeys.lists() })
       qc.invalidateQueries({ queryKey: paymentSessionKeys.lists() })
+    },
+  })
+}
+
+/**
+ * Reports the tx hash of the merchant's on-chain refund transfer.
+ * Called after `useCreateRefund` succeeds and the Privy embedded
+ * wallet has broadcast the ERC-20 transfer.
+ */
+export function useSubmitRefundSignature() {
+  const api = useMerchantApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (input: SubmitRefundSignatureInput) => api.refunds.submitSignature(input),
+    messages: {
+      loading: 'Submitting refund…',
+      success: (r: Refund) => `Refund ${r.id.slice(0, 8)}… submitted`,
+    },
+    onSuccess: (updated) => {
+      qc.setQueryData(refundKeys.detail(updated.id), updated)
+      qc.invalidateQueries({ queryKey: refundKeys.lists() })
+      qc.invalidateQueries({ queryKey: transactionKeys.detail(updated.transactionId) })
+      qc.invalidateQueries({ queryKey: transactionKeys.lists() })
     },
   })
 }

@@ -66,7 +66,10 @@ export const submitPaymentInputSchema = z.object({
   auth: payAuthorizationSchema,
   /** Off-chain reference (bytes32) — typically `keccak256(sessionId)`. */
   ref: bytes32Schema,
-  signature: vrsSignatureSchema,
+  /** EIP-3009 sig — token verifies. */
+  authSignature: vrsSignatureSchema,
+  /** PayIntent sig — contract verifies. Binds routing fields. */
+  intentSignature: vrsSignatureSchema,
   /** Diagnostic only — surfaces in operator dashboards. */
   sessionId: z.string().min(1).max(80).optional(),
 })
@@ -93,7 +96,10 @@ export const submitSubscriptionInputSchema = z.object({
   /** Unix seconds after which charges stop; 0 = open-ended. */
   endAt: bigintStringSchema,
   permitData: permitDataSchema,
-  signature: vrsSignatureSchema,
+  /** EIP-2612 permit sig — token verifies. */
+  permitSignature: vrsSignatureSchema,
+  /** SubscriptionIntent sig — contract verifies. Binds plan params. */
+  intentSignature: vrsSignatureSchema,
   subscriptionInternalId: z.string().min(1).max(80).optional(),
 })
 

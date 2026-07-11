@@ -35,7 +35,7 @@ export default function PrivacyPage() {
     >
       <h2 id="overview">Overview</h2>
       <p>
-        Strimz Labs Ltd. ("Strimz", "we") collects only the data needed to operate the Service —
+        Strimz Labs Ltd. ("Strimz", "we") collects only the data needed to operate the Service ,
         authenticate you, settle payments, and send you receipts and product communications. We do
         not sell personal data and we do not run third-party advertising on our surfaces.
       </p>
@@ -80,12 +80,12 @@ export default function PrivacyPage() {
       <h2 id="not-collect">Data we never collect</h2>
       <ul>
         <li>
-          Private keys or seed phrases — wallet authentication is delegated to Privy and your wallet
+          Private keys or seed phrases. Wallet authentication is delegated to Privy and your wallet
           provider.
         </li>
         <li>
-          Card numbers, bank account numbers, or tax-return data — Strimz does not handle
-          traditional payment rails.
+          Card numbers, bank account numbers, or tax-return data. Strimz does not handle traditional
+          payment rails.
         </li>
         <li>
           Government-ID images for the Free / Starter tiers (live-mode unlocks via self-attested KYB
@@ -110,23 +110,23 @@ export default function PrivacyPage() {
       <p>We share data only with infrastructure providers necessary to operate the Service:</p>
       <ul>
         <li>
-          <strong>Privy</strong> — identity, embedded wallets, 2FA.
+          <strong>Privy</strong>. Identity, embedded wallets, 2FA.
         </li>
         <li>
-          <strong>Resend</strong> — transactional email delivery.
+          <strong>Resend</strong>. Transactional email delivery.
         </li>
         <li>
-          <strong>Cloudflare</strong> — bot protection (Turnstile) on signup and checkout.
+          <strong>Cloudflare</strong>. Bot protection (Turnstile) on signup and checkout.
         </li>
         <li>
-          <strong>Render</strong> + <strong>Vercel</strong> — application hosting.
+          <strong>Render</strong> + <strong>Vercel</strong>. Application hosting.
         </li>
         <li>
-          <strong>Circle</strong> — CCTP V2 attestation API for cross-chain routing (only the
+          <strong>Circle</strong>. CCTP V2 attestation API for cross-chain routing (only the
           source-chain transaction hash is shared, no personal data).
         </li>
         <li>
-          <strong>TRM Labs / Elliptic</strong> — wallet sanctions screening when the compliance
+          <strong>TRM Labs / Elliptic</strong>. Wallet sanctions screening when the compliance
           integration is enabled (wallet address only).
         </li>
       </ul>

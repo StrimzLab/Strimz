@@ -1,7 +1,6 @@
 import type {
   CancelSubscriptionInput,
   Subscription,
-  SubscriptionCharge,
   SubscriptionStatus,
 } from '@strimz/shared-types'
 
@@ -11,11 +10,6 @@ import type { CallOptions, Page, PaginationParams } from '../types'
 export interface ListSubscriptionsParams extends PaginationParams {
   status?: SubscriptionStatus
   planId?: string
-  customerId?: string
-}
-
-export interface ListSubscriptionChargesParams extends PaginationParams {
-  subscriptionId: string
 }
 
 export class SubscriptionsResource {
@@ -29,7 +23,6 @@ export class SubscriptionsResource {
         limit: params.limit,
         status: params.status,
         planId: params.planId,
-        customerId: params.customerId,
       },
     })
   }
@@ -44,19 +37,6 @@ export class SubscriptionsResource {
       `/v1/subscriptions/${encodeURIComponent(id)}/cancel`,
       body,
       options,
-    )
-  }
-
-  listCharges(
-    params: ListSubscriptionChargesParams,
-    options?: CallOptions,
-  ): Promise<Page<SubscriptionCharge>> {
-    return this.client.get<Page<SubscriptionCharge>>(
-      `/v1/subscriptions/${encodeURIComponent(params.subscriptionId)}/charges`,
-      {
-        ...options,
-        query: { cursor: params.cursor, limit: params.limit },
-      },
     )
   }
 }

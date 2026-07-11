@@ -7,7 +7,7 @@ import { bffGetSubmission } from '@/lib/strimz-bff'
  * a short interval after submitting until `status` reaches a terminal
  * value (`confirmed`, `reverted`, or `failed`).
  *
- * Same trust model as the submit handler — the idempotency key is
+ * Same trust model as the submit handler. The idempotency key is
  * opaque enough to function as a soft handle, and a leaked key only
  * reveals that a submission with that key was made (no funds, no
  * signature material).

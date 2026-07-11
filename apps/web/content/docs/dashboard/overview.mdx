@@ -1,0 +1,43 @@
+---
+title: The dashboard, page by page
+description: What every screen in the merchant dashboard is for and when to use it.
+---
+
+The dashboard is where you run your Strimz account without touching code. This section is a walking tour: one page for every top-level screen, in the order they appear in the sidebar.
+
+Every dashboard surface reads the same data your integration writes to. If you set a webhook by SDK, it shows up here. If a customer pays through a checkout link, the row appears in this dashboard within seconds of on-chain confirmation.
+
+## The topbar
+
+Two controls sit at the top of every dashboard page.
+
+- **Test / Live mode.** Everything in the dashboard is scoped to the mode you pick. Test is on-chain against Arc Testnet with test-only stablecoins. Live is Arc Mainnet — currently locked, unlocks when mainnet launches. Rows created in one mode never appear when you're viewing the other.
+- **Take a tour.** Replays the first-time product tour if you want a refresher on where things live.
+
+## Where to go for what
+
+| I want to…                                        | Go to                                                                          |
+| ------------------------------------------------- | ------------------------------------------------------------------------------ |
+| See recent charges from customers                 | [Payment sessions](/docs/dashboard/payment-sessions)                            |
+| Create or manage recurring plans                  | [Subscriptions](/docs/dashboard/subscriptions)                                  |
+| Send a bill and get paid on-chain                 | [Invoices](/docs/dashboard/invoices)                                            |
+| Look up who's paid me and their email history     | [Customers](/docs/dashboard/customers)                                          |
+| Refund a specific payment                         | [Refunds](/docs/dashboard/refunds)                                              |
+| Move stablecoin to a wallet I control             | [Withdraw](/docs/dashboard/withdraw)                                            |
+| Turn on recovery emails or the cashflow digest    | [Agents](/docs/dashboard/agents)                                                |
+| Publish a no-code product page for buyers         | [Storefront](/docs/dashboard/storefront)                                        |
+| Mint an API key for my server                     | [API keys](/docs/dashboard/api-keys)                                            |
+| Point an endpoint at Strimz events                | [Webhooks](/docs/dashboard/webhooks)                                            |
+| See MRR, churn, conversion                        | [Analytics](/docs/dashboard/analytics)                                          |
+| Change business name, payout, or email preferences | [Settings](/docs/dashboard/settings)                                            |
+
+## The dashboard home (`/app`)
+
+The screen you land on after login. It's a summary board, not a detail view. At a glance:
+
+- **KPI cards.** Today's gross, today's confirmed transaction count, active subscriptions, active payer count. Test-mode numbers stay small on purpose so you can see the difference in Live.
+- **Volume chart.** 30-day rolling gross by day. Hover for the exact value on any bar.
+- **Recent activity.** The last handful of payment sessions and refunds so you can spot-check the health of the account without clicking through.
+- **Onboarding checklist.** Only visible until you complete every step. Disappears once the account is fully live.
+
+Nothing on the home page is a source of truth — every card links to the detail page that is. If a KPI ever looks wrong, the detail page is where you reconcile.

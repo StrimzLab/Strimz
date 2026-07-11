@@ -68,7 +68,7 @@ export const fonts = {
 export const LOGO_URL = 'https://strimz-finance.vercel.app/logo/blueLogo.png'
 
 /** Where reply-to / contact links go. The Strimz operations mailbox. */
-export const SUPPORT_EMAIL = 'strimztokenstream@gmail.com'
+export const SUPPORT_EMAIL = 'support@strimz.finance'
 
 /**
  * The brand-facing URL shown in email footers and signature lines.

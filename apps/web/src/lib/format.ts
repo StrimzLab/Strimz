@@ -1,3 +1,4 @@
+import { formatDistanceToNowStrict } from 'date-fns'
 import { formatUnits } from 'viem'
 
 /**
@@ -15,14 +16,11 @@ import { formatUnits } from 'viem'
 const STABLECOIN_DECIMALS = 6
 
 export function formatTokenAmount(raw: string, currency = 'USDC'): string {
-  // formatUnits returns a string like "1.5" or "0.000001". We trim
-  // trailing zeros past two decimals so 1.5 reads cleanly while keeping
-  // sub-cent precision when present.
   const value = formatUnits(BigInt(raw), STABLECOIN_DECIMALS)
   return `${trimTrailingZeros(value)} ${currency}`
 }
 
-/** Numeric form for arithmetic — sums, percentages, etc. */
+/** Numeric form for arithmetic. Sums, percentages, etc. */
 export function tokenAmountToNumber(raw: string): number {
   return Number(formatUnits(BigInt(raw), STABLECOIN_DECIMALS))
 }
@@ -37,16 +35,13 @@ export function shortAddress(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`
 }
 
-/** Relative-time formatter for createdAt fields. */
-export function relativeTime(iso: string, now = new Date()): string {
-  const diffMs = now.getTime() - new Date(iso).getTime()
-  const diffSec = Math.round(diffMs / 1000)
-  if (diffSec < 60) return `${diffSec}s ago`
-  const diffMin = Math.round(diffSec / 60)
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffHr = Math.round(diffMin / 60)
-  if (diffHr < 24) return `${diffHr}h ago`
-  const diffDay = Math.round(diffHr / 24)
-  if (diffDay < 30) return `${diffDay}d ago`
-  return new Date(iso).toLocaleDateString()
+/**
+ * Human relative time. Handles both past ("3 days ago") and future
+ * ("in 14 days"). Powered by date-fns so we never render raw negative
+ * seconds again when a due date is in the future.
+ */
+export function relativeTime(iso: string): string {
+  const target = new Date(iso)
+  if (Number.isNaN(target.getTime())) return '—'
+  return formatDistanceToNowStrict(target, { addSuffix: true, roundingMethod: 'round' })
 }

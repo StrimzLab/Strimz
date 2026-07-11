@@ -25,7 +25,7 @@ The customer is already authenticated in your app. They have a session cookie, a
 [Strimz]
 ```
 
-The Strimz API key stays on your server. The customer's auth happens however you already auth them — you don't need a separate Strimz-specific login.
+The Strimz API key stays on your server. The customer's auth happens however you already auth them. You don't need a separate Strimz-specific login.
 
 ## Setup
 
@@ -172,7 +172,7 @@ That's the whole flow.
 
 ## When the cancellation lands
 
-Your webhook handler will see `subscription.cancelled` shortly after the API call. The handler updates your local state with the cancellation details — you already have them from the API call's response, so the webhook is mostly redundant here. But it's the source of truth, so don't skip it.
+Your webhook handler will see `subscription.cancelled` shortly after the API call. The handler updates your local state with the cancellation details. You already have them from the API call's response, so the webhook is mostly redundant here. But it's the source of truth, so don't skip it.
 
 ```ts
 case 'subscription.cancelled': {
@@ -200,7 +200,7 @@ case 'subscription.lapsed': {
 }
 ```
 
-For immediate cancellations, you handle this in the cancel route — set `accessUntil: new Date()` right there. No waiting for the webhook.
+For immediate cancellations, you handle this in the cancel route. Set `accessUntil: new Date()` right there. No waiting for the webhook.
 
 ## Why this pattern
 

@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import {
   Mail,
   Activity,
@@ -10,12 +11,14 @@ import {
   Check,
   X,
   Clock,
+  Plus,
+  Settings2,
   Shield,
 } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
-  Button,
   Badge,
+  Button,
   Card,
   CardContent,
   Switch,
@@ -33,6 +36,12 @@ import type {
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import {
+  CashflowSettingsDialog,
+  CommerceSettingsDialog,
+  RecoverySettingsDialog,
+} from '@/components/dashboard/agents/settings-dialogs'
+import { CreateAgentJobDialog } from '@/components/dashboard/agents/create-job-dialog'
 import { relativeTime, shortAddress } from '@/lib/format'
 import {
   useAgentActivity,
@@ -42,47 +51,62 @@ import {
   useUpdateAgentConfig,
 } from '@/hooks/api'
 
-const CAPABILITIES: {
+type CapabilityMeta = {
   key: AgentCapability
   name: string
   icon: React.ComponentType<{ className?: string }>
   desc: string
-}[] = [
+  configurable: 'recovery' | 'cashflow' | 'commerce' | null
+  gate?: 'managed' | 'coming_soon'
+  gateHint?: string
+}
+
+const CAPABILITIES: CapabilityMeta[] = [
   {
     key: 'identity',
     icon: Shield,
     name: 'Identity',
     desc: 'On-chain agent identity registration. Required for every other capability.',
+    configurable: null,
+    gate: 'managed',
+    gateHint: 'Provisioned by Strimz when your merchant onboards.',
   },
   {
     key: 'recovery',
     icon: Mail,
     name: 'Recovery',
     desc: 'Email customers on at-risk subscriptions per your strategy.',
+    configurable: 'recovery',
   },
   {
     key: 'cashflow',
     icon: Activity,
     name: 'Cashflow digest',
     desc: "Daily summary of yesterday's gross, fees, net, customers. Anomaly alerts and optional yield recommendations.",
+    configurable: 'cashflow',
   },
   {
     key: 'commerce',
     icon: ShoppingBag,
     name: 'Commerce',
     desc: 'Agent-driven escrow jobs with vendor allowlist and approval thresholds.',
+    configurable: 'commerce',
   },
   {
     key: 'pricing_intelligence',
     icon: BarChart3,
     name: 'Pricing intelligence',
     desc: 'Monthly MRR, churn, and 90-day forecast email.',
+    configurable: null,
   },
   {
     key: 'routing',
     icon: Globe2,
     name: 'CCTP routing',
     desc: 'Cross-chain USDC settlement so customers can pay from any chain.',
+    configurable: null,
+    gate: 'coming_soon',
+    gateHint: 'Coming with the Whisk cross-chain integration.',
   },
 ]
 
@@ -129,7 +153,8 @@ export default function AgentsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Agents"
-        description="Opt-in AI agents that act on your behalf — recovery emails, cashflow alerts, escrow flows. You sign every value-moving action."
+        docsSlug="agents"
+        description="Opt-in AI agents that act on your behalf. Recovery emails, cashflow alerts, escrow flows. You sign every value-moving action."
       />
 
       <Tabs defaultValue="capabilities">
@@ -188,6 +213,10 @@ function CapabilitiesTab({
   onToggle: (cap: AgentCapability, on: boolean) => void
   isUpdating: boolean
 }) {
+  const [openDialog, setOpenDialog] = React.useState<'recovery' | 'cashflow' | 'commerce' | null>(
+    null,
+  )
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -206,7 +235,7 @@ function CapabilitiesTab({
       <Card className="border-border/60">
         <CardContent className="p-6 text-center text-sm">
           Agents aren't enabled for this account yet. Contact{' '}
-          <a className="text-[#02C76A]" href="mailto:strimztokenstream@gmail.com">
+          <a className="text-[#02C76A]" href="mailto:support@strimz.finance">
             support
           </a>{' '}
           to provision the agent identity for your merchant.
@@ -216,42 +245,109 @@ function CapabilitiesTab({
   }
 
   return (
-    <div className="space-y-3">
-      {CAPABILITIES.map((cap) => {
-        const Icon = cap.icon
-        const isEnabled = enabledSet.has(cap.key)
-        return (
-          <Card key={cap.key} className="border-border/60">
-            <CardContent className="flex items-start justify-between gap-4 p-4">
-              <div className="flex flex-1 items-start gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#02C76A]/10 text-[#02C76A]">
-                  <Icon className="size-4" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-medium">{cap.name}</h3>
-                    {isEnabled ? (
-                      <Badge
-                        variant="outline"
-                        className="border-[#02C76A]/40 bg-[#02C76A]/10 text-[10px] text-[#02C76A]"
-                      >
-                        Enabled
-                      </Badge>
+    <>
+      <div className="space-y-3">
+        {CAPABILITIES.map((cap) => {
+          const Icon = cap.icon
+          const isEnabled = enabledSet.has(cap.key)
+          const isManaged = cap.gate === 'managed'
+          const isComingSoon = cap.gate === 'coming_soon'
+          return (
+            <Card key={cap.key} className="border-border/60">
+              <CardContent className="flex items-start justify-between gap-4 p-4">
+                <div className="flex flex-1 items-start gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#02C76A]/10 text-[#02C76A]">
+                    <Icon className="size-4" />
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-medium">{cap.name}</h3>
+                      {isManaged ? (
+                        <Badge
+                          variant="outline"
+                          className="border-border/60 text-muted-foreground text-[10px]"
+                        >
+                          Managed
+                        </Badge>
+                      ) : null}
+                      {isComingSoon ? (
+                        <Badge
+                          variant="outline"
+                          className="border-border/60 text-muted-foreground text-[10px]"
+                        >
+                          Coming soon
+                        </Badge>
+                      ) : null}
+                      {isEnabled && !isManaged && !isComingSoon ? (
+                        <Badge
+                          variant="outline"
+                          className="border-[#02C76A]/40 bg-[#02C76A]/10 text-[10px] text-[#02C76A]"
+                        >
+                          Enabled
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="text-muted-foreground mt-1 text-xs">{cap.desc}</p>
+                    {cap.gateHint ? (
+                      <p className="text-muted-foreground mt-1 text-[11px] italic">
+                        {cap.gateHint}
+                      </p>
                     ) : null}
                   </div>
-                  <p className="text-muted-foreground mt-1 text-xs">{cap.desc}</p>
                 </div>
-              </div>
-              <Switch
-                checked={isEnabled}
-                onCheckedChange={(v) => onToggle(cap.key, v)}
-                disabled={isUpdating}
-              />
-            </CardContent>
-          </Card>
-        )
-      })}
-    </div>
+
+                <div className="flex items-center gap-2">
+                  {cap.configurable && isEnabled ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                      onClick={() => setOpenDialog(cap.configurable)}
+                      disabled={isUpdating}
+                    >
+                      <Settings2 className="mr-1 size-3" />
+                      Configure
+                    </Button>
+                  ) : null}
+
+                  {isManaged ? (
+                    <Badge
+                      variant="outline"
+                      className="border-[#02C76A]/40 bg-[#02C76A]/10 text-[10px] text-[#02C76A]"
+                    >
+                      Active
+                    </Badge>
+                  ) : (
+                    <Switch
+                      checked={isEnabled}
+                      onCheckedChange={(v) => onToggle(cap.key, v)}
+                      disabled={isUpdating || isComingSoon}
+                      aria-label={`Toggle ${cap.name}`}
+                    />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      <RecoverySettingsDialog
+        open={openDialog === 'recovery'}
+        onOpenChange={(o) => setOpenDialog(o ? 'recovery' : null)}
+        config={config}
+      />
+      <CashflowSettingsDialog
+        open={openDialog === 'cashflow'}
+        onOpenChange={(o) => setOpenDialog(o ? 'cashflow' : null)}
+        config={config}
+      />
+      <CommerceSettingsDialog
+        open={openDialog === 'commerce'}
+        onOpenChange={(o) => setOpenDialog(o ? 'commerce' : null)}
+        config={config}
+      />
+    </>
   )
 }
 
@@ -339,20 +435,25 @@ function JobsTab({
   onApprove: (id: string) => void
   isApproving: boolean
 }) {
+  const [openCreate, setOpenCreate] = React.useState(false)
+
   const columns = React.useMemo<ColumnDef<AgentJob>[]>(
     () => [
       {
         accessorKey: 'description',
         header: 'Job',
         cell: ({ row }) => (
-          <div className="flex flex-col leading-tight">
+          <Link
+            href={`/app/agents/jobs/${row.original.id}`}
+            className="flex flex-col leading-tight hover:underline"
+          >
             <span className="text-sm font-medium">
               {row.original.description ?? row.original.id}
             </span>
             <code className="text-muted-foreground text-[11px]">
               {row.original.id.slice(0, 14)}…
             </code>
-          </div>
+          </Link>
         ),
       },
       {
@@ -393,7 +494,10 @@ function JobsTab({
                 size="sm"
                 variant="outline"
                 className="h-7 px-2 text-xs"
-                onClick={() => onApprove(job.id)}
+                onClick={(e) => {
+                  e.preventDefault()
+                  onApprove(job.id)
+                }}
                 disabled={isApproving}
               >
                 <Check className="mr-1 size-3" /> Approve
@@ -415,14 +519,23 @@ function JobsTab({
   }
 
   return (
-    <DataTable
-      columns={columns}
-      data={data}
-      loading={isLoading}
-      searchPlaceholder="Search jobs…"
-      emptyTitle="No agent jobs yet"
-      emptyDescription="Once the Commerce capability creates a job, it appears here for approval."
-    />
+    <>
+      <div className="mb-3 flex items-center justify-end">
+        <Button size="sm" onClick={() => setOpenCreate(true)}>
+          <Plus className="mr-1 size-4" />
+          New job
+        </Button>
+      </div>
+      <DataTable
+        columns={columns}
+        data={data}
+        loading={isLoading}
+        searchPlaceholder="Search jobs…"
+        emptyTitle="No agent jobs yet"
+        emptyDescription="Create a job or wait for the Commerce agent to propose one."
+      />
+      <CreateAgentJobDialog open={openCreate} onOpenChange={setOpenCreate} />
+    </>
   )
 }
 

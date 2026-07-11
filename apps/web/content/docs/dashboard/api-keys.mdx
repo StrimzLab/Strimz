@@ -1,0 +1,71 @@
+---
+title: API keys page
+description: Mint, scope, and rotate the keys your server uses to call Strimz.
+---
+
+The dashboard authenticates you via Privy. Your **server** authenticates via API keys minted on this page. Every server-to-Strimz API call sends a key in the `Authorization: Bearer <key>` header.
+
+For the auth model in detail see [Authentication](/docs/authentication). This page covers the dashboard surface.
+
+## Key kinds
+
+Strimz has two key kinds. Both are minted on this page.
+
+- **Publishable key** (`pk_test_…` / `pk_live_…`). Safe to embed in browser code — it only grants a narrow slice of the API surface used by the checkout SDK. Cannot read customer data or create charges.
+- **Secret key** (`sk_test_…` / `sk_live_…`). Full-power. Anything that isn't `pk`-safe requires an `sk` key. Never ships to the browser. Store in your server's env vars.
+
+The prefix (`test` / `live`) is tied to the mode you were in when you minted the key. A `test`-mode key can never fire against `live` data and vice versa — the API rejects mismatches.
+
+## The layout
+
+The table lists every key you've minted. Columns:
+
+- **Name** — the label you gave when minting
+- **Kind** — `publishable` or `secret`
+- **Mode** — `test` or `live`
+- **Prefix** — the first few characters (`sk_test_xY83…`) so you can identify without revealing
+- **Last used** — most recent request timestamp
+- **Scopes** — how many capabilities this key has
+- **Status** — `active` or `revoked`
+
+Top-right: **New API key** button.
+
+Above the table sits a **Show:** filter with `Active` / `Revoked` / `All` buttons. Defaults to `Active` so the surface stays clean on busy accounts.
+
+Click a row to open the key's detail page — full id, scope list, and the same Rotate / Revoke controls in a bigger form.
+
+## Minting a key
+
+Click **Issue key**. The dialog asks for:
+
+1. A **name** you'll remember it by (`production server`, `staging cron worker`)
+2. A **kind** (publishable or secret)
+3. A **mode** (`test` today; `live` unlocks with Arc Mainnet)
+4. A **preset** to pre-fill scopes — Full access, Read-only, or Sessions only
+5. **Scopes** — check the specific capabilities this key should have. Only tick what the service actually needs.
+
+Save and Strimz reveals the plaintext key exactly once. Copy it directly into your env vars — the dashboard will never show it again. Lose it and you rotate.
+
+### Scope selection
+
+Scopes are the finest-grained knob Strimz offers. A key with `sessions_write` can create a payment session; a key without it cannot. Always mint the least-privileged key for the job — if a server only needs to record payments, don't hand it `subscriptions_write`.
+
+The dashboard's Privy path bypasses scope checks entirely. Scopes only apply to API keys, which is why a merchant browsing the dashboard can hit every endpoint even if their seed key doesn't carry every scope.
+
+## Rotating and revoking
+
+Every row has a `⋯` menu with:
+
+- **Copy id** — copies the key's `mak_…` id. Useful when Strimz support asks which key you mean, or when you need to look one up via API.
+- **Rotate** — mints a fresh key with the same name, kind, mode, and scopes; reveals the plaintext once; and revokes the source key in the same transaction. Use when you suspect the key has leaked. Both actions happen atomically — the old key stops working the moment you see the new one, so update your env vars before you dismiss the reveal.
+- **Revoke** — kills the key with no replacement. Anything using it immediately breaks.
+
+Revoked keys stay in the table for audit. Filter to `Revoked` in the `Show:` control to see them. Their last-used timestamp is still visible so you can see how long the leak was live.
+
+## Common workflows
+
+**Setting up a new server integration.** Mint a `secret` key with only the scopes that server needs. Put it in the server's env. Never `console.log` it.
+
+**A dev laptop got stolen with a key on it.** Rotate the key immediately from the dashboard. Update every server env that used the old value.
+
+**I'm going live.** Mint a fresh set of `live`-mode keys. Do not reuse test-mode keys, and do not put live-mode keys in a dev repo. Consider a separate git-crypted repo for live env vars.

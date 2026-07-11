@@ -17,7 +17,7 @@ const FEATURES = [
   {
     icon: art2,
     title: 'Subscriptions that don’t expire',
-    body: 'Your customer signs one transaction. We charge them every period after that — daily, weekly, monthly, yearly — without asking again. There’s no card to expire and no payment method to update.',
+    body: 'Your customer signs one transaction. We charge them every period after that. Daily, weekly, monthly, yearly. Without asking again. There’s no card to expire and no payment method to update.',
   },
   {
     icon: art3,
@@ -27,7 +27,7 @@ const FEATURES = [
 ] as const
 
 /**
- * Dark-navy feature strip — the visual anchor of the marketing flow.
+ * Dark-navy feature strip. The visual anchor of the marketing flow.
  * Mirrors strimz-subscription's `Features` section: bg-primary, three
  * art-icon cards, capped with PaddedLines.
  */

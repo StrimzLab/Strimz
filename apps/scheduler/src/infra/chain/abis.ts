@@ -33,6 +33,28 @@ export const StrimzSubscriptionsAbi = [
     inputs: [{ name: 'chargeAttemptId', type: 'bytes32' }],
     outputs: [{ name: '', type: 'bool' }],
   },
+  {
+    type: 'function',
+    name: 'getSubscription',
+    stateMutability: 'view',
+    inputs: [{ name: 'subscriptionId', type: 'uint256' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'payer', type: 'address' },
+          { name: 'nextChargeAt', type: 'uint64' },
+          { name: 'interval', type: 'uint32' },
+          { name: 'token', type: 'address' },
+          { name: 'merchantId', type: 'uint96' },
+          { name: 'amount', type: 'uint256' },
+          { name: 'endAt', type: 'uint64' },
+          { name: 'cancelled', type: 'bool' },
+        ],
+      },
+    ],
+  },
 ] as const
 
 export const StrimzAgentEscrowAbi = [

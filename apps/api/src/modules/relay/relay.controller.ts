@@ -69,10 +69,15 @@ export class RelayController {
         nonce: body.auth.nonce as `0x${string}`,
       },
       ref: body.ref as `0x${string}`,
-      signature: {
-        v: body.signature.v,
-        r: body.signature.r as `0x${string}`,
-        s: body.signature.s as `0x${string}`,
+      authSignature: {
+        v: body.authSignature.v,
+        r: body.authSignature.r as `0x${string}`,
+        s: body.authSignature.s as `0x${string}`,
+      },
+      intentSignature: {
+        v: body.intentSignature.v,
+        r: body.intentSignature.r as `0x${string}`,
+        s: body.intentSignature.s as `0x${string}`,
       },
       merchantInternalId: ctx.merchantId,
       sessionId: body.sessionId,
@@ -104,10 +109,15 @@ export class RelayController {
         value: body.permitData.value,
         deadline: body.permitData.deadline,
       },
-      signature: {
-        v: body.signature.v,
-        r: body.signature.r as `0x${string}`,
-        s: body.signature.s as `0x${string}`,
+      permitSignature: {
+        v: body.permitSignature.v,
+        r: body.permitSignature.r as `0x${string}`,
+        s: body.permitSignature.s as `0x${string}`,
+      },
+      intentSignature: {
+        v: body.intentSignature.v,
+        r: body.intentSignature.r as `0x${string}`,
+        s: body.intentSignature.s as `0x${string}`,
       },
       merchantInternalId: ctx.merchantId,
       subscriptionInternalId: body.subscriptionInternalId,

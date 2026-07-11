@@ -10,6 +10,7 @@ import type {
   CreateWebhookEndpointInput,
   CreateWebhookEndpointOutput,
   WebhookDelivery,
+  WebhookDeliveryDetail,
   WebhookEndpoint,
 } from '@strimz/shared-types'
 
@@ -48,6 +49,24 @@ export function useWebhookEndpoints<TData = Page<WebhookEndpoint>>(
   })
 }
 
+type EndpointOptions<TData = WebhookEndpoint> = Omit<
+  UseQueryOptions<WebhookEndpoint, Error, TData, ReturnType<typeof webhookEndpointKeys.detail>>,
+  'queryKey' | 'queryFn'
+>
+
+export function useWebhookEndpoint<TData = WebhookEndpoint>(
+  id: string | null | undefined,
+  options?: EndpointOptions<TData>,
+) {
+  const api = useMerchantApi()
+  return useQuery({
+    queryKey: webhookEndpointKeys.detail(id ?? '__unset'),
+    queryFn: ({ signal }) => api.webhookEndpoints.retrieve(id as string, { signal }),
+    enabled: typeof id === 'string' && id.length > 0,
+    ...options,
+  })
+}
+
 export function useWebhookDeliveries<TData = Page<WebhookDelivery>>(
   params: ListWebhookDeliveriesParams = {},
   options?: DeliveriesOptions<TData>,
@@ -75,7 +94,7 @@ export function useCreateWebhookEndpoint() {
     },
     messages: {
       loading: 'Creating webhook endpoint…',
-      success: 'Webhook created — copy the signing secret now',
+      success: 'Webhook created. Copy the signing secret now',
     },
   })
 }
@@ -122,7 +141,46 @@ export function useRotateWebhookSecret() {
     },
     messages: {
       loading: 'Rotating signing secret…',
-      success: 'New signing secret issued — copy it now',
+      success: 'New signing secret issued. Copy it now',
+    },
+  })
+}
+
+type DeliveryOptions<TData = WebhookDeliveryDetail> = Omit<
+  UseQueryOptions<
+    WebhookDeliveryDetail,
+    Error,
+    TData,
+    ReturnType<typeof webhookEndpointKeys.delivery>
+  >,
+  'queryKey' | 'queryFn'
+>
+
+export function useWebhookDelivery<TData = WebhookDeliveryDetail>(
+  id: string | null | undefined,
+  options?: DeliveryOptions<TData>,
+) {
+  const api = useMerchantApi()
+  return useQuery({
+    queryKey: webhookEndpointKeys.delivery(id ?? '__unset'),
+    queryFn: ({ signal }) => api.webhookEndpoints.retrieveDelivery(id as string, { signal }),
+    enabled: typeof id === 'string' && id.length > 0,
+    ...options,
+  })
+}
+
+export function useReplayWebhookDelivery() {
+  const api = useMerchantApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (id: string) => api.webhookEndpoints.replayDelivery(id),
+    onSuccess: (updated) => {
+      qc.setQueryData(webhookEndpointKeys.delivery(updated.id), updated)
+      qc.invalidateQueries({ queryKey: webhookEndpointKeys.allDeliveries() })
+    },
+    messages: {
+      loading: 'Re-enqueuing delivery…',
+      success: 'Delivery re-enqueued',
     },
   })
 }

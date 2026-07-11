@@ -1,10 +1,13 @@
-import { Controller, Get, Param } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post } from '@nestjs/common'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
-import type { PaymentSession, SubscriptionPlan } from '@strimz/shared-types'
+import type { MerchantPublicBrand, PaymentSession, SubscriptionPlan } from '@strimz/shared-types'
 
 import { Public } from '../../common/decorators/public.decorator.js'
+import { CustomersService } from '../customers/customers.service.js'
+import { MerchantsService } from '../merchants/merchants.service.js'
 import { PaymentSessionsService } from '../payment-sessions/payment-sessions.service.js'
 import { SubscriptionPlansService } from '../subscription-plans/subscription-plans.service.js'
+import { PayerIdentityDto } from './checkout.dto.js'
 
 /**
  * Public checkout endpoints — what the hosted-checkout browser bundle
@@ -32,7 +35,22 @@ export class CheckoutController {
   constructor(
     private readonly sessions: PaymentSessionsService,
     private readonly plans: SubscriptionPlansService,
+    private readonly customers: CustomersService,
+    private readonly merchants: MerchantsService,
   ) {}
+
+  @ApiOperation({
+    summary: 'Load a merchant brand card by id (public)',
+    description:
+      'Returns businessName, logoUrl, and walletAddress so the hosted ' +
+      'checkout can render the merchant identity. Public because the ' +
+      'checkout URL already exposes the session/plan tied to this merchant.',
+  })
+  @Public()
+  @Get('/merchants/:id')
+  retrieveMerchant(@Param('id') id: string): Promise<MerchantPublicBrand> {
+    return this.merchants.getPublicBrand(id)
+  }
 
   @ApiOperation({
     summary: 'Load a payment session by id (public)',
@@ -58,5 +76,55 @@ export class CheckoutController {
   @Get('/plans/:id')
   retrievePlan(@Param('id') id: string): Promise<SubscriptionPlan> {
     return this.plans.retrievePublic(id)
+  }
+
+  @ApiOperation({
+    summary: 'Attach a payer identity to a payment session (public)',
+    description:
+      'The hosted checkout calls this after the payer connects a wallet ' +
+      'and enters an email but before they sign the meta-tx. Upserts a ' +
+      'Customer on the merchant keyed by (merchantId, walletAddress), keeps ' +
+      'a rolling email history under Customer.metadata.emailHistory, and ' +
+      'links the session to the customer so the receipt can find the payer ' +
+      'once the on-chain confirmation lands.',
+  })
+  @Public()
+  @Post('/sessions/:id/payer')
+  async attachSessionPayer(
+    @Param('id') sessionId: string,
+    @Body() body: PayerIdentityDto,
+  ): Promise<{ customerId: string }> {
+    const session = await this.sessions.retrievePublic(sessionId)
+    const customer = await this.customers.upsertFromCheckout({
+      merchantId: session.merchantId,
+      walletAddress: body.walletAddress,
+      email: body.email,
+    })
+    await this.sessions.linkCustomer(sessionId, customer.id)
+    return { customerId: customer.id }
+  }
+
+  @ApiOperation({
+    summary: 'Attach a payer identity to a subscription plan (public)',
+    description:
+      'Same shape as the session variant, but scoped to a plan. Used by ' +
+      'the /sub/:planId page before the payer signs the permit. No ' +
+      'subscription row exists yet at this point, so this only upserts ' +
+      'the Customer. The indexer links Subscription.customerId once the ' +
+      'enrolment event confirms on-chain (by matching wallet address).',
+  })
+  @Public()
+  @Post('/plans/:id/payer')
+  async attachPlanPayer(
+    @Param('id') planId: string,
+    @Body() body: PayerIdentityDto,
+  ): Promise<{ customerId: string }> {
+    const plan = await this.plans.retrievePublic(planId)
+    const customer = await this.customers.upsertFromCheckout({
+      merchantId: plan.merchantId,
+      walletAddress: body.walletAddress,
+      email: body.email,
+    })
+    return { customerId: customer.id }
   }
 }

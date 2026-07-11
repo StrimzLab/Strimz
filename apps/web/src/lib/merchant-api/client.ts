@@ -1,4 +1,5 @@
 import { env } from '@/lib/env'
+import { getDashboardMode, type DashboardMode } from '@/lib/dashboard-mode'
 import { type AccessTokenProvider, defaultAccessTokenProvider } from './auth-token'
 import { buildApiError, type ApiErrorBody, AuthenticationError } from './errors'
 
@@ -11,12 +12,12 @@ import { buildApiError, type ApiErrorBody, AuthenticationError } from './errors'
  *   - The dashboard is browser-side, authenticated with a Privy access
  *     token that *expires every hour*. Tying request-time auth to a
  *     React-scoped function (Privy's `getAccessToken`) needs a
- *     per-request token lookup — exactly what this client does.
+ *     per-request token lookup. Exactly what this client does.
  *   - We want typed error subclasses, not opaque thrown objects, so
  *     hooks/components can branch on intent without parsing codes.
  *
  * The client is constructed once per app boot (see `useMerchantApi`)
- * and used by every TanStack Query hook. It does NOT cache responses —
+ * and used by every TanStack Query hook. It does NOT cache responses ,
  * caching is TanStack Query's job; the client only does I/O + typing.
  */
 export interface MerchantApiClientOptions {
@@ -24,6 +25,11 @@ export interface MerchantApiClientOptions {
   baseUrl?: string
   /** Token provider override (tests / Playwright stubs). */
   getAccessToken?: AccessTokenProvider
+  /**
+   * Returns the current dashboard mode. Injected on every request as
+   * `x-strimz-mode`. Defaults to a localStorage-backed reader.
+   */
+  getMode?: () => DashboardMode
   /** Per-request fetch timeout. Defaults to 30s. */
   defaultTimeoutMs?: number
 }
@@ -31,7 +37,7 @@ export interface MerchantApiClientOptions {
 export interface RequestOptions {
   /** Override the default request timeout for slow operations (e.g. exports). */
   timeoutMs?: number
-  /** Pre-built `AbortSignal` for cancellation — TanStack Query passes one in. */
+  /** Pre-built `AbortSignal` for cancellation. TanStack Query passes one in. */
   signal?: AbortSignal
   /** Query-string params, serialised with stable ordering. */
   query?: Record<string, string | number | boolean | undefined | null>
@@ -41,7 +47,7 @@ export interface RequestOptions {
    * When true, the client skips the access-token lookup. Used for the
    * `/v1/auth/sync` endpoint (which carries the Privy token explicitly
    * in its body) and for any genuinely public endpoint. Defaults to
-   * false — the safe default is "this needs auth".
+   * false. The safe default is "this needs auth".
    */
   skipAuth?: boolean
 }
@@ -49,11 +55,13 @@ export interface RequestOptions {
 export class MerchantApiClient {
   readonly baseUrl: string
   private readonly getAccessToken: AccessTokenProvider
+  private readonly getMode: () => DashboardMode
   private readonly defaultTimeoutMs: number
 
   constructor(opts: MerchantApiClientOptions = {}) {
     this.baseUrl = (opts.baseUrl ?? env.apiUrl).replace(/\/+$/, '')
     this.getAccessToken = opts.getAccessToken ?? defaultAccessTokenProvider
+    this.getMode = opts.getMode ?? getDashboardMode
     this.defaultTimeoutMs = opts.defaultTimeoutMs ?? 30_000
   }
 
@@ -82,6 +90,7 @@ export class MerchantApiClient {
 
     const headers: HeadersInit = {
       accept: 'application/json',
+      'x-strimz-mode': this.getMode(),
     }
 
     if (!options.skipAuth) {
@@ -92,7 +101,7 @@ export class MerchantApiClient {
         // signal to redirect the user to /login.
         throw new AuthenticationError({
           code: 'authentication_error',
-          message: 'no Privy access token available — sign in to continue',
+          message: 'no Privy access token available. Sign in to continue',
         })
       }
       ;(headers as Record<string, string>).authorization = `Bearer ${token}`
@@ -107,7 +116,7 @@ export class MerchantApiClient {
     // Compose the caller's AbortSignal (TanStack Query supplies one) with
     // our own timeout signal. Either firing aborts the fetch. We avoid
     // `AbortSignal.any` for older runtime parity by wiring a small
-    // adapter — Safari < 17 doesn't ship `any` yet.
+    // adapter. Safari < 17 doesn't ship `any` yet.
     const controller = new AbortController()
     const timeoutMs = options.timeoutMs ?? this.defaultTimeoutMs
     const timeout = setTimeout(
@@ -149,7 +158,7 @@ export class MerchantApiClient {
 
     if (!isJson) {
       // Defensive: we only call JSON endpoints. A non-JSON 2xx means
-      // either the API contract changed or we hit a misrouted CDN —
+      // either the API contract changed or we hit a misrouted CDN ,
       // raising explicitly beats handing the caller `undefined`.
       throw new Error(
         `expected JSON response, got ${response.headers.get('content-type') ?? 'unknown'}`,
@@ -163,7 +172,7 @@ export class MerchantApiClient {
     const url = new URL(path.startsWith('/') ? path : `/${path}`, this.baseUrl)
     if (query) {
       // Stable ordering so the same query produces the same URL on
-      // repeat calls — helps with TanStack Query's request dedup and
+      // repeat calls. Helps with TanStack Query's request dedup and
       // makes server-side logs easier to diff across replays.
       for (const key of Object.keys(query).sort()) {
         const value = query[key]

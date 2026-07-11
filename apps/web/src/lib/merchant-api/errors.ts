@@ -2,7 +2,7 @@
  * Typed errors surfaced by the merchant API client.
  *
  * Why a class hierarchy: the upper layers (hooks, components) want to
- * branch on intent — "redirect to login", "show a toast", "render the
+ * branch on intent. "redirect to login", "show a toast", "render the
  * inline form error". A flat `Error` with a `code` string forces every
  * call site into a switch on stringly-typed values. A class hierarchy
  * lets TypeScript narrow on `instanceof` and the linter catches
@@ -37,7 +37,7 @@ export class StrimzApiError extends Error {
     this.status = status
     this.code = body.code
     this.details = body.details
-    // Preserves the original stack on V8 — without this the class
+    // Preserves the original stack on V8. Without this the class
     // constructor itself shows up as the throwing frame.
     if (typeof Error.captureStackTrace === 'function') {
       Error.captureStackTrace(this, this.constructor)
@@ -45,7 +45,7 @@ export class StrimzApiError extends Error {
   }
 }
 
-/** 401 — Privy token missing, expired, or rejected by the guard. */
+/** 401. Privy token missing, expired, or rejected by the guard. */
 export class AuthenticationError extends StrimzApiError {
   constructor(body: ApiErrorBody) {
     super(401, body)
@@ -53,7 +53,7 @@ export class AuthenticationError extends StrimzApiError {
   }
 }
 
-/** 403 — token valid but the merchant is disabled, or the role lacks scope. */
+/** 403. Token valid but the merchant is disabled, or the role lacks scope. */
 export class ForbiddenError extends StrimzApiError {
   constructor(body: ApiErrorBody) {
     super(403, body)
@@ -61,7 +61,7 @@ export class ForbiddenError extends StrimzApiError {
   }
 }
 
-/** 404 — resource doesn't exist or is scoped to a different merchant. */
+/** 404. Resource doesn't exist or is scoped to a different merchant. */
 export class NotFoundError extends StrimzApiError {
   constructor(body: ApiErrorBody) {
     super(404, body)
@@ -69,7 +69,7 @@ export class NotFoundError extends StrimzApiError {
   }
 }
 
-/** 422 — input failed validation; `details` carries the Zod issue list. */
+/** 422. Input failed validation; `details` carries the Zod issue list. */
 export class ValidationError extends StrimzApiError {
   constructor(body: ApiErrorBody) {
     super(422, body)
@@ -77,7 +77,7 @@ export class ValidationError extends StrimzApiError {
   }
 }
 
-/** 429 — rate limit hit. The `Retry-After` header is forwarded on the class. */
+/** 429. Rate limit hit. The `Retry-After` header is forwarded on the class. */
 export class RateLimitError extends StrimzApiError {
   readonly retryAfterSeconds: number | null
   constructor(body: ApiErrorBody, retryAfterSeconds: number | null) {
