@@ -19,11 +19,15 @@ export function StrimzClientProvider({ children }: Props) {
   const origin = process.env.NEXT_PUBLIC_STRIMZ_CHECKOUT_ORIGIN ?? 'http://localhost:3000'
   const publishableKey = process.env.NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY
   if (!publishableKey) {
-    // Fail loudly during the demo boot instead of silently sending an
-    // unauthenticated browser client at the API.
-    throw new Error(
-      'NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY is not set. Paste the pk_live_... printed by the seed script into apps/demo-merchant/.env.',
-    )
+    // Fail loudly in the browser, where the demo actually runs and needs
+    // the key. During a production build the static prerender runs on the
+    // server with no env set — don't crash it there, or CI can't build.
+    if (typeof window !== 'undefined') {
+      throw new Error(
+        'NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY is not set. Paste the pk_live_... printed by the seed script into apps/demo-merchant/.env.',
+      )
+    }
+    return <>{children}</>
   }
   return (
     <StrimzProvider
