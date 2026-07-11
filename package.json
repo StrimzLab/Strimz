@@ -26,7 +26,7 @@
     "clean": "turbo run clean && rm -rf node_modules .turbo",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml}\"",
-    "prepare": "lefthook install",
+    "prepare": "lefthook install || true",
     "changeset": "changeset",
     "version": "changeset version",
     "build:release": "turbo run build --filter=@strimz/shared-config --filter=@strimz/shared-crypto --filter=@strimz/shared-types --filter=@strimz/sdk --filter=@strimz/sdk-react",
@@ -42,8 +42,11 @@
   },
   "pnpm": {
     "_overridesNote": "@reown/appkit-adapter-wagmi@1.8.x declares `@wagmi/connectors: >=5.9.9` as an open-ended optionalDependency. With no upper bound, pnpm picks @wagmi/connectors@8.x (the wagmi 3.x companion line) which ships a broken peer pin: it pins @wagmi/core@3.4.9 exact, but its `exports/index.js` re-exports `tempoWallet from '@wagmi/core/tempo'` — a path @wagmi/core@3.4.9 doesn't export. Result: cold install fails with `Module not found: ./tempo`. We cap connectors to ^5.x — the line matching wagmi 2.x that the Reown adapter was built against — so the @wagmi/* tree resolves consistently.",
+    "_typesReactNote": "Some transitive deps pull @types/react@19.2.x while apps/web pins ^19.0.0. Two copies of @types/react in node_modules produce two distinct `ReactNode` types, so passing children between packages typechecks as incompatible. Pin one version everywhere.",
     "overrides": {
-      "@wagmi/connectors": "^5.11.0"
+      "@wagmi/connectors": "^5.11.0",
+      "@types/react": "19.1.0",
+      "@types/react-dom": "19.1.0"
     },
     "_onlyBuiltDependenciesNote": "Lefthook ships a Go binary that pnpm post-install fetches into node_modules — that's a build script, and pnpm@10 blocks them by default for safety. We explicitly opt this in so `pnpm install` wires the git hooks via the root `prepare` script.",
     "onlyBuiltDependencies": [
