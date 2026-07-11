@@ -6,7 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "next build",
+    "build": "NODE_OPTIONS=--max-old-space-size=4096 next build",
     "dev": "next dev --port 3000",
     "start": "next start --port 3000",
     "lint": "next lint",
