@@ -28,7 +28,7 @@ export interface StrimzBrowserClientOptions {
   timeoutMs?: number
 }
 
-const DEFAULT_BASE_URL = 'https://api.strimz.io'
+const DEFAULT_BASE_URL = 'https://api.strimz.finance'
 
 /**
  * Browser-safe Strimz client.
