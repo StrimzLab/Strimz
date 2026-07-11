@@ -41,10 +41,14 @@ contract StrimzAgentRegistry is IStrimzAgentRegistry, StrimzAccessControl, UUPSU
     function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }
 
     /// @inheritdoc IStrimzAgentRegistry
+    /// @dev Agents self-register. Without this, anyone could squat
+    ///      another wallet's identity and rotate its credential.
     function registerAgent(address agent, bytes32 credentialDigest, string calldata name, string calldata version)
         external
         override
     {
+        if (agent == address(0)) revert AgentRegistry__ZeroAddress();
+        if (msg.sender != agent) revert AgentRegistry__NotAgent();
         Storage storage $ = _s();
         if ($.agents[agent].controller != address(0)) revert AgentRegistry__AlreadyRegistered(agent);
 
@@ -84,6 +88,17 @@ contract StrimzAgentRegistry is IStrimzAgentRegistry, StrimzAccessControl, UUPSU
         }
         a.active = false;
         emit AgentDeactivated(agent);
+    }
+
+    /// @notice Reactivate a previously-deactivated agent. Same standing
+    ///         as `deactivate`.
+    function activate(address agent) external {
+        Agent storage a = _loadAgent(agent);
+        if (msg.sender != a.controller && !hasRole(AGENT_ADMIN_ROLE, msg.sender)) {
+            revert AgentRegistry__NotController();
+        }
+        a.active = true;
+        emit AgentActivated(agent);
     }
 
     /// @inheritdoc IStrimzAgentRegistry

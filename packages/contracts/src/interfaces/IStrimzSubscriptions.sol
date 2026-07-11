@@ -26,29 +26,34 @@ interface IStrimzSubscriptions {
         bool cancelled;
     }
 
-    /// @dev `None` MUST remain the first variant so that the default (zero)
-    ///      value of an uninitialised storage slot is never a valid outcome.
-    ///      Treating an unset enum as `Charged` would cause silent fund loss.
+    /// @dev `None=0` so an uninitialised slot never reads as a valid
+    ///      outcome. Indices are frozen — appending new values only.
     enum ChargeOutcome {
-        None,
-        Charged,
-        InsufficientFunds,
-        RevokedApproval,
-        Cancelled,
-        NotDue,
-        Ended
+        None,               // 0
+        Charged,            // 1
+        InsufficientFunds,  // 2  payer balance < amount
+        RevokedApproval,    // 3  payer allowance < amount
+        Cancelled,          // 4
+        NotDue,             // 5  nextChargeAt > now
+        Ended,              // 6  past endAt
+        Duplicate,          // 7  chargeAttemptId already spent
+        Unknown,            // 8  subscriptionId never existed
+        MerchantInactive,   // 9  merchant frozen or unknown at charge time
+        TransferFailed      // 10 token transfer reverted (blocklist, etc.)
     }
 
-    /// @notice EIP-2612 permit fields the payer signs over.
-    /// @dev    `nonce` and the EIP-712 domain separator are read by the
-    ///         off-chain SDK from the token contract and baked into the
-    ///         signed message — they don't appear in this struct because
-    ///         the token's `permit()` consumes them implicitly via
-    ///         `nonces(owner)`.
+    /// @notice EIP-2612 permit fields the payer signs for the token.
     struct PermitData {
-        address owner;    // The payer; recovered + checked by the token
-        uint256 value;    // Allowance to grant; type(uint256).max for unlimited
-        uint256 deadline; // Unix timestamp; permit invalid after this
+        address owner;
+        uint256 value;
+        uint256 deadline;
+    }
+
+    /// @notice ECDSA signature triple.
+    struct Sig {
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
     }
 
     event SubscriptionCreated(
@@ -87,6 +92,7 @@ interface IStrimzSubscriptions {
     error Subscriptions__NotSubscriptionParty();
     error Subscriptions__LengthMismatch();
     error Subscriptions__UnsupportedCapability(address token);
+    error Subscriptions__InvalidIntent();
 
     /// @param merchantId The merchant the subscription bills to.
     /// @param token ERC20 token address — must be whitelisted.
@@ -116,10 +122,9 @@ interface IStrimzSubscriptions {
     /// @param amount Per-period charge amount.
     /// @param interval Seconds between charges.
     /// @param startAt Unix timestamp of the first charge; 0 = now.
-    /// @param permitData EIP-2612 permit fields the payer signed.
-    /// @param v Signature v component.
-    /// @param r Signature r component.
-    /// @param s Signature s component.
+    /// @param intentSig SubscriptionIntent signature verified by the
+    ///        contract. Binds every subscription parameter so a valid
+    ///        permit cannot be redirected to a different subscription.
     function permitAndCreateSubscription(
         uint256 merchantId,
         address token,
@@ -128,9 +133,8 @@ interface IStrimzSubscriptions {
         uint64 startAt,
         uint64 endAt,
         PermitData calldata permitData,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        Sig calldata permitSig,
+        Sig calldata intentSig
     ) external returns (uint256 subscriptionId);
 
     function cancel(uint256 subscriptionId) external;
