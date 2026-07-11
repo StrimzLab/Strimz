@@ -30,7 +30,7 @@
     "changeset": "changeset",
     "version": "changeset version",
     "build:release": "turbo run build --filter=@strimz/shared-config --filter=@strimz/shared-crypto --filter=@strimz/shared-types --filter=@strimz/sdk --filter=@strimz/sdk-react",
-    "release": "pnpm build:release && changeset publish"
+    "release": "pnpm build:release && node scripts/release-publish.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.10",
