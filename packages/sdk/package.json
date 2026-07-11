@@ -1,6 +1,6 @@
 {
   "name": "@strimz/sdk",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "The Strimz SDK. Typed client for server and edge runtimes. Handles HTTP, retries, idempotency, pagination, EIP-712 typed-data building, and webhook signature verification.",
   "license": "MIT",
   "author": "Strimz <hello@strimz.finance>",
