@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 import { ThemeToggle } from './ThemeToggle'
 import { FanlineWordmark } from './Icons'
 
@@ -5,9 +7,9 @@ export function Nav() {
   return (
     <header className="sticky top-0 z-40 border-b border-[hsl(var(--border))] bg-[hsl(var(--bg))]/80 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <a href="/" className="flex items-center gap-2 text-[hsl(var(--fg))]">
+        <Link href="/" className="flex items-center gap-2 text-[hsl(var(--fg))]">
           <FanlineWordmark className="h-6 w-[100px]" />
-        </a>
+        </Link>
         <nav className="muted hidden gap-8 text-sm md:flex">
           <a href="#creators" className="hover:text-[hsl(var(--fg))]">
             Creators
