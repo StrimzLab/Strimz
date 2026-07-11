@@ -112,7 +112,7 @@ is roughly the same — wallet step instead of card step.
          │ wallet                │ rw                   │ rw
          │ (viem/wagmi)          ▼                      ▼
          │                  ┌──────────────────────────────────┐
-         │                  │     PostgreSQL 16 (Render)       │
+         │                  │           PostgreSQL 16          │
          │                  │     (source of read state)       │
          │                  └──────────────────────────────────┘
          │                                ▲ rw
@@ -197,10 +197,10 @@ clock-hour's revenue against the same hour-of-day over the trailing 30
 days. If the current hour is far enough below baseline, the merchant gets
 an email. Drops only. Nobody wants a ping for good news.
 
-`cashflow.yield` — runs daily. If the merchant's balance is comfortably
-above the reserve floor they configured, the agent flags the surplus and
-suggests moving it into yield. The merchant signs the move. The agent
-doesn't hold custody and isn't going to.
+`cashflow.yield` — runs daily. If the merchant's balance sits comfortably
+above the reserve floor they configured, the agent flags the idle surplus
+so the merchant can decide where to put it. The agent never moves funds
+and holds no custody.
 
 `commerce` — outbound payments to a merchant-approved vendor allowlist.
 Below the merchant's threshold the agent auto-approves; above it, the job
