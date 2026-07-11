@@ -19,8 +19,8 @@ support" or "a wallet pretending to be a payments product." Neither one
 is what a B2B finance team actually wants.
 
 Settlement happens on Arc, Circle's stablecoin-native L1. Gas is paid in
-USDC. A payment confirms in around 13 seconds. The merchant gets a webhook,
-the customer gets a receipt, and the loop closes.
+USDC. A payment reaches deterministic finality in under a second. The
+merchant gets a webhook, the customer gets a receipt, and the loop closes.
 
 ---
 
@@ -125,7 +125,7 @@ is roughly the same — wallet step instead of card step.
          ▼                        ▼
    ┌────────────┐           ┌──────────────────────────────────┐
    │  payer's   │           │              Arc                 │
-   │   wallet   │ ────────► │  (USDC gas, native EURC, USYC)   │
+   │   wallet   │ ────────► │  (USDC gas, native EURC)         │
    └────────────┘           └──────────────────────────────────┘
 
                             ┌────────────┐
@@ -162,14 +162,13 @@ A few reasons.
 Gas in USDC means the relayer doesn't need an ETH balance. Treasury runs
 on one asset. Cash-flow forecasting on the operator side gets simple.
 
-13-second finality is good enough that the payer gets a confirmation
+Sub-second deterministic finality means the payer gets a confirmation
 before they tab away from the page. Stripe-redirect feel. Conversion
 holds up.
 
-EURC and USYC are native on Arc. A merchant can hold revenue in
-interest-bearing collateral (USYC is a tokenised treasury bill) without
-bridging out, and can bill in EUR without picking up bridge risk. We've
-debugged enough multi-chain stablecoin flows to value the absence.
+EURC is native on Arc. A merchant can bill in EUR without picking up
+bridge risk or holding a wrapped asset. We've debugged enough
+multi-chain stablecoin flows to value the absence.
 
 Payers don't have to be on Arc. If they're on Ethereum, Base, Polygon, or
 OP Mainnet, the bridge runs through Circle CCTP v2 — the agent watches for
@@ -325,19 +324,19 @@ production merchants.
 
 ## Repo layout
 
-Turborepo monorepo. Five apps — `web` (Next.js dashboard, checkout,
-marketing), `api` (NestJS HTTP), `indexer` (Go), `scheduler` (NestJS
-workers), `agent` (NestJS) — and a `packages/contracts` Foundry workspace.
-Shared SDKs and brand UI live under `packages/`. Each app has its own
-README with run instructions.
+Turborepo monorepo. Apps under `apps/` — `web` (Next.js dashboard,
+checkout, marketing), `api` (NestJS HTTP), `indexer` (Go), `scheduler`
+(NestJS workers), `agent` (NestJS), and `demo-merchant` (a sample dApp) —
+plus a `packages/contracts` Foundry workspace. Shared SDKs and brand UI
+live under `packages/`. Each app has its own README with run instructions.
 
 ---
 
 ## Links
 
 - Marketing: [strimz.finance](https://strimz.finance)
-- Docs: going live alongside the public launch
-- Email: strimztokenstream@gmail.com
+- Docs: [strimz docs](https://strimz.finance/docs)
+- Email: support@strimz.finance
 
 ---
 
