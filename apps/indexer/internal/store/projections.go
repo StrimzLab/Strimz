@@ -283,6 +283,7 @@ type SubscriptionCreatedInput struct {
 	Interval              string // "daily" / "weekly" / "monthly" / "quarterly" / "yearly"
 	IntervalCount         int32
 	StartAt               time.Time
+	CurrentPeriodEndAt    time.Time
 	NextChargeAt          time.Time
 	OnchainTxHash         string
 	Mode                  string
@@ -326,7 +327,7 @@ func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in Subscripti
 		`,
 			in.OnchainSubscriptionID.Int64(), in.OnchainTxHash, merchantID, customerID, planID,
 			in.PayerAddress, in.Currency, in.Amount, in.Interval, in.IntervalCount,
-			in.StartAt, in.NextChargeAt, in.NextChargeAt,
+			in.StartAt, in.CurrentPeriodEndAt, in.NextChargeAt,
 			in.Mode,
 		).Scan(&subID)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -465,10 +466,12 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 			rows = 1
 		}
 
-		// 3) Bump nextChargeAt + currentPeriod window.
+		// 3) Bump nextChargeAt + currentPeriod window. The charge-in-advance
+		//    model makes the new period start where the just-paid charge was
+		//    due (the old nextChargeAt), not the old period end.
 		if _, err := tx.Exec(ctx, `
 			UPDATE "Subscription"
-			   SET "currentPeriodStartAt" = "currentPeriodEndAt",
+			   SET "currentPeriodStartAt" = "nextChargeAt",
 			       "currentPeriodEndAt"   = $2,
 			       "nextChargeAt"         = $2,
 			       "updatedAt"            = NOW()

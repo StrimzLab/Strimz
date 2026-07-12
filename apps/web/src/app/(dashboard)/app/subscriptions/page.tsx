@@ -133,14 +133,19 @@ export default function SubscriptionsPage() {
       {
         accessorKey: 'nextChargeAt',
         header: 'Next charge',
-        cell: ({ row }) =>
-          row.original.status === 'cancelled' || row.original.status === 'lapsed' ? (
-            <span className="text-muted-foreground">—</span>
-          ) : (
-            <span>
-              {row.original.nextChargeAt ? relativeTime(row.original.nextChargeAt) : 'pending'}
-            </span>
-          ),
+        cell: ({ row }) => {
+          const sub = row.original
+          if (sub.status === 'cancelled' || sub.status === 'lapsed') {
+            return <span className="text-muted-foreground">—</span>
+          }
+          if (!sub.nextChargeAt) return <span>pending</span>
+          // A due-or-overdue charge on an active sub is the first charge
+          // being collected — showing "2 minutes ago" reads like a bug.
+          if (new Date(sub.nextChargeAt).getTime() <= Date.now()) {
+            return <span className="text-muted-foreground">processing…</span>
+          }
+          return <span>{relativeTime(sub.nextChargeAt)}</span>
+        },
       },
       {
         id: 'actions',
