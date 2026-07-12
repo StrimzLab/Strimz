@@ -1,12 +1,18 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
-import type { MerchantPublicBrand, PaymentSession, SubscriptionPlan } from '@strimz/shared-types'
+import type {
+  MerchantPublicBrand,
+  PaymentSession,
+  SubscriptionPlan,
+  SubscriptionStatusResult,
+} from '@strimz/shared-types'
 
 import { Public } from '../../common/decorators/public.decorator.js'
 import { CustomersService } from '../customers/customers.service.js'
 import { MerchantsService } from '../merchants/merchants.service.js'
 import { PaymentSessionsService } from '../payment-sessions/payment-sessions.service.js'
 import { SubscriptionPlansService } from '../subscription-plans/subscription-plans.service.js'
+import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
 import { PayerIdentityDto } from './checkout.dto.js'
 
 /**
@@ -37,6 +43,7 @@ export class CheckoutController {
     private readonly plans: SubscriptionPlansService,
     private readonly customers: CustomersService,
     private readonly merchants: MerchantsService,
+    private readonly subscriptions: SubscriptionsService,
   ) {}
 
   @ApiOperation({
@@ -76,6 +83,24 @@ export class CheckoutController {
   @Get('/plans/:id')
   retrievePlan(@Param('id') id: string): Promise<SubscriptionPlan> {
     return this.plans.retrievePublic(id)
+  }
+
+  @ApiOperation({
+    summary: 'Check whether a wallet already subscribes to a plan (public)',
+    description:
+      'The hosted enrolment page calls this once the payer connects a ' +
+      'wallet, so it can show "already subscribed" instead of letting them ' +
+      'sign a duplicate enrolment. Scoped to (planId, payer): a subscription ' +
+      'to a different plan or merchant never matches.',
+  })
+  @Public()
+  @Get('/plans/:id/subscription')
+  async planSubscriptionStatus(
+    @Param('id') planId: string,
+    @Query('payer') payer: string,
+  ): Promise<SubscriptionStatusResult> {
+    await this.plans.retrievePublic(planId) // 404s on an unknown plan
+    return this.subscriptions.activeForPayer(planId, payer ?? '')
   }
 
   @ApiOperation({

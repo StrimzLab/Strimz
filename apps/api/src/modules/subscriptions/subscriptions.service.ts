@@ -22,6 +22,29 @@ export class SubscriptionsService {
     return serialise(row)
   }
 
+  // Is this wallet already subscribed to this plan? Backs the checkout
+  // pre-check and the relay guard. The indexer stores payer addresses
+  // lower-cased, so match on that.
+  async activeForPayer(
+    planId: string,
+    payerAddress: string,
+  ): Promise<{ active: boolean; subscriptionId: string | null }> {
+    const normalized = payerAddress.trim().toLowerCase()
+    if (!/^0x[0-9a-f]{40}$/u.test(normalized)) {
+      return { active: false, subscriptionId: null }
+    }
+    const existing = await this.prisma.db.subscription.findFirst({
+      where: {
+        planId,
+        payerAddress: normalized,
+        status: { in: ['trialing', 'active', 'at_risk', 'paused'] },
+      },
+      select: { id: true },
+      orderBy: { createdAt: 'desc' },
+    })
+    return { active: existing !== null, subscriptionId: existing?.id ?? null }
+  }
+
   async list(
     merchantId: string,
     mode: Mode,

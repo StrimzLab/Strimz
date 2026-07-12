@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module.js'
 import { GasPricingService } from './gas-pricing.service.js'
 import { NonceManager } from './nonce-manager.service.js'
 import { RelayController } from './relay.controller.js'
@@ -26,6 +27,7 @@ import { RelayService } from './relay.service.js'
  *  - `QueueService` from QueueModule (BullMQ queue handle)
  */
 @Module({
+  imports: [SubscriptionsModule],
   controllers: [RelayController],
   providers: [NonceManager, GasPricingService, RelayService, RelayProcessor],
   // NonceManager + GasPricingService are exported so other call sites
