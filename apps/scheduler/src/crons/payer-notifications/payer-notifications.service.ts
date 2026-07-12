@@ -150,7 +150,18 @@ export class PayerNotificationsService {
             planName: row.plan.name,
             amountDisplay,
             intervalDisplay,
-            nextChargeDisplay: this.formatDate(row.nextChargeAt) ?? 'Pending',
+            // The enrolment charge is due at startAt, so right after
+            // creation nextChargeAt still equals startAt. The charge the
+            // subscriber sees next lands one interval later; show that
+            // instead of repeating the start date.
+            nextChargeDisplay:
+              this.formatDate(
+                this.addInterval(
+                  row.currentPeriodStartAt,
+                  row.plan.interval,
+                  row.plan.intervalCount,
+                ),
+              ) ?? 'Pending',
             subscriptionId: row.id,
             startedAtDisplay: this.formatDate(row.createdAt) ?? '',
             network,
@@ -356,6 +367,31 @@ export class PayerNotificationsService {
   private cadenceDisplay(interval: string, count: number): string {
     const unit = interval.toLowerCase().replace(/s$/, '')
     return count === 1 ? `every ${unit}` : `every ${count} ${unit}s`
+  }
+
+  private addInterval(base: Date, interval: string, count: number): Date {
+    const d = new Date(base.getTime())
+    const n = Math.max(1, count)
+    switch (interval) {
+      case 'daily':
+        d.setUTCDate(d.getUTCDate() + n)
+        break
+      case 'weekly':
+        d.setUTCDate(d.getUTCDate() + 7 * n)
+        break
+      case 'monthly':
+        d.setUTCMonth(d.getUTCMonth() + n)
+        break
+      case 'quarterly':
+        d.setUTCMonth(d.getUTCMonth() + 3 * n)
+        break
+      case 'yearly':
+        d.setUTCFullYear(d.getUTCFullYear() + n)
+        break
+      default:
+        d.setUTCMonth(d.getUTCMonth() + n)
+    }
+    return d
   }
 
   private warn(lane: string, id: string, err: unknown): void {

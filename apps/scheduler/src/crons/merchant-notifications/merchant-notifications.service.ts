@@ -229,7 +229,17 @@ export class MerchantNotificationsService {
             payerAddressShort: payerShort,
             subscriptionId: row.id,
             network,
-            nextChargeAt: this.formatDate(row.nextChargeAt) ?? 'Pending',
+            // Enrolment charge is due at startAt, so nextChargeAt still
+            // equals startAt right after creation. Show the following
+            // charge (one interval out), not the start date again.
+            nextChargeAt:
+              this.formatDate(
+                this.addInterval(
+                  row.currentPeriodStartAt,
+                  row.plan.interval,
+                  row.plan.intervalCount,
+                ),
+              ) ?? 'Pending',
             explorerTxUrl,
             dashboardUrl: `${this.dashboardOrigin()}/app/subscriptions/${row.id}`,
           }),
@@ -363,6 +373,31 @@ export class MerchantNotificationsService {
     // "every 1 month" reads awkward — collapse the leading 1.
     const unit = interval.toLowerCase().replace(/s$/, '') // months -> month
     return count === 1 ? `every ${unit}` : `every ${count} ${unit}s`
+  }
+
+  private addInterval(base: Date, interval: string, count: number): Date {
+    const d = new Date(base.getTime())
+    const n = Math.max(1, count)
+    switch (interval) {
+      case 'daily':
+        d.setUTCDate(d.getUTCDate() + n)
+        break
+      case 'weekly':
+        d.setUTCDate(d.getUTCDate() + 7 * n)
+        break
+      case 'monthly':
+        d.setUTCMonth(d.getUTCMonth() + n)
+        break
+      case 'quarterly':
+        d.setUTCMonth(d.getUTCMonth() + 3 * n)
+        break
+      case 'yearly':
+        d.setUTCFullYear(d.getUTCFullYear() + n)
+        break
+      default:
+        d.setUTCMonth(d.getUTCMonth() + n)
+    }
+    return d
   }
 
   private warn(lane: string, id: string, err: unknown): void {
