@@ -1,6 +1,6 @@
 {
   "name": "@strimz/sdk-react",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Strimz React components and hooks. Drop-in <StrimzPayButton/>, embedded checkout, typed hooks, and a context provider for the Strimz API.",
   "license": "MIT",
   "author": "Strimz <hello@strimz.finance>",
