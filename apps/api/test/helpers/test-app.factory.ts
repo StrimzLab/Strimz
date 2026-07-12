@@ -1,7 +1,5 @@
 import { Test } from '@nestjs/testing'
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify'
-import { APP_PIPE } from '@nestjs/core'
-import { ZodValidationPipe } from 'nestjs-zod'
 
 import { AppModule } from '../../src/app.module.js'
 import { PrivyService } from '../../src/infra/privy/privy.service.js'
@@ -52,7 +50,6 @@ export async function createTestApp(): Promise<TestApp> {
 
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
-    providers: [{ provide: APP_PIPE, useClass: ZodValidationPipe }],
   })
     .overrideProvider(PrivyService)
     .useValue(stubPrivy)

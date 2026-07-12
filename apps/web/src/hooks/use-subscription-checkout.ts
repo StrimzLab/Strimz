@@ -183,9 +183,14 @@ export function useSubscriptionCheckout(
 
       setState((prev) => ({ ...prev, phase: 'submitting' }))
 
+      // sessionId here is the shared planId, so scope the relay dedupe key by
+      // payer — otherwise a second wallet on the same plan collides with the
+      // first and gets silently dropped.
+      const idempotencyKey = `${sessionId}:${address.toLowerCase()}`
+
       const submission = await postSubmit(sessionId, {
         kind: 'subscription',
-        idempotencyKey: sessionId,
+        idempotencyKey,
         merchantId: merchantId.toString(),
         token: tokenAddress,
         amount: amount.toString(),
@@ -202,7 +207,7 @@ export function useSubscriptionCheckout(
       })
 
       setState({ phase: 'polling', error: null, txHash: null, submission })
-      await pollUntilTerminal(sessionId, sessionId, (next) => {
+      await pollUntilTerminal(sessionId, idempotencyKey, (next) => {
         setState((prev) => ({ ...prev, submission: next, txHash: next.txHash }))
         return mapTerminalPhase(next.status)
       }).then((terminal) => {

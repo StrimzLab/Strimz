@@ -43,6 +43,10 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState<string | null>(null)
   const [attaching, setAttaching] = useState(false)
+  const [existingSub, setExistingSub] = useState<{
+    active: boolean
+    subscriptionId: string | null
+  } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -71,6 +75,28 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
     }
   }, [planId])
 
+  // On connect, flag an existing subscription so we show "already subscribed"
+  // instead of enrolling a duplicate. The relay enforces this server-side too,
+  // so a failed check just falls through to the normal flow.
+  useEffect(() => {
+    if (!address) {
+      setExistingSub(null)
+      return
+    }
+    let cancelled = false
+    void strimzBrowserClient()
+      .checkout.subscriptionStatus(planId, address)
+      .then((r) => {
+        if (!cancelled) setExistingSub(r)
+      })
+      .catch(() => {
+        if (!cancelled) setExistingSub(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [planId, address])
+
   const chainMerchantId = plan?.chainMerchantId ?? null
   const amountBaseUnits = plan ? BigInt(plan.amount) : 0n
   const amountDisplay = formatAmount(amountBaseUnits, tokenMeta?.decimals ?? 6)
@@ -93,6 +119,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
     chainMerchantId,
     intervalSeconds,
     loadError,
+    alreadySubscribed: existingSub?.active ?? false,
   })
 
   return (
@@ -117,7 +144,11 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
           </Badge>
           <h2 className="font-poppins flex items-center gap-2 text-2xl font-semibold tracking-tight">
             <Repeat className="size-5 text-[#02C76A]" />
-            {phase === 'confirmed' ? 'Subscription active' : 'Subscribe'}
+            {phase === 'confirmed'
+              ? 'Subscription active'
+              : phase === 'already_subscribed'
+                ? 'Already subscribed'
+                : 'Subscribe'}
           </h2>
           <p className="text-muted-foreground mt-1 text-sm">
             {phaseDescription(phase, subscribe.error)}
@@ -127,7 +158,8 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
         {phase !== 'connect' &&
           phase !== 'loading' &&
           phase !== 'load_error' &&
-          phase !== 'not_ready' && <StepIndicator phase={phase} />}
+          phase !== 'not_ready' &&
+          phase !== 'already_subscribed' && <StepIndicator phase={phase} />}
 
         {phase === 'load_error' && <ErrorBanner message={loadError ?? 'Failed to load plan.'} />}
 
@@ -207,6 +239,20 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
               )}
               Subscribe. {amountDisplay} {tokenMeta?.symbol ?? 'USDC'}/{intervalLabel}
             </SubmitButton>
+          </>
+        )}
+
+        {phase === 'already_subscribed' && (
+          <>
+            {address && <ConnectedRow address={address} onChange={disconnect} />}
+            <div className="rounded-xl border border-[#02C76A]/30 bg-[#02C76A]/5 p-5 text-sm">
+              <p className="text-foreground font-medium">
+                This wallet is already subscribed to this plan
+              </p>
+              <p className="text-muted-foreground mt-2 text-xs">
+                {`It already has an active subscription to ${plan?.name ?? 'this plan'}, so there is nothing to pay again. To subscribe from a different wallet, use Change above.`}
+              </p>
+            </div>
           </>
         )}
 
@@ -296,6 +342,7 @@ type VisiblePhase =
   | 'not_ready'
   | 'connect'
   | 'ready'
+  | 'already_subscribed'
   | 'signing'
   | 'submitting'
   | 'polling'
@@ -311,9 +358,18 @@ function derivePhase(args: {
   chainMerchantId: string | null
   intervalSeconds: number
   loadError: string | null
+  alreadySubscribed: boolean
 }): VisiblePhase {
-  const { hookPhase, isConnected, plan, tokenMeta, chainMerchantId, intervalSeconds, loadError } =
-    args
+  const {
+    hookPhase,
+    isConnected,
+    plan,
+    tokenMeta,
+    chainMerchantId,
+    intervalSeconds,
+    loadError,
+    alreadySubscribed,
+  } = args
   if (loadError) return 'load_error'
   if (!plan || !tokenMeta || intervalSeconds <= 0) return 'loading'
   if (!chainMerchantId) return 'not_ready'
@@ -324,6 +380,7 @@ function derivePhase(args: {
   if (hookPhase === 'submitting') return 'submitting'
   if (hookPhase === 'polling') return 'polling'
   if (!isConnected) return 'connect'
+  if (alreadySubscribed) return 'already_subscribed'
   return 'ready'
 }
 
@@ -339,6 +396,8 @@ function phaseDescription(phase: VisiblePhase, error: string | null): string {
       return 'Connect a wallet to continue. We use Reown AppKit to support every major wallet.'
     case 'ready':
       return 'One signature, then we charge automatically each period. Cancel anytime from your wallet.'
+    case 'already_subscribed':
+      return ''
     case 'signing':
       return 'Confirm the signature in your wallet.'
     case 'submitting':

@@ -8,6 +8,7 @@ import {
   submitSubscriptionInputSchema,
 } from '../../../../src/modules/relay/relay.dto.js'
 import type { RelayService } from '../../../../src/modules/relay/relay.service.js'
+import type { SubscriptionsService } from '../../../../src/modules/subscriptions/subscriptions.service.js'
 import type {
   PayWithAuthorizationInput,
   PermitAndCreateSubscriptionInput,
@@ -96,11 +97,18 @@ function parsedSubscriptionBody() {
 
 describe('RelayController', () => {
   let relay: ReturnType<typeof makeRelayMock>
+  let subscriptions: { activeForPayer: ReturnType<typeof vi.fn> }
   let controller: RelayController
 
   beforeEach(() => {
     relay = makeRelayMock()
-    controller = new RelayController(relay as unknown as RelayService)
+    subscriptions = {
+      activeForPayer: vi.fn().mockResolvedValue({ active: false, subscriptionId: null }),
+    }
+    controller = new RelayController(
+      relay as unknown as RelayService,
+      subscriptions as unknown as SubscriptionsService,
+    )
   })
 
   describe('POST /v1/relay/payments', () => {
@@ -220,6 +228,15 @@ describe('RelayController', () => {
       expect(arg.permitSignature.v).toBe(28)
       expect(arg.intentSignature.v).toBe(28)
       expect(arg.merchantInternalId).toBe(ctx.merchantId)
+    })
+
+    it('409s when the wallet already subscribes to the plan', async () => {
+      subscriptions.activeForPayer.mockResolvedValue({ active: true, subscriptionId: 'sub_1' })
+      const body = parsedSubscriptionBody()
+      await expect(controller.submitSubscription(ctx, body)).rejects.toMatchObject({
+        response: { code: 'subscription_exists', subscriptionId: 'sub_1' },
+      })
+      expect(relay.submitPermitAndCreateSubscription).not.toHaveBeenCalled()
     })
 
     it('rejects non-positive intervals', () => {
