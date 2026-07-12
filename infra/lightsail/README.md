@@ -100,7 +100,7 @@ docker exec -it strimz supervisorctl restart api
 docker exec -it strimz su-exec postgres psql strimz
 
 # Deploy a new build after `git pull`
-sudo bash infra/lightsail/deploy.sh
+sudo HTTP_PORT=8080 bash infra/lightsail/deploy.sh
 ```
 
 ## 6 · Backups
