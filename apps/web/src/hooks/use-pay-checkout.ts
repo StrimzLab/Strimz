@@ -289,10 +289,36 @@ async function pollUntilTerminal(
       const view = (await res.json()) as RelaySubmissionView
       const terminal = onUpdate(view)
       if (terminal) return terminal
+    } else if (isFatalPollStatus(res.status)) {
+      // A permission or bad-request failure never clears on retry.
+      // Surface the upstream message now instead of spinning out the
+      // full timeout and reporting a useless "poll timed out".
+      throw new Error(await pollErrorMessage(res))
     }
+    // 404 (record not visible yet) and 5xx / network blips fall through
+    // and get retried until the timeout.
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
   }
   throw new Error('submission status poll timed out')
+}
+
+// 401/403 = the checkout BFF's internal key can't read submissions;
+// 400 = a malformed request. None of these resolve by waiting.
+function isFatalPollStatus(status: number): boolean {
+  return status === 400 || status === 401 || status === 403
+}
+
+async function pollErrorMessage(res: Response): Promise<string> {
+  const fallback = `submission status check failed (${res.status})`
+  try {
+    const body = (await res.json()) as {
+      message?: string
+      detail?: { message?: string; error?: { message?: string } }
+    }
+    return body.detail?.error?.message ?? body.detail?.message ?? body.message ?? fallback
+  } catch {
+    return fallback
+  }
 }
 
 function mapTerminalPhase(status: RelaySubmissionView['status']): PayPhase | null {
