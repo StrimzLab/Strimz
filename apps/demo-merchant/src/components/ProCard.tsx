@@ -54,7 +54,7 @@ export function ProCard() {
               processor holding your funds. One monthly signature is all it takes.
             </p>
             <div className="mt-8 flex items-baseline gap-2">
-              <span className="font-display text-5xl font-semibold">$9.99</span>
+              <span className="font-display text-5xl font-semibold">$5</span>
               <span className="text-white/70">/month · USDC</span>
             </div>
           </div>

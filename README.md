@@ -295,6 +295,13 @@ running, dashboard live. End-to-end works — merchant signup, plan
 creation, hosted checkout, subscription enrolment, recurring charge,
 refund, webhook. We use it ourselves.
 
+### Live demo
+
+[Fanline](https://strimz-fanline.vercel.app) is a sample creator platform
+(`apps/demo-merchant`) wired to Strimz end to end: tip a creator with a
+one-shot payment, or subscribe to a tier — both hand off to Strimz hosted
+checkout on Arc testnet.
+
 ### Deployed contracts (Arc testnet)
 
 Every address is source-verified on [ArcScan](https://testnet.arcscan.app).
@@ -336,6 +343,7 @@ live under `packages/`. Each app has its own README with run instructions.
 
 - Marketing: [strimz.finance](https://strimz.finance)
 - Docs: [strimz docs](https://strimz.finance/docs)
+- Live demo: [Fanline](https://strimz-fanline.vercel.app) (sample integration)
 - Email: support@strimz.finance
 
 ---
