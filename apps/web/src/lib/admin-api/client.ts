@@ -181,7 +181,13 @@ export class AdminApiClient {
       headers['content-type'] = 'application/json'
     }
 
-    const finalUrl = new URL(url)
+    // BFF mutations pass a same-origin-relative url (/api/admin/*); give
+    // new URL a base so those resolve instead of throwing "Invalid URL".
+    // Absolute urls (direct /v1/admin reads) ignore the base.
+    const finalUrl = new URL(
+      url,
+      typeof window === 'undefined' ? undefined : window.location.origin,
+    )
     if (options?.query) {
       for (const [k, v] of Object.entries(options.query)) {
         if (v === undefined || v === null || v === '') continue
