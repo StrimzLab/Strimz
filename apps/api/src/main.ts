@@ -3,7 +3,6 @@ import { NestFactory } from '@nestjs/core'
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify'
 import { Logger } from '@nestjs/common'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
-import { apiReference } from '@scalar/nestjs-api-reference'
 import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
 import { patchNestJsSwagger } from 'nestjs-zod'
@@ -97,14 +96,28 @@ async function bootstrap(): Promise<void> {
       void reply.send(doc)
     })
 
-  // Scalar — beautiful interactive API reference at /docs.
-  app.use(
-    '/docs',
-    apiReference({
-      content: doc,
-      theme: 'purple',
-    }),
-  )
+  // Scalar API reference at /docs. Served as standalone HTML rather than via
+  // @scalar/nestjs-api-reference's middleware, which calls Express-style
+  // res.send() and 500s under the Fastify adapter. Pulls the Scalar bundle
+  // from the CDN and renders the spec exposed at /openapi.json.
+  const docsHtml = `<!doctype html>
+<html>
+  <head>
+    <title>Strimz API Reference</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <script id="api-reference" data-url="/openapi.json" data-configuration='{"theme":"purple"}'></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+  </body>
+</html>`
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .get('/docs', (_req, reply) => {
+      void reply.type('text/html').send(docsHtml)
+    })
 
   app.enableShutdownHooks()
   await app.listen({ port: cfg.env.PORT, host: '0.0.0.0' })
