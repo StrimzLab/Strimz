@@ -185,8 +185,8 @@ export function useSubscriptionCheckout(
 
       // sessionId here is the shared planId, so scope the relay dedupe key by
       // payer — otherwise a second wallet on the same plan collides with the
-      // first and gets silently dropped.
-      const idempotencyKey = `${sessionId}:${address.toLowerCase()}`
+      // first. BullMQ job ids can't contain ':', so join with '-'.
+      const idempotencyKey = `${sessionId}-${address.toLowerCase()}`
 
       const submission = await postSubmit(sessionId, {
         kind: 'subscription',

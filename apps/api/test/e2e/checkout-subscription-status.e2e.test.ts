@@ -95,7 +95,7 @@ describe('checkout subscription-status e2e', () => {
       url: '/v1/relay/subscriptions',
       headers: { authorization: `Bearer ${k.secretKey}` },
       payload: {
-        idempotencyKey: `${sub.planId}:${sub.payerAddress}`,
+        idempotencyKey: `${sub.planId}-${sub.payerAddress}`,
         merchantId: '1',
         token: `0x${'a'.repeat(40)}`,
         amount: '5000000',

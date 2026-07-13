@@ -44,9 +44,9 @@ const idempotencyKeySchema = z
   .string()
   .min(1)
   .max(128, 'idempotency key may not exceed 128 chars')
-  // Disallow whitespace / control characters — these are used as BullMQ
-  // job ids and end up in Redis keys.
-  .regex(/^[A-Za-z0-9_.:-]+$/u, 'idempotency key must be url-safe ASCII')
+  // Used verbatim as a BullMQ job id, which ends up in a Redis key. BullMQ
+  // rejects ':' (its own key separator), so keep it out of the allowed set.
+  .regex(/^[A-Za-z0-9_.-]+$/u, 'idempotency key must be url-safe ASCII without ":"')
 
 // ---- POST /v1/relay/payments ----
 
