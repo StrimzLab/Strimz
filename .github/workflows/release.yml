@@ -38,7 +38,7 @@ jobs:
       id-token: write # OIDC token for npm Trusted Publishing
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: true
