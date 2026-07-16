@@ -5,7 +5,7 @@ description: A drop-in embedded checkout using Reown AppKit for wallet connect a
 
 If you want full control over the checkout UI but you'd rather not write a wallet connector from scratch, [Reown AppKit](https://docs.reown.com/appkit) is the right pairing. AppKit handles the wallet picker; the Strimz React hooks handle everything after the wallet is connected.
 
-This recipe is the minimal embedded checkout — your own button, your own layout, AppKit for connect, Strimz for the payment flow.
+This recipe is the minimal embedded checkout. Your own button, your own layout, AppKit for connect, Strimz for the payment flow.
 
 ## Install
 
@@ -123,7 +123,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     fetch('/api/checkout', {
       method: 'POST',
-      body: JSON.stringify({ description: 'Pro plan — monthly', amount: '99000000' }),
+      body: JSON.stringify({ description: 'Pro plan, monthly', amount: '99000000' }),
     })
       .then((r) => r.json())
       .then((data) => setSessionId(data.sessionId))
@@ -134,10 +134,10 @@ export default function CheckoutPage() {
   return (
     <div className="checkout">
       <h1>Pay 99 USDC</h1>
-      <p>Pro plan — monthly. Pay once, use Acme for the month.</p>
+      <p>Pro plan, monthly. Pay once, use Acme for the month.</p>
 
       {!isConnected ? (
-        // Reown's web component — handles wallet picker, connection state.
+        // Reown's web component, handles wallet picker, connection state.
         <w3m-button />
       ) : (
         <PayButton sessionId={sessionId} />
@@ -182,8 +182,8 @@ When the session confirms, the page shows the success state with a link to Arcsc
 
 ## Customizing further
 
-The button is yours. Style it however. Add a loading spinner; show the wallet address; render the amount in a more elaborate way. The hook gives you `session`, `isPending`, `isConfirmed`, `error` — that's everything you need.
+The button is yours. Style it however. Add a loading spinner; show the wallet address; render the amount in a more elaborate way. The hook gives you `session`, `isPending`, `isConfirmed`, `error` ,  that's everything you need.
 
-The Reown modal can be themed too — see [their docs](https://docs.reown.com/appkit/react/core/options#themevariables). Match it to your brand and the connect flow feels native.
+The Reown modal can be themed too. See [their docs](https://docs.reown.com/appkit/react/core/options#themevariables). Match it to your brand and the connect flow feels native.
 
-If you want to handle the wallet connect entirely on your own (no Reown), you can — just wire up a wagmi config directly. The Strimz hooks read from wagmi regardless of how it got there.
+If you want to handle the wallet connect entirely on your own (no Reown), you can. Just wire up a wagmi config directly. The Strimz hooks read from wagmi regardless of how it got there.

@@ -6,7 +6,7 @@ import { OG_IMAGE } from '@/lib/seo'
 export const metadata: Metadata = {
   title: 'About',
   description:
-    'Strimz is the stablecoin billing layer for businesses. Built stablecoin-first on Arc — no card-rails legacy, no chargebacks, no FX surprises. Meet the team and the principles behind the product.',
+    'Strimz is the stablecoin billing layer for businesses. Built stablecoin-first on Arc. No card-rails legacy, no chargebacks, no FX surprises. Meet the team and the principles behind the product.',
   openGraph: {
     title: 'About Strimz',
     description:
@@ -36,7 +36,7 @@ const PRINCIPLES = [
   {
     icon: ShieldCheck,
     title: 'Verifiable end to end',
-    body: 'Every payment is on-chain. You can verify any transaction independently — without needing to trust our database, our team, or anyone else.',
+    body: 'Every payment is on-chain. You can verify any transaction independently. Without needing to trust our database, our team, or anyone else.',
   },
 ] as const
 
@@ -84,7 +84,7 @@ export default function AboutPage() {
             Businesses need the same primitives card processors gave them years ago: subscriptions
             that don&apos;t fail silently, refunds with a clear paper trail, webhooks that retry on
             their own, and a dashboard you can hand to a finance team. We think those should work
-            the same when the money is USDC — and the on-chain settlement should make a few of them
+            the same when the money is USDC. And the on-chain settlement should make a few of them
             better.
           </p>
           <p>

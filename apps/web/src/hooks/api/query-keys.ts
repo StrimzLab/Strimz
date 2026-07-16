@@ -16,7 +16,7 @@
  * to refresh every list view; targeted invalidation on
  * `keys.detail(id)` updates only the relevant detail page.
  *
- * `as const` matters — without it, TypeScript widens the tuple types
+ * `as const` matters. Without it, TypeScript widens the tuple types
  * and TanStack Query loses the literal-key narrowing that powers
  * `select` typing downstream.
  */
@@ -27,10 +27,7 @@ import type { ListInvoicesParams } from '@/lib/merchant-api/resources/invoices'
 import type { ListPaymentSessionsParams } from '@/lib/merchant-api/resources/payment-sessions'
 import type { ListRefundsParams } from '@/lib/merchant-api/resources/refunds'
 import type { ListSubscriptionPlansParams } from '@/lib/merchant-api/resources/subscription-plans'
-import type {
-  ListSubscriptionChargesParams,
-  ListSubscriptionsParams,
-} from '@/lib/merchant-api/resources/subscriptions'
+import type { ListSubscriptionsParams } from '@/lib/merchant-api/resources/subscriptions'
 import type { ListTransactionsParams } from '@/lib/merchant-api/resources/transactions'
 import type { ListWebhookDeliveriesParams } from '@/lib/merchant-api/resources/webhook-endpoints'
 import type { PaginationParams } from '@/lib/merchant-api'
@@ -38,6 +35,8 @@ import type { PaginationParams } from '@/lib/merchant-api'
 export const merchantKeys = {
   all: ['merchant'] as const,
   me: () => [...merchantKeys.all, 'me'] as const,
+  balance: () => [...merchantKeys.all, 'balance'] as const,
+  onchainState: () => [...merchantKeys.all, 'onchain-state'] as const,
 }
 
 export const paymentSessionKeys = {
@@ -62,8 +61,6 @@ export const subscriptionKeys = {
   list: (params: ListSubscriptionsParams) => [...subscriptionKeys.lists(), params] as const,
   details: () => [...subscriptionKeys.all, 'detail'] as const,
   detail: (id: string) => [...subscriptionKeys.details(), id] as const,
-  charges: (params: ListSubscriptionChargesParams) =>
-    [...subscriptionKeys.all, 'charges', params] as const,
 }
 
 export const customerKeys = {
@@ -88,8 +85,10 @@ export const webhookEndpointKeys = {
   list: (params: PaginationParams) => [...webhookEndpointKeys.lists(), params] as const,
   details: () => [...webhookEndpointKeys.all, 'detail'] as const,
   detail: (id: string) => [...webhookEndpointKeys.details(), id] as const,
+  allDeliveries: () => [...webhookEndpointKeys.all, 'deliveries'] as const,
   deliveries: (params: ListWebhookDeliveriesParams) =>
-    [...webhookEndpointKeys.all, 'deliveries', params] as const,
+    [...webhookEndpointKeys.allDeliveries(), 'list', params] as const,
+  delivery: (id: string) => [...webhookEndpointKeys.allDeliveries(), 'detail', id] as const,
 }
 
 export const transactionKeys = {

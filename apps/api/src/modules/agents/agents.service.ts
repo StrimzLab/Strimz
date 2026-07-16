@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import type {
   AgentJob,
   AgentMerchantConfig,
@@ -105,6 +105,45 @@ export class AgentsService {
 
   async createJob(merchantId: string, input: CreateAgentJobInput): Promise<AgentJob> {
     const cfg = await this.retrieveConfig(merchantId)
+
+    if (!cfg.enabledCapabilities.includes('commerce')) {
+      throw new ForbiddenException({
+        code: 'capability_disabled',
+        message: 'commerce capability is not enabled for this merchant',
+      })
+    }
+
+    const vendor = input.vendorAddress.toLowerCase()
+    const allowlist = cfg.commerce.approvedVendors.map((v) => v.toLowerCase())
+    if (allowlist.length > 0 && !allowlist.includes(vendor)) {
+      throw new ForbiddenException({
+        code: 'vendor_not_allowed',
+        message: 'vendor is not on the approved vendor list',
+      })
+    }
+
+    if (cfg.commerce.monthlySpendCapUsdCents != null) {
+      const monthStart = new Date()
+      monthStart.setUTCDate(1)
+      monthStart.setUTCHours(0, 0, 0, 0)
+      const monthJobs = await this.prisma.db.agentJob.findMany({
+        where: {
+          merchantId,
+          createdAt: { gte: monthStart },
+          status: { notIn: ['cancelled', 'disputed'] },
+        },
+        select: { amount: true },
+      })
+      const spent = monthJobs.reduce((acc, j) => acc + BigInt(j.amount), 0n)
+      const cap = BigInt(cfg.commerce.monthlySpendCapUsdCents) * 10_000n
+      if (spent + BigInt(input.amount) > cap) {
+        throw new ForbiddenException({
+          code: 'spend_cap_exceeded',
+          message: 'monthly commerce spend cap exceeded',
+        })
+      }
+    }
+
     const assessor =
       input.assessorAddress ??
       // Fall back to merchant's payout address as assessor if none provided.
@@ -146,11 +185,22 @@ export class AgentsService {
   async approveJob(merchantId: string, id: string): Promise<AgentJob> {
     const row = await this.prisma.db.agentJob.findFirst({ where: { id, merchantId } })
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'job not found' })
-    const updated = await this.prisma.db.agentJob.update({
-      where: { id: row.id },
+
+    // Only approvable states may enqueue on-chain funding; approving an
+    // already-accepted job would fund the escrow twice. Atomic guard:
+    // the update matches zero rows if the status moved concurrently.
+    const { count } = await this.prisma.db.agentJob.updateMany({
+      where: { id: row.id, status: { in: ['proposed', 'delivered'] } },
       data: { status: 'accepted' },
     })
+    if (count === 0) {
+      throw new ForbiddenException({
+        code: 'job_invalid_state',
+        message: `cannot approve a job in status ${row.status}`,
+      })
+    }
     await this.queue.queue(QUEUE_NAMES.agentAction).add('job.create-onchain', { jobId: row.id })
+    const updated = await this.prisma.db.agentJob.findUniqueOrThrow({ where: { id: row.id } })
     return serialiseJob(updated)
   }
 }

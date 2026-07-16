@@ -171,9 +171,20 @@ export class Fetcher {
 
   private backoffFor(attempt: number): number {
     const expo = this.initialBackoffMs * Math.pow(2, attempt)
-    const jitter = Math.random() * this.initialBackoffMs
-    return Math.min(expo + jitter, 8_000)
+    return Math.min(expo + cryptoJitter(this.initialBackoffMs), 8_000)
   }
+}
+
+// Uses crypto so retry timing does not seed off Math.random in
+// environments where that's been monkey-patched.
+function cryptoJitter(maxMs: number): number {
+  const g = globalThis as { crypto?: { getRandomValues?: (a: Uint32Array) => Uint32Array } }
+  if (g.crypto?.getRandomValues) {
+    const buf = new Uint32Array(1)
+    g.crypto.getRandomValues(buf)
+    return ((buf[0] ?? 0) / 0xffff_ffff) * maxMs
+  }
+  return Math.random() * maxMs
 }
 
 function isIdempotent(spec: RequestSpec): boolean {
@@ -183,17 +194,41 @@ function isIdempotent(spec: RequestSpec): boolean {
 
 async function parseErrorBody(res: Response): Promise<StrimzErrorBody> {
   try {
-    const json = (await res.json()) as { error?: StrimzErrorBody } | StrimzErrorBody
-    if (typeof json === 'object' && json !== null && 'error' in json && json.error) {
-      return json.error
-    }
-    if (typeof json === 'object' && json !== null && 'code' in json && 'message' in json) {
-      return json as StrimzErrorBody
+    const json = (await res.json()) as unknown
+    const raw =
+      typeof json === 'object' && json !== null && 'error' in json
+        ? (json as { error: unknown }).error
+        : json
+    if (typeof raw === 'object' && raw !== null && 'code' in raw && 'message' in raw) {
+      return sanitiseErrorBody(raw as Record<string, unknown>)
     }
   } catch {
     // fall through
   }
   return { code: 'api_error', message: `HTTP ${res.status}` }
+}
+
+// Whitelist server-provided fields. A bugged endpoint that dumps stack
+// traces or internal metadata into the error payload never reaches SDK
+// consumers.
+const ALLOWED_DETAIL_KEYS = new Set(['issues', 'field', 'reason', 'chargeAttemptId'])
+
+function sanitiseErrorBody(raw: Record<string, unknown>): StrimzErrorBody {
+  const details =
+    typeof raw.details === 'object' && raw.details !== null
+      ? Object.fromEntries(
+          Object.entries(raw.details as Record<string, unknown>).filter(([k]) =>
+            ALLOWED_DETAIL_KEYS.has(k),
+          ),
+        )
+      : undefined
+  return {
+    code: typeof raw.code === 'string' ? (raw.code as StrimzErrorBody['code']) : 'api_error',
+    message: typeof raw.message === 'string' ? raw.message : 'Request failed',
+    param: typeof raw.param === 'string' ? raw.param : undefined,
+    requestId: typeof raw.requestId === 'string' ? raw.requestId : undefined,
+    details: details && Object.keys(details).length > 0 ? details : undefined,
+  }
 }
 
 function parseRetryAfter(res: Response): number | undefined {

@@ -1,7 +1,7 @@
 /**
  * Wire shapes returned by `/v1/admin/*`. None of these live in
  * `@strimz/shared-types` because the admin surface is platform-internal
- * — its consumers are only `apps/web` (the admin dashboard) and any
+ *. Its consumers are only `apps/web` (the admin dashboard) and any
  * future operator tooling. Keeping them here avoids polluting the
  * external SDK with internal types.
  */
@@ -171,4 +171,32 @@ export interface SetAdminRoleInput {
 
 export interface SetAdminStatusInput {
   status: AdminUserStatus
+}
+
+// ---- Broadcasts ----
+
+export type BroadcastAudience = 'all' | 'merchant'
+
+export interface Broadcast {
+  id: string
+  title: string
+  body: string
+  audience: BroadcastAudience
+  merchantId: string | null
+  merchantEmail: string | null
+  senderId: string
+  senderEmail: string
+  emailedAt: string | null
+  createdAt: string
+}
+
+export interface BroadcastListResponse {
+  data: Broadcast[]
+}
+
+export interface CreateBroadcastInput {
+  title: string
+  body: string
+  audience: BroadcastAudience
+  merchantId?: string
 }

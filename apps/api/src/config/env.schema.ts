@@ -20,6 +20,9 @@ export const envSchema = z.object({
   PRIVY_APP_ID: z.string().min(1, 'PRIVY_APP_ID is required'),
   PRIVY_APP_SECRET: z.string().min(16, 'PRIVY_APP_SECRET must be at least 16 characters'),
   PRIVY_VERIFICATION_KEY: z.string().optional(),
+  // Svix-format secret from the Privy dashboard. When absent the
+  // webhook receiver rejects every request.
+  PRIVY_WEBHOOK_SIGNING_SECRET: z.string().startsWith('whsec_').optional(),
 
   // ----- Cloudflare Turnstile (bot protection on signup) -----
   TURNSTILE_SECRET_KEY: z.string().optional(),
@@ -57,7 +60,7 @@ export const envSchema = z.object({
    * Defaults to the Strimz operations mailbox so replies land in a
    * human inbox rather than bouncing off the noreply alias.
    */
-  RESEND_REPLY_TO: z.string().email().default('strimztokenstream@gmail.com'),
+  RESEND_REPLY_TO: z.string().email().default('support@strimz.finance'),
   /**
    * Where admin-facing links in emails point. Defaults to the brand
    * URL; deployments override per-env (localhost in dev, the Vercel

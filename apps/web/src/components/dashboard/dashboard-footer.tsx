@@ -3,7 +3,7 @@ import { Glyph } from '@/components/shared/logo'
 
 /**
  * Quiet footer for the dashboard. Sits at the bottom of the
- * `DashboardShell` main content scroll area. Plain inline links — no
+ * `DashboardShell` main content scroll area. Plain inline links. No
  * heavy footer, just enough to find docs/status/legal.
  */
 export function DashboardFooter() {

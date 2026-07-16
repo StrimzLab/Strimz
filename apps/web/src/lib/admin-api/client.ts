@@ -7,6 +7,10 @@ import type {
   AdminMerchantListResponse,
   AdminProfile,
   AdminListItem,
+  Broadcast,
+  BroadcastAudience,
+  BroadcastListResponse,
+  CreateBroadcastInput,
   HealthResponse,
   InviteAdminInput,
   PlatformOverview,
@@ -44,7 +48,7 @@ interface RequestOptions {
 
 export class AdminApiClient {
   private readonly apiBaseUrl: string
-  /** Origin of this app — used for the BFF base. Set at module load. */
+  /** Origin of this app. Used for the BFF base. Set at module load. */
   private readonly bffBaseUrl: string
   private readonly getAccessToken: AccessTokenProvider
   private readonly defaultTimeoutMs = 30_000
@@ -120,20 +124,39 @@ export class AdminApiClient {
   removeAdmin = (id: string) =>
     this.bffDelete<AdminListItem>(`/api/admin/admins/${encodeURIComponent(id)}`)
 
+  // ----- Broadcasts -----
+  listBroadcasts = (
+    params: { audience?: BroadcastAudience; limit?: number } = {},
+    options?: RequestOptions,
+  ) => {
+    const search = new URLSearchParams()
+    if (params.audience) search.set('audience', params.audience)
+    if (params.limit !== undefined) search.set('limit', String(params.limit))
+    const query = search.toString()
+    return this.directGet<BroadcastListResponse>(
+      `/v1/admin/broadcasts${query ? `?${query}` : ''}`,
+      options,
+    )
+  }
+  createBroadcast = (input: CreateBroadcastInput) =>
+    this.bff<Broadcast>('/api/admin/broadcasts', input)
+
   // ------------------------------------------------------------------
 
   private async directGet<T>(path: string, options?: RequestOptions): Promise<T> {
     return this.request<T>('GET', this.apiBaseUrl + path, options, /* useBearer */ true)
   }
 
+  // The BFF forward reads the Authorization header and re-forwards it
+  // upstream, so writes must carry the Privy token just like reads.
   private async bff<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>('POST', this.bffBaseUrl + path, { body }, false)
+    return this.request<T>('POST', this.bffBaseUrl + path, { body }, true)
   }
   private async bffPatch<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>('PATCH', this.bffBaseUrl + path, { body }, false)
+    return this.request<T>('PATCH', this.bffBaseUrl + path, { body }, true)
   }
   private async bffDelete<T>(path: string): Promise<T> {
-    return this.request<T>('DELETE', this.bffBaseUrl + path, undefined, false)
+    return this.request<T>('DELETE', this.bffBaseUrl + path, undefined, true)
   }
 
   private async request<T>(
@@ -148,7 +171,7 @@ export class AdminApiClient {
       if (!token) {
         throw new AuthenticationError({
           code: 'authentication_error',
-          message: 'no Privy access token available — sign in to continue',
+          message: 'no Privy access token available. Sign in to continue',
         })
       }
       headers.authorization = `Bearer ${token}`
@@ -160,7 +183,13 @@ export class AdminApiClient {
       headers['content-type'] = 'application/json'
     }
 
-    const finalUrl = new URL(url)
+    // BFF mutations pass a same-origin-relative url (/api/admin/*); give
+    // new URL a base so those resolve instead of throwing "Invalid URL".
+    // Absolute urls (direct /v1/admin reads) ignore the base.
+    const finalUrl = new URL(
+      url,
+      typeof window === 'undefined' ? undefined : window.location.origin,
+    )
     if (options?.query) {
       for (const [k, v] of Object.entries(options.query)) {
         if (v === undefined || v === null || v === '') continue

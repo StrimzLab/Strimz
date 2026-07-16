@@ -36,6 +36,9 @@ export class BridgeWorker extends WorkerHost {
   private readonly log = new Logger(BridgeWorker.name)
   /** Circle V2 fast attestation lands in ~13s; poll on a 30s cadence. */
   private readonly POLL_DELAY_MS = 30_000
+  /** Give up after this many polls (~1h at 30s) so a never-attested burn
+   * doesn't poll forever. */
+  private readonly MAX_POLLS = 120
 
   constructor(
     private readonly attestation: CircleAttestationService,
@@ -53,9 +56,9 @@ export class BridgeWorker extends WorkerHost {
   ): Promise<{ status: 'queued' | 'pending'; txHash?: string }> {
     const data = cctpBridgeJobSchema.parse(job.data)
 
-    // First-touch: record bridge_initiated. Subsequent polls (re-enqueued
-    // jobs) skip this and just poll attestation.
-    if ((job.attemptsMade ?? 0) === 0) {
+    // First poll records bridge_initiated. `pollCount` rides in the job
+    // payload since a re-enqueue resets BullMQ's own attemptsMade to 0.
+    if (data.pollCount === 0) {
       await this.activity.record({
         merchantId: data.merchantId,
         capability: 'routing',
@@ -75,13 +78,22 @@ export class BridgeWorker extends WorkerHost {
     })
 
     if (result.status !== 'complete') {
-      // Re-enqueue ourselves with a delay. BullMQ tracks the attempt
-      // count so we can give up after a hard cap if needed.
-      await this.selfQueue.add('poll', data, {
-        delay: this.POLL_DELAY_MS,
-        removeOnComplete: 1_000,
-        removeOnFail: 1_000,
-      })
+      if (data.pollCount >= this.MAX_POLLS) {
+        this.log.warn(`bridge ${data.sourceTxHash} not attested after ${this.MAX_POLLS} polls`)
+        await this.activity.record({
+          merchantId: data.merchantId,
+          capability: 'routing',
+          actionType: 'routing_bridge_initiated',
+          outcome: 'failure',
+          metadata: { sourceTxHash: data.sourceTxHash, reason: 'attestation timed out' },
+        })
+        return { status: 'pending' }
+      }
+      await this.selfQueue.add(
+        'poll',
+        { ...data, pollCount: data.pollCount + 1 },
+        { delay: this.POLL_DELAY_MS, removeOnComplete: 1_000, removeOnFail: 1_000 },
+      )
       return { status: 'pending' }
     }
 

@@ -20,7 +20,7 @@ import { RedisService } from '../../infra/redis/redis.service.js'
 import { GasPricingService } from '../relay/gas-pricing.service.js'
 import { NonceManager } from '../relay/nonce-manager.service.js'
 
-import { registerMerchantAbi } from './registry.abi.js'
+import { registerMerchantAbi, registryReadAbi } from './registry.abi.js'
 
 /** Required gas budget for `registerMerchant`. A simple SSTORE-heavy
  *  write fits comfortably under 200k; 300k leaves headroom for an
@@ -300,6 +300,79 @@ export class MerchantChainService {
     if (!m.onboardingCompleted) gaps.push('onboardingCompleted')
     return gaps
   }
+
+  /**
+   * Read the current on-chain merchant record so the dashboard can
+   * render pending owner / pending payout / timer / fee cap. Returns
+   * `null` when the merchant has not registered on-chain yet, or when
+   * the RPC read fails (the dashboard renders "unknown" in that case).
+   */
+  async getOnchainState(merchantInternalId: string): Promise<OnchainMerchantState | null> {
+    const row = await this.prisma.db.merchant.findUnique({
+      where: { id: merchantInternalId },
+      select: { onchainMerchantId: true },
+    })
+    if (!row?.onchainMerchantId) return null
+
+    try {
+      const [record, delaySeconds] = await Promise.all([
+        this.chain.client.readContract({
+          address: this.registryAddress,
+          abi: registryReadAbi,
+          functionName: 'getMerchant',
+          args: [BigInt(row.onchainMerchantId)],
+        }),
+        this.chain.client.readContract({
+          address: this.registryAddress,
+          abi: registryReadAbi,
+          functionName: 'PAYOUT_CHANGE_DELAY',
+        }),
+      ])
+      return {
+        onchainMerchantId: row.onchainMerchantId,
+        registryAddress: this.registryAddress,
+        chainId: this.chainId,
+        owner: record.owner,
+        payoutAddress: record.payoutAddress,
+        feeBps: record.feeBps,
+        maxFeeBps: record.maxFeeBps,
+        active: record.active,
+        pendingOwner:
+          record.pendingOwner === '0x0000000000000000000000000000000000000000'
+            ? null
+            : record.pendingOwner,
+        pendingPayoutAddress:
+          record.pendingPayoutAddress === '0x0000000000000000000000000000000000000000'
+            ? null
+            : record.pendingPayoutAddress,
+        payoutChangeCommitAt: Number(record.payoutChangeCommitAt) || null,
+        payoutChangeDelaySeconds: Number(delaySeconds),
+      }
+    } catch (err) {
+      const message = (err as Error).message
+      // Registry says the id is not there. Treat as "not registered
+      // yet" so the dashboard renders the enrolment-pending state
+      // instead of an error banner.
+      if (message.includes('Registry__UnknownMerchant')) return null
+      this.log.warn(`getOnchainState read failed: ${message}`)
+      return null
+    }
+  }
+}
+
+export interface OnchainMerchantState {
+  onchainMerchantId: number
+  registryAddress: `0x${string}`
+  chainId: number
+  owner: `0x${string}`
+  payoutAddress: `0x${string}`
+  feeBps: number
+  maxFeeBps: number
+  active: boolean
+  pendingOwner: `0x${string}` | null
+  pendingPayoutAddress: `0x${string}` | null
+  payoutChangeCommitAt: number | null
+  payoutChangeDelaySeconds: number
 }
 
 function sleep(ms: number): Promise<void> {

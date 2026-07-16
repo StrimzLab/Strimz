@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAccount, useChainId, useSignTypedData } from 'wagmi'
-import { buildReceiveWithAuthorizationTypedData } from '@strimz/sdk/eip712'
+import { buildPayIntentTypedData, buildReceiveWithAuthorizationTypedData } from '@strimz/sdk/eip712'
 import type { TokenMetadata } from '@strimz/shared-types'
 import { stringToHex } from 'viem'
 
@@ -25,7 +25,7 @@ import type { RelaySubmissionView } from '@/lib/strimz-bff'
  *  - `error`: string | null
  *  - `txHash`: string | null (set once the submission confirms)
  *
- * The hook intentionally doesn't manage wallet connection — that's
+ * The hook intentionally doesn't manage wallet connection. That's
  * the page's job via Reown AppKit. The hook expects `from` (the
  * payer) to be set by the time `submit()` is called.
  */
@@ -39,10 +39,10 @@ export interface PayCheckoutInputs {
   /** Gross amount in token base units (e.g. 50.00 USDC = 50_000_000n). */
   amount: bigint
   /** Off-chain reference. Defaults to the PaymentSession id encoded as raw
-   *  ASCII bytes padded to bytes32 — the form the indexer reverses to
+   *  ASCII bytes padded to bytes32. The form the indexer reverses to
    *  reconnect the on-chain Transaction back to its session row. */
   ref?: `0x${string}`
-  /** Signature validity window in seconds. Default 5 minutes — matches the
+  /** Signature validity window in seconds. Default 5 minutes. Matches the
    *  whitepaper's signed window for one-shot payments. */
   validForSeconds?: number
 }
@@ -107,7 +107,7 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
       setState((s) => ({
         ...s,
         phase: 'failed',
-        error: `${tokenMeta.symbol} does not support EIP-3009 — fall back to approve+pay flow`,
+        error: `${tokenMeta.symbol} does not support EIP-3009. Fall back to approve+pay flow.`,
       }))
       return
     }
@@ -133,7 +133,7 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
       // The cast is safe given that validation.
       const tokenAddress = tokenMeta.address as `0x${string}`
 
-      const typedData = buildReceiveWithAuthorizationTypedData({
+      const authTypedData = buildReceiveWithAuthorizationTypedData({
         chainId,
         token: tokenAddress,
         tokenName: tokenMeta.name,
@@ -146,13 +146,27 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
         nonce,
       })
 
-      // wagmi's signTypedData is typed strictly via viem — the cast is
-      // safe because our builder returns the EIP-712 shape verbatim.
-      const signature = (await signTypedDataAsync(
-        typedData as Parameters<typeof signTypedDataAsync>[0],
+      const authSigHex = (await signTypedDataAsync(
+        authTypedData as Parameters<typeof signTypedDataAsync>[0],
       )) as `0x${string}`
+      const authSig = splitSignature(authSigHex)
 
-      const { r, s, v } = splitSignature(signature)
+      // Second sig: PayIntent. Blocks a redirect to a different
+      // merchant if the auth sig leaks.
+      const intentTypedData = buildPayIntentTypedData({
+        chainId,
+        verifyingContract: env.paymentsAddress as `0x${string}`,
+        merchantId,
+        token: tokenAddress,
+        amount,
+        nonce,
+        validBefore,
+        ref,
+      })
+      const intentSigHex = (await signTypedDataAsync(
+        intentTypedData as Parameters<typeof signTypedDataAsync>[0],
+      )) as `0x${string}`
+      const intentSig = splitSignature(intentSigHex)
 
       setState((prev) => ({ ...prev, phase: 'submitting' }))
 
@@ -169,7 +183,8 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
           nonce,
         },
         ref,
-        signature: { v, r, s },
+        authSignature: { v: authSig.v, r: authSig.r, s: authSig.s },
+        intentSignature: { v: intentSig.v, r: intentSig.r, s: intentSig.s },
       })
 
       setState({ phase: 'polling', error: null, txHash: null, submission })
@@ -206,7 +221,7 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
   return { ...state, submit }
 }
 
-// ---- helpers (intentionally local — these are coupling glue, not a
+// ---- helpers (intentionally local. These are coupling glue, not a
 // generic utility surface) ----
 
 function randomBytes32(): `0x${string}` {
@@ -242,7 +257,8 @@ interface SubmitBody {
     nonce: `0x${string}`
   }
   ref: `0x${string}`
-  signature: { v: number; r: `0x${string}`; s: `0x${string}` }
+  authSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
+  intentSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
 }
 
 async function postSubmit(sessionId: string, body: SubmitBody): Promise<RelaySubmissionView> {
@@ -273,10 +289,36 @@ async function pollUntilTerminal(
       const view = (await res.json()) as RelaySubmissionView
       const terminal = onUpdate(view)
       if (terminal) return terminal
+    } else if (isFatalPollStatus(res.status)) {
+      // A permission or bad-request failure never clears on retry.
+      // Surface the upstream message now instead of spinning out the
+      // full timeout and reporting a useless "poll timed out".
+      throw new Error(await pollErrorMessage(res))
     }
+    // 404 (record not visible yet) and 5xx / network blips fall through
+    // and get retried until the timeout.
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
   }
   throw new Error('submission status poll timed out')
+}
+
+// 401/403 = the checkout BFF's internal key can't read submissions;
+// 400 = a malformed request. None of these resolve by waiting.
+function isFatalPollStatus(status: number): boolean {
+  return status === 400 || status === 401 || status === 403
+}
+
+async function pollErrorMessage(res: Response): Promise<string> {
+  const fallback = `submission status check failed (${res.status})`
+  try {
+    const body = (await res.json()) as {
+      message?: string
+      detail?: { message?: string; error?: { message?: string } }
+    }
+    return body.detail?.error?.message ?? body.detail?.message ?? body.message ?? fallback
+  } catch {
+    return fallback
+  }
 }
 
 function mapTerminalPhase(status: RelaySubmissionView['status']): PayPhase | null {

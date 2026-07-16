@@ -1,0 +1,48 @@
+---
+title: Storefront page
+description: A no-code product page hosted at strimz.finance/store/<your-slug>.
+---
+
+Storefront is a Strimz-hosted page where you list products and take payment. Zero deploy, zero code — you pick a slug, add products, and the URL is live.
+
+For merchants selling a handful of things (a course, a subscription tier, an ebook, physical merch), Storefront replaces the need to stand up your own site. For anything more complex, use the [SDKs](/docs/sdks) to build your own surface and skip this page.
+
+## The layout
+
+Top of the page:
+
+- **Storefront config card.** Your storefront URL (`strimz.finance/store/<slug>`), business name, hero image upload, and dark-mode toggle. Changes save on blur.
+- **Publish switch.** Off by default. When off, the URL returns a 404 so you can prep the surface in private.
+
+Below:
+
+- **Products table.** One row per product. Columns: image thumb, name, price, mode of sale (one-off vs subscription), status. Row actions: edit, disable, delete.
+- **New product** button opens the product editor.
+
+## The product editor
+
+Product fields:
+
+- **Name** and **description** (Markdown supported)
+- **Image** — uploaded to the storefront's asset bucket
+- **Price** in USDC or EURC
+- **Sale mode** — one-off or subscription
+- If subscription: pick the plan (drops down from your existing plans; see [Subscriptions](/docs/dashboard/subscriptions))
+
+Save publishes the product on the live storefront immediately if the storefront is published. If not, save just persists the draft.
+
+## What buyers see
+
+Your storefront URL renders a grid of published products. Clicking a product opens a checkout flow — hosted checkout for one-off, subscription checkout for recurring. All the standard Strimz signing UX applies from that point on.
+
+Buyers don't need a Strimz account. They pay from whatever wallet they connect (Reown / WalletConnect).
+
+## Common workflows
+
+**I want to sell three products to my Twitter audience with zero code.** Set the slug, upload a hero image, add three products, hit Publish. Share the URL. Done.
+
+**I want to disable a product without deleting it.** Edit the row → status → disabled. It disappears from the live storefront but keeps its history.
+
+**I want a custom domain.** Not supported today. Storefronts live under `strimz.finance/store/<slug>`. Custom domains are on the roadmap for a later release.
+
+**I want a fully custom design.** Storefront is intentionally minimal. If you want brand control, build your own checkout with [`@strimz/sdk`](/docs/sdks/react) and skip Storefront.

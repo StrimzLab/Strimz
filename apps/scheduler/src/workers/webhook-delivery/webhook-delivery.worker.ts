@@ -99,7 +99,9 @@ export class WebhookDeliveryWorker extends WorkerHost {
             'User-Agent': 'Strimz/1.0',
             'Strimz-Signature': signature,
             'Strimz-Event-Id': event.id,
-            'Strimz-Event-Type': String(event.type).replace(/_/g, '.'),
+            // Only the first underscore is the resource separator
+            // (subscription_charge_failed → subscription.charge_failed).
+            'Strimz-Event-Type': String(event.type).replace('_', '.'),
             'X-Strimz-Delivery-Id': delivery.deliveryId,
           },
           body,
@@ -114,15 +116,14 @@ export class WebhookDeliveryWorker extends WorkerHost {
       networkError = (err as Error).message
     }
     const responseMs = Date.now() - start
-    const nextAttempt = delivery.attempt + 1
 
-    // 2xx → success.
+    // `delivery.attempt` is the attempt number this run represents (rows
+    // start at 1). On success we record that number as-is.
     if (httpStatus >= 200 && httpStatus < 300) {
       await this.prisma.db.webhookDelivery.update({
         where: { id: delivery.id },
         data: {
           status: 'delivered',
-          attempt: nextAttempt,
           responseCode: httpStatus,
           responseMs,
           deliveredAt: new Date(),
@@ -136,16 +137,19 @@ export class WebhookDeliveryWorker extends WorkerHost {
       return { status: 'delivered', httpStatus }
     }
 
-    // Failed attempt — decide retry vs permanent.
+    // Failed attempt — decide retry vs permanent. This run WAS attempt
+    // `delivery.attempt`; if that was the last allowed one, give up.
     const lastError = networkError ?? `${httpStatus}: ${responseBody.slice(0, 500)}`
-    if (nextAttempt >= this.cfg.env.WEBHOOK_MAX_ATTEMPTS) {
+    if (delivery.attempt >= this.cfg.env.WEBHOOK_MAX_ATTEMPTS) {
       await this.markPermanentlyFailed(delivery.id, httpStatus, lastError)
       await this.notifyMerchantOfFailure(delivery.id, endpoint.id, httpStatus, lastError)
-      this.log.warn(`delivery ${delivery.id} permanently failed after ${nextAttempt} attempts`)
+      this.log.warn(`delivery ${delivery.id} permanently failed after ${delivery.attempt} attempts`)
       return { status: 'permanently_failed', httpStatus }
     }
 
-    const backoff = RETRY_BACKOFF_MS[delivery.attempt] ?? RETRY_BACKOFF_MS.at(-1)!
+    // Backoff for the wait AFTER attempt N is index N-1 (attempt 1 → 1m).
+    const nextAttempt = delivery.attempt + 1
+    const backoff = RETRY_BACKOFF_MS[delivery.attempt - 1] ?? RETRY_BACKOFF_MS.at(-1)!
     const nextAttemptAt = new Date(Date.now() + backoff)
     await this.prisma.db.webhookDelivery.update({
       where: { id: delivery.id },

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAccount, useChainId, useSignTypedData } from 'wagmi'
-import { buildPermitTypedData } from '@strimz/sdk/eip712'
+import { buildPermitTypedData, buildSubscriptionIntentTypedData } from '@strimz/sdk/eip712'
 import type { TokenMetadata } from '@strimz/shared-types'
 
 import { env } from '@/lib/env'
@@ -28,10 +28,10 @@ import type { RelaySubmissionView } from '@/lib/strimz-bff'
 
 export interface SubscriptionCheckoutInputs {
   /** Hosted checkout session id (used as both the BFF path arg and
-   *  the BullMQ idempotency key — so resubmitting the same session
+   *  the BullMQ idempotency key. So resubmitting the same session
    *  never creates a duplicate on-chain subscription). */
   sessionId: string
-  /** On-chain registry merchant id. From the session payload — for
+  /** On-chain registry merchant id. From the session payload. For
    *  now hardcoded by the demo page until #68 lands. */
   merchantId: bigint
   /** Token metadata loaded from `/v1/tokens/:address`. */
@@ -44,12 +44,12 @@ export interface SubscriptionCheckoutInputs {
   startAt?: bigint
   /** Unix seconds after which the schedule stops; 0 = open-ended. */
   endAt?: bigint
-  /** Allowance value to grant via permit. Defaults to type(uint256).max
-   *  — the standard "unlimited allowance" pattern for recurring
-   *  payments. Constrains future charges via the per-period `amount`
-   *  rather than the allowance itself. */
+  /** Allowance value to grant via permit. Defaults to type(uint256).max,
+   *  the standard "unlimited allowance" pattern for recurring payments.
+   *  Future charges are constrained by the per-period `amount`, not the
+   *  allowance itself. */
   permitValue?: bigint
-  /** Seconds the permit signature is valid for. Default 24h — long
+  /** Seconds the permit signature is valid for. Default 24h. Long
    *  enough to absorb a slow merchant submit pipeline, short enough
    *  that a leaked signature doesn't authorise an indefinite
    *  enrolment window. */
@@ -126,7 +126,7 @@ export function useSubscriptionCheckout(
       setState((s) => ({
         ...s,
         phase: 'failed',
-        error: `${tokenMeta.symbol} does not support EIP-2612 — fall back to approve+create flow`,
+        error: `${tokenMeta.symbol} does not support EIP-2612. Fall back to approve+create flow.`,
       }))
       return
     }
@@ -146,7 +146,7 @@ export function useSubscriptionCheckout(
       const now = Math.floor(Date.now() / 1000)
       const deadline = BigInt(now + permitValidForSeconds)
 
-      const typedData = buildPermitTypedData({
+      const permitTypedData = buildPermitTypedData({
         chainId,
         token: tokenAddress,
         tokenName: tokenMeta.name,
@@ -158,17 +158,39 @@ export function useSubscriptionCheckout(
         deadline,
       })
 
-      const signature = (await signTypedDataAsync(
-        typedData as Parameters<typeof signTypedDataAsync>[0],
+      const permitSigHex = (await signTypedDataAsync(
+        permitTypedData as Parameters<typeof signTypedDataAsync>[0],
       )) as `0x${string}`
+      const permitSig = splitSignature(permitSigHex)
 
-      const { r, s, v } = splitSignature(signature)
+      // Second signature: SubscriptionIntent. Blocks enrolment in a
+      // plan the payer never picked.
+      const intentTypedData = buildSubscriptionIntentTypedData({
+        chainId,
+        verifyingContract: env.subscriptionsAddress as `0x${string}`,
+        merchantId,
+        token: tokenAddress,
+        amount,
+        interval: intervalSeconds,
+        startAt,
+        endAt,
+        permitDeadline: deadline,
+      })
+      const intentSigHex = (await signTypedDataAsync(
+        intentTypedData as Parameters<typeof signTypedDataAsync>[0],
+      )) as `0x${string}`
+      const intentSig = splitSignature(intentSigHex)
 
       setState((prev) => ({ ...prev, phase: 'submitting' }))
 
+      // sessionId here is the shared planId, so scope the relay dedupe key by
+      // payer — otherwise a second wallet on the same plan collides with the
+      // first. BullMQ job ids can't contain ':', so join with '-'.
+      const idempotencyKey = `${sessionId}-${address.toLowerCase()}`
+
       const submission = await postSubmit(sessionId, {
         kind: 'subscription',
-        idempotencyKey: sessionId,
+        idempotencyKey,
         merchantId: merchantId.toString(),
         token: tokenAddress,
         amount: amount.toString(),
@@ -180,11 +202,12 @@ export function useSubscriptionCheckout(
           value: permitValue.toString(),
           deadline: deadline.toString(),
         },
-        signature: { v, r, s },
+        permitSignature: { v: permitSig.v, r: permitSig.r, s: permitSig.s },
+        intentSignature: { v: intentSig.v, r: intentSig.r, s: intentSig.s },
       })
 
       setState({ phase: 'polling', error: null, txHash: null, submission })
-      await pollUntilTerminal(sessionId, sessionId, (next) => {
+      await pollUntilTerminal(sessionId, idempotencyKey, (next) => {
         setState((prev) => ({ ...prev, submission: next, txHash: next.txHash }))
         return mapTerminalPhase(next.status)
       }).then((terminal) => {
@@ -218,7 +241,7 @@ export function useSubscriptionCheckout(
   return { ...state, submit }
 }
 
-// ---- helpers (intentionally duplicated from use-pay-checkout — see
+// ---- helpers (intentionally duplicated from use-pay-checkout. See
 // note on extraction at the top of this file) ----
 
 function splitSignature(sigHex: `0x${string}`): {
@@ -246,7 +269,8 @@ interface SubmitBody {
   startAt: string
   endAt: string
   permitData: { owner: `0x${string}`; value: string; deadline: string }
-  signature: { v: number; r: `0x${string}`; s: `0x${string}` }
+  permitSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
+  intentSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
 }
 
 async function postSubmit(sessionId: string, body: SubmitBody): Promise<RelaySubmissionView> {
@@ -277,10 +301,36 @@ async function pollUntilTerminal(
       const view = (await res.json()) as RelaySubmissionView
       const terminal = onUpdate(view)
       if (terminal) return terminal
+    } else if (isFatalPollStatus(res.status)) {
+      // A permission or bad-request failure never clears on retry.
+      // Surface the upstream message now instead of spinning out the
+      // full timeout and reporting a useless "poll timed out".
+      throw new Error(await pollErrorMessage(res))
     }
+    // 404 (record not visible yet) and 5xx / network blips fall through
+    // and get retried until the timeout.
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
   }
   throw new Error('submission status poll timed out')
+}
+
+// 401/403 = the checkout BFF's internal key can't read submissions;
+// 400 = a malformed request. None of these resolve by waiting.
+function isFatalPollStatus(status: number): boolean {
+  return status === 400 || status === 401 || status === 403
+}
+
+async function pollErrorMessage(res: Response): Promise<string> {
+  const fallback = `submission status check failed (${res.status})`
+  try {
+    const body = (await res.json()) as {
+      message?: string
+      detail?: { message?: string; error?: { message?: string } }
+    }
+    return body.detail?.error?.message ?? body.detail?.message ?? body.message ?? fallback
+  } catch {
+    return fallback
+  }
 }
 
 function mapTerminalPhase(status: RelaySubmissionView['status']): SubscriptionPhase | null {

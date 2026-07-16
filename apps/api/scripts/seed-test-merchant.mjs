@@ -1,28 +1,34 @@
 #!/usr/bin/env node
 // Seed a fully-prepared test merchant + a live secret API key, for curl
-// smoke-testing against a running dev API. Idempotent on the email; safe
-// to re-run. Prints the raw secret once (the API hashes it before storing,
-// so it cannot be recovered later).
+// smoke-testing against a running dev API.
 //
 //   pnpm --filter @strimz/api seed:test-merchant
 //
-// Defaults can be overridden with env vars:
+// Idempotent on the email AND on the API keys. Pass a fixed
+// `SEED_SECRET_KEY` and/or `SEED_PUBLISHABLE_KEY` (the raw key strings)
+// to make the seed pin those values so a peer app's `.env` stays
+// valid across re-runs. Without them, the seed generates fresh
+// random keys and prints them; every re-run mints new keys and
+// leaves any prior smoke-test keys revoked.
+//
 //   SEED_EMAIL            email + lookup key (default smoke@strimz.test)
 //   SEED_BUSINESS_NAME    (default "Smoke Test Co")
 //   SEED_WALLET_ADDRESS   on-chain owner / Registry `owner`
-//                         (default 0xFd02…7150 — the e2e payer)
 //   SEED_PAYOUT_ADDRESS   on-chain payout target
-//                         (default 0xDB51…BB6C — the e2e payout)
-//   SEED_TIER             free | growth | business | enterprise (default free)
+//   SEED_TIER             free | growth | business | enterprise
+//   SEED_SECRET_KEY       optional; pin the sk_live_... value
+//   SEED_PUBLISHABLE_KEY  optional; pin the pk_live_... value
 
 import { createPrismaClient } from '@strimz/db'
-import { generateApiKey } from '@strimz/shared-crypto'
+import { generateApiKey, hashApiKey } from '@strimz/shared-crypto'
 
 const EMAIL = process.env.SEED_EMAIL ?? 'smoke@strimz.test'
 const BUSINESS = process.env.SEED_BUSINESS_NAME ?? 'Smoke Test Co'
 const WALLET = process.env.SEED_WALLET_ADDRESS ?? '0xFd0201bcd69FdBE0b1194C23bD64459121e07150'
 const PAYOUT = process.env.SEED_PAYOUT_ADDRESS ?? '0xDB51809B2fF8B9D1D09EF3bBB832a425104FBB6C'
 const TIER = process.env.SEED_TIER ?? 'free'
+const PINNED_SECRET = process.env.SEED_SECRET_KEY
+const PINNED_PUBLISHABLE = process.env.SEED_PUBLISHABLE_KEY
 
 const SCOPES = [
   'sessions_read',
@@ -40,6 +46,10 @@ const SCOPES = [
   'storefronts_write',
   'relay_read',
   'relay_write',
+  'agents_read',
+  'agents_write',
+  'api_keys_read',
+  'api_keys_write',
 ]
 
 const prisma = createPrismaClient({ databaseUrl: process.env.DATABASE_URL })
@@ -58,6 +68,7 @@ async function main() {
       status: 'active',
       businessSector: 'Software',
       countryCode: 'US',
+      onchainMerchantId: null,
     },
     create: {
       email: EMAIL,
@@ -74,18 +85,32 @@ async function main() {
     },
   })
 
-  const generated = await generateApiKey('secret', 'live')
-  await prisma.merchantApiKey.create({
-    data: {
+  // Revoke any prior smoke-test keys so re-runs never leave orphans.
+  const now = new Date()
+  await prisma.merchantApiKey.updateMany({
+    where: {
       merchantId: merchant.id,
-      name: 'smoke-test live key',
-      kind: 'secret',
-      mode: 'live',
-      hash: generated.hash,
-      prefix: generated.prefix,
-      lastFour: generated.lastFour,
-      scopes: SCOPES,
+      revokedAt: null,
+      name: { in: ['smoke-test live secret', 'smoke-test live publishable'] },
     },
+    data: { revokedAt: now },
+  })
+
+  const secret = await ensureKey({
+    pinned: PINNED_SECRET,
+    kind: 'secret',
+    mode: 'live',
+    name: 'smoke-test live secret',
+    merchantId: merchant.id,
+    scopes: SCOPES,
+  })
+  const publishable = await ensureKey({
+    pinned: PINNED_PUBLISHABLE,
+    kind: 'publishable',
+    mode: 'live',
+    name: 'smoke-test live publishable',
+    merchantId: merchant.id,
+    scopes: ['sessions_read', 'transactions_read'],
   })
 
   console.log('--- merchant ---')
@@ -95,8 +120,37 @@ async function main() {
   console.log('payoutAddress:    ', merchant.payoutAddress)
   console.log('tier:             ', merchant.tier)
   console.log('onchainMerchantId:', merchant.onchainMerchantId ?? '<unset; first live API call will register>')
-  console.log('--- live secret API key (record now; cannot be recovered) ---')
-  console.log(generated.secret)
+  console.log('--- live secret API key ---')
+  console.log(secret.printable ?? '<pinned; recover from SEED_SECRET_KEY>')
+  console.log('--- live publishable key ---')
+  console.log(publishable.printable ?? '<pinned; recover from SEED_PUBLISHABLE_KEY>')
+}
+
+async function ensureKey({ pinned, kind, mode, name, merchantId, scopes }) {
+  if (pinned) {
+    const hash = await hashApiKey(pinned)
+    const prefix = pinned.slice(0, 12)
+    const lastFour = pinned.slice(-4)
+    await prisma.merchantApiKey.deleteMany({ where: { hash } })
+    await prisma.merchantApiKey.create({
+      data: { merchantId, name, kind, mode, hash, prefix, lastFour, scopes },
+    })
+    return { printable: null }
+  }
+  const fresh = await generateApiKey(kind, mode)
+  await prisma.merchantApiKey.create({
+    data: {
+      merchantId,
+      name,
+      kind,
+      mode,
+      hash: fresh.hash,
+      prefix: fresh.prefix,
+      lastFour: fresh.lastFour,
+      scopes,
+    },
+  })
+  return { printable: fresh.secret }
 }
 
 main()

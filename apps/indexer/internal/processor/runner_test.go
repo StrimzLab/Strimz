@@ -3,6 +3,7 @@ package processor
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -40,6 +41,10 @@ func (f *fakeChain) BlockTime(ctx context.Context, blockNumber uint64) (time.Tim
 		return ts, nil
 	}
 	return time.Now().UTC(), nil
+}
+
+func (f *fakeChain) BlockHash(ctx context.Context, blockNumber uint64) (string, error) {
+	return fmt.Sprintf("0x%064x", blockNumber), nil
 }
 
 func (f *fakeChain) Close() {}

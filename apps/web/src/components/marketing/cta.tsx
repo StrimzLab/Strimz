@@ -10,7 +10,7 @@ import strimzVector from '@/../public/logoIcons/StrimzVector.svg'
 import ctaPattern from '@/../public/patterns/ctaPattern.svg'
 
 /**
- * Closing CTA — direct port of strimz-subscription's `CTA` section.
+ * Closing CTA. Direct port of strimz-subscription's `CTA` section.
  * `bg-primary` block with the cta-pattern strip pulsing along the bottom
  * and the Strimz vector pulsing on top of it.
  */
@@ -60,7 +60,7 @@ export function ClosingCta() {
         </motion.div>
       </motion.div>
 
-      {/* Pulsing CTA pattern strip — strimz-subscription signature */}
+      {/* Pulsing CTA pattern strip. Strimz-subscription signature */}
       <div className="relative mt-16 flex w-full items-center justify-center">
         <Image
           src={ctaPattern}

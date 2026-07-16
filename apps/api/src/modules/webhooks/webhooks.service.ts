@@ -5,6 +5,7 @@ import type {
   CreateWebhookEndpointOutput,
   WebhookEndpoint,
   WebhookDelivery,
+  WebhookDeliveryDetail,
 } from '@strimz/shared-types'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
@@ -159,10 +160,22 @@ export class WebhooksService {
 
   // ----- Deliveries -----
 
-  async retrieveDelivery(merchantId: string, id: string): Promise<WebhookDelivery> {
-    const row = await this.prisma.db.webhookDelivery.findFirst({ where: { id, merchantId } })
+  async retrieveDelivery(merchantId: string, id: string): Promise<WebhookDeliveryDetail> {
+    const row = await this.prisma.db.webhookDelivery.findFirst({
+      where: { id, merchantId },
+      include: { event: true },
+    })
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'delivery not found' })
-    return serialiseDelivery(row)
+    const payload =
+      row.event?.payload && typeof row.event.payload === 'object'
+        ? (row.event.payload as Record<string, unknown>)
+        : {}
+    return {
+      ...serialiseDelivery(row),
+      deliveryId: row.deliveryId,
+      responseBody: row.responseBody ?? null,
+      requestPayload: payload,
+    }
   }
 
   async listDeliveries(
@@ -237,14 +250,7 @@ function serialiseEndpoint(row: any): WebhookEndpoint {
     mode: row.mode,
     url: row.url,
     description: row.description,
-    events: row.events.map((e: string) =>
-      e
-        .replace(/_/g, '.')
-        .replace(
-          /\.(read|write|created|completed|failed|charged|charge\.failed|recovery\.attempt|recovery\.outcome|cancelled|lapsed|paid|overdue|action\.executed|job\.proposed|job\.completed|job\.disputed|wallet\.flagged|wallet\.blocked)/g,
-          (_, suffix) => `.${suffix}`,
-        ),
-    ) as never,
+    events: row.events.map((e: string) => prismaEventNameToWire(e)) as never,
     status: row.status,
     signingSecretPrefix: row.signingSecretPrefix,
     lastDeliveredAt: row.lastDeliveredAt?.toISOString() ?? null,

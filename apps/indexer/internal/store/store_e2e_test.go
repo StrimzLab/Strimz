@@ -383,6 +383,7 @@ func TestE2E_SubscriptionLifecycle_CreatedThenChargedThenChargeSkipped(t *testin
 		Interval:              "monthly",
 		IntervalCount:         1,
 		StartAt:               time.Now().UTC(),
+		CurrentPeriodEndAt:    time.Now().Add(30 * 24 * time.Hour).UTC(),
 		NextChargeAt:          time.Now().Add(30 * 24 * time.Hour).UTC(),
 		OnchainTxHash:         "0x" + repeatStr("1", 64),
 		Mode:                  "live",
@@ -400,6 +401,7 @@ func TestE2E_SubscriptionLifecycle_CreatedThenChargedThenChargeSkipped(t *testin
 		Interval:              "monthly",
 		IntervalCount:         1,
 		StartAt:               time.Now().UTC(),
+		CurrentPeriodEndAt:    time.Now().Add(30 * 24 * time.Hour).UTC(),
 		NextChargeAt:          time.Now().Add(30 * 24 * time.Hour).UTC(),
 		OnchainTxHash:         "0x" + repeatStr("1", 64),
 		Mode:                  "live",
@@ -493,9 +495,10 @@ func TestE2E_MarkSubscriptionCancelled_NoOpForAlreadyCancelled(t *testing.T) {
 		MerchantOnchainID:     big.NewInt(401),
 		PayerAddress:          "0x000000000000000000000000000000000000aa55",
 		Currency:              "USDC", Amount: "10000000", Interval: "monthly", IntervalCount: 1,
-		StartAt:      time.Now().UTC(),
-		NextChargeAt: time.Now().Add(30 * 24 * time.Hour).UTC(),
-		Mode:         "live",
+		StartAt:            time.Now().UTC(),
+		CurrentPeriodEndAt: time.Now().Add(30 * 24 * time.Hour).UTC(),
+		NextChargeAt:       time.Now().Add(30 * 24 * time.Hour).UTC(),
+		Mode:               "live",
 	})
 	require.NoError(t, err)
 

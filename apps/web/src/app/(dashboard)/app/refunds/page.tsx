@@ -1,10 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import { Download, MoreHorizontal, Plus, Copy, ExternalLink } from 'lucide-react'
+import { useWallets } from '@privy-io/react-auth'
+import { Copy, Download, ExternalLink, Loader2, MoreHorizontal, PenLine, Plus } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { parseUnits } from 'viem'
+import { encodeFunctionData, erc20Abi, isAddress, parseUnits } from 'viem'
 import { toast } from 'sonner'
+import { env } from '@/lib/env'
 import {
   Button,
   Dialog,
@@ -18,9 +20,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
-  Label,
+  FieldLabel,
   Select,
   SelectContent,
   SelectItem,
@@ -28,14 +31,20 @@ import {
   SelectValue,
   Textarea,
 } from '@strimz/ui'
-import type { Refund, RefundReason, RefundStatus } from '@strimz/shared-types'
+import type {
+  Refund,
+  RefundCreateOutput,
+  RefundReason,
+  RefundSigningInstructions,
+  RefundStatus,
+} from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { formatTokenAmount, relativeTime, shortAddress, tokenAmountToNumber } from '@/lib/format'
-import { useCreateRefund, useRefunds } from '@/hooks/api'
+import { useCreateRefund, useRefunds, useSubmitRefundSignature } from '@/hooks/api'
 
 const STATUS_TONE: Record<RefundStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
   completed: 'positive',
@@ -65,10 +74,113 @@ function projectRefunds(page: { data: Refund[] }): RefundsView {
   }
 }
 
+/**
+ * Signs the ERC-20 transfer that constitutes the actual on-chain
+ * refund. Uses the merchant's Privy embedded wallet (the same key
+ * that owns the payout address). Once broadcast we POST the tx hash
+ * back to `/v1/refunds/:id/signature` so the row flips from
+ * `awaiting_signature` to `submitted` and the indexer takes over.
+ */
+function useRefundSigner() {
+  const { wallets } = useWallets()
+  const submit = useSubmitRefundSignature()
+
+  const embedded = React.useMemo(
+    () => wallets.find((w) => w.walletClientType === 'privy') ?? null,
+    [wallets],
+  )
+
+  const [broadcasting, setBroadcasting] = React.useState(false)
+
+  const sign = React.useCallback(
+    async ({
+      refundId,
+      instructions,
+    }: {
+      refundId: string
+      instructions: RefundSigningInstructions
+    }) => {
+      if (!embedded) {
+        toast.error('Connect your Strimz-embedded wallet before signing.')
+        return null
+      }
+      if (!isAddress(instructions.to) || !isAddress(instructions.token)) {
+        toast.error('Invalid signing instructions — refund not sent.')
+        return null
+      }
+      setBroadcasting(true)
+      try {
+        const data = encodeFunctionData({
+          abi: erc20Abi,
+          functionName: 'transfer',
+          args: [instructions.to as `0x${string}`, BigInt(instructions.amount)],
+        })
+        const provider = await embedded.getEthereumProvider()
+        const hash = (await provider.request({
+          method: 'eth_sendTransaction',
+          params: [
+            {
+              from: embedded.address as `0x${string}`,
+              to: instructions.token,
+              data,
+              value: '0x0',
+            },
+          ],
+        })) as `0x${string}`
+        await submit.mutateAsync({ id: refundId, refundTxHash: hash })
+        return hash
+      } finally {
+        setBroadcasting(false)
+      }
+    },
+    [embedded, submit],
+  )
+
+  return {
+    sign,
+    isSigning: broadcasting || submit.isPending,
+    hasEmbeddedWallet: !!embedded,
+  }
+}
+
 export default function RefundsPage() {
   const { data, isLoading, isError, error, refetch } = useRefunds(
     { limit: 100 },
     { select: projectRefunds },
+  )
+  const { sign: signRefund, isSigning } = useRefundSigner()
+  const [signingId, setSigningId] = React.useState<string | null>(null)
+
+  const handleSignRow = React.useCallback(
+    async (refund: Refund) => {
+      // We only have `signingInstructions` on the create call. For a
+      // row already awaiting_signature, we reconstruct the transfer
+      // from the refund + transaction fields. Amount is on the refund;
+      // the token address must come from currency + mode via a small
+      // client-side lookup.
+      const tokenAddress = tokenAddressForCurrency(refund.currency)
+      if (!tokenAddress) {
+        toast.error(`No token address configured for ${refund.currency}.`)
+        return
+      }
+      setSigningId(refund.id)
+      try {
+        await signRefund({
+          refundId: refund.id,
+          instructions: {
+            token: tokenAddress,
+            to: refund.payerAddress,
+            amount: refund.amount,
+            note: refund.note ?? `Refund for transaction ${refund.transactionId}`,
+          },
+        })
+      } catch (err) {
+        toast.error(`Sign failed: ${(err as Error).message}`)
+      } finally {
+        setSigningId(null)
+      }
+    },
+    [signRefund],
   )
 
   const columns = React.useMemo<ColumnDef<Refund>[]>(
@@ -132,47 +244,68 @@ export default function RefundsPage() {
         header: '',
         enableHiding: false,
         enableSorting: false,
-        cell: ({ row }) => (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="size-8 p-0">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() =>
-                  navigator.clipboard
-                    .writeText(row.original.id)
-                    .then(() => toast.success('Refund ID copied'))
-                }
-              >
-                <Copy className="mr-2 size-4" /> Copy ID
-              </DropdownMenuItem>
-              {row.original.refundTxHash ? (
+        cell: ({ row }) => {
+          const rf = row.original
+          const canSign = rf.status === 'awaiting_signature'
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="size-8 p-0">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                {canSign ? (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => void handleSignRow(rf)}
+                      disabled={isSigning && signingId === rf.id}
+                    >
+                      {isSigning && signingId === rf.id ? (
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                      ) : (
+                        <PenLine className="mr-2 size-4" />
+                      )}
+                      Sign & submit
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                ) : null}
                 <DropdownMenuItem
                   onClick={() =>
                     navigator.clipboard
-                      .writeText(row.original.refundTxHash!)
-                      .then(() => toast.success('Tx hash copied'))
+                      .writeText(rf.id)
+                      .then(() => toast.success('Refund ID copied'))
                   }
                 >
-                  <ExternalLink className="mr-2 size-4" /> Copy tx hash
+                  <Copy className="mr-2 size-4" /> Copy ID
                 </DropdownMenuItem>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ),
+                {rf.refundTxHash ? (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      navigator.clipboard
+                        .writeText(rf.refundTxHash!)
+                        .then(() => toast.success('Tx hash copied'))
+                    }
+                  >
+                    <ExternalLink className="mr-2 size-4" /> Copy tx hash
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        },
       },
     ],
-    [],
+    [handleSignRow, isSigning, signingId],
   )
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Refunds"
+        docsSlug="refunds"
         description="Issue full or partial refunds. You sign each refund from your own wallet, so Strimz never holds your funds."
         action={
           <div className="flex items-center gap-2">
@@ -198,7 +331,7 @@ export default function RefundsPage() {
             >
               <Download className="mr-1.5 size-4" /> Export CSV
             </Button>
-            <NewRefundDialog />
+            <NewRefundDialog onSignRequested={signRefund} />
           </div>
         }
       />
@@ -265,20 +398,36 @@ function Stat({
 }
 
 /**
- * Refund creation flow.
+ * Refund creation + on-chain signing flow.
  *
- * The amount field collects USDC as a decimal string (`"50.00"`). We
- * scale to 6-decimal raw via `parseUnits` before posting — the API
- * accepts the raw bigint form via `tokenAmountSchema`. Doing the
- * conversion at the boundary keeps the component shape natural for the
- * merchant while preserving the API's source of truth.
+ * Two API calls in sequence:
+ *   1. `POST /v1/refunds` — creates the refund row at
+ *      `awaiting_signature` and returns the ERC-20 transfer the
+ *      merchant needs to sign (token + to + amount).
+ *   2. `POST /v1/refunds/:id/signature` — after Privy signs and
+ *      broadcasts the transfer, we hand the tx hash back to the API
+ *      which flips the row to `submitted`. The indexer then watches
+ *      the token contract for the matching Transfer event and marks
+ *      the refund `completed`.
+ *
+ * If step 2 fails (rejected sig, RPC glitch) the row stays at
+ * `awaiting_signature` and the row-menu "Sign & submit" action can
+ * retry.
  */
-function NewRefundDialog() {
+function NewRefundDialog({
+  onSignRequested,
+}: {
+  onSignRequested: (args: {
+    refundId: string
+    instructions: RefundSigningInstructions
+  }) => Promise<`0x${string}` | null>
+}) {
   const [open, setOpen] = React.useState(false)
   const [transactionId, setTransactionId] = React.useState('')
   const [amount, setAmount] = React.useState('')
   const [reason, setReason] = React.useState<RefundReason>('customer_request')
   const [note, setNote] = React.useState('')
+  const [busy, setBusy] = React.useState(false)
 
   const createMutation = useCreateRefund()
 
@@ -289,7 +438,7 @@ function NewRefundDialog() {
     setNote('')
   }
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!transactionId || !amount) return
     let raw: string
     try {
@@ -298,20 +447,30 @@ function NewRefundDialog() {
       toast.error('Enter a valid amount')
       return
     }
-    createMutation.mutate(
-      {
-        transactionId,
+    setBusy(true)
+    try {
+      const out: RefundCreateOutput = await createMutation.mutateAsync({
+        transactionId: transactionId.trim(),
         amount: raw,
         reason,
         note: note || undefined,
-      },
-      {
-        onSuccess: () => {
-          setOpen(false)
-          reset()
-        },
-      },
-    )
+      })
+      // Hand off to the wallet. Success closes the dialog; a rejected
+      // signature leaves the refund at awaiting_signature so the row
+      // menu can retry.
+      const hash = await onSignRequested({
+        refundId: out.refund.id,
+        instructions: out.signingInstructions,
+      })
+      if (hash) {
+        setOpen(false)
+        reset()
+      }
+    } catch (err) {
+      toast.error(`Refund failed: ${(err as Error).message}`)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -331,22 +490,27 @@ function NewRefundDialog() {
         <DialogHeader>
           <DialogTitle>Create refund</DialogTitle>
           <DialogDescription>
-            You will be prompted to sign the on-chain transfer with your payout wallet.
+            You will sign the on-chain USDC transfer with your Strimz-embedded wallet after
+            confirming below.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
           <div className="grid gap-1.5">
-            <Label htmlFor="rf-tx">Original transaction ID</Label>
+            <FieldLabel htmlFor="rf-tx" required>
+              Original transaction ID
+            </FieldLabel>
             <Input
               id="rf-tx"
-              placeholder="tx_…"
+              placeholder="cm…"
               value={transactionId}
               onChange={(e) => setTransactionId(e.target.value)}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="rf-amount">Amount (USDC)</Label>
+              <FieldLabel htmlFor="rf-amount" required>
+                Amount (USDC)
+              </FieldLabel>
               <Input
                 id="rf-amount"
                 type="number"
@@ -357,7 +521,9 @@ function NewRefundDialog() {
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="rf-reason">Reason</Label>
+              <FieldLabel htmlFor="rf-reason" required>
+                Reason
+              </FieldLabel>
               <Select value={reason} onValueChange={(v) => setReason(v as RefundReason)}>
                 <SelectTrigger id="rf-reason">
                   <SelectValue />
@@ -373,7 +539,9 @@ function NewRefundDialog() {
             </div>
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="rf-note">Note</Label>
+            <FieldLabel htmlFor="rf-note" required={false}>
+              Note
+            </FieldLabel>
             <Textarea
               id="rf-note"
               placeholder="Optional internal note"
@@ -384,19 +552,29 @@ function NewRefundDialog() {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>
+          <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
             Cancel
           </Button>
-          <Button
-            onClick={handleCreate}
-            disabled={createMutation.isPending || !transactionId || !amount}
-          >
-            {createMutation.isPending ? 'Submitting…' : 'Create + sign'}
+          <Button onClick={() => void handleCreate()} disabled={busy || !transactionId || !amount}>
+            {busy ? (
+              <>
+                <Loader2 className="mr-1.5 size-4 animate-spin" />
+                Working…
+              </>
+            ) : (
+              'Create + sign'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   )
+}
+
+function tokenAddressForCurrency(currency: 'USDC' | 'EURC'): `0x${string}` | null {
+  const raw = currency === 'USDC' ? env.usdcAddress : process.env.NEXT_PUBLIC_STRIMZ_EURC_ADDRESS
+  if (!raw || !isAddress(raw)) return null
+  return raw as `0x${string}`
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {

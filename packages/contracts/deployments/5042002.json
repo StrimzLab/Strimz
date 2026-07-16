@@ -49,5 +49,272 @@
         "implementation": "0xa47c43b9be423e1e296ba6fc8caef804fcaa4923"
       }
     ]
+  },
+  {
+    "timestamp": 1783525870,
+    "chainId": 5042002,
+    "deployer": "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38",
+    "label": "core",
+    "contracts": [
+      {
+        "name": "StrimzRegistry",
+        "proxy": "0x76e438a08c3518c53e02109779a89d0cf0ed7924",
+        "implementation": "0x956eaac26a6858c5128db1bd31cf4e6014db8bf9"
+      },
+      {
+        "name": "TokenWhitelist",
+        "proxy": "0xd8ac827078057763bb5425fe9b5069d38be1bea8",
+        "implementation": "0xe316ceaa769402b9fb8a036e513d933295592cc8"
+      },
+      {
+        "name": "FeeCollector",
+        "proxy": "0x99593c5aaeb859cc0fc4001be9241c0b5fb5e288",
+        "implementation": "0x004f88686b1579d4c1f8c6e25123c07c09fc6e40"
+      },
+      {
+        "name": "StrimzPayments",
+        "proxy": "0xcc348987e3c54f95fa11c2791a783e06ec4ad9fd",
+        "implementation": "0xcc348987e3c54f95fa11c2791a783e06ec4ad9fd"
+      },
+      {
+        "name": "StrimzSubscriptions",
+        "proxy": "0xbade7c56315ae02930ae9d079a7722ca80ce784c",
+        "implementation": "0xbade7c56315ae02930ae9d079a7722ca80ce784c"
+      }
+    ]
+  },
+  {
+    "timestamp": 1783526815,
+    "chainId": 5042002,
+    "deployer": "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38",
+    "label": "core",
+    "contracts": [
+      {
+        "name": "StrimzRegistry",
+        "proxy": "0x76e438a08c3518c53e02109779a89d0cf0ed7924",
+        "implementation": "0x956eaac26a6858c5128db1bd31cf4e6014db8bf9"
+      },
+      {
+        "name": "TokenWhitelist",
+        "proxy": "0xd8ac827078057763bb5425fe9b5069d38be1bea8",
+        "implementation": "0xe316ceaa769402b9fb8a036e513d933295592cc8"
+      },
+      {
+        "name": "FeeCollector",
+        "proxy": "0x99593c5aaeb859cc0fc4001be9241c0b5fb5e288",
+        "implementation": "0x004f88686b1579d4c1f8c6e25123c07c09fc6e40"
+      },
+      {
+        "name": "StrimzPayments",
+        "proxy": "0xcc348987e3c54f95fa11c2791a783e06ec4ad9fd",
+        "implementation": "0xcc348987e3c54f95fa11c2791a783e06ec4ad9fd"
+      },
+      {
+        "name": "StrimzSubscriptions",
+        "proxy": "0xbade7c56315ae02930ae9d079a7722ca80ce784c",
+        "implementation": "0xbade7c56315ae02930ae9d079a7722ca80ce784c"
+      }
+    ]
+  },
+  {
+    "timestamp": 1783528899,
+    "chainId": 5042002,
+    "deployer": "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38",
+    "label": "core",
+    "contracts": [
+      {
+        "name": "StrimzRegistry",
+        "proxy": "0xe316ceaa769402b9fb8a036e513d933295592cc8",
+        "implementation": "0x76e438a08c3518c53e02109779a89d0cf0ed7924"
+      },
+      {
+        "name": "TokenWhitelist",
+        "proxy": "0x004f88686b1579d4c1f8c6e25123c07c09fc6e40",
+        "implementation": "0xd8ac827078057763bb5425fe9b5069d38be1bea8"
+      },
+      {
+        "name": "FeeCollector",
+        "proxy": "0xcc348987e3c54f95fa11c2791a783e06ec4ad9fd",
+        "implementation": "0x99593c5aaeb859cc0fc4001be9241c0b5fb5e288"
+      },
+      {
+        "name": "StrimzPayments",
+        "proxy": "0xbade7c56315ae02930ae9d079a7722ca80ce784c",
+        "implementation": "0xbade7c56315ae02930ae9d079a7722ca80ce784c"
+      },
+      {
+        "name": "StrimzSubscriptions",
+        "proxy": "0x26e03ec702e608576ffd1f19982f5e0e60b266de",
+        "implementation": "0x26e03ec702e608576ffd1f19982f5e0e60b266de"
+      }
+    ]
+  },
+  {
+    "timestamp": 1783529500,
+    "chainId": 5042002,
+    "deployer": "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38",
+    "label": "core",
+    "contracts": [
+      {
+        "name": "StrimzRegistry",
+        "proxy": "0xe316ceaa769402b9fb8a036e513d933295592cc8",
+        "implementation": "0x76e438a08c3518c53e02109779a89d0cf0ed7924"
+      },
+      {
+        "name": "TokenWhitelist",
+        "proxy": "0x004f88686b1579d4c1f8c6e25123c07c09fc6e40",
+        "implementation": "0xd8ac827078057763bb5425fe9b5069d38be1bea8"
+      },
+      {
+        "name": "FeeCollector",
+        "proxy": "0xcc348987e3c54f95fa11c2791a783e06ec4ad9fd",
+        "implementation": "0x99593c5aaeb859cc0fc4001be9241c0b5fb5e288"
+      },
+      {
+        "name": "StrimzPayments",
+        "proxy": "0xbade7c56315ae02930ae9d079a7722ca80ce784c",
+        "implementation": "0xbade7c56315ae02930ae9d079a7722ca80ce784c"
+      },
+      {
+        "name": "StrimzSubscriptions",
+        "proxy": "0x26e03ec702e608576ffd1f19982f5e0e60b266de",
+        "implementation": "0x26e03ec702e608576ffd1f19982f5e0e60b266de"
+      }
+    ]
+  },
+  {
+    "timestamp": 1783529678,
+    "chainId": 5042002,
+    "deployer": "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38",
+    "label": "core",
+    "contracts": [
+      {
+        "name": "StrimzRegistry",
+        "proxy": "0xe316ceaa769402b9fb8a036e513d933295592cc8",
+        "implementation": "0x76e438a08c3518c53e02109779a89d0cf0ed7924"
+      },
+      {
+        "name": "TokenWhitelist",
+        "proxy": "0x004f88686b1579d4c1f8c6e25123c07c09fc6e40",
+        "implementation": "0xd8ac827078057763bb5425fe9b5069d38be1bea8"
+      },
+      {
+        "name": "FeeCollector",
+        "proxy": "0xcc348987e3c54f95fa11c2791a783e06ec4ad9fd",
+        "implementation": "0x99593c5aaeb859cc0fc4001be9241c0b5fb5e288"
+      },
+      {
+        "name": "StrimzPayments",
+        "proxy": "0xbade7c56315ae02930ae9d079a7722ca80ce784c",
+        "implementation": "0xbade7c56315ae02930ae9d079a7722ca80ce784c"
+      },
+      {
+        "name": "StrimzSubscriptions",
+        "proxy": "0x26e03ec702e608576ffd1f19982f5e0e60b266de",
+        "implementation": "0x26e03ec702e608576ffd1f19982f5e0e60b266de"
+      }
+    ]
+  },
+  {
+    "timestamp": 1783529714,
+    "chainId": 5042002,
+    "deployer": "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38",
+    "label": "core",
+    "contracts": [
+      {
+        "name": "StrimzRegistry",
+        "proxy": "0xe316ceaa769402b9fb8a036e513d933295592cc8",
+        "implementation": "0x76e438a08c3518c53e02109779a89d0cf0ed7924"
+      },
+      {
+        "name": "TokenWhitelist",
+        "proxy": "0x004f88686b1579d4c1f8c6e25123c07c09fc6e40",
+        "implementation": "0xd8ac827078057763bb5425fe9b5069d38be1bea8"
+      },
+      {
+        "name": "FeeCollector",
+        "proxy": "0xcc348987e3c54f95fa11c2791a783e06ec4ad9fd",
+        "implementation": "0x99593c5aaeb859cc0fc4001be9241c0b5fb5e288"
+      },
+      {
+        "name": "StrimzPayments",
+        "proxy": "0xbade7c56315ae02930ae9d079a7722ca80ce784c",
+        "implementation": "0xbade7c56315ae02930ae9d079a7722ca80ce784c"
+      },
+      {
+        "name": "StrimzSubscriptions",
+        "proxy": "0x26e03ec702e608576ffd1f19982f5e0e60b266de",
+        "implementation": "0x26e03ec702e608576ffd1f19982f5e0e60b266de"
+      }
+    ]
+  },
+  {
+    "timestamp": 1783529926,
+    "chainId": 5042002,
+    "deployer": "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38",
+    "label": "agent",
+    "contracts": [
+      {
+        "name": "StrimzAgentRegistry",
+        "proxy": "0xd7dfba95c34811ceb05c52d6e34f863f029fcb09",
+        "implementation": "0xfe01253b5d1d4720ab86b55c587719f1dc59e62d"
+      },
+      {
+        "name": "StrimzAgentEscrow",
+        "proxy": "0xf2751ae868ddf1608275b3f4f7fb8921241b4689",
+        "implementation": "0x46ade4b35ce5f517603197409284cc8496bc0266"
+      }
+    ]
+  },
+  {
+    "timestamp": 1783712462,
+    "chainId": 5042002,
+    "deployer": "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38",
+    "label": "core",
+    "contracts": [
+      {
+        "name": "StrimzRegistry",
+        "proxy": "0x23bb25315107bf7463a84913eccd450a43f71ae3",
+        "implementation": "0x61b9eae720cf78361ead0e7f866288ed953b66a9"
+      },
+      {
+        "name": "TokenWhitelist",
+        "proxy": "0xc907412e31a35fcfac9336285a34c0007425066c",
+        "implementation": "0xaddb93647fd042a7a95288050cc0c17ac46ebfba"
+      },
+      {
+        "name": "FeeCollector",
+        "proxy": "0x1ab0e7f7c787b9474488e615096ec3e1bae5cfe2",
+        "implementation": "0xffae61f4cc3cfdb6192d8966c4e151d35e218c10"
+      },
+      {
+        "name": "StrimzPayments",
+        "proxy": "0x2dfa72f9564bdfeb1b32e77c2fdf7040c69bdc7b",
+        "implementation": "0x2dfa72f9564bdfeb1b32e77c2fdf7040c69bdc7b"
+      },
+      {
+        "name": "StrimzSubscriptions",
+        "proxy": "0xed374f8b4d22361d2487404de34224f74f85fb4c",
+        "implementation": "0xed374f8b4d22361d2487404de34224f74f85fb4c"
+      }
+    ]
+  },
+  {
+    "timestamp": 1783712541,
+    "chainId": 5042002,
+    "deployer": "0x1804c8ab1f12e6bbf3894d4083f33e07309d1f38",
+    "label": "agent",
+    "contracts": [
+      {
+        "name": "StrimzAgentRegistry",
+        "proxy": "0x2a498efb64256235e3cc622daa4a3553dc332451",
+        "implementation": "0xadaedda2f35fe28350d16e6e3d7ae3dc87b6b831"
+      },
+      {
+        "name": "StrimzAgentEscrow",
+        "proxy": "0x3e3407650c22cd982d36c429d262403106f49b1e",
+        "implementation": "0x17b77b7c0522aafa89434e043ff6ed4e8d13b724"
+      }
+    ]
   }
 ]

@@ -52,7 +52,7 @@ export function CheckoutButton({ orderId }: { orderId: string }) {
 
 That's the entire client side. The customer lands on
 `strimz.finance/pay/<sessionId>`, picks a wallet (Reown handles the
-picker for every major one), and signs one message.
+picker for every major one), and signs two typed-data messages: the token authorization and the Strimz `PayIntent`.
 
 The signature is an EIP-3009 `ReceiveWithAuthorization`. Strimz's
 relayer turns it into the on-chain `payWithAuthorization` call, pays
@@ -109,7 +109,7 @@ app.post('/webhooks/strimz', async (req, res) => {
 
 The customer's wallet signed an EIP-3009 authorisation. Strimz's
 relayer wrapped it into a `StrimzPayments.payWithAuthorization` call
-and broadcast the transaction. Arc settled in roughly 13 seconds.
+and broadcast the transaction. Arc settled it in under a second.
 Your `payoutAddress` received `amount - feeAmount` USDC immediately.
 The indexer picked up the `PaymentExecuted` event, matched its
 `ref` to your `PaymentSession.id`, inserted a

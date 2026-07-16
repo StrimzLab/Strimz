@@ -35,8 +35,8 @@ export default function AcceptableUsePage() {
       <h2 id="principles">Principles</h2>
       <p>
         Strimz exists to make legitimate stablecoin commerce easier. We operate in a permissionless
-        on-chain environment, but the Service we provide — the API, dashboard, hosted checkout,
-        webhook delivery, and the AutoPay Agent — is not. The activities listed below are prohibited
+        on-chain environment, but the Service we provide. The API, dashboard, hosted checkout,
+        webhook delivery, and the AutoPay Agent. Is not. The activities listed below are prohibited
         from running on Strimz infrastructure.
       </p>
       <p>

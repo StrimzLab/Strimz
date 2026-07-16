@@ -1,17 +1,30 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common'
 import type {
   CreateStorefrontInput,
   CreateStorefrontProductInput,
   Storefront,
+  StorefrontCheckoutInput,
+  StorefrontCheckoutResponse,
   StorefrontProduct,
 } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { TypedConfigService } from '../../config/index.js'
+import { PaymentSessionsService } from '../payment-sessions/payment-sessions.service.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 @Injectable()
 export class StorefrontsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly paymentSessions: PaymentSessionsService,
+    private readonly cfg: TypedConfigService,
+  ) {}
 
   async retrieve(merchantId: string): Promise<Storefront | null> {
     const row = await this.prisma.db.storefront.findUnique({ where: { merchantId } })
@@ -145,6 +158,102 @@ export class StorefrontsService {
       orderBy: { sortOrder: 'asc' },
     })
     return { storefront: serialise(sf), products: products.map(serialiseProduct) }
+  }
+
+  /**
+   * Public "Buy" endpoint. Called from `/store/[slug]/products/[id]`
+   * when a shopper clicks Buy.
+   *
+   * Behaviour:
+   *   - one_time: mint a fresh PaymentSession scoped to the merchant
+   *     that owns this storefront. The session inherits the product's
+   *     name (description), amount, and currency. Stock is decremented
+   *     if the product has a finite stock; unlimited-stock products
+   *     (`stock === null`) skip the check. The API key mode is `live`
+   *     — every published product goes through the real relay.
+   *   - subscription: hand back the plan's hosted-checkout URL
+   *     (`/sub/{planId}`). The product must have a linked planId,
+   *     which the merchant creates via /v1/storefront/products from
+   *     the dashboard.
+   */
+  async checkoutFromProduct(
+    slug: string,
+    productId: string,
+    input: StorefrontCheckoutInput,
+  ): Promise<StorefrontCheckoutResponse> {
+    const sf = await this.prisma.db.storefront.findUnique({ where: { slug } })
+    if (!sf || sf.status !== 'published') {
+      throw new NotFoundException({ code: 'not_found', message: 'storefront not found' })
+    }
+
+    const product = await this.prisma.db.storefrontProduct.findFirst({
+      where: { id: productId, storefrontId: sf.id, isActive: true },
+    })
+    if (!product) {
+      throw new NotFoundException({ code: 'not_found', message: 'product not found' })
+    }
+    if (product.stock !== null && product.stock <= 0) {
+      throw new ConflictException({
+        code: 'invalid_request',
+        message: 'product is sold out',
+      })
+    }
+
+    const checkoutOrigin = this.cfg.env.CHECKOUT_ORIGIN
+    const returnPath = input.returnPath?.startsWith('/') ? input.returnPath : '/'
+    const merchantReturn = `${checkoutOrigin}/store/${sf.slug}${returnPath === '/' ? '' : returnPath}`
+
+    if (product.type === 'subscription') {
+      if (!product.planId) {
+        throw new BadRequestException({
+          code: 'invalid_request',
+          message:
+            'this product is a subscription but has no linked plan — the merchant needs to attach one first',
+        })
+      }
+      return {
+        checkoutUrl: `${checkoutOrigin}/sub/${product.planId}`,
+        ref: product.planId,
+        kind: 'subscription_plan',
+      }
+    }
+
+    const session = await this.paymentSessions.create(sf.merchantId, 'live', {
+      currency: product.currency as 'USDC' | 'EURC',
+      amount: product.price,
+      description: product.name,
+      expiresInMinutes: 30,
+      successUrl: `${merchantReturn}?checkout=success`,
+      cancelUrl: `${merchantReturn}?checkout=cancelled`,
+      metadata: {
+        source: 'storefront',
+        storefrontSlug: sf.slug,
+        productId: product.id,
+        productName: product.name,
+        ...(input.customerEmail ? { customerEmail: input.customerEmail } : {}),
+      },
+      ...(input.customerEmail ? { customer: { email: input.customerEmail } } : {}),
+    })
+
+    if (product.stock !== null) {
+      // Decrement stock atomically. Race-safe under concurrent buys —
+      // `stock: { decrement: 1 }` translates to `UPDATE ... SET stock =
+      // stock - 1`, not a check-then-write. The sold-out gate above
+      // handles the visible case; concurrent buys of the last unit will
+      // result in one row landing at -1 rather than a conflict, and the
+      // scheduler's fulfilment cron treats <=0 as sold-out on the next
+      // tick. Merchants can always top the stock back up.
+      await this.prisma.db.storefrontProduct.update({
+        where: { id: product.id },
+        data: { stock: { decrement: 1 } },
+      })
+    }
+
+    return {
+      checkoutUrl: `${checkoutOrigin}/pay/${session.id}`,
+      ref: session.id,
+      kind: 'payment_session',
+    }
   }
 }
 

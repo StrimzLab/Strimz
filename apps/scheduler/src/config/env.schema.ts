@@ -102,7 +102,17 @@ export const envSchema = z.object({
    * when a merchant hits Reply on a payment confirmation, the response
    * lands in a human inbox rather than bouncing off the noreply alias.
    */
-  RESEND_REPLY_TO: z.string().email().default('strimztokenstream@gmail.com'),
+  RESEND_REPLY_TO: z.string().email().default('support@strimz.finance'),
+
+  /** Gates payer-side renewal receipts only. Off keeps us under the Resend free-tier ceiling. */
+  // Not z.coerce.boolean(): Boolean("false") is true, so an explicit
+  // SEND_PAYER_CHARGE_RECEIPTS=false would enable the flag.
+  SEND_PAYER_CHARGE_RECEIPTS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  /** Resend free plan caps at 100/day; we default to 90 for headroom. */
+  DAILY_EMAIL_BUDGET: z.coerce.number().int().positive().default(90),
 })
 
 export type Env = z.infer<typeof envSchema>

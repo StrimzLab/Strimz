@@ -75,6 +75,18 @@ export class AgentActionWorker extends WorkerHost {
     data: Extract<AgentActionJob, { type: 'job.create-onchain' }>,
   ): Promise<{ txHash: string }> {
     const job = await this.prisma.db.agentJob.findUniqueOrThrow({ where: { id: data.jobId } })
+
+    // Claim before broadcast. A replayed or duplicate queue job matches
+    // zero rows and skips instead of funding the escrow twice.
+    const { count } = await this.prisma.db.agentJob.updateMany({
+      where: { id: job.id, status: 'accepted' },
+      data: { status: 'in_progress' },
+    })
+    if (count === 0) {
+      this.log.warn(`job ${job.id} is ${job.status}, not accepted — skipping escrow funding`)
+      return { txHash: '0xskipped' }
+    }
+
     const tokenAddress = this.tokenAddressFor(job.currency)
     const txHash = await this.chain.createJob({
       vendor: job.vendorAddress as Address,
@@ -85,7 +97,7 @@ export class AgentActionWorker extends WorkerHost {
     })
     await this.prisma.db.agentJob.update({
       where: { id: job.id },
-      data: { escrowTxHash: txHash, status: 'in_progress' },
+      data: { escrowTxHash: txHash },
     })
     return { txHash }
   }

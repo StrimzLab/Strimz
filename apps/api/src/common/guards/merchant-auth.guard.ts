@@ -171,10 +171,15 @@ export class MerchantAuthGuard implements CanActivate {
       })
     }
 
+    // Dashboard traffic ships an `x-strimz-mode` header carrying the
+    // merchant's current toggle selection. Missing / malformed values
+    // fall back to test — the safer default that runs on Arc testnet.
+    const headerMode = String(req.headers['x-strimz-mode'] ?? '').toLowerCase()
+    const mode: 'test' | 'live' = headerMode === 'live' ? 'live' : 'test'
+
     req.merchant = {
       merchantId: merchant.id,
-      // Dashboard requests pick mode per-resource; default to test for safety.
-      mode: 'test',
+      mode,
     }
 
     void this.prisma.db.merchant

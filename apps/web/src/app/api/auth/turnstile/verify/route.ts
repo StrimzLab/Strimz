@@ -2,7 +2,7 @@
  * Cloudflare Turnstile server-side verify.
  *
  * Mirrors `apps/api`'s `/v1/auth/turnstile/verify` endpoint but lives in
- * `apps/web` so the signup page is self-contained — no cross-service
+ * `apps/web` so the signup page is self-contained. No cross-service
  * round-trip, no CORS surface, and signup works before `apps/api` is
  * deployed. The verify is a thin proxy to Cloudflare's Siteverify API
  * that doesn't need the database or any merchant context, so duplicating
@@ -42,10 +42,10 @@ interface SiteverifyResponse {
 export async function POST(req: Request) {
   const secret = process.env.TURNSTILE_SECRET_KEY
 
-  // Disabled mode — same dev fallback the apps/api adapter uses.
+  // Disabled mode. Same dev fallback the apps/api adapter uses.
   if (!secret) {
     // eslint-disable-next-line no-console
-    console.warn('[turnstile] TURNSTILE_SECRET_KEY not set — bot-protection is disabled.')
+    console.warn('[turnstile] TURNSTILE_SECRET_KEY not set. Bot-protection is disabled.')
     return NextResponse.json({ ok: true, mode: 'disabled' })
   }
 
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
     )
   }
 
-  // Action match — see route doc above for replay-defense rationale.
+  // Action match. See route doc above for replay-defense rationale.
   if (expectedAction && data.action !== expectedAction) {
     // eslint-disable-next-line no-console
     console.warn(`[turnstile] action mismatch: expected="${expectedAction}", got="${data.action}"`)

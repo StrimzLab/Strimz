@@ -2,7 +2,7 @@
  * Barrel entry for the merchant dashboard's TanStack Query hooks.
  *
  * Page components import from `@/hooks/api`. The individual hook files
- * are not re-imported across the dashboard — keeping the public
+ * are not re-imported across the dashboard. Keeping the public
  * surface flat means a future refactor can split a file into two
  * without breaking call sites.
  */

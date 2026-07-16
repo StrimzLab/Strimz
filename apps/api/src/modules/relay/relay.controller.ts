@@ -1,4 +1,13 @@
-import { Body, Controller, Get, NotFoundException, Param, Post, UseGuards } from '@nestjs/common'
+import {
+  Body,
+  ConflictException,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 
 import {
@@ -7,6 +16,7 @@ import {
 } from '../../common/decorators/current-merchant.decorator.js'
 import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
+import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
 import { SubmitPaymentDto, SubmitSubscriptionDto } from './relay.dto.js'
 import { RelayService } from './relay.service.js'
 import type { RelaySubmissionView } from './relay.types.js'
@@ -43,7 +53,10 @@ import type { RelaySubmissionView } from './relay.types.js'
 @UseGuards(ApiKeyGuard)
 @Controller('/v1/relay')
 export class RelayController {
-  constructor(private readonly relay: RelayService) {}
+  constructor(
+    private readonly relay: RelayService,
+    private readonly subscriptions: SubscriptionsService,
+  ) {}
 
   @ApiOperation({
     summary: 'Submit a payer-signed one-shot payment (EIP-3009)',
@@ -69,10 +82,15 @@ export class RelayController {
         nonce: body.auth.nonce as `0x${string}`,
       },
       ref: body.ref as `0x${string}`,
-      signature: {
-        v: body.signature.v,
-        r: body.signature.r as `0x${string}`,
-        s: body.signature.s as `0x${string}`,
+      authSignature: {
+        v: body.authSignature.v,
+        r: body.authSignature.r as `0x${string}`,
+        s: body.authSignature.s as `0x${string}`,
+      },
+      intentSignature: {
+        v: body.intentSignature.v,
+        r: body.intentSignature.r as `0x${string}`,
+        s: body.intentSignature.s as `0x${string}`,
       },
       merchantInternalId: ctx.merchantId,
       sessionId: body.sessionId,
@@ -91,6 +109,22 @@ export class RelayController {
     @CurrentMerchant() ctx: CurrentMerchantPayload,
     @Body() body: SubmitSubscriptionDto,
   ): Promise<RelaySubmissionView> {
+    // Block a wallet that already subscribes to this plan before spending gas.
+    // subscriptionInternalId is the DB planId being enrolled into.
+    if (body.subscriptionInternalId) {
+      const existing = await this.subscriptions.activeForPayer(
+        body.subscriptionInternalId,
+        body.permitData.owner,
+      )
+      if (existing.active) {
+        throw new ConflictException({
+          code: 'subscription_exists',
+          message: 'this wallet already has an active subscription to this plan',
+          subscriptionId: existing.subscriptionId,
+        })
+      }
+    }
+
     return this.relay.submitPermitAndCreateSubscription({
       idempotencyKey: body.idempotencyKey,
       merchantId: body.merchantId,
@@ -104,10 +138,15 @@ export class RelayController {
         value: body.permitData.value,
         deadline: body.permitData.deadline,
       },
-      signature: {
-        v: body.signature.v,
-        r: body.signature.r as `0x${string}`,
-        s: body.signature.s as `0x${string}`,
+      permitSignature: {
+        v: body.permitSignature.v,
+        r: body.permitSignature.r as `0x${string}`,
+        s: body.permitSignature.s as `0x${string}`,
+      },
+      intentSignature: {
+        v: body.intentSignature.v,
+        r: body.intentSignature.r as `0x${string}`,
+        s: body.intentSignature.s as `0x${string}`,
       },
       merchantInternalId: ctx.merchantId,
       subscriptionInternalId: body.subscriptionInternalId,

@@ -5,7 +5,22 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// pgxPoolAdapter lets projection methods target the pool through the
+// same pgxTxLike interface a transaction uses. Used when the caller
+// wants a single-statement autocommit path.
+type pgxPoolAdapter struct{ pool *pgxpool.Pool }
+
+func (a pgxPoolAdapter) Exec(ctx context.Context, sql string, args ...any) (pgxCommandTag, error) {
+	tag, err := a.pool.Exec(ctx, sql, args...)
+	return commandTagWrapper{tag}, err
+}
+
+func (a pgxPoolAdapter) QueryRow(ctx context.Context, sql string, args ...any) pgxRow {
+	return a.pool.QueryRow(ctx, sql, args...)
+}
 
 // pgxTxAdapter bridges pgx.Tx (concrete) → our pgxTxLike interface so the
 // projection methods can mock the tx in unit tests.

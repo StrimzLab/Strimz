@@ -19,8 +19,8 @@ support" or "a wallet pretending to be a payments product." Neither one
 is what a B2B finance team actually wants.
 
 Settlement happens on Arc, Circle's stablecoin-native L1. Gas is paid in
-USDC. A payment confirms in around 13 seconds. The merchant gets a webhook,
-the customer gets a receipt, and the loop closes.
+USDC. A payment reaches deterministic finality in under a second. The
+merchant gets a webhook, the customer gets a receipt, and the loop closes.
 
 ---
 
@@ -112,7 +112,7 @@ is roughly the same — wallet step instead of card step.
          │ wallet                │ rw                   │ rw
          │ (viem/wagmi)          ▼                      ▼
          │                  ┌──────────────────────────────────┐
-         │                  │     PostgreSQL 16 (Render)       │
+         │                  │           PostgreSQL 16          │
          │                  │     (source of read state)       │
          │                  └──────────────────────────────────┘
          │                                ▲ rw
@@ -125,7 +125,7 @@ is roughly the same — wallet step instead of card step.
          ▼                        ▼
    ┌────────────┐           ┌──────────────────────────────────┐
    │  payer's   │           │              Arc                 │
-   │   wallet   │ ────────► │  (USDC gas, native EURC, USYC)   │
+   │   wallet   │ ────────► │  (USDC gas, native EURC)         │
    └────────────┘           └──────────────────────────────────┘
 
                             ┌────────────┐
@@ -162,14 +162,13 @@ A few reasons.
 Gas in USDC means the relayer doesn't need an ETH balance. Treasury runs
 on one asset. Cash-flow forecasting on the operator side gets simple.
 
-13-second finality is good enough that the payer gets a confirmation
+Sub-second deterministic finality means the payer gets a confirmation
 before they tab away from the page. Stripe-redirect feel. Conversion
 holds up.
 
-EURC and USYC are native on Arc. A merchant can hold revenue in
-interest-bearing collateral (USYC is a tokenised treasury bill) without
-bridging out, and can bill in EUR without picking up bridge risk. We've
-debugged enough multi-chain stablecoin flows to value the absence.
+EURC is native on Arc. A merchant can bill in EUR without picking up
+bridge risk or holding a wrapped asset. We've debugged enough
+multi-chain stablecoin flows to value the absence.
 
 Payers don't have to be on Arc. If they're on Ethereum, Base, Polygon, or
 OP Mainnet, the bridge runs through Circle CCTP v2 — the agent watches for
@@ -198,10 +197,10 @@ clock-hour's revenue against the same hour-of-day over the trailing 30
 days. If the current hour is far enough below baseline, the merchant gets
 an email. Drops only. Nobody wants a ping for good news.
 
-`cashflow.yield` — runs daily. If the merchant's balance is comfortably
-above the reserve floor they configured, the agent flags the surplus and
-suggests moving it into yield. The merchant signs the move. The agent
-doesn't hold custody and isn't going to.
+`cashflow.yield` — runs daily. If the merchant's balance sits comfortably
+above the reserve floor they configured, the agent flags the idle surplus
+so the merchant can decide where to put it. The agent never moves funds
+and holds no custody.
 
 `commerce` — outbound payments to a merchant-approved vendor allowlist.
 Below the merchant's threshold the agent auto-approves; above it, the job
@@ -296,6 +295,27 @@ running, dashboard live. End-to-end works — merchant signup, plan
 creation, hosted checkout, subscription enrolment, recurring charge,
 refund, webhook. We use it ourselves.
 
+### Live demo
+
+[Fanline](https://strimz-fanline.vercel.app) is a sample creator platform
+(`apps/demo-merchant`) wired to Strimz end to end: tip a creator with a
+one-shot payment, or subscribe to a tier — both hand off to Strimz hosted
+checkout on Arc testnet.
+
+### Deployed contracts (Arc testnet)
+
+Every address is source-verified on [ArcScan](https://testnet.arcscan.app).
+
+| Contract            | Address                                      |
+| ------------------- | -------------------------------------------- |
+| StrimzRegistry      | `0x23Bb25315107BF7463a84913eCCD450A43F71ae3` |
+| TokenWhitelist      | `0xC907412e31a35fCFac9336285a34c0007425066c` |
+| FeeCollector        | `0x1aB0e7f7C787B9474488e615096Ec3E1BAE5cfE2` |
+| StrimzPayments      | `0x2dfA72f9564BdfEb1b32e77C2fdf7040c69bDc7B` |
+| StrimzSubscriptions | `0xed374f8B4d22361D2487404dE34224f74F85Fb4C` |
+| StrimzAgentRegistry | `0x2a498efB64256235E3cc622daA4a3553dC332451` |
+| StrimzAgentEscrow   | `0x3e3407650c22cD982D36C429d262403106F49b1e` |
+
 Shipped so far: the smart contract suite (Payments, Subscriptions,
 Registry, FeeCollector, AgentRegistry, AgentEscrow), the Go indexer, the
 BullMQ scheduler, the merchant dashboard, hosted checkout, the seven
@@ -311,19 +331,20 @@ production merchants.
 
 ## Repo layout
 
-Turborepo monorepo. Five apps — `web` (Next.js dashboard, checkout,
-marketing), `api` (NestJS HTTP), `indexer` (Go), `scheduler` (NestJS
-workers), `agent` (NestJS) — and a `packages/contracts` Foundry workspace.
-Shared SDKs and brand UI live under `packages/`. Each app has its own
-README with run instructions.
+Turborepo monorepo. Apps under `apps/` — `web` (Next.js dashboard,
+checkout, marketing), `api` (NestJS HTTP), `indexer` (Go), `scheduler`
+(NestJS workers), `agent` (NestJS), and `demo-merchant` (a sample dApp) —
+plus a `packages/contracts` Foundry workspace. Shared SDKs and brand UI
+live under `packages/`. Each app has its own README with run instructions.
 
 ---
 
 ## Links
 
 - Marketing: [strimz.finance](https://strimz.finance)
-- Docs: going live alongside the public launch
-- Email: strimztokenstream@gmail.com
+- Docs: [strimz docs](https://strimz.finance/docs)
+- Live demo: [Fanline](https://strimz-fanline.vercel.app) (sample integration)
+- Email: support@strimz.finance
 
 ---
 

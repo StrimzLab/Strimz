@@ -5,6 +5,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant, seedSubscription, seedWebhookEndpoint } from '../helpers/fixtures.js'
 import { SubscriptionLapsedService } from '../../src/crons/subscription-lapsed/subscription-lapsed.service.js'
+import { WebhookOutboxService } from '../../src/infra/webhook-outbox/webhook-outbox.service.js'
 import { QUEUE_NAMES } from '../../src/infra/queue/queue-names.js'
 
 describe('subscription-lapsed cron e2e', () => {
@@ -67,7 +68,6 @@ describe('subscription-lapsed cron e2e', () => {
     const cron = t.app.get(SubscriptionLapsedService)
     const result = await cron.sweepNow()
     expect(result.flipped).toBe(1)
-    expect(result.deliveriesQueued).toBe(1)
 
     const states = await t.prisma.db.subscription.findMany({
       orderBy: { onchainSubscriptionId: 'asc' },
@@ -83,13 +83,19 @@ describe('subscription-lapsed cron e2e', () => {
       where: { type: 'subscription_lapsed' },
     })
     expect(events).toHaveLength(1)
+    expect(events[0]!.dispatchedAt).toBeNull()
+
+    const outbox = t.app.get(WebhookOutboxService)
+    const dispatched = await outbox.tickNow()
+    expect(dispatched.deliveriesQueued).toBe(1)
+
     const deliveries = await t.prisma.db.webhookDelivery.findMany()
     expect(deliveries).toHaveLength(1)
   })
 
-  it('returns 0/0 when nothing has aged past grace', async () => {
+  it('returns 0 when nothing has aged past grace', async () => {
     const cron = t.app.get(SubscriptionLapsedService)
     const result = await cron.sweepNow()
-    expect(result).toEqual({ flipped: 0, deliveriesQueued: 0 })
+    expect(result).toEqual({ flipped: 0 })
   })
 })

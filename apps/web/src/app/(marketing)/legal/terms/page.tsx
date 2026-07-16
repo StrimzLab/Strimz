@@ -5,7 +5,7 @@ import { OG_IMAGE } from '@/lib/seo'
 export const metadata: Metadata = {
   title: 'Terms of Service',
   description:
-    'Strimz Terms of Service — the agreement between Strimz and merchants using the platform.',
+    'Strimz Terms of Service. The agreement between Strimz and merchants using the platform.',
   alternates: { canonical: '/legal/terms' },
   openGraph: { title: 'Terms of Service · Strimz', url: '/legal/terms', images: [OG_IMAGE] },
 }

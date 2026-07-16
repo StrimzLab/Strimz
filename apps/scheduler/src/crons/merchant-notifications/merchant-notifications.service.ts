@@ -139,7 +139,7 @@ export class MerchantNotificationsService {
   private async runPaymentLane(): Promise<LaneResult> {
     const rows = await this.prisma.db.paymentSession.findMany({
       where: { status: 'confirmed', merchantNotifiedAt: null },
-      include: { merchant: { select: { email: true, businessName: true } } },
+      include: { merchant: { select: { email: true, businessName: true, metadata: true } } },
       orderBy: { updatedAt: 'asc' },
       take: this.cfg.env.MERCHANT_NOTIFICATION_BATCH_SIZE,
     })
@@ -150,6 +150,13 @@ export class MerchantNotificationsService {
     let sent = 0
     let failed = 0
     for (const row of rows) {
+      if (!prefEnabled(row.merchant.metadata, 'paymentReceived')) {
+        await this.prisma.db.paymentSession.update({
+          where: { id: row.id },
+          data: { merchantNotifiedAt: new Date() },
+        })
+        continue
+      }
       try {
         const amountDisplay = `${formatUnits(BigInt(row.amount), 6)} ${row.currency}`
         const payerShort = this.shortAddr(row.payerWalletAddress)
@@ -222,7 +229,17 @@ export class MerchantNotificationsService {
             payerAddressShort: payerShort,
             subscriptionId: row.id,
             network,
-            nextChargeAt: this.formatDate(row.nextChargeAt) ?? 'Pending',
+            // Enrolment charge is due at startAt, so nextChargeAt still
+            // equals startAt right after creation. Show the following
+            // charge (one interval out), not the start date again.
+            nextChargeAt:
+              this.formatDate(
+                this.addInterval(
+                  row.currentPeriodStartAt,
+                  row.plan.interval,
+                  row.plan.intervalCount,
+                ),
+              ) ?? 'Pending',
             explorerTxUrl,
             dashboardUrl: `${this.dashboardOrigin()}/app/subscriptions/${row.id}`,
           }),
@@ -253,7 +270,7 @@ export class MerchantNotificationsService {
     const rows = await this.prisma.db.subscriptionCharge.findMany({
       where: { status: 'succeeded', merchantNotifiedAt: null },
       include: {
-        merchant: { select: { email: true, businessName: true } },
+        merchant: { select: { email: true, businessName: true, metadata: true } },
         subscription: {
           select: {
             payerAddress: true,
@@ -272,6 +289,13 @@ export class MerchantNotificationsService {
     let sent = 0
     let failed = 0
     for (const row of rows) {
+      if (!prefEnabled(row.merchant.metadata, 'subscriptionCharged')) {
+        await this.prisma.db.subscriptionCharge.update({
+          where: { id: row.id },
+          data: { merchantNotifiedAt: new Date() },
+        })
+        continue
+      }
       try {
         const amountDisplay = `${formatUnits(BigInt(row.amount), 6)} ${row.currency}`
         const payerShort = this.shortAddr(row.subscription.payerAddress)
@@ -351,10 +375,43 @@ export class MerchantNotificationsService {
     return count === 1 ? `every ${unit}` : `every ${count} ${unit}s`
   }
 
+  private addInterval(base: Date, interval: string, count: number): Date {
+    const d = new Date(base.getTime())
+    const n = Math.max(1, count)
+    switch (interval) {
+      case 'daily':
+        d.setUTCDate(d.getUTCDate() + n)
+        break
+      case 'weekly':
+        d.setUTCDate(d.getUTCDate() + 7 * n)
+        break
+      case 'monthly':
+        d.setUTCMonth(d.getUTCMonth() + n)
+        break
+      case 'quarterly':
+        d.setUTCMonth(d.getUTCMonth() + 3 * n)
+        break
+      case 'yearly':
+        d.setUTCFullYear(d.getUTCFullYear() + n)
+        break
+      default:
+        d.setUTCMonth(d.getUTCMonth() + n)
+    }
+    return d
+  }
+
   private warn(lane: string, id: string, err: unknown): void {
     const msg = err instanceof Error ? err.message : String(err)
     this.log.warn(`${lane} notification failed for ${id}: ${msg} — will retry next tick`)
   }
+}
+
+function prefEnabled(metadata: unknown, key: 'paymentReceived' | 'subscriptionCharged'): boolean {
+  const bag =
+    metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : null
+  const prefs = bag?.emailPrefs as Record<string, unknown> | undefined
+  const value = prefs?.[key]
+  return typeof value === 'boolean' ? value : true
 }
 
 export interface LaneResult {

@@ -24,44 +24,44 @@ Authorization: Bearer sk_test_xxx
 
 ### Payment sessions
 
-- `POST /v1/payment-sessions` — create a one-shot checkout session
-- `GET  /v1/payment-sessions/:id` — fetch
-- `GET  /v1/payment-sessions` — list
+- `POST /v1/payment-sessions` ,  create a one-shot checkout session
+- `GET  /v1/payment-sessions/:id` ,  fetch
+- `GET  /v1/payment-sessions` ,  list
 
 ### Subscriptions
 
 - `GET  /v1/subscriptions/:id`
 - `GET  /v1/subscriptions` (filterable by status, planId)
-- `POST /v1/subscriptions/:id/cancel` — marks DB cancelled, enqueues on-chain cancel
+- `POST /v1/subscriptions/:id/cancel` ,  marks DB cancelled, enqueues on-chain cancel
 
 ### Refunds
 
-- `POST /v1/refunds` — returns wallet-signing instructions
-- `POST /v1/refunds/:id/signature` — record the on-chain tx hash
+- `POST /v1/refunds` ,  returns wallet-signing instructions
+- `POST /v1/refunds/:id/signature` ,  record the on-chain tx hash
 - `GET  /v1/refunds`, `GET /v1/refunds/:id`
 
 ### Webhooks
 
-- `POST /v1/webhook-endpoints` — register an endpoint, returns the signing secret **once**
+- `POST /v1/webhook-endpoints` ,  register an endpoint, returns the signing secret **once**
 - `POST /v1/webhook-endpoints/:id/{enable,disable,rotate-secret}`
-- `GET  /v1/webhook-deliveries` — every attempt, every response code
+- `GET  /v1/webhook-deliveries` ,  every attempt, every response code
 
 ### Invoices
 
-- `POST /v1/invoices` — create with line items, returns a backing payment session
+- `POST /v1/invoices` ,  create with line items, returns a backing payment session
 - `POST /v1/invoices/:id/{send,void}`
 
 ### Storefronts
 
-- `POST /v1/storefront` — create or update your storefront
-- `POST /v1/storefront/products` — add a product
-- `GET  /store/:slug` — public read
+- `POST /v1/storefront` ,  create or update your storefront
+- `POST /v1/storefront/products` ,  add a product
+- `GET  /store/:slug` ,  public read
 
 ### Agents
 
 - `GET  /v1/agents/config`, `PATCH /v1/agents/config`
-- `GET  /v1/agents/activity` — chronological feed
-- `POST /v1/agents/jobs` — create an ERC-8183 escrow job
+- `GET  /v1/agents/activity` ,  chronological feed
+- `POST /v1/agents/jobs` ,  create an ERC-8183 escrow job
 
 ### Analytics
 

@@ -6,6 +6,8 @@ import {
   type CurrentMerchantPayload,
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
+import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
 import { SubscriptionsService } from './subscriptions.service.js'
 import { CancelSubscriptionDto } from './subscriptions.dto.js'
 
@@ -19,23 +21,20 @@ export class SubscriptionsController {
   @RequireScopes('subscriptions_read')
   @Get('/:id')
   retrieve(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string) {
-    return this.subs.retrieve(ctx.merchantId, id)
+    return this.subs.retrieve(ctx.merchantId, ctx.mode, id)
   }
 
   @RequireScopes('subscriptions_read')
   @Get()
   list(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
-    @Query('status') status?: string,
-    @Query('planId') planId?: string,
+    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
   ) {
-    return this.subs.list(ctx.merchantId, {
-      limit: limit ? Number(limit) : undefined,
-      cursor: cursor ?? null,
-      status,
-      planId,
+    return this.subs.list(ctx.merchantId, ctx.mode, {
+      limit: q.limit,
+      cursor: q.cursor ?? null,
+      status: q.status,
+      planId: q.planId,
     })
   }
 
@@ -49,6 +48,6 @@ export class SubscriptionsController {
     @Param('id') id: string,
     @Body() dto: CancelSubscriptionDto,
   ) {
-    return this.subs.cancel(ctx.merchantId, { ...dto, id })
+    return this.subs.cancel(ctx.merchantId, ctx.mode, { ...dto, id })
   }
 }

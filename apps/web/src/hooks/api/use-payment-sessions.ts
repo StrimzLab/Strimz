@@ -18,7 +18,7 @@ import { paymentSessionKeys } from './query-keys'
 /**
  * Subset of the standard TanStack Query options we let consumers pass.
  * We hide `queryKey` and `queryFn` so callers can't drift from the
- * factory + client — the whole point of these hooks.
+ * factory + client. The whole point of these hooks.
  */
 type ListOptions<TData = Page<PaymentSession>> = Omit<
   UseQueryOptions<Page<PaymentSession>, Error, TData, ReturnType<typeof paymentSessionKeys.list>>,
@@ -39,7 +39,7 @@ type DetailOptions<TData = PaymentSession> = Omit<
  *   - The generic `TData` lets callers pass a `select` to project the
  *     page into a view-model (rows + totals + statusCounts). When the
  *     `select` result is shallow-equal to the previous, TanStack Query
- *     skips the re-render — same caching, far fewer renders.
+ *     skips the re-render. Same caching, far fewer renders.
  */
 export function usePaymentSessions<TData = Page<PaymentSession>>(
   params: ListPaymentSessionsParams = {},
@@ -50,6 +50,8 @@ export function usePaymentSessions<TData = Page<PaymentSession>>(
     queryKey: paymentSessionKeys.list(params),
     queryFn: ({ signal }) => api.paymentSessions.list(params, { signal }),
     placeholderData: keepPreviousData,
+    // Sessions confirm seconds after on-chain payment; keep the list live.
+    refetchInterval: 10_000,
     ...options,
   })
 }
@@ -74,7 +76,7 @@ export function usePaymentSession<TData = PaymentSession>(
  * detail page is instant) AND invalidate every list view so freshly
  * mounted tables show the new row. We don't optimistic-update the list
  * because we'd need every active filter combination to know whether
- * the new row belongs — server round-trip is the honest answer.
+ * the new row belongs. Server round-trip is the honest answer.
  */
 export function useCreatePaymentSession() {
   const api = useMerchantApi()
@@ -127,7 +129,7 @@ export function useCancelPaymentSession() {
         })
       }
 
-      // Optimistic list patches — only touch lists that already render the row.
+      // Optimistic list patches. Only touch lists that already render the row.
       for (const [key, page] of previousLists) {
         if (!page) continue
         const idx = page.data.findIndex((row) => row.id === id)
@@ -151,7 +153,7 @@ export function useCancelPaymentSession() {
       }
     },
     onSettled: (_data, _err, id) => {
-      // Reconcile with server truth — handles cases where the server's
+      // Reconcile with server truth. Handles cases where the server's
       // canceled-at timestamp etc. differ from our optimistic guess.
       qc.invalidateQueries({ queryKey: paymentSessionKeys.detail(id) })
       qc.invalidateQueries({ queryKey: paymentSessionKeys.lists() })
@@ -160,7 +162,7 @@ export function useCancelPaymentSession() {
 }
 
 /**
- * Helper to prefetch a session detail — useful from list-row hover so
+ * Helper to prefetch a session detail. Useful from list-row hover so
  * clicking through to /payments/:id renders instantly. The dashboard
  * UI hooks this onto `onMouseEnter`/`onFocus`.
  */

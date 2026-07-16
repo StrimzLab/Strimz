@@ -17,14 +17,17 @@ model Refund {
   failureReason String?         @db.VarChar(500)
   initiatedById String
 
-  mode        Mode      @default(test)
-  metadata    Json      @default("{}")
-  createdAt   DateTime  @default(now())
-  completedAt DateTime?
+  mode            Mode          @default(test)
+  metadata        Json          @default("{}")
+  /// Payer-side refund receipt one-shot stamp.
+  customerNotifiedAt DateTime?
+  createdAt       DateTime      @default(now())
+  completedAt     DateTime?
 
   merchant    Merchant     @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   transaction Transaction?
 
   @@index([merchantId, status])
   @@index([merchantId, createdAt])
+  @@index([status, customerNotifiedAt])
 }

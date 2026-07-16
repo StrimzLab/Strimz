@@ -6,7 +6,7 @@ import whiteLogoSrc from '@/../public/logo/whiteLogo.png'
 import strimzVectorSrc from '@/../public/logoIcons/StrimzVector.svg'
 
 /**
- * Strimz wordmark — direct port of strimz-subscription's `Logo`. Renders
+ * Strimz wordmark. Direct port of strimz-subscription's `Logo`. Renders
  * the canonical `blueLogo.png` on light surfaces and `whiteLogo.png` on
  * dark surfaces (footer, dark hero blocks).
  *

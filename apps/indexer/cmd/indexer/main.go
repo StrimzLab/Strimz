@@ -18,6 +18,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	// Auto-load a sibling .env file when present. Mirrors how the Node
 	// services handle `.env` via @nestjs/config so local-dev parity is the
@@ -79,11 +80,17 @@ func runCmd() *cobra.Command {
 			}
 			defer runner.Close()
 
-			// Stand the health server up alongside the runner. NewRunner
-			// has already validated chain + DB connectivity, so /readyz
-			// can flip immediately — it reports the process is serving,
-			// not the catchup queue's depth.
-			healthSrv := health.New(cfg.HTTPPort)
+			// Cursor freshness monitor: polls IndexerCursor and marks
+			// /readyz stale when any cursor stalls past the threshold.
+			freshness := health.NewFreshnessMonitor(
+				runner.Store().Pool(),
+				string(cfg.Environment),
+				runner.MonitoredAddresses(),
+				time.Duration(cfg.StaleCursorSeconds)*time.Second,
+			)
+			go freshness.Start(ctx)
+
+			healthSrv := health.New(cfg.HTTPPort, freshness)
 			go func() {
 				if err := healthSrv.Start(ctx); err != nil {
 					slog.Error("health server stopped", "err", err)

@@ -28,6 +28,9 @@ const (
 type Config struct {
 	Environment        Environment `envconfig:"ARC_ENVIRONMENT"   required:"true"`
 	RPCURL             string      `envconfig:"ARC_RPC_URL"       required:"true"`
+	// Optional ordered fallback endpoints. The client tries ARC_RPC_URL
+	// first, then these in order when a request errors.
+	FallbackRPCURLs    []string    `envconfig:"ARC_FALLBACK_RPC_URLS" default:""`
 	DatabaseURL        string      `envconfig:"DATABASE_URL"      required:"true"`
 	HTTPPort           int         `envconfig:"HTTP_PORT"         default:"4100"`
 	LogLevel           string      `envconfig:"LOG_LEVEL"         default:"info"`
@@ -35,6 +38,10 @@ type Config struct {
 	Confirmations      uint64      `envconfig:"CONFIRMATIONS"     default:"5"`
 	StartBlock         uint64      `envconfig:"START_BLOCK"       default:"0"`
 	BlockBatchSize     uint64      `envconfig:"BLOCK_BATCH_SIZE"  default:"500"`
+	// StaleCursorSeconds: /readyz flips to 503 if any Strimz-contract
+	// cursor has not moved in this many seconds. Also drives a per-tick
+	// WARN log. Set to 0 to disable the check.
+	StaleCursorSeconds int `envconfig:"STALE_CURSOR_SECONDS" default:"120"`
 
 	// Contract addresses — emitted by the Foundry deployment script.
 	RegistryAddress      string `envconfig:"REGISTRY_ADDRESS"       required:"true"`

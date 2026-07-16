@@ -1,9 +1,9 @@
 import { createZodDto } from 'nestjs-zod'
-import { z } from 'zod'
 import {
   changeTierInputSchema,
   onboardMerchantInputSchema,
   updateMerchantInputSchema,
+  type OnboardMerchantInput,
 } from '@strimz/shared-types'
 
 export class UpdateMerchantDto extends createZodDto(updateMerchantInputSchema) {}
@@ -17,4 +17,4 @@ export class ChangeTierDto extends createZodDto(changeTierInputSchema) {}
  * registry; the schema only enforces the map structure here.
  */
 export class OnboardDto extends createZodDto(onboardMerchantInputSchema) {}
-export type OnboardInput = z.infer<typeof onboardMerchantInputSchema>
+export type OnboardInput = OnboardMerchantInput

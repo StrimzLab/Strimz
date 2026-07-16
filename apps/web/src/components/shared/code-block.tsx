@@ -3,7 +3,7 @@
 import { Highlight, type PrismTheme } from 'prism-react-renderer'
 
 /**
- * Strimz-tuned light theme — used on white/F9FAFB backgrounds (Benefits
+ * Strimz-tuned light theme. Used on white/F9FAFB backgrounds (Benefits
  * code mocks, docs callouts). Inspired by GitHub Light + tightened to
  * keep the palette in the green/navy/red triad of the Strimz brand.
  */
@@ -31,7 +31,7 @@ const lightTheme: PrismTheme = {
 }
 
 /**
- * Strimz-tuned dark theme — used on the #050020 code window in
+ * Strimz-tuned dark theme. Used on the #050020 code window in
  * Developers / dashboard mocks. Inspired by GitHub Dark.
  */
 const darkTheme: PrismTheme = {
@@ -60,7 +60,7 @@ const darkTheme: PrismTheme = {
 export type CodeLanguage = 'tsx' | 'ts' | 'js' | 'jsx' | 'json' | 'bash'
 
 /**
- * Renders a syntax-highlighted code block. Pure presentational —
+ * Renders a syntax-highlighted code block. Pure presentational ,
  * background and padding come from the parent. Pass `tone="light"` on
  * white backgrounds, `tone="dark"` on the navy code window.
  */

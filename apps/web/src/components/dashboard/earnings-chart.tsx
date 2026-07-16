@@ -24,7 +24,7 @@ const SAMPLE: Array<{ day: string; volume: number }> = [
 ]
 
 /**
- * Earnings chart card — direct port of the prior business-dashboard
+ * Earnings chart card. Direct port of the prior business-dashboard
  * earnings card, modularised, themed against `bg-card`/`text-foreground`
  * instead of hard-coded `#FFFFFF` / `#050020` so dark mode works.
  */

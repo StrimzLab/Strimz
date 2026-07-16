@@ -39,7 +39,10 @@ console.log(session.checkoutUrl)
 
 Open `session.checkoutUrl`, connect a wallet, and finish the payment.
 
-The customer signs one message: an EIP-3009 `ReceiveWithAuthorization`.
+The customer signs two typed-data messages. The first is an EIP-3009
+`ReceiveWithAuthorization` that the token verifies. The second is a
+Strimz `PayIntent` that binds the payment to your specific merchant
+id. Two prompts, one on-chain transaction.
 Strimz's relayer turns that signature into the on-chain transaction
 and pays the gas. The customer never sees a separate approval prompt
 and never has gas in their wallet. The

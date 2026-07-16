@@ -1,16 +1,17 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { createSubscriptionPlanInputSchema } from '@strimz/shared-types'
 import type { CreateSubscriptionPlanInput, SubscriptionPlan } from '@strimz/shared-types'
-import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
+import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
+import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
 import { SubscriptionPlansService } from './subscription-plans.service.js'
 
-@UseGuards(ApiKeyGuard)
+@UseGuards(MerchantAuthGuard)
 @Controller('/v1/subscription-plans')
 export class SubscriptionPlansController {
   constructor(private readonly plans: SubscriptionPlansService) {}
@@ -38,14 +39,12 @@ export class SubscriptionPlansController {
   @Get()
   list(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
-    @Query('status') status?: string,
+    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
   ) {
     return this.plans.list(ctx.merchantId, {
-      limit: limit ? Number(limit) : undefined,
-      cursor: cursor ?? null,
-      status,
+      limit: q.limit,
+      cursor: q.cursor ?? null,
+      status: q.status,
     })
   }
 

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 import {
   ArrowLeft,
+  ArrowUpFromLine,
   BarChart3,
   Bot,
   Boxes,
@@ -45,6 +46,7 @@ const SECTIONS: ReadonlyArray<{
       { href: '/app/subscriptions', label: 'Subscriptions', icon: Receipt },
       { href: '/app/invoices', label: 'Invoices', icon: Receipt },
       { href: '/app/refunds', label: 'Refunds', icon: RefreshCcw },
+      { href: '/app/withdraw', label: 'Withdraw', icon: ArrowUpFromLine },
     ],
   },
   {
@@ -76,7 +78,7 @@ interface Props {
 }
 
 /**
- * Dashboard sidebar — full-height (`100dvh`), three-row flex column:
+ * Dashboard sidebar. Full-height (`100dvh`), three-row flex column:
  *
  * Mobile slides in from the left with a backdrop. On `lg+` it's
  * sticky-positioned to the viewport.
@@ -110,7 +112,7 @@ export function DashboardSidebar({ open, onClose }: Props) {
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
       >
-        {/* Sticky logo block — close button shows on mobile only */}
+        {/* Sticky logo block. Close button shows on mobile only */}
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-[#E5E7EB] bg-[#F9FAFB] px-5">
           <Logo />
           <button
@@ -138,6 +140,7 @@ export function DashboardSidebar({ open, onClose }: Props) {
                       key={link.href}
                       href={link.href}
                       onClick={onClose}
+                      data-tour={tourKeyFor(link.href)}
                       className={cn(
                         'font-poppins flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-all',
                         active
@@ -180,6 +183,17 @@ export function DashboardSidebar({ open, onClose }: Props) {
       </aside>
     </>
   )
+}
+
+const TOUR_KEYS: Record<string, string> = {
+  '/app/api-keys': 'nav-api-keys',
+  '/app/payment-sessions': 'nav-payment-sessions',
+  '/app/webhooks': 'nav-webhooks',
+  '/app/settings': 'nav-settings',
+}
+
+function tourKeyFor(href: string): string | undefined {
+  return TOUR_KEYS[href]
 }
 
 /**

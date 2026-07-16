@@ -53,30 +53,37 @@ model Merchant {
   /// notification cron picks the row up; guarantees one-shot delivery
   /// without a separate event log. Same pattern as
   /// `Subscription.merchantNotifiedAt` and `PaymentSession.merchantNotifiedAt`.
-  welcomeNotifiedAt   DateTime?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  welcomeNotifiedAt    DateTime?
+  /// Dashboard notification tray "last read" marker. `GET
+  /// /v1/notifications` derives per-item read state from
+  /// `event.createdAt <= notificationsLastReadAt`; the mark-all-read
+  /// endpoint sets this to `now()`. Server-side so the unread badge
+  /// stays consistent across the merchant's devices.
+  notificationsLastReadAt DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
   // Relations
-  members             MerchantMember[]
-  apiKeys             MerchantApiKey[]
-  webhookEndpoints    MerchantWebhookEndpoint[]
-  webhookEvents       WebhookEvent[]
-  webhookDeliveries   WebhookDelivery[]
-  customers           Customer[]
-  paymentSessions     PaymentSession[]
-  transactions        Transaction[]
-  subscriptionPlans   SubscriptionPlan[]
-  subscriptions       Subscription[]
-  subscriptionCharges SubscriptionCharge[]
-  refunds             Refund[]
-  complianceLogs      ComplianceLog[]
-  agentConfig         AgentMerchantConfig?
-  agentActivityLogs   AgentActivityLog[]
-  agentJobs           AgentJob[]
-  storefront          Storefront?
-  invoices            Invoice[]
-  auditLogs           AuditLog[]
+  members              MerchantMember[]
+  apiKeys              MerchantApiKey[]
+  webhookEndpoints     MerchantWebhookEndpoint[]
+  adminBroadcasts      AdminBroadcast[]
+  webhookEvents        WebhookEvent[]
+  webhookDeliveries    WebhookDelivery[]
+  customers            Customer[]
+  paymentSessions      PaymentSession[]
+  transactions         Transaction[]
+  subscriptionPlans    SubscriptionPlan[]
+  subscriptions        Subscription[]
+  subscriptionCharges  SubscriptionCharge[]
+  refunds              Refund[]
+  complianceLogs       ComplianceLog[]
+  agentConfig          AgentMerchantConfig?
+  agentActivityLogs    AgentActivityLog[]
+  agentJobs            AgentJob[]
+  storefront           Storefront?
+  invoices             Invoice[]
+  auditLogs            AuditLog[]
 
   @@index([status])
   @@index([tier])

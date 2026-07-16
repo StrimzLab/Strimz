@@ -12,7 +12,7 @@ import { MerchantApi } from '@/lib/merchant-api'
  *     that has a fake token provider, without monkey-patching imports.
  *   - When the app moves to multi-tenant subdomains (parent merchants
  *     vs sub-merchants), the per-subtree base URL can be swapped via a
- *     nested provider — no code change at the call site.
+ *     nested provider. No code change at the call site.
  *
  * Why memoised:
  *   - The default constructor takes no expensive arguments, but the
@@ -40,7 +40,7 @@ export function MerchantApiProvider({
 
 /**
  * Returns the merchant API for the current tree. Throws if used outside
- * a provider — a clearer signal than the silent `null` you'd otherwise
+ * a provider. A clearer signal than the silent `null` you'd otherwise
  * see at the first method call.
  */
 export function useMerchantApi(): MerchantApi {

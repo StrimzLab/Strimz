@@ -33,6 +33,7 @@ const ALLOWED_ORIGINS = new Set([
   env.appUrl, // localhost:3000 in dev, the deploy URL in prod
   'https://strimz-finance.vercel.app',
   'https://strimz.finance',
+  'https://www.strimz.finance',
 ])
 
 interface ForwardOptions {

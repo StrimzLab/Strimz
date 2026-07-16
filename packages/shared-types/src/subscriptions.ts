@@ -136,6 +136,13 @@ export const subscriptionSchema = z.object({
 })
 export type Subscription = z.infer<typeof subscriptionSchema>
 
+/** Whether a wallet already subscribes to a given plan, and which one. */
+export const subscriptionStatusResultSchema = z.object({
+  active: z.boolean(),
+  subscriptionId: idSchema.nullable(),
+})
+export type SubscriptionStatusResult = z.infer<typeof subscriptionStatusResultSchema>
+
 export const createSubscriptionInputSchema = z.object({
   planId: idSchema,
   customer: z.object({

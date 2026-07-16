@@ -23,10 +23,13 @@ interface IStrimzAgentRegistry {
     event AgentCredentialRotated(address indexed agent, bytes32 newCredentialDigest);
     event AgentReputationAdjusted(address indexed agent, int256 delta, int256 newScore);
     event AgentDeactivated(address indexed agent);
+    event AgentActivated(address indexed agent);
 
     error AgentRegistry__AlreadyRegistered(address agent);
     error AgentRegistry__UnknownAgent(address agent);
     error AgentRegistry__NotController();
+    error AgentRegistry__NotAgent();
+    error AgentRegistry__ZeroAddress();
 
     function registerAgent(address agent, bytes32 credentialDigest, string calldata name, string calldata version)
         external;

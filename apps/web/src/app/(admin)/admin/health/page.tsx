@@ -13,7 +13,7 @@ export default function AdminHealthPage() {
     <div className="space-y-6">
       <PageHeader
         title="Health"
-        description="Operational status — indexer cursors, recent webhook delivery, subscription risk. Refreshes every 30 seconds."
+        description="Operational status. Indexer cursors, recent webhook delivery, subscription risk. Refreshes every 30 seconds."
       />
 
       {isError ? (

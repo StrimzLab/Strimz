@@ -8,12 +8,21 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 // All write methods return `(rowsAffected int64, err error)` so callers can
 // treat 0 rows as a no-op (idempotent re-projection) without confusing it
 // with an error.
+
+// ErrSkipLog marks a log that cannot be projected in its current state
+// but must not wedge the cursor. The runner logs it loudly and moves on;
+// recovery is a manual cursor reset once the blocking state is fixed.
+var ErrSkipLog = errors.New("skip log")
+
+// keep the unexported alias used inside this package.
+var errSkipLog = ErrSkipLog
 
 // ----- Merchant registry -----
 
@@ -22,7 +31,7 @@ import (
 // row is created off-chain via `/auth/sync` long before the on-chain
 // transaction lands.
 func (s *Store) LinkOnchainMerchant(ctx context.Context, onchainID *big.Int, payoutAddress string) (int64, error) {
-	tag, err := s.pool.Exec(ctx, `
+	tag, err := s.db().Exec(ctx, `
 		UPDATE "Merchant"
 		   SET "onchainMerchantId" = $1
 		 WHERE "payoutAddress" = $2
@@ -37,7 +46,7 @@ func (s *Store) LinkOnchainMerchant(ctx context.Context, onchainID *big.Int, pay
 // UpdateMerchantPayoutAddress mirrors `MerchantPayoutAddressUpdated` —
 // keeps the off-chain Merchant.payoutAddress in sync. Match by on-chain id.
 func (s *Store) UpdateMerchantPayoutAddress(ctx context.Context, onchainID *big.Int, newPayoutAddress string) (int64, error) {
-	tag, err := s.pool.Exec(ctx, `
+	tag, err := s.db().Exec(ctx, `
 		UPDATE "Merchant" SET "payoutAddress" = $2
 		 WHERE "onchainMerchantId" = $1
 	`, onchainID.Int64(), newPayoutAddress)
@@ -55,7 +64,7 @@ func (s *Store) SetMerchantActive(ctx context.Context, onchainID *big.Int, activ
 	if active {
 		target = "active"
 	}
-	tag, err := s.pool.Exec(ctx, `
+	tag, err := s.db().Exec(ctx, `
 		UPDATE "Merchant" SET status = $2::"MerchantStatus"
 		 WHERE "onchainMerchantId" = $1
 	`, onchainID.Int64(), target)
@@ -125,17 +134,36 @@ type OneShotTxInput struct {
 // `confirmed` in the same transaction.
 func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput) (int64, error) {
 	var rows int64
-	err := s.withinTx(ctx, func(tx pgxTxLike) error {
+	err := s.inTx(ctx, func(tx pgxTxLike) error {
 		var sessionID *string
 		if in.SessionRef != "" {
 			var maybeID string
 			err := tx.QueryRow(ctx, `SELECT id FROM "PaymentSession" WHERE id = $1`, in.SessionRef).Scan(&maybeID)
-			if err == nil {
+			switch {
+			case err == nil:
 				sessionID = &maybeID
+			case errors.Is(err, pgx.ErrNoRows):
+				// No session with this ref. Legitimate for direct contract
+				// calls that bypass hosted checkout; the tx row still lands.
+			default:
+				// Transient DB error. Fail the batch so the range replays —
+				// committing now would strand the session unlinked forever
+				// (the tx-hash conflict guard makes the insert a no-op on
+				// every subsequent replay).
+				return fmt.Errorf("session lookup for ref %q: %w", in.SessionRef, err)
 			}
 		}
 
 		merchantID, merchantPayout, err := lookupMerchantByOnchain(ctx, tx, in.MerchantOnchainID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			// On-chain payment for a merchant with no linked off-chain
+			// row. Failing here would wedge this contract's cursor on
+			// the same log forever, starving every later payment. Skip
+			// loudly instead; the tx is on-chain and can be replayed by
+			// resetting the cursor once the merchant link exists.
+			return fmt.Errorf("%w: PaymentExecuted tx %s for unlinked onchain merchant %s",
+				errSkipLog, in.OnchainTxHash, in.MerchantOnchainID)
+		}
 		if err != nil {
 			return err
 		}
@@ -144,7 +172,8 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 			merchantAddr = merchantPayout
 		}
 
-		tag, err := tx.Exec(ctx, `
+		var txID string
+		err = tx.QueryRow(ctx, `
 			INSERT INTO "Transaction" (
 			  id, "merchantId", kind, status, "sessionId",
 			  amount, "feeAmount", "netAmount", currency,
@@ -159,37 +188,81 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 			  $13::"Mode", NOW()
 			)
 			ON CONFLICT ("onchainTxHash") DO NOTHING
+			RETURNING id
 		`,
 			merchantID, sessionID,
 			in.Amount, in.FeeAmount, in.NetAmount, in.Currency,
 			in.PayerAddress, merchantAddr,
 			in.OnchainTxHash, in.BlockNumber, in.BlockTimestamp, in.LogIndex,
 			in.Mode,
-		)
+		).Scan(&txID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Conflict on onchainTxHash — replay. No new state, no event.
+			rows = 0
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("insert transaction: %w", err)
 		}
-		rows = tag.RowsAffected()
+		rows = 1
 
-		if rows > 0 && sessionID != nil {
-			// Stamp the tx hash onto the session row too. The browser
-			// loads the session payload directly; without this it
-			// would need a follow-up Transaction lookup to render the
-			// confirmation tx on the success card. The API also reads
-			// this field as part of the double-pay safety net.
+		if sessionID != nil {
+			// Confirm the session and set payerWalletAddress (NULL until
+			// the payer connected).
 			if _, err := tx.Exec(ctx,
 				`UPDATE "PaymentSession"
 				    SET status = 'confirmed'::"PaymentSessionStatus",
-				        "onchainTxHash" = $2
+				        "onchainTxHash" = $2,
+				        "payerWalletAddress" = $3
 				  WHERE id = $1
 				    AND status != 'confirmed'`,
-				*sessionID, in.OnchainTxHash); err != nil {
+				*sessionID, in.OnchainTxHash, in.PayerAddress); err != nil {
 				return fmt.Errorf("confirm session: %w", err)
+			}
+
+			ref := fmt.Sprintf(`"sessionId":%q,"transactionId":%q`, *sessionID, txID)
+			if err := insertOutboxEvent(ctx, tx, "payment_completed", "payment.completed", merchantID, in.Mode, ref); err != nil {
+				return fmt.Errorf("emit payment.completed: %w", err)
+			}
+
+			// A session backing an invoice flips it to paid on the same
+			// event. RETURNING emits invoice.paid only on the transition.
+			var invoiceID string
+			err := tx.QueryRow(ctx,
+				`UPDATE "Invoice"
+				    SET status = 'paid'::"InvoiceStatus",
+				        "paidAt" = NOW()
+				  WHERE "sessionId" = $1
+				    AND status NOT IN ('paid'::"InvoiceStatus", 'void'::"InvoiceStatus")
+				  RETURNING id`,
+				*sessionID).Scan(&invoiceID)
+			if err == nil {
+				invRef := fmt.Sprintf(`"invoiceId":%q,"transactionId":%q`, invoiceID, txID)
+				if err := insertOutboxEvent(ctx, tx, "invoice_paid", "invoice.paid", merchantID, in.Mode, invRef); err != nil {
+					return fmt.Errorf("emit invoice.paid: %w", err)
+				}
+			} else if !errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("mark invoice paid: %w", err)
 			}
 		}
 		return nil
 	})
 	return rows, err
+}
+
+// insertOutboxEvent writes an undispatched WebhookEvent carrying only
+// entity refs. The scheduler dispatcher hydrates the full envelope in
+// TypeScript (against the shared Zod schemas) so payload shapes never
+// drift from Go. `refJSON` is a JSON object of id references.
+func insertOutboxEvent(ctx context.Context, tx pgxTxLike, prismaType, wireType, merchantID, mode, refJSON string) error {
+	eventID := "evt_" + uuid.NewString()
+	payload := fmt.Sprintf(`{"ref":{"kind":%q,%s}}`, wireType, refJSON)
+	_, err := tx.Exec(ctx,
+		`INSERT INTO "WebhookEvent" (id, "merchantId", type, "apiVersion", mode, payload, "createdAt")
+		 VALUES ($1, $2, $3::"WebhookEventName", '2026-04-27', $4::"Mode", $5::jsonb, NOW())`,
+		eventID, merchantID, prismaType, mode, payload,
+	)
+	return err
 }
 
 // ----- Subscriptions -----
@@ -210,6 +283,7 @@ type SubscriptionCreatedInput struct {
 	Interval              string // "daily" / "weekly" / "monthly" / "quarterly" / "yearly"
 	IntervalCount         int32
 	StartAt               time.Time
+	CurrentPeriodEndAt    time.Time
 	NextChargeAt          time.Time
 	OnchainTxHash         string
 	Mode                  string
@@ -219,7 +293,7 @@ type SubscriptionCreatedInput struct {
 // on `onchainSubscriptionId` (UNIQUE) — replays no-op.
 func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in SubscriptionCreatedInput) (int64, error) {
 	var rows int64
-	err := s.withinTx(ctx, func(tx pgxTxLike) error {
+	err := s.inTx(ctx, func(tx pgxTxLike) error {
 		merchantID, _, err := lookupMerchantByOnchain(ctx, tx, in.MerchantOnchainID)
 		if err != nil {
 			return err
@@ -235,7 +309,8 @@ func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in Subscripti
 			return err
 		}
 
-		tag, err := tx.Exec(ctx, `
+		var subID string
+		err = tx.QueryRow(ctx, `
 			INSERT INTO "Subscription" (
 			  id, "onchainSubscriptionId", "enrolmentTxHash", "merchantId", "customerId", "planId",
 			  status, "payerAddress", currency, amount, interval, "intervalCount",
@@ -248,16 +323,27 @@ func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in Subscripti
 			  48, $14::"Mode", NOW(), NOW()
 			)
 			ON CONFLICT ("onchainSubscriptionId") DO NOTHING
+			RETURNING id
 		`,
 			in.OnchainSubscriptionID.Int64(), in.OnchainTxHash, merchantID, customerID, planID,
 			in.PayerAddress, in.Currency, in.Amount, in.Interval, in.IntervalCount,
-			in.StartAt, in.NextChargeAt, in.NextChargeAt,
+			in.StartAt, in.CurrentPeriodEndAt, in.NextChargeAt,
 			in.Mode,
-		)
+		).Scan(&subID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Replay — subscription already exists.
+			rows = 0
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("insert subscription: %w", err)
 		}
-		rows = tag.RowsAffected()
+		rows = 1
+
+		ref := fmt.Sprintf(`"subscriptionId":%q`, subID)
+		if err := insertOutboxEvent(ctx, tx, "subscription_created", "subscription.created", merchantID, in.Mode, ref); err != nil {
+			return fmt.Errorf("emit subscription.created: %w", err)
+		}
 		return nil
 	})
 	return rows, err
@@ -288,7 +374,7 @@ type SubscriptionChargedInput struct {
 // All in a single serialisable transaction.
 func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionChargedInput) (int64, error) {
 	var rows int64
-	err := s.withinTx(ctx, func(tx pgxTxLike) error {
+	err := s.inTx(ctx, func(tx pgxTxLike) error {
 		var subID, merchantID, currency, payerAddress string
 		var periodStart time.Time
 		err := tx.QueryRow(ctx, `
@@ -345,7 +431,8 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 
 		// 2) Insert Transaction(kind=subscription_charge), linked to both
 		// the subscription and the charge.
-		tag, err := tx.Exec(ctx, `
+		var txID string
+		err = tx.QueryRow(ctx, `
 			INSERT INTO "Transaction" (
 			  id, "merchantId", kind, status, "subscriptionId", "subscriptionChargeId",
 			  amount, "feeAmount", "netAmount", currency,
@@ -361,28 +448,43 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 			  $13::"Mode", NOW()
 			)
 			ON CONFLICT ("onchainTxHash") DO NOTHING
+			RETURNING id
 		`,
 			merchantID, subID, chargeID,
 			in.Amount, in.FeeAmount, in.NetAmount, currency,
 			payerAddress,
 			in.OnchainTxHash, in.BlockNumber, in.BlockTimestamp, in.LogIndex,
 			in.Mode,
-		)
-		if err != nil {
+		).Scan(&txID)
+		isNewTx := true
+		if errors.Is(err, pgx.ErrNoRows) {
+			isNewTx = false
+		} else if err != nil {
 			return fmt.Errorf("insert tx: %w", err)
 		}
-		rows = tag.RowsAffected()
+		if isNewTx {
+			rows = 1
+		}
 
-		// 3) Bump nextChargeAt + currentPeriod window.
+		// 3) Bump nextChargeAt + currentPeriod window. The charge-in-advance
+		//    model makes the new period start where the just-paid charge was
+		//    due (the old nextChargeAt), not the old period end.
 		if _, err := tx.Exec(ctx, `
 			UPDATE "Subscription"
-			   SET "currentPeriodStartAt" = "currentPeriodEndAt",
+			   SET "currentPeriodStartAt" = "nextChargeAt",
 			       "currentPeriodEndAt"   = $2,
 			       "nextChargeAt"         = $2,
 			       "updatedAt"            = NOW()
 			 WHERE id = $1
 		`, subID, in.NextChargeAt); err != nil {
 			return fmt.Errorf("bump period: %w", err)
+		}
+
+		if isNewTx {
+			ref := fmt.Sprintf(`"subscriptionId":%q,"chargeId":%q,"transactionId":%q`, subID, chargeID, txID)
+			if err := insertOutboxEvent(ctx, tx, "subscription_charged", "subscription.charged", merchantID, in.Mode, ref); err != nil {
+				return fmt.Errorf("emit subscription.charged: %w", err)
+			}
 		}
 		return nil
 	})
@@ -410,15 +512,15 @@ type SubscriptionChargeSkippedInput struct {
 // Idempotent on `chargeAttemptId`.
 func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in SubscriptionChargeSkippedInput) (int64, error) {
 	var rows int64
-	err := s.withinTx(ctx, func(tx pgxTxLike) error {
-		var subID, merchantID, currency string
+	err := s.inTx(ctx, func(tx pgxTxLike) error {
+		var subID, merchantID, currency, mode string
 		var amount string
 		var periodStart, periodEnd time.Time
 		err := tx.QueryRow(ctx, `
-			SELECT id, "merchantId", currency::text, amount, "currentPeriodStartAt", "currentPeriodEndAt"
+			SELECT id, "merchantId", currency::text, amount, mode::text, "currentPeriodStartAt", "currentPeriodEndAt"
 			  FROM "Subscription"
 			 WHERE "onchainSubscriptionId" = $1
-		`, in.OnchainSubscriptionID.Int64()).Scan(&subID, &merchantID, &currency, &amount, &periodStart, &periodEnd)
+		`, in.OnchainSubscriptionID.Int64()).Scan(&subID, &merchantID, &currency, &amount, &mode, &periodStart, &periodEnd)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil
@@ -426,7 +528,8 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 			return fmt.Errorf("subscription lookup: %w", err)
 		}
 
-		tag, err := tx.Exec(ctx, `
+		var chargeID string
+		err = tx.QueryRow(ctx, `
 			INSERT INTO "SubscriptionCharge" (
 			  id, "subscriptionId", "merchantId", "chargeAttemptId",
 			  "periodStartAt", "periodEndAt",
@@ -442,15 +545,25 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 			  NOW(), NOW()
 			)
 			ON CONFLICT ("chargeAttemptId") DO NOTHING
+			RETURNING id
 		`,
 			subID, merchantID, in.ChargeAttemptID,
 			periodStart, periodEnd, amount, currency,
 			in.Outcome, in.BlockTimestamp,
-		)
-		if err != nil {
+		).Scan(&chargeID)
+		isNewCharge := true
+		if errors.Is(err, pgx.ErrNoRows) {
+			isNewCharge = false
+		} else if err != nil {
 			return fmt.Errorf("insert charge skip: %w", err)
 		}
-		rows = tag.RowsAffected()
+		if isNewCharge {
+			rows = 1
+			ref := fmt.Sprintf(`"subscriptionId":%q,"chargeId":%q`, subID, chargeID)
+			if err := insertOutboxEvent(ctx, tx, "subscription_charge_failed", "subscription.charge_failed", merchantID, "test", ref); err != nil {
+				return fmt.Errorf("emit subscription.charge_failed: %w", err)
+			}
+		}
 
 		// Move the subscription to `at_risk` — but only if the same
 		// period doesn't already have a successful charge. Background:
@@ -489,7 +602,7 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 // case where the customer (or anyone authorised) invokes the contract
 // directly.
 func (s *Store) MarkSubscriptionCancelled(ctx context.Context, onchainSubID *big.Int, by, txHash string, blockTimestamp time.Time) (int64, error) {
-	tag, err := s.pool.Exec(ctx, `
+	tag, err := s.db().Exec(ctx, `
 		UPDATE "Subscription"
 		   SET status = 'cancelled'::"SubscriptionStatus",
 		       "cancelledAt" = COALESCE("cancelledAt", $3),
@@ -510,16 +623,31 @@ func (s *Store) MarkSubscriptionCancelled(ctx context.Context, onchainSubID *big
 // the on-chain ERC-20 Transfer is observed. Match is done by `refundTxHash`
 // the merchant submitted via `POST /v1/refunds/:id/signature`.
 func (s *Store) CompleteRefundByTxHash(ctx context.Context, refundTxHash string, blockTimestamp time.Time) (int64, error) {
-	tag, err := s.pool.Exec(ctx, `
-		UPDATE "Refund"
-		   SET status = 'completed'::"RefundStatus",
-		       "completedAt" = $2
-		 WHERE "refundTxHash" = $1 AND status = 'submitted'::"RefundStatus"
-	`, refundTxHash, blockTimestamp)
-	if err != nil {
-		return 0, fmt.Errorf("complete refund: %w", err)
-	}
-	return tag.RowsAffected(), nil
+	var rows int64
+	err := s.inTx(ctx, func(tx pgxTxLike) error {
+		var refundID, merchantID, mode string
+		err := tx.QueryRow(ctx, `
+			UPDATE "Refund"
+			   SET status = 'completed'::"RefundStatus",
+			       "completedAt" = $2
+			 WHERE "refundTxHash" = $1 AND status = 'submitted'::"RefundStatus"
+			 RETURNING id, "merchantId", mode::text
+		`, refundTxHash, blockTimestamp).Scan(&refundID, &merchantID, &mode)
+		if errors.Is(err, pgx.ErrNoRows) {
+			rows = 0
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("complete refund: %w", err)
+		}
+		rows = 1
+		ref := fmt.Sprintf(`"refundId":%q`, refundID)
+		if err := insertOutboxEvent(ctx, tx, "refund_completed", "refund.completed", merchantID, mode, ref); err != nil {
+			return fmt.Errorf("emit refund.completed: %w", err)
+		}
+		return nil
+	})
+	return rows, err
 }
 
 // ----- Agent jobs -----
@@ -540,7 +668,7 @@ type AgentJobStatusInput struct {
 // the row with status=accepted before signing). If no off-chain row exists,
 // we don't synthesise one — that path is owned by the API.
 func (s *Store) LinkAgentJobOnchain(ctx context.Context, onchainJobID *big.Int, vendor, escrowTxHash string, blockTimestamp time.Time) (int64, error) {
-	tag, err := s.pool.Exec(ctx, `
+	tag, err := s.db().Exec(ctx, `
 		UPDATE "AgentJob"
 		   SET "onchainJobId" = $1,
 		       "escrowTxHash" = $2,
@@ -558,7 +686,7 @@ func (s *Store) LinkAgentJobOnchain(ctx context.Context, onchainJobID *big.Int, 
 // job lifecycle event after `JobCreated`. Idempotent (no-op when the
 // status is already at-or-past target).
 func (s *Store) SetAgentJobStatus(ctx context.Context, in AgentJobStatusInput) (int64, error) {
-	tag, err := s.pool.Exec(ctx, `
+	tag, err := s.db().Exec(ctx, `
 		UPDATE "AgentJob"
 		   SET status = $2::"AgentJobStatus",
 		       "deliverableHash" = COALESCE(NULLIF($3, ''), "deliverableHash"),
@@ -583,7 +711,7 @@ func (s *Store) SetAgentJobStatus(ctx context.Context, in AgentJobStatusInput) (
 // took.
 func (s *Store) LogAgentJobEvent(ctx context.Context, onchainJobID *big.Int, action string, metadata map[string]any) error {
 	var jobID, merchantID string
-	if err := s.pool.QueryRow(ctx,
+	if err := s.db().QueryRow(ctx,
 		`SELECT id, "merchantId" FROM "AgentJob" WHERE "onchainJobId" = $1`,
 		onchainJobID.Int64()).Scan(&jobID, &merchantID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -610,11 +738,19 @@ func (s *Store) LogAgentJobEvent(ctx context.Context, onchainJobID *big.Int, act
 // can render a fee history. The on-chain ledger is the source of truth;
 // this is just a denormalised view.
 func (s *Store) LogFeeAccrued(ctx context.Context, onchainMerchantID *big.Int, token, amount, txHash string) error {
-	merchantID, _, err := lookupMerchantByOnchainPool(ctx, s.pool, onchainMerchantID)
-	if err != nil {
-		// Merchant not linked yet (e.g., MerchantRegistered hasn't been
-		// processed). No-op; a replay will pick this up after that lands.
+	// Read through s.db() so a tx-scoped store sees rows written earlier
+	// in the same batch (a MerchantRegistered linked two logs ago).
+	var merchantID string
+	err := s.db().QueryRow(ctx,
+		`SELECT id FROM "Merchant" WHERE "onchainMerchantId" = $1`,
+		onchainMerchantID.Int64()).Scan(&merchantID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Merchant not linked yet. No-op; the fee ledger on-chain is
+		// the source of truth and this row is only a dashboard view.
 		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("fee accrual merchant lookup: %w", err)
 	}
 	return s.appendAuditWithMerchant(ctx, merchantID, auditEntry{
 		Category:   "agent",

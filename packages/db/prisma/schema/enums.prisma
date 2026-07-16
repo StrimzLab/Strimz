@@ -83,6 +83,8 @@ enum ApiKeyScope {
   agents_write
   relay_read
   relay_write
+  api_keys_read
+  api_keys_write
 }
 
 // ---------- Payment sessions ----------

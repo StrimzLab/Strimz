@@ -1,0 +1,44 @@
+// Admin-triggered broadcasts. Superset of two use-cases:
+//   1. Platform-wide announcements (`audience = all`) — new features,
+//      scheduled maintenance, incident post-mortems.
+//   2. Merchant-specific messages (`audience = merchant`) — the ops
+//      team following up on support tickets, tier-change notices, etc.
+//
+// Broadcasts land in each affected merchant's notification tray via
+// the same `notificationsLastReadAt` mechanism used for derived
+// events (payments, subscribers, refunds) — no separate read-tracking
+// table needed. Delivery also fans out an email to the affected
+// merchant(s) via `EmailService` at creation time; the `emailedAt`
+// column stamps the moment the fan-out finished so re-runs of the
+// creation cron (if we ever add async retry) can pick up
+// unsent-but-persisted rows.
+
+enum BroadcastAudience {
+  all
+  merchant
+}
+
+model AdminBroadcast {
+  id            String            @id @default(cuid())
+  /// The AdminUser who authored the broadcast.
+  senderId      String
+  title         String            @db.VarChar(160)
+  body          String            @db.Text
+  audience      BroadcastAudience @default(all)
+  /// Foreign key for `audience = merchant`. Must be null when
+  /// `audience = all` (enforced in the service, not at the DB level
+  /// so future audiences — e.g. tier-scoped — don't need a schema
+  /// migration).
+  merchantId    String?
+  /// Timestamp emails were sent for this broadcast. Null until
+  /// delivery lands. Kept even after send so ops can audit.
+  emailedAt     DateTime?
+  createdAt     DateTime          @default(now())
+
+  sender    AdminUser @relation("AdminBroadcastSender", fields: [senderId], references: [id], onDelete: Restrict)
+  merchant  Merchant? @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([audience, createdAt(sort: Desc)])
+  @@index([merchantId, createdAt(sort: Desc)])
+  @@index([senderId, createdAt(sort: Desc)])
+}

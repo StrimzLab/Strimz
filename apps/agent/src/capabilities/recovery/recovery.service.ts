@@ -39,7 +39,6 @@ const STRATEGY_SCHEDULE: Record<string, number[]> = {
 @Injectable()
 export class RecoveryService {
   private readonly log = new Logger(RecoveryService.name)
-  private readonly DEDUP_WINDOW_MS = 23 * 60 * 60 * 1_000 // a hair under 24h
 
   constructor(
     private readonly prisma: PrismaService,
@@ -77,15 +76,15 @@ export class RecoveryService {
           continue // grace not yet started
         }
 
-        // Have we already sent a notification within the dedup window for
-        // this subscription? If so, skip — we'll catch the next offset
-        // on the next tick after the previous notification ages out.
-        const recentlyNotified = await this.activity.hasRecentForSubscription({
+        // Send each attempt number at most once per period. Scoping to
+        // the current period lets a re-lapse in a later period start the
+        // schedule over; failed sends aren't counted, so they retry.
+        const alreadySent = await this.activity.hasSuccessfulRecoveryAttempt({
           subscriptionId: sub.id,
-          actionType: 'recovery_notification_sent',
-          sinceMs: this.DEDUP_WINDOW_MS,
+          attemptNumber: dueIndex + 1,
+          since: sub.currentPeriodEndAt,
         })
-        if (recentlyNotified) {
+        if (alreadySent) {
           skipped++
           continue
         }

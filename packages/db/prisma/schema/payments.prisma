@@ -46,9 +46,10 @@ model PaymentSession {
   /// Timestamp the scheduler sent the "payment received" email to the
   /// merchant. Null until the notification cron picks the row up;
   /// guarantees one-shot delivery without a separate event log.
-  merchantNotifiedAt DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  merchantNotifiedAt   DateTime?
+  customerNotifiedAt   DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
 
   merchant    Merchant     @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   customer    Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
@@ -63,4 +64,5 @@ model PaymentSession {
   // are confirmed and not yet emailed appear. Keeps the cron query
   // sub-millisecond even as the table grows.
   @@index([status, merchantNotifiedAt])
+  @@index([status, customerNotifiedAt])
 }

@@ -1,10 +1,6 @@
 /**
- * Minimal ABI fragments for the two entrypoints the relayer submits.
- *
- * Inlined here rather than imported from the SDK so the relay module
- * has zero coupling to the SDK's evolving public surface. The function
- * shapes are stable contract ABI — they don't change without a
- * coordinated contract redeploy.
+ * Contract ABIs for the two entrypoints the relayer submits.
+ * Both take two signatures — token sig + Strimz intent sig.
  */
 export const payWithAuthorizationAbi = [
   {
@@ -26,9 +22,24 @@ export const payWithAuthorizationAbi = [
         ],
       },
       { name: 'ref', type: 'bytes32' },
-      { name: 'v', type: 'uint8' },
-      { name: 'r', type: 'bytes32' },
-      { name: 's', type: 'bytes32' },
+      {
+        name: 'authSig',
+        type: 'tuple',
+        components: [
+          { name: 'v', type: 'uint8' },
+          { name: 'r', type: 'bytes32' },
+          { name: 's', type: 'bytes32' },
+        ],
+      },
+      {
+        name: 'intentSig',
+        type: 'tuple',
+        components: [
+          { name: 'v', type: 'uint8' },
+          { name: 'r', type: 'bytes32' },
+          { name: 's', type: 'bytes32' },
+        ],
+      },
     ],
     outputs: [],
   },
@@ -55,9 +66,24 @@ export const permitAndCreateSubscriptionAbi = [
           { name: 'deadline', type: 'uint256' },
         ],
       },
-      { name: 'v', type: 'uint8' },
-      { name: 'r', type: 'bytes32' },
-      { name: 's', type: 'bytes32' },
+      {
+        name: 'permitSig',
+        type: 'tuple',
+        components: [
+          { name: 'v', type: 'uint8' },
+          { name: 'r', type: 'bytes32' },
+          { name: 's', type: 'bytes32' },
+        ],
+      },
+      {
+        name: 'intentSig',
+        type: 'tuple',
+        components: [
+          { name: 'v', type: 'uint8' },
+          { name: 'r', type: 'bytes32' },
+          { name: 's', type: 'bytes32' },
+        ],
+      },
     ],
     outputs: [{ name: 'subscriptionId', type: 'uint256' }],
   },

@@ -17,6 +17,11 @@ export { SubscriptionChargedEmail } from './templates/SubscriptionChargedEmail.j
 export { AdminInviteEmail } from './templates/AdminInviteEmail.js'
 export { AdminRoleChangedEmail } from './templates/AdminRoleChangedEmail.js'
 export { AdminStatusChangedEmail } from './templates/AdminStatusChangedEmail.js'
+export { AdminBroadcastEmail } from './templates/AdminBroadcastEmail.js'
+export { PayerPaymentReceiptEmail } from './templates/PayerPaymentReceiptEmail.js'
+export { PayerSubscriptionStartedEmail } from './templates/PayerSubscriptionStartedEmail.js'
+export { PayerSubscriptionChargedEmail } from './templates/PayerSubscriptionChargedEmail.js'
+export { PayerRefundReceiptEmail } from './templates/PayerRefundReceiptEmail.js'
 
 // Theme + primitives (exported for tests and future templates).
 export {

@@ -2,26 +2,29 @@
 pragma solidity ^0.8.28;
 
 /// @title IStrimzPayments
-/// @notice One-shot payments. Two entrypoints:
-///         - `pay()`                — classic pull via ERC20 `transferFrom`;
-///           the payer must pre-approve. Works for any whitelisted token.
-///         - `payWithAuthorization()` — EIP-3009 path. The payer signs a
-///           single off-chain authorization; a relayer (or anyone) submits.
-///           Works only for whitelisted tokens that have the
-///           `CAP_TRANSFER_AUTH_3009` capability bit set on TokenWhitelist.
-///
-///         Both paths emit the same `PaymentExecuted` event shape so the
-///         indexer needs no path-specific logic.
+/// @notice One-shot payments.
+///         - `pay()`                — classic ERC20 pull via `transferFrom`.
+///         - `payWithAuthorization()` — EIP-3009 + Strimz PayIntent path.
+///           Payer signs two messages: the token's EIP-3009 auth and a
+///           Strimz-native intent that binds `merchantId`, `token`,
+///           `amount`, `ref`, the auth `nonce`, and the auth `validBefore`.
+///           Both signatures come from the same payer key. Anyone (relayer,
+///           merchant server) can submit.
 interface IStrimzPayments {
-    /// @notice EIP-3009 authorization fields the payer signs over.
-    /// @dev    Matches the `ReceiveWithAuthorization` typed-data structure
-    ///         the token contract hashes for signature verification.
+    /// @notice EIP-3009 authorization fields the payer signs for the token.
     struct PayAuthorization {
-        address from;        // The payer; recovered + checked by the token
-        uint256 amount;      // Gross amount; fee is deducted from this
-        uint256 validAfter;  // Unix timestamp; authorization invalid before this
-        uint256 validBefore; // Unix timestamp; authorization invalid after this
-        bytes32 nonce;       // Single-use nonce; the token enforces non-replay
+        address from;
+        uint256 amount;
+        uint256 validAfter;
+        uint256 validBefore;
+        bytes32 nonce;
+    }
+
+    /// @notice ECDSA signature triple.
+    struct Sig {
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
     }
 
     event PaymentExecuted(
@@ -39,33 +42,34 @@ interface IStrimzPayments {
     error Payments__MerchantInactive(uint256 merchantId);
     error Payments__TransferFailed();
     error Payments__UnsupportedCapability(address token);
+    /// @notice PayIntent signature does not recover to `auth.from`.
+    error Payments__InvalidIntent();
+    /// @notice Token delivered less than requested — fee-on-transfer,
+    ///         rebasing, blocklist. Refuse to book the payment.
+    error Payments__NonStandardTransfer();
 
     /// @param merchantId The merchant receiving the payment.
-    /// @param token ERC20 token address — must be in the whitelist.
-    /// @param amount Gross amount the payer is charged; fee is deducted from this.
-    /// @param ref Off-chain reference (e.g. hash of the Strimz session id).
+    /// @param token ERC20 token — must be whitelisted.
+    /// @param amount Gross; fee is deducted from this.
+    /// @param ref Off-chain reference (hash of the Strimz session id).
     function pay(uint256 merchantId, address token, uint256 amount, bytes32 ref) external;
 
-    /// @notice Submit a payer-signed EIP-3009 authorization. The full
-    ///         `auth.amount` lands in this contract via the token's
-    ///         `receiveWithAuthorization`, then is split into fee +
-    ///         merchant payout exactly as `pay()` does. The payer signs
-    ///         once and never broadcasts a transaction.
+    /// @notice Submit a payer-signed EIP-3009 + PayIntent pair.
     /// @param merchantId The merchant receiving the payment.
-    /// @param token ERC20 token address — must be in the whitelist AND
-    ///        have `CAP_TRANSFER_AUTH_3009` set on TokenWhitelist.
-    /// @param auth EIP-3009 authorization fields the payer signed.
-    /// @param ref Off-chain reference.
-    /// @param v Signature v component.
-    /// @param r Signature r component.
-    /// @param s Signature s component.
+    /// @param token ERC20 token — whitelisted AND `CAP_TRANSFER_AUTH_3009` set.
+    /// @param auth EIP-3009 fields the payer signed for the token.
+    /// @param ref Off-chain reference. Committed by the PayIntent signature.
+    /// @param authSig EIP-3009 signature verified by the token.
+    /// @param intentSig Strimz PayIntent signature verified by this contract.
+    ///        Binds merchantId + token + amount + auth.nonce + auth.validBefore
+    ///        + ref. Prevents an attacker from redirecting `auth` to a
+    ///        different merchant.
     function payWithAuthorization(
         uint256 merchantId,
         address token,
         PayAuthorization calldata auth,
         bytes32 ref,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
+        Sig calldata authSig,
+        Sig calldata intentSig
     ) external;
 }

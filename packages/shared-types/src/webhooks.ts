@@ -103,6 +103,18 @@ export const webhookDeliverySchema = z.object({
 })
 export type WebhookDelivery = z.infer<typeof webhookDeliverySchema>
 
+/**
+ * Detail projection returned by GET /v1/webhook-deliveries/:id.
+ * Carries the payload envelope, response body, and the deliveryId
+ * header the receiver saw. Kept separate so list responses stay slim.
+ */
+export const webhookDeliveryDetailSchema = webhookDeliverySchema.extend({
+  deliveryId: z.string(),
+  responseBody: z.string().nullable(),
+  requestPayload: z.record(z.string(), z.unknown()),
+})
+export type WebhookDeliveryDetail = z.infer<typeof webhookDeliveryDetailSchema>
+
 export const replayDeliveryInputSchema = z.object({
   id: idSchema,
 })

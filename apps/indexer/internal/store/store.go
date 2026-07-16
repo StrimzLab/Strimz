@@ -14,10 +14,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Store is the public type. Kept small — the projector talks to it through
-// narrow methods, never through raw SQL.
+// Store is the public type. When `tx` is set (via WithTx / RunBatch),
+// every write funnels through that transaction so a batch commits or
+// rolls back atomically.
 type Store struct {
 	pool *pgxpool.Pool
+	tx   pgxTxLike
 }
 
 // New connects to Postgres and verifies the connection. Caller owns Close.
@@ -47,6 +49,35 @@ func (s *Store) Close() {
 // Pool exposes the underlying pgxpool for callers that need to run their own
 // queries (e.g., tests). Production code should prefer named methods.
 func (s *Store) Pool() *pgxpool.Pool { return s.pool }
+
+func (s *Store) WithTx(tx pgxTxLike) *Store {
+	return &Store{pool: s.pool, tx: tx}
+}
+
+// RunBatch runs fn inside a serialisable tx and hands it a tx-scoped
+// Store. All writes fn performs commit atomically.
+func (s *Store) RunBatch(ctx context.Context, fn func(txStore *Store) error) error {
+	if s.tx != nil {
+		return fn(s)
+	}
+	return s.withinTx(ctx, func(tx pgxTxLike) error {
+		return fn(s.WithTx(tx))
+	})
+}
+
+func (s *Store) db() pgxTxLike {
+	if s.tx != nil {
+		return s.tx
+	}
+	return pgxPoolAdapter{pool: s.pool}
+}
+
+func (s *Store) inTx(ctx context.Context, fn func(pgxTxLike) error) error {
+	if s.tx != nil {
+		return fn(s.tx)
+	}
+	return s.withinTx(ctx, fn)
+}
 
 // withinTx runs `fn` inside a serialisable transaction, retrying once on a
 // deterministic conflict. Callers that need transactional grouping (e.g.,

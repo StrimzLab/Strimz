@@ -87,3 +87,27 @@ export const createStorefrontProductInputSchema = storefrontProductSchema
     imageUrl: httpsUrlSchema.optional(),
   })
 export type CreateStorefrontProductInput = z.infer<typeof createStorefrontProductInputSchema>
+
+/**
+ * Payload for the public `/store/:slug/products/:id/checkout` endpoint.
+ * Optional customer email flows through into the payment session so
+ * the receipt lands in the buyer's inbox after the tx confirms.
+ * `returnPath` is used to synthesise the success + cancel URLs when
+ * the merchant hasn't wired their own.
+ */
+export const storefrontCheckoutInputSchema = z.object({
+  customerEmail: z.string().email().optional(),
+  returnPath: z.string().max(200).optional(),
+})
+export type StorefrontCheckoutInput = z.infer<typeof storefrontCheckoutInputSchema>
+
+/** Response shape from the public product-checkout endpoint. */
+export const storefrontCheckoutResponseSchema = z.object({
+  /** Fully-qualified checkout URL — payer redirects here to sign. */
+  checkoutUrl: z.string().url(),
+  /** Payment-session id (one-time) or plan id (subscription). */
+  ref: idSchema,
+  /** Which downstream checkout the URL points at. */
+  kind: z.enum(['payment_session', 'subscription_plan']),
+})
+export type StorefrontCheckoutResponse = z.infer<typeof storefrontCheckoutResponseSchema>

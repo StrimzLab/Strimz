@@ -3,6 +3,18 @@ name: Release
 on:
   push:
     branches: [main]
+    # Only run the release pipeline when a changeset or a publishable package
+    # actually changes. A docs- or app-only push to main would otherwise run
+    # `changeset publish`, which errors trying to re-publish versions that are
+    # already live on npm. The changesets "Version Packages" PR merge still
+    # triggers this (it edits packages/*/package.json and removes .changeset/*).
+    paths:
+      - '.changeset/**'
+      - 'packages/sdk/**'
+      - 'packages/sdk-react/**'
+      - 'packages/shared-config/**'
+      - 'packages/shared-crypto/**'
+      - 'packages/shared-types/**'
 
 # Only run one release at a time. A second push while the first is mid-publish
 # would otherwise race with changesets' version-bump commit.

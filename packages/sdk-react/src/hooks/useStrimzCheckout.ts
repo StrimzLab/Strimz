@@ -30,6 +30,15 @@ export interface UseStrimzCheckoutResult {
  */
 export function useStrimzCheckout(options: UseStrimzCheckoutOptions = {}): UseStrimzCheckoutResult {
   const { checkoutOrigin } = useStrimzContext()
+  // `checkoutOrigin` may carry a path (e.g. https://strimz.finance/pay), but a
+  // postMessage `ev.origin` is always scheme+host only — compare against that.
+  const expectedOrigin = React.useMemo(() => {
+    try {
+      return new URL(checkoutOrigin).origin
+    } catch {
+      return checkoutOrigin
+    }
+  }, [checkoutOrigin])
   const [status, setStatus] = React.useState<UseStrimzCheckoutResult['status']>('idle')
   const popupRef = React.useRef<Window | null>(null)
   const optsRef = React.useRef(options)
@@ -44,7 +53,7 @@ export function useStrimzCheckout(options: UseStrimzCheckoutOptions = {}): UseSt
 
   React.useEffect(() => {
     function onMessage(ev: MessageEvent) {
-      if (ev.origin !== checkoutOrigin) return
+      if (ev.origin !== expectedOrigin) return
       const data = ev.data as { type?: string; txHash?: string; message?: string }
       if (!data || typeof data.type !== 'string' || !data.type.startsWith('strimz:checkout:'))
         return
@@ -69,11 +78,13 @@ export function useStrimzCheckout(options: UseStrimzCheckoutOptions = {}): UseSt
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [checkoutOrigin, close])
+  }, [expectedOrigin, close])
 
   const open = React.useCallback(
     (sessionId: string) => {
-      const url = `${checkoutOrigin}/${encodeURIComponent(sessionId)}`
+      // Payment sessions are hosted at /pay/{id}. (Subscriptions use /sub/{planId},
+      // which is a plan-link flow, not this payment-session primitive.)
+      const url = `${checkoutOrigin}/pay/${encodeURIComponent(sessionId)}`
       const mode = optsRef.current.mode ?? 'popup'
       if (mode === 'redirect') {
         window.location.assign(url)

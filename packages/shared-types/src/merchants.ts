@@ -76,6 +76,23 @@ export const createMerchantInputSchema = z.object({
 })
 export type CreateMerchantInput = z.infer<typeof createMerchantInputSchema>
 
+/**
+ * Merchant email opt-outs, persisted at `Merchant.metadata.emailPrefs`.
+ * Both default to true. Welcome, refunds, and admin broadcasts always send.
+ */
+export const merchantEmailPrefsSchema = z.object({
+  /** "You received X USDC" one-off payment notifications. */
+  paymentReceived: z.boolean(),
+  /** "You were paid X for subscription Y" per-charge notifications. */
+  subscriptionCharged: z.boolean(),
+})
+export type MerchantEmailPrefs = z.infer<typeof merchantEmailPrefsSchema>
+
+export const DEFAULT_MERCHANT_EMAIL_PREFS: MerchantEmailPrefs = {
+  paymentReceived: true,
+  subscriptionCharged: true,
+}
+
 export const updateMerchantInputSchema = z
   .object({
     businessName: z.string().min(2).max(120),
@@ -85,6 +102,7 @@ export const updateMerchantInputSchema = z
     logoUrl: z.string().url().nullable(),
     countryCode: z.string().length(2).nullable(),
     metadata: metadataSchema,
+    emailPrefs: merchantEmailPrefsSchema.partial(),
   })
   .partial()
 export type UpdateMerchantInput = z.infer<typeof updateMerchantInputSchema>
@@ -94,6 +112,13 @@ export const changeTierInputSchema = z.object({
 })
 export type ChangeTierInput = z.infer<typeof changeTierInputSchema>
 
+/**
+ * Self-attested onboarding form the dashboard collects after a
+ * merchant first logs in via Privy. On success the API stamps
+ * `onboardingCompleted: true` on the row, and the dashboard exits
+ * the wizard. Shared here so the API's DTO and the web client's
+ * hook can enforce the same shape.
+ */
 export const onboardMerchantInputSchema = z.object({
   businessName: z.string().min(2).max(120),
   businessSector: z.string().min(2).max(80),
@@ -102,6 +127,7 @@ export const onboardMerchantInputSchema = z.object({
     .length(2)
     .regex(/^[A-Z]{2}$/, 'must be a 2-letter ISO country code'),
   websiteUrl: z.string().url().optional(),
+  logoUrl: z.string().url().optional(),
   phone: z.string().min(6).max(20).optional(),
   /**
    * Per-chain payout addresses, keyed by chain id (`evm:base`,
@@ -118,6 +144,48 @@ export const onboardMerchantInputSchema = z.object({
   defaultCurrency: z.enum(['USDC', 'EURC']).optional(),
 })
 export type OnboardMerchantInput = z.infer<typeof onboardMerchantInputSchema>
+
+export const merchantPublicBrandSchema = z.object({
+  id: idSchema,
+  businessName: z.string().min(2).max(120),
+  logoUrl: z.string().url().nullable(),
+  walletAddress: evmAddressSchema.nullable(),
+})
+export type MerchantPublicBrand = z.infer<typeof merchantPublicBrandSchema>
+
+/**
+ * On-chain balance view for the withdraw page. Strimz is
+ * non-custodial: payments settle directly into the merchant's
+ * `payoutAddress`, and "withdrawal" means the merchant transferring
+ * out with their own wallet. This shape reports current on-chain
+ * state so the dashboard renders live balances + decides whether to
+ * offer the signing UI.
+ */
+export const merchantBalanceSchema = z.object({
+  /** Payout wallet, checksummed; null when the merchant hasn't set one. */
+  payoutAddress: evmAddressSchema.nullable(),
+  /** Privy embedded wallet, checksummed if resolvable. */
+  walletAddress: evmAddressSchema.nullable(),
+  /**
+   * True when `payoutAddress === walletAddress`, i.e. the merchant
+   * can sign a transfer from the dashboard via Privy. False for
+   * merchants using an external wallet as payout — the UI falls back
+   * to "copy the address, transfer with your wallet."
+   */
+  canSignFromDashboard: z.boolean(),
+  balances: z.array(
+    z.object({
+      currency: z.enum(['USDC', 'EURC']),
+      contractAddress: evmAddressSchema,
+      /** Base-6 integer as string. */
+      raw: z.string(),
+      /** Human-formatted, e.g. `1234.56`. */
+      formatted: z.string(),
+      decimals: z.number().int().min(0).max(30),
+    }),
+  ),
+})
+export type MerchantBalanceView = z.infer<typeof merchantBalanceSchema>
 
 // ---------- Team members ----------
 

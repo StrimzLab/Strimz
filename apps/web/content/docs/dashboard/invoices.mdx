@@ -1,0 +1,64 @@
+---
+title: Invoices page
+description: Draft, send, and track invoices paid in stablecoin.
+---
+
+An invoice is a bill you send someone with a payment link. They pay you in stablecoin, on-chain, without any accounts, cards, or subscriptions involved. Best for one-off B2B services, contract work, or ad-hoc consulting.
+
+## The layout
+
+The main table lists every invoice you've created, most recent first. Column set:
+
+- **Number** — sequential per merchant (`INV-0001`, `INV-0002`, …)
+- **Client email** — where the payment link and receipt go
+- **Amount** and currency
+- **Status** — `draft`, `sent`, `paid`, `overdue`, or `void`
+- **Due date**
+- **Created**
+
+Above the table, the **New invoice** button opens the multi-line editor.
+
+## Creating an invoice
+
+Click **New invoice**. The editor lets you:
+
+- Add one or more line items with quantity + unit price. Totals update as you type.
+- Set the client email and due date.
+- Optionally attach a memo that renders on the invoice.
+- Save as a draft, or click **Send** to email the client immediately.
+
+Saving as a draft skips the email — useful when you're still refining the amount or waiting on internal approval. You can send the draft any time from the draft's detail page.
+
+## The invoice detail page
+
+Click any row. You'll see:
+
+- The full invoice as it renders to the client
+- A **Download PDF** button that produces a print-ready PDF client-side (no server round-trip)
+- **Copy pay link** — shares the same link the client received in email
+- **Resend** — email the client again
+- **Void** — cancel the invoice. Marking void writes to the audit log; the pay link stops accepting payment.
+
+## Statuses explained
+
+**Draft.** You saved it but haven't sent. No emails go out. No pay link is exposed.
+
+**Sent.** The client has been emailed. The pay link is live.
+
+**Paid.** The indexer detected a matching on-chain payment. `invoice.paid` webhook fires. A payer-side receipt goes out via the payer notifier cron. The row locks — you can no longer edit line items.
+
+**Overdue.** The due date passed without payment. Strimz emails you (and optionally the client) via the merchant notifier cron. The status is informational — the pay link keeps working.
+
+**Void.** You cancelled it. Pay link returns an error; no further status changes are possible.
+
+## On-chain registration
+
+Invoices require the merchant to be registered on the Strimz Registry contract. If you haven't onboarded fully, the **New invoice** button will surface an error linking you to onboarding. This gate exists because invoice payment settles into your `payoutAddress`, and Strimz refuses to accept payment to an address the contract doesn't know about.
+
+## Common workflows
+
+**I need to bill a client for a fixed amount, one time.** New invoice → add a single line item → set due date → send. Done.
+
+**The client says they paid but the invoice is still `sent`.** Check whether the transaction hash on-chain landed against your merchant's payment address. If yes, the indexer will catch up within seconds. If it's been minutes, check the freshness of the indexer at `/self-hosting/indexer` — a stalled cursor delays confirmation.
+
+**I want to charge a subscription-like recurring fee.** Use [Subscriptions](/docs/dashboard/subscriptions) instead. Invoices are one-off by design.

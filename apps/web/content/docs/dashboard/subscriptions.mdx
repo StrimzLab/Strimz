@@ -1,0 +1,49 @@
+---
+title: Subscriptions page
+description: Plans, active subscribers, charge history, cancellations.
+---
+
+Subscriptions are the recurring billing surface. Each subscription pairs a **plan** (how much, how often) with a **payer wallet** (who pays it). The on-chain permit signed at checkout authorises Strimz to pull the amount every period without asking again.
+
+The Subscriptions page is split into two tabs: **Plans** and **Subscribers**.
+
+## Plans tab
+
+One row per plan you've created. A plan is the shape of the recurring charge — amount, currency, interval, trial length.
+
+- **Create plan** — opens a dialog with fields for name, amount, currency (USDC / EURC), interval (`day` / `week` / `month` / `year`), and optional trial in days.
+- **Plan detail** — click a row to see how many active subscribers are on it, when the plan was created, and its subscription URL. You can share the URL directly with buyers; it opens the hosted subscription checkout.
+
+Plans are immutable after creation. If you need to change price, create a new plan and migrate subscribers over time. This is deliberate — mutable plans in a recurring billing system silently repricing customers is a compliance foot-gun.
+
+## Subscribers tab
+
+One row per active or past subscriber, most recent first. Columns:
+
+- **Customer email + payer wallet**
+- **Plan** the subscriber is on
+- **Status** — `active`, `paused`, `cancelled`, or `lapsed`
+- **Current period end** — when the next charge is due
+- **Created** — when the subscription was signed
+
+Click a subscriber row to see the full charge history, upcoming charges, and cancellation controls.
+
+## Statuses explained
+
+**Active.** The subscription is signed on-chain and Strimz is charging on schedule. Every successful charge fires `subscription.charged`.
+
+**Paused.** Charging is halted but the on-chain permit is still valid. Unpause when ready — Strimz picks up from the next scheduled charge, no new signature needed.
+
+**Cancelled.** The customer or you cancelled. No more charges. The row stays for audit.
+
+**Lapsed.** A charge failed and the customer didn't resolve it before the recovery grace period ended. Typically means insufficient balance or a revoked permit. See [Agents → Recovery](/docs/dashboard/agents) for the recovery workflow.
+
+## Common workflows
+
+**A customer wants to change plans.** Cancel their current subscription and send them the checkout URL for the new plan. Strimz doesn't do in-place upgrades today because the on-chain permit is plan-specific.
+
+**A subscriber's charge failed.** Open the subscriber detail and check the last charge attempt. If the failure was "insufficient balance", the Recovery agent (if enabled) will email them for you. If the permit was revoked, the customer needs to re-sign — the subscription page will show a "Re-authorise" link if the agent finds this state.
+
+**I need to pause billing for a week.** Open the subscriber, click **Pause**. When you unpause, the next charge lands on the schedule that would have applied if there had been no pause.
+
+**I want to cancel a subscription on behalf of the customer.** Open the subscriber row, click **Cancel**. This writes on-chain so the permit is revoked. Cancelled subscriptions cannot be resumed — the customer has to re-sign a new one.

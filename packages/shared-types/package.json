@@ -1,6 +1,6 @@
 {
   "name": "@strimz/shared-types",
-  "version": "0.1.1",
+  "version": "0.3.0",
   "description": "Zod schemas and inferred TypeScript types for every Strimz platform entity, API input, and webhook event.",
   "license": "MIT",
   "author": "Strimz <hello@strimz.finance>",

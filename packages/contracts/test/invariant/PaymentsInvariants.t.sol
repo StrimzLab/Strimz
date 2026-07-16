@@ -87,16 +87,34 @@ contract PaymentsHandler is Test {
             // mask a real double-credit bug.
             nonce: keccak256(abi.encodePacked("inv.nonce", ghostCallCount))
         });
-        (uint8 v, bytes32 r, bytes32 s) = _signReceive(pk, auth);
+        (uint8 authV, bytes32 authR, bytes32 authS) = _signReceive(pk, auth);
+        (uint8 intV, bytes32 intR, bytes32 intS) =
+            _signIntent(pk, auth, bytes32(0));
 
         uint256 expectedFee = (capped * FEE_BPS) / 10_000;
         // Anyone may submit — relayer pattern. Handler is the submitter.
         try PAYMENTS.payWithAuthorization(
-            MERCHANT_ID, address(USDC), auth, bytes32(0), v, r, s
+            MERCHANT_ID,
+            address(USDC),
+            auth,
+            bytes32(0),
+            IStrimzPayments.Sig(authV, authR, authS),
+            IStrimzPayments.Sig(intV, intR, intS)
         ) {
             ghostTotalIngressed += capped;
             ghostTotalExpectedFees += expectedFee;
         } catch { }
+    }
+
+    function _signIntent(
+        uint256 pk,
+        IStrimzPayments.PayAuthorization memory auth,
+        bytes32 ref
+    ) private view returns (uint8 v, bytes32 r, bytes32 s) {
+        bytes32 digest = PAYMENTS.payIntentDigest(
+            MERCHANT_ID, address(USDC), auth.amount, auth.nonce, auth.validBefore, ref
+        );
+        (v, r, s) = vm.sign(pk, digest);
     }
 
     function _signReceive(uint256 pk, IStrimzPayments.PayAuthorization memory auth)

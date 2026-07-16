@@ -15,6 +15,10 @@ import { SubscriptionLapsedModule } from './crons/subscription-lapsed/subscripti
 import { InvoiceOverdueModule } from './crons/invoice-overdue/invoice-overdue.module.js'
 import { GasBalanceMonitorModule } from './crons/gas-balance-monitor/gas-balance-monitor.module.js'
 import { MerchantNotificationsModule } from './crons/merchant-notifications/merchant-notifications.module.js'
+import { PayerNotificationsModule } from './crons/payer-notifications/payer-notifications.module.js'
+import { SessionExpiryModule } from './crons/session-expiry/session-expiry.module.js'
+import { WebhookRecoveryModule } from './crons/webhook-recovery/webhook-recovery.module.js'
+import { WebhookOutboxModule } from './infra/webhook-outbox/webhook-outbox.module.js'
 import { HealthModule } from './common/health/health.module.js'
 import { AdminModule } from './common/admin/admin.module.js'
 
@@ -40,6 +44,10 @@ import { AdminModule } from './common/admin/admin.module.js'
     InvoiceOverdueModule,
     GasBalanceMonitorModule,
     MerchantNotificationsModule,
+    PayerNotificationsModule,
+    SessionExpiryModule,
+    WebhookRecoveryModule,
+    WebhookOutboxModule,
 
     // Public surface
     HealthModule,

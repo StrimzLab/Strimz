@@ -1,0 +1,56 @@
+---
+title: Refunds page
+description: Return stablecoin to a payer after the fact.
+---
+
+Refunds send stablecoin back to a customer for a payment they've already made. Refunds are on-chain: they require your signature, and the money leaves your payout address the moment the transaction confirms.
+
+## The layout
+
+The Refunds table lists every refund your account has ever created, most recent first. Columns:
+
+- **Payment** — the id of the original payment being refunded
+- **Amount** — how much you're returning. Can be full or partial.
+- **Recipient wallet** — the on-chain address the funds go to. Defaults to the payer's original wallet.
+- **Status** — `draft`, `awaiting_signature`, `submitted`, `completed`, or `failed`
+- **Created**
+
+The **New refund** button opens a dialog to start one.
+
+## Creating a refund
+
+Refunds need three things:
+
+1. The payment session or invoice you're refunding. Look it up from Payment sessions or Invoices — the row detail page has a **Refund** button that pre-fills this dialog.
+2. The amount. Cannot exceed the original payment.
+3. The recipient. Defaults to the original payer wallet; only change this if you have a very specific reason.
+
+Saving a draft doesn't move any money. It just captures intent so you can review before signing.
+
+## The signing flow
+
+Refunds move real value, so Strimz never signs them for you. When you click **Sign & submit** on a row in `awaiting_signature`, the Privy embedded wallet pops up asking you to sign the transaction. Approve, and Strimz relays the signed transaction to the chain.
+
+- On success, status moves to `submitted` and eventually `completed` after confirmations.
+- If your signature times out or you reject, status stays `awaiting_signature` — you can retry any time.
+- If the on-chain transaction reverts (rare — usually insufficient balance in the payout address), status moves to `failed` and Strimz emails you.
+
+## Statuses explained
+
+**Draft.** You've filled in the details but haven't signed yet.
+
+**Awaiting signature.** The typed-data envelope has been prepared server-side; the row is waiting for you to hit **Sign & submit**.
+
+**Submitted.** You signed, Strimz relayed to the chain. Waiting for confirmations.
+
+**Completed.** The transaction confirmed. `refund.completed` webhook fires. The payer notifier cron emails the customer a receipt if they left an email at checkout.
+
+**Failed.** The transaction reverted or a downstream error killed the relay. Details are in the row's `lastError` field. Fix and re-submit if applicable.
+
+## Common workflows
+
+**I sold something and now the customer wants their money back.** Find the payment session in Payment sessions. Open the detail page. Click **Refund** → dialog opens pre-filled → sign. Two minutes end-to-end.
+
+**A customer overpaid an invoice.** Refund a partial amount — the dialog accepts any positive value up to the original payment.
+
+**I want to send stablecoin to someone that isn't tied to a payment.** Refunds aren't the right tool for that — they require a source payment for audit reasons. Use the payout wallet directly (Withdraw page or your own tooling).

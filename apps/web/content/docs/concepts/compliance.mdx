@@ -7,9 +7,9 @@ Stablecoin payments are still payments. They're subject to OFAC's sanctions list
 
 The screener runs at two points.
 
-The first is merchant signup. When you finish onboarding, your payout address is screened. A hit blocks live-mode access — you stay in test mode and we surface a "compliance review required" notice. Most legitimate businesses clear instantly; if you don't and you think there's been a mistake, email support and a human takes a look.
+The first is merchant signup. When you finish onboarding, your payout address is screened. A hit blocks live-mode access. You stay in test mode and we surface a "compliance review required" notice. Most legitimate businesses clear instantly; if you don't and you think there's been a mistake, email support and a human takes a look.
 
-The second is payer first-interaction. When a payer connects a wallet on hosted checkout, the wallet address is screened. A hit returns 403 with `code: 'wallet_screening_failed'` from the meta-tx submission endpoint, and the hosted page shows a "we can't process this payment" message. The payer doesn't see anything beyond that — no specific reason code, no ability to retry, just a hard block.
+The second is payer first-interaction. When a payer connects a wallet on hosted checkout, the wallet address is screened. A hit returns 403 with `code: 'wallet_screening_failed'` from the meta-tx submission endpoint, and the hosted page shows a "we can't process this payment" message. The payer doesn't see anything beyond that. No specific reason code, no ability to retry, just a hard block.
 
 ## Caching
 
@@ -21,7 +21,7 @@ If you need a forced re-screen (e.g. an address was wrongly flagged and Circle c
 
 ## The log
 
-Every screening call writes a `ComplianceLog` row. It's append-only — we don't update past rows even if a later screening returns a different decision.
+Every screening call writes a `ComplianceLog` row. It's append-only. We don't update past rows even if a later screening returns a different decision.
 
 ```ts
 {
@@ -35,7 +35,7 @@ Every screening call writes a `ComplianceLog` row. It's append-only — we don't
 }
 ```
 
-The dashboard has a Compliance tab that shows the logs for any wallet that's interacted with your account. Read-only — you can see history, you can see decisions, you can't override.
+The dashboard has a Compliance tab that shows the logs for any wallet that's interacted with your account. Read-only. You can see history, you can see decisions, you can't override.
 
 We log decisions to support exactly two operations: you reviewing why a customer of yours was blocked (to decide whether to email them with the bad news), and us proving to a regulator after the fact that we screened. Neither operation needs mutable history.
 
@@ -43,9 +43,9 @@ We log decisions to support exactly two operations: you reviewing why a customer
 
 This is the honest part. Circle Compliance Engine eligibility is application-based and we're in flight on it. Until we're approved, the test-mode screener is a stub that returns `cleared` for everything. We log every call with `source: 'stub_test_mode'` so the audit trail shows what happened.
 
-Live mode is different. The `StrimzPayments` contract refuses to settle unless the screening endpoint returns a `cleared` decision. There's no live-mode code path that skips the check. If our Circle integration is down for any reason, live-mode payments would queue and not broadcast — we'd rather no payments than unscreened ones.
+Live mode is different. The `StrimzPayments` contract refuses to settle unless the screening endpoint returns a `cleared` decision. There's no live-mode code path that skips the check. If our Circle integration is down for any reason, live-mode payments would queue and not broadcast. We'd rather no payments than unscreened ones.
 
-When Circle approves us, we flip the live screener over and remove the "no live mode without Circle" guard from the deploy gate. Test mode stays on the stub forever — testing your integration against real-money sanctions checks is not something you want anywhere near your CI.
+When Circle approves us, we flip the live screener over and remove the "no live mode without Circle" guard from the deploy gate. Test mode stays on the stub forever. Testing your integration against real-money sanctions checks is not something you want anywhere near your CI.
 
 ## What it doesn't cover
 
@@ -56,12 +56,12 @@ A few things compliance screening doesn't do, in case anyone gets the wrong idea
 - It doesn't do travel-rule data exchange. That's on the roadmap for the over-threshold transfer flows.
 - It doesn't do tax reporting. Also on the roadmap.
 
-If you have a regulated use case that needs more than address screening — a money services business, anything that does customer due diligence — you need to layer your own KYC on top of Strimz. We give you the wallet address; you can hook a Persona / Sumsub / etc. flow at signup.
+If you have a regulated use case that needs more than address screening. A money services business, anything that does customer due diligence. You need to layer your own KYC on top of Strimz. We give you the wallet address; you can hook a Persona / Sumsub / etc. flow at signup.
 
 ## When something gets blocked
 
 The merchant view: a `compliance.wallet_flagged` or `compliance.wallet_blocked` webhook lands on your endpoint with the full `ComplianceLog` payload. The session that triggered it is in `failed` state with `failureReason: 'wallet_screening_failed'`.
 
-The recommended action is to email the payer (you have their email if you collected it as part of the session, or you can email through whatever support channel they reached you on). Tell them the payment was blocked for compliance reasons and that you'd be happy to clarify if they reach out. We don't recommend telling them exactly what triggered the flag — that information helps actually-sanctioned actors evade screening, and the legitimate ones can resolve it through proper channels.
+The recommended action is to email the payer (you have their email if you collected it as part of the session, or you can email through whatever support channel they reached you on). Tell them the payment was blocked for compliance reasons and that you'd be happy to clarify if they reach out. We don't recommend telling them exactly what triggered the flag. That information helps actually-sanctioned actors evade screening, and the legitimate ones can resolve it through proper channels.
 
 Most flagged payers we've seen in test mode are false positives. Real sanctioned actors don't typically try to subscribe to your B2B SaaS.

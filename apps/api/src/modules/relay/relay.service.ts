@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import type { Job } from 'bullmq'
 import { encodeFunctionData, padHex } from 'viem'
 
@@ -76,6 +76,7 @@ export class RelayService {
     if (input.sessionId) {
       const alreadyPaid = await this.alreadyPaidView(input.sessionId, input.idempotencyKey)
       if (alreadyPaid) return alreadyPaid
+      await this.assertSessionPayable(input.sessionId, input.merchantId, input.auth.amount)
     }
 
     const callData = encodeFunctionData({
@@ -92,9 +93,16 @@ export class RelayService {
           nonce: input.auth.nonce,
         },
         input.ref,
-        input.signature.v,
-        input.signature.r,
-        input.signature.s,
+        {
+          v: input.authSignature.v,
+          r: input.authSignature.r,
+          s: input.authSignature.s,
+        },
+        {
+          v: input.intentSignature.v,
+          r: input.intentSignature.r,
+          s: input.intentSignature.s,
+        },
       ],
     })
     return this.enqueue({
@@ -144,9 +152,16 @@ export class RelayService {
           value: input.permitData.value,
           deadline: input.permitData.deadline,
         },
-        input.signature.v,
-        input.signature.r,
-        input.signature.s,
+        {
+          v: input.permitSignature.v,
+          r: input.permitSignature.r,
+          s: input.permitSignature.s,
+        },
+        {
+          v: input.intentSignature.v,
+          r: input.intentSignature.r,
+          s: input.intentSignature.s,
+        },
       ],
     })
     return this.enqueue({
@@ -218,6 +233,56 @@ export class RelayService {
    * successful job view exactly so the BFF and browser flow continue
    * to drive the same "confirmed → CompletionPanel" path.
    */
+  /**
+   * Gate a payment submission on the session it claims to pay:
+   * the session must exist, be in a payable state, not be expired,
+   * belong to the on-chain merchant in the calldata, and the signed
+   * amount must equal the session amount. Without these checks any
+   * relay_write key could burn relayer gas on arbitrary meta-txs.
+   */
+  private async assertSessionPayable(
+    sessionId: string,
+    onchainMerchantId: bigint,
+    signedAmount: bigint,
+  ): Promise<void> {
+    const session = await this.prisma.db.paymentSession.findUnique({
+      where: { id: sessionId },
+      select: {
+        status: true,
+        amount: true,
+        expiresAt: true,
+        merchant: { select: { onchainMerchantId: true } },
+      },
+    })
+    if (!session) {
+      throw new BadRequestException({ code: 'not_found', message: 'session not found' })
+    }
+    if (['cancelled', 'expired', 'failed'].includes(session.status)) {
+      throw new BadRequestException({
+        code: 'session_invalid_state',
+        message: `session is ${session.status}`,
+      })
+    }
+    if (session.expiresAt && session.expiresAt.getTime() < Date.now()) {
+      throw new BadRequestException({ code: 'session_expired', message: 'session has expired' })
+    }
+    if (
+      session.merchant.onchainMerchantId == null ||
+      BigInt(session.merchant.onchainMerchantId) !== onchainMerchantId
+    ) {
+      throw new BadRequestException({
+        code: 'invalid_request',
+        message: 'merchantId does not match the session merchant',
+      })
+    }
+    if (BigInt(session.amount) !== signedAmount) {
+      throw new BadRequestException({
+        code: 'invalid_request',
+        message: 'signed amount does not match the session amount',
+      })
+    }
+  }
+
   private async alreadyPaidView(
     sessionId: string,
     idempotencyKey: string,

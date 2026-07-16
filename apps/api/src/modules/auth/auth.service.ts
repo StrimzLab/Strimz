@@ -1,4 +1,5 @@
 import { Injectable, ForbiddenException, Logger } from '@nestjs/common'
+import { Prisma } from '@strimz/db'
 import { PrivyService } from '../../infra/privy/privy.service.js'
 import { TurnstileService } from '../../infra/turnstile/turnstile.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
@@ -48,7 +49,13 @@ export class AuthService {
    */
   async sync(privyAccessToken: string): Promise<SyncResult> {
     const claims = await this.privy.verifyAccessToken(privyAccessToken)
-    const user = await this.privy.getUser(claims.userId)
+    return this.syncByPrivyUserId(claims.userId)
+  }
+
+  // Same logic as sync() but called from trusted server-side paths
+  // (Privy webhook) that already know the user id.
+  async syncByPrivyUserId(privyUserId: string): Promise<SyncResult> {
+    const user = await this.privy.getUser(privyUserId)
 
     const email = this.privy.primaryEmail(user)
     if (!email) {
@@ -61,44 +68,65 @@ export class AuthService {
     const emailVerified = Boolean(user.email?.address) // Privy verifies email-login addresses
     const twoFactorEnabled = this.privy.hasMfa(user)
 
-    // Atomic upsert so concurrent sync calls (React StrictMode double-mount,
-    // a retry, or two browser tabs racing) can't both reach the create
-    // branch and collide on the unique privyUserId. The `created` flag is
-    // derived from createdAt vs updatedAt — Prisma upsert doesn't expose
-    // which branch ran, so we infer it after the fact.
-    const merchant = await this.prisma.db.merchant.upsert({
-      where: { privyUserId: claims.userId },
-      create: {
-        privyUserId: claims.userId,
-        email,
-        emailVerified,
-        twoFactorEnabled,
-        walletAddress: wallet,
-        payoutAddress: wallet,
-        lastLoginAt: new Date(),
-      },
-      update: {
-        email,
-        emailVerified,
-        twoFactorEnabled,
-        // walletAddress: source of truth is the Privy embedded wallet,
-        // refreshed every sync. Passing `undefined` to Prisma is "skip"
-        // — we only overwrite when Privy actually returns a wallet.
-        walletAddress: wallet ?? undefined,
-        // payoutAddress: deliberately NOT updated here. It's seeded once
-        // on create and never overwritten — the merchant may have
-        // pointed it elsewhere on purpose. Re-seeding null-payout rows
-        // from the embedded wallet on a later sync is rare enough to
-        // not justify the raw-SQL COALESCE that would be needed inside
-        // an upsert.
-        lastLoginAt: new Date(),
-      },
+    const existing = await this.prisma.db.merchant.findUnique({
+      where: { privyUserId: privyUserId },
     })
 
-    const isNewMerchant = merchant.createdAt.getTime() === merchant.updatedAt.getTime()
-    if (isNewMerchant) {
-      this.log.log(`merchant created via privy: ${merchant.id} (${email})`)
+    // Fields refreshed on every sync — Privy is the source of truth for
+    // identity + embedded-wallet address. `payoutAddress` intentionally
+    // isn't in here: we only seed it from the wallet on a row that's
+    // never had one, so a merchant's deliberate payout choice never
+    // gets overwritten by a login.
+    const refreshFields = {
+      email,
+      emailVerified,
+      twoFactorEnabled,
+      walletAddress: wallet ?? existing?.walletAddress ?? null,
+      lastLoginAt: new Date(),
     }
-    return { merchant: serialiseMerchant(merchant), isNewMerchant }
+
+    if (existing) {
+      const updated = await this.prisma.db.merchant.update({
+        where: { id: existing.id },
+        data: {
+          ...refreshFields,
+          payoutAddress: existing.payoutAddress ?? wallet,
+        },
+      })
+      return { merchant: serialiseMerchant(updated), isNewMerchant: false }
+    }
+
+    // First-time login for this privyUserId. Two concurrent /auth/sync
+    // requests can both land here after both `findUnique` calls return
+    // `null` — React StrictMode double-fires effects in dev, and
+    // multi-tab logins do the same in prod. Whoever wins the row wins;
+    // the loser sees Prisma's P2002 (unique constraint) on `privyUserId`
+    // and gracefully switches to the update path.
+    try {
+      const created = await this.prisma.db.merchant.create({
+        data: {
+          privyUserId: privyUserId,
+          payoutAddress: wallet,
+          ...refreshFields,
+        },
+      })
+      this.log.log(`merchant created via privy: ${created.id} (${email})`)
+      return { merchant: serialiseMerchant(created), isNewMerchant: true }
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const row = await this.prisma.db.merchant.findUniqueOrThrow({
+          where: { privyUserId: privyUserId },
+        })
+        const updated = await this.prisma.db.merchant.update({
+          where: { id: row.id },
+          data: {
+            ...refreshFields,
+            payoutAddress: row.payoutAddress ?? wallet,
+          },
+        })
+        return { merchant: serialiseMerchant(updated), isNewMerchant: false }
+      }
+      throw err
+    }
   }
 }

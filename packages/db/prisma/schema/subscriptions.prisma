@@ -71,9 +71,11 @@ model Subscription {
   /// Timestamp the scheduler sent the "new subscriber" email to the
   /// merchant. Null until the notification cron picks the row up;
   /// guarantees one-shot delivery without a separate event log.
-  merchantNotifiedAt DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  merchantNotifiedAt      DateTime?
+  /// Payer-side enrolment receipt one-shot stamp.
+  customerNotifiedAt      DateTime?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
 
   merchant     Merchant             @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   customer     Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
@@ -85,6 +87,7 @@ model Subscription {
   @@index([merchantId, status])
   @@index([nextChargeAt, status])
   @@index([customerId])
+  @@index([customerNotifiedAt])
 }
 
 /// Tracks a Stellar SEP-41 allowance for a subscription. Stellar's
@@ -144,8 +147,10 @@ model SubscriptionCharge {
   /// Null = un-notified; cron picks it up. Same one-shot pattern as
   /// `Subscription.merchantNotifiedAt`.
   merchantNotifiedAt DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  /// Payer-side recurring-charge receipt one-shot stamp.
+  customerNotifiedAt DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
 
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
   merchant     Merchant     @relation(fields: [merchantId], references: [id], onDelete: Restrict)
@@ -155,4 +160,5 @@ model SubscriptionCharge {
   @@index([status, scheduledAt])
   /// Drives the recurring-charge notification cron.
   @@index([status, merchantNotifiedAt])
+  @@index([status, customerNotifiedAt])
 }

@@ -39,11 +39,11 @@ const FAQS = [
   },
   {
     q: 'What if my customer wants to pay from a different chain?',
-    a: 'That works too. They can pay in USDC from Ethereum, Base, Polygon, Solana, and most other chains. We bridge it to Arc behind the scenes, and you receive USDC on Arc as normal.',
+    a: 'Cross-chain via Circle CCTP V2 is on the roadmap. The schema and scheduler already understand a source chain, but the checkout UI ships in a later release. For now, customers pay on Arc directly.',
   },
   {
     q: 'Where can I find the technical details?',
-    a: 'All the technical details — APIs, SDKs, webhook signatures, contract architecture, error codes — live in the docs at /docs. They cover everything from a 5-minute quickstart to self-hosting.',
+    a: 'All the technical details. APIs, SDKs, webhook signatures, contract architecture, error codes. Live in the docs at /docs. They cover everything from a 5-minute quickstart to self-hosting.',
   },
 ] as const
 
