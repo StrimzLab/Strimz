@@ -64,7 +64,13 @@ export class PrivyService {
     if (fromEmailLogin) return fromEmailLogin.toLowerCase()
     const accounts = user.linkedAccounts as any[]
     const linkedEmail = accounts.find((a) => a.type === 'email' && typeof a.address === 'string')
-    return linkedEmail?.address?.toLowerCase() ?? null
+    if (linkedEmail?.address) return linkedEmail.address.toLowerCase()
+    // OAuth logins (Google, etc.) don't produce an `email`-type account — the
+    // address rides on the provider account itself under `.email`. Without
+    // this branch a "Continue with Google" login has no resolvable email and
+    // the sync 403s.
+    const oauthEmail = accounts.find((a) => typeof a.email === 'string' && a.email.includes('@'))
+    return oauthEmail?.email?.toLowerCase() ?? null
   }
 
   /** Pull the primary embedded-wallet address, if Privy created one. */
