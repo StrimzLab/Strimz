@@ -88,7 +88,7 @@ jobs:
       # config for the scope. NPM_CONFIG_PROVENANCE adds the Sigstore-signed
       # attestation linking each tarball back to this exact commit.
       - name: Create release PR or publish
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
           version: pnpm run version
           publish: pnpm release
