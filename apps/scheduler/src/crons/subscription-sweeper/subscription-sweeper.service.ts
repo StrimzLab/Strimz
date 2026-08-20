@@ -80,6 +80,12 @@ export class SubscriptionSweeperService {
                 )
             AND "nextChargeAt" IS NOT NULL
             AND "nextChargeAt" <= $1
+            -- Retry backoff. Set by the indexer when a charge fails,
+            -- cleared on success. Without it a payer who is short on
+            -- funds is retried every tick for the whole grace window —
+            -- ~192 on-chain transactions across a 48h grace period for
+            -- one failing subscription.
+            AND ("nextRetryAt" IS NULL OR "nextRetryAt" <= $1)
             AND status IN ('active'::"SubscriptionStatus", 'at_risk'::"SubscriptionStatus")
             AND "onchainSubscriptionId" IS NOT NULL
           ORDER BY "nextChargeAt" ASC

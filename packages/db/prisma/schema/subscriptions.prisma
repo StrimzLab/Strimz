@@ -51,6 +51,15 @@ model Subscription {
   chargeLock              Boolean             @default(false)
   chargeLockAcquiredAt    DateTime?
 
+  /// Consecutive failed charge attempts in the current period. Reset to 0
+  /// on a successful charge. Drives the retry backoff schedule.
+  retryCount              Int                 @default(0)
+  /// Earliest the sweeper may re-enqueue this row. Null = eligible now.
+  /// Set by the indexer when a charge fails; cleared on success. Without
+  /// it the sweeper retries a failing subscription every 15 minutes for
+  /// the whole grace window.
+  nextRetryAt             DateTime?
+
   cancelledAt             DateTime?
   cancellationReason      String?             @db.VarChar(500)
 
@@ -73,6 +82,7 @@ model Subscription {
 
   @@index([merchantId, status])
   @@index([nextChargeAt, status])
+  @@index([nextChargeAt, nextRetryAt, status])
   @@index([customerId])
   @@index([customerNotifiedAt])
 }

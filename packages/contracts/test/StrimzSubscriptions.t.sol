@@ -232,6 +232,154 @@ contract StrimzSubscriptionsTest is StrimzTestBase {
         assertEq(uint256(outcomes[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Ended));
     }
 
+    // ---------- Attempt-id lifecycle (audit M-01) ----------
+    //
+    // The attempt id is a one-use ticket whose only job is preventing a
+    // double charge. Money can only move in `_settleCharge`, so the id
+    // is burned immediately before that call and nowhere else. Every
+    // skip above that line must leave the id spendable, otherwise the
+    // scheduler's deterministic (subscriptionId, periodEnd) id is dead
+    // for the rest of the period and the payer is never billed.
+
+    // A too-early sweep must not consume the id — the correct-timing
+    // retry has to succeed with the SAME id.
+    function test_notDueSkipLeavesAttemptIdSpendable() public {
+        uint64 startAt = uint64(block.timestamp + 1 days);
+        vm.prank(payer);
+        uint256 id = subs.createSubscription(merchantId, address(usdc), 50_000_000, 1 hours, startAt, 0);
+
+        (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "period-1");
+
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory early = subs.batchCharge(ids, attempts);
+        assertEq(uint256(early[0]), uint256(IStrimzSubscriptions.ChargeOutcome.NotDue));
+        assertFalse(subs.isAttemptUsed(attempts[0]), "NotDue must not burn the id");
+
+        vm.warp(startAt);
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory onTime = subs.batchCharge(ids, attempts);
+        assertEq(uint256(onTime[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Charged));
+        assertTrue(subs.isAttemptUsed(attempts[0]), "a settled charge must burn the id");
+        assertEq(usdc.balanceOf(merchantPayout), 49_500_000);
+    }
+
+    // The most common real-world failure: payer is short today, tops up
+    // tomorrow. Nothing left the payer's wallet, so the id survives.
+    function test_insufficientFundsSkipLeavesAttemptIdSpendable() public {
+        uint256 id = _createSub(50_000_000);
+        uint256 balance = usdc.balanceOf(payer);
+        address sink = makeAddr("sink");
+        vm.prank(payer);
+        usdc.transfer(sink, balance);
+
+        (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "period-1");
+
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory broke = subs.batchCharge(ids, attempts);
+        assertEq(uint256(broke[0]), uint256(IStrimzSubscriptions.ChargeOutcome.InsufficientFunds));
+        assertFalse(subs.isAttemptUsed(attempts[0]), "InsufficientFunds must not burn the id");
+
+        vm.prank(sink);
+        usdc.transfer(payer, balance);
+
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory funded = subs.batchCharge(ids, attempts);
+        assertEq(uint256(funded[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Charged));
+        assertEq(usdc.balanceOf(merchantPayout), 49_500_000);
+    }
+
+    // A revoked-then-restored allowance is the same story.
+    function test_revokedApprovalSkipLeavesAttemptIdSpendable() public {
+        uint256 id = _createSub(50_000_000);
+        vm.prank(payer);
+        usdc.approve(address(subs), 0);
+
+        (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "period-1");
+
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory revoked = subs.batchCharge(ids, attempts);
+        assertEq(uint256(revoked[0]), uint256(IStrimzSubscriptions.ChargeOutcome.RevokedApproval));
+        assertFalse(subs.isAttemptUsed(attempts[0]), "RevokedApproval must not burn the id");
+
+        vm.prank(payer);
+        usdc.approve(address(subs), type(uint256).max);
+
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory restored = subs.batchCharge(ids, attempts);
+        assertEq(uint256(restored[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Charged));
+    }
+
+    // The scheduler derives at most MAX_ATTEMPTS_PER_PERIOD (8) ids per
+    // period. Before the fix, eight failed sweeps burned all eight and
+    // stranded the period even though the grace window was still open.
+    // Now the ninth sweep still bills — on the very first id.
+    function test_eightFailedSweepsDoNotStrandThePeriod() public {
+        uint256 id = _createSub(50_000_000);
+        uint256 balance = usdc.balanceOf(payer);
+        address sink = makeAddr("sink");
+        vm.prank(payer);
+        usdc.transfer(sink, balance);
+
+        (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "period-1");
+
+        for (uint256 i; i < 8; ++i) {
+            vm.prank(admin);
+            IStrimzSubscriptions.ChargeOutcome[] memory o = subs.batchCharge(ids, attempts);
+            assertEq(uint256(o[0]), uint256(IStrimzSubscriptions.ChargeOutcome.InsufficientFunds));
+            vm.warp(block.timestamp + 15 minutes);
+        }
+        assertFalse(subs.isAttemptUsed(attempts[0]), "eight dry sweeps must not burn the id");
+
+        vm.prank(sink);
+        usdc.transfer(payer, balance);
+
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory ninth = subs.batchCharge(ids, attempts);
+        assertEq(uint256(ninth[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Charged));
+        assertEq(usdc.balanceOf(merchantPayout), 49_500_000);
+    }
+
+    // ---------- Backdated startAt (audit M-02) ----------
+
+    // A startAt in the past is already due at creation, so the payer is
+    // billed for a period they never received.
+    function test_createRejectsBackdatedStartAt() public {
+        vm.warp(10 days);
+        vm.prank(payer);
+        vm.expectRevert(IStrimzSubscriptions.Subscriptions__InvalidStartAt.selector);
+        subs.createSubscription(
+            merchantId, address(usdc), 50_000_000, 1 hours, uint64(block.timestamp - 1), 0
+        );
+    }
+
+    // startAt == 0 (charge now) and startAt == now stay legal.
+    function test_createAcceptsZeroAndCurrentStartAt() public {
+        vm.warp(10 days);
+        vm.prank(payer);
+        subs.createSubscription(merchantId, address(usdc), 50_000_000, 1 hours, 0, 0);
+        vm.prank(payer);
+        subs.createSubscription(
+            merchantId, address(usdc), 50_000_000, 1 hours, uint64(block.timestamp), 0
+        );
+    }
+
+    // ---------- Cancel idempotency (audit I-01) ----------
+
+    // The indexer rebuilds subscription state from logs, so a second
+    // SubscriptionCancelled would report a transition that never
+    // happened. Reject rather than re-emit.
+    function test_secondCancelReverts() public {
+        uint256 id = _createSub(50_000_000);
+        vm.prank(payer);
+        subs.cancel(id);
+
+        vm.prank(payer);
+        vm.expectRevert(
+            abi.encodeWithSelector(IStrimzSubscriptions.Subscriptions__AlreadyCancelled.selector, id)
+        );
+        subs.cancel(id);
+    }
+
     // ---------- Access control ----------
 
     // Only CHARGER_ROLE can call batchCharge. If this ever loosens, a

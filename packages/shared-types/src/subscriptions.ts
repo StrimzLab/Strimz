@@ -146,11 +146,19 @@ export type CancelSubscriptionInput = z.infer<typeof cancelSubscriptionInputSche
 
 // ---------- Charges ----------
 
+// One value per contract ChargeOutcome. `skipped` is the fallback for
+// outcomes a future contract appends.
 export const subscriptionChargeOutcomeSchema = z.enum([
   'charged',
   'insufficient_funds',
   'revoked_approval',
   'cancelled',
+  'not_due',
+  'ended',
+  'duplicate',
+  'unknown',
+  'merchant_inactive',
+  'transfer_failed',
   'skipped',
 ])
 export type SubscriptionChargeOutcome = z.infer<typeof subscriptionChargeOutcomeSchema>

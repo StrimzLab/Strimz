@@ -90,9 +90,8 @@ contract StrimzAgentRegistry is IStrimzAgentRegistry, StrimzAccessControl, UUPSU
         emit AgentDeactivated(agent);
     }
 
-    /// @notice Reactivate a previously-deactivated agent. Same standing
-    ///         as `deactivate`.
-    function activate(address agent) external {
+    /// @inheritdoc IStrimzAgentRegistry
+    function activate(address agent) external override {
         Agent storage a = _loadAgent(agent);
         if (msg.sender != a.controller && !hasRole(AGENT_ADMIN_ROLE, msg.sender)) {
             revert AgentRegistry__NotController();

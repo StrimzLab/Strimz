@@ -130,7 +130,13 @@ export class AgentsService {
         where: {
           merchantId,
           createdAt: { gte: monthStart },
-          status: { notIn: ['cancelled', 'disputed'] },
+          // Exclude jobs whose escrow was returned to the client.
+          // `reclaimed` is a full timeout refund and `cancelled` a
+          // pre-start refund — counting either against the cap charges
+          // the merchant budget for money that came back. `resolved` is
+          // a partial split, so it stays counted until the split amounts
+          // are projected onto the row.
+          status: { notIn: ['cancelled', 'disputed', 'reclaimed'] },
         },
         select: { amount: true },
       })
