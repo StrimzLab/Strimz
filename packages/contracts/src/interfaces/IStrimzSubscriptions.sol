@@ -86,6 +86,7 @@ interface IStrimzSubscriptions {
     error Subscriptions__InvalidAmount();
     error Subscriptions__InvalidMerchantId();
     error Subscriptions__InvalidEndAt();
+    error Subscriptions__InvalidStartAt();
     error Subscriptions__UnauthorisedCharger();
     error Subscriptions__DuplicateAttempt(bytes32 chargeAttemptId);
     error Subscriptions__UnknownSubscription(uint256 subscriptionId);
@@ -93,6 +94,7 @@ interface IStrimzSubscriptions {
     error Subscriptions__LengthMismatch();
     error Subscriptions__UnsupportedCapability(address token);
     error Subscriptions__InvalidIntent();
+    error Subscriptions__AlreadyCancelled(uint256 subscriptionId);
 
     /// @param merchantId The merchant the subscription bills to.
     /// @param token ERC20 token address — must be whitelisted.

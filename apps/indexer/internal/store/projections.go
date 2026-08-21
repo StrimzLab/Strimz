@@ -85,7 +85,7 @@ func (s *Store) LogMerchantFeeBpsChange(ctx context.Context, onchainID *big.Int,
 		TargetType: "Merchant",
 		TargetID:   fmt.Sprintf("onchain:%s", onchainID.String()),
 		Metadata: map[string]any{
-			"newFeeBps":      int(newFeeBps),
+			"newFeeBps":       int(newFeeBps),
 			"transactionHash": txHash,
 		},
 	})
@@ -469,11 +469,23 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 		// 3) Bump nextChargeAt + currentPeriod window. The charge-in-advance
 		//    model makes the new period start where the just-paid charge was
 		//    due (the old nextChargeAt), not the old period end.
+		//    A successful charge also clears the failure state: retry
+		//    counters reset, and an `at_risk` payer returns to `active`.
+		//    Without the status reset a payer who failed once and then
+		//    paid stays `at_risk` and is eventually flipped to `lapsed`
+		//    by the grace-window cron despite being current.
 		if _, err := tx.Exec(ctx, `
 			UPDATE "Subscription"
 			   SET "currentPeriodStartAt" = "nextChargeAt",
 			       "currentPeriodEndAt"   = $2,
 			       "nextChargeAt"         = $2,
+			       "retryCount"           = 0,
+			       "nextRetryAt"          = NULL,
+			       status = CASE
+			         WHEN status = 'at_risk'::"SubscriptionStatus"
+			         THEN 'active'::"SubscriptionStatus"
+			         ELSE status
+			       END,
 			       "updatedAt"            = NOW()
 			 WHERE id = $1
 		`, subID, in.NextChargeAt); err != nil {
@@ -503,8 +515,13 @@ func (in SubscriptionChargedInput) Currency(fallback string) string {
 type SubscriptionChargeSkippedInput struct {
 	OnchainSubscriptionID *big.Int
 	ChargeAttemptID       string
-	Outcome               string // "insufficient_funds" / "revoked_approval" / "cancelled" / "skipped"
-	BlockTimestamp        time.Time
+	Outcome               string // DB `SubscriptionChargeOutcome` value
+	// IsPaymentFailure separates "we tried to bill and could not"
+	// (insufficient funds, revoked approval, merchant frozen, transfer
+	// reverted) from scheduler noise (not due, duplicate, ended). Only
+	// the former moves the payer to `at_risk` and arms the backoff.
+	IsPaymentFailure bool
+	BlockTimestamp   time.Time
 }
 
 // InsertSubscriptionChargeSkip persists a failed-charge attempt as a
@@ -559,9 +576,15 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 		}
 		if isNewCharge {
 			rows = 1
-			ref := fmt.Sprintf(`"subscriptionId":%q,"chargeId":%q`, subID, chargeID)
-			if err := insertOutboxEvent(ctx, tx, "subscription_charge_failed", "subscription.charge_failed", merchantID, "test", ref); err != nil {
-				return fmt.Errorf("emit subscription.charge_failed: %w", err)
+			// The row is written for every outcome (audit trail), but the
+			// merchant-facing webhook only fires on a real payment
+			// failure — a NotDue or Duplicate skip is scheduler noise and
+			// must not surface as "this customer's payment failed".
+			if in.IsPaymentFailure {
+				ref := fmt.Sprintf(`"subscriptionId":%q,"chargeId":%q`, subID, chargeID)
+				if err := insertOutboxEvent(ctx, tx, "subscription_charge_failed", "subscription.charge_failed", merchantID, "test", ref); err != nil {
+					return fmt.Errorf("emit subscription.charge_failed: %w", err)
+				}
 			}
 		}
 
@@ -576,12 +599,33 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 		// that skip downgrades a payer who DID pay this period to
 		// `at_risk` on the dashboard. Filter by the period boundaries
 		// so an in-period success masks the duplicate skip.
+		//
+		// Gated on IsPaymentFailure: a NotDue from an early sweep, or a
+		// Duplicate from the indexer lagging a confirmed charge, must
+		// not downgrade a healthy payer or delay their next attempt.
+		if !in.IsPaymentFailure {
+			return nil
+		}
 		if _, err := tx.Exec(ctx, `
 			UPDATE "Subscription"
 			   SET status = 'at_risk'::"SubscriptionStatus",
+			       "retryCount" = "retryCount" + 1,
+			       -- Escalating backoff. The sweeper ticks every 15
+			       -- minutes; a flat retry would fire ~192 on-chain
+			       -- transactions across a 48h grace window for one
+			       -- broke payer. This spends ~6. Computed here so the
+			       -- schedule and the counter stay atomic.
+			       "nextRetryAt" = $4::timestamptz + (CASE
+			         WHEN "retryCount" + 1 <= 1 THEN INTERVAL '15 minutes'
+			         WHEN "retryCount" + 1 = 2 THEN INTERVAL '1 hour'
+			         WHEN "retryCount" + 1 = 3 THEN INTERVAL '3 hours'
+			         WHEN "retryCount" + 1 = 4 THEN INTERVAL '6 hours'
+			         WHEN "retryCount" + 1 = 5 THEN INTERVAL '12 hours'
+			         ELSE INTERVAL '24 hours'
+			       END),
 			       "updatedAt" = NOW()
 			 WHERE id = $1
-			   AND status = 'active'::"SubscriptionStatus"
+			   AND status IN ('active'::"SubscriptionStatus", 'at_risk'::"SubscriptionStatus")
 			   AND NOT EXISTS (
 			     SELECT 1 FROM "SubscriptionCharge"
 			      WHERE "subscriptionId" = $1
@@ -589,7 +633,7 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 			        AND "periodEndAt" = $3
 			        AND status = 'succeeded'::"SubscriptionChargeStatus"
 			   )
-		`, subID, periodStart, periodEnd); err != nil {
+		`, subID, periodStart, periodEnd, in.BlockTimestamp); err != nil {
 			return fmt.Errorf("flag at_risk: %w", err)
 		}
 		return nil

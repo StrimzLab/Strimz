@@ -29,11 +29,11 @@ type EventName string
 
 const (
 	// Registry
-	EventMerchantRegistered          EventName = "MerchantRegistered"
+	EventMerchantRegistered           EventName = "MerchantRegistered"
 	EventMerchantPayoutAddressUpdated EventName = "MerchantPayoutAddressUpdated"
-	EventMerchantFeeBpsUpdated       EventName = "MerchantFeeBpsUpdated"
-	EventMerchantActiveSet           EventName = "MerchantActiveSet"
-	EventMerchantOwnerTransferred    EventName = "MerchantOwnerTransferred"
+	EventMerchantFeeBpsUpdated        EventName = "MerchantFeeBpsUpdated"
+	EventMerchantActiveSet            EventName = "MerchantActiveSet"
+	EventMerchantOwnerTransferred     EventName = "MerchantOwnerTransferred"
 
 	// Payments (one-shot)
 	EventPaymentExecuted EventName = "PaymentExecuted"
@@ -53,6 +53,12 @@ const (
 	EventJobReleased  EventName = "JobReleased"
 	EventJobDisputed  EventName = "JobDisputed"
 	EventJobCancelled EventName = "JobCancelled"
+	EventJobRefunded  EventName = "JobRefunded"
+	// Terminal exits added when the escrow gained a dispute-resolution
+	// and timeout-reclaim path. Without these the indexer leaves any
+	// disputed or abandoned job parked in a non-terminal status forever.
+	EventJobResolved  EventName = "JobResolved"
+	EventJobReclaimed EventName = "JobReclaimed"
 
 	// Fees
 	EventFeeAccrued EventName = "FeeAccrued"
@@ -70,6 +76,7 @@ var SubscribedEvents = []EventName{
 	EventSubscriptionCreated, EventSubscriptionCharged, EventSubscriptionChargeSkipped, EventSubscriptionCancelled,
 	EventJobCreated, EventJobFunded, EventJobStarted, EventJobDelivered,
 	EventJobApproved, EventJobReleased, EventJobDisputed, EventJobCancelled,
+	EventJobRefunded, EventJobResolved, EventJobReclaimed,
 	EventFeeAccrued,
 	EventERC20Transfer,
 }
@@ -318,17 +325,41 @@ func (c ChargeOutcome) DBString() string {
 		return "revoked_approval"
 	case ChargeOutcomeCancelled:
 		return "cancelled"
-	case ChargeOutcomeNotDue,
-		ChargeOutcomeEnded,
-		ChargeOutcomeDuplicate,
-		ChargeOutcomeUnknown,
+	case ChargeOutcomeNotDue:
+		return "not_due"
+	case ChargeOutcomeEnded:
+		return "ended"
+	case ChargeOutcomeDuplicate:
+		return "duplicate"
+	case ChargeOutcomeUnknown:
+		return "unknown"
+	case ChargeOutcomeMerchantInactive:
+		return "merchant_inactive"
+	case ChargeOutcomeTransferFailed:
+		return "transfer_failed"
+	default:
+		// ChargeOutcomeNone and anything a future contract appends.
+		return "skipped"
+	}
+}
+
+// IsPaymentFailure reports whether the outcome means "we tried to bill
+// this payer and could not" — as opposed to "there was nothing to bill".
+//
+// Only these outcomes should move a subscription to `at_risk` and arm the
+// retry backoff. A NotDue from an early sweep, or a Duplicate from the
+// indexer lagging a confirmed charge, are scheduler noise: treating them
+// as failures downgrades a healthy payer on the merchant dashboard and
+// pushes out their next retry for no reason.
+func (c ChargeOutcome) IsPaymentFailure() bool {
+	switch c {
+	case ChargeOutcomeInsufficientFunds,
+		ChargeOutcomeRevokedApproval,
 		ChargeOutcomeMerchantInactive,
 		ChargeOutcomeTransferFailed:
-		// Bucket into "skipped". Split into per-reason values later
-		// when the dashboard needs to tell retryable from terminal.
-		return "skipped"
+		return true
 	default:
-		return "skipped"
+		return false
 	}
 }
 
@@ -361,7 +392,7 @@ type JobStarted struct {
 }
 
 type JobDelivered struct {
-	JobID            *big.Int
+	JobID           *big.Int
 	DeliverableHash [32]byte
 }
 
@@ -378,12 +409,36 @@ type JobReleased struct {
 
 type JobDisputed struct {
 	JobID  *big.Int
+	By     common.Address
 	Reason string
 }
 
 type JobCancelled struct {
 	JobID  *big.Int
 	Reason string
+}
+
+type JobRefunded struct {
+	JobID  *big.Int
+	To     common.Address
+	Amount *big.Int
+}
+
+type JobResolved struct {
+	JobID    *big.Int
+	Resolver common.Address
+	ToVendor *big.Int
+	ToClient *big.Int
+}
+
+// FromStatus is the JobStatus the job held when the timeout fired, so the
+// projector can report what was abandoned (Funded / InProgress /
+// Delivered / Disputed) rather than just "reclaimed".
+type JobReclaimed struct {
+	JobID      *big.Int
+	To         common.Address
+	Amount     *big.Int
+	FromStatus uint8
 }
 
 type FeeAccrued struct {
@@ -633,11 +688,41 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 
 	case EventJobDisputed:
 		jobID, e1 := bigint("jobId")
-		reason, e2 := str("reason")
-		if err := firstErr(e1, e2); err != nil {
+		by, e2 := addr("by")
+		reason, e3 := str("reason")
+		if err := firstErr(e1, e2, e3); err != nil {
 			return nil, err
 		}
-		return &JobDisputed{JobID: jobID, Reason: reason}, nil
+		return &JobDisputed{JobID: jobID, By: by, Reason: reason}, nil
+
+	case EventJobRefunded:
+		jobID, e1 := bigint("jobId")
+		to, e2 := addr("to")
+		amount, e3 := bigint("amount")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &JobRefunded{JobID: jobID, To: to, Amount: amount}, nil
+
+	case EventJobResolved:
+		jobID, e1 := bigint("jobId")
+		resolver, e2 := addr("resolver")
+		toVendor, e3 := bigint("toVendor")
+		toClient, e4 := bigint("toClient")
+		if err := firstErr(e1, e2, e3, e4); err != nil {
+			return nil, err
+		}
+		return &JobResolved{JobID: jobID, Resolver: resolver, ToVendor: toVendor, ToClient: toClient}, nil
+
+	case EventJobReclaimed:
+		jobID, e1 := bigint("jobId")
+		to, e2 := addr("to")
+		amount, e3 := bigint("amount")
+		fromStatus, e4 := u8("fromStatus")
+		if err := firstErr(e1, e2, e3, e4); err != nil {
+			return nil, err
+		}
+		return &JobReclaimed{JobID: jobID, To: to, Amount: amount, FromStatus: fromStatus}, nil
 
 	case EventJobCancelled:
 		jobID, e1 := bigint("jobId")
