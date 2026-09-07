@@ -582,7 +582,7 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 			// must not surface as "this customer's payment failed".
 			if in.IsPaymentFailure {
 				ref := fmt.Sprintf(`"subscriptionId":%q,"chargeId":%q`, subID, chargeID)
-				if err := insertOutboxEvent(ctx, tx, "subscription_charge_failed", "subscription.charge_failed", merchantID, "test", ref); err != nil {
+				if err := insertOutboxEvent(ctx, tx, "subscription_charge_failed", "subscription.charge_failed", merchantID, mode, ref); err != nil {
 					return fmt.Errorf("emit subscription.charge_failed: %w", err)
 				}
 			}
