@@ -138,6 +138,9 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         if (amount == 0) revert Subscriptions__InvalidAmount();
         if (interval < MIN_INTERVAL) revert Subscriptions__InvalidInterval();
         if (merchantId > MAX_MERCHANT_ID) revert Subscriptions__InvalidMerchantId();
+        // A past startAt makes the first period already due at creation,
+        // so the payer is charged for time they never received.
+        if (startAt != 0 && startAt < block.timestamp) revert Subscriptions__InvalidStartAt();
 
         Storage storage $ = _s();
         if (!$.tokenWhitelist.isWhitelisted(token)) revert Subscriptions__InvalidToken(token);
@@ -179,6 +182,9 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         if (amount == 0) revert Subscriptions__InvalidAmount();
         if (interval < MIN_INTERVAL) revert Subscriptions__InvalidInterval();
         if (merchantId > MAX_MERCHANT_ID) revert Subscriptions__InvalidMerchantId();
+        // A past startAt makes the first period already due at creation,
+        // so the payer is charged for time they never received.
+        if (startAt != 0 && startAt < block.timestamp) revert Subscriptions__InvalidStartAt();
 
         Storage storage $ = _s();
         if (!$.tokenWhitelist.isWhitelisted(token)) revert Subscriptions__InvalidToken(token);
@@ -284,6 +290,9 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
 
         IStrimzRegistry.Merchant memory m = $.registry.getMerchant(sub.merchantId);
         if (msg.sender != sub.payer && msg.sender != m.owner) revert Subscriptions__NotSubscriptionParty();
+        // The indexer rebuilds state from logs; a second SubscriptionCancelled
+        // for the same id would be a state transition that never happened.
+        if (sub.cancelled) revert Subscriptions__AlreadyCancelled(subscriptionId);
 
         sub.cancelled = true;
         emit SubscriptionCancelled(subscriptionId, msg.sender);
@@ -315,13 +324,14 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         private
         returns (ChargeOutcome)
     {
-        // Idempotency. An attempt id is spent on first use even if the
-        // downstream check fails; retries need a fresh id.
+        // Idempotency. The id is burned at the transfer boundary further
+        // down, not here — every check between this point and the
+        // transfer leaves the payer's balance untouched, so those skips
+        // stay retryable under the same deterministic id.
         if ($.usedAttempts[chargeAttemptId]) {
             emit SubscriptionChargeSkipped(subscriptionId, chargeAttemptId, ChargeOutcome.Duplicate);
             return ChargeOutcome.Duplicate;
         }
-        $.usedAttempts[chargeAttemptId] = true;
 
         Subscription storage sub = $.subscriptions[subscriptionId];
         if (sub.payer == address(0)) {
@@ -370,6 +380,13 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
             feeAmount = (amount * m.feeBps) / BPS_DENOMINATOR;
         }
         uint256 netAmount = amount - feeAmount;
+
+        // Burn the attempt id here: the last instruction before money can
+        // move. `_settleCharge` reverting is caught below and does NOT
+        // unwind this write, so a token that partially settles can never
+        // be replayed under the same id. Every earlier return path left
+        // the id unspent on purpose.
+        $.usedAttempts[chargeAttemptId] = true;
 
         // Self-external call so a token transfer revert (Circle
         // blocklist, rogue token) surfaces as an outcome instead of

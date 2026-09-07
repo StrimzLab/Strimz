@@ -225,10 +225,39 @@ func TestChargeOutcome_DBStringMap(t *testing.T) {
 		ChargeOutcomeInsufficientFunds: "insufficient_funds",
 		ChargeOutcomeRevokedApproval:   "revoked_approval",
 		ChargeOutcomeCancelled:         "cancelled",
-		ChargeOutcomeNotDue:            "skipped",
+		ChargeOutcomeNotDue:            "not_due",
+		ChargeOutcomeEnded:             "ended",
+		ChargeOutcomeDuplicate:         "duplicate",
+		ChargeOutcomeUnknown:           "unknown",
+		ChargeOutcomeMerchantInactive:  "merchant_inactive",
+		ChargeOutcomeTransferFailed:    "transfer_failed",
 		ChargeOutcomeNone:              "skipped", // defensive default
 	}
 	for outcome, want := range cases {
 		assert.Equal(t, want, outcome.DBString(), "outcome %d", outcome)
+	}
+}
+
+// Only outcomes that mean "we tried to bill this payer and could not"
+// may move a subscription to at_risk and arm the retry backoff. If a
+// NotDue or Duplicate ever flips to true here, an early sweep would
+// downgrade a healthy payer and delay their next charge attempt.
+func TestChargeOutcome_IsPaymentFailure(t *testing.T) {
+	cases := map[ChargeOutcome]bool{
+		ChargeOutcomeInsufficientFunds: true,
+		ChargeOutcomeRevokedApproval:   true,
+		ChargeOutcomeMerchantInactive:  true,
+		ChargeOutcomeTransferFailed:    true,
+
+		ChargeOutcomeCharged:   false,
+		ChargeOutcomeCancelled: false,
+		ChargeOutcomeNotDue:    false,
+		ChargeOutcomeEnded:     false,
+		ChargeOutcomeDuplicate: false,
+		ChargeOutcomeUnknown:   false,
+		ChargeOutcomeNone:      false,
+	}
+	for outcome, want := range cases {
+		assert.Equal(t, want, outcome.IsPaymentFailure(), "outcome %d", outcome)
 	}
 }

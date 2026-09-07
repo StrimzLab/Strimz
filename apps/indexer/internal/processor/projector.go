@@ -21,7 +21,7 @@ import (
 type Projector struct {
 	store    *store.Store
 	registry *indabi.Registry
-	mode     string // "test" | "live"
+	mode     string            // "test" | "live"
 	tokens   map[string]string // lowercase token addr → symbol (USDC/EURC)
 	log      *slog.Logger
 }
@@ -162,6 +162,7 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 			OnchainSubscriptionID: ev.SubscriptionID,
 			ChargeAttemptID:       hexBytes32(ev.ChargeAttemptID),
 			Outcome:               ev.Outcome.DBString(),
+			IsPaymentFailure:      ev.Outcome.IsPaymentFailure(),
 			BlockTimestamp:        blockTime,
 		})
 
@@ -191,10 +192,17 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 
 	case indabi.EventJobFunded:
 		ev := payload.(*indabi.JobFunded)
-		err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.funded", map[string]any{
-			"amount": ev.Amount.String(),
-			"txHash": lg.TxHash.Hex(),
+		_, err = p.store.SetAgentJobStatus(ctx, store.AgentJobStatusInput{
+			OnchainJobID:   ev.JobID,
+			NewStatus:      "funded",
+			BlockTimestamp: blockTime,
 		})
+		if err == nil {
+			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.funded", map[string]any{
+				"amount": ev.Amount.String(),
+				"txHash": lg.TxHash.Hex(),
+			})
+		}
 
 	case indabi.EventJobStarted:
 		ev := payload.(*indabi.JobStarted)
@@ -262,6 +270,7 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 		})
 		if err == nil {
 			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.disputed", map[string]any{
+				"by":     strings.ToLower(ev.By.Hex()),
 				"reason": ev.Reason,
 				"txHash": lg.TxHash.Hex(),
 			})
@@ -279,6 +288,50 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.cancelled", map[string]any{
 				"reason": ev.Reason,
 				"txHash": lg.TxHash.Hex(),
+			})
+		}
+
+	case indabi.EventJobRefunded:
+		ev := payload.(*indabi.JobRefunded)
+		err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.refunded", map[string]any{
+			"to":     strings.ToLower(ev.To.Hex()),
+			"amount": ev.Amount.String(),
+			"txHash": lg.TxHash.Hex(),
+		})
+
+	case indabi.EventJobResolved:
+		ev := payload.(*indabi.JobResolved)
+		_, err = p.store.SetAgentJobStatus(ctx, store.AgentJobStatusInput{
+			OnchainJobID:   ev.JobID,
+			NewStatus:      "resolved",
+			ReleaseTxHash:  lg.TxHash.Hex(),
+			BlockTimestamp: blockTime,
+			CompletedAt:    true,
+		})
+		if err == nil {
+			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.resolved", map[string]any{
+				"resolver": strings.ToLower(ev.Resolver.Hex()),
+				"toVendor": ev.ToVendor.String(),
+				"toClient": ev.ToClient.String(),
+				"txHash":   lg.TxHash.Hex(),
+			})
+		}
+
+	case indabi.EventJobReclaimed:
+		ev := payload.(*indabi.JobReclaimed)
+		_, err = p.store.SetAgentJobStatus(ctx, store.AgentJobStatusInput{
+			OnchainJobID:   ev.JobID,
+			NewStatus:      "reclaimed",
+			ReleaseTxHash:  lg.TxHash.Hex(),
+			BlockTimestamp: blockTime,
+			CompletedAt:    true,
+		})
+		if err == nil {
+			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.reclaimed", map[string]any{
+				"to":         strings.ToLower(ev.To.Hex()),
+				"amount":     ev.Amount.String(),
+				"fromStatus": ev.FromStatus,
+				"txHash":     lg.TxHash.Hex(),
 			})
 		}
 

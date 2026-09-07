@@ -96,6 +96,34 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         return IStrimzSubscriptions.Sig(v, r, s);
     }
 
+    // ---------- Backdated startAt (audit M-02) ----------
+
+    // The relayer submits the calldata, so the backdating guard has to
+    // hold on this path too. It fires before `permit()` is called, so a
+    // rejected enrolment does not burn the payer's token nonce.
+    function test_permitCreateRejectsBackdatedStartAt() public {
+        vm.warp(10 days);
+        uint256 deadline = block.timestamp + 24 hours;
+        uint64 backdated = uint64(block.timestamp - 1);
+
+        IStrimzSubscriptions.PermitData memory pd = _defaultPermit(type(uint256).max, deadline);
+        IStrimzSubscriptions.Sig memory permitSig = _signPermitFor(pd, payerPk);
+        IStrimzSubscriptions.Sig memory intentSig = _signIntentFor(
+            payerPk, merchantId, address(usdc), AMOUNT, INTERVAL, backdated, 0, deadline
+        );
+
+        uint256 nonceBefore = usdc.nonces(payer);
+
+        vm.prank(relayer);
+        vm.expectRevert(IStrimzSubscriptions.Subscriptions__InvalidStartAt.selector);
+        subs.permitAndCreateSubscription(
+            merchantId, address(usdc), AMOUNT, INTERVAL, backdated, 0, pd, permitSig, intentSig
+        );
+
+        assertEq(usdc.nonces(payer), nonceBefore, "rejected enrolment must not burn the permit nonce");
+        assertEq(usdc.allowance(payer, address(subs)), 0, "no allowance granted");
+    }
+
     // ---------- Happy path ----------
 
     function test_happyPath_grantsAllowanceAndCreates() public {

@@ -23,12 +23,18 @@ const STATUS_TONE: Record<AgentJobStatus, 'positive' | 'warning' | 'danger' | 'i
   {
     proposed: 'warning',
     accepted: 'info',
+    funded: 'info',
     in_progress: 'info',
     delivered: 'info',
     approved: 'info',
     completed: 'positive',
     disputed: 'danger',
     cancelled: 'neutral',
+    // Terminal exits from a dispute (arbitrated split) and from a
+    // timeout (escrow returned). Both settle the job, neither is a
+    // clean success — so neutral rather than positive.
+    resolved: 'neutral',
+    reclaimed: 'neutral',
   }
 
 export default function AgentJobDetailPage({ params }: { params: Promise<{ id: string }> }) {

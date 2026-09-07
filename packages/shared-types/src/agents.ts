@@ -105,15 +105,22 @@ export type AgentActivityLog = z.infer<typeof agentActivityLogSchema>
 
 // ---------- ERC-8183 jobs ----------
 
+// Mirrors the DB `AgentJobStatus` enum, not the contract's JobStatus.
+// `accepted` is off-chain only (merchant approved, queued for on-chain
+// creation); `resolved` and `reclaimed` are the escrow's terminal exits
+// from a dispute and from a timeout reclaim respectively.
 export const agentJobStatusSchema = z.enum([
   'proposed',
   'accepted',
+  'funded',
   'in_progress',
   'delivered',
   'approved',
   'completed',
   'disputed',
   'cancelled',
+  'resolved',
+  'reclaimed',
 ])
 export type AgentJobStatus = z.infer<typeof agentJobStatusSchema>
 

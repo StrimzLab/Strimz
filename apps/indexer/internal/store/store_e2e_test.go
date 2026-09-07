@@ -453,6 +453,7 @@ func TestE2E_SubscriptionLifecycle_CreatedThenChargedThenChargeSkipped(t *testin
 		OnchainSubscriptionID: big.NewInt(1),
 		ChargeAttemptID:       "0x" + repeatStr("d", 64),
 		Outcome:               "insufficient_funds",
+		IsPaymentFailure:      true,
 		BlockTimestamp:        time.Now().UTC(),
 	})
 	require.NoError(t, err)
@@ -463,6 +464,58 @@ func TestE2E_SubscriptionLifecycle_CreatedThenChargedThenChargeSkipped(t *testin
 		`SELECT status::text FROM "Subscription" WHERE "onchainSubscriptionId"=1`,
 	).Scan(&subStatus))
 	assert.Equal(t, "at_risk", subStatus)
+
+	// The charge-failed webhook must carry the subscription's real mode.
+	// A live subscription tagged `test` never reaches the merchant's live
+	// endpoints, which silently drops the exact failure notification this
+	// projection exists to deliver.
+	var failedMode string
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT mode::text FROM "WebhookEvent"
+		  WHERE "merchantId"='m_sub' AND type='subscription_charge_failed'`,
+	).Scan(&failedMode))
+	assert.Equal(t, "live", failedMode)
+}
+
+func TestE2E_SubscriptionChargeSkip_NonPaymentFailureEmitsNoWebhook(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_skip", "skip@x.io", "0x000000000000000000000000000000000000fe01", big.NewInt(402))
+
+	_, err := s.UpsertSubscriptionFromOnchain(ctx, SubscriptionCreatedInput{
+		OnchainSubscriptionID: big.NewInt(3),
+		MerchantOnchainID:     big.NewInt(402),
+		PayerAddress:          "0x000000000000000000000000000000000000aa22",
+		Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
+		StartAt:            time.Now().UTC(),
+		CurrentPeriodEndAt: time.Now().Add(30 * 24 * time.Hour).UTC(),
+		NextChargeAt:       time.Now().Add(30 * 24 * time.Hour).UTC(),
+		Mode:               "live",
+	})
+	require.NoError(t, err)
+
+	// A NotDue sweep is scheduler noise: audit row, no webhook, no at_risk.
+	rows, err := s.InsertSubscriptionChargeSkip(ctx, SubscriptionChargeSkippedInput{
+		OnchainSubscriptionID: big.NewInt(3),
+		ChargeAttemptID:       "0x" + repeatStr("f", 64),
+		Outcome:               "not_due",
+		IsPaymentFailure:      false,
+		BlockTimestamp:        time.Now().UTC(),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), rows)
+
+	var evtCount int
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM "WebhookEvent" WHERE "merchantId"='m_skip'`,
+	).Scan(&evtCount))
+	assert.Equal(t, 0, evtCount)
+
+	var status string
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT status::text FROM "Subscription" WHERE "onchainSubscriptionId"=3`,
+	).Scan(&status))
+	assert.NotEqual(t, "at_risk", status)
 }
 
 func TestE2E_SubscriptionCharged_OutOfOrderEventDoesntFail(t *testing.T) {

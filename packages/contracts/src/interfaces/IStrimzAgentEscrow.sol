@@ -9,13 +9,16 @@ pragma solidity ^0.8.28;
 interface IStrimzAgentEscrow {
     /// @dev `None=0` so the zero-slot default isn't a valid status.
     ///      `Resolved` and `Reclaimed` are terminal exits.
+    ///      There is deliberately no `Approved`: `approveAndRelease`
+    ///      approves and pays out atomically, so the state was never
+    ///      observable. Do not re-insert a variant mid-enum — indices
+    ///      are wire format for the indexer.
     enum JobStatus {
         None,
         Proposed,
         Funded,
         InProgress,
         Delivered,
-        Approved,
         Completed,
         Disputed,
         Cancelled,
