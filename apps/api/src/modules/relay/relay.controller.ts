@@ -17,9 +17,9 @@ import {
 import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
-import { SubmitPaymentDto, SubmitSubscriptionDto } from './relay.dto.js'
+import { SubmitBridgeDto, SubmitPaymentDto, SubmitSubscriptionDto } from './relay.dto.js'
 import { RelayService } from './relay.service.js'
-import type { RelaySubmissionView } from './relay.types.js'
+import type { CctpBridgeStateView, RelaySubmissionView } from './relay.types.js'
 
 /**
  * HTTP surface for the meta-tx relayer.
@@ -29,6 +29,8 @@ import type { RelaySubmissionView } from './relay.types.js'
  *   POST /v1/relay/payments         submit a payer-signed EIP-3009 auth
  *   POST /v1/relay/subscriptions    submit a payer-signed EIP-2612 permit + enrolment
  *   GET  /v1/relay/submissions/:key look up a submission by its idempotency key
+ *   GET  /v1/relay/bridges/:id      whether a session can be funded cross-chain
+ *   POST /v1/relay/bridges          record a payer's burn and start the mint
  *
  * Endpoint design notes:
  *
@@ -173,5 +175,33 @@ export class RelayController {
       })
     }
     return submission
+  }
+
+  @ApiOperation({
+    summary: 'Check whether a session can be funded from another chain',
+    description:
+      'Called before the payer burns anything, and again on page load so a ' +
+      'payer who closed the tab mid-bridge resumes instead of burning twice.',
+  })
+  @RequireScopes('relay_write')
+  @Get('/bridges/:sessionId')
+  async getBridge(@Param('sessionId') sessionId: string): Promise<CctpBridgeStateView> {
+    return this.relay.getCctpBridgeState(sessionId)
+  }
+
+  @ApiOperation({
+    summary: 'Record a payer CCTP burn and start the mint',
+    description:
+      'Stamps sourceChain + bridgeTxHash on the session and enqueues the ' +
+      'attestation poll. Idempotent on the burn hash.',
+  })
+  @RequireScopes('relay_write')
+  @Post('/bridges')
+  async submitBridge(@Body() body: SubmitBridgeDto): Promise<CctpBridgeStateView> {
+    return this.relay.submitCctpBridge({
+      sessionId: body.sessionId,
+      sourceChain: body.sourceChain,
+      burnTxHash: body.burnTxHash as `0x${string}`,
+    })
   }
 }

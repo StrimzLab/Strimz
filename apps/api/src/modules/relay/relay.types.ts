@@ -126,3 +126,24 @@ export interface RelayJobData {
   sessionId?: string
   subscriptionInternalId?: string
 }
+
+/**
+ * Whether a payer may fund this session from another chain, and what
+ * has happened so far if they already started.
+ *
+ * The checkout reads this twice: once before the payer burns anything
+ * (a burn we can't attribute to a payable session is money gone), and
+ * again on page load, so a payer who closed the tab mid-bridge lands
+ * back on the waiting state instead of burning a second time.
+ */
+export interface CctpBridgeStateView {
+  sessionId: string
+  status: string
+  /** Gross amount the payer must end up holding on Arc, in base units. */
+  amount: string
+  fundable: boolean
+  /** Why `fundable` is false. Null when it's true. */
+  reason: string | null
+  sourceChain: string | null
+  bridgeTxHash: string | null
+}

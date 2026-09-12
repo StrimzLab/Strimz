@@ -104,3 +104,28 @@ export const submitSubscriptionInputSchema = z.object({
 })
 
 export class SubmitSubscriptionDto extends createZodDto(submitSubscriptionInputSchema) {}
+
+// ---- POST /v1/relay/bridges ----
+
+/**
+ * Source chains a payer may fund from. Mirrors the Prisma `SourceChain`
+ * enum minus `arc` — bridging from Arc to Arc is not a thing.
+ */
+const sourceChainSchema = z.enum([
+  'ethereum',
+  'base',
+  'polygon',
+  'arbitrum',
+  'optimism',
+  'avalanche',
+  'solana',
+])
+
+export const submitBridgeInputSchema = z.object({
+  sessionId: z.string().min(1).max(80),
+  sourceChain: sourceChainSchema,
+  /** Source-chain tx carrying the CCTP `MessageSent` event. */
+  burnTxHash: bytes32Schema,
+})
+
+export class SubmitBridgeDto extends createZodDto(submitBridgeInputSchema) {}
