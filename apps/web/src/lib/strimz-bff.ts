@@ -89,6 +89,38 @@ export async function bffGetSubmission(
   return (await res.json()) as RelaySubmissionView
 }
 
+interface CctpBridgeStateView {
+  sessionId: string
+  status: string
+  amount: string
+  fundable: boolean
+  reason: string | null
+  sourceChain: string | null
+  bridgeTxHash: string | null
+}
+
+export type { CctpBridgeStateView }
+
+export async function bffGetBridge(sessionId: string): Promise<CctpBridgeStateView> {
+  const res = await fetch(`${env.apiUrl}/v1/relay/bridges/${encodeURIComponent(sessionId)}`, {
+    method: 'GET',
+    headers: authHeaders(),
+    cache: 'no-store',
+  })
+  if (!res.ok) throw await wrapError(res, 'GET /v1/relay/bridges')
+  return (await res.json()) as CctpBridgeStateView
+}
+
+interface SubmitBridgeBody {
+  sessionId: string
+  sourceChain: string
+  burnTxHash: `0x${string}`
+}
+
+export async function bffSubmitBridge(body: SubmitBridgeBody): Promise<CctpBridgeStateView> {
+  return bffPost('/v1/relay/bridges', body)
+}
+
 // ---- internal ----
 
 async function bffPost<T>(path: string, body: unknown): Promise<T> {

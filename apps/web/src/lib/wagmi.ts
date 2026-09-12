@@ -24,19 +24,27 @@
 import { cookieStorage, createStorage } from '@wagmi/core'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import type { AppKitNetwork } from '@reown/appkit/networks'
+import { arbitrumSepolia } from 'viem/chains'
 import { arcTestnet } from '@strimz/shared-config'
 import { env } from './env'
 
 export const projectId = env.reownProjectId
 
 /**
- * Arc testnet is the only supported network today. Add `arcMainnet`
- * back to `networks` and switch `defaultNetwork` on it once Arc mainnet
- * launches.
+ * Arc is the only settlement network today. Add `arcMainnet` and switch
+ * `defaultNetwork` on it once Arc mainnet launches.
+ *
+ * The others are CCTP funding sources, not settlement chains — the
+ * payer switches there to burn USDC and comes straight back to Arc to
+ * sign. A funding chain needs an entry here *and* in
+ * `CCTP_SOURCE_CHAINS`; one without the other is dead config.
  */
-export const networks = [arcTestnet] as unknown as [AppKitNetwork, ...AppKitNetwork[]]
+export const networks = [arcTestnet, arbitrumSepolia] as unknown as [
+  AppKitNetwork,
+  ...AppKitNetwork[],
+]
 
-/** Active network. Testnet-only until Arc mainnet ships. */
+/** Where checkout starts and settles. Testnet-only until Arc mainnet ships. */
 export const defaultNetwork = arcTestnet as unknown as AppKitNetwork
 
 /**

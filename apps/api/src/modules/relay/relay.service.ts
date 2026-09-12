@@ -2,12 +2,16 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import type { Job } from 'bullmq'
 import { encodeFunctionData, padHex } from 'viem'
 
+import { CCTP_DOMAIN_IDS } from '@strimz/shared-config'
+import type { SourceChain } from '@strimz/db'
+
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QUEUE_NAMES, QueueService } from '../../infra/queue/queue.service.js'
 import { payWithAuthorizationAbi, permitAndCreateSubscriptionAbi } from './abi.js'
 import type { RelayJobResult } from './relay.processor.js'
 import type {
+  CctpBridgeStateView,
   PayWithAuthorizationInput,
   PermitAndCreateSubscriptionInput,
   RelayJobData,
@@ -185,6 +189,136 @@ export class RelayService {
     const job = await queue.getJob(idempotencyKey)
     if (!job) return null
     return this.viewFromJob(job)
+  }
+
+  // ----- CCTP funding -----
+
+  /**
+   * What the checkout needs to know before letting a payer burn USDC
+   * on another chain, and what it needs to resume if they came back.
+   *
+   * Read-only and deliberately non-throwing for the unpayable cases:
+   * the caller renders `reason` rather than an error page, and a
+   * session that is already paid or expired is a normal thing for a
+   * bookmarked checkout URL to hit.
+   */
+  async getCctpBridgeState(sessionId: string): Promise<CctpBridgeStateView> {
+    const session = await this.prisma.db.paymentSession.findUnique({
+      where: { id: sessionId },
+      select: {
+        id: true,
+        status: true,
+        amount: true,
+        expiresAt: true,
+        sourceChain: true,
+        bridgeTxHash: true,
+        merchant: { select: { onchainMerchantId: true } },
+      },
+    })
+    if (!session) {
+      throw new BadRequestException({ code: 'not_found', message: 'session not found' })
+    }
+
+    return {
+      sessionId: session.id,
+      status: session.status,
+      amount: session.amount,
+      fundable: this.bridgeBlockReason(session) === null,
+      reason: this.bridgeBlockReason(session),
+      sourceChain: session.sourceChain,
+      bridgeTxHash: session.bridgeTxHash,
+    }
+  }
+
+  /**
+   * Records a payer's source-chain burn against a session and starts
+   * the agent polling Circle for the attestation.
+   *
+   * Ordering matters: the payer has already spent real money by the
+   * time this is called, so every reason to refuse must have been
+   * checked through `getCctpBridgeState` first. What is left here is
+   * the narrow race — a session that expired during the burn — and
+   * for that we record the hash anyway and let the enqueue proceed.
+   * The funds mint to the payer's own address either way; refusing to
+   * relay would strand them for no benefit.
+   */
+  async submitCctpBridge(input: {
+    sessionId: string
+    sourceChain: SourceChain
+    burnTxHash: `0x${string}`
+  }): Promise<CctpBridgeStateView> {
+    const session = await this.prisma.db.paymentSession.findUnique({
+      where: { id: input.sessionId },
+      select: { id: true, merchantId: true, bridgeTxHash: true },
+    })
+    if (!session) {
+      throw new BadRequestException({ code: 'not_found', message: 'session not found' })
+    }
+    // Re-POSTing the same hash is a retry; a different one means the
+    // payer burned twice, which we record but refuse to double-relay
+    // under one session.
+    if (session.bridgeTxHash && session.bridgeTxHash !== input.burnTxHash) {
+      throw new BadRequestException({
+        code: 'bridge_already_started',
+        message: 'this session already has a bridge in flight',
+      })
+    }
+
+    await this.prisma.db.paymentSession.update({
+      where: { id: input.sessionId },
+      data: { sourceChain: input.sourceChain, bridgeTxHash: input.burnTxHash },
+    })
+
+    const queue = this.queue.queue(QUEUE_NAMES.routingCctpBridge)
+    const jobId = `cctp:${input.burnTxHash}`
+    try {
+      await queue.add(
+        'poll',
+        {
+          merchantId: session.merchantId,
+          sourceDomainId: CCTP_DOMAIN_IDS[input.sourceChain],
+          sourceTxHash: input.burnTxHash,
+          ref: session.id,
+          pollCount: 0,
+        },
+        {
+          // The burn hash is the natural job id, so a client retry
+          // after a dropped response re-enqueues nothing.
+          jobId,
+          removeOnComplete: 1_000,
+          removeOnFail: 1_000,
+        },
+      )
+      this.log.log(`cctp bridge queued for session ${session.id} (${input.sourceChain})`)
+    } catch (err) {
+      // Same shape as `enqueue`: BullMQ rejects a duplicate job id. A
+      // job already polling this burn is the outcome we wanted, so a
+      // retry must not surface as an error — the payer's funds are
+      // already in flight and there is nothing for them to redo.
+      const existing = await queue.getJob(jobId)
+      if (!existing) throw err
+      this.log.log(`cctp bridge for ${input.burnTxHash} already queued (idempotent)`)
+    }
+
+    return this.getCctpBridgeState(input.sessionId)
+  }
+
+  private bridgeBlockReason(session: {
+    status: string
+    expiresAt: Date | null
+    merchant: { onchainMerchantId: number | null }
+  }): string | null {
+    if (session.merchant.onchainMerchantId == null) {
+      return 'this merchant is not registered on-chain yet'
+    }
+    if (session.status === 'confirmed') return 'this session is already paid'
+    if (['cancelled', 'expired', 'failed'].includes(session.status)) {
+      return `session is ${session.status}`
+    }
+    if (session.expiresAt && session.expiresAt.getTime() < Date.now()) {
+      return 'session has expired'
+    }
+    return null
   }
 
   // ----- Internal -----

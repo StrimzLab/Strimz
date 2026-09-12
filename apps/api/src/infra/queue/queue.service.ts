@@ -11,6 +11,7 @@ export const QUEUE_NAMES = {
   subscriptionDue: 'strimz.subscription.due',
   agentAction: 'strimz.agent.action',
   relaySubmission: 'strimz.relay.submission',
+  routingCctpBridge: 'strimz.routing.cctp.bridge',
 } as const
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES]

@@ -1,12 +1,19 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { use, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAccount, useDisconnect } from 'wagmi'
+import { useAccount, useDisconnect, useReadContract } from 'wagmi'
 import { useAppKit } from '@reown/appkit/react'
 import { ArrowRight, CheckCircle2, ExternalLink, Loader2, ShieldCheck, Wallet } from 'lucide-react'
 import { Badge, FieldLabel, Input } from '@strimz/ui'
 import type { MerchantPublicBrand, PaymentSession, TokenMetadata } from '@strimz/shared-types'
+import { erc20Abi } from 'viem'
+import {
+  chainIdFor,
+  getTokenAddress,
+  listCctpSourceChains,
+  type CCTPSourceChain,
+} from '@strimz/shared-config'
 
 import { CheckoutShell, StepIndicator } from '@/components/checkout/checkout-shell'
 import { WalletPickerGuard } from '@/components/checkout/wallet-picker-guard'
@@ -17,6 +24,7 @@ import { env } from '@/lib/env'
 import { strimzBrowserClient } from '@/lib/strimz-browser'
 import { attachSessionPayer } from '@/lib/checkout-payer'
 import { usePayCheckout, type PayPhase } from '@/hooks/use-pay-checkout'
+import { fetchBridgeState, useBridgeFunding, type BridgePhase } from '@/hooks/use-bridge-funding'
 
 /**
  * Public hosted checkout for one-shot payment sessions.
@@ -27,6 +35,13 @@ import { usePayCheckout, type PayPhase } from '@/hooks/use-pay-checkout'
  * merchant isn't yet registered on-chain (chainMerchantId == null)
  * cannot be paid via meta-tx and the page surfaces a clear error
  * instead of letting the payer attempt a doomed signature.
+ *
+ * A payer holding USDC somewhere other than Arc gets a funding step
+ * first (`useBridgeFunding`), which CCTPs the amount to their own Arc
+ * address. Everything after that is the same single signature. The
+ * funding step is resumable: the burn is recorded server-side, so a
+ * payer who closes the tab mid-transfer comes back to a wait, not a
+ * second burn.
  */
 export default function PayPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = use(params)
@@ -43,6 +58,9 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState<string | null>(null)
   const [attaching, setAttaching] = useState(false)
+  const [sourceChain, setSourceChain] = useState<CCTPSourceChain>(
+    () => listCctpSourceChains(env.arcEnvironment)[0] ?? 'arbitrum',
+  )
 
   // Two sequential loads. Session first (to discover the token),
   // then token metadata. Failure at either stage surfaces in
@@ -91,8 +109,49 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
     amount: amountBaseUnits,
   })
 
+  const fundingChains = listCctpSourceChains(env.arcEnvironment)
+  const bridge = useBridgeFunding({ sessionId, sourceChain, amount: amountBaseUnits })
+
+  // What the payer holds on Arc decides whether they see the funding
+  // step at all. Undefined while it loads — treated as "not short" so
+  // we never flash a funding prompt at someone already holding USDC.
+  const { data: arcBalance, refetch: refetchArcBalance } = useReadContract({
+    chainId: chainIdFor(env.arcEnvironment),
+    address: getTokenAddress(env.arcEnvironment, 'USDC'),
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    query: { enabled: Boolean(address) },
+  })
+  const needsFunding =
+    isConnected && arcBalance !== undefined && amountBaseUnits > 0n && arcBalance < amountBaseUnits
+
+  useEffect(() => {
+    if (bridge.phase === 'funded') void refetchArcBalance()
+  }, [bridge.phase, refetchArcBalance])
+
+  // A burn recorded against this session that hasn't landed yet means
+  // the payer left mid-transfer. Rejoin the wait instead of offering
+  // them a second burn.
+  const resumeRef = useRef(false)
+  useEffect(() => {
+    if (!needsFunding || resumeRef.current) return
+    resumeRef.current = true
+    void (async () => {
+      try {
+        const state = await fetchBridgeState(sessionId)
+        if (state.bridgeTxHash) void bridge.resume()
+      } catch {
+        // A failed check just means no resume; `fund()` re-checks
+        // properly before it lets the payer spend anything.
+      }
+    })()
+  }, [needsFunding, sessionId, bridge])
+
   const phase = derivePhase({
     hookPhase: pay.phase,
+    bridgePhase: bridge.phase,
+    needsFunding,
     isConnected,
     session,
     tokenMeta,
@@ -135,7 +194,9 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
         {phase !== 'connect' &&
           phase !== 'loading' &&
           phase !== 'load_error' &&
-          phase !== 'not_ready' && <StepIndicator phase={phase} />}
+          phase !== 'not_ready' &&
+          phase !== 'funding' &&
+          phase !== 'bridging' && <StepIndicator phase={phase} />}
 
         {phase === 'load_error' && <ErrorBanner message={loadError ?? 'Failed to load session.'} />}
 
@@ -160,6 +221,63 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
               <Wallet className="size-4" />
               Connect wallet
             </SubmitButton>
+          </>
+        )}
+
+        {phase === 'funding' && (
+          <>
+            {address && <ConnectedRow address={address} onChange={disconnect} />}
+            <div className="border-border space-y-3 rounded-lg border p-4">
+              <p className="text-sm">
+                This merchant settles on Arc. Move {amountDisplay} {tokenMeta?.symbol ?? 'USDC'}{' '}
+                across and we will bring you back here to sign.
+              </p>
+              {fundingChains.length > 1 && (
+                <div className="space-y-1.5">
+                  <FieldLabel htmlFor="funding-chain" required>
+                    Pay from
+                  </FieldLabel>
+                  <select
+                    id="funding-chain"
+                    className="border-border bg-background w-full rounded-md border px-3 py-2 text-sm capitalize"
+                    value={sourceChain}
+                    onChange={(e) => setSourceChain(e.target.value as CCTPSourceChain)}
+                  >
+                    {fundingChains.map((c) => (
+                      <option key={c} value={c} className="capitalize">
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <p className="text-muted-foreground text-xs">
+                Two transactions on <span className="capitalize">{sourceChain}</span>, paid in that
+                chain&apos;s gas. The USDC lands in your own wallet on Arc — nothing is held by us
+                in between.
+              </p>
+            </div>
+            {bridge.error && (
+              <ErrorBanner
+                message={bridge.error}
+                // Once a burn exists the payer has spent real money. Show
+                // the hash whatever went wrong afterwards — it is the only
+                // handle they or support have on those funds.
+                detail={bridge.burnTxHash ? `Your transfer: ${bridge.burnTxHash}` : null}
+              />
+            )}
+            <SubmitButton type="button" onClick={() => void bridge.fund()}>
+              <ArrowRight className="size-4" />
+              Move {amountDisplay} {tokenMeta?.symbol ?? 'USDC'} from{' '}
+              <span className="capitalize">{sourceChain}</span>
+            </SubmitButton>
+          </>
+        )}
+
+        {phase === 'bridging' && (
+          <>
+            {address && <ConnectedRow address={address} onChange={disconnect} />}
+            <BridgingState phase={bridge.phase} sourceChain={sourceChain} />
           </>
         )}
 
@@ -246,7 +364,10 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
         <div className="bg-muted/30 text-muted-foreground rounded-lg p-4 text-xs">
           <p className="text-foreground font-medium">How it works</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
-            <li>Connect a wallet that holds {tokenMeta?.symbol ?? 'USDC'} on Arc.</li>
+            <li>
+              Connect a wallet holding {tokenMeta?.symbol ?? 'USDC'}. Not on Arc? We move it across
+              first.
+            </li>
             <li>Sign once. Strimz submits the transaction for you.</li>
             <li>{tokenMeta?.symbol ?? 'USDC'} settles directly to the merchant.</li>
           </ol>
@@ -299,6 +420,8 @@ type VisiblePhase =
   | 'load_error'
   | 'not_ready'
   | 'connect'
+  | 'funding'
+  | 'bridging'
   | 'ready'
   | 'signing'
   | 'submitting'
@@ -309,13 +432,24 @@ type VisiblePhase =
 
 function derivePhase(args: {
   hookPhase: PayPhase
+  bridgePhase: BridgePhase
+  needsFunding: boolean
   isConnected: boolean
   session: PaymentSession | null
   tokenMeta: TokenMetadata | null
   chainMerchantId: string | null
   loadError: string | null
 }): VisiblePhase {
-  const { hookPhase, isConnected, session, tokenMeta, chainMerchantId, loadError } = args
+  const {
+    hookPhase,
+    bridgePhase,
+    needsFunding,
+    isConnected,
+    session,
+    tokenMeta,
+    chainMerchantId,
+    loadError,
+  } = args
   if (loadError) return 'load_error'
   if (!session || !tokenMeta) return 'loading'
   // Server-side already-paid short-circuit. A page reload after a
@@ -333,6 +467,14 @@ function derivePhase(args: {
   if (hookPhase === 'submitting') return 'submitting'
   if (hookPhase === 'polling') return 'polling'
   if (!isConnected) return 'connect'
+  // Funding sits between connect and ready: the payer has a wallet but
+  // not the balance to sign against. A failed bridge falls back to the
+  // funding prompt with the error rather than the payment error panel,
+  // since nothing about the payment has been attempted yet.
+  if (bridgePhase !== 'idle' && bridgePhase !== 'funded' && bridgePhase !== 'failed') {
+    return 'bridging'
+  }
+  if (needsFunding) return 'funding'
   return 'ready'
 }
 
@@ -346,6 +488,10 @@ function phaseDescription(phase: VisiblePhase, error: string | null): string {
       return ''
     case 'connect':
       return 'Connect a wallet to continue. We use Reown AppKit to support every major wallet.'
+    case 'funding':
+      return error ?? 'You need USDC on Arc to pay. Move it across from another chain first.'
+    case 'bridging':
+      return 'Moving your USDC to Arc. This might take a while — hang tight.'
     case 'ready':
       return 'One signature. Strimz settles the payment and notifies the merchant.'
     case 'signing':
@@ -375,6 +521,26 @@ function formatAmount(baseUnits: bigint, decimals: number): string {
   const whole = s.slice(0, -decimals)
   const frac = s.slice(-decimals).replace(/0+$/, '')
   return frac ? `${whole}.${frac}` : `${whole}.00`
+}
+
+function BridgingState({ phase, sourceChain }: { phase: BridgePhase; sourceChain: string }) {
+  const label =
+    phase === 'checking'
+      ? 'Checking this payment is still open…'
+      : phase === 'switching'
+        ? `Switch your wallet to ${sourceChain} to continue.`
+        : phase === 'approving'
+          ? 'Approve USDC in your wallet.'
+          : phase === 'burning'
+            ? 'Confirm the transfer in your wallet.'
+            : 'Safe to leave this page — we pick up where you left off when you come back.'
+
+  return (
+    <div className="text-muted-foreground flex items-center gap-3 py-6 text-sm">
+      <Loader2 className="size-4 animate-spin" />
+      {label}
+    </div>
+  )
 }
 
 function BusyState({ phase }: { phase: 'loading' | 'signing' | 'submitting' | 'polling' }) {
@@ -503,10 +669,19 @@ function explorerTxUrl(hash: string, arcEnv: 'testnet' | 'mainnet'): string {
   return `${base}/tx/${hash}`
 }
 
-function ErrorBanner({ message, retry }: { message: string; retry?: () => Promise<void> }) {
+function ErrorBanner({
+  message,
+  retry,
+  detail,
+}: {
+  message: string
+  retry?: () => Promise<void>
+  detail?: string | null
+}) {
   return (
     <div className="rounded-md border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-700">
       <p>{message}</p>
+      {detail && <p className="mt-2 break-all font-mono text-xs opacity-80">{detail}</p>}
       {retry && (
         <button
           type="button"
