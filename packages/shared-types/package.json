@@ -114,7 +114,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"

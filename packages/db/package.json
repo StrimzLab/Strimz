@@ -37,7 +37,7 @@
     "db:format": "prisma format",
     "db:validate": "prisma validate",
     "build": "prisma generate && node scripts/strip-ts-nocheck.mjs && tsc -p tsconfig.json",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist generated .turbo *.tsbuildinfo"
   },

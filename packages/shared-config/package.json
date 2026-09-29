@@ -79,7 +79,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },

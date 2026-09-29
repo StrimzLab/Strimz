@@ -62,6 +62,6 @@ try {
   throw err
 }
 
-console.log(
-  `[strip-ts-nocheck] scanned ${scanned} .ts file(s), stripped @ts-nocheck from ${stripped}`,
+process.stdout.write(
+  `[strip-ts-nocheck] scanned ${scanned} .ts file(s), stripped @ts-nocheck from ${stripped}\n`,
 )
