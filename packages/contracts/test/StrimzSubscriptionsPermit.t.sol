@@ -143,7 +143,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
 
         IStrimzSubscriptions.Subscription memory sub = subs.getSubscription(subId);
         assertEq(sub.payer, payer, "payer == permit owner");
-        assertEq(sub.merchantId, uint96(merchantId));
+        assertEq(uint256(sub.merchantId), merchantId);
         assertEq(sub.amount, AMOUNT);
         assertEq(sub.interval, INTERVAL);
     }

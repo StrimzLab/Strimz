@@ -28,6 +28,13 @@ import { StrimzAccessControl } from "../src/access/StrimzAccessControl.sol";
 import { IStrimzPayments } from "../src/interfaces/IStrimzPayments.sol";
 
 contract StrimzPaymentsAuthTest is StrimzTestBase {
+    bytes32 internal constant REF_A = "a";
+    bytes32 internal constant REF_B = "b";
+    bytes32 internal constant REF_ORIGINAL = "original";
+    bytes32 internal constant REF_R = "r";
+    bytes32 internal constant REF_REF = "ref";
+    bytes32 internal constant REF_TAMPERED = "tampered";
+
     StrimzRegistry internal registry;
     TokenWhitelist internal whitelist;
     FeeCollector internal feeCollector;
@@ -127,10 +134,10 @@ contract StrimzPaymentsAuthTest is StrimzTestBase {
         IStrimzPayments.PayAuthorization memory auth = _defaultAuth(AMOUNT, keccak256("n-relay"));
         IStrimzPayments.Sig memory authSig = _signAuth(auth, payerPk);
         IStrimzPayments.Sig memory intentSig =
-            _signIntent(payerPk, merchantId, address(usdc), auth, bytes32("r"));
+            _signIntent(payerPk, merchantId, address(usdc), auth, REF_R);
 
         vm.prank(relayer);
-        payments.payWithAuthorization(merchantId, address(usdc), auth, bytes32("r"), authSig, intentSig);
+        payments.payWithAuthorization(merchantId, address(usdc), auth, REF_R, authSig, intentSig);
 
         assertGt(usdc.balanceOf(merchantPayout), 0, "merchant credited");
         assertEq(usdc.balanceOf(relayer), 0, "relayer got nothing");
@@ -151,13 +158,13 @@ contract StrimzPaymentsAuthTest is StrimzTestBase {
         IStrimzPayments.Sig memory authSig = _signAuth(auth, payerPk);
         // Payer signs the intent for the LEGITIMATE merchantId.
         IStrimzPayments.Sig memory intentSig =
-            _signIntent(payerPk, merchantId, address(usdc), auth, bytes32("ref"));
+            _signIntent(payerPk, merchantId, address(usdc), auth, REF_REF);
 
         // Attacker submits with attackerMerchant as target.
         vm.prank(makeAddr("attacker"));
         vm.expectRevert(IStrimzPayments.Payments__InvalidIntent.selector);
         payments.payWithAuthorization(
-            attackerMerchant, address(usdc), auth, bytes32("ref"), authSig, intentSig
+            attackerMerchant, address(usdc), auth, REF_REF, authSig, intentSig
         );
     }
 
@@ -167,12 +174,12 @@ contract StrimzPaymentsAuthTest is StrimzTestBase {
         IStrimzPayments.PayAuthorization memory auth = _defaultAuth(AMOUNT, keccak256("n-ref"));
         IStrimzPayments.Sig memory authSig = _signAuth(auth, payerPk);
         IStrimzPayments.Sig memory intentSig =
-            _signIntent(payerPk, merchantId, address(usdc), auth, bytes32("original"));
+            _signIntent(payerPk, merchantId, address(usdc), auth, REF_ORIGINAL);
 
         vm.prank(relayer);
         vm.expectRevert(IStrimzPayments.Payments__InvalidIntent.selector);
         payments.payWithAuthorization(
-            merchantId, address(usdc), auth, bytes32("tampered"), authSig, intentSig
+            merchantId, address(usdc), auth, REF_TAMPERED, authSig, intentSig
         );
     }
 
@@ -183,12 +190,12 @@ contract StrimzPaymentsAuthTest is StrimzTestBase {
         IStrimzPayments.PayAuthorization memory auth = _defaultAuth(AMOUNT, keccak256("n-attack"));
         IStrimzPayments.Sig memory authSig = _signAuth(auth, payerPk);
         IStrimzPayments.Sig memory intentSig =
-            _signIntent(attackerPk, merchantId, address(usdc), auth, bytes32("r"));
+            _signIntent(attackerPk, merchantId, address(usdc), auth, REF_R);
 
         vm.prank(relayer);
         vm.expectRevert(IStrimzPayments.Payments__InvalidIntent.selector);
         payments.payWithAuthorization(
-            merchantId, address(usdc), auth, bytes32("r"), authSig, intentSig
+            merchantId, address(usdc), auth, REF_R, authSig, intentSig
         );
     }
 
@@ -289,16 +296,16 @@ contract StrimzPaymentsAuthTest is StrimzTestBase {
         IStrimzPayments.PayAuthorization memory auth = _defaultAuth(AMOUNT, nonce);
         IStrimzPayments.Sig memory authSig = _signAuth(auth, payerPk);
         IStrimzPayments.Sig memory intentSigA =
-            _signIntent(payerPk, merchantId, address(usdc), auth, bytes32("a"));
+            _signIntent(payerPk, merchantId, address(usdc), auth, REF_A);
 
         vm.prank(relayer);
-        payments.payWithAuthorization(merchantId, address(usdc), auth, bytes32("a"), authSig, intentSigA);
+        payments.payWithAuthorization(merchantId, address(usdc), auth, REF_A, authSig, intentSigA);
 
         IStrimzPayments.Sig memory intentSigB =
-            _signIntent(payerPk, merchantId, address(usdc), auth, bytes32("b"));
+            _signIntent(payerPk, merchantId, address(usdc), auth, REF_B);
         vm.prank(relayer);
         vm.expectRevert(MockUsdc.MockUsdc__AuthorizationAlreadyUsed.selector);
-        payments.payWithAuthorization(merchantId, address(usdc), auth, bytes32("b"), authSig, intentSigB);
+        payments.payWithAuthorization(merchantId, address(usdc), auth, REF_B, authSig, intentSigB);
     }
 
     function test_paused_reverts() public {
