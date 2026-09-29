@@ -30,3 +30,6 @@ go.sum
 # Env
 .env*
 !.env.example
+
+# Governance
+.worktrees

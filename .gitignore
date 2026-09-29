@@ -69,3 +69,11 @@ coverage/
 # Local agent runs
 .agent-runs/
 apps/web/.source/
+
+# Governance
+.worktrees/
+# ship-*.sh scripts an agent prepares for a human to run; never committed
+/*.sh
+.env*
+!.env.example
+!.env.*.example
