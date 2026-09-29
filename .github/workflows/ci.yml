@@ -1,10 +1,9 @@
 name: ci
 
-# Three parallel jobs — node, go, foundry. Splitting them keeps the
-# polyglot stack honest: a Go-only change shouldn't have to wait for
-# a TypeScript install, and a Solidity change shouldn't pull a Go
-# toolchain. Concurrency cancels older runs on the same ref so a
-# fresh push doesn't pile up minutes.
+# Parallel jobs (node, go, foundry, release-notes) feed one aggregating
+# `quality` job. Branch protection requires `quality` only, so jobs can be
+# added or renamed without touching protection settings. Concurrency cancels
+# older runs on the same ref so a fresh push doesn't pile up minutes.
 
 on:
   push:
@@ -84,6 +83,9 @@ jobs:
           go-version-file: apps/indexer/go.mod
           cache-dependency-path: apps/indexer/go.sum
 
+      - name: Format (gofmt)
+        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+
       - name: Vet
         run: go vet ./...
 
@@ -119,3 +121,29 @@ jobs:
         run: forge test -vvv
         env:
           FOUNDRY_PROFILE: default
+
+  release-notes:
+    name: release notes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # check_release_notes.sh diffs the PR against its base.
+          fetch-depth: 0
+
+      - name: Release Notes Governance Gate
+        run: STRICT_RELEASE_NOTES=true bash scripts/check_release_notes.sh
+
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    needs: [node, go, foundry, release-notes]
+    if: always()
+    steps:
+      - name: Every gate passed
+        run: |
+          echo '${{ toJSON(needs) }}' | grep -q '"result": "failure"' && exit 1
+          echo '${{ toJSON(needs) }}' | grep -q '"result": "cancelled"' && exit 1
+          echo ok

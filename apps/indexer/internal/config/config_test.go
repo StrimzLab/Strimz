@@ -61,10 +61,10 @@ func TestValidate_RejectsBatchSizeOutOfRange(t *testing.T) {
 
 func TestValidate_RejectsMalformedAddresses(t *testing.T) {
 	bads := []string{
-		"",                  // empty
-		"abc",               // too short
-		"0xZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ",                  // 40 non-hex chars
-		"0000000000000000000000000000000000000001",                  // missing 0x
+		"",    // empty
+		"abc", // too short
+		"0xZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ",   // 40 non-hex chars
+		"0000000000000000000000000000000000000001",     // missing 0x
 		"0x0000000000000000000000000000000000000001ff", // too long
 	}
 	for _, bad := range bads {

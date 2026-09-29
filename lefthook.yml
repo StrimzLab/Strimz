@@ -1,18 +1,17 @@
 # Lefthook git hooks for Strimz.
 #
-# The intent here is a narrow one: pre-commit auto-formatting so the
-# `pnpm format:check` job on CI never fails for cosmetic reasons. Lint,
-# typecheck, and tests stay in CI — running them on every commit slows
-# the inner loop without buying much, and developers already invoke
-# them through `pnpm dev` / `pnpm test` while iterating.
+# Two gates, cheapest first:
+#   pre-commit  prettier on staged files only (seconds)
+#   pre-push    ./scripts/preflight.sh --fast: every gate except the build,
+#               which CI runs anyway (see AGENTS.md, Directive 5)
 #
 # Activation: `pnpm install` runs the root `prepare` script
 # (`lefthook install`), which writes hook stubs into `.git/hooks/`.
 # Cloning the repo + installing dependencies is enough; no separate
 # bootstrap step.
 #
-# Bypass: `git commit --no-verify` skips hooks entirely. Use sparingly
-# — the prettier pass is meant to be invisible, not annoying.
+# Bypass: `--no-verify` skips hooks. Only for a push blocked by a failure
+# that already exists on main, after telling the maintainer why.
 
 pre-commit:
   parallel: true
@@ -28,3 +27,8 @@ pre-commit:
       # prettier-applied changes. Without this the commit lands with
       # the pre-format version and CI fails anyway.
       stage_fixed: true
+
+pre-push:
+  commands:
+    preflight:
+      run: ./scripts/preflight.sh --fast
