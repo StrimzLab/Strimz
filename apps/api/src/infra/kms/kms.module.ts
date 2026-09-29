@@ -25,7 +25,7 @@ import type { KmsSigner } from './kms.types.js'
 const kmsSignerProvider: FactoryProvider<KmsSigner> = {
   provide: KMS_SIGNER,
   inject: [TypedConfigService],
-  useFactory: async (cfg: TypedConfigService): Promise<KmsSigner> => {
+  useFactory: (cfg: TypedConfigService): KmsSigner => {
     const log = new Logger('KmsModule')
     const provider = cfg.env.KMS_PROVIDER
 

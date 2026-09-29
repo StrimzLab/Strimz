@@ -46,7 +46,7 @@ export class PrivyService {
   }
 
   /** Fetch the full Privy user record by DID. */
-  async getUser(privyUserId: string): Promise<User> {
+  getUser(privyUserId: string): Promise<User> {
     return this.client.getUser(privyUserId)
   }
 

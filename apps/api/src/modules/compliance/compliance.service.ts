@@ -101,18 +101,17 @@ export class ComplianceService {
 
   // ----- Provider adapters -----
 
-  private async callProvider(walletAddress: string): Promise<{
+  private callProvider(walletAddress: string): Promise<{
     status: ComplianceStatus
     riskScore: number | null
     flags: string[]
     providerRequestId: string | null
   }> {
-    if (this.provider === 'disabled' || !this.apiKey) {
-      return { status: 'clear', riskScore: null, flags: [], providerRequestId: null }
-    }
+    const clear = { status: 'clear' as const, riskScore: null, flags: [], providerRequestId: null }
+    if (this.provider === 'disabled' || !this.apiKey) return Promise.resolve(clear)
     if (this.provider === 'trm') return this.callTrm(walletAddress)
     if (this.provider === 'elliptic') return this.callElliptic(walletAddress)
-    return { status: 'clear', riskScore: null, flags: [], providerRequestId: null }
+    return Promise.resolve(clear)
   }
 
   private async callTrm(walletAddress: string): Promise<{

@@ -31,6 +31,7 @@ import {
   maxUint256,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { print } from './print.mjs'
 
 const API_BASE = process.env.API_BASE_URL ?? 'http://localhost:4000'
 const RPC_URL = process.env.ARC_RPC_URL ?? 'https://rpc.testnet.arc.network'
@@ -59,17 +60,17 @@ if (!/^0x[0-9a-fA-F]{64}$/.test(payerKey)) {
 const payer = privateKeyToAccount(payerKey)
 const publicClient = createPublicClient({ transport: http(RPC_URL) })
 
-console.log('============================================')
-console.log('Strimz hosted-checkout e2e — subscription enrolment')
-console.log('============================================')
-console.log(`API:           ${API_BASE}`)
-console.log(`RPC:           ${RPC_URL}`)
-console.log(`USDC:          ${USDC}`)
-console.log(`Subscriptions: ${SUBSCRIPTIONS}`)
-console.log(`Payer:         ${payer.address}`)
-console.log(`Interval:      ${PLAN_INTERVAL}`)
-console.log(`Plan amount:   ${PLAN_AMOUNT_BASE_UNITS} (raw, 6 decimals)`)
-console.log()
+print('============================================')
+print('Strimz hosted-checkout e2e — subscription enrolment')
+print('============================================')
+print(`API:           ${API_BASE}`)
+print(`RPC:           ${RPC_URL}`)
+print(`USDC:          ${USDC}`)
+print(`Subscriptions: ${SUBSCRIPTIONS}`)
+print(`Payer:         ${payer.address}`)
+print(`Interval:      ${PLAN_INTERVAL}`)
+print(`Plan amount:   ${PLAN_AMOUNT_BASE_UNITS} (raw, 6 decimals)`)
+print()
 
 // ----- 1. Merchant creates a SubscriptionPlan -----
 section(1, 'Merchant creates a subscription plan')
@@ -83,11 +84,11 @@ const plan = await api('POST', '/v1/subscription-plans', {
     interval: PLAN_INTERVAL,
   },
 })
-console.log(`  plan id:          ${plan.id}`)
-console.log(`  amount:           ${plan.amount}`)
-console.log(`  intervalSeconds:  ${plan.intervalSeconds}`)
-console.log(`  chainMerchantId:  ${plan.chainMerchantId}`)
-console.log(`  tokenAddress:     ${plan.tokenAddress}`)
+print(`  plan id:          ${plan.id}`)
+print(`  amount:           ${plan.amount}`)
+print(`  intervalSeconds:  ${plan.intervalSeconds}`)
+print(`  chainMerchantId:  ${plan.chainMerchantId}`)
+print(`  tokenAddress:     ${plan.tokenAddress}`)
 if (!plan.chainMerchantId) {
   fail('plan has no chainMerchantId — MerchantChainService should have registered the merchant')
 }
@@ -98,7 +99,7 @@ const publicPlan = await api('GET', `/v1/checkout/plans/${plan.id}`, { authToken
 if (publicPlan.chainMerchantId !== plan.chainMerchantId) {
   fail('public plan returned a different chainMerchantId')
 }
-console.log('  ok — public payload matches')
+print('  ok — public payload matches')
 
 // ----- 3. Payer signs the EIP-2612 Permit -----
 section(3, 'Payer signs Permit (EIP-712)')
@@ -132,7 +133,7 @@ const signature = await payer.signTypedData({
   },
 })
 const { v, r, s } = splitSignature(signature)
-console.log(`  v=${v} r=${r.slice(0, 10)}… s=${s.slice(0, 10)}…  nonce=${nonce}`)
+print(`  v=${v} r=${r.slice(0, 10)}… s=${s.slice(0, 10)}…  nonce=${nonce}`)
 
 // ----- 4. Submit to /v1/relay/subscriptions -----
 section(4, 'Submit signed permit + enrolment to /v1/relay/subscriptions')
@@ -157,8 +158,8 @@ const relayResp = await api('POST', '/v1/relay/subscriptions', {
     subscriptionInternalId: plan.id,
   },
 })
-console.log(`  status:           ${relayResp.status}`)
-console.log(`  idempotencyKey:   ${relayResp.idempotencyKey}`)
+print(`  status:           ${relayResp.status}`)
+print(`  idempotencyKey:   ${relayResp.idempotencyKey}`)
 
 // ----- 5. Poll until terminal state -----
 section(5, 'Poll /v1/relay/submissions until terminal')
@@ -174,13 +175,13 @@ process.stdout.write('\n')
 if (final.status !== 'confirmed') {
   fail(`relay did not confirm — final status=${final.status} reason=${final.errorReason ?? '—'}`)
 }
-console.log(`  txHash:           ${final.txHash}`)
+print(`  txHash:           ${final.txHash}`)
 
 // ----- 6. Verify on-chain via Subscriptions.getSubscription -----
 section(6, 'Verify on-chain subscription state')
 
 const subscriptionId = await getSubscriptionIdFromReceipt(final.txHash)
-console.log(`  on-chain subscriptionId: ${subscriptionId}`)
+print(`  on-chain subscriptionId: ${subscriptionId}`)
 
 const sub = await publicClient.readContract({
   address: SUBSCRIPTIONS,
@@ -226,14 +227,14 @@ for (const [name, actual, expected] of checks) {
   if (actual !== expected) {
     fail(`${name} mismatch — got ${actual}, want ${expected}`)
   }
-  console.log(`  ok ${name} = ${actual}`)
+  print(`  ok ${name} = ${actual}`)
 }
 
-console.log()
-console.log('=== ALL STAGES PASSED ===')
-console.log()
-console.log(`subscription id on-chain: ${subscriptionId}`)
-console.log(
+print()
+print('=== ALL STAGES PASSED ===')
+print()
+print(`subscription id on-chain: ${subscriptionId}`)
+print(
   '\nNext: backdate Subscription.nextChargeAt in Postgres, hit',
   'POST /admin/sweep-now on the scheduler, and watch the on-chain',
   'batchCharge tx land.',
@@ -320,8 +321,8 @@ function isTerminal(status) {
 }
 
 function section(n, title) {
-  console.log()
-  console.log(`[${n}] ${title}`)
+  print()
+  print(`[${n}] ${title}`)
 }
 
 function fail(msg) {

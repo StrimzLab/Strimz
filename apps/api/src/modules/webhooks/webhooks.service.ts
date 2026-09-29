@@ -13,7 +13,7 @@ import { QueueService, QUEUE_NAMES } from '../../infra/queue/queue.service.js'
 import { RedisService } from '../../infra/redis/redis.service.js'
 import { isPrivateOrLoopback } from './ssrf-guard.js'
 
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
  * Cache key under which the plaintext signing secret is stored for the

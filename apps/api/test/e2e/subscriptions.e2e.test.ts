@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedApiKey, seedMerchant, seedSubscription } from '../helpers/fixtures.js'
+import { must } from '../helpers/must.js'
 
 describe('subscriptions e2e', () => {
   let t: TestApp
@@ -49,17 +50,17 @@ describe('subscriptions e2e', () => {
     expect(res.statusCode).toBe(201)
 
     const row = await t.prisma.db.subscription.findUnique({ where: { id: sub.id } })
-    expect(row!.status).toBe('cancelled')
-    expect(row!.cancellationReason).toBe('merchant initiated')
+    expect(must(row).status).toBe('cancelled')
+    expect(must(row).cancellationReason).toBe('merchant initiated')
 
     const agentJobs = t.queue.jobsFor('strimz.agent.action')
     expect(agentJobs).toHaveLength(1)
-    expect(agentJobs[0]!.name).toBe('subscription.cancel-onchain')
+    expect(must(agentJobs[0]).name).toBe('subscription.cancel-onchain')
 
     // No webhook endpoint registered → no delivery jobs, but the event row exists.
     const events = await t.prisma.db.webhookEvent.findMany()
     expect(events).toHaveLength(1)
-    expect(events[0]!.type).toBe('subscription_cancelled')
+    expect(must(events[0]).type).toBe('subscription_cancelled')
   })
 
   it('rejects double-cancel', async () => {

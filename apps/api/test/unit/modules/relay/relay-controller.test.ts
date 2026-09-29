@@ -15,6 +15,7 @@ import type {
   RelaySubmissionView,
 } from '../../../../src/modules/relay/relay.types.js'
 import type { CurrentMerchantPayload } from '../../../../src/common/decorators/current-merchant.decorator.js'
+import { must } from '../../../helpers/must.js'
 
 const TOKEN = '0x3600000000000000000000000000000000000000'
 const PAYER = '0x4444444444444444444444444444444444444444'
@@ -118,7 +119,7 @@ describe('RelayController', () => {
       const result = await controller.submitPayment(ctx, body)
       expect(result).toBe(VIEW)
       expect(relay.submitPayWithAuthorization).toHaveBeenCalledTimes(1)
-      const [arg] = relay.submitPayWithAuthorization.mock.calls[0]!
+      const [arg] = must(relay.submitPayWithAuthorization.mock.calls[0])
       expect(arg.idempotencyKey).toBe('idem-1')
       expect(arg.merchantId).toBe(7n) // bigint, not string
       expect(arg.auth.amount).toBe(100_000_000n)
@@ -217,7 +218,7 @@ describe('RelayController', () => {
       const body = parsedSubscriptionBody()
       const result = await controller.submitSubscription(ctx, body)
       expect(result).toBe(subView)
-      const [arg] = relay.submitPermitAndCreateSubscription.mock.calls[0]!
+      const [arg] = must(relay.submitPermitAndCreateSubscription.mock.calls[0])
       expect(arg.idempotencyKey).toBe('idem-sub-1')
       expect(arg.merchantId).toBe(7n)
       expect(arg.amount).toBe(50_000_000n)

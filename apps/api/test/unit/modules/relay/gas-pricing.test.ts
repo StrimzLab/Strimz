@@ -10,12 +10,12 @@ import type { ChainService } from '../../../../src/infra/chain/chain.service.js'
 function makeChain(baseFeePerGas: bigint | null): ChainService {
   return {
     client: {
-      async getBlock(): Promise<{ baseFeePerGas: bigint | null }> {
-        return { baseFeePerGas }
+      getBlock(): Promise<{ baseFeePerGas: bigint | null }> {
+        return Promise.resolve({ baseFeePerGas })
       },
     },
     environment: 'testnet',
-    getBlockNumber: async () => 0n,
+    getBlockNumber: () => Promise.resolve(0n),
   } as unknown as ChainService
 }
 
@@ -63,12 +63,12 @@ describe('GasPricingService', () => {
   it('does not crash when the chain client throws', async () => {
     const broken = {
       client: {
-        async getBlock(): Promise<never> {
-          throw new Error('rpc unavailable')
+        getBlock(): Promise<never> {
+          return Promise.reject(new Error('rpc unavailable'))
         },
       },
       environment: 'testnet',
-      getBlockNumber: async () => 0n,
+      getBlockNumber: () => Promise.resolve(0n),
     } as unknown as ChainService
     const svc = new GasPricingService(broken)
     const { maxFeePerGas, maxPriorityFeePerGas } = await svc.compute()

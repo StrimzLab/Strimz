@@ -37,7 +37,8 @@ export function toKmsAccount(signer: KmsSigner) {
     async signMessage({ message }: { message: SignableMessage }): Promise<Hex> {
       // EIP-191: `keccak256("\x19Ethereum Signed Message:\n" + len + msg)`.
       const digest = hashMessage(message)
-      return signer.signDigest(digest)
+      const signature = await signer.signDigest(digest)
+      return signature
     },
 
     async signTypedData<
@@ -46,7 +47,8 @@ export function toKmsAccount(signer: KmsSigner) {
     >(parameters: TypedDataDefinition<typedData, primaryType>): Promise<Hex> {
       // EIP-712: `keccak256("\x19\x01" || domainSeparator || structHash)`.
       const digest = hashTypedData(parameters)
-      return signer.signDigest(digest)
+      const signature = await signer.signDigest(digest)
+      return signature
     },
 
     async signTransaction<TSerializable extends TransactionSerializable>(

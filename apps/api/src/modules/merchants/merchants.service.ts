@@ -91,8 +91,9 @@ export class MerchantsService {
     return {
       payoutAddress: owner,
       walletAddress: merchant.walletAddress,
-      canSignFromDashboard:
-        !!merchant.walletAddress && getAddress(merchant.walletAddress) === owner,
+      canSignFromDashboard: merchant.walletAddress
+        ? getAddress(merchant.walletAddress) === owner
+        : false,
       balances,
     }
   }

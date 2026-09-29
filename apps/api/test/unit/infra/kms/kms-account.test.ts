@@ -13,6 +13,7 @@ import { generatePrivateKey } from 'viem/accounts'
 
 import { SoftwareKmsProvider } from '../../../../src/infra/kms/software-kms.provider.js'
 import { toKmsAccount } from '../../../../src/infra/kms/kms-account.js'
+import { must } from '../../../helpers/must.js'
 
 describe('toKmsAccount', () => {
   it('produces an EIP-191 signature recoverable to the signer', async () => {
@@ -85,7 +86,7 @@ describe('toKmsAccount', () => {
     const unsigned = serializeTransaction({ ...tx })
     const digest = keccak256(unsigned)
     const sig =
-      `0x${decoded.r!.replace(/^0x/, '').padStart(64, '0')}${decoded.s!.replace(/^0x/, '').padStart(64, '0')}${(decoded.yParity! + 27).toString(16).padStart(2, '0')}` as `0x${string}`
+      `0x${must(decoded.r).replace(/^0x/, '').padStart(64, '0')}${must(decoded.s).replace(/^0x/, '').padStart(64, '0')}${(must(decoded.yParity) + 27).toString(16).padStart(2, '0')}` as `0x${string}`
     const recovered = await recoverAddress({ hash: digest, signature: sig })
     expect(recovered.toLowerCase()).toBe(signer.address.toLowerCase())
   })

@@ -38,7 +38,8 @@ export class TokensController {
   @Public()
   @Get('/:address')
   async getMetadata(@Param('address') addressParam: string): Promise<TokenMetadata> {
-    return this.tokens.getMetadata(parseAddress(addressParam))
+    const metadata = await this.tokens.getMetadata(parseAddress(addressParam))
+    return metadata
   }
 
   @ApiOperation({
@@ -64,7 +65,11 @@ export class TokensController {
         message: 'owner query parameter is required',
       })
     }
-    return this.tokens.getPermitNonce(parseAddress(addressParam), parseAddress(ownerParam))
+    const nonce = await this.tokens.getPermitNonce(
+      parseAddress(addressParam),
+      parseAddress(ownerParam),
+    )
+    return nonce
   }
 }
 

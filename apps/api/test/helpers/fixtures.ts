@@ -93,7 +93,7 @@ export async function seedApiKey(
   return { id: k.id, secretKey: generated.secret }
 }
 
-export async function seedCustomer(
+export function seedCustomer(
   prisma: PrismaClient,
   merchantId: string,
   overrides: Partial<{ email: string; walletAddress: string }> = {},
@@ -109,7 +109,7 @@ export async function seedCustomer(
   })
 }
 
-export async function seedTransaction(
+export function seedTransaction(
   prisma: PrismaClient,
   merchantId: string,
   overrides: Partial<{

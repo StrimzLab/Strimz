@@ -26,7 +26,6 @@ describe('API smoke', () => {
   it('GET /health returns 200', async () => {
     const res = await app.inject({ method: 'GET', url: '/health' })
     if (res.statusCode !== 200) {
-      // eslint-disable-next-line no-console
       console.error('health failure body:', res.body)
     }
     expect(res.statusCode).toBe(200)

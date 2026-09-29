@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant } from '../helpers/fixtures.js'
+import { must } from '../helpers/must.js'
 
 describe('merchants e2e', () => {
   let t: TestApp
@@ -55,8 +56,8 @@ describe('merchants e2e', () => {
     expect(res.statusCode).toBe(201)
 
     const row = await t.prisma.db.merchant.findUnique({ where: { id: m.id } })
-    expect(row!.onboardingCompleted).toBe(true)
-    expect(row!.businessSector).toBe('Software')
+    expect(must(row).onboardingCompleted).toBe(true)
+    expect(must(row).businessSector).toBe('Software')
   })
 
   it('GET /v1/merchants/me/live-mode-eligibility surfaces blocking reasons', async () => {
