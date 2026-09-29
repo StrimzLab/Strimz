@@ -1,6 +1,6 @@
 # ADR for Dummies: AI governance and engineering standards
 
-- **Status:** Proposed, awaiting maintainer approval
+- **Status:** Accepted (merged in #105; zero-warning lint switched on in #106)
 - **Date:** 2026-09-29
 
 ## The Idea

@@ -117,6 +117,14 @@ git submodule update --init --recursive   # Foundry deps in packages/contracts/l
 pnpm install --frozen-lockfile
 ```
 
+After the pull request merges, remove the worktree from the repository root. A worktree
+that has initialised submodules cannot be removed without `--force`:
+
+```bash
+git worktree remove --force .worktrees/<branch-name>
+git worktree prune
+```
+
 ### Phase 5: BUILD
 
 Test-driven implementation inside the architectural layering rules in SKILL.md.

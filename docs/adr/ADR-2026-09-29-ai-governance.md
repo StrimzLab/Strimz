@@ -1,6 +1,6 @@
 # ADR: AI governance and engineering standards
 
-- **Status:** Proposed, awaiting maintainer approval
+- **Status:** Accepted (merged in #105; zero-warning lint switched on in #106)
 - **Date:** 2026-09-29
 - **Scope:** repository tooling, CI, docs, and contributor rules. No runtime behaviour
   changes. The only source edit is `gofmt` whitespace in two indexer config files.
