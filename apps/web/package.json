@@ -9,7 +9,7 @@
     "build": "NODE_OPTIONS=--max-old-space-size=4096 next build",
     "dev": "next dev --port 3000",
     "start": "next start --port 3000",
-    "lint": "next lint",
+    "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
