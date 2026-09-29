@@ -1,5 +1,11 @@
 # @strimz/shared-types
 
+## 0.3.1
+
+### Patch Changes
+
+- 6fed14f: Internal lint cleanup. `hashApiKey` and the notification schema behave exactly as before; no public types changed.
+
 ## 0.3.0
 
 ### Minor Changes

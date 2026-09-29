@@ -1,5 +1,13 @@
 # @strimz/sdk-react
 
+## 0.1.5
+
+### Patch Changes
+
+- Updated dependencies [6fed14f]
+  - @strimz/shared-types@0.3.1
+  - @strimz/sdk@0.3.1
+
 ## 0.1.4
 
 ### Patch Changes
