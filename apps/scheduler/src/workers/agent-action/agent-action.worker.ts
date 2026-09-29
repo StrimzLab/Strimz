@@ -28,7 +28,11 @@ export class AgentActionWorker extends WorkerHost {
   }
 
   async process(job: Job<AgentActionJob>): Promise<{ txHash: string }> {
-    const data = agentActionJobSchema.parse(job.data)
+    const result = await this.dispatch(agentActionJobSchema.parse(job.data))
+    return result
+  }
+
+  private dispatch(data: AgentActionJob): Promise<{ txHash: string }> {
     switch (data.type) {
       case 'subscription.cancel-onchain':
         return this.cancelSubscription(data)

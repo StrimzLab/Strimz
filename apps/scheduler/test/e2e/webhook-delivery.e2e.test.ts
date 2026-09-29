@@ -10,7 +10,10 @@ import {
 import { WebhookDeliveryWorker } from '../../src/workers/webhook-delivery/webhook-delivery.worker.js'
 import { WebhookSecretCache } from '../../src/infra/webhook-signing/secret-cache.service.js'
 import { createServer, type Server } from 'node:http'
+import { getQueueToken } from '@nestjs/bullmq'
+import type { Queue } from 'bullmq'
 import type { AddressInfo } from 'node:net'
+import { must } from '../helpers/must.js'
 
 /** Spin up a tiny HTTP listener for the worker to POST to. */
 function startReceiver(
@@ -87,12 +90,12 @@ describe('webhook-delivery worker e2e', () => {
         signingSecretHash: endpoint.signingSecretHash,
         eventId: event.id,
       },
-      queue: { add: async () => undefined },
+      queue: { add: () => Promise.resolve(undefined) },
     } as never)
 
     expect(result.status).toBe('delivered')
     expect(recv.received).toHaveLength(1)
-    expect(recv.received[0]!.signature).toMatch(/^t=\d+,v1=[0-9a-f]{64}$/)
+    expect(must(recv.received[0]).signature).toMatch(/^t=\d+,v1=[0-9a-f]{64}$/)
 
     const updated = await t.prisma.db.webhookDelivery.findUniqueOrThrow({
       where: { id: delivery.id },
@@ -136,17 +139,14 @@ describe('webhook-delivery worker e2e', () => {
         signingSecretHash: endpoint.signingSecretHash,
         eventId: event.id,
       },
-      queue: { add: async () => undefined },
+      queue: { add: () => Promise.resolve(undefined) },
     } as never)
 
     expect(result.status).toBe('retrying')
 
     // The retry was enqueued onto the real BullMQ queue with a delay; check
     // that there is a delayed job.
-    const queue: import('bullmq').Queue = t.app.get(
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      require('@nestjs/bullmq').getQueueToken('strimz.webhook.delivery'),
-    )
+    const queue: Queue = t.app.get(getQueueToken('strimz.webhook.delivery'))
     const delayed = await queue.getJobs(['delayed'])
     expect(delayed.length).toBeGreaterThan(0)
 
@@ -197,7 +197,7 @@ describe('webhook-delivery worker e2e', () => {
         signingSecretHash: endpoint.signingSecretHash,
         eventId: event.id,
       },
-      queue: { add: async () => undefined },
+      queue: { add: () => Promise.resolve(undefined) },
     } as never)
 
     expect(result.status).toBe('permanently_failed')
@@ -209,10 +209,10 @@ describe('webhook-delivery worker e2e', () => {
     expect(updated.responseCode).toBe(503)
 
     expect(t.email.sent).toHaveLength(1)
-    expect(t.email.sent[0]!.to).toBe('merchant-on-call@strimz.test')
-    expect(t.email.sent[0]!.subject).toContain('permanently failed')
-    expect(t.email.sent[0]!.html).toContain(recv.url)
-    expect(t.email.sent[0]!.html).toContain('503')
+    expect(must(t.email.sent[0]).to).toBe('merchant-on-call@strimz.test')
+    expect(must(t.email.sent[0]).subject).toContain('permanently failed')
+    expect(must(t.email.sent[0]).html).toContain(recv.url)
+    expect(must(t.email.sent[0]).html).toContain('503')
 
     await recv.close()
   })
@@ -270,7 +270,7 @@ describe('webhook-delivery worker e2e', () => {
         signingSecretHash: endpoint.signingSecretHash,
         eventId: event.id,
       },
-      queue: { add: async () => undefined },
+      queue: { add: () => Promise.resolve(undefined) },
     } as never)
 
     const ep = await t.prisma.db.merchantWebhookEndpoint.findUniqueOrThrow({
@@ -279,8 +279,8 @@ describe('webhook-delivery worker e2e', () => {
     expect(ep.status).toBe('disabled')
 
     expect(t.email.sent).toHaveLength(1)
-    expect(t.email.sent[0]!.subject).toContain('auto-disabled')
-    expect(t.email.sent[0]!.html).toContain('disabled automatically')
+    expect(must(t.email.sent[0]).subject).toContain('auto-disabled')
+    expect(must(t.email.sent[0]).html).toContain('disabled automatically')
 
     await recv.close()
   })
@@ -316,7 +316,7 @@ describe('webhook-delivery worker e2e', () => {
         signingSecretHash: endpoint.signingSecretHash,
         eventId: event.id,
       },
-      queue: { add: async () => undefined },
+      queue: { add: () => Promise.resolve(undefined) },
     } as never)
     expect(result.status).toBe('delivered')
     expect(recv.received).toHaveLength(0)
@@ -349,7 +349,7 @@ describe('webhook-delivery worker e2e', () => {
         signingSecretHash: endpoint.signingSecretHash,
         eventId: event.id,
       },
-      queue: { add: async () => undefined },
+      queue: { add: () => Promise.resolve(undefined) },
     } as never)
     expect(result.status).toBe('permanently_failed')
 

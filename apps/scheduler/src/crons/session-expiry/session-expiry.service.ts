@@ -18,7 +18,7 @@ export class SessionExpiryService {
   constructor(private readonly prisma: PrismaService) {}
 
   @Cron(process.env.SESSION_EXPIRY_CRON || '*/60 * * * * *', { name: 'session-expiry' })
-  async sweep(): Promise<{ expired: number }> {
+  sweep(): Promise<{ expired: number }> {
     return this.sweepNow()
   }
 

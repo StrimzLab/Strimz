@@ -64,7 +64,7 @@ export class ChainService {
   // ----- Subscription writes -----
 
   /** Cancels a single on-chain subscription. */
-  async cancelSubscription(subscriptionId: bigint): Promise<Hash> {
+  cancelSubscription(subscriptionId: bigint): Promise<Hash> {
     return this.walletClient.writeContract({
       account: this.account,
       address: this.subscriptionsAddress,
@@ -90,7 +90,7 @@ export class ChainService {
     if (subscriptionIds.length !== chargeAttemptIds.length) {
       throw new Error('batchCharge: subscriptionIds.length !== chargeAttemptIds.length')
     }
-    return this.walletClient.writeContract({
+    const txHash = await this.walletClient.writeContract({
       account: this.account,
       address: this.subscriptionsAddress,
       abi: StrimzSubscriptionsAbi,
@@ -98,10 +98,11 @@ export class ChainService {
       args: [subscriptionIds, chargeAttemptIds],
       chain: null,
     })
+    return txHash
   }
 
   /** True if the on-chain idempotency check has already burned the attempt id. */
-  async isAttemptUsed(chargeAttemptId: `0x${string}`): Promise<boolean> {
+  isAttemptUsed(chargeAttemptId: `0x${string}`): Promise<boolean> {
     return this.publicClient.readContract({
       address: this.subscriptionsAddress,
       abi: StrimzSubscriptionsAbi,
@@ -126,7 +127,7 @@ export class ChainService {
 
   // ----- Agent escrow writes -----
 
-  async createJob(input: {
+  createJob(input: {
     vendor: Address
     assessor: Address
     token: Address
@@ -143,7 +144,7 @@ export class ChainService {
     })
   }
 
-  async approveAndReleaseJob(jobId: bigint): Promise<Hash> {
+  approveAndReleaseJob(jobId: bigint): Promise<Hash> {
     return this.walletClient.writeContract({
       account: this.account,
       address: this.agentEscrowAddress,
@@ -154,7 +155,7 @@ export class ChainService {
     })
   }
 
-  async disputeJob(jobId: bigint, reason: string): Promise<Hash> {
+  disputeJob(jobId: bigint, reason: string): Promise<Hash> {
     return this.walletClient.writeContract({
       account: this.account,
       address: this.agentEscrowAddress,
@@ -165,7 +166,7 @@ export class ChainService {
     })
   }
 
-  async cancelJob(jobId: bigint, reason: string): Promise<Hash> {
+  cancelJob(jobId: bigint, reason: string): Promise<Hash> {
     return this.walletClient.writeContract({
       account: this.account,
       address: this.agentEscrowAddress,
@@ -188,7 +189,7 @@ export class ChainService {
    * reverts with `MessageAlreadyUsed`. The agent's bridge worker won't
    * normally re-enqueue, but the property still holds.
    */
-  async receiveCctpMessage(input: {
+  receiveCctpMessage(input: {
     messageHex: `0x${string}`
     attestationHex: `0x${string}`
   }): Promise<Hash> {

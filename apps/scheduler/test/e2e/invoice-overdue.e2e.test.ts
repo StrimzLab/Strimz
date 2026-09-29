@@ -7,6 +7,7 @@ import { seedMerchant, seedWebhookEndpoint } from '../helpers/fixtures.js'
 import { InvoiceOverdueService } from '../../src/crons/invoice-overdue/invoice-overdue.service.js'
 import { WebhookOutboxService } from '../../src/infra/webhook-outbox/webhook-outbox.service.js'
 import { QUEUE_NAMES } from '../../src/infra/queue/queue-names.js'
+import { must } from '../helpers/must.js'
 
 describe('invoice-overdue cron e2e', () => {
   let t: TestApp
@@ -83,7 +84,7 @@ describe('invoice-overdue cron e2e', () => {
     // The cron writes an undispatched outbox event; the dispatcher fans out.
     const events = await t.prisma.db.webhookEvent.findMany({ where: { type: 'invoice_overdue' } })
     expect(events).toHaveLength(1)
-    expect(events[0]!.dispatchedAt).toBeNull()
+    expect(must(events[0]).dispatchedAt).toBeNull()
 
     const outbox = t.app.get(WebhookOutboxService)
     const dispatched = await outbox.tickNow()
@@ -91,7 +92,7 @@ describe('invoice-overdue cron e2e', () => {
 
     const deliveries = await t.prisma.db.webhookDelivery.findMany()
     expect(deliveries).toHaveLength(1)
-    expect(deliveries[0]!.status).toBe('pending')
+    expect(must(deliveries[0]).status).toBe('pending')
 
     const q: Queue = t.app.get(getQueueToken(QUEUE_NAMES.webhookDelivery))
     const queued = await q.getJobs(['waiting', 'delayed', 'active'])

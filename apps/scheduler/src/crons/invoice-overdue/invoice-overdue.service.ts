@@ -18,7 +18,7 @@ export class InvoiceOverdueService {
   constructor(private readonly prisma: PrismaService) {}
 
   @Cron(process.env.INVOICE_OVERDUE_CRON || '0 0 * * * *', { name: 'invoice-overdue' })
-  async sweep(): Promise<{ flipped: number }> {
+  sweep(): Promise<{ flipped: number }> {
     return this.sweepNow()
   }
 

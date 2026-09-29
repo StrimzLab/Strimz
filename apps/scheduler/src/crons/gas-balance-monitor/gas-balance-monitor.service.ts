@@ -38,7 +38,7 @@ export class GasBalanceMonitorService {
   ) {}
 
   @Cron(process.env.GAS_BALANCE_CRON || '0 */15 * * * *', { name: 'gas-balance-monitor' })
-  async tick(): Promise<{ checked: number; alerted: number }> {
+  tick(): Promise<{ checked: number; alerted: number }> {
     return this.tickNow()
   }
 
