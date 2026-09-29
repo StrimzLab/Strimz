@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { ActivityLogService } from '../../infra/activity-log/activity-log.service.js'
+import { escapeHtml } from '../../common/escape-html.js'
 
 /**
  * Maps the merchant's configured strategy to a per-attempt schedule
@@ -14,9 +15,10 @@ import { ActivityLogService } from '../../infra/activity-log/activity-log.servic
  * The schedule is deduplicated against `AgentActivityLog` so re-running
  * the cron during the same window is a no-op.
  */
+const DEFAULT_SCHEDULE = [0, 24 * 60 * 60 * 1_000]
 const STRATEGY_SCHEDULE: Record<string, number[]> = {
   once: [0],
-  twice: [0, 24 * 60 * 60 * 1_000],
+  twice: DEFAULT_SCHEDULE,
   until_grace_ends: [0, 24 * 60 * 60 * 1_000, 72 * 60 * 60 * 1_000],
 }
 
@@ -55,7 +57,7 @@ export class RecoveryService {
     let notified = 0
     let skipped = 0
     for (const cfg of merchants) {
-      const schedule = STRATEGY_SCHEDULE[cfg.recoveryStrategy] ?? STRATEGY_SCHEDULE.twice!
+      const schedule = STRATEGY_SCHEDULE[cfg.recoveryStrategy] ?? DEFAULT_SCHEDULE
       const subs = await this.prisma.db.subscription.findMany({
         where: { merchantId: cfg.merchantId, status: 'at_risk' },
         include: { customer: true },
@@ -171,13 +173,4 @@ function renderRecoveryEmail(input: {
       <p style="color:#888;font-size:12px;">Reference: ${escapeHtml(input.subscriptionId)}</p>
     </div>
   `
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 }

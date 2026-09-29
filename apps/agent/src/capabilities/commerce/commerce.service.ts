@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { ActivityLogService } from '../../infra/activity-log/activity-log.service.js'
+import { escapeHtml } from '../../common/escape-html.js'
 
 /**
  * Monthly commerce summary. For each merchant with `commerce` enabled,
@@ -188,11 +189,4 @@ function renderSummaryEmail(input: {
       </table>
     </div>
   `
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
-  )
 }

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { ActivityLogService } from '../../infra/activity-log/activity-log.service.js'
+import { escapeHtml } from '../../common/escape-html.js'
 
 /**
  * Daily cashflow digest. For every merchant with
@@ -192,11 +193,4 @@ function humanise(raw: bigint): string {
   const whole = raw / 1_000_000n
   const frac = (raw % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '')
   return frac.length === 0 ? whole.toString() : `${whole}.${frac}`
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
-  )
 }

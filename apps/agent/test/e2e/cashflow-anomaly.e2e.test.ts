@@ -3,6 +3,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedAgentConfig, seedMerchant, seedTransaction } from '../helpers/fixtures.js'
 import { CashflowAnomalyService } from '../../src/capabilities/cashflow/anomaly.service.js'
+import { must } from '../helpers/must.js'
 
 describe('cashflow anomaly e2e', () => {
   let t: TestApp
@@ -53,7 +54,7 @@ describe('cashflow anomaly e2e', () => {
     const result = await t.app.get(CashflowAnomalyService).tick()
     expect(result.flagged).toBe(1)
     expect(t.email.sent).toHaveLength(1)
-    expect(t.email.sent[0]!.subject).toMatch(/anomaly/)
+    expect(must(t.email.sent[0]).subject).toMatch(/anomaly/)
 
     const audit = await t.prisma.db.auditLog.findMany({
       where: { merchantId: merchant.id, action: 'cashflow.anomaly_detected' },

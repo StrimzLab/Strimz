@@ -3,6 +3,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedAgentConfig, seedMerchant, seedSubscription } from '../helpers/fixtures.js'
 import { RecoveryService } from '../../src/capabilities/recovery/recovery.service.js'
+import { must } from '../helpers/must.js'
 
 describe('recovery e2e', () => {
   let t: TestApp
@@ -42,14 +43,14 @@ describe('recovery e2e', () => {
     const result = await t.app.get(RecoveryService).tick()
     expect(result.notified).toBe(1)
     expect(t.email.sent).toHaveLength(1)
-    expect(t.email.sent[0]!.to).toBe('buyer@x.test')
-    expect(t.email.sent[0]!.subject).toContain('Action needed')
+    expect(must(t.email.sent[0]).to).toBe('buyer@x.test')
+    expect(must(t.email.sent[0]).subject).toContain('Action needed')
 
     const logs = await t.prisma.db.agentActivityLog.findMany({
       where: { capability: 'recovery', actionType: 'recovery_notification_sent' },
     })
     expect(logs).toHaveLength(1)
-    expect(logs[0]!.outcome).toBe('success')
+    expect(must(logs[0]).outcome).toBe('success')
   })
 
   it('deduplicates a second tick within 23h', async () => {
@@ -142,7 +143,7 @@ describe('recovery e2e', () => {
       orderBy: { createdAt: 'asc' },
     })
     expect(logs).toHaveLength(1)
-    const meta = logs[0]!.metadata as Record<string, unknown>
+    const meta = must(logs[0]).metadata as Record<string, unknown>
     expect(meta.totalAttempts).toBe(3)
     expect(meta.attemptNumber).toBe(3)
   })

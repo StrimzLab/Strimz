@@ -3,6 +3,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedAgentConfig, seedAgentJob, seedMerchant } from '../helpers/fixtures.js'
 import { CommerceService } from '../../src/capabilities/commerce/commerce.service.js'
+import { must } from '../helpers/must.js'
 
 describe('commerce monthly summary e2e', () => {
   let t: TestApp
@@ -51,14 +52,14 @@ describe('commerce monthly summary e2e', () => {
     const result = await t.app.get(CommerceService).tick()
     expect(result.sent).toBe(1)
     expect(t.email.sent).toHaveLength(1)
-    const html = t.email.sent[0]!.html
+    const html = must(t.email.sent[0]).html
     expect(html).toContain('1 job(s)') // proposed count
     expect(html).toContain('80.00') // $80 spent
 
     const log = await t.prisma.db.agentActivityLog.findFirst({
       where: { capability: 'commerce', actionType: 'commerce_job_completed' },
     })
-    const meta = log!.metadata as Record<string, unknown>
+    const meta = must(log).metadata as Record<string, unknown>
     expect(meta.stage).toBe('monthly_summary')
     expect(meta.totalSpendCents).toBe(8_000)
     expect(meta.capUtilisationPct).toBe(8) // 80 / 1000 = 8%
@@ -79,6 +80,6 @@ describe('commerce monthly summary e2e', () => {
 
     const result = await t.app.get(CommerceService).tick()
     expect(result.sent).toBe(1)
-    expect(t.email.sent[0]!.html).toContain('No vendor activity')
+    expect(must(t.email.sent[0]).html).toContain('No vendor activity')
   })
 })
