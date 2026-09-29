@@ -1,5 +1,11 @@
 # @strimz/shared-crypto
 
+## 0.1.2
+
+### Patch Changes
+
+- 6fed14f: Internal lint cleanup. `hashApiKey` and the notification schema behave exactly as before; no public types changed.
+
 ## 0.1.1
 
 ### Patch Changes
