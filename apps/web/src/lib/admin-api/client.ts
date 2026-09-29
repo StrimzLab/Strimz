@@ -143,19 +143,19 @@ export class AdminApiClient {
 
   // ------------------------------------------------------------------
 
-  private async directGet<T>(path: string, options?: RequestOptions): Promise<T> {
+  private directGet<T>(path: string, options?: RequestOptions): Promise<T> {
     return this.request<T>('GET', this.apiBaseUrl + path, options, /* useBearer */ true)
   }
 
   // The BFF forward reads the Authorization header and re-forwards it
   // upstream, so writes must carry the Privy token just like reads.
-  private async bff<T>(path: string, body: unknown): Promise<T> {
+  private bff<T>(path: string, body: unknown): Promise<T> {
     return this.request<T>('POST', this.bffBaseUrl + path, { body }, true)
   }
-  private async bffPatch<T>(path: string, body: unknown): Promise<T> {
+  private bffPatch<T>(path: string, body: unknown): Promise<T> {
     return this.request<T>('PATCH', this.bffBaseUrl + path, { body }, true)
   }
-  private async bffDelete<T>(path: string): Promise<T> {
+  private bffDelete<T>(path: string): Promise<T> {
     return this.request<T>('DELETE', this.bffBaseUrl + path, undefined, true)
   }
 

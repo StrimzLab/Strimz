@@ -7,6 +7,12 @@ import tseslint from 'typescript-eslint'
  * Relaxes a few rules that conflict with NestJS DI and decorator patterns.
  */
 export default tseslint.config(...nodeConfig, {
+  languageOptions: {
+    parserOptions: {
+      emitDecoratorMetadata: true,
+      experimentalDecorators: true,
+    },
+  },
   rules: {
     // NestJS decorators read constructor parameter types via reflect-metadata
     '@typescript-eslint/no-unused-vars': [

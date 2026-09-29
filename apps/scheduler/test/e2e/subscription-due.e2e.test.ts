@@ -3,6 +3,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant, seedSubscription } from '../helpers/fixtures.js'
 import { SubscriptionDueWorker } from '../../src/workers/subscription-due/subscription-due.worker.js'
+import { must } from '../helpers/must.js'
 
 describe('subscription-due worker e2e', () => {
   let t: TestApp
@@ -31,7 +32,7 @@ describe('subscription-due worker e2e', () => {
 
     const calls = t.chain.callsFor('batchCharge')
     expect(calls).toHaveLength(1)
-    expect((calls[0]!.args[0] as bigint[])[0]).toBe(7n)
+    expect((must(calls[0]).args[0] as bigint[])[0]).toBe(7n)
 
     const updated = await t.prisma.db.subscription.findUniqueOrThrow({ where: { id: sub.id } })
     expect(updated.chargeLock).toBe(false)

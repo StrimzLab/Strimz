@@ -95,9 +95,13 @@ checked against `apps/indexer/internal/store`.
 
 ## Comments and naming
 
-- Write every comment by hand, in plain English. Short, clear, specific.
-- Default to no comment. A comment explains why, or a non-obvious what.
-- No AI tone, no filler. Do not use em-dashes; use a comma, colon, or period.
+- Default to no comment. Use one only when it is necessary: it explains why, or a
+  non-obvious what, that a reader cannot get from the code.
+- Comments are written by people, by hand, in plain English. Short, clear, specific.
+- AI-generated comments are not allowed. An agent never writes, rewrites, or extends
+  a comment. It names the place and the reason in the pull request description and a
+  human writes it (`AGENTS.md`, Directive 6).
+- No filler. Do not use em-dashes; use a comma, colon, or period.
 - Name things for what they are.
 
 ## Documentation

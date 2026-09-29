@@ -58,7 +58,7 @@ export class RelayProcessor implements OnModuleInit, OnModuleDestroy {
   onModuleInit(): void {
     this.worker = new Worker<RelayJobData, RelayJobResult>(
       QUEUE_NAMES.relaySubmission,
-      async (job) => this.process(job),
+      (job) => this.process(job),
       {
         connection: this.redis.client,
         concurrency: 1,

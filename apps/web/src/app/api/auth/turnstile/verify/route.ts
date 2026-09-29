@@ -44,7 +44,6 @@ export async function POST(req: Request) {
 
   // Disabled mode. Same dev fallback the apps/api adapter uses.
   if (!secret) {
-    // eslint-disable-next-line no-console
     console.warn('[turnstile] TURNSTILE_SECRET_KEY not set. Bot-protection is disabled.')
     return NextResponse.json({ ok: true, mode: 'disabled' })
   }
@@ -79,13 +78,11 @@ export async function POST(req: Request) {
     })
     data = (await res.json()) as SiteverifyResponse
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error('[turnstile] siteverify network error:', err)
     return NextResponse.json({ ok: false, error: 'siteverify_unreachable' }, { status: 502 })
   }
 
   if (!data.success) {
-    // eslint-disable-next-line no-console
     console.warn('[turnstile] rejected:', data['error-codes'])
     return NextResponse.json(
       { ok: false, error: 'verification_failed', codes: data['error-codes'] ?? [] },
@@ -95,7 +92,6 @@ export async function POST(req: Request) {
 
   // Action match. See route doc above for replay-defense rationale.
   if (expectedAction && data.action !== expectedAction) {
-    // eslint-disable-next-line no-console
     console.warn(`[turnstile] action mismatch: expected="${expectedAction}", got="${data.action}"`)
     return NextResponse.json({ ok: false, error: 'action_mismatch' }, { status: 403 })
   }

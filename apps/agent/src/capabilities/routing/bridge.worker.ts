@@ -103,8 +103,8 @@ export class BridgeWorker extends WorkerHost {
       merchantId: data.merchantId,
       sourceDomainId: data.sourceDomainId,
       sourceTxHash: data.sourceTxHash,
-      messageHex: result.messageHex!,
-      attestationHex: result.attestationHex!,
+      messageHex: result.messageHex,
+      attestationHex: result.attestationHex,
       ref: data.ref,
     }
     await this.schedulerQueue.add('settle', settleJob, {

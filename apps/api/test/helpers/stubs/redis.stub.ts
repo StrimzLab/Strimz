@@ -8,10 +8,10 @@
  */
 export class StubRedisService {
   public readonly client: any = {
-    get: async () => null,
-    set: async () => 'OK',
-    del: async () => 1,
-    quit: async () => 'OK',
+    get: () => Promise.resolve(null),
+    set: () => Promise.resolve('OK'),
+    del: () => Promise.resolve(1),
+    quit: () => Promise.resolve('OK'),
     on: () => undefined,
   }
   async onModuleDestroy(): Promise<void> {

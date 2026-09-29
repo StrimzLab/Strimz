@@ -3,6 +3,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedApiKey, seedMerchant, seedSubscription } from '../helpers/fixtures.js'
 import { WebhookEventService } from '../../src/infra/events/webhook-event.service.js'
+import { must } from '../helpers/must.js'
 
 describe('webhooks e2e', () => {
   let t: TestApp
@@ -173,6 +174,6 @@ describe('webhooks e2e', () => {
 
     const jobs = t.queue.jobsFor('strimz.webhook.delivery')
     expect(jobs).toHaveLength(1)
-    expect(jobs[0]!.data).toMatchObject({ replay: true })
+    expect(must(jobs[0]).data).toMatchObject({ replay: true })
   })
 })

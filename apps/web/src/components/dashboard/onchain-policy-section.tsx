@@ -182,9 +182,9 @@ function OwnershipPanel({ state }: { state: OnchainState }) {
   const tx = useRegistryTx(state)
   const embeddedAddr = useEmbeddedWalletAddress()
   const iAmPending =
-    !!state.pendingOwner &&
-    !!embeddedAddr &&
-    embeddedAddr.toLowerCase() === state.pendingOwner.toLowerCase()
+    state.pendingOwner && embeddedAddr
+      ? embeddedAddr.toLowerCase() === state.pendingOwner.toLowerCase()
+      : false
 
   const validNominee = isAddress(nominee) && nominee.toLowerCase() !== state.owner.toLowerCase()
 

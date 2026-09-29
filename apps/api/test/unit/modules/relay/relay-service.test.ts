@@ -14,6 +14,7 @@ import type {
   PermitAndCreateSubscriptionInput,
   RelayJobData,
 } from '../../../../src/modules/relay/relay.types.js'
+import { must } from '../../../helpers/must.js'
 
 /**
  * Fake BullMQ queue. Records every `add()` call so tests can inspect
@@ -22,19 +23,19 @@ import type {
 function makeFakeQueueService() {
   const jobs = new Map<string, { name: string; data: RelayJobData; timestamp: number }>()
   const queue = {
-    async add(name: string, data: RelayJobData, opts: { jobId?: string }) {
+    add(name: string, data: RelayJobData, opts: { jobId?: string }) {
       const id = opts.jobId ?? `auto-${jobs.size}`
       if (jobs.has(id)) {
         // Mirror BullMQ's documented behaviour: duplicate ids reject.
         const err: Error & { code?: string } = new Error(`Job ${id} already exists`)
         err.code = 'DUPLICATE_JOB'
-        throw err
+        return Promise.reject(err)
       }
       jobs.set(id, { name, data, timestamp: Date.now() })
-      return makeJobView(id, jobs)
+      return Promise.resolve(makeJobView(id, jobs))
     },
-    async getJob(id: string) {
-      return jobs.has(id) ? makeJobView(id, jobs) : null
+    getJob(id: string) {
+      return Promise.resolve(jobs.has(id) ? makeJobView(id, jobs) : null)
     },
     _jobs: jobs,
   }
@@ -48,7 +49,7 @@ function makeJobView(
   id: string,
   jobs: Map<string, { name: string; data: RelayJobData; timestamp: number }>,
 ) {
-  const entry = jobs.get(id)!
+  const entry = must(jobs.get(id))
   return {
     id,
     data: entry.data,
@@ -56,8 +57,8 @@ function makeJobView(
     attemptsMade: 0,
     failedReason: undefined,
     returnvalue: undefined,
-    async getState() {
-      return 'waiting'
+    getState() {
+      return Promise.resolve('waiting')
     },
   }
 }
@@ -84,8 +85,8 @@ function makeCfg(): TypedConfigService {
 function makeFakePrisma(): PrismaService {
   return {
     db: {
-      paymentSession: { findUnique: async () => null },
-      subscription: { findFirst: async () => null },
+      paymentSession: { findUnique: () => Promise.resolve(null) },
+      subscription: { findFirst: () => Promise.resolve(null) },
     },
   } as unknown as PrismaService
 }
@@ -149,7 +150,7 @@ describe('RelayService', () => {
       expect(view.reason).toBe('payWithAuthorization')
       expect(view.idempotencyKey).toBe(input.idempotencyKey)
 
-      const job = queue._jobs.get(input.idempotencyKey)!
+      const job = must(queue._jobs.get(input.idempotencyKey))
       expect(job.data.toAddress.toLowerCase()).toBe(PAYMENTS_ADDR.toLowerCase())
 
       const decoded = decodeFunctionData({
@@ -191,7 +192,7 @@ describe('RelayService', () => {
     it('uses the configured payments address as the target', async () => {
       const input = payInput()
       await service.submitPayWithAuthorization(input)
-      const job = queue._jobs.get(input.idempotencyKey)!
+      const job = must(queue._jobs.get(input.idempotencyKey))
       expect(job.data.toAddress).toBe(PAYMENTS_ADDR)
     })
 
@@ -212,7 +213,7 @@ describe('RelayService', () => {
       const input = subsInput()
       const view = await service.submitPermitAndCreateSubscription(input)
       expect(view.reason).toBe('permitAndCreateSubscription')
-      const job = queue._jobs.get(input.idempotencyKey)!
+      const job = must(queue._jobs.get(input.idempotencyKey))
       expect(job.data.toAddress).toBe(SUBS_ADDR)
 
       const decoded = decodeFunctionData({
@@ -244,8 +245,8 @@ describe('RelayService', () => {
       const enqueued = await service.submitPayWithAuthorization(input)
       const looked = await service.getByIdempotencyKey('idem-lookup')
       expect(looked).not.toBeNull()
-      expect(looked!.idempotencyKey).toBe(enqueued.idempotencyKey)
-      expect(looked!.reason).toBe(enqueued.reason)
+      expect(must(looked).idempotencyKey).toBe(enqueued.idempotencyKey)
+      expect(must(looked).reason).toBe(enqueued.reason)
     })
   })
 })

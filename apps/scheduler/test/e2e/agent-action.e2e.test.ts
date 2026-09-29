@@ -3,6 +3,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant } from '../helpers/fixtures.js'
 import { AgentActionWorker } from '../../src/workers/agent-action/agent-action.worker.js'
+import { must } from '../helpers/must.js'
 
 describe('agent-action worker e2e', () => {
   let t: TestApp
@@ -31,7 +32,7 @@ describe('agent-action worker e2e', () => {
     expect(result.txHash).toMatch(/^0x/)
     const calls = t.chain.callsFor('cancelSubscription')
     expect(calls).toHaveLength(1)
-    expect(calls[0]!.args[0]).toBe(99n)
+    expect(must(calls[0]).args[0]).toBe(99n)
   })
 
   it('subscription.cancel-onchain skips when on-chain id is null', async () => {
@@ -71,7 +72,7 @@ describe('agent-action worker e2e', () => {
 
     const calls = t.chain.callsFor('createJob')
     expect(calls).toHaveLength(1)
-    const arg = calls[0]!.args[0] as { vendor: string; amount: bigint; description: string }
+    const arg = must(calls[0]).args[0] as { vendor: string; amount: bigint; description: string }
     expect(arg.amount).toBe(50_000_000n)
     expect(arg.description).toBe('spec')
 
@@ -119,8 +120,8 @@ describe('agent-action worker e2e', () => {
     } as never)
     const calls = t.chain.callsFor('disputeJob')
     expect(calls).toHaveLength(1)
-    expect(calls[0]!.args[0]).toBe(42n)
-    expect(calls[0]!.args[1]).toBe('bad work')
+    expect(must(calls[0]).args[0]).toBe(42n)
+    expect(must(calls[0]).args[1]).toBe('bad work')
   })
 
   it('routing.cctp.settle calls receiveCctpMessage with supplied hex bytes', async () => {
@@ -142,7 +143,7 @@ describe('agent-action worker e2e', () => {
 
     const calls = t.chain.callsFor('receiveCctpMessage')
     expect(calls).toHaveLength(1)
-    const arg = calls[0]!.args[0] as { messageHex: string; attestationHex: string }
+    const arg = must(calls[0]).args[0] as { messageHex: string; attestationHex: string }
     expect(arg.messageHex).toBe(message)
     expect(arg.attestationHex).toBe(attestation)
   })

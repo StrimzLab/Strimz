@@ -78,7 +78,7 @@ export class MerchantsController {
     summary:
       "Live on-chain merchant record from the Registry. Backs the Settings page's payout-rotation and ownership-transfer flows.",
   })
-  async onchainState(@CurrentMerchant() ctx: CurrentMerchantPayload) {
+  onchainState(@CurrentMerchant() ctx: CurrentMerchantPayload) {
     return this.merchantChain.getOnchainState(ctx.merchantId)
   }
 

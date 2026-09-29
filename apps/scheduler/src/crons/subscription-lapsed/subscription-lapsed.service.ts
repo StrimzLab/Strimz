@@ -29,7 +29,7 @@ export class SubscriptionLapsedService {
   @Cron(process.env.SUBSCRIPTION_LAPSED_CRON || '0 0 * * * *', {
     name: 'subscription-lapsed',
   })
-  async sweep(): Promise<{ flipped: number }> {
+  sweep(): Promise<{ flipped: number }> {
     return this.sweepNow()
   }
 

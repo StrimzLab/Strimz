@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { makePrivyDid } from '../helpers/stubs/privy.stub.js'
+import { must } from '../helpers/must.js'
 
 describe('auth e2e', () => {
   let t: TestApp
@@ -66,7 +67,7 @@ describe('auth e2e', () => {
 
       const row = await t.prisma.db.merchant.findUnique({ where: { privyUserId: did } })
       expect(row).not.toBeNull()
-      expect(row!.emailVerified).toBe(true)
+      expect(must(row).emailVerified).toBe(true)
     })
 
     it('is idempotent — second call updates instead of duplicating', async () => {

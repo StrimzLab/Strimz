@@ -79,6 +79,23 @@ build) across the TypeScript workspaces, the Go indexer, and the Foundry contrac
 must complete with zero warnings and zero errors. A gate that passes only when run
 alone does not count; the full run is the verdict.
 
+### Directive 6: Minimal, Human-Written Comments
+
+Comments are kept to a minimum and are written by people.
+
+- Default to no comment. Names, types, and structure carry the meaning.
+- A comment is allowed only when it is necessary: it states something a reader cannot
+  get from the code, such as why a decision was made, an outside constraint, or a
+  hazard that is not visible locally.
+- AI-generated comments are not allowed. AI agents MUST NOT write, rewrite, or extend
+  a comment in any language in this repository. That covers line and block comments,
+  JSDoc, Go doc comments, and Solidity NatSpec.
+- When an agent believes a comment is necessary, it names the file, the line, and the
+  reason in the pull request description. A human decides and writes the comment.
+- When an agent's change makes an existing comment false, the agent removes nothing
+  and rewrites nothing on its own judgment: it lists the comment in the pull request
+  description so a human corrects it before merge.
+
 ---
 
 ## Multi-Stage Development Lifecycle (Phases 0-8)
@@ -115,6 +132,14 @@ git worktree add .worktrees/<branch-name> -b <branch-name> origin/main
 cd .worktrees/<branch-name>
 git submodule update --init --recursive   # Foundry deps in packages/contracts/lib
 pnpm install --frozen-lockfile
+```
+
+After the pull request merges, remove the worktree from the repository root. A worktree
+that has initialised submodules cannot be removed without `--force`:
+
+```bash
+git worktree remove --force .worktrees/<branch-name>
+git worktree prune
 ```
 
 ### Phase 5: BUILD
@@ -177,3 +202,5 @@ the repository root for the human to run (see SKILL.md).
 12. Release hygiene: schema changes ship a Prisma migration (applied migrations are
     never edited); published package changes ship a changeset.
 13. Preflight: `./scripts/preflight.sh` passed in full.
+14. Comments: every comment in the diff is necessary and was written by a human. No
+    comment was written, rewritten, or extended by an AI agent.

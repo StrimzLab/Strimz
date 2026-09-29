@@ -3,6 +3,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedAgentConfig, seedMerchant, seedTransaction } from '../helpers/fixtures.js'
 import { PricingService } from '../../src/capabilities/pricing/pricing.service.js'
+import { must } from '../helpers/must.js'
 
 describe('pricing intelligence e2e', () => {
   let t: TestApp
@@ -66,7 +67,7 @@ describe('pricing intelligence e2e', () => {
     const result = await t.app.get(PricingService).tick()
     expect(result.sent).toBe(1)
     expect(t.email.sent).toHaveLength(1)
-    const html = t.email.sent[0]!.html
+    const html = must(t.email.sent[0]).html
     expect(html).toContain('20') // MRR ≥ 20 USDC
     expect(html).toMatch(/Forecast confidence/)
   })

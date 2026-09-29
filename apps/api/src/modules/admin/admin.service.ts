@@ -174,7 +174,7 @@ export class AdminService {
 
     const hasMore = merchants.length > limit
     const data = hasMore ? merchants.slice(0, limit) : merchants
-    const nextCursor = hasMore ? data[data.length - 1]!.id : null
+    const nextCursor = hasMore ? (data.at(-1)?.id ?? null) : null
 
     return { data, nextCursor, hasMore }
   }
@@ -716,6 +716,7 @@ export class AdminService {
     if (!sender) {
       throw new NotFoundException({ code: 'not_found', message: 'admin not found' })
     }
+    let targetMerchantId: string | null = null
     if (input.audience === 'merchant') {
       if (!input.merchantId) {
         throw new BadRequestException({
@@ -733,6 +734,7 @@ export class AdminService {
           message: 'merchantId does not exist',
         })
       }
+      targetMerchantId = merchant.id
     }
 
     const row = await this.prisma.db.adminBroadcast.create({
@@ -741,7 +743,7 @@ export class AdminService {
         title: input.title,
         body: input.body,
         audience: input.audience,
-        merchantId: input.audience === 'merchant' ? input.merchantId! : null,
+        merchantId: targetMerchantId,
       },
       include: {
         sender: { select: { id: true, email: true, name: true } },

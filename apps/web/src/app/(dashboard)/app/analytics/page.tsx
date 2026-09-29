@@ -52,6 +52,7 @@ export default function AnalyticsPage() {
       })),
     [churnQuery.data],
   )
+  const latestChurn = churnData.at(-1)
 
   return (
     <div className="space-y-6">
@@ -87,13 +88,11 @@ export default function AnalyticsPage() {
         />
         <Kpi
           label="Churn (last month)"
-          value={
-            churnData.length > 0 ? `${churnData[churnData.length - 1]!.rate.toFixed(1)}%` : '—'
-          }
+          value={latestChurn ? `${latestChurn.rate.toFixed(1)}%` : '—'}
           loading={churnQuery.isLoading}
           subtle="Cancelled + lapsed"
           dangerIfAbove={5}
-          numericForCompare={churnData.length > 0 ? churnData[churnData.length - 1]!.rate : null}
+          numericForCompare={latestChurn?.rate ?? null}
         />
         <Kpi
           label="Forecast. Next 30d"

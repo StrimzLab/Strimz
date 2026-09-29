@@ -50,7 +50,7 @@ const rng = mulberry32(73)
 export const PAYMENT_SESSIONS: PaymentSession[] = range(64).map((i) => {
   const status = pick(rng, STATUSES)
   const created = Math.floor(rng() * 60)
-  const customer = rng() > 0.15 ? CUSTOMERS[Math.floor(rng() * CUSTOMERS.length)]! : null
+  const customer = rng() > 0.15 ? pick(rng, CUSTOMERS) : null
   return {
     id: id('sess', i + 1),
     amountUsdc: Math.floor(rng() * 500_000_000) + 5_000_000,

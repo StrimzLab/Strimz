@@ -3,6 +3,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedAgentConfig, seedMerchant, seedTransaction } from '../helpers/fixtures.js'
 import { CashflowYieldService } from '../../src/capabilities/cashflow/yield-recommendation.service.js'
+import { must } from '../helpers/must.js'
 
 describe('cashflow yield recommendation e2e', () => {
   let t: TestApp
@@ -33,15 +34,15 @@ describe('cashflow yield recommendation e2e', () => {
     const result = await t.app.get(CashflowYieldService).tick()
     expect(result.recommended).toBe(1)
     expect(t.email.sent).toHaveLength(1)
-    expect(t.email.sent[0]!.subject).toContain('yield')
-    expect(t.email.sent[0]!.html).toContain('500.00') // $500 surplus
+    expect(must(t.email.sent[0]).subject).toContain('yield')
+    expect(must(t.email.sent[0]).html).toContain('500.00') // $500 surplus
 
     const log = await t.prisma.db.agentActivityLog.findFirst({
       where: { capability: 'cashflow', actionType: 'cashflow_yield_converted' },
     })
     expect(log).not.toBeNull()
-    expect(log!.outcome).toBe('pending')
-    const meta = log!.metadata as Record<string, unknown>
+    expect(must(log).outcome).toBe('pending')
+    const meta = must(log).metadata as Record<string, unknown>
     expect(meta.surplusCents).toBe(50_000)
     expect(meta.stage).toBe('recommendation_sent')
   })

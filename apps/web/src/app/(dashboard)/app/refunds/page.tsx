@@ -139,7 +139,7 @@ function useRefundSigner() {
   return {
     sign,
     isSigning: broadcasting || submit.isPending,
-    hasEmbeddedWallet: !!embedded,
+    hasEmbeddedWallet: Boolean(embedded),
   }
 }
 
@@ -246,6 +246,7 @@ export default function RefundsPage() {
         enableSorting: false,
         cell: ({ row }) => {
           const rf = row.original
+          const { refundTxHash } = rf
           const canSign = rf.status === 'awaiting_signature'
           return (
             <DropdownMenu>
@@ -281,11 +282,11 @@ export default function RefundsPage() {
                 >
                   <Copy className="mr-2 size-4" /> Copy ID
                 </DropdownMenuItem>
-                {rf.refundTxHash ? (
+                {refundTxHash ? (
                   <DropdownMenuItem
                     onClick={() =>
                       navigator.clipboard
-                        .writeText(rf.refundTxHash!)
+                        .writeText(refundTxHash)
                         .then(() => toast.success('Tx hash copied'))
                     }
                   >

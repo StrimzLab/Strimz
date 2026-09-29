@@ -7,6 +7,7 @@ import { webhookEventSchema } from '@strimz/shared-types'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../prisma/prisma.service.js'
 import { QUEUE_NAMES } from '../queue/queue-names.js'
+import { outboxRefSchema, readOutboxRef, type OutboxRef } from './outbox-ref.js'
 import {
   serialiseCharge,
   serialiseInvoice,
@@ -24,7 +25,7 @@ type EventRow = {
   merchantId: string
   type: string
   mode: 'test' | 'live'
-  payload: any
+  payload: unknown
   createdAt: Date
 }
 
@@ -51,7 +52,7 @@ export class WebhookOutboxService {
   ) {}
 
   @Interval('webhook-outbox', 4_000)
-  async tick(): Promise<{ dispatched: number; deliveriesQueued: number }> {
+  tick(): Promise<{ dispatched: number; deliveriesQueued: number }> {
     return this.tickNow()
   }
 
@@ -75,13 +76,13 @@ export class WebhookOutboxService {
     for (const ev of claimed) {
       try {
         const envelope = await this.buildEnvelope(ev)
-        webhookEventSchema.parse(envelope)
+        const { type: wireType } = webhookEventSchema.parse(envelope)
         // Persist the final envelope so the delivery worker sends it verbatim.
         await this.prisma.db.webhookEvent.update({
           where: { id: ev.id },
           data: { payload: envelope as never },
         })
-        deliveriesQueued += await this.createDeliveries(ev, envelope.type)
+        deliveriesQueued += await this.createDeliveries(ev, wireType)
       } catch (err) {
         const message = (err as Error).message.slice(0, 1_000)
         this.log.error(`event ${ev.id} (${ev.type}) failed to dispatch: ${message}`)
@@ -97,12 +98,13 @@ export class WebhookOutboxService {
   }
 
   /** Build the final envelope: hydrate ref-payloads, pass full ones through. */
-  private async buildEnvelope(ev: EventRow): Promise<{ type: string; [k: string]: unknown }> {
-    const ref = ev.payload?.ref
-    if (!ref) {
+  private async buildEnvelope(ev: EventRow): Promise<unknown> {
+    const rawRef = readOutboxRef(ev.payload)
+    if (!rawRef) {
       // Already a full envelope (apps/api / crons build inline).
       return ev.payload
     }
+    const ref = outboxRefSchema.parse(rawRef)
     const data = await this.hydrate(ref)
     return {
       id: ev.id,
@@ -114,7 +116,7 @@ export class WebhookOutboxService {
     }
   }
 
-  private async hydrate(ref: any): Promise<unknown> {
+  private async hydrate(ref: OutboxRef): Promise<unknown> {
     const usdc = this.cfg.env.ARC_USDC_ADDRESS ?? null
     switch (ref.kind) {
       case 'payment.completed': {
@@ -191,10 +193,8 @@ export class WebhookOutboxService {
           where: { id: ref.sessionId },
           include: { merchant: true },
         })
-        return { session: serialiseSession(session, usdc), reason: String(ref.reason ?? 'failed') }
+        return { session: serialiseSession(session, usdc), reason: ref.reason ?? 'failed' }
       }
-      default:
-        throw new Error(`unknown ref kind: ${ref.kind}`)
     }
   }
 

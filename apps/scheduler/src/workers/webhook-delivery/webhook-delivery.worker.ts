@@ -12,7 +12,8 @@ import {
   type WebhookDeliveryJob,
 } from '../../infra/queue/job-payloads.js'
 
-const RETRY_BACKOFF_MS = [60_000, 300_000, 1_800_000, 7_200_000, 43_200_000] // 1m, 5m, 30m, 2h, 12h
+const MAX_BACKOFF_MS = 43_200_000
+const RETRY_BACKOFF_MS = [60_000, 300_000, 1_800_000, 7_200_000, MAX_BACKOFF_MS] // 1m, 5m, 30m, 2h, 12h
 
 /**
  * Auto-disable an endpoint after this many permanent failures land in a
@@ -149,7 +150,7 @@ export class WebhookDeliveryWorker extends WorkerHost {
 
     // Backoff for the wait AFTER attempt N is index N-1 (attempt 1 → 1m).
     const nextAttempt = delivery.attempt + 1
-    const backoff = RETRY_BACKOFF_MS[delivery.attempt - 1] ?? RETRY_BACKOFF_MS.at(-1)!
+    const backoff = RETRY_BACKOFF_MS[delivery.attempt - 1] ?? MAX_BACKOFF_MS
     const nextAttemptAt = new Date(Date.now() + backoff)
     await this.prisma.db.webhookDelivery.update({
       where: { id: delivery.id },

@@ -66,7 +66,7 @@ export class RelayController {
   })
   @RequireScopes('relay_write')
   @Post('/payments')
-  async submitPayment(
+  submitPayment(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
     @Body() body: SubmitPaymentDto,
   ): Promise<RelaySubmissionView> {

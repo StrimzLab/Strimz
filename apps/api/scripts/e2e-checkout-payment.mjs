@@ -39,6 +39,7 @@ import { readFileSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
 import { createPublicClient, http, stringToHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { print } from './print.mjs'
 
 const API_BASE = process.env.API_BASE_URL ?? 'http://localhost:4000'
 const RPC_URL = process.env.ARC_RPC_URL ?? 'https://rpc.testnet.arc.network'
@@ -69,16 +70,16 @@ if (!/^0x[0-9a-fA-F]{64}$/.test(payerKey)) {
 
 const payer = privateKeyToAccount(payerKey)
 
-console.log('============================================')
-console.log('Strimz hosted-checkout e2e — payment flow')
-console.log('============================================')
-console.log(`API:        ${API_BASE}`)
-console.log(`RPC:        ${RPC_URL}`)
-console.log(`USDC:       ${USDC}`)
-console.log(`Payments:   ${PAYMENTS}`)
-console.log(`Payer:      ${payer.address}`)
-console.log(`Amount:     ${AMOUNT_BASE_UNITS} (raw, 6 decimals)`)
-console.log()
+print('============================================')
+print('Strimz hosted-checkout e2e — payment flow')
+print('============================================')
+print(`API:        ${API_BASE}`)
+print(`RPC:        ${RPC_URL}`)
+print(`USDC:       ${USDC}`)
+print(`Payments:   ${PAYMENTS}`)
+print(`Payer:      ${payer.address}`)
+print(`Amount:     ${AMOUNT_BASE_UNITS} (raw, 6 decimals)`)
+print()
 
 const publicClient = createPublicClient({ transport: http(RPC_URL) })
 
@@ -94,11 +95,11 @@ const sessionResp = await api('POST', '/v1/payment-sessions', {
     customer: { walletAddress: payer.address },
   },
 })
-console.log(`  id:               ${sessionResp.id}`)
-console.log(`  chainMerchantId:  ${sessionResp.chainMerchantId}`)
-console.log(`  amount:           ${sessionResp.amount}`)
-console.log(`  feeAmount:        ${sessionResp.feeAmount}`)
-console.log(`  netAmount:        ${sessionResp.netAmount}`)
+print(`  id:               ${sessionResp.id}`)
+print(`  chainMerchantId:  ${sessionResp.chainMerchantId}`)
+print(`  amount:           ${sessionResp.amount}`)
+print(`  feeAmount:        ${sessionResp.feeAmount}`)
+print(`  netAmount:        ${sessionResp.netAmount}`)
 if (!sessionResp.chainMerchantId) {
   fail('session has no chainMerchantId — MerchantChainService should have registered the merchant')
 }
@@ -116,7 +117,7 @@ const publicSession = await api('GET', `/v1/checkout/sessions/${sessionId}`, { a
 if (publicSession.chainMerchantId !== chainMerchantId) {
   fail('public checkout returned a different chainMerchantId')
 }
-console.log('  ok — public payload matches')
+print('  ok — public payload matches')
 
 // ----- 3. Sign the EIP-3009 ReceiveWithAuthorization -----
 section(3, 'Payer signs ReceiveWithAuthorization (EIP-712)')
@@ -152,7 +153,7 @@ const signature = await payer.signTypedData({
 })
 
 const { v, r, s } = splitSignature(signature)
-console.log(`  v=${v} r=${r.slice(0, 10)}… s=${s.slice(0, 10)}…`)
+print(`  v=${v} r=${r.slice(0, 10)}… s=${s.slice(0, 10)}…`)
 
 // ----- 4. Submit to the relay (mirrors what the web BFF does) -----
 section(4, 'Submit signed payload to /v1/relay/payments')
@@ -180,8 +181,8 @@ const relayResp = await api('POST', '/v1/relay/payments', {
     sessionId,
   },
 })
-console.log(`  status:           ${relayResp.status}`)
-console.log(`  idempotencyKey:   ${relayResp.idempotencyKey}`)
+print(`  status:           ${relayResp.status}`)
+print(`  idempotencyKey:   ${relayResp.idempotencyKey}`)
 
 // ----- 5. Poll the submission until confirmed -----
 section(5, 'Poll /v1/relay/submissions until terminal state')
@@ -198,21 +199,21 @@ process.stdout.write('\n')
 if (final.status !== 'confirmed') {
   fail(`relay did not confirm — final status=${final.status} reason=${final.errorReason ?? '—'}`)
 }
-console.log(`  txHash:           ${final.txHash}`)
+print(`  txHash:           ${final.txHash}`)
 
 // ----- 6. Verify the on-chain effect -----
 section(6, "Verify the payer's USDC balance dropped by exactly the auth amount")
 
 const payerBalanceAfter = await usdcBalanceOf(payer.address)
 const drop = payerBalanceBefore - payerBalanceAfter
-console.log(`  payer before: ${payerBalanceBefore}  after: ${payerBalanceAfter}  drop: ${drop}`)
+print(`  payer before: ${payerBalanceBefore}  after: ${payerBalanceAfter}  drop: ${drop}`)
 if (drop !== amount) {
   fail(`payer drop ${drop} != expected amount ${amount} (no gas: relayer pays it on EIP-3009)`)
 }
-console.log('  ok — drop matches authorisation amount exactly; relayer absorbed gas')
+print('  ok — drop matches authorisation amount exactly; relayer absorbed gas')
 
-console.log()
-console.log('=== ALL STAGES PASSED ===')
+print()
+print('=== ALL STAGES PASSED ===')
 
 // ---- helpers ----
 
@@ -254,7 +255,7 @@ async function fetchUsdcDomain() {
   return { name, version, chainId, verifyingContract: USDC }
 }
 
-async function usdcBalanceOf(address) {
+function usdcBalanceOf(address) {
   return publicClient.readContract({
     address: USDC,
     abi: [
@@ -299,8 +300,8 @@ function isTerminal(status) {
 }
 
 function section(n, title) {
-  console.log()
-  console.log(`[${n}] ${title}`)
+  print()
+  print(`[${n}] ${title}`)
 }
 
 function fail(msg) {

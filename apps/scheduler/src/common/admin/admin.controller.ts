@@ -32,21 +32,24 @@ export class AdminController {
   async sweepNow(): Promise<{ enqueued: number }> {
     this.refuseInProduction()
     this.log.log('admin: manual sweep triggered')
-    return this.sweeper.sweepNow()
+    const result = await this.sweeper.sweepNow()
+    return result
   }
 
   @Post('/run/gas-balance-monitor')
   async runGasBalanceMonitor() {
     this.refuseInProduction()
     this.log.log('admin: manual gas-balance monitor triggered')
-    return this.gasMonitor.tickNow()
+    const result = await this.gasMonitor.tickNow()
+    return result
   }
 
   @Post('/run/merchant-notifications')
   async runMerchantNotifications() {
     this.refuseInProduction()
     this.log.log('admin: manual merchant-notifications cron triggered')
-    return this.merchantNotifications.tickNow()
+    const result = await this.merchantNotifications.tickNow()
+    return result
   }
 
   private refuseInProduction(): void {

@@ -114,7 +114,7 @@ export const AGENT_ACTIVITY: AgentActivity[] = range(36)
       createdAt: daysAgo(Math.floor(rngActivity() * 14), Math.floor(rngActivity() * 24)),
     }
   })
-  .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
 export type AgentJobStatus =
   | 'proposed'
@@ -147,7 +147,7 @@ const VENDORS = [
 ] as const
 
 export const AGENT_JOBS: AgentJob[] = range(8).map((i) => {
-  const [vendor, desc] = VENDORS[i % VENDORS.length]!
+  const [vendor, desc] = VENDORS[i % VENDORS.length] ?? VENDORS[0]
   const amount = Math.floor(rngJobs() * 1_500_000_000) + 50_000_000
   const requiresApproval = amount > AGENT_CONFIG.commerce.requireHumanApprovalAboveUsdc
   return {

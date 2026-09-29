@@ -10,7 +10,7 @@
     "dev": "nest start --watch",
     "start": "node dist/main.js",
     "start:prod": "NODE_ENV=production node dist/main.js",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "DOCKER_HOST=${DOCKER_HOST:-unix://${HOME}/.docker/run/docker.sock} vitest run --config vitest.e2e.config.ts",

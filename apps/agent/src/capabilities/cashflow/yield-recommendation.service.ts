@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { ActivityLogService } from '../../infra/activity-log/activity-log.service.js'
+import { escapeHtml } from '../../common/escape-html.js'
 
 /**
  * Computes whether a merchant has cumulative net revenue above their
@@ -146,11 +147,4 @@ function renderYieldEmail(input: {
       <p>Consider moving the surplus into a yield position. We'll wire the deposit transaction once you confirm in the dashboard.</p>
     </div>
   `
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
-  )
 }

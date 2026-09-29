@@ -9,11 +9,9 @@ import { TypedConfigService } from '../../config/index.js'
  * Anything else is "still in-flight" — the caller should poll again
  * after `pollIntervalMs`.
  */
-export interface AttestationResult {
-  status: 'pending_confirmations' | 'complete' | 'unknown'
-  messageHex?: `0x${string}`
-  attestationHex?: `0x${string}`
-}
+export type AttestationResult =
+  | { status: 'complete'; messageHex: `0x${string}`; attestationHex: `0x${string}` }
+  | { status: 'pending_confirmations' | 'unknown' }
 
 /**
  * Wraps Circle's CCTP V2 attestation API.
@@ -81,18 +79,19 @@ export class CircleAttestationService {
       if (messages.length === 0) {
         return { status: 'unknown' }
       }
-      const complete = messages.find((m) => m.status === 'complete' && m.message && m.attestation)
-      if (complete) {
-        return {
-          status: 'complete',
-          messageHex: this.coerceHex(complete.message!),
-          attestationHex: this.coerceHex(complete.attestation!),
+      for (const m of messages) {
+        if (m.status === 'complete' && m.message && m.attestation) {
+          return {
+            status: 'complete',
+            messageHex: this.coerceHex(m.message),
+            attestationHex: this.coerceHex(m.attestation),
+          }
         }
       }
       // First non-complete message dictates the status string we surface.
-      const first = messages[0]!
       return {
-        status: first.status === 'pending_confirmations' ? 'pending_confirmations' : 'unknown',
+        status:
+          messages[0]?.status === 'pending_confirmations' ? 'pending_confirmations' : 'unknown',
       }
     } finally {
       clearTimeout(timeout)

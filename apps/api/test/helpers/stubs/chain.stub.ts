@@ -2,9 +2,9 @@
 export class StubChainService {
   public readonly environment = 'testnet' as const
   public readonly client = {
-    getBlockNumber: async () => 1n,
+    getBlockNumber: () => Promise.resolve(1n),
   } as never
-  async getBlockNumber(): Promise<bigint> {
-    return 1n
+  getBlockNumber(): Promise<bigint> {
+    return Promise.resolve(1n)
   }
 }

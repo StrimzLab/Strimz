@@ -7,6 +7,7 @@ import { seedMerchant, seedSubscription, seedWebhookEndpoint } from '../helpers/
 import { SubscriptionLapsedService } from '../../src/crons/subscription-lapsed/subscription-lapsed.service.js'
 import { WebhookOutboxService } from '../../src/infra/webhook-outbox/webhook-outbox.service.js'
 import { QUEUE_NAMES } from '../../src/infra/queue/queue-names.js'
+import { must } from '../helpers/must.js'
 
 describe('subscription-lapsed cron e2e', () => {
   let t: TestApp
@@ -83,7 +84,7 @@ describe('subscription-lapsed cron e2e', () => {
       where: { type: 'subscription_lapsed' },
     })
     expect(events).toHaveLength(1)
-    expect(events[0]!.dispatchedAt).toBeNull()
+    expect(must(events[0]).dispatchedAt).toBeNull()
 
     const outbox = t.app.get(WebhookOutboxService)
     const dispatched = await outbox.tickNow()

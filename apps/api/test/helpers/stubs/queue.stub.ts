@@ -15,9 +15,9 @@ export class StubQueueService {
 
   queue(queueName: string) {
     return {
-      add: async (name: string, data: unknown, opts?: unknown) => {
+      add: (name: string, data: unknown, opts?: unknown) => {
         this.recorded.push({ queue: queueName, name, data, opts })
-        return { id: String(this.recorded.length) }
+        return Promise.resolve({ id: String(this.recorded.length) })
       },
     }
   }

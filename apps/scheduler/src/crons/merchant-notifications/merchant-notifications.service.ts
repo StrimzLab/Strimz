@@ -63,7 +63,7 @@ export class MerchantNotificationsService {
   @Cron(process.env.MERCHANT_NOTIFICATION_CRON || '*/30 * * * * *', {
     name: 'merchant-notifications',
   })
-  async tick(): Promise<TickResult> {
+  tick(): Promise<TickResult> {
     return this.tickNow()
   }
 

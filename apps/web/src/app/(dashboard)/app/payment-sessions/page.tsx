@@ -171,6 +171,7 @@ export default function PaymentSessionsPage() {
         enableSorting: false,
         cell: ({ row }) => {
           const session = row.original
+          const { onchainTxHash } = session
           const cancelable =
             session.status === 'created' ||
             session.status === 'awaiting_payment' ||
@@ -194,12 +195,12 @@ export default function PaymentSessionsPage() {
                 >
                   <Copy className="size-3" /> Copy ID
                 </DropdownMenuItem>
-                {session.onchainTxHash ? (
+                {onchainTxHash ? (
                   <DropdownMenuItem
                     className="-mt-2 text-xs"
                     onClick={() =>
                       navigator.clipboard
-                        .writeText(session.onchainTxHash!)
+                        .writeText(onchainTxHash)
                         .then(() => toast.success('Tx hash copied'))
                     }
                   >

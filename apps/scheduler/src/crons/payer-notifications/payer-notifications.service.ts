@@ -28,7 +28,7 @@ export class PayerNotificationsService {
   @Cron(process.env.MERCHANT_NOTIFICATION_CRON || '*/30 * * * * *', {
     name: 'payer-notifications',
   })
-  async tick(): Promise<TickResult> {
+  tick(): Promise<TickResult> {
     return this.tickNow()
   }
 

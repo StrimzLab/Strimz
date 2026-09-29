@@ -39,7 +39,7 @@
     "README.md"
   ],
   "scripts": {
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf .turbo *.tsbuildinfo"
   },

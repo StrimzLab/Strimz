@@ -3,7 +3,7 @@ import { generateApiKey, randomBase64Url, sha256Hex } from '@strimz/shared-crypt
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export async function seedMerchant(
+export function seedMerchant(
   prisma: PrismaClient,
   overrides: Partial<{
     id: string
@@ -46,7 +46,7 @@ export async function seedWebhookEndpoint(
   return { endpoint: ep, secret }
 }
 
-export async function seedWebhookEvent(
+export function seedWebhookEvent(
   prisma: PrismaClient,
   merchantId: string,
   type = 'subscription_cancelled',
@@ -73,7 +73,7 @@ export async function seedDelivery(
   eventName: string,
 ) {
   const id = `whdl_${Math.random().toString(36).slice(2, 12)}`
-  return prisma.webhookDelivery.create({
+  const delivery = await prisma.webhookDelivery.create({
     data: {
       id,
       deliveryId: id,
@@ -85,6 +85,7 @@ export async function seedDelivery(
       attempt: 0,
     },
   })
+  return delivery
 }
 
 export async function seedSubscription(

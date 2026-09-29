@@ -3,6 +3,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedAgentConfig, seedMerchant, seedTransaction } from '../helpers/fixtures.js'
 import { CashflowDigestService } from '../../src/capabilities/cashflow/digest.service.js'
+import { must } from '../helpers/must.js'
 
 describe('cashflow digest e2e', () => {
   let t: TestApp
@@ -50,14 +51,14 @@ describe('cashflow digest e2e', () => {
     const result = await t.app.get(CashflowDigestService).tick()
     expect(result.sent).toBe(1)
     expect(t.email.sent).toHaveLength(1)
-    expect(t.email.sent[0]!.subject).toMatch(/daily digest/)
-    expect(t.email.sent[0]!.html).toContain('150') // 150 USDC revenue (humanised, no decimals)
+    expect(must(t.email.sent[0]).subject).toMatch(/daily digest/)
+    expect(must(t.email.sent[0]).html).toContain('150') // 150 USDC revenue (humanised, no decimals)
 
     const log = await t.prisma.db.agentActivityLog.findFirst({
       where: { capability: 'cashflow', actionType: 'cashflow_digest_sent' },
     })
     expect(log).not.toBeNull()
-    const meta = log!.metadata as Record<string, unknown>
+    const meta = must(log).metadata as Record<string, unknown>
     expect(meta.revenue).toBe('150000000')
     expect(meta.fees).toBe('2250000')
     expect(meta.net).toBe('147750000')

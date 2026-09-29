@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedApiKey, seedMerchant } from '../helpers/fixtures.js'
+import { must } from '../helpers/must.js'
 
 describe('invoices e2e', () => {
   let t: TestApp
@@ -77,9 +78,9 @@ describe('invoices e2e', () => {
     expect(JSON.parse(send.body).status).toBe('sent')
 
     expect(t.email.sent).toHaveLength(1)
-    expect(t.email.sent[0]!.to).toBe('buyer@x.test')
-    expect(t.email.sent[0]!.subject).toContain('Invoice')
-    expect(t.email.sent[0]!.html).toContain('Hosting'.slice(0, 0)) // sanity that html exists
+    expect(must(t.email.sent[0]).to).toBe('buyer@x.test')
+    expect(must(t.email.sent[0]).subject).toContain('Invoice')
+    expect(must(t.email.sent[0]).html).toContain('Hosting'.slice(0, 0)) // sanity that html exists
   })
 
   it('refuses to send when there is no customer email', async () => {

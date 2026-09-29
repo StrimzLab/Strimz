@@ -54,7 +54,7 @@ const NOTES = ['Net 14', 'Net 30', 'Due on receipt', 'Pay before next renewal']
 const rng = mulberry32(67)
 
 export const INVOICES: Invoice[] = range(28).map((i) => {
-  const cust = CUSTOMERS[Math.floor(rng() * CUSTOMERS.length)]!
+  const cust = pick(rng, CUSTOMERS)
   const status = pick(rng, STATUSES)
   const itemCount = Math.floor(rng() * 3) + 1
   const lineItems: InvoiceLineItem[] = range(itemCount).map(() => ({

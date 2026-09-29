@@ -43,7 +43,7 @@ export class SubscriptionSweeperService {
   @Cron(process.env.SUBSCRIPTION_SWEEPER_CRON || '0 */15 * * * *', {
     name: 'subscription-sweeper',
   })
-  async sweep(): Promise<{ enqueued: number }> {
+  sweep(): Promise<{ enqueued: number }> {
     return this.sweepNow()
   }
 

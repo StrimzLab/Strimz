@@ -6,6 +6,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { IStrimzSubscriptions } from "../interfaces/IStrimzSubscriptions.sol";
 import { IStrimzRegistry } from "../interfaces/IStrimzRegistry.sol";
@@ -158,7 +159,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
             nextChargeAt: firstChargeAt,
             interval: interval,
             token: token,
-            merchantId: uint96(merchantId),
+            merchantId: SafeCast.toUint96(merchantId),
             amount: amount,
             endAt: endAt,
             cancelled: false
@@ -219,7 +220,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
             nextChargeAt: firstChargeAt,
             interval: interval,
             token: token,
-            merchantId: uint96(merchantId),
+            merchantId: SafeCast.toUint96(merchantId),
             amount: amount,
             endAt: endAt,
             cancelled: false

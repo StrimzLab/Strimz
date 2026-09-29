@@ -197,7 +197,7 @@ contract StrimzSubscriptionsTest is StrimzTestBase {
         uint256 balance = usdc.balanceOf(payer);
         address sink = makeAddr("sink");
         vm.prank(payer);
-        usdc.transfer(sink, balance);
+        assertTrue(usdc.transfer(sink, balance));
 
         (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "no-funds");
 
@@ -270,7 +270,7 @@ contract StrimzSubscriptionsTest is StrimzTestBase {
         uint256 balance = usdc.balanceOf(payer);
         address sink = makeAddr("sink");
         vm.prank(payer);
-        usdc.transfer(sink, balance);
+        assertTrue(usdc.transfer(sink, balance));
 
         (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "period-1");
 
@@ -280,7 +280,7 @@ contract StrimzSubscriptionsTest is StrimzTestBase {
         assertFalse(subs.isAttemptUsed(attempts[0]), "InsufficientFunds must not burn the id");
 
         vm.prank(sink);
-        usdc.transfer(payer, balance);
+        assertTrue(usdc.transfer(payer, balance));
 
         vm.prank(admin);
         IStrimzSubscriptions.ChargeOutcome[] memory funded = subs.batchCharge(ids, attempts);
@@ -318,7 +318,7 @@ contract StrimzSubscriptionsTest is StrimzTestBase {
         uint256 balance = usdc.balanceOf(payer);
         address sink = makeAddr("sink");
         vm.prank(payer);
-        usdc.transfer(sink, balance);
+        assertTrue(usdc.transfer(sink, balance));
 
         (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "period-1");
 
@@ -331,7 +331,7 @@ contract StrimzSubscriptionsTest is StrimzTestBase {
         assertFalse(subs.isAttemptUsed(attempts[0]), "eight dry sweeps must not burn the id");
 
         vm.prank(sink);
-        usdc.transfer(payer, balance);
+        assertTrue(usdc.transfer(payer, balance));
 
         vm.prank(admin);
         IStrimzSubscriptions.ChargeOutcome[] memory ninth = subs.batchCharge(ids, attempts);

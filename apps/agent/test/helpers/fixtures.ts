@@ -6,7 +6,7 @@ let counter = 0
 const nextId = (prefix: string): string =>
   `${prefix}_${(counter++).toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 
-export async function seedMerchant(
+export function seedMerchant(
   prisma: PrismaClient,
   overrides: Partial<{
     id: string
@@ -28,7 +28,7 @@ export async function seedMerchant(
   })
 }
 
-export async function seedAgentConfig(
+export function seedAgentConfig(
   prisma: PrismaClient,
   merchantId: string,
   overrides: Partial<{
@@ -104,7 +104,7 @@ export async function seedSubscription(
   })
 }
 
-export async function seedTransaction(
+export function seedTransaction(
   prisma: PrismaClient,
   merchantId: string,
   overrides: Partial<{
@@ -138,7 +138,7 @@ export async function seedTransaction(
   })
 }
 
-export async function seedAgentJob(
+export function seedAgentJob(
   prisma: PrismaClient,
   merchantId: string,
   overrides: Partial<{

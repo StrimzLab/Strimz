@@ -27,7 +27,7 @@ export class WebhookRecoveryService {
   ) {}
 
   @Cron(process.env.WEBHOOK_RECOVERY_CRON || '30 * * * * *', { name: 'webhook-recovery' })
-  async sweep(): Promise<{ requeued: number }> {
+  sweep(): Promise<{ requeued: number }> {
     return this.sweepNow()
   }
 

@@ -1,5 +1,5 @@
 import { NotFoundException } from '@nestjs/common'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
 import { TokensService } from '../../../../src/modules/tokens/tokens.service.js'
 import {
@@ -28,13 +28,13 @@ type ReadContractArgs = {
 function makeChain(handlers: Record<string, (args: ReadContractArgs) => unknown>): ChainService {
   return {
     client: {
-      async readContract(args: ReadContractArgs): Promise<unknown> {
+      readContract(args: ReadContractArgs): Promise<unknown> {
         const key = `${args.address.toLowerCase()}:${args.functionName}`
         const handler = handlers[key] ?? handlers[args.functionName]
         if (!handler) {
-          throw new Error(`fake chain: no handler for ${key}`)
+          return Promise.reject(new Error(`fake chain: no handler for ${key}`))
         }
-        return handler(args)
+        return Promise.resolve(handler(args))
       },
     },
   } as unknown as ChainService

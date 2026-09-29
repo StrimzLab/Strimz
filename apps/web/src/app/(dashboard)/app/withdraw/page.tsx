@@ -82,7 +82,11 @@ export default function WithdrawPage() {
     }
   }, [amount, selectedBalance])
   const canSubmit =
-    balance?.canSignFromDashboard && !!embeddedWallet && destinationOk && amountOk && !submitting
+    balance?.canSignFromDashboard &&
+    Boolean(embeddedWallet) &&
+    destinationOk &&
+    amountOk &&
+    !submitting
 
   async function copyAddress(value: string) {
     await navigator.clipboard.writeText(value)

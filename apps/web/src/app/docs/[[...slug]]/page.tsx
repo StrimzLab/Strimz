@@ -35,7 +35,7 @@ export default async function DocsCatchAllPage({
   )
 }
 
-export async function generateStaticParams() {
+export function generateStaticParams() {
   return source.generateParams()
 }
 

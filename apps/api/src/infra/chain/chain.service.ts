@@ -22,7 +22,7 @@ export class ChainService {
     })
   }
 
-  async getBlockNumber(): Promise<bigint> {
+  getBlockNumber(): Promise<bigint> {
     return this.client.getBlockNumber()
   }
 }
