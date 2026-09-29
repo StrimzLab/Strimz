@@ -78,8 +78,8 @@ export function ImageUpload({
   const aspectClass = aspect === 'wide' ? 'aspect-[3/1]' : 'aspect-square'
 
   async function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return
-    const file = files[0]!
+    const file = files?.[0]
+    if (!file) return
     await startUpload([file])
     // Reset the input so re-picking the same file re-triggers change.
     if (inputRef.current) inputRef.current.value = ''

@@ -46,12 +46,12 @@ function readEmailHistory(customer: Customer): EmailHistoryEntry[] {
   if (!Array.isArray(raw)) return []
   const entries = raw.filter(
     (entry): entry is EmailHistoryEntry =>
-      !!entry &&
+      Boolean(entry) &&
       typeof entry === 'object' &&
       typeof (entry as EmailHistoryEntry).email === 'string' &&
       typeof (entry as EmailHistoryEntry).seenAt === 'string',
   )
-  return [...entries].sort((a, b) => +new Date(b.seenAt) - +new Date(a.seenAt))
+  return [...entries].sort((a, b) => new Date(b.seenAt).getTime() - new Date(a.seenAt).getTime())
 }
 
 /**
@@ -163,6 +163,7 @@ export default function CustomersPage() {
         enableSorting: false,
         cell: ({ row }) => {
           const history = readEmailHistory(row.original)
+          const { email } = row.original
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -181,12 +182,10 @@ export default function CustomersPage() {
                 >
                   <Copy className="mr-2 size-4" /> Copy wallet
                 </DropdownMenuItem>
-                {row.original.email ? (
+                {email ? (
                   <DropdownMenuItem
                     onClick={() =>
-                      navigator.clipboard
-                        .writeText(row.original.email!)
-                        .then(() => toast.success('Email copied'))
+                      navigator.clipboard.writeText(email).then(() => toast.success('Email copied'))
                     }
                   >
                     <Mail className="mr-2 size-4" /> Copy email
@@ -271,7 +270,7 @@ function EmailHistoryDialog({
   const history = React.useMemo(() => (customer ? readEmailHistory(customer) : []), [customer])
 
   return (
-    <Dialog open={!!customer} onOpenChange={(open) => (!open ? onClose() : undefined)}>
+    <Dialog open={Boolean(customer)} onOpenChange={(open) => (!open ? onClose() : undefined)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Email history</DialogTitle>

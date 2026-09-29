@@ -69,7 +69,6 @@ export default function SignupPage() {
         },
         'error-callback': (code) => {
           setTurnstileToken(null)
-          // eslint-disable-next-line no-console
           console.warn('[turnstile] error', code)
           toast.error('Bot-protection check failed. Please refresh and try again.')
         },
@@ -138,7 +137,6 @@ export default function SignupPage() {
           // killing the flow. The previous implementation had no catch
           // here and a failed fetch left the user staring at a dead
           // Continue button with no feedback.
-          // eslint-disable-next-line no-console
           console.error('[turnstile] verify call failed:', err)
           toast.error('Could not reach bot-protection service. Please try again.')
           getTurnstile()?.reset()
@@ -163,7 +161,6 @@ export default function SignupPage() {
     } catch (err) {
       // Final safety net so any unexpected error (Privy widget,
       // navigation, etc.) surfaces a toast instead of vanishing.
-      // eslint-disable-next-line no-console
       console.error('[signup] unexpected error:', err)
       toast.error('Something went wrong. Please try again.')
     } finally {

@@ -56,7 +56,7 @@ export default function DashboardHome() {
   const subsQuery = useSubscriptions({ status: 'active', limit: 100 })
   const invoicesQuery = useInvoices({ limit: 100 })
 
-  useDashboardTour({ enabled: !!merchantQuery.data })
+  useDashboardTour({ enabled: Boolean(merchantQuery.data) })
 
   const derived = React.useMemo(() => {
     const now = Date.now()
@@ -65,8 +65,8 @@ export default function DashboardHome() {
 
     const sessions = sessionsQuery.data?.data ?? []
     const confirmed = sessions.filter((s) => s.status === 'confirmed')
-    const confirmed7d = confirmed.filter((s) => now - +new Date(s.updatedAt) < sevenDays)
-    const confirmed30d = confirmed.filter((s) => now - +new Date(s.updatedAt) < thirtyDays)
+    const confirmed7d = confirmed.filter((s) => now - new Date(s.updatedAt).getTime() < sevenDays)
+    const confirmed30d = confirmed.filter((s) => now - new Date(s.updatedAt).getTime() < thirtyDays)
     const volume7d = confirmed7d.reduce((s, r) => s + tokenAmountToNumber(r.amount), 0)
 
     const invoices = invoicesQuery.data?.data ?? []
@@ -86,7 +86,7 @@ export default function DashboardHome() {
     for (const s of confirmed30d) {
       const d = new Date(s.updatedAt)
       d.setUTCHours(0, 0, 0, 0)
-      const slot = buckets.find((b) => +b.date === +d)
+      const slot = buckets.find((b) => b.date.getTime() === d.getTime())
       if (slot) {
         slot.volume += tokenAmountToNumber(s.amount)
         slot.count += 1

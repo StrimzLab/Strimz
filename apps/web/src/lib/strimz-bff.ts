@@ -51,7 +51,7 @@ interface SubmitPaymentBody {
   sessionId?: string
 }
 
-export async function bffSubmitPayment(body: SubmitPaymentBody): Promise<RelaySubmissionView> {
+export function bffSubmitPayment(body: SubmitPaymentBody): Promise<RelaySubmissionView> {
   return bffPost('/v1/relay/payments', body)
 }
 
@@ -71,9 +71,7 @@ interface SubmitSubscriptionBody {
   subscriptionInternalId?: string
 }
 
-export async function bffSubmitSubscription(
-  body: SubmitSubscriptionBody,
-): Promise<RelaySubmissionView> {
+export function bffSubmitSubscription(body: SubmitSubscriptionBody): Promise<RelaySubmissionView> {
   return bffPost('/v1/relay/subscriptions', body)
 }
 

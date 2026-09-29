@@ -353,7 +353,7 @@ function UpsertStorefrontDialog({
               placeholder="acme-pro"
               value={slug}
               onChange={(e) => setSlug(e.target.value.toLowerCase())}
-              disabled={!!existing}
+              disabled={Boolean(existing)}
             />
           </div>
           <div className="grid gap-1.5">

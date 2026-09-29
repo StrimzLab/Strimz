@@ -70,8 +70,9 @@ export const MRR_HISTORY: MrrPoint[] = range(12).map((i) => {
   }
 })
 
-export const CURRENT_MRR_USDC = MRR_HISTORY[MRR_HISTORY.length - 1]!.mrrUsdc
-export const ACTIVE_SUBSCRIBERS = MRR_HISTORY[MRR_HISTORY.length - 1]!.activeSubscribers
+const LATEST_MRR = MRR_HISTORY.at(-1)
+export const CURRENT_MRR_USDC = LATEST_MRR?.mrrUsdc ?? 0
+export const ACTIVE_SUBSCRIBERS = LATEST_MRR?.activeSubscribers ?? 0
 
 export const TOP_CUSTOMERS_LTV = [...CUSTOMERS]
   .sort((a, b) => b.totalSpentUsdc - a.totalSpentUsdc)
@@ -82,7 +83,9 @@ export type ForecastPoint = { day: string; projectedNetUsdc: number }
 export const FORECAST_NEXT_30: ForecastPoint[] = (() => {
   const last = DAILY_VOLUME.slice(-30)
   const avg = last.reduce((s, p) => s + p.netUsdc, 0) / last.length
-  const slope = (last[last.length - 1]!.netUsdc - last[0]!.netUsdc) / last.length
+  const first = last[0]
+  const latest = last.at(-1)
+  const slope = first && latest ? (latest.netUsdc - first.netUsdc) / last.length : 0
   return range(30).map((i) => ({
     day: dayString(-i - 1),
     projectedNetUsdc: Math.round(avg + slope * i + (rng() - 0.5) * avg * 0.05),

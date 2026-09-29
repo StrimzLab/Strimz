@@ -303,14 +303,14 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
               <TimelineItem
                 label="Sent"
                 value={invoice.sentAt ? new Date(invoice.sentAt).toLocaleString() : 'Not sent yet'}
-                done={!!invoice.sentAt}
+                done={Boolean(invoice.sentAt)}
               />
               <TimelineItem
                 label="Paid"
                 value={
                   invoice.paidAt ? new Date(invoice.paidAt).toLocaleString() : 'Awaiting payment'
                 }
-                done={!!invoice.paidAt}
+                done={Boolean(invoice.paidAt)}
               />
             </CardContent>
           </Card>

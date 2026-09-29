@@ -60,7 +60,7 @@ export default function AdminBroadcastsPage() {
   const canSubmit =
     title.trim().length >= 4 &&
     !isBodyEmpty &&
-    (audience !== 'merchant' || !!merchantId) &&
+    (audience !== 'merchant' || Boolean(merchantId)) &&
     !createMutation.isPending
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

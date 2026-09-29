@@ -41,7 +41,10 @@ export function DashboardPreview() {
 
   useEffect(() => {
     if (reducedMotion || !tabVisible) return
-    const t = setTimeout(() => setSceneIndex((i) => (i + 1) % 3), SCENE_DURATIONS[sceneIndex]!)
+    const t = setTimeout(
+      () => setSceneIndex((i) => (i + 1) % 3),
+      SCENE_DURATIONS[sceneIndex] ?? SCENE_DURATIONS[0],
+    )
     return () => clearTimeout(t)
   }, [sceneIndex, tabVisible, reducedMotion])
 
@@ -630,12 +633,14 @@ function FloatingChips({ sceneIndex }: { sceneIndex: number }) {
     { event: 'subscription.charged', latency: '· 84ms' },
     { event: 'payment.completed', latency: '· 12s after submit' },
     { event: 'subscription.charged', latency: '· recovered' },
-  ]
+  ] as const
   const bottom = [
     { amount: '+$20.00 USDC' },
     { amount: '+$49.75 USDC' },
     { amount: '+$80.00 USDC' },
-  ]
+  ] as const
+  const topScene = top[sceneIndex] ?? top[0]
+  const bottomScene = bottom[sceneIndex] ?? bottom[0]
   return (
     <>
       <AnimatePresence mode="wait">
@@ -652,10 +657,10 @@ function FloatingChips({ sceneIndex }: { sceneIndex: number }) {
             <span className="relative inline-flex size-2 rounded-full bg-[#02C76A]" />
           </span>
           <code className="font-mono text-[10px] font-[500] text-[#050020] md:text-[11px]">
-            {top[sceneIndex]!.event}
+            {topScene.event}
           </code>
           <span className="font-poppins text-[9px] text-[#58556A] md:text-[10px]">
-            {top[sceneIndex]!.latency}
+            {topScene.latency}
           </span>
         </motion.div>
       </AnimatePresence>
@@ -671,7 +676,7 @@ function FloatingChips({ sceneIndex }: { sceneIndex: number }) {
         >
           <Wallet className="size-3.5 text-[#02C76A]" />
           <span className="font-mono text-[10px] font-[500] text-white md:text-[11px]">
-            {bottom[sceneIndex]!.amount}
+            {bottomScene.amount}
           </span>
           <span className="font-poppins text-[9px] text-white/60 md:text-[10px]">
             → payout wallet

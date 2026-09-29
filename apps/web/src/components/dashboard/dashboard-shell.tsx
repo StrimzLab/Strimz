@@ -11,7 +11,7 @@ import { useMerchantMe } from '@/hooks/api/use-merchant'
 export function DashboardShell({ children, title }: { children: React.ReactNode; title?: string }) {
   const router = useRouter()
   const { data: merchant, isPending } = useMerchantMe()
-  const needsOnboarding = !!merchant && !merchant.onboardingCompleted
+  const needsOnboarding = merchant ? !merchant.onboardingCompleted : false
 
   useEffect(() => {
     if (needsOnboarding) router.replace('/onboarding')

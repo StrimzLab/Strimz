@@ -16,7 +16,7 @@ export function downloadCsv<T extends Record<string, unknown>>(
 
   const data = rows.map((row) =>
     fields.reduce<Record<string, unknown>>((acc, key, i) => {
-      acc[headers[i]!] = row[key]
+      acc[headers[i] ?? key] = row[key]
       return acc
     }, {}),
   )

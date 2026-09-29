@@ -58,7 +58,7 @@ function projectInvoices(page: { data: Invoice[] }): InvoicesView {
       outstanding += total
       outstandingCount++
     }
-    if (inv.status === 'paid' && inv.paidAt && now - +new Date(inv.paidAt) < thirtyDays) {
+    if (inv.status === 'paid' && inv.paidAt && now - new Date(inv.paidAt).getTime() < thirtyDays) {
       paid30d += total
       paid30dCount++
     }

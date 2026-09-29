@@ -7,13 +7,13 @@ interface AttachInput {
   walletAddress: string
 }
 
-export async function attachSessionPayer(
+export function attachSessionPayer(
   input: AttachInput & { sessionId: string },
 ): Promise<{ customerId: string }> {
   return post(`/v1/checkout/sessions/${encodeURIComponent(input.sessionId)}/payer`, input)
 }
 
-export async function attachPlanPayer(
+export function attachPlanPayer(
   input: AttachInput & { planId: string },
 ): Promise<{ customerId: string }> {
   return post(`/v1/checkout/plans/${encodeURIComponent(input.planId)}/payer`, input)
