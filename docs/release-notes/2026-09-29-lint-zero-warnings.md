@@ -26,6 +26,8 @@ Closes #106.
 - The scheduler validates outbox entity references with a zod schema instead of `any`.
 - `StrimzSubscriptions` stores `merchantId` through `SafeCast.toUint96`.
 - The governance ADRs are marked Accepted, and `AGENTS.md` documents worktree removal.
+- `AGENTS.md` gains Directive 6: comments are minimal, used only when necessary, and
+  written by people. AI-generated comments are not allowed.
 
 ## Contract change
 
