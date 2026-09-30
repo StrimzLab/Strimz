@@ -581,6 +581,13 @@ func TestE2E_SubscriptionLifecycle_CreatedThenChargedThenChargeSkipped(t *testin
 	assert.Equal(t, 1, scCount)
 	assert.Equal(t, 1, txCount)
 
+	var payerAddress, merchantAddress string
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT "payerAddress", "merchantAddress" FROM "Transaction" WHERE kind='subscription_charge'`,
+	).Scan(&payerAddress, &merchantAddress))
+	assert.Equal(t, "0x000000000000000000000000000000000000aa11", payerAddress)
+	assert.Equal(t, "0x000000000000000000000000000000000000fefe", merchantAddress)
+
 	// SubscriptionChargeSkipped flips the sub to at_risk.
 	skipRows, err := s.InsertSubscriptionChargeSkip(ctx, SubscriptionChargeSkippedInput{
 		OnchainSubscriptionID: big.NewInt(1),

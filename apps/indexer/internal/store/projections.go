@@ -455,13 +455,15 @@ type SubscriptionChargedInput struct {
 func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionChargedInput) (int64, error) {
 	var rows int64
 	err := s.inTx(ctx, func(tx pgxTxLike) error {
-		var subID, merchantID, currency, payerAddress string
+		var subID, merchantID, currency, payerAddress, merchantAddress string
 		var periodStart time.Time
 		err := tx.QueryRow(ctx, `
-			SELECT id, "merchantId", currency::text, "payerAddress", "currentPeriodEndAt"
-			  FROM "Subscription"
-			 WHERE "onchainSubscriptionId" = $1
-		`, in.OnchainSubscriptionID.Int64()).Scan(&subID, &merchantID, &currency, &payerAddress, &periodStart)
+			SELECT s.id, s."merchantId", s.currency::text, s."payerAddress", s."currentPeriodEndAt",
+			       COALESCE(m."payoutAddress", '')
+			  FROM "Subscription" s
+			  JOIN "Merchant" m ON m.id = s."merchantId"
+			 WHERE s."onchainSubscriptionId" = $1
+		`, in.OnchainSubscriptionID.Int64()).Scan(&subID, &merchantID, &currency, &payerAddress, &periodStart, &merchantAddress)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				// SubscriptionCreated may not have been processed yet (e.g.
@@ -470,6 +472,9 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 				return nil
 			}
 			return fmt.Errorf("subscription lookup: %w", err)
+		}
+		if merchantAddress == "" {
+			return fmt.Errorf("subscription %s: merchant %s has no payout address for charge %s", subID, merchantID, in.OnchainTxHash)
 		}
 
 		// 1) Insert SubscriptionCharge.
@@ -530,7 +535,7 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 			  gen_random_uuid()::text, $1, 'subscription_charge'::"TransactionKind",
 			  'confirmed'::"TransactionStatus", $2, $3,
 			  $4, $5, $6, $7::"PaymentCurrency",
-			  $8, '',
+			  $8, $14,
 			  $9, $10, $11, $12,
 			  $13::"Mode", NOW()
 			)
@@ -541,7 +546,7 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 			in.Amount, in.FeeAmount, in.NetAmount, currency,
 			payerAddress,
 			in.OnchainTxHash, in.BlockNumber, in.BlockTimestamp, in.LogIndex,
-			in.Mode,
+			in.Mode, merchantAddress,
 		).Scan(&txID)
 		isNewTx := true
 		if errors.Is(err, pgx.ErrNoRows) {

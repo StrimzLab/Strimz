@@ -124,6 +124,99 @@ describe('webhook outbox dispatcher e2e', () => {
     expect(await t.prisma.db.webhookDelivery.count()).toBe(1)
   })
 
+  async function seedChargedEvent(
+    merchantId: string,
+    merchantAddress: string,
+    eventId: string,
+    hexDigit: string,
+  ) {
+    const sub = await seedSubscription(t.prisma.db, merchantId)
+    const charge = await t.prisma.db.subscriptionCharge.create({
+      data: {
+        subscriptionId: sub.id,
+        merchantId,
+        chargeAttemptId: `0x${hexDigit.repeat(64)}`,
+        periodStartAt: new Date(),
+        periodEndAt: new Date(Date.now() + 30 * 86_400_000),
+        amount: '20000000',
+        currency: 'USDC',
+        status: 'succeeded',
+        outcome: 'charged',
+        scheduledAt: new Date(),
+        executedAt: new Date(),
+      },
+    })
+    const tx = await t.prisma.db.transaction.create({
+      data: {
+        merchantId,
+        kind: 'subscription_charge',
+        status: 'confirmed',
+        subscriptionId: sub.id,
+        subscriptionChargeId: charge.id,
+        amount: '20000000',
+        feeAmount: '300000',
+        netAmount: '19700000',
+        currency: 'USDC',
+        payerAddress: '0x' + 'a'.repeat(40),
+        merchantAddress,
+        onchainTxHash: `0x${hexDigit.repeat(63)}1`,
+        blockNumber: 1n,
+        blockTimestamp: new Date(),
+        logIndex: 0,
+        mode: 'test',
+      },
+    })
+    await t.prisma.db.webhookEvent.create({
+      data: {
+        id: eventId,
+        merchantId,
+        type: 'subscription_charged' as never,
+        apiVersion: '2026-04-27',
+        mode: 'test',
+        payload: {
+          ref: {
+            kind: 'subscription.charged',
+            subscriptionId: sub.id,
+            chargeId: charge.id,
+            transactionId: tx.id,
+          },
+        } as never,
+      },
+    })
+  }
+
+  it('dispatches subscription.charged when the transaction carries the merchant address', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    await seedWebhookEndpoint(t.prisma.db, merchant.id, {
+      url: 'https://example.com/h',
+      events: ['subscription_charged'],
+    })
+    await seedChargedEvent(merchant.id, '0x' + 'b'.repeat(40), 'evt_charged_ok', 'c')
+
+    const outbox = t.app.get(WebhookOutboxService)
+    expect(await outbox.tickNow()).toEqual({ dispatched: 1, deliveriesQueued: 1 })
+    const event = await t.prisma.db.webhookEvent.findUniqueOrThrow({
+      where: { id: 'evt_charged_ok' },
+    })
+    expect(event.dispatchError).toBeNull()
+  })
+
+  it('records a dispatch error for subscription.charged when the merchant address is empty', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    await seedWebhookEndpoint(t.prisma.db, merchant.id, {
+      url: 'https://example.com/h',
+      events: ['subscription_charged'],
+    })
+    await seedChargedEvent(merchant.id, '', 'evt_charged_bad', 'd')
+
+    const outbox = t.app.get(WebhookOutboxService)
+    expect(await outbox.tickNow()).toEqual({ dispatched: 1, deliveriesQueued: 0 })
+    const event = await t.prisma.db.webhookEvent.findUniqueOrThrow({
+      where: { id: 'evt_charged_bad' },
+    })
+    expect(event.dispatchError).toContain('merchantAddress')
+  })
+
   it.each([
     ['an unknown kind', { kind: 'payout.sent', payoutId: 'p_1' }],
     ['a missing id', { kind: 'subscription.lapsed' }],
