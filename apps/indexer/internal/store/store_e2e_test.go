@@ -863,6 +863,98 @@ func TestE2E_SubscriptionCharged_RetryUnderSameAttemptIdUpgradesFailedRow(t *tes
 	assert.Equal(t, 1, chargeCount)
 }
 
+func TestE2E_SubscriptionCharged_BatchKeepsOneTransactionPerCharge(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_batch", "batch@x.io", "0x000000000000000000000000000000000000fe04", big.NewInt(405))
+
+	interval := 30 * 24 * time.Hour
+	start := time.Now().UTC().Truncate(time.Second)
+	for i := int64(1); i <= 2; i++ {
+		_, err := s.UpsertSubscriptionFromOnchain(ctx, SubscriptionCreatedInput{
+			OnchainSubscriptionID: big.NewInt(10 + i),
+			MerchantOnchainID:     big.NewInt(405),
+			PayerAddress:          fmt.Sprintf("0x%040x", 0xaa60+i),
+			Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
+			StartAt:            start,
+			CurrentPeriodEndAt: start.Add(interval),
+			NextChargeAt:       start,
+			OnchainTxHash:      fmt.Sprintf("0x%064x", 0x6000+i),
+			Mode:               "live",
+		})
+		require.NoError(t, err)
+	}
+
+	batchTx := "0x" + repeatStr("b", 64)
+	charge := func(sub int64, logIndex uint) SubscriptionChargedInput {
+		return SubscriptionChargedInput{
+			OnchainSubscriptionID: big.NewInt(sub),
+			ChargeAttemptID:       fmt.Sprintf("0x%064x", 0x7000+sub),
+			Amount:                "20000000",
+			FeeAmount:             "300000",
+			NetAmount:             "19700000",
+			NextChargeAt:          start.Add(interval),
+			OnchainTxHash:         batchTx,
+			BlockNumber:           4000,
+			BlockTimestamp:        start,
+			LogIndex:              logIndex,
+			Mode:                  "live",
+		}
+	}
+	first := charge(11, 0)
+	second := charge(12, 1)
+
+	rows, err := s.InsertSubscriptionCharge(ctx, first)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), rows)
+	rows, err = s.InsertSubscriptionCharge(ctx, second)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), rows)
+
+	count := func(query string) int {
+		t.Helper()
+		var n int
+		require.NoError(t, s.pool.QueryRow(ctx, query).Scan(&n))
+		return n
+	}
+	assert.Equal(t, 2, count(`SELECT count(*) FROM "Transaction" WHERE "onchainTxHash"='`+batchTx+`'`))
+	assert.Equal(t, 2, count(`SELECT count(*) FROM "Transaction" WHERE "subscriptionChargeId" IS NOT NULL AND "merchantId"='m_batch'`))
+	assert.Equal(t, 2, count(`SELECT count(*) FROM "WebhookEvent" WHERE "merchantId"='m_batch' AND type='subscription_charged'`))
+
+	rows, err = s.InsertSubscriptionCharge(ctx, second)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), rows)
+	assert.Equal(t, 2, count(`SELECT count(*) FROM "Transaction" WHERE "onchainTxHash"='`+batchTx+`'`))
+	assert.Equal(t, 2, count(`SELECT count(*) FROM "WebhookEvent" WHERE "merchantId"='m_batch' AND type='subscription_charged'`))
+}
+
+func TestE2E_InsertOneShotTransaction_TwoPaymentsInOneTransaction(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_pay", "pay@x.io", "0x000000000000000000000000000000000000d00d", big.NewInt(301))
+	seedPaymentSession(t, s, "sess_batch_a", "m_pay", "100000", "USDC", "live")
+	seedPaymentSession(t, s, "sess_batch_b", "m_pay", "100000", "USDC", "live")
+
+	txHash := "0x" + repeatStr("e", 64)
+	a := oneShotInput(301, "sess_batch_a", txHash)
+	b := oneShotInput(301, "sess_batch_b", txHash)
+	b.LogIndex = 1
+
+	rows, err := s.InsertOneShotTransaction(ctx, a)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), rows)
+	rows, err = s.InsertOneShotTransaction(ctx, b)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), rows)
+
+	for _, id := range []string{"sess_batch_a", "sess_batch_b"} {
+		o := readOneShotOutcome(t, s, id)
+		assert.Equal(t, "confirmed", o.sessionStatus, id)
+		assert.Equal(t, 1, o.linkedTxCount, id)
+	}
+	assert.Equal(t, 2, readOneShotOutcome(t, s, "sess_batch_a").completedEvents)
+}
+
 func TestE2E_SubscriptionCharged_OutOfOrderEventDoesntFail(t *testing.T) {
 	s := startTestPostgres(t)
 	ctx := context.Background()

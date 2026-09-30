@@ -22,7 +22,7 @@ model Transaction {
   payerAddress           String             @db.VarChar(42)
   merchantAddress        String             @db.VarChar(42)
 
-  onchainTxHash          String             @unique @db.VarChar(66)
+  onchainTxHash          String             @db.VarChar(66)
   blockNumber            BigInt
   blockTimestamp         DateTime
   logIndex               Int
@@ -38,6 +38,8 @@ model Transaction {
   refund                 Refund?            @relation(fields: [refundId], references: [id], onDelete: SetNull)
   customer               Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
+  @@unique([onchainTxHash, logIndex])
+  @@index([onchainTxHash])
   @@index([merchantId, kind, blockTimestamp])
   @@index([merchantId, status])
   @@index([customerId])

@@ -201,7 +201,7 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 			  $9, $10, $11, $12,
 			  $13::"Mode", NOW()
 			)
-			ON CONFLICT ("onchainTxHash") DO NOTHING
+			ON CONFLICT ("onchainTxHash", "logIndex") DO NOTHING
 			RETURNING id
 		`,
 			merchantID, sessionID,
@@ -539,7 +539,7 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 			  $9, $10, $11, $12,
 			  $13::"Mode", NOW()
 			)
-			ON CONFLICT ("onchainTxHash") DO NOTHING
+			ON CONFLICT ("onchainTxHash", "logIndex") DO NOTHING
 			RETURNING id
 		`,
 			merchantID, subID, chargeID,
