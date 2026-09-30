@@ -24,34 +24,37 @@ export class InvoiceOverdueService {
 
   async sweepNow(): Promise<{ flipped: number }> {
     // Atomic flip + return the rows, so two ticks never double-process.
-    const flipped = (await this.prisma.db.$queryRawUnsafe(`
-      WITH due AS (
-        SELECT id, "merchantId", mode
-          FROM "Invoice"
-         WHERE status = 'sent'::"InvoiceStatus" AND "dueAt" < NOW()
-      )
-      UPDATE "Invoice"
-         SET status = 'overdue'::"InvoiceStatus",
-             "updatedAt" = NOW()
-        FROM due
-       WHERE "Invoice".id = due.id
-       RETURNING "Invoice".id,
-                 "Invoice"."merchantId",
-                 "Invoice".mode::text AS mode
-    `)) as Array<{ id: string; merchantId: string; mode: string }>
+    const flipped = await this.prisma.db.$transaction(async (tx) => {
+      const rows = (await tx.$queryRawUnsafe(`
+        WITH due AS (
+          SELECT id, "merchantId", mode
+            FROM "Invoice"
+           WHERE status = 'sent'::"InvoiceStatus" AND "dueAt" < NOW()
+        )
+        UPDATE "Invoice"
+           SET status = 'overdue'::"InvoiceStatus",
+               "updatedAt" = NOW()
+          FROM due
+         WHERE "Invoice".id = due.id
+         RETURNING "Invoice".id,
+                   "Invoice"."merchantId",
+                   "Invoice".mode::text AS mode
+      `)) as Array<{ id: string; merchantId: string; mode: string }>
 
-    for (const inv of flipped) {
-      await this.prisma.db.webhookEvent.create({
-        data: {
-          id: `evt_${uuid()}`,
-          merchantId: inv.merchantId,
-          type: 'invoice_overdue',
-          apiVersion: API_VERSION,
-          mode: inv.mode as 'test' | 'live',
-          payload: { ref: { kind: 'invoice.overdue', invoiceId: inv.id } } as never,
-        },
-      })
-    }
+      for (const inv of rows) {
+        await tx.webhookEvent.create({
+          data: {
+            id: `evt_${uuid()}`,
+            merchantId: inv.merchantId,
+            type: 'invoice_overdue',
+            apiVersion: API_VERSION,
+            mode: inv.mode as 'test' | 'live',
+            payload: { ref: { kind: 'invoice.overdue', invoiceId: inv.id } } as never,
+          },
+        })
+      }
+      return rows
+    })
 
     if (flipped.length > 0) this.log.log(`flipped ${flipped.length} invoices to overdue`)
     return { flipped: flipped.length }

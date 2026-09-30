@@ -23,37 +23,40 @@ export class SessionExpiryService {
   }
 
   async sweepNow(): Promise<{ expired: number }> {
-    const expired = (await this.prisma.db.$queryRawUnsafe(`
-      WITH due AS (
-        SELECT id, "merchantId", mode
-          FROM "PaymentSession"
-         WHERE status IN ('created'::"PaymentSessionStatus", 'awaiting_payment'::"PaymentSessionStatus")
-           AND "expiresAt" < NOW()
-      )
-      UPDATE "PaymentSession"
-         SET status = 'expired'::"PaymentSessionStatus",
-             "updatedAt" = NOW()
-        FROM due
-       WHERE "PaymentSession".id = due.id
-       RETURNING "PaymentSession".id,
-                 "PaymentSession"."merchantId",
-                 "PaymentSession".mode::text AS mode
-    `)) as Array<{ id: string; merchantId: string; mode: string }>
+    const expired = await this.prisma.db.$transaction(async (tx) => {
+      const rows = (await tx.$queryRawUnsafe(`
+        WITH due AS (
+          SELECT id, "merchantId", mode
+            FROM "PaymentSession"
+           WHERE status IN ('created'::"PaymentSessionStatus", 'awaiting_payment'::"PaymentSessionStatus")
+             AND "expiresAt" < NOW()
+        )
+        UPDATE "PaymentSession"
+           SET status = 'expired'::"PaymentSessionStatus",
+               "updatedAt" = NOW()
+          FROM due
+         WHERE "PaymentSession".id = due.id
+         RETURNING "PaymentSession".id,
+                   "PaymentSession"."merchantId",
+                   "PaymentSession".mode::text AS mode
+      `)) as Array<{ id: string; merchantId: string; mode: string }>
 
-    for (const s of expired) {
-      await this.prisma.db.webhookEvent.create({
-        data: {
-          id: `evt_${uuid()}`,
-          merchantId: s.merchantId,
-          type: 'payment_failed',
-          apiVersion: API_VERSION,
-          mode: s.mode as 'test' | 'live',
-          payload: {
-            ref: { kind: 'payment.failed', sessionId: s.id, reason: 'session expired' },
-          } as never,
-        },
-      })
-    }
+      for (const s of rows) {
+        await tx.webhookEvent.create({
+          data: {
+            id: `evt_${uuid()}`,
+            merchantId: s.merchantId,
+            type: 'payment_failed',
+            apiVersion: API_VERSION,
+            mode: s.mode as 'test' | 'live',
+            payload: {
+              ref: { kind: 'payment.failed', sessionId: s.id, reason: 'session expired' },
+            } as never,
+          },
+        })
+      }
+      return rows
+    })
 
     if (expired.length > 0) this.log.log(`expired ${expired.length} sessions`)
     return { expired: expired.length }

@@ -2,8 +2,10 @@ import { Injectable, Logger } from '@nestjs/common'
 import { Interval } from '@nestjs/schedule'
 import { InjectQueue } from '@nestjs/bullmq'
 import type { Queue } from 'bullmq'
+import { Prisma } from '@strimz/db'
 import { uuid } from '@strimz/shared-crypto'
 import { webhookEventSchema } from '@strimz/shared-types'
+import { ZodError } from 'zod'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../prisma/prisma.service.js'
 import { QUEUE_NAMES, webhookDeliveryJobSchema } from '@strimz/queue-contracts'
@@ -27,6 +29,12 @@ type EventRow = {
   mode: 'test' | 'live'
   payload: unknown
   createdAt: Date
+}
+
+function isPermanentDispatchFailure(err: unknown): boolean {
+  if (err instanceof ZodError) return true
+  if (err instanceof Prisma.PrismaClientValidationError) return true
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025'
 }
 
 /**
@@ -62,7 +70,7 @@ export class WebhookOutboxService {
       `UPDATE "WebhookEvent" SET "dispatchedAt" = NOW()
          WHERE id IN (
            SELECT id FROM "WebhookEvent"
-            WHERE "dispatchedAt" IS NULL AND "dispatchError" IS NULL
+            WHERE "dispatchedAt" IS NULL
             ORDER BY "createdAt"
             LIMIT ${BATCH}
             FOR UPDATE SKIP LOCKED
@@ -80,15 +88,20 @@ export class WebhookOutboxService {
         // Persist the final envelope so the delivery worker sends it verbatim.
         await this.prisma.db.webhookEvent.update({
           where: { id: ev.id },
-          data: { payload: envelope as never },
+          data: { payload: envelope as never, dispatchError: null },
         })
         deliveriesQueued += await this.createDeliveries(ev, wireType)
       } catch (err) {
         const message = (err as Error).message.slice(0, 1_000)
-        this.log.error(`event ${ev.id} (${ev.type}) failed to dispatch: ${message}`)
+        const permanent = isPermanentDispatchFailure(err)
+        this.log.error(
+          `event ${ev.id} (${ev.type}) failed to dispatch (${permanent ? 'quarantined' : 'will retry'}): ${message}`,
+        )
         await this.prisma.db.webhookEvent.update({
           where: { id: ev.id },
-          data: { dispatchError: message },
+          data: permanent
+            ? { dispatchError: message }
+            : { dispatchError: message, dispatchedAt: null },
         })
       }
     }
