@@ -409,7 +409,14 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 			  $8, $8, $9,
 			  NOW(), NOW()
 			)
-			ON CONFLICT ("chargeAttemptId") DO NOTHING
+			ON CONFLICT ("chargeAttemptId") DO UPDATE
+			   SET status = 'succeeded'::"SubscriptionChargeStatus",
+			       outcome = 'charged'::"SubscriptionChargeOutcome",
+			       amount = EXCLUDED.amount,
+			       "executedAt" = EXCLUDED."executedAt",
+			       "onchainTxHash" = EXCLUDED."onchainTxHash",
+			       "updatedAt" = NOW()
+			 WHERE "SubscriptionCharge".status = 'failed'::"SubscriptionChargeStatus"
 			RETURNING id
 		`,
 			subID, merchantID, in.ChargeAttemptID,
