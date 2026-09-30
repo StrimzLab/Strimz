@@ -131,6 +131,7 @@ describe('webhook-delivery worker e2e', () => {
     )
 
     const worker = t.app.get(WebhookDeliveryWorker)
+    const startedAt = Date.now()
     const result = await worker.process({
       data: {
         deliveryId: delivery.id,
@@ -141,6 +142,7 @@ describe('webhook-delivery worker e2e', () => {
       },
       queue: { add: () => Promise.resolve(undefined) },
     } as never)
+    const finishedAt = Date.now()
 
     expect(result.status).toBe('retrying')
 
@@ -154,10 +156,12 @@ describe('webhook-delivery worker e2e', () => {
       where: { id: delivery.id },
     })
     expect(updated.status).toBe('retrying')
-    expect(updated.attempt).toBe(1)
+    expect(updated.attempt).toBe(2)
     expect(updated.responseCode).toBe(500)
     expect(updated.lastError).toContain('boom')
-    expect(updated.nextAttemptAt).not.toBeNull()
+    const nextAttemptAt = must(updated.nextAttemptAt).getTime()
+    expect(nextAttemptAt).toBeGreaterThanOrEqual(startedAt + 60_000)
+    expect(nextAttemptAt).toBeLessThanOrEqual(finishedAt + 60_000)
 
     await recv.close()
   })
@@ -183,7 +187,7 @@ describe('webhook-delivery worker e2e', () => {
         eventId: event.id,
         eventName: 'payment_completed' as never,
         status: 'retrying',
-        attempt: 2, // WEBHOOK_MAX_ATTEMPTS=3 in test env; next attempt → 3 = permanent
+        attempt: 3, // WEBHOOK_MAX_ATTEMPTS=3 in test env; next attempt → 3 = permanent
       },
     })
 
@@ -256,7 +260,7 @@ describe('webhook-delivery worker e2e', () => {
         eventId: event.id,
         eventName: 'payment_completed' as never,
         status: 'retrying',
-        attempt: 2,
+        attempt: 3,
       },
     })
 
