@@ -4,6 +4,7 @@ import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant } from '../helpers/fixtures.js'
 import { AgentActionWorker } from '../../src/workers/agent-action/agent-action.worker.js'
 import { must } from '../helpers/must.js'
+import { agentActionJobFixtures } from '@strimz/queue-contracts/fixtures'
 
 describe('agent-action worker e2e', () => {
   let t: TestApp
@@ -33,6 +34,17 @@ describe('agent-action worker e2e', () => {
     const calls = t.chain.callsFor('cancelSubscription')
     expect(calls).toHaveLength(1)
     expect(must(calls[0]).args[0]).toBe(99n)
+  })
+
+  it('processes the shared subscription.cancel-onchain fixture the API produces', async () => {
+    const worker = t.app.get(AgentActionWorker)
+    const result = await worker.process({
+      data: agentActionJobFixtures['subscription.cancel-onchain'],
+    } as never)
+    expect(result.txHash).toMatch(/^0x/)
+    const calls = t.chain.callsFor('cancelSubscription')
+    expect(calls).toHaveLength(1)
+    expect(must(calls[0]).args[0]).toBe(7n)
   })
 
   it('subscription.cancel-onchain skips when on-chain id is null', async () => {

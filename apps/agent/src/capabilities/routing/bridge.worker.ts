@@ -3,12 +3,13 @@ import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq'
 import type { Job, Queue } from 'bullmq'
 import { ActivityLogService } from '../../infra/activity-log/activity-log.service.js'
 import { CircleAttestationService } from '../../infra/circle-attestation/circle-attestation.service.js'
-import { QUEUE_NAMES } from '../../infra/queue/queue-names.js'
 import {
   cctpBridgeJobSchema,
+  QUEUE_NAMES,
+  routingSettleActionSchema,
   type CctpBridgeJob,
   type RoutingSettleAction,
-} from '../../infra/queue/job-payloads.js'
+} from '@strimz/queue-contracts'
 
 /**
  * Consumes `strimz.routing.cctp.bridge`. The producer is the checkout
@@ -98,7 +99,7 @@ export class BridgeWorker extends WorkerHost {
     }
 
     // Attestation ready — hand off to the scheduler for signing.
-    const settleJob: RoutingSettleAction = {
+    const settleJob = routingSettleActionSchema.parse({
       type: 'routing.cctp.settle',
       merchantId: data.merchantId,
       sourceDomainId: data.sourceDomainId,
@@ -106,8 +107,8 @@ export class BridgeWorker extends WorkerHost {
       messageHex: result.messageHex,
       attestationHex: result.attestationHex,
       ref: data.ref,
-    }
-    await this.schedulerQueue.add('settle', settleJob, {
+    } satisfies RoutingSettleAction)
+    await this.schedulerQueue.add(settleJob.type, settleJob, {
       removeOnComplete: 1_000,
       removeOnFail: 1_000,
     })

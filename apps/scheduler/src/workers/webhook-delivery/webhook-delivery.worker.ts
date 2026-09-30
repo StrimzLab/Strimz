@@ -6,11 +6,8 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { WebhookSigningService } from '../../infra/webhook-signing/signing.service.js'
 import { WebhookSecretCache } from '../../infra/webhook-signing/secret-cache.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
-import { QUEUE_NAMES } from '../../infra/queue/queue-names.js'
-import {
-  webhookDeliveryJobSchema,
-  type WebhookDeliveryJob,
-} from '../../infra/queue/job-payloads.js'
+import { QUEUE_NAMES } from '@strimz/queue-contracts'
+import { webhookDeliveryJobSchema, type WebhookDeliveryJob } from '@strimz/queue-contracts'
 
 const MAX_BACKOFF_MS = 43_200_000
 const RETRY_BACKOFF_MS = [60_000, 300_000, 1_800_000, 7_200_000, MAX_BACKOFF_MS] // 1m, 5m, 30m, 2h, 12h

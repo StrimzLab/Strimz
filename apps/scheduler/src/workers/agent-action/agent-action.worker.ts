@@ -5,8 +5,8 @@ import type { Address } from 'viem'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { TOKEN_ADDRESSES } from '@strimz/shared-config'
-import { QUEUE_NAMES } from '../../infra/queue/queue-names.js'
-import { agentActionJobSchema, type AgentActionJob } from '../../infra/queue/job-payloads.js'
+import { QUEUE_NAMES } from '@strimz/queue-contracts'
+import { agentActionJobSchema, type AgentActionJob } from '@strimz/queue-contracts'
 import { TypedConfigService } from '../../config/index.js'
 
 /**

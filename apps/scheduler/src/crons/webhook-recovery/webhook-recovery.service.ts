@@ -3,7 +3,7 @@ import { Cron } from '@nestjs/schedule'
 import { InjectQueue } from '@nestjs/bullmq'
 import type { Queue } from 'bullmq'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
-import { QUEUE_NAMES } from '../../infra/queue/queue-names.js'
+import { QUEUE_NAMES, webhookDeliveryJobSchema } from '@strimz/queue-contracts'
 
 const STRANDED_AFTER_MS = 2 * 60_000
 const MAX_AGE_MS = 7 * 24 * 60 * 60_000
@@ -53,13 +53,13 @@ export class WebhookRecoveryService {
       })
       await this.deliveryQueue.add(
         'deliver',
-        {
+        webhookDeliveryJobSchema.parse({
           deliveryId: d.deliveryId,
           endpointId: d.endpointId,
           url: d.endpoint.url,
           signingSecretHash: d.endpoint.signingSecretHash,
           eventId: d.eventId,
-        },
+        }),
         { attempts: 1, removeOnComplete: 1_000, removeOnFail: 1_000 },
       )
       requeued++

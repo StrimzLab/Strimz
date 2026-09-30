@@ -6,7 +6,7 @@ import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant } from '../helpers/fixtures.js'
 import { BridgeWorker } from '../../src/capabilities/routing/bridge.worker.js'
 import { CircleAttestationService } from '../../src/infra/circle-attestation/circle-attestation.service.js'
-import { QUEUE_NAMES } from '../../src/infra/queue/queue-names.js'
+import { QUEUE_NAMES } from '@strimz/queue-contracts'
 import { must } from '../helpers/must.js'
 
 describe('routing CCTP bridge worker e2e', () => {

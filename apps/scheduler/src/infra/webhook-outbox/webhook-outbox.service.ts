@@ -6,7 +6,7 @@ import { uuid } from '@strimz/shared-crypto'
 import { webhookEventSchema } from '@strimz/shared-types'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../prisma/prisma.service.js'
-import { QUEUE_NAMES } from '../queue/queue-names.js'
+import { QUEUE_NAMES, webhookDeliveryJobSchema } from '@strimz/queue-contracts'
 import { outboxRefSchema, readOutboxRef, type OutboxRef } from './outbox-ref.js'
 import {
   serialiseCharge,
@@ -224,13 +224,13 @@ export class WebhookOutboxService {
       })
       await this.deliveryQueue.add(
         'deliver',
-        {
+        webhookDeliveryJobSchema.parse({
           deliveryId,
           endpointId: ep.id,
           url: ep.url,
           signingSecretHash: ep.signingSecretHash,
           eventId: ev.id,
-        },
+        }),
         { attempts: 1, removeOnComplete: 1_000, removeOnFail: 1_000 },
       )
     }

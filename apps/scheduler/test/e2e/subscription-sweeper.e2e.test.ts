@@ -5,7 +5,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant, seedSubscription } from '../helpers/fixtures.js'
 import { SubscriptionSweeperService } from '../../src/crons/subscription-sweeper/subscription-sweeper.service.js'
-import { QUEUE_NAMES } from '../../src/infra/queue/queue-names.js'
+import { QUEUE_NAMES } from '@strimz/queue-contracts'
 
 describe('subscription sweeper e2e', () => {
   let t: TestApp
