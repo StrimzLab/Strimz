@@ -82,6 +82,48 @@ describe('refunds e2e', () => {
     expect(JSON.parse(r2.body).error.code).toBe('invalid_request')
   })
 
+  it('counts a refund that is still awaiting signature against the cap', async () => {
+    const m = await seedMerchant(t.prisma.db)
+    const tx = await seedTransaction(t.prisma.db, m.id, { amount: '100000000' })
+    const k = await seedApiKey(t.prisma.db, m.id)
+
+    const r1 = await t.inject({
+      method: 'POST',
+      url: '/v1/refunds',
+      headers: { authorization: `Bearer ${k.secretKey}` },
+      payload: { transactionId: tx.id, amount: '60000000', reason: 'customer_request' },
+    })
+    expect(r1.statusCode).toBe(201)
+    expect(JSON.parse(r1.body).refund.status).toBe('awaiting_signature')
+
+    const r2 = await t.inject({
+      method: 'POST',
+      url: '/v1/refunds',
+      headers: { authorization: `Bearer ${k.secretKey}` },
+      payload: { transactionId: tx.id, amount: '50000000', reason: 'customer_request' },
+    })
+    expect(r2.statusCode).toBe(400)
+    expect(JSON.parse(r2.body).error.details.priorRefundedTotal).toBe('60000000')
+    expect(await t.prisma.db.refund.count({ where: { transactionId: tx.id } })).toBe(1)
+  })
+
+  it('creates no refund row when the currency has no token address configured', async () => {
+    const m = await seedMerchant(t.prisma.db)
+    const tx = await seedTransaction(t.prisma.db, m.id, { currency: 'EURC' })
+    const k = await seedApiKey(t.prisma.db, m.id)
+
+    const res = await t.inject({
+      method: 'POST',
+      url: '/v1/refunds',
+      headers: { authorization: `Bearer ${k.secretKey}` },
+      payload: { transactionId: tx.id, amount: '10000000', reason: 'customer_request' },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(res.body).toContain('ARC_EURC_ADDRESS')
+    expect(await t.prisma.db.refund.count({ where: { transactionId: tx.id } })).toBe(0)
+    expect(await t.prisma.db.webhookEvent.count()).toBe(0)
+  })
+
   it('records tx hash on signature submission', async () => {
     const m = await seedMerchant(t.prisma.db)
     const tx = await seedTransaction(t.prisma.db, m.id)
