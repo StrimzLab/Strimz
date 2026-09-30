@@ -800,9 +800,9 @@ func (s *Store) LinkAgentJobOnchain(ctx context.Context, onchainJobID *big.Int, 
 	tag, err := s.db().Exec(ctx, `
 		UPDATE "AgentJob"
 		   SET "onchainJobId" = $1,
-		       "escrowTxHash" = $2,
 		       status = 'in_progress'::"AgentJobStatus"
-		 WHERE LOWER("vendorAddress") = LOWER($3)
+		 WHERE LOWER("escrowTxHash") = LOWER($2)
+		   AND LOWER("vendorAddress") = LOWER($3)
 		   AND "onchainJobId" IS NULL
 	`, onchainJobID.Int64(), escrowTxHash, vendor)
 	if err != nil {

@@ -187,7 +187,15 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 	// ----- Agent escrow (full lifecycle) -----
 	case indabi.EventJobCreated:
 		ev := payload.(*indabi.JobCreated)
-		_, err = p.store.LinkAgentJobOnchain(ctx, ev.JobID, strings.ToLower(ev.Vendor.Hex()), lg.TxHash.Hex(), blockTime)
+		var linked int64
+		linked, err = p.store.LinkAgentJobOnchain(ctx, ev.JobID, strings.ToLower(ev.Vendor.Hex()), lg.TxHash.Hex(), blockTime)
+		if err == nil && linked == 0 {
+			p.log.Warn("JobCreated matched no funded off-chain job",
+				"onchainJobId", ev.JobID.String(),
+				"client", strings.ToLower(ev.Client.Hex()),
+				"vendor", strings.ToLower(ev.Vendor.Hex()),
+				"txHash", lg.TxHash.Hex())
+		}
 		if err == nil {
 			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.created", map[string]any{
 				"client": strings.ToLower(ev.Client.Hex()),
