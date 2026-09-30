@@ -10,7 +10,7 @@
     "lint": "go vet ./...",
     "typecheck": "go build -o /dev/null ./...",
     "test": "go test ./internal/...",
-    "test:e2e": "go test -tags=e2e -count=1 ./internal/...",
+    "test:e2e": "CGO_ENABLED=0 DOCKER_HOST=${DOCKER_HOST:-unix://${HOME}/.docker/run/docker.sock} go test -tags=e2e -count=1 -timeout=240s ./internal/store/...",
     "clean": "rm -rf bin .turbo"
   }
 }

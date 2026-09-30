@@ -2,7 +2,10 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant, seedSubscription } from '../helpers/fixtures.js'
-import { SubscriptionDueWorker } from '../../src/workers/subscription-due/subscription-due.worker.js'
+import {
+  deriveChargeAttemptId,
+  SubscriptionDueWorker,
+} from '../../src/workers/subscription-due/subscription-due.worker.js'
 import { must } from '../helpers/must.js'
 
 describe('subscription-due worker e2e', () => {
@@ -28,17 +31,75 @@ describe('subscription-due worker e2e', () => {
     const worker = t.app.get(SubscriptionDueWorker)
     const result = await worker.process({ data: { subscriptionId: sub.id } } as never)
     expect(result.txHash).toMatch(/^0x/)
-    expect(result.chargeAttemptId).toMatch(/^0x[0-9a-f]{64}$/)
+    expect(result.chargeAttemptId).toBe(deriveChargeAttemptId(7, sub.currentPeriodEndAt, 0))
 
     const calls = t.chain.callsFor('batchCharge')
     expect(calls).toHaveLength(1)
     expect((must(calls[0]).args[0] as bigint[])[0]).toBe(7n)
+    expect((must(calls[0]).args[1] as string[])[0]).toBe(result.chargeAttemptId)
 
     const updated = await t.prisma.db.subscription.findUniqueOrThrow({ where: { id: sub.id } })
     expect(updated.chargeLock).toBe(false)
   })
 
-  it('skips broadcast when contract reports the attempt id is already used', async () => {
+  it('charges with the next attempt id when the first one is already burned', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const sub = await seedSubscription(t.prisma.db, merchant.id, {
+      onchainSubscriptionId: 7,
+      chargeLock: true,
+    })
+    const first = deriveChargeAttemptId(7, sub.currentPeriodEndAt, 0)
+    const second = deriveChargeAttemptId(7, sub.currentPeriodEndAt, 1)
+    t.chain.attemptUsedAnswers.set(first, true)
+
+    const worker = t.app.get(SubscriptionDueWorker)
+    const result = await worker.process({ data: { subscriptionId: sub.id } } as never)
+
+    expect(second).not.toBe(first)
+    expect(result.chargeAttemptId).toBe(second)
+    const calls = t.chain.callsFor('batchCharge')
+    expect(calls).toHaveLength(1)
+    expect((must(calls[0]).args[1] as string[])[0]).toBe(second)
+  })
+
+  it('skips broadcast when the contract says the charge is not due', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const sub = await seedSubscription(t.prisma.db, merchant.id, {
+      onchainSubscriptionId: 7,
+      chargeLock: true,
+    })
+    t.chain.chargeDueAnswers.set(7n, false)
+
+    const worker = t.app.get(SubscriptionDueWorker)
+    const result = await worker.process({ data: { subscriptionId: sub.id } } as never)
+
+    expect(result).toEqual({ txHash: '0xnotdue', chargeAttemptId: '0x0' })
+    expect(t.chain.callsFor('batchCharge')).toHaveLength(0)
+    const updated = await t.prisma.db.subscription.findUniqueOrThrow({ where: { id: sub.id } })
+    expect(updated.chargeLock).toBe(false)
+  })
+
+  it.each(['cancelled', 'lapsed'] as const)(
+    'skips broadcast for a %s subscription',
+    async (status) => {
+      const merchant = await seedMerchant(t.prisma.db)
+      const sub = await seedSubscription(t.prisma.db, merchant.id, {
+        onchainSubscriptionId: 7,
+        chargeLock: true,
+        status,
+      })
+
+      const worker = t.app.get(SubscriptionDueWorker)
+      const result = await worker.process({ data: { subscriptionId: sub.id } } as never)
+
+      expect(result).toEqual({ txHash: '0x0', chargeAttemptId: '0x0' })
+      expect(t.chain.callsFor('batchCharge')).toHaveLength(0)
+      const updated = await t.prisma.db.subscription.findUniqueOrThrow({ where: { id: sub.id } })
+      expect(updated.chargeLock).toBe(false)
+    },
+  )
+
+  it('skips broadcast when every attempt id for the period is already used', async () => {
     const merchant = await seedMerchant(t.prisma.db)
     const sub = await seedSubscription(t.prisma.db, merchant.id, {
       onchainSubscriptionId: 7,
@@ -49,7 +110,7 @@ describe('subscription-due worker e2e', () => {
     t.chain.attemptUsedDefault = true
     const worker = t.app.get(SubscriptionDueWorker)
     const result = await worker.process({ data: { subscriptionId: sub.id } } as never)
-    expect(result.txHash).toBe('0xused')
+    expect(result).toEqual({ txHash: '0xexhausted', chargeAttemptId: '0x0' })
     expect(t.chain.callsFor('batchCharge')).toHaveLength(0)
 
     const updated = await t.prisma.db.subscription.findUniqueOrThrow({ where: { id: sub.id } })

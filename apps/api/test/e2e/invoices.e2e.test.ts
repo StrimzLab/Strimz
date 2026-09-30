@@ -19,7 +19,7 @@ describe('invoices e2e', () => {
   })
 
   async function authed() {
-    const m = await seedMerchant(t.prisma.db, { onboardingCompleted: true })
+    const m = await seedMerchant(t.prisma.db, { onboardingCompleted: true, onchainMerchantId: 1 })
     const k = await seedApiKey(t.prisma.db, m.id)
     return { m, k }
   }

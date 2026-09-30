@@ -75,6 +75,9 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   process.env.SUBSCRIPTION_SWEEP_LIMIT = '100'
   process.env.SUBSCRIPTION_BATCH_SIZE = '20'
   process.env.RESEND_FROM_EMAIL = 'noreply@strimz.test'
+  process.env.WEBHOOK_SECRET_ENCRYPTION_KEY = 'ab'.repeat(32)
+  process.env.RELAYER_ADDRESS = '0x000000000000000000000000000000000000dEaD'
+  process.env.STRIMZ_ADMIN_ALERT_EMAIL = 'ops@strimz.test'
 
   // eslint-disable-next-line no-console
   console.log(`[scheduler-e2e] postgres at ${dbUrl}`)

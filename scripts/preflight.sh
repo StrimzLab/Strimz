@@ -44,7 +44,7 @@ pnpm exec turbo run typecheck "$TS_ONLY"
 
 echo -e "\n${BLUE}[4/5] Tests...${NC}"
 pnpm exec turbo run test "$TS_ONLY"
-(cd packages/contracts && forge test)
+(cd packages/contracts && forge build && forge test)
 
 if [ "$SKIP_BUILD" = "true" ]; then
   echo -e "\n${BLUE}[5/5] Build (skipped in --fast mode)${NC}"

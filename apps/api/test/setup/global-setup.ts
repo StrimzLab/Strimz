@@ -57,6 +57,12 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   process.env.COMPLIANCE_BLOCK_THRESHOLD = '80'
   process.env.CHECKOUT_ORIGIN = 'http://localhost:3000'
   process.env.CORS_ORIGIN = '*'
+  process.env.WEBHOOK_SECRET_ENCRYPTION_KEY = 'ab'.repeat(32)
+  process.env.STRIMZ_REGISTRY_ADDRESS = '0x0000000000000000000000000000000000000a01'
+  process.env.STRIMZ_PAYMENTS_ADDRESS = '0x0000000000000000000000000000000000000a02'
+  process.env.STRIMZ_SUBSCRIPTIONS_ADDRESS = '0x0000000000000000000000000000000000000a03'
+  process.env.STRIMZ_TOKEN_WHITELIST_ADDRESS = '0x0000000000000000000000000000000000000a04'
+  process.env.ARC_USDC_ADDRESS = '0x3600000000000000000000000000000000000000'
 
   // eslint-disable-next-line no-console
   console.log(`[e2e] postgres ready at ${url}`)

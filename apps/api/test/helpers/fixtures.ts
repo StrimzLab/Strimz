@@ -1,5 +1,5 @@
 import { generateApiKey } from '@strimz/shared-crypto'
-import type { PrismaClient } from '@strimz/db'
+import type { PrismaClient, SubscriptionInterval, SubscriptionStatus } from '@strimz/db'
 import { makePrivyDid } from './stubs/privy.stub.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -22,6 +22,7 @@ export async function seedMerchant(
     twoFactorEnabled: boolean
     payoutAddress: string
     mfa: boolean
+    onchainMerchantId: number
   }> = {},
 ): Promise<SeededMerchant> {
   const email =
@@ -36,6 +37,7 @@ export async function seedMerchant(
       onboardingCompleted: overrides.onboardingCompleted ?? false,
       businessName: overrides.businessName ?? 'Acme Co',
       payoutAddress: overrides.payoutAddress ?? '0x000000000000000000000000000000000000beef',
+      onchainMerchantId: overrides.onchainMerchantId ?? null,
     },
   })
   return {
@@ -151,8 +153,8 @@ export async function seedSubscription(
     planId: string
     customerId: string
     payerAddress: string
-    status: 'active' | 'paused' | 'cancelled' | 'lapsed' | 'completed'
-    interval: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+    status: SubscriptionStatus
+    interval: SubscriptionInterval
     intervalCount: number
     amount: string
     mode: 'test' | 'live'
