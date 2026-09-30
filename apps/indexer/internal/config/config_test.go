@@ -25,6 +25,7 @@ func validConfig() *Config {
 		SubscriptionsAddress: fakeAddr,
 		AgentEscrowAddress:   fakeAddr,
 		FeeCollectorAddress:  fakeAddr,
+		StablecoinAddresses:  []string{"USDC:" + fakeAddr},
 	}
 }
 
@@ -78,8 +79,38 @@ func TestValidate_RejectsMalformedAddresses(t *testing.T) {
 
 func TestValidate_RejectsBadStablecoinAddress(t *testing.T) {
 	c := validConfig()
-	c.StablecoinAddresses = []string{fakeAddr, "not-an-address"}
+	c.StablecoinAddresses = []string{"USDC:" + fakeAddr, "EURC:not-an-address"}
 	_, err := Validate(c)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "STABLECOIN_ADDRESSES[1]")
+}
+
+func TestValidate_ParsesStablecoinSymbols(t *testing.T) {
+	c := validConfig()
+	c.StablecoinAddresses = []string{"USDC:0x3600000000000000000000000000000000000000", " eurc:0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a "}
+	c, err := Validate(c)
+	require.NoError(t, err)
+	assert.Equal(t, []Stablecoin{
+		{Symbol: "USDC", Address: "0x3600000000000000000000000000000000000000"},
+		{Symbol: "EURC", Address: "0x89b50855aa3be2f677cd6303cec089b5f319d72a"},
+	}, c.Stablecoins)
+}
+
+func TestValidate_RejectsStablecoinEntriesThatAreNotSymbolAddressPairs(t *testing.T) {
+	cases := map[string][]string{
+		"bare address":      {fakeAddr},
+		"unknown symbol":    {"USYC:" + fakeAddr},
+		"duplicate symbol":  {"USDC:" + fakeAddr, "USDC:0x0000000000000000000000000000000000000002"},
+		"duplicate address": {"USDC:" + fakeAddr, "EURC:" + fakeAddr},
+		"empty":             {},
+	}
+	for name, entries := range cases {
+		t.Run(name, func(t *testing.T) {
+			c := validConfig()
+			c.StablecoinAddresses = entries
+			_, err := Validate(c)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "STABLECOIN_ADDRESSES")
+		})
+	}
 }
