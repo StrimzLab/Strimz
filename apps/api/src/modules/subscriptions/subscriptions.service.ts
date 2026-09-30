@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import type { CancelSubscriptionInput, Mode, Subscription } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
-import { QueueService, QUEUE_NAMES } from '../../infra/queue/queue.service.js'
+import { QueueService } from '../../infra/queue/queue.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -111,7 +111,8 @@ export class SubscriptionsService {
 
     // Enqueue on-chain cancel — the scheduler / agent worker holds the only
     // signing key the API ever talks to.
-    await this.queue.queue(QUEUE_NAMES.agentAction).add('subscription.cancel-onchain', {
+    await this.queue.addAgentAction({
+      type: 'subscription.cancel-onchain',
       subscriptionId: sub.id,
       onchainSubscriptionId: sub.onchainSubscriptionId,
       merchantId,

@@ -3,6 +3,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedApiKey, seedMerchant, seedSubscription } from '../helpers/fixtures.js'
 import { must } from '../helpers/must.js'
+import { agentActionJobSchema } from '@strimz/queue-contracts'
 
 describe('subscriptions e2e', () => {
   let t: TestApp
@@ -56,6 +57,13 @@ describe('subscriptions e2e', () => {
     const agentJobs = t.queue.jobsFor('strimz.agent.action')
     expect(agentJobs).toHaveLength(1)
     expect(must(agentJobs[0]).name).toBe('subscription.cancel-onchain')
+    expect(agentActionJobSchema.parse(must(agentJobs[0]).data)).toEqual({
+      type: 'subscription.cancel-onchain',
+      subscriptionId: sub.id,
+      onchainSubscriptionId: sub.onchainSubscriptionId,
+      merchantId: m.id,
+      reason: 'merchant initiated',
+    })
 
     // No webhook endpoint registered → no delivery jobs, but the event row exists.
     const events = await t.prisma.db.webhookEvent.findMany()
