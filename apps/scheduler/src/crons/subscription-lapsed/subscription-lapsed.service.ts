@@ -37,35 +37,38 @@ export class SubscriptionLapsedService {
     // Flip at_risk subs past their grace window and write one outbox
     // event per row in the same statement. The outbox dispatcher creates
     // the deliveries.
-    const flipped = (await this.prisma.db.$queryRawUnsafe(`
-      WITH due AS (
-        SELECT id, "merchantId", mode
-          FROM "Subscription"
-         WHERE status = 'at_risk'::"SubscriptionStatus"
-           AND "currentPeriodEndAt" + ("gracePeriodHours" || ' hours')::interval < NOW()
-      )
-      UPDATE "Subscription"
-         SET status = 'lapsed'::"SubscriptionStatus",
-             "updatedAt" = NOW()
-        FROM due
-       WHERE "Subscription".id = due.id
-       RETURNING "Subscription".id,
-                 "Subscription"."merchantId",
-                 "Subscription".mode::text AS mode
-    `)) as Array<{ id: string; merchantId: string; mode: string }>
+    const flipped = await this.prisma.db.$transaction(async (tx) => {
+      const rows = (await tx.$queryRawUnsafe(`
+        WITH due AS (
+          SELECT id, "merchantId", mode
+            FROM "Subscription"
+           WHERE status = 'at_risk'::"SubscriptionStatus"
+             AND "currentPeriodEndAt" + ("gracePeriodHours" || ' hours')::interval < NOW()
+        )
+        UPDATE "Subscription"
+           SET status = 'lapsed'::"SubscriptionStatus",
+               "updatedAt" = NOW()
+          FROM due
+         WHERE "Subscription".id = due.id
+         RETURNING "Subscription".id,
+                   "Subscription"."merchantId",
+                   "Subscription".mode::text AS mode
+      `)) as Array<{ id: string; merchantId: string; mode: string }>
 
-    for (const sub of flipped) {
-      await this.prisma.db.webhookEvent.create({
-        data: {
-          id: `evt_${uuid()}`,
-          merchantId: sub.merchantId,
-          type: 'subscription_lapsed',
-          apiVersion: API_VERSION,
-          mode: sub.mode as 'test' | 'live',
-          payload: { ref: { kind: 'subscription.lapsed', subscriptionId: sub.id } } as never,
-        },
-      })
-    }
+      for (const sub of rows) {
+        await tx.webhookEvent.create({
+          data: {
+            id: `evt_${uuid()}`,
+            merchantId: sub.merchantId,
+            type: 'subscription_lapsed',
+            apiVersion: API_VERSION,
+            mode: sub.mode as 'test' | 'live',
+            payload: { ref: { kind: 'subscription.lapsed', subscriptionId: sub.id } } as never,
+          },
+        })
+      }
+      return rows
+    })
 
     if (flipped.length > 0) this.log.log(`flipped ${flipped.length} subscriptions to lapsed`)
     return { flipped: flipped.length }

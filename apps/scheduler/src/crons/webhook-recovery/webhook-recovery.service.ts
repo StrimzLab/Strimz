@@ -38,7 +38,8 @@ export class WebhookRecoveryService {
       where: {
         status: { in: ['pending', 'retrying'] },
         createdAt: { gt: minCreated },
-        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lt: cutoff } }],
+        endpoint: { status: 'active' },
+        OR: [{ nextAttemptAt: null, createdAt: { lt: cutoff } }, { nextAttemptAt: { lt: cutoff } }],
       },
       take: BATCH,
       include: { endpoint: true },
