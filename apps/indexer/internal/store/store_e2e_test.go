@@ -8,6 +8,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"os"
 	"os/exec"
@@ -494,6 +495,11 @@ func TestE2E_SubscriptionChargeSkip_NonPaymentFailureEmitsNoWebhook(t *testing.T
 	})
 	require.NoError(t, err)
 
+	var evtCountBefore int
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM "WebhookEvent" WHERE "merchantId"='m_skip'`,
+	).Scan(&evtCountBefore))
+
 	// A NotDue sweep is scheduler noise: audit row, no webhook, no at_risk.
 	rows, err := s.InsertSubscriptionChargeSkip(ctx, SubscriptionChargeSkippedInput{
 		OnchainSubscriptionID: big.NewInt(3),
@@ -509,13 +515,121 @@ func TestE2E_SubscriptionChargeSkip_NonPaymentFailureEmitsNoWebhook(t *testing.T
 	require.NoError(t, s.pool.QueryRow(ctx,
 		`SELECT count(*) FROM "WebhookEvent" WHERE "merchantId"='m_skip'`,
 	).Scan(&evtCount))
-	assert.Equal(t, 0, evtCount)
+	assert.Equal(t, evtCountBefore, evtCount)
 
 	var status string
 	require.NoError(t, s.pool.QueryRow(ctx,
 		`SELECT status::text FROM "Subscription" WHERE "onchainSubscriptionId"=3`,
 	).Scan(&status))
 	assert.NotEqual(t, "at_risk", status)
+}
+
+func TestE2E_SubscriptionChargeSkip_PaymentFailureAfterPaidCycles(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_cycle", "cycle@x.io", "0x000000000000000000000000000000000000fe02", big.NewInt(403))
+
+	interval := 30 * 24 * time.Hour
+	start := time.Now().Add(-2 * interval).UTC().Truncate(time.Second)
+	subID := big.NewInt(4)
+
+	_, err := s.UpsertSubscriptionFromOnchain(ctx, SubscriptionCreatedInput{
+		OnchainSubscriptionID: subID,
+		MerchantOnchainID:     big.NewInt(403),
+		PayerAddress:          "0x000000000000000000000000000000000000aa33",
+		Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
+		StartAt:            start,
+		CurrentPeriodEndAt: start.Add(interval),
+		NextChargeAt:       start,
+		OnchainTxHash:      "0x" + repeatStr("4", 64),
+		Mode:               "live",
+	})
+	require.NoError(t, err)
+
+	charge := func(attempt int, at time.Time) {
+		t.Helper()
+		rows, err := s.InsertSubscriptionCharge(ctx, SubscriptionChargedInput{
+			OnchainSubscriptionID: subID,
+			ChargeAttemptID:       fmt.Sprintf("0x%064x", attempt),
+			Amount:                "20000000",
+			FeeAmount:             "300000",
+			NetAmount:             "19700000",
+			NextChargeAt:          at.Add(interval),
+			OnchainTxHash:         fmt.Sprintf("0x%064x", 0x5000+attempt),
+			BlockNumber:           uint64(2000 + attempt),
+			BlockTimestamp:        at,
+			LogIndex:              0,
+			Mode:                  "live",
+		})
+		require.NoError(t, err)
+		require.Equal(t, int64(1), rows)
+	}
+	fail := func(attempt int, at time.Time) int64 {
+		t.Helper()
+		rows, err := s.InsertSubscriptionChargeSkip(ctx, SubscriptionChargeSkippedInput{
+			OnchainSubscriptionID: subID,
+			ChargeAttemptID:       fmt.Sprintf("0x%064x", attempt),
+			Outcome:               "insufficient_funds",
+			IsPaymentFailure:      true,
+			BlockTimestamp:        at,
+		})
+		require.NoError(t, err)
+		return rows
+	}
+	type subState struct {
+		status      string
+		retryCount  int
+		nextRetryAt *time.Time
+	}
+	read := func() subState {
+		t.Helper()
+		var st subState
+		require.NoError(t, s.pool.QueryRow(ctx,
+			`SELECT status::text, "retryCount", "nextRetryAt" FROM "Subscription" WHERE "onchainSubscriptionId"=4`,
+		).Scan(&st.status, &st.retryCount, &st.nextRetryAt))
+		return st
+	}
+	count := func(query string) int {
+		t.Helper()
+		var n int
+		require.NoError(t, s.pool.QueryRow(ctx, query).Scan(&n))
+		return n
+	}
+
+	charge(1, start)
+	charge(2, start.Add(interval))
+	require.Equal(t, "active", read().status)
+
+	firstFailure := start.Add(2 * interval)
+	assert.Equal(t, int64(1), fail(3, firstFailure))
+	st := read()
+	assert.Equal(t, "at_risk", st.status)
+	assert.Equal(t, 1, st.retryCount)
+	require.NotNil(t, st.nextRetryAt)
+	assert.WithinDuration(t, firstFailure.Add(15*time.Minute), *st.nextRetryAt, time.Second)
+
+	assert.Equal(t, int64(0), fail(3, firstFailure))
+	replayed := read()
+	assert.Equal(t, "at_risk", replayed.status)
+	assert.Equal(t, 1, replayed.retryCount)
+	require.NotNil(t, replayed.nextRetryAt)
+	assert.WithinDuration(t, firstFailure.Add(15*time.Minute), *replayed.nextRetryAt, time.Second)
+	assert.Equal(t, 1, count(`SELECT count(*) FROM "SubscriptionCharge" WHERE "merchantId"='m_cycle' AND status='failed'`))
+	assert.Equal(t, 1, count(`SELECT count(*) FROM "WebhookEvent" WHERE "merchantId"='m_cycle' AND type='subscription_charge_failed'`))
+
+	secondFailure := firstFailure.Add(15 * time.Minute)
+	assert.Equal(t, int64(1), fail(4, secondFailure))
+	st = read()
+	assert.Equal(t, "at_risk", st.status)
+	assert.Equal(t, 2, st.retryCount)
+	require.NotNil(t, st.nextRetryAt)
+	assert.WithinDuration(t, secondFailure.Add(time.Hour), *st.nextRetryAt, time.Second)
+
+	charge(5, secondFailure.Add(time.Hour))
+	st = read()
+	assert.Equal(t, "active", st.status)
+	assert.Equal(t, 0, st.retryCount)
+	assert.Nil(t, st.nextRetryAt)
 }
 
 func TestE2E_SubscriptionCharged_OutOfOrderEventDoesntFail(t *testing.T) {
