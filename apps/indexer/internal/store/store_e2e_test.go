@@ -1011,10 +1011,10 @@ func TestE2E_AgentJobLifecycle_FromCreatedToCompleted(t *testing.T) {
 	// Off-chain pre-creates the job (mimicking the API).
 	mustExec(t, s, ctx, `
 		INSERT INTO "AgentJob" ("id", "merchantId", "vendorAddress", description, amount, currency,
-		  status, "assessorAddress", "createdAt")
+		  status, "assessorAddress", "escrowTxHash", "createdAt")
 		VALUES ('job_1', 'm_agent', '0x000000000000000000000000000000000000bbcc', 'spec', '50000000',
-		  'USDC', 'accepted', '0x000000000000000000000000000000000000aaaa', NOW())
-	`)
+		  'USDC', 'in_progress', '0x000000000000000000000000000000000000aaaa', $1, NOW())
+	`, "0x"+repeatStr("a", 64))
 
 	// JobCreated → links onchainJobId and flips to in_progress.
 	rows, err := s.LinkAgentJobOnchain(ctx, big.NewInt(7), "0x000000000000000000000000000000000000bbcc",
@@ -1072,6 +1072,75 @@ func TestE2E_AgentJobLifecycle_FromCreatedToCompleted(t *testing.T) {
 	var activityCount int
 	require.NoError(t, s.pool.QueryRow(ctx, `SELECT count(*) FROM "AuditLog" WHERE "targetType"='AgentJob' AND "targetId"='job_1'`).Scan(&activityCount))
 	assert.Equal(t, 4, activityCount)
+}
+
+func seedPendingAgentJob(t *testing.T, s *Store, id, vendor, escrowTxHash string) {
+	t.Helper()
+	mustExec(t, s, context.Background(), `
+		INSERT INTO "AgentJob" ("id", "merchantId", "vendorAddress", description, amount, currency,
+		  status, "assessorAddress", "escrowTxHash", "createdAt")
+		VALUES ($1, 'm_agent', $2, 'spec', '50000000', 'USDC', 'in_progress',
+		  '0x000000000000000000000000000000000000aaaa', NULLIF($3, ''), NOW())
+	`, id, vendor, escrowTxHash)
+}
+
+func readAgentJobLink(t *testing.T, s *Store, id string) (onchainJobID *int64, status string) {
+	t.Helper()
+	require.NoError(t, s.pool.QueryRow(context.Background(),
+		`SELECT "onchainJobId", status::text FROM "AgentJob" WHERE id=$1`, id,
+	).Scan(&onchainJobID, &status))
+	return onchainJobID, status
+}
+
+func TestE2E_LinkAgentJobOnchain_MatchesTheFundingTransaction(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_agent", "agent@x.io", "0x000000000000000000000000000000000000ab01", big.NewInt(500))
+	vendor := "0x000000000000000000000000000000000000bbcc"
+	txA := "0x" + repeatStr("1", 64)
+	txB := "0x" + repeatStr("2", 64)
+	seedPendingAgentJob(t, s, "job_a", vendor, txA)
+	seedPendingAgentJob(t, s, "job_b", vendor, txB)
+
+	rows, err := s.LinkAgentJobOnchain(ctx, big.NewInt(22), vendor, txB, time.Now().UTC())
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), rows)
+
+	idA, _ := readAgentJobLink(t, s, "job_a")
+	idB, _ := readAgentJobLink(t, s, "job_b")
+	assert.Nil(t, idA)
+	require.NotNil(t, idB)
+	assert.Equal(t, int64(22), *idB)
+
+	rows, err = s.LinkAgentJobOnchain(ctx, big.NewInt(21), vendor, txA, time.Now().UTC())
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), rows)
+	idA, _ = readAgentJobLink(t, s, "job_a")
+	require.NotNil(t, idA)
+	assert.Equal(t, int64(21), *idA)
+
+	rows, err = s.LinkAgentJobOnchain(ctx, big.NewInt(22), vendor, txB, time.Now().UTC())
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), rows)
+}
+
+func TestE2E_LinkAgentJobOnchain_IgnoresJobsStrimzDidNotFund(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_agent", "agent@x.io", "0x000000000000000000000000000000000000ab01", big.NewInt(500))
+	vendor := "0x000000000000000000000000000000000000bbcc"
+	seedPendingAgentJob(t, s, "job_ours", vendor, "0x"+repeatStr("3", 64))
+	seedPendingAgentJob(t, s, "job_unfunded", vendor, "")
+
+	rows, err := s.LinkAgentJobOnchain(ctx, big.NewInt(99), vendor, "0x"+repeatStr("f", 64), time.Now().UTC())
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), rows)
+
+	for _, id := range []string{"job_ours", "job_unfunded"} {
+		onchainID, status := readAgentJobLink(t, s, id)
+		assert.Nil(t, onchainID, id)
+		assert.Equal(t, "in_progress", status, id)
+	}
 }
 
 func TestE2E_AgentJobDisputed_TransitionsAndLogsReason(t *testing.T) {
