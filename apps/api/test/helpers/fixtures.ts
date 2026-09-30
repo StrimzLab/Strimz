@@ -1,5 +1,10 @@
 import { generateApiKey } from '@strimz/shared-crypto'
-import type { PrismaClient, SubscriptionInterval, SubscriptionStatus } from '@strimz/db'
+import type {
+  PaymentSessionStatus,
+  PrismaClient,
+  SubscriptionInterval,
+  SubscriptionStatus,
+} from '@strimz/db'
 import { makePrivyDid } from './stubs/privy.stub.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -123,6 +128,7 @@ export function seedTransaction(
     mode: 'test' | 'live'
     blockTimestamp: Date
     merchantAddress: string
+    currency: 'USDC' | 'EURC'
   }> = {},
 ) {
   return prisma.transaction.create({
@@ -132,7 +138,7 @@ export function seedTransaction(
       amount: overrides.amount ?? '100000000', // 100 USDC (6dp)
       netAmount: overrides.netAmount ?? '98500000',
       feeAmount: '1500000',
-      currency: 'USDC',
+      currency: overrides.currency ?? 'USDC',
       payerAddress: overrides.payerAddress ?? '0x' + 'b'.repeat(40),
       merchantAddress: overrides.merchantAddress ?? '0x000000000000000000000000000000000000beef',
       onchainTxHash: '0x' + Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64),
@@ -199,6 +205,30 @@ export async function seedSubscription(
       currentPeriodStartAt: now,
       currentPeriodEndAt: new Date(now.getTime() + 30 * 86_400_000),
       nextChargeAt: new Date(now.getTime() + 30 * 86_400_000),
+    },
+  })
+}
+
+export function seedPaymentSession(
+  prisma: PrismaClient,
+  merchantId: string,
+  overrides: Partial<{
+    status: PaymentSessionStatus
+    mode: 'test' | 'live'
+    amount: string
+  }> = {},
+) {
+  return prisma.paymentSession.create({
+    data: {
+      merchantId,
+      status: overrides.status ?? 'created',
+      amount: overrides.amount ?? '100000000',
+      currency: 'USDC',
+      feeAmount: '1500000',
+      netAmount: '98500000',
+      checkoutUrl: 'https://checkout.strimz.test/pay/x',
+      mode: overrides.mode ?? 'test',
+      expiresAt: new Date(Date.now() + 30 * 60_000),
     },
   })
 }

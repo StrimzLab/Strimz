@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { effectiveFeeBps } from '@strimz/shared-config'
 import type {
   CreatePaymentSessionInput,
@@ -6,6 +6,7 @@ import type {
   PaymentCurrency,
   PaymentSession,
 } from '@strimz/shared-types'
+import type { PaymentSessionStatus } from '@strimz/db'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { MerchantChainService } from '../merchants/merchant-chain.service.js'
@@ -18,6 +19,8 @@ import { tokenAddressForCurrency } from './token-resolver.js'
  * round-trip; cheaper to denormalise here.
  */
 const WITH_MERCHANT = { include: { merchant: { select: { onchainMerchantId: true } } } } as const
+
+const OPEN_SESSION_STATUSES: PaymentSessionStatus[] = ['created', 'awaiting_payment']
 
 @Injectable()
 export class PaymentSessionsService {
@@ -126,24 +129,36 @@ export class PaymentSessionsService {
     })
   }
 
-  async cancel(merchantId: string, mode: Mode, id: string): Promise<PaymentSession> {
-    await this.retrieve(merchantId, mode, id)
-    const updated = await this.prisma.db.paymentSession.update({
-      where: { id },
-      data: { status: 'cancelled' },
-      ...WITH_MERCHANT,
-    })
-    return this.serialise(updated)
+  cancel(merchantId: string, mode: Mode, id: string): Promise<PaymentSession> {
+    return this.close(merchantId, mode, id, 'cancelled')
   }
 
-  async expire(merchantId: string, mode: Mode, id: string): Promise<PaymentSession> {
-    await this.retrieve(merchantId, mode, id)
-    const updated = await this.prisma.db.paymentSession.update({
-      where: { id },
-      data: { status: 'expired' },
+  expire(merchantId: string, mode: Mode, id: string): Promise<PaymentSession> {
+    return this.close(merchantId, mode, id, 'expired')
+  }
+
+  private async close(
+    merchantId: string,
+    mode: Mode,
+    id: string,
+    to: 'cancelled' | 'expired',
+  ): Promise<PaymentSession> {
+    const { count } = await this.prisma.db.paymentSession.updateMany({
+      where: { id, merchantId, mode, status: { in: OPEN_SESSION_STATUSES } },
+      data: { status: to },
+    })
+    const row = await this.prisma.db.paymentSession.findFirst({
+      where: { id, merchantId, mode },
       ...WITH_MERCHANT,
     })
-    return this.serialise(updated)
+    if (!row) throw new NotFoundException({ code: 'not_found', message: 'session not found' })
+    if (count === 0) {
+      throw new ForbiddenException({
+        code: 'session_invalid_state',
+        message: `cannot mark a session in status ${row.status} as ${to}`,
+      })
+    }
+    return this.serialise(row)
   }
 
   async list(

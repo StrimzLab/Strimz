@@ -6,7 +6,9 @@ import { Copy, Download, ExternalLink, Loader2, MoreHorizontal, PenLine, Plus } 
 import type { ColumnDef } from '@tanstack/react-table'
 import { encodeFunctionData, erc20Abi, isAddress, parseUnits } from 'viem'
 import { toast } from 'sonner'
+import { getTokenAddress } from '@strimz/shared-config'
 import { env } from '@/lib/env'
+import { browserRefundBroadcastMemory } from '@/lib/refund-broadcast'
 import {
   Button,
   Dialog,
@@ -108,26 +110,39 @@ function useRefundSigner() {
         toast.error('Invalid signing instructions — refund not sent.')
         return null
       }
+      const memory = browserRefundBroadcastMemory()
+      if (!memory) {
+        toast.warning(
+          'Browser storage is unavailable. If submitting fails after you sign, do not sign again.',
+        )
+      }
       setBroadcasting(true)
       try {
-        const data = encodeFunctionData({
-          abi: erc20Abi,
-          functionName: 'transfer',
-          args: [instructions.to as `0x${string}`, BigInt(instructions.amount)],
-        })
-        const provider = await embedded.getEthereumProvider()
-        const hash = (await provider.request({
-          method: 'eth_sendTransaction',
-          params: [
-            {
-              from: embedded.address as `0x${string}`,
-              to: instructions.token,
-              data,
-              value: '0x0',
-            },
-          ],
-        })) as `0x${string}`
+        let hash = memory?.pending(refundId) ?? null
+        if (hash) {
+          toast.info('A transfer for this refund was already sent. Submitting its hash again.')
+        } else {
+          const data = encodeFunctionData({
+            abi: erc20Abi,
+            functionName: 'transfer',
+            args: [instructions.to as `0x${string}`, BigInt(instructions.amount)],
+          })
+          const provider = await embedded.getEthereumProvider()
+          hash = (await provider.request({
+            method: 'eth_sendTransaction',
+            params: [
+              {
+                from: embedded.address as `0x${string}`,
+                to: instructions.token,
+                data,
+                value: '0x0',
+              },
+            ],
+          })) as `0x${string}`
+          memory?.remember(refundId, hash)
+        }
         await submit.mutateAsync({ id: refundId, refundTxHash: hash })
+        memory?.forget(refundId)
         return hash
       } finally {
         setBroadcasting(false)
@@ -158,11 +173,7 @@ export default function RefundsPage() {
       // from the refund + transaction fields. Amount is on the refund;
       // the token address must come from currency + mode via a small
       // client-side lookup.
-      const tokenAddress = tokenAddressForCurrency(refund.currency)
-      if (!tokenAddress) {
-        toast.error(`No token address configured for ${refund.currency}.`)
-        return
-      }
+      const tokenAddress = getTokenAddress(env.arcEnvironment, refund.currency)
       setSigningId(refund.id)
       try {
         await signRefund({
@@ -570,12 +581,6 @@ function NewRefundDialog({
       </DialogContent>
     </Dialog>
   )
-}
-
-function tokenAddressForCurrency(currency: 'USDC' | 'EURC'): `0x${string}` | null {
-  const raw = currency === 'USDC' ? env.usdcAddress : process.env.NEXT_PUBLIC_STRIMZ_EURC_ADDRESS
-  if (!raw || !isAddress(raw)) return null
-  return raw as `0x${string}`
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
