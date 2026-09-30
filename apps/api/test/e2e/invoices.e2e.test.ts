@@ -138,4 +138,22 @@ describe('invoices e2e', () => {
     })
     expect(v2.statusCode).toBe(403)
   })
+  it('gives concurrent invoices distinct sequential numbers', async () => {
+    const { k } = await authed()
+    const create = () =>
+      t.inject({
+        method: 'POST',
+        url: '/v1/invoices',
+        headers: { authorization: `Bearer ${k.secretKey}` },
+        payload: {
+          currency: 'USDC',
+          lineItems: [{ description: 'X', quantity: 1, unitAmount: '50000000' }],
+        },
+      })
+    const responses = await Promise.all([create(), create(), create()])
+    expect(responses.map((r) => r.statusCode)).toEqual([201, 201, 201])
+    const numbers = responses.map((r) => JSON.parse(r.body).number as string).sort()
+    const year = new Date().getFullYear()
+    expect(numbers).toEqual([`${year}-0001`, `${year}-0002`, `${year}-0003`])
+  })
 })

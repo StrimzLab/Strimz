@@ -1,5 +1,10 @@
 import { generateApiKey } from '@strimz/shared-crypto'
-import type { PrismaClient, SubscriptionInterval, SubscriptionStatus } from '@strimz/db'
+import type {
+  PaymentSessionStatus,
+  PrismaClient,
+  SubscriptionInterval,
+  SubscriptionStatus,
+} from '@strimz/db'
 import { makePrivyDid } from './stubs/privy.stub.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -200,6 +205,30 @@ export async function seedSubscription(
       currentPeriodStartAt: now,
       currentPeriodEndAt: new Date(now.getTime() + 30 * 86_400_000),
       nextChargeAt: new Date(now.getTime() + 30 * 86_400_000),
+    },
+  })
+}
+
+export function seedPaymentSession(
+  prisma: PrismaClient,
+  merchantId: string,
+  overrides: Partial<{
+    status: PaymentSessionStatus
+    mode: 'test' | 'live'
+    amount: string
+  }> = {},
+) {
+  return prisma.paymentSession.create({
+    data: {
+      merchantId,
+      status: overrides.status ?? 'created',
+      amount: overrides.amount ?? '100000000',
+      currency: 'USDC',
+      feeAmount: '1500000',
+      netAmount: '98500000',
+      checkoutUrl: 'https://checkout.strimz.test/pay/x',
+      mode: overrides.mode ?? 'test',
+      expiresAt: new Date(Date.now() + 30 * 60_000),
     },
   })
 }
