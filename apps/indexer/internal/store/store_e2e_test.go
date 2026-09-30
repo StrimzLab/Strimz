@@ -79,6 +79,7 @@ func startTestPostgres(t *testing.T) *Store {
 			_ = pg.Terminate(ctx)
 		}
 	})
+	require.NoError(t, truncateMost(context.Background(), sharedStore))
 	t.Cleanup(func() {
 		if t.Failed() {
 			return
@@ -365,6 +366,137 @@ func TestE2E_InsertOneShotTransaction_LinksSessionAndConfirms(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), rows)
+}
+
+func seedPaymentSession(t *testing.T, s *Store, id, merchantID, amount, currency, mode string) {
+	t.Helper()
+	mustExec(t, s, context.Background(), `
+		INSERT INTO "PaymentSession" ("id", "merchantId", amount, currency, "feeAmount", "netAmount",
+		  description, "checkoutUrl", mode, "expiresAt", "createdAt", "updatedAt")
+		VALUES ($1, $2, $3, $4::"PaymentCurrency", '1500', '98500', 'test', 'https://x', $5::"Mode", NOW() + INTERVAL '1 hour', NOW(), NOW())
+	`, id, merchantID, amount, currency, mode)
+}
+
+func oneShotInput(merchantOnchainID int64, sessionRef, txHash string) OneShotTxInput {
+	return OneShotTxInput{
+		MerchantOnchainID: big.NewInt(merchantOnchainID),
+		PayerAddress:      "0x000000000000000000000000000000000000bbbb",
+		Amount:            "100000",
+		FeeAmount:         "1500",
+		NetAmount:         "98500",
+		Currency:          "USDC",
+		SessionRef:        sessionRef,
+		OnchainTxHash:     txHash,
+		BlockNumber:       1000,
+		BlockTimestamp:    time.Now().UTC(),
+		LogIndex:          0,
+		Mode:              "live",
+	}
+}
+
+type oneShotOutcome struct {
+	sessionStatus     string
+	sessionTxHash     *string
+	linkedTxCount     int
+	unlinkedTxCount   int
+	completedEvents   int
+	mismatchAuditRows int
+}
+
+func readOneShotOutcome(t *testing.T, s *Store, sessionID string) oneShotOutcome {
+	t.Helper()
+	ctx := context.Background()
+	var o oneShotOutcome
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT status::text, "onchainTxHash" FROM "PaymentSession" WHERE id=$1`, sessionID,
+	).Scan(&o.sessionStatus, &o.sessionTxHash))
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM "Transaction" WHERE "sessionId"=$1`, sessionID,
+	).Scan(&o.linkedTxCount))
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM "Transaction" WHERE kind='one_shot' AND "sessionId" IS NULL`,
+	).Scan(&o.unlinkedTxCount))
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM "WebhookEvent" WHERE type='payment_completed'`,
+	).Scan(&o.completedEvents))
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM "AuditLog" WHERE action='payment.session_mismatch' AND "targetId"=$1`, sessionID,
+	).Scan(&o.mismatchAuditRows))
+	return o
+}
+
+func TestE2E_InsertOneShotTransaction_RejectsPaymentsThatDoNotMatchTheSession(t *testing.T) {
+	cases := []struct {
+		name   string
+		mutate func(in *OneShotTxInput)
+		reason string
+	}{
+		{"amount", func(in *OneShotTxInput) { in.Amount = "1"; in.FeeAmount = "0"; in.NetAmount = "1" }, "amount"},
+		{"currency", func(in *OneShotTxInput) { in.Currency = "EURC" }, "currency"},
+		{"mode", func(in *OneShotTxInput) { in.Mode = "test" }, "mode"},
+		{"merchant", func(in *OneShotTxInput) { in.MerchantOnchainID = big.NewInt(302) }, "merchant"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := startTestPostgres(t)
+			ctx := context.Background()
+			seedMerchantOnchain(t, s, "m_pay", "pay@x.io", "0x000000000000000000000000000000000000d00d", big.NewInt(301))
+			seedMerchantOnchain(t, s, "m_other", "other@x.io", "0x000000000000000000000000000000000000d00e", big.NewInt(302))
+			sessionID := "sess_" + tc.name
+			seedPaymentSession(t, s, sessionID, "m_pay", "100000", "USDC", "live")
+
+			in := oneShotInput(301, sessionID, "0x"+repeatStr("a", 64))
+			tc.mutate(&in)
+			rows, err := s.InsertOneShotTransaction(ctx, in)
+			require.NoError(t, err)
+			assert.Equal(t, int64(1), rows)
+
+			o := readOneShotOutcome(t, s, sessionID)
+			assert.Equal(t, "created", o.sessionStatus)
+			assert.Nil(t, o.sessionTxHash)
+			assert.Equal(t, 0, o.linkedTxCount)
+			assert.Equal(t, 1, o.unlinkedTxCount)
+			assert.Equal(t, 0, o.completedEvents)
+			assert.Equal(t, 1, o.mismatchAuditRows)
+
+			var reasons string
+			require.NoError(t, s.pool.QueryRow(ctx,
+				`SELECT metadata->>'reasons' FROM "AuditLog" WHERE action='payment.session_mismatch' AND "targetId"=$1`, sessionID,
+			).Scan(&reasons))
+			assert.Contains(t, reasons, tc.reason)
+
+			rows, err = s.InsertOneShotTransaction(ctx, in)
+			require.NoError(t, err)
+			assert.Equal(t, int64(0), rows)
+			assert.Equal(t, 1, readOneShotOutcome(t, s, sessionID).mismatchAuditRows)
+		})
+	}
+}
+
+func TestE2E_InsertOneShotTransaction_SecondPaymentForConfirmedSessionDoesNotWedge(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_pay", "pay@x.io", "0x000000000000000000000000000000000000d00d", big.NewInt(301))
+	sessionID := "sess_twice"
+	seedPaymentSession(t, s, sessionID, "m_pay", "100000", "USDC", "live")
+
+	first := "0x" + repeatStr("1", 64)
+	rows, err := s.InsertOneShotTransaction(ctx, oneShotInput(301, sessionID, first))
+	require.NoError(t, err)
+	require.Equal(t, int64(1), rows)
+
+	rows, err = s.InsertOneShotTransaction(ctx, oneShotInput(301, sessionID, "0x"+repeatStr("2", 64)))
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), rows)
+
+	o := readOneShotOutcome(t, s, sessionID)
+	assert.Equal(t, "confirmed", o.sessionStatus)
+	require.NotNil(t, o.sessionTxHash)
+	assert.Equal(t, first, *o.sessionTxHash)
+	assert.Equal(t, 1, o.linkedTxCount)
+	assert.Equal(t, 1, o.unlinkedTxCount)
+	assert.Equal(t, 1, o.completedEvents)
+	assert.Equal(t, 1, o.mismatchAuditRows)
 }
 
 // ===== Subscriptions =====

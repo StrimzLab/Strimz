@@ -135,13 +135,18 @@ type OneShotTxInput struct {
 func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput) (int64, error) {
 	var rows int64
 	err := s.inTx(ctx, func(tx pgxTxLike) error {
-		var sessionID *string
+		var session *paymentSessionRow
 		if in.SessionRef != "" {
-			var maybeID string
-			err := tx.QueryRow(ctx, `SELECT id FROM "PaymentSession" WHERE id = $1`, in.SessionRef).Scan(&maybeID)
+			var row paymentSessionRow
+			err := tx.QueryRow(ctx, `
+				SELECT p.id, p."merchantId", p.amount, p.currency::text, p.mode::text, p.status::text,
+				       EXISTS (SELECT 1 FROM "Transaction" t WHERE t."sessionId" = p.id)
+				  FROM "PaymentSession" p
+				 WHERE p.id = $1
+			`, in.SessionRef).Scan(&row.id, &row.merchantID, &row.amount, &row.currency, &row.mode, &row.status, &row.hasTransaction)
 			switch {
 			case err == nil:
-				sessionID = &maybeID
+				session = &row
 			case errors.Is(err, pgx.ErrNoRows):
 				// No session with this ref. Legitimate for direct contract
 				// calls that bypass hosted checkout; the tx row still lands.
@@ -170,6 +175,15 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 		merchantAddr := in.MerchantAddress
 		if merchantAddr == "" {
 			merchantAddr = merchantPayout
+		}
+
+		var sessionID *string
+		var mismatches []string
+		if session != nil {
+			mismatches = session.mismatches(merchantID, in)
+			if len(mismatches) == 0 {
+				sessionID = &session.id
+			}
 		}
 
 		var txID string
@@ -205,6 +219,36 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 			return fmt.Errorf("insert transaction: %w", err)
 		}
 		rows = 1
+
+		if session != nil && len(mismatches) > 0 {
+			err := insertAuditInTx(ctx, tx, merchantID, auditEntry{
+				Category:   "payment",
+				Action:     "payment.session_mismatch",
+				TargetType: "PaymentSession",
+				TargetID:   session.id,
+				Metadata: map[string]any{
+					"reasons":         mismatches,
+					"transactionId":   txID,
+					"transactionHash": in.OnchainTxHash,
+					"paid": map[string]any{
+						"merchantId": merchantID,
+						"amount":     in.Amount,
+						"currency":   in.Currency,
+						"mode":       in.Mode,
+					},
+					"session": map[string]any{
+						"merchantId": session.merchantID,
+						"amount":     session.amount,
+						"currency":   session.currency,
+						"mode":       session.mode,
+						"status":     session.status,
+					},
+				},
+			})
+			if err != nil {
+				return fmt.Errorf("record session mismatch: %w", err)
+			}
+		}
 
 		if sessionID != nil {
 			// Confirm the session and set payerWalletAddress (NULL until
@@ -248,6 +292,42 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 		return nil
 	})
 	return rows, err
+}
+
+type paymentSessionRow struct {
+	id             string
+	merchantID     string
+	amount         string
+	currency       string
+	mode           string
+	status         string
+	hasTransaction bool
+}
+
+func (p *paymentSessionRow) mismatches(paidMerchantID string, in OneShotTxInput) []string {
+	var reasons []string
+	if p.merchantID != paidMerchantID {
+		reasons = append(reasons, "merchant")
+	}
+	if !sameAmount(p.amount, in.Amount) {
+		reasons = append(reasons, "amount")
+	}
+	if p.currency != in.Currency {
+		reasons = append(reasons, "currency")
+	}
+	if p.mode != in.Mode {
+		reasons = append(reasons, "mode")
+	}
+	if p.status == "confirmed" || p.hasTransaction {
+		reasons = append(reasons, "already_paid")
+	}
+	return reasons
+}
+
+func sameAmount(a, b string) bool {
+	x, okA := new(big.Int).SetString(a, 10)
+	y, okB := new(big.Int).SetString(b, 10)
+	return okA && okB && x.Cmp(y) == 0
 }
 
 // insertOutboxEvent writes an undispatched WebhookEvent carrying only
