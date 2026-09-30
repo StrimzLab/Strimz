@@ -603,7 +603,7 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 		// Gated on IsPaymentFailure: a NotDue from an early sweep, or a
 		// Duplicate from the indexer lagging a confirmed charge, must
 		// not downgrade a healthy payer or delay their next attempt.
-		if !in.IsPaymentFailure {
+		if !isNewCharge || !in.IsPaymentFailure {
 			return nil
 		}
 		if _, err := tx.Exec(ctx, `
@@ -615,7 +615,7 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 			       -- transactions across a 48h grace window for one
 			       -- broke payer. This spends ~6. Computed here so the
 			       -- schedule and the counter stay atomic.
-			       "nextRetryAt" = $4::timestamptz + (CASE
+			       "nextRetryAt" = $2::timestamptz + (CASE
 			         WHEN "retryCount" + 1 <= 1 THEN INTERVAL '15 minutes'
 			         WHEN "retryCount" + 1 = 2 THEN INTERVAL '1 hour'
 			         WHEN "retryCount" + 1 = 3 THEN INTERVAL '3 hours'
@@ -626,14 +626,7 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 			       "updatedAt" = NOW()
 			 WHERE id = $1
 			   AND status IN ('active'::"SubscriptionStatus", 'at_risk'::"SubscriptionStatus")
-			   AND NOT EXISTS (
-			     SELECT 1 FROM "SubscriptionCharge"
-			      WHERE "subscriptionId" = $1
-			        AND "periodStartAt" = $2
-			        AND "periodEndAt" = $3
-			        AND status = 'succeeded'::"SubscriptionChargeStatus"
-			   )
-		`, subID, periodStart, periodEnd, in.BlockTimestamp); err != nil {
+		`, subID, in.BlockTimestamp); err != nil {
 			return fmt.Errorf("flag at_risk: %w", err)
 		}
 		return nil
