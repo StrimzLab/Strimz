@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common'
 import { BullModule } from '@nestjs/bullmq'
 import { TypedConfigService } from '../../config/index.js'
-import { QUEUE_NAMES } from './queue-names.js'
+import { QUEUE_NAMES } from '@strimz/queue-contracts'
 
 /**
  * Wires up BullMQ with our shared Redis URL. The actual worker classes

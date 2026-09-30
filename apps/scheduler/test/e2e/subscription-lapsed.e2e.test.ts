@@ -6,7 +6,7 @@ import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant, seedSubscription, seedWebhookEndpoint } from '../helpers/fixtures.js'
 import { SubscriptionLapsedService } from '../../src/crons/subscription-lapsed/subscription-lapsed.service.js'
 import { WebhookOutboxService } from '../../src/infra/webhook-outbox/webhook-outbox.service.js'
-import { QUEUE_NAMES } from '../../src/infra/queue/queue-names.js'
+import { QUEUE_NAMES } from '@strimz/queue-contracts'
 import { must } from '../helpers/must.js'
 
 describe('subscription-lapsed cron e2e', () => {

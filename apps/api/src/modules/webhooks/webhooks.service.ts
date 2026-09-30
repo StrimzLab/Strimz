@@ -9,7 +9,7 @@ import type {
 } from '@strimz/shared-types'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
-import { QueueService, QUEUE_NAMES } from '../../infra/queue/queue.service.js'
+import { QueueService } from '../../infra/queue/queue.service.js'
 import { RedisService } from '../../infra/redis/redis.service.js'
 import { isPrivateOrLoopback } from './ssrf-guard.js'
 
@@ -230,7 +230,7 @@ export class WebhooksService {
       },
     })
 
-    await this.queue.queue(QUEUE_NAMES.webhookDelivery).add('deliver', {
+    await this.queue.addWebhookDelivery({
       deliveryId: reset.deliveryId,
       endpointId: endpoint.id,
       url: endpoint.url,

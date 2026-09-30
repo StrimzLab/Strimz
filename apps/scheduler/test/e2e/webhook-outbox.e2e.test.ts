@@ -5,7 +5,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant, seedSubscription, seedWebhookEndpoint } from '../helpers/fixtures.js'
 import { WebhookOutboxService } from '../../src/infra/webhook-outbox/webhook-outbox.service.js'
-import { QUEUE_NAMES } from '../../src/infra/queue/queue-names.js'
+import { QUEUE_NAMES } from '@strimz/queue-contracts'
 import { must } from '../helpers/must.js'
 
 describe('webhook outbox dispatcher e2e', () => {

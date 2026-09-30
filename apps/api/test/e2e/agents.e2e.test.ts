@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedApiKey, seedMerchant } from '../helpers/fixtures.js'
+import { must } from '../helpers/must.js'
+import { agentActionJobSchema } from '@strimz/queue-contracts'
 
 describe('agents e2e', () => {
   let t: TestApp
@@ -90,7 +92,13 @@ describe('agents e2e', () => {
     })
     expect(res.statusCode).toBe(201)
     expect(JSON.parse(res.body).status).toBe('accepted')
-    expect(t.queue.jobsFor('strimz.agent.action')).toHaveLength(1)
+    const jobs = t.queue.jobsFor('strimz.agent.action')
+    expect(jobs).toHaveLength(1)
+    expect(must(jobs[0]).name).toBe('job.create-onchain')
+    expect(agentActionJobSchema.parse(must(jobs[0]).data)).toEqual({
+      type: 'job.create-onchain',
+      jobId: JSON.parse(res.body).id,
+    })
   })
 
   it('requires human approval above threshold; approve enqueues on-chain create', async () => {
@@ -122,6 +130,11 @@ describe('agents e2e', () => {
     })
     expect(approve.statusCode).toBe(201)
     expect(JSON.parse(approve.body).status).toBe('accepted')
-    expect(t.queue.jobsFor('strimz.agent.action')).toHaveLength(1)
+    const jobs = t.queue.jobsFor('strimz.agent.action')
+    expect(jobs).toHaveLength(1)
+    expect(agentActionJobSchema.parse(must(jobs[0]).data)).toEqual({
+      type: 'job.create-onchain',
+      jobId: job.id,
+    })
   })
 })

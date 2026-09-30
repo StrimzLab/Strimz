@@ -4,8 +4,11 @@ import { InjectQueue } from '@nestjs/bullmq'
 import type { Queue } from 'bullmq'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
-import { QUEUE_NAMES } from '../../infra/queue/queue-names.js'
-import type { SubscriptionDueJob } from '../../infra/queue/job-payloads.js'
+import {
+  QUEUE_NAMES,
+  subscriptionDueJobSchema,
+  type SubscriptionDueJob,
+} from '@strimz/queue-contracts'
 
 /**
  * Cron-driven sweeper. Every tick:
@@ -107,11 +110,10 @@ export class SubscriptionSweeperService {
     // Step 3: enqueue one job per candidate.
     await Promise.all(
       candidates.map((c) =>
-        this.queue.add(
-          'charge',
-          { subscriptionId: c.id },
-          { removeOnComplete: 1_000, removeOnFail: 1_000 },
-        ),
+        this.queue.add('charge', subscriptionDueJobSchema.parse({ subscriptionId: c.id }), {
+          removeOnComplete: 1_000,
+          removeOnFail: 1_000,
+        }),
       ),
     )
 

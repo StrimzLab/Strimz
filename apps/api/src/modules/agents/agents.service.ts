@@ -7,7 +7,7 @@ import type {
 } from '@strimz/shared-types'
 import { AGENT_DEFAULTS } from '@strimz/shared-config'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
-import { QueueService, QUEUE_NAMES } from '../../infra/queue/queue.service.js'
+import { QueueService } from '../../infra/queue/queue.service.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -183,7 +183,7 @@ export class AgentsService {
     })
 
     if (row.status === 'accepted') {
-      await this.queue.queue(QUEUE_NAMES.agentAction).add('job.create-onchain', { jobId: row.id })
+      await this.queue.addAgentAction({ type: 'job.create-onchain', jobId: row.id })
     }
     return serialiseJob(row)
   }
@@ -205,7 +205,7 @@ export class AgentsService {
         message: `cannot approve a job in status ${row.status}`,
       })
     }
-    await this.queue.queue(QUEUE_NAMES.agentAction).add('job.create-onchain', { jobId: row.id })
+    await this.queue.addAgentAction({ type: 'job.create-onchain', jobId: row.id })
     const updated = await this.prisma.db.agentJob.findUniqueOrThrow({ where: { id: row.id } })
     return serialiseJob(updated)
   }

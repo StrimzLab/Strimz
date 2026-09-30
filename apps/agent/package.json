@@ -25,6 +25,7 @@
     "@nestjs/platform-fastify": "^11.0.4",
     "@nestjs/schedule": "^5.0.1",
     "@strimz/db": "workspace:*",
+    "@strimz/queue-contracts": "workspace:*",
     "@strimz/shared-config": "workspace:*",
     "@strimz/shared-crypto": "workspace:*",
     "@strimz/shared-types": "workspace:*",

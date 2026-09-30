@@ -26,6 +26,7 @@
     "@nestjs/schedule": "^5.0.1",
     "@strimz/db": "workspace:*",
     "@strimz/email-templates": "workspace:*",
+    "@strimz/queue-contracts": "workspace:*",
     "@strimz/shared-config": "workspace:*",
     "@strimz/shared-crypto": "workspace:*",
     "@strimz/shared-types": "workspace:*",

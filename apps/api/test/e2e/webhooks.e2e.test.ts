@@ -4,6 +4,7 @@ import { truncateAll } from '../helpers/db-helper.js'
 import { seedApiKey, seedMerchant, seedSubscription } from '../helpers/fixtures.js'
 import { WebhookEventService } from '../../src/infra/events/webhook-event.service.js'
 import { must } from '../helpers/must.js'
+import { webhookDeliveryJobSchema } from '@strimz/queue-contracts'
 
 describe('webhooks e2e', () => {
   let t: TestApp
@@ -210,7 +211,7 @@ describe('webhooks e2e', () => {
 
     const jobs = t.queue.jobsFor('strimz.webhook.delivery')
     expect(jobs).toHaveLength(1)
-    expect(must(jobs[0]).data).toMatchObject({
+    expect(webhookDeliveryJobSchema.parse(must(jobs[0]).data)).toMatchObject({
       deliveryId: delivery.id,
       endpointId,
       eventId: event.id,
