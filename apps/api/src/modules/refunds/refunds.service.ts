@@ -73,7 +73,10 @@ export class RefundsService {
     // the original amount. Refund.amount is `varchar(78)` so we sum as
     // BigInt in JS instead of Prisma `_sum` (which only supports numeric).
     const priorRefunds = await this.prisma.db.refund.findMany({
-      where: { transactionId: tx.id, status: { in: ['submitted', 'completed'] } },
+      where: {
+        transactionId: tx.id,
+        status: { in: ['pending', 'awaiting_signature', 'submitted', 'completed'] },
+      },
       select: { amount: true },
     })
     const priorTotal = priorRefunds.reduce((acc, r) => acc + BigInt(r.amount), 0n)
@@ -90,6 +93,8 @@ export class RefundsService {
         },
       })
     }
+
+    const token = this.tokenAddressFor(tx.currency)
 
     const refund = await this.prisma.db.refund.create({
       data: {
@@ -119,7 +124,7 @@ export class RefundsService {
     return {
       refund: serialise(refund),
       signingInstructions: {
-        token: this.tokenAddressFor(tx.currency),
+        token,
         to: tx.payerAddress,
         amount: input.amount,
         note: input.note ?? `Refund for transaction ${tx.id}`,
