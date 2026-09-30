@@ -99,7 +99,7 @@ describe('webhooks e2e', () => {
     expect(JSON.parse(rot.body).signingSecret).not.toBe(oldSecret)
   })
 
-  it('WebhookEventService.fire materialises one delivery per active subscribed endpoint', async () => {
+  it('WebhookEventService.fire writes one undispatched outbox event and no deliveries', async () => {
     const m = await seedMerchant(t.prisma.db)
     const k = await seedApiKey(t.prisma.db, m.id)
     // Active endpoint subscribed to subscription.cancelled.
@@ -132,16 +132,28 @@ describe('webhooks e2e', () => {
       name: 'subscription.cancelled',
       data: { id: 'sub_123' },
     })
-    expect(result.deliveriesCreated).toBe(1)
+    const event = await t.prisma.db.webhookEvent.findUniqueOrThrow({
+      where: { id: result.eventId },
+    })
+    expect(event.merchantId).toBe(m.id)
+    expect(event.type).toBe('subscription_cancelled')
+    expect(event.dispatchedAt).toBeNull()
+    expect(event.payload).toMatchObject({
+      id: result.eventId,
+      type: 'subscription.cancelled',
+      mode: 'test',
+      data: { id: 'sub_123' },
+    })
 
-    const delivJobs = t.queue.jobsFor('strimz.webhook.delivery')
-    expect(delivJobs).toHaveLength(1)
+    expect(await t.prisma.db.webhookEvent.count()).toBe(1)
+    expect(await t.prisma.db.webhookDelivery.count()).toBe(0)
+    expect(t.queue.jobsFor('strimz.webhook.delivery')).toHaveLength(0)
   })
 
   it('replay re-enqueues a delivery onto the queue', async () => {
     const m = await seedMerchant(t.prisma.db)
     const k = await seedApiKey(t.prisma.db, m.id)
-    await t.inject({
+    const created = await t.inject({
       method: 'POST',
       url: '/v1/webhook-endpoints',
       headers: { authorization: `Bearer ${k.secretKey}` },
@@ -151,6 +163,8 @@ describe('webhooks e2e', () => {
         mode: 'test',
       },
     })
+    expect(created.statusCode).toBe(201)
+    const endpointId = JSON.parse(created.body).endpoint.id as string
     // Trigger an event to produce a delivery row.
     const sub = await seedSubscription(t.prisma.db, m.id)
     const cancel = await t.inject({
@@ -161,7 +175,21 @@ describe('webhooks e2e', () => {
     })
     expect(cancel.statusCode).toBe(201)
 
-    const delivery = await t.prisma.db.webhookDelivery.findFirstOrThrow()
+    const event = await t.prisma.db.webhookEvent.findFirstOrThrow()
+    const delivery = await t.prisma.db.webhookDelivery.create({
+      data: {
+        id: 'whdl_replay',
+        deliveryId: 'whdl_replay',
+        merchantId: m.id,
+        endpointId,
+        eventId: event.id,
+        eventName: 'subscription_cancelled',
+        status: 'permanently_failed',
+        attempt: 3,
+        responseCode: 503,
+        lastError: '503: down',
+      },
+    })
     t.queue.reset()
 
     const res = await t.inject({
@@ -172,8 +200,72 @@ describe('webhooks e2e', () => {
     })
     expect(res.statusCode).toBe(201)
 
+    expect(JSON.parse(res.body)).toMatchObject({
+      id: delivery.id,
+      status: 'pending',
+      attempt: 1,
+      responseCode: null,
+      lastError: null,
+    })
+
     const jobs = t.queue.jobsFor('strimz.webhook.delivery')
     expect(jobs).toHaveLength(1)
-    expect(must(jobs[0]).data).toMatchObject({ replay: true })
+    expect(must(jobs[0]).data).toMatchObject({
+      deliveryId: delivery.id,
+      endpointId,
+      eventId: event.id,
+      url: 'https://example.com/replay',
+      replay: true,
+    })
+  })
+
+  it('replay returns 404 for a delivery that belongs to another merchant', async () => {
+    const owner = await seedMerchant(t.prisma.db)
+    const intruder = await seedMerchant(t.prisma.db)
+    const ownerKey = await seedApiKey(t.prisma.db, owner.id)
+    const intruderKey = await seedApiKey(t.prisma.db, intruder.id)
+    const created = await t.inject({
+      method: 'POST',
+      url: '/v1/webhook-endpoints',
+      headers: { authorization: `Bearer ${ownerKey.secretKey}` },
+      payload: {
+        url: 'https://example.com/owner',
+        events: ['subscription.cancelled'],
+        mode: 'test',
+      },
+    })
+    const endpointId = JSON.parse(created.body).endpoint.id as string
+    const events = t.app.get(WebhookEventService)
+    const { eventId } = await events.fire({
+      merchantId: owner.id,
+      mode: 'test',
+      name: 'subscription.cancelled',
+      data: { id: 'sub_123' },
+    })
+    await t.prisma.db.webhookDelivery.create({
+      data: {
+        id: 'whdl_owner',
+        deliveryId: 'whdl_owner',
+        merchantId: owner.id,
+        endpointId,
+        eventId,
+        eventName: 'subscription_cancelled',
+        status: 'permanently_failed',
+        attempt: 3,
+      },
+    })
+
+    const res = await t.inject({
+      method: 'POST',
+      url: '/v1/webhook-deliveries/whdl_owner/replay',
+      headers: { authorization: `Bearer ${intruderKey.secretKey}` },
+      payload: {},
+    })
+    expect(res.statusCode).toBe(404)
+    expect(t.queue.jobsFor('strimz.webhook.delivery')).toHaveLength(0)
+    const untouched = await t.prisma.db.webhookDelivery.findUniqueOrThrow({
+      where: { id: 'whdl_owner' },
+    })
+    expect(untouched.status).toBe('permanently_failed')
   })
 })
