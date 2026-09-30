@@ -955,6 +955,60 @@ func TestE2E_InsertOneShotTransaction_TwoPaymentsInOneTransaction(t *testing.T) 
 	assert.Equal(t, 2, readOneShotOutcome(t, s, "sess_batch_a").completedEvents)
 }
 
+func TestE2E_SubscriptionCharged_RecordsThePaidPeriod(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_period", "period@x.io", "0x000000000000000000000000000000000000fe05", big.NewInt(406))
+
+	interval := 30 * 24 * time.Hour
+	start := time.Now().UTC().Truncate(time.Second)
+	subID := big.NewInt(6)
+	_, err := s.UpsertSubscriptionFromOnchain(ctx, SubscriptionCreatedInput{
+		OnchainSubscriptionID: subID,
+		MerchantOnchainID:     big.NewInt(406),
+		PayerAddress:          "0x000000000000000000000000000000000000aa66",
+		Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
+		StartAt:            start,
+		CurrentPeriodEndAt: start.Add(interval),
+		NextChargeAt:       start,
+		OnchainTxHash:      "0x" + repeatStr("8", 64),
+		Mode:               "live",
+	})
+	require.NoError(t, err)
+
+	chargePeriod := func(attempt int64, at time.Time) (time.Time, time.Time) {
+		t.Helper()
+		_, err := s.InsertSubscriptionCharge(ctx, SubscriptionChargedInput{
+			OnchainSubscriptionID: subID,
+			ChargeAttemptID:       fmt.Sprintf("0x%064x", 0x8000+attempt),
+			Amount:                "20000000",
+			FeeAmount:             "300000",
+			NetAmount:             "19700000",
+			NextChargeAt:          at.Add(interval),
+			OnchainTxHash:         fmt.Sprintf("0x%064x", 0x9000+attempt),
+			BlockNumber:           uint64(5000 + attempt),
+			BlockTimestamp:        at,
+			LogIndex:              0,
+			Mode:                  "live",
+		})
+		require.NoError(t, err)
+		var periodStart, periodEnd time.Time
+		require.NoError(t, s.pool.QueryRow(ctx,
+			`SELECT "periodStartAt", "periodEndAt" FROM "SubscriptionCharge" WHERE "chargeAttemptId"=$1`,
+			fmt.Sprintf("0x%064x", 0x8000+attempt),
+		).Scan(&periodStart, &periodEnd))
+		return periodStart, periodEnd
+	}
+
+	firstStart, firstEnd := chargePeriod(1, start)
+	assert.WithinDuration(t, start, firstStart, time.Second)
+	assert.WithinDuration(t, start.Add(interval), firstEnd, time.Second)
+
+	secondStart, secondEnd := chargePeriod(2, start.Add(interval))
+	assert.WithinDuration(t, start.Add(interval), secondStart, time.Second)
+	assert.WithinDuration(t, start.Add(2*interval), secondEnd, time.Second)
+}
+
 func TestE2E_SubscriptionCharged_OutOfOrderEventDoesntFail(t *testing.T) {
 	s := startTestPostgres(t)
 	ctx := context.Background()
