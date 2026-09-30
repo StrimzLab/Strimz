@@ -42,9 +42,40 @@ describe('agents e2e', () => {
     expect(JSON.parse(res.body).enabledCapabilities).toEqual(['recovery', 'cashflow'])
   })
 
+  async function enableCommerce(secretKey: string) {
+    const res = await t.inject({
+      method: 'PATCH',
+      url: '/v1/agents/config',
+      headers: { authorization: `Bearer ${secretKey}` },
+      payload: { enabledCapabilities: ['commerce'] },
+    })
+    expect(res.statusCode).toBe(200)
+  }
+
+  it('refuses to create a job while the commerce capability is disabled', async () => {
+    const m = await seedMerchant(t.prisma.db)
+    const k = await seedApiKey(t.prisma.db, m.id)
+    const res = await t.inject({
+      method: 'POST',
+      url: '/v1/agents/jobs',
+      headers: { authorization: `Bearer ${k.secretKey}` },
+      payload: {
+        vendorAddress: '0x' + 'd'.repeat(40),
+        description: 'Small task',
+        amount: '10000000',
+        currency: 'USDC',
+      },
+    })
+    expect(res.statusCode).toBe(403)
+    expect(res.body).toContain('capability_disabled')
+    expect(await t.prisma.db.agentJob.count()).toBe(0)
+    expect(t.queue.jobsFor('strimz.agent.action')).toHaveLength(0)
+  })
+
   it('auto-approves jobs below the threshold and enqueues on-chain create', async () => {
     const m = await seedMerchant(t.prisma.db)
     const k = await seedApiKey(t.prisma.db, m.id)
+    await enableCommerce(k.secretKey)
     // Default threshold (`requireHumanApprovalAboveUsdCents`) is 50_000 cents = 500 USD.
     const res = await t.inject({
       method: 'POST',
@@ -65,6 +96,7 @@ describe('agents e2e', () => {
   it('requires human approval above threshold; approve enqueues on-chain create', async () => {
     const m = await seedMerchant(t.prisma.db)
     const k = await seedApiKey(t.prisma.db, m.id)
+    await enableCommerce(k.secretKey)
     const create = await t.inject({
       method: 'POST',
       url: '/v1/agents/jobs',

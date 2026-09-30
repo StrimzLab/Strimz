@@ -22,6 +22,7 @@ export async function seedMerchant(
     twoFactorEnabled: boolean
     payoutAddress: string
     mfa: boolean
+    onchainMerchantId: number
   }> = {},
 ): Promise<SeededMerchant> {
   const email =
@@ -36,6 +37,7 @@ export async function seedMerchant(
       onboardingCompleted: overrides.onboardingCompleted ?? false,
       businessName: overrides.businessName ?? 'Acme Co',
       payoutAddress: overrides.payoutAddress ?? '0x000000000000000000000000000000000000beef',
+      onchainMerchantId: overrides.onchainMerchantId ?? null,
     },
   })
   return {

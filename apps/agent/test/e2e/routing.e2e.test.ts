@@ -50,6 +50,11 @@ describe('routing CCTP bridge worker e2e', () => {
     const bridgeQueue: Queue = t.app.get(getQueueToken(QUEUE_NAMES.routingCctpBridge))
     const delayed = await bridgeQueue.getJobs(['delayed'])
     expect(delayed).toHaveLength(1)
+    expect(must(delayed[0]).data).toMatchObject({
+      merchantId: merchant.id,
+      sourceTxHash: '0x' + 'a'.repeat(64),
+      pollCount: 1,
+    })
   })
 
   it('once attestation is complete: enqueues routing.cctp.settle on agent.action', async () => {
@@ -88,28 +93,56 @@ describe('routing CCTP bridge worker e2e', () => {
     expect(must(completedLog).outcome).toBe('success')
   })
 
-  it('on retry attempts (>= 1) does not re-record bridge_initiated', async () => {
+  it('records bridge_initiated once across repeated polls of the same bridge', async () => {
     const merchant = await seedMerchant(t.prisma.db)
     const attestation = t.app.get(CircleAttestationService)
     attestation.fetch = () => Promise.resolve({ status: 'pending_confirmations' })
 
     const worker = t.app.get(BridgeWorker)
+    const bridgeQueue: Queue = t.app.get(getQueueToken(QUEUE_NAMES.routingCctpBridge))
     await worker.process({
       data: { merchantId: merchant.id, sourceDomainId: 6, sourceTxHash: '0x' + 'c'.repeat(64) },
-      attemptsMade: 0,
     } as never)
-    await worker.process({
-      data: { merchantId: merchant.id, sourceDomainId: 6, sourceTxHash: '0x' + 'c'.repeat(64) },
-      attemptsMade: 1,
-    } as never)
-    await worker.process({
-      data: { merchantId: merchant.id, sourceDomainId: 6, sourceTxHash: '0x' + 'c'.repeat(64) },
-      attemptsMade: 2,
-    } as never)
+    for (let poll = 1; poll <= 2; poll++) {
+      const [requeued] = await bridgeQueue.getJobs(['delayed'])
+      const data = must(requeued).data as { pollCount: number }
+      expect(data.pollCount).toBe(poll)
+      await bridgeQueue.drain(true)
+      await worker.process({ data } as never)
+    }
 
     const initLogs = await t.prisma.db.agentActivityLog.findMany({
       where: { capability: 'routing', actionType: 'routing_bridge_initiated' },
     })
     expect(initLogs).toHaveLength(1)
+    expect(must(initLogs[0]).outcome).toBe('pending')
+  })
+
+  it('stops polling and records a failure when the attestation never arrives', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const attestation = t.app.get(CircleAttestationService)
+    attestation.fetch = () => Promise.resolve({ status: 'pending_confirmations' })
+
+    const worker = t.app.get(BridgeWorker)
+    const result = await worker.process({
+      data: {
+        merchantId: merchant.id,
+        sourceDomainId: 6,
+        sourceTxHash: '0x' + 'd'.repeat(64),
+        pollCount: 120,
+      },
+    } as never)
+    expect(result.status).toBe('pending')
+
+    const bridgeQueue: Queue = t.app.get(getQueueToken(QUEUE_NAMES.routingCctpBridge))
+    expect(await bridgeQueue.getJobs(['delayed', 'waiting', 'active'])).toHaveLength(0)
+
+    const logs = await t.prisma.db.agentActivityLog.findMany({ where: { capability: 'routing' } })
+    expect(logs).toHaveLength(1)
+    expect(must(logs[0])).toMatchObject({
+      actionType: 'routing_bridge_initiated',
+      outcome: 'failure',
+      metadata: { reason: 'attestation timed out' },
+    })
   })
 })

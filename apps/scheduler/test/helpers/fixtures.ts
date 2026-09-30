@@ -82,7 +82,7 @@ export async function seedDelivery(
       eventId,
       eventName: eventName as never,
       status: 'pending',
-      attempt: 0,
+      attempt: 1,
     },
   })
   return delivery
