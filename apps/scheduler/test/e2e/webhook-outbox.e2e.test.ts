@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import { getQueueToken } from '@nestjs/bullmq'
 import type { Queue } from 'bullmq'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
@@ -215,6 +215,41 @@ describe('webhook outbox dispatcher e2e', () => {
       where: { id: 'evt_charged_bad' },
     })
     expect(event.dispatchError).toContain('merchantAddress')
+  })
+
+  it('releases an event for the next tick when hydration fails for a transient reason', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const sub = await seedSubscription(t.prisma.db, merchant.id, { status: 'lapsed' })
+    await seedWebhookEndpoint(t.prisma.db, merchant.id, {
+      url: 'https://example.com/h',
+      events: ['subscription_lapsed'],
+    })
+    await seedRefEvent(
+      merchant.id,
+      { kind: 'subscription.lapsed', subscriptionId: sub.id },
+      'evt_outbox_transient',
+    )
+    const outbox = t.app.get(WebhookOutboxService)
+    const spy = vi
+      .spyOn(outbox as unknown as { hydrate: () => Promise<unknown> }, 'hydrate')
+      .mockRejectedValueOnce(new Error('connection reset by peer'))
+
+    expect(await outbox.tickNow()).toEqual({ dispatched: 1, deliveriesQueued: 0 })
+    let event = await t.prisma.db.webhookEvent.findUniqueOrThrow({
+      where: { id: 'evt_outbox_transient' },
+    })
+    expect(event.dispatchedAt).toBeNull()
+    expect(event.dispatchError).toContain('connection reset')
+    expect(await t.prisma.db.webhookDelivery.count()).toBe(0)
+
+    expect(await outbox.tickNow()).toEqual({ dispatched: 1, deliveriesQueued: 1 })
+    event = await t.prisma.db.webhookEvent.findUniqueOrThrow({
+      where: { id: 'evt_outbox_transient' },
+    })
+    expect(event.dispatchedAt).not.toBeNull()
+    expect(event.dispatchError).toBeNull()
+    expect(await t.prisma.db.webhookDelivery.count()).toBe(1)
+    spy.mockRestore()
   })
 
   it.each([
