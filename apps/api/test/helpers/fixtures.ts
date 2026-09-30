@@ -128,6 +128,7 @@ export function seedTransaction(
     mode: 'test' | 'live'
     blockTimestamp: Date
     merchantAddress: string
+    currency: 'USDC' | 'EURC'
   }> = {},
 ) {
   return prisma.transaction.create({
@@ -137,7 +138,7 @@ export function seedTransaction(
       amount: overrides.amount ?? '100000000', // 100 USDC (6dp)
       netAmount: overrides.netAmount ?? '98500000',
       feeAmount: '1500000',
-      currency: 'USDC',
+      currency: overrides.currency ?? 'USDC',
       payerAddress: overrides.payerAddress ?? '0x' + 'b'.repeat(40),
       merchantAddress: overrides.merchantAddress ?? '0x000000000000000000000000000000000000beef',
       onchainTxHash: '0x' + Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64),
