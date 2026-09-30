@@ -458,7 +458,7 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 		var subID, merchantID, currency, payerAddress, merchantAddress string
 		var periodStart time.Time
 		err := tx.QueryRow(ctx, `
-			SELECT s.id, s."merchantId", s.currency::text, s."payerAddress", s."currentPeriodEndAt",
+			SELECT s.id, s."merchantId", s.currency::text, s."payerAddress", s."nextChargeAt",
 			       COALESCE(m."payoutAddress", '')
 			  FROM "Subscription" s
 			  JOIN "Merchant" m ON m.id = s."merchantId"
@@ -497,6 +497,8 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 			ON CONFLICT ("chargeAttemptId") DO UPDATE
 			   SET status = 'succeeded'::"SubscriptionChargeStatus",
 			       outcome = 'charged'::"SubscriptionChargeOutcome",
+			       "periodStartAt" = EXCLUDED."periodStartAt",
+			       "periodEndAt" = EXCLUDED."periodEndAt",
 			       amount = EXCLUDED.amount,
 			       "executedAt" = EXCLUDED."executedAt",
 			       "onchainTxHash" = EXCLUDED."onchainTxHash",
