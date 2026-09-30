@@ -49,6 +49,17 @@ func (s *Store) appendAuditWithMerchant(ctx context.Context, merchantID string, 
 	return err
 }
 
+func insertAuditInTx(ctx context.Context, tx pgxTxLike, merchantID string, e auditEntry) error {
+	_, err := tx.Exec(ctx, `
+		INSERT INTO "AuditLog" (
+		  id, "merchantId", category, action, "targetType", "targetId", metadata, "createdAt"
+		) VALUES (
+		  gen_random_uuid()::text, $1, $2::"AuditActionCategory", $3, $4, $5, $6::jsonb, NOW()
+		)
+	`, merchantID, e.Category, e.Action, e.TargetType, e.TargetID, jsonOrEmpty(e.Metadata))
+	return err
+}
+
 // lookupMerchantByOnchain finds a Merchant by its on-chain id within a
 // transaction, returning `(id, payoutAddress)`.
 func lookupMerchantByOnchain(ctx context.Context, tx pgxTxLike, onchainID *big.Int) (string, string, error) {
