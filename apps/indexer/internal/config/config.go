@@ -51,7 +51,15 @@ type Config struct {
 	FeeCollectorAddress  string `envconfig:"FEE_COLLECTOR_ADDRESS"  required:"true"`
 	// Optional: stablecoin addresses to scan for refund-completion Transfers.
 	StablecoinAddresses []string `envconfig:"STABLECOIN_ADDRESSES" default:""`
+	Stablecoins         []Stablecoin
 }
+
+type Stablecoin struct {
+	Symbol  string
+	Address string
+}
+
+var paymentSymbols = map[string]bool{"USDC": true, "EURC": true}
 
 // Load reads the environment, validates, and returns a Config.
 func Load() (*Config, error) {
@@ -86,12 +94,49 @@ func Validate(c *Config) (*Config, error) {
 			return nil, fmt.Errorf("%s must be a 0x-prefixed 20-byte hex string, got %q", name, v)
 		}
 	}
-	for i, a := range c.StablecoinAddresses {
-		if !isEvmAddress(a) {
-			return nil, fmt.Errorf("STABLECOIN_ADDRESSES[%d] is not a valid EVM address: %q", i, a)
-		}
+	stablecoins, err := parseStablecoins(c.StablecoinAddresses)
+	if err != nil {
+		return nil, err
 	}
+	c.Stablecoins = stablecoins
 	return c, nil
+}
+
+func parseStablecoins(entries []string) ([]Stablecoin, error) {
+	out := make([]Stablecoin, 0, len(entries))
+	seenSymbol := map[string]bool{}
+	seenAddress := map[string]bool{}
+	for i, raw := range entries {
+		entry := strings.TrimSpace(raw)
+		if entry == "" {
+			continue
+		}
+		symbol, address, ok := strings.Cut(entry, ":")
+		if !ok {
+			return nil, fmt.Errorf("STABLECOIN_ADDRESSES[%d] must be SYMBOL:address, got %q", i, raw)
+		}
+		symbol = strings.ToUpper(strings.TrimSpace(symbol))
+		address = strings.ToLower(strings.TrimSpace(address))
+		if !paymentSymbols[symbol] {
+			return nil, fmt.Errorf("STABLECOIN_ADDRESSES[%d] symbol must be USDC or EURC, got %q", i, symbol)
+		}
+		if !isEvmAddress(address) {
+			return nil, fmt.Errorf("STABLECOIN_ADDRESSES[%d] is not a valid EVM address: %q", i, raw)
+		}
+		if seenSymbol[symbol] {
+			return nil, fmt.Errorf("STABLECOIN_ADDRESSES lists %s twice", symbol)
+		}
+		if seenAddress[address] {
+			return nil, fmt.Errorf("STABLECOIN_ADDRESSES lists address %s twice", address)
+		}
+		seenSymbol[symbol] = true
+		seenAddress[address] = true
+		out = append(out, Stablecoin{Symbol: symbol, Address: address})
+	}
+	if len(out) == 0 {
+		return nil, errors.New("STABLECOIN_ADDRESSES must list at least one SYMBOL:address entry")
+	}
+	return out, nil
 }
 
 func isEvmAddress(s string) bool {

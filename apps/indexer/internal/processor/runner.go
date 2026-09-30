@@ -16,7 +16,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 	"sync"
 	"time"
 
@@ -87,17 +86,11 @@ func NewRunner(ctx context.Context, cfg *config.Config) (*Runner, error) {
 		common.HexToAddress(cfg.AgentEscrowAddress),
 		common.HexToAddress(cfg.FeeCollectorAddress),
 	}
-	stables := make([]common.Address, 0, len(cfg.StablecoinAddresses))
-	tokenMap := make(map[string]string, len(cfg.StablecoinAddresses))
-	for _, addr := range cfg.StablecoinAddresses {
-		trimmed := strings.TrimSpace(addr)
-		if trimmed == "" {
-			continue
-		}
-		stables = append(stables, common.HexToAddress(trimmed))
-		// M1: assume any configured stablecoin is USDC. EURC support
-		// requires per-address symbol mapping in env; M2 surface.
-		tokenMap[strings.ToLower(common.HexToAddress(trimmed).Hex())] = "USDC"
+	stables := make([]common.Address, 0, len(cfg.Stablecoins))
+	tokenMap := make(map[string]string, len(cfg.Stablecoins))
+	for _, coin := range cfg.Stablecoins {
+		stables = append(stables, common.HexToAddress(coin.Address))
+		tokenMap[coin.Address] = coin.Symbol
 	}
 
 	return &Runner{

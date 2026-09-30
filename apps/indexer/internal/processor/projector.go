@@ -99,13 +99,17 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 	// ----- Payments -----
 	case indabi.EventPaymentExecuted:
 		ev := payload.(*indabi.PaymentExecuted)
+		currency, symErr := p.tokenSymbol(ev.Token)
+		if symErr != nil {
+			return fmt.Errorf("PaymentExecuted tx %s: %w", lg.TxHash.Hex(), symErr)
+		}
 		_, err = p.store.InsertOneShotTransaction(ctx, store.OneShotTxInput{
 			MerchantOnchainID: ev.MerchantID,
 			PayerAddress:      strings.ToLower(ev.Payer.Hex()),
 			Amount:            ev.Amount.String(),
 			FeeAmount:         ev.FeeAmount.String(),
 			NetAmount:         ev.NetAmount.String(),
-			Currency:          p.tokenSymbol(ev.Token),
+			Currency:          currency,
 			SessionRef:        decodeSessionRef(ev.Ref),
 			OnchainTxHash:     lg.TxHash.Hex(),
 			BlockNumber:       lg.BlockNumber,
@@ -117,6 +121,10 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 	// ----- Subscriptions -----
 	case indabi.EventSubscriptionCreated:
 		ev := payload.(*indabi.SubscriptionCreated)
+		currency, symErr := p.tokenSymbol(ev.Token)
+		if symErr != nil {
+			return fmt.Errorf("SubscriptionCreated tx %s: %w", lg.TxHash.Hex(), symErr)
+		}
 		interval, intervalCount := store.IntervalFromSeconds(ev.IntervalSecs)
 		startAt := time.Unix(int64(ev.StartAt), 0).UTC()
 		// The contract makes the first charge due at enrolment
@@ -129,7 +137,7 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 			OnchainSubscriptionID: ev.SubscriptionID,
 			MerchantOnchainID:     ev.MerchantID,
 			PayerAddress:          strings.ToLower(ev.Payer.Hex()),
-			Currency:              p.tokenSymbol(ev.Token),
+			Currency:              currency,
 			Amount:                ev.Amount.String(),
 			Interval:              interval,
 			IntervalCount:         intervalCount,
@@ -355,11 +363,12 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 
 // tokenSymbol resolves a token contract address to its display symbol via
 // the configured token map. Falls back to "USDC" when unknown.
-func (p *Projector) tokenSymbol(token common.Address) string {
-	if sym, ok := p.tokens[strings.ToLower(token.Hex())]; ok {
-		return sym
+func (p *Projector) tokenSymbol(token common.Address) (string, error) {
+	addr := strings.ToLower(token.Hex())
+	if sym, ok := p.tokens[addr]; ok {
+		return sym, nil
 	}
-	return "USDC"
+	return "", fmt.Errorf("token %s is not in STABLECOIN_ADDRESSES", addr)
 }
 
 // decodeSessionRef interprets the bytes32 ref carried by `PaymentExecuted`.
