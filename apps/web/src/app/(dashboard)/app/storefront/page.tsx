@@ -18,20 +18,26 @@ import {
   Input,
   FieldLabel,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Textarea,
 } from '@strimz/ui'
-import { parseUnits } from 'viem'
+import { formatUnits } from 'viem'
 import type {
-  PaymentCurrency,
   Storefront,
   StorefrontProduct,
   StorefrontProductType,
+  SubscriptionPlan,
 } from '@strimz/shared-types'
 
 import { ImageUpload } from '@/components/dashboard/image-upload'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { formatTokenAmount } from '@/lib/format'
+import { buildProductInput } from '@/lib/storefront-product-input'
 import {
   useAddStorefrontProduct,
   useArchiveStorefront,
@@ -39,6 +45,7 @@ import {
   usePublishStorefront,
   useStorefront,
   useStorefrontProducts,
+  useSubscriptionPlans,
   useUpsertStorefront,
 } from '@/hooks/api'
 
@@ -421,8 +428,14 @@ function AddProductDialog() {
   const [type, setType] = React.useState<StorefrontProductType>('one_time')
   const [stock, setStock] = React.useState('')
   const [imageUrl, setImageUrl] = React.useState<string | null>(null)
+  const [plan, setPlan] = React.useState<SubscriptionPlan | null>(null)
 
   const addMutation = useAddStorefrontProduct()
+  const plansQuery = useSubscriptionPlans(
+    { status: 'active', limit: 100 },
+    { enabled: open && type === 'subscription' },
+  )
+  const plans = plansQuery.data?.data ?? []
 
   const reset = () => {
     setName('')
@@ -431,40 +444,35 @@ function AddProductDialog() {
     setType('one_time')
     setStock('')
     setImageUrl(null)
+    setPlan(null)
   }
 
+  const choosePlan = (id: string) => {
+    const next = plans.find((p) => p.id === id) ?? null
+    setPlan(next)
+    if (next) setPrice(formatUnits(BigInt(next.amount), 6))
+  }
+
+  const changeType = (next: StorefrontProductType) => {
+    setType(next)
+    if (next === 'one_time') setPlan(null)
+  }
+
+  const form = { name, description, imageUrl, price, type, stock, plan }
+  const built = buildProductInput(form)
+  const canSubmit = built.ok || built.reason === 'invalid_price'
+
   const onSubmit = () => {
-    if (!name || !price) return
-    let raw: string
-    try {
-      raw = parseUnits(price, 6).toString()
-    } catch {
-      toast.error('Enter a valid price')
+    if (!built.ok) {
+      if (built.reason === 'invalid_price') toast.error('Enter a valid price')
       return
     }
-    addMutation.mutate(
-      {
-        name,
-        description: description || null,
-        // Optional field on the create schema. Send only when set so a
-        // blank string doesn't fail the url() validator.
-        ...(imageUrl ? { imageUrl } : {}),
-        price: raw,
-        currency: 'USDC' as PaymentCurrency,
-        type,
-        interval: type === 'subscription' ? 'monthly' : null,
-        intervalCount: type === 'subscription' ? 1 : null,
-        stock: stock ? Math.max(0, Number(stock) || 0) : null,
-        isActive: true,
-        sortOrder: 0,
+    addMutation.mutate(built.input, {
+      onSuccess: () => {
+        setOpen(false)
+        reset()
       },
-      {
-        onSuccess: () => {
-          setOpen(false)
-          reset()
-        },
-      },
-    )
+    })
   }
 
   return (
@@ -514,7 +522,7 @@ function AddProductDialog() {
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <FieldLabel htmlFor="p-price" required>
-                Price (USDC)
+                Price ({plan ? plan.currency : 'USDC'})
               </FieldLabel>
               <Input
                 id="p-price"
@@ -522,6 +530,7 @@ function AddProductDialog() {
                 step="0.01"
                 placeholder="99.00"
                 value={price}
+                disabled={plan !== null}
                 onChange={(e) => setPrice(e.target.value)}
               />
             </div>
@@ -544,7 +553,7 @@ function AddProductDialog() {
               <button
                 key={t}
                 type="button"
-                onClick={() => setType(t)}
+                onClick={() => changeType(t)}
                 className={[
                   'h-7 rounded-md border px-2 capitalize transition-colors',
                   type === t
@@ -556,6 +565,36 @@ function AddProductDialog() {
               </button>
             ))}
           </div>
+          {type === 'subscription' && (
+            <div className="grid gap-1.5">
+              <FieldLabel htmlFor="p-plan" required>
+                Plan
+              </FieldLabel>
+              <Select value={plan?.id ?? ''} onValueChange={choosePlan}>
+                <SelectTrigger id="p-plan">
+                  <SelectValue
+                    placeholder={
+                      plansQuery.isPending
+                        ? 'Loading plans…'
+                        : plans.length === 0
+                          ? 'No active plans. Create one under Subscriptions.'
+                          : 'Choose a plan'
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {plans.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} · {formatTokenAmount(p.amount, p.currency)} / {p.interval}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {plansQuery.isError && (
+                <p className="text-destructive text-xs">Could not load plans. Try again.</p>
+              )}
+            </div>
+          )}
           <ImageUpload
             endpoint="productImage"
             value={imageUrl}
@@ -570,7 +609,7 @@ function AddProductDialog() {
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={onSubmit} disabled={addMutation.isPending || !name || !price}>
+          <Button onClick={onSubmit} disabled={addMutation.isPending || !canSubmit}>
             {addMutation.isPending ? 'Adding…' : 'Add product'}
           </Button>
         </DialogFooter>
