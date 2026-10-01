@@ -38,10 +38,22 @@ export class SessionExpiryService {
          WHERE "PaymentSession".id = due.id
          RETURNING "PaymentSession".id,
                    "PaymentSession"."merchantId",
-                   "PaymentSession".mode::text AS mode
-      `)) as Array<{ id: string; merchantId: string; mode: string }>
+                   "PaymentSession".mode::text AS mode,
+                   "PaymentSession"."storefrontProductId"
+      `)) as Array<{
+        id: string
+        merchantId: string
+        mode: string
+        storefrontProductId: string | null
+      }>
 
       for (const s of rows) {
+        if (s.storefrontProductId) {
+          await tx.storefrontProduct.updateMany({
+            where: { id: s.storefrontProductId, stock: { not: null } },
+            data: { stock: { increment: 1 } },
+          })
+        }
         await tx.webhookEvent.create({
           data: {
             id: `evt_${uuid()}`,
