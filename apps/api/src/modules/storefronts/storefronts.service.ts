@@ -105,6 +105,7 @@ export class StorefrontsService {
     if (!sf) {
       throw new NotFoundException({ code: 'not_found', message: 'storefront not yet created' })
     }
+    if (input.planId) await this.assertPlanMatches(merchantId, input.planId, input)
     const row = await this.prisma.db.storefrontProduct.create({
       data: {
         storefrontId: sf.id,
@@ -117,11 +118,37 @@ export class StorefrontsService {
         interval: input.interval ?? null,
         intervalCount: input.intervalCount ?? null,
         stock: input.stock ?? null,
+        planId: input.planId ?? null,
         isActive: input.isActive ?? true,
         sortOrder: input.sortOrder ?? 0,
       },
     })
     return serialiseProduct(row)
+  }
+
+  private async assertPlanMatches(
+    merchantId: string,
+    planId: string,
+    input: CreateStorefrontProductInput,
+  ): Promise<void> {
+    const plan = await this.prisma.db.subscriptionPlan.findFirst({
+      where: { id: planId, merchantId, status: 'active' },
+    })
+    if (!plan) {
+      throw new BadRequestException({ code: 'invalid_request', message: 'plan not found' })
+    }
+    const mismatches = [
+      plan.amount !== input.price ? 'price' : null,
+      plan.currency !== input.currency ? 'currency' : null,
+      plan.interval !== input.interval ? 'interval' : null,
+      plan.intervalCount !== input.intervalCount ? 'intervalCount' : null,
+    ].filter((field) => field !== null)
+    if (mismatches.length > 0) {
+      throw new BadRequestException({
+        code: 'invalid_request',
+        message: `product does not match its plan: ${mismatches.join(', ')}`,
+      })
+    }
   }
 
   async retrieveProduct(merchantId: string, id: string): Promise<StorefrontProduct> {
@@ -193,10 +220,7 @@ export class StorefrontsService {
       throw new NotFoundException({ code: 'not_found', message: 'product not found' })
     }
     if (product.stock !== null && product.stock <= 0) {
-      throw new ConflictException({
-        code: 'invalid_request',
-        message: 'product is sold out',
-      })
+      throw new ConflictException({ code: 'sold_out', message: 'product is sold out' })
     }
 
     const checkoutOrigin = this.cfg.env.CHECKOUT_ORIGIN
@@ -218,36 +242,47 @@ export class StorefrontsService {
       }
     }
 
-    const session = await this.paymentSessions.create(sf.merchantId, 'live', {
-      currency: product.currency as 'USDC' | 'EURC',
-      amount: product.price,
-      description: product.name,
-      expiresInMinutes: 30,
-      successUrl: `${merchantReturn}?checkout=success`,
-      cancelUrl: `${merchantReturn}?checkout=cancelled`,
-      metadata: {
-        source: 'storefront',
-        storefrontSlug: sf.slug,
-        productId: product.id,
-        productName: product.name,
-        ...(input.customerEmail ? { customerEmail: input.customerEmail } : {}),
-      },
-      ...(input.customerEmail ? { customer: { email: input.customerEmail } } : {}),
+    await this.paymentSessions.prepareMerchant(sf.merchantId)
+    const session = await this.prisma.db.$transaction(async (tx) => {
+      if (product.stock !== null) {
+        // Decrement stock atomically. Race-safe under concurrent buys —
+        // `stock: { decrement: 1 }` translates to `UPDATE ... SET stock =
+        // stock - 1`, not a check-then-write. The sold-out gate above
+        // handles the visible case; concurrent buys of the last unit will
+        // result in one row landing at -1 rather than a conflict, and the
+        // scheduler's fulfilment cron treats <=0 as sold-out on the next
+        // tick. Merchants can always top the stock back up.
+        const { count } = await tx.storefrontProduct.updateMany({
+          where: { id: product.id, stock: { gt: 0 } },
+          data: { stock: { decrement: 1 } },
+        })
+        if (count === 0) {
+          throw new ConflictException({ code: 'sold_out', message: 'product is sold out' })
+        }
+      }
+      return this.paymentSessions.insert(
+        tx,
+        sf.merchantId,
+        'live',
+        {
+          currency: product.currency as 'USDC' | 'EURC',
+          amount: product.price,
+          description: product.name,
+          expiresInMinutes: 30,
+          successUrl: `${merchantReturn}?checkout=success`,
+          cancelUrl: `${merchantReturn}?checkout=cancelled`,
+          metadata: {
+            source: 'storefront',
+            storefrontSlug: sf.slug,
+            productId: product.id,
+            productName: product.name,
+            ...(input.customerEmail ? { customerEmail: input.customerEmail } : {}),
+          },
+          ...(input.customerEmail ? { customer: { email: input.customerEmail } } : {}),
+        },
+        { storefrontProductId: product.id },
+      )
     })
-
-    if (product.stock !== null) {
-      // Decrement stock atomically. Race-safe under concurrent buys —
-      // `stock: { decrement: 1 }` translates to `UPDATE ... SET stock =
-      // stock - 1`, not a check-then-write. The sold-out gate above
-      // handles the visible case; concurrent buys of the last unit will
-      // result in one row landing at -1 rather than a conflict, and the
-      // scheduler's fulfilment cron treats <=0 as sold-out on the next
-      // tick. Merchants can always top the stock back up.
-      await this.prisma.db.storefrontProduct.update({
-        where: { id: product.id },
-        data: { stock: { decrement: 1 } },
-      })
-    }
 
     return {
       checkoutUrl: `${checkoutOrigin}/pay/${session.id}`,

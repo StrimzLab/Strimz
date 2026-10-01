@@ -85,6 +85,23 @@ export const createStorefrontProductInputSchema = storefrontProductSchema
   })
   .extend({
     imageUrl: httpsUrlSchema.optional(),
+    planId: idSchema.optional(),
+  })
+  .superRefine((input, ctx) => {
+    if (input.type === 'subscription' && !input.planId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['planId'],
+        message: 'subscription products need a planId',
+      })
+    }
+    if (input.type === 'one_time' && input.planId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['planId'],
+        message: 'one_time products cannot carry a planId',
+      })
+    }
   })
 export type CreateStorefrontProductInput = z.infer<typeof createStorefrontProductInputSchema>
 

@@ -6,7 +6,7 @@ import type {
   PaymentCurrency,
   PaymentSession,
 } from '@strimz/shared-types'
-import type { PaymentSessionStatus } from '@strimz/db'
+import type { PaymentSessionStatus, Prisma } from '@strimz/db'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { MerchantChainService } from '../merchants/merchant-chain.service.js'
@@ -35,12 +35,26 @@ export class PaymentSessionsService {
     mode: 'test' | 'live',
     input: CreatePaymentSessionInput,
   ): Promise<PaymentSession> {
-    const merchant = await this.prisma.db.merchant.findUniqueOrThrow({ where: { id: merchantId } })
+    await this.prepareMerchant(merchantId)
+    return this.insert(this.prisma.db, merchantId, mode, input)
+  }
+
+  async prepareMerchant(merchantId: string): Promise<void> {
     // Lazy on-chain merchant registration. The hosted checkout needs a
     // chain merchant id to render the pay button regardless of mode,
     // so we always ensure the merchant is on the Registry. Idempotent —
     // subsequent calls return the cached id in O(1).
     await this.merchantChain.ensureRegistered(merchantId)
+  }
+
+  async insert(
+    db: Prisma.TransactionClient,
+    merchantId: string,
+    mode: 'test' | 'live',
+    input: CreatePaymentSessionInput,
+    link: { storefrontProductId: string } | null = null,
+  ): Promise<PaymentSession> {
+    const merchant = await db.merchant.findUniqueOrThrow({ where: { id: merchantId } })
     const feeBps = effectiveFeeBps(merchant.tier as never, 'one_shot') ?? 150
     const amount = BigInt(input.amount)
     const feeAmount = (amount * BigInt(feeBps)) / 10_000n
@@ -48,7 +62,7 @@ export class PaymentSessionsService {
     const expiresAt = new Date(Date.now() + (input.expiresInMinutes ?? 30) * 60_000)
 
     const customer = input.customer?.walletAddress
-      ? await this.prisma.db.customer.upsert({
+      ? await db.customer.upsert({
           where: {
             merchantId_walletAddress: { merchantId, walletAddress: input.customer.walletAddress },
           },
@@ -66,10 +80,11 @@ export class PaymentSessionsService {
         })
       : null
 
-    const row = await this.prisma.db.paymentSession.create({
+    const row = await db.paymentSession.create({
       data: {
         merchantId,
         customerId: customer?.id ?? null,
+        storefrontProductId: link?.storefrontProductId ?? null,
         amount: input.amount,
         currency: input.currency,
         feeAmount: feeAmount.toString(),
@@ -85,7 +100,7 @@ export class PaymentSessionsService {
     })
 
     // Patch the checkout URL now that we have the id.
-    const finalRow = await this.prisma.db.paymentSession.update({
+    const finalRow = await db.paymentSession.update({
       where: { id: row.id },
       data: { checkoutUrl: `${this.cfg.env.CHECKOUT_ORIGIN.replace(/\/$/, '')}/pay/${row.id}` },
       ...WITH_MERCHANT,
@@ -143,13 +158,22 @@ export class PaymentSessionsService {
     id: string,
     to: 'cancelled' | 'expired',
   ): Promise<PaymentSession> {
-    const { count } = await this.prisma.db.paymentSession.updateMany({
-      where: { id, merchantId, mode, status: { in: OPEN_SESSION_STATUSES } },
-      data: { status: to },
-    })
-    const row = await this.prisma.db.paymentSession.findFirst({
-      where: { id, merchantId, mode },
-      ...WITH_MERCHANT,
+    const { count, row } = await this.prisma.db.$transaction(async (tx) => {
+      const { count } = await tx.paymentSession.updateMany({
+        where: { id, merchantId, mode, status: { in: OPEN_SESSION_STATUSES } },
+        data: { status: to },
+      })
+      const row = await tx.paymentSession.findFirst({
+        where: { id, merchantId, mode },
+        ...WITH_MERCHANT,
+      })
+      if (count === 1 && row?.storefrontProductId) {
+        await tx.storefrontProduct.updateMany({
+          where: { id: row.storefrontProductId, stock: { not: null } },
+          data: { stock: { increment: 1 } },
+        })
+      }
+      return { count, row }
     })
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'session not found' })
     if (count === 0) {
