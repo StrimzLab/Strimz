@@ -13,15 +13,17 @@ export interface RecordedJob {
 import {
   agentActionJobSchema,
   QUEUE_NAMES,
+  relayJobSchema,
   webhookDeliveryJobSchema,
   type AgentActionJob,
+  type RelayJob,
   type WebhookDeliveryJob,
 } from '@strimz/queue-contracts'
 import type { QueueService } from '../../../src/infra/queue/queue.service.js'
 
 export class StubQueueService implements Pick<
   QueueService,
-  'addAgentAction' | 'addWebhookDelivery' | 'onModuleDestroy'
+  'addAgentAction' | 'addWebhookDelivery' | 'addRelaySubmission' | 'onModuleDestroy'
 > {
   public readonly recorded: RecordedJob[] = []
 
@@ -42,6 +44,13 @@ export class StubQueueService implements Pick<
   async addWebhookDelivery(job: WebhookDeliveryJob): Promise<void> {
     const parsed = webhookDeliveryJobSchema.parse(job)
     await this.queue(QUEUE_NAMES.webhookDelivery).add('deliver', parsed)
+  }
+
+  async addRelaySubmission(job: RelayJob): Promise<void> {
+    const parsed = relayJobSchema.parse(job)
+    await this.queue(QUEUE_NAMES.relaySubmission).add(`relay:${parsed.reason}`, parsed, {
+      jobId: parsed.idempotencyKey,
+    })
   }
 
   reset() {
