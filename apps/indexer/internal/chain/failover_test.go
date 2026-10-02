@@ -74,3 +74,39 @@ func TestRedactURL_DropsPath(t *testing.T) {
 		t.Fatalf("want %q, got %q", want, got)
 	}
 }
+
+func TestFailover_PinnedSessionStaysOnOneEndpoint(t *testing.T) {
+	a := &stubClient{id: 1}
+	b := &stubClient{id: 2}
+	fc := newFailover(a, b)
+
+	pinned := fc.Pin()
+	for i := 0; i < 3; i++ {
+		if got, err := pinned.BlockNumber(context.Background()); err != nil || got != 1 {
+			t.Fatalf("call %d: want 1/nil, got %d/%v", i, got, err)
+		}
+	}
+	if b.calls != 0 {
+		t.Fatalf("pinned session reached a second endpoint %d times", b.calls)
+	}
+}
+
+func TestFailover_PinnedSessionFailsInsteadOfSwitching(t *testing.T) {
+	a := &stubClient{id: 1}
+	b := &stubClient{id: 2}
+	fc := newFailover(a, b)
+
+	pinned := fc.Pin()
+	a.fail = true
+	if _, err := pinned.BlockNumber(context.Background()); err == nil {
+		t.Fatal("a pinned session must surface the error, not move to another endpoint")
+	}
+	if b.calls != 0 {
+		t.Fatalf("pinned session switched endpoints mid-batch")
+	}
+
+	next := fc.Pin()
+	if got, err := next.BlockNumber(context.Background()); err != nil || got != 2 {
+		t.Fatalf("the next session should start on the next endpoint, got %d/%v", got, err)
+	}
+}
