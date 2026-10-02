@@ -72,6 +72,28 @@ describe('subscription sweeper e2e', () => {
     expect(locked.every((s) => s.chargeLock)).toBe(true)
   })
 
+  it('charges a trial that has ended and leaves a running trial alone', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const ended = await seedSubscription(t.prisma.db, merchant.id, {
+      onchainSubscriptionId: 1,
+      status: 'trialing',
+    })
+    await seedSubscription(t.prisma.db, merchant.id, {
+      onchainSubscriptionId: 2,
+      status: 'trialing',
+      nextChargeAt: new Date(Date.now() + 86_400_000),
+    })
+
+    const result = await t.app.get(SubscriptionSweeperService).sweepNow()
+    expect(result.enqueued).toBe(1)
+
+    const queue: Queue = t.app.get(getQueueToken(QUEUE_NAMES.subscriptionDue))
+    const jobs = await queue.getJobs(['waiting', 'delayed', 'active'])
+    expect(jobs.map((j) => (j.data as { subscriptionId: string }).subscriptionId)).toEqual([
+      ended.id,
+    ])
+  })
+
   it('a second sweep tick does not re-pick already-locked subs', async () => {
     const merchant = await seedMerchant(t.prisma.db)
     await seedSubscription(t.prisma.db, merchant.id, { onchainSubscriptionId: 1 })

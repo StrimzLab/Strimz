@@ -1,13 +1,19 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { use, useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useAppKit } from '@reown/appkit/react'
 import { useRefreshWhile } from '@/hooks/use-refresh-while'
+import { trialCopy } from '@/lib/subscription-trial'
 import { Loader2, Repeat, ShieldCheck, Wallet } from 'lucide-react'
 import { Badge, FieldLabel, Input } from '@strimz/ui'
-import type { MerchantPublicBrand, SubscriptionPlan, TokenMetadata } from '@strimz/shared-types'
+import type {
+  MerchantPublicBrand,
+  SubscriptionEnrolmentTerms,
+  SubscriptionPlan,
+  TokenMetadata,
+} from '@strimz/shared-types'
 
 import { CheckoutShell, StepIndicator } from '@/components/checkout/checkout-shell'
 import { WalletPickerGuard } from '@/components/checkout/wallet-picker-guard'
@@ -41,6 +47,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
   const [tokenMeta, setTokenMeta] = useState<TokenMetadata | null>(null)
   const [brand, setBrand] = useState<MerchantPublicBrand | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [terms, setTerms] = useState<SubscriptionEnrolmentTerms | null>(null)
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState<string | null>(null)
   const [attaching, setAttaching] = useState(false)
@@ -98,6 +105,32 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
     }
   }, [planId, address])
 
+  useEffect(() => {
+    if (!address) {
+      setTerms(null)
+      return
+    }
+    let cancelled = false
+    void strimzBrowserClient()
+      .checkout.planTerms(planId, address)
+      .then((t) => {
+        if (!cancelled) setTerms(t)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setLoadError((err as Error).message)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [planId, address])
+
+  const resolveStartAt = useCallback(async () => {
+    if (!address) throw new Error('wallet not connected')
+    const fresh = await strimzBrowserClient().checkout.planTerms(planId, address)
+    setTerms(fresh)
+    return BigInt(fresh.startAt)
+  }, [planId, address])
+
   const chainMerchantId = plan?.chainMerchantId ?? null
   useRefreshWhile(
     plan !== null && chainMerchantId === null && loadError === null,
@@ -117,7 +150,10 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
     tokenMeta: tokenMeta ?? PLACEHOLDER_TOKEN,
     amount: amountBaseUnits,
     intervalSeconds: intervalSeconds || 1, // hook validates > 0; 1 keeps it from throwing while loading
+    resolveStartAt,
   })
+  const symbol = tokenMeta?.symbol ?? 'USDC'
+  const copy = terms ? trialCopy(terms, `${amountDisplay} ${symbol}`, intervalLabel) : null
 
   const phase = derivePhase({
     hookPhase: subscribe.phase,
@@ -128,6 +164,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
     intervalSeconds,
     loadError,
     alreadySubscribed: existingSub?.active ?? false,
+    termsReady: terms !== null,
   })
 
   return (
@@ -226,6 +263,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
                 </p>
               )}
             </div>
+            {copy && <p className="text-foreground text-sm">{copy.notice}</p>}
             <SubmitButton
               type="button"
               onClick={() =>
@@ -245,7 +283,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
               ) : (
                 <TokenLogo symbol={tokenMeta?.symbol ?? 'USDC'} size={18} />
               )}
-              Subscribe. {amountDisplay} {tokenMeta?.symbol ?? 'USDC'}/{intervalLabel}
+              {copy?.button ?? `Subscribe. ${amountDisplay} ${symbol}/${intervalLabel}`}
             </SubmitButton>
           </>
         )}
@@ -280,8 +318,8 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
               </p>
             )}
             <p className="text-muted-foreground mt-2 text-xs">
-              Your first charge has been recorded on-chain. Strimz will charge automatically each
-              period. Cancel anytime.
+              {copy?.confirmed ??
+                'Your first charge has been recorded on-chain. Strimz will charge automatically each period. Cancel anytime.'}
             </p>
           </div>
         )}
@@ -367,6 +405,7 @@ function derivePhase(args: {
   intervalSeconds: number
   loadError: string | null
   alreadySubscribed: boolean
+  termsReady: boolean
 }): VisiblePhase {
   const {
     hookPhase,
@@ -377,6 +416,7 @@ function derivePhase(args: {
     intervalSeconds,
     loadError,
     alreadySubscribed,
+    termsReady,
   } = args
   if (loadError) return 'load_error'
   if (!plan || !tokenMeta || intervalSeconds <= 0) return 'loading'
@@ -389,6 +429,7 @@ function derivePhase(args: {
   if (hookPhase === 'polling') return 'polling'
   if (!isConnected) return 'connect'
   if (alreadySubscribed) return 'already_subscribed'
+  if (!termsReady) return 'loading'
   return 'ready'
 }
 

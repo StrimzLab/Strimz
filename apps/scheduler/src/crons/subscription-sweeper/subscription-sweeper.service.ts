@@ -89,7 +89,11 @@ export class SubscriptionSweeperService {
             -- ~192 on-chain transactions across a 48h grace period for
             -- one failing subscription.
             AND ("nextRetryAt" IS NULL OR "nextRetryAt" <= $1)
-            AND status IN ('active'::"SubscriptionStatus", 'at_risk'::"SubscriptionStatus")
+            AND status IN (
+                  'trialing'::"SubscriptionStatus",
+                  'active'::"SubscriptionStatus",
+                  'at_risk'::"SubscriptionStatus"
+                )
             AND "onchainSubscriptionId" IS NOT NULL
           ORDER BY "nextChargeAt" ASC
           LIMIT $2

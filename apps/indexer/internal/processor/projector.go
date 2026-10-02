@@ -149,6 +149,7 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 			Interval:              interval,
 			IntervalCount:         intervalCount,
 			StartAt:               startAt,
+			BlockTimestamp:        blockTime,
 			CurrentPeriodEndAt:    periodEnd,
 			NextChargeAt:          nextCharge,
 			OnchainTxHash:         lg.TxHash.Hex(),

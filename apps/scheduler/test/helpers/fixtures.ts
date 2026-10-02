@@ -94,7 +94,7 @@ export async function seedSubscription(
   overrides: Partial<{
     onchainSubscriptionId: number | null
     nextChargeAt: Date | null
-    status: 'active' | 'at_risk' | 'cancelled' | 'lapsed'
+    status: 'trialing' | 'active' | 'at_risk' | 'cancelled' | 'lapsed'
     chargeLock: boolean
     payerAddress: string
   }> = {},

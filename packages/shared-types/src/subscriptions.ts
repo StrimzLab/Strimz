@@ -126,6 +126,13 @@ export const subscriptionStatusResultSchema = z.object({
 })
 export type SubscriptionStatusResult = z.infer<typeof subscriptionStatusResultSchema>
 
+export const subscriptionEnrolmentTermsSchema = z.object({
+  startAt: z.string().regex(/^\d+$/),
+  trialDays: z.number().int().min(0),
+  trialEndsAt: isoTimestampSchema.nullable(),
+})
+export type SubscriptionEnrolmentTerms = z.infer<typeof subscriptionEnrolmentTermsSchema>
+
 export const createSubscriptionInputSchema = z.object({
   planId: idSchema,
   customer: z.object({

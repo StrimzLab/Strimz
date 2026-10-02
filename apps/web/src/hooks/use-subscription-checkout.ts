@@ -42,6 +42,7 @@ export interface SubscriptionCheckoutInputs {
   intervalSeconds: number
   /** Unix seconds of the first charge; 0 = "now". */
   startAt?: bigint
+  resolveStartAt?: () => Promise<bigint>
   /** Unix seconds after which the schedule stops; 0 = open-ended. */
   endAt?: bigint
   /** Allowance value to grant via permit. Defaults to type(uint256).max,
@@ -92,6 +93,7 @@ export function useSubscriptionCheckout(
     startAt = 0n,
     endAt = 0n,
   } = inputs
+  const resolveStartAt = inputs.resolveStartAt
   const permitValue = inputs.permitValue ?? UINT256_MAX
   const permitValidForSeconds = inputs.permitValidForSeconds ?? 24 * 60 * 60
 
@@ -136,6 +138,7 @@ export function useSubscriptionCheckout(
 
     try {
       const tokenAddress = tokenMeta.address as `0x${string}`
+      const signedStartAt = resolveStartAt ? await resolveStartAt() : startAt
 
       // Read the payer's current permit nonce immediately before
       // signing. The token contract rejects stale nonces, so racing
@@ -172,7 +175,7 @@ export function useSubscriptionCheckout(
         token: tokenAddress,
         amount,
         interval: intervalSeconds,
-        startAt,
+        startAt: signedStartAt,
         endAt,
         permitDeadline: deadline,
       })
@@ -195,7 +198,7 @@ export function useSubscriptionCheckout(
         token: tokenAddress,
         amount: amount.toString(),
         interval: intervalSeconds,
-        startAt: startAt.toString(),
+        startAt: signedStartAt.toString(),
         endAt: endAt.toString(),
         permitData: {
           owner: address,
@@ -228,6 +231,7 @@ export function useSubscriptionCheckout(
     amount,
     intervalSeconds,
     startAt,
+    resolveStartAt,
     endAt,
     permitValue,
     permitValidForSeconds,

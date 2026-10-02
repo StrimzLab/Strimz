@@ -364,6 +364,7 @@ type SubscriptionCreatedInput struct {
 	Interval              string // "daily" / "weekly" / "monthly" / "quarterly" / "yearly"
 	IntervalCount         int32
 	StartAt               time.Time
+	BlockTimestamp        time.Time
 	CurrentPeriodEndAt    time.Time
 	NextChargeAt          time.Time
 	OnchainTxHash         string
@@ -373,6 +374,19 @@ type SubscriptionCreatedInput struct {
 // UpsertSubscriptionFromOnchain projects `SubscriptionCreated`. Idempotent
 // on `onchainSubscriptionId` (UNIQUE) — replays no-op.
 func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in SubscriptionCreatedInput) (int64, error) {
+	if in.BlockTimestamp.IsZero() {
+		return 0, fmt.Errorf("subscription %s: block timestamp is required", in.OnchainSubscriptionID)
+	}
+	status := "active"
+	periodStart, periodEnd := in.StartAt, in.CurrentPeriodEndAt
+	var trialEndsAt *time.Time
+	if in.StartAt.After(in.BlockTimestamp) {
+		status = "trialing"
+		periodStart, periodEnd = in.BlockTimestamp, in.StartAt
+		trialEnd := in.StartAt
+		trialEndsAt = &trialEnd
+	}
+
 	var rows int64
 	err := s.inTx(ctx, func(tx pgxTxLike) error {
 		merchantID, _, err := lookupMerchantByOnchain(ctx, tx, in.MerchantOnchainID)
@@ -395,12 +409,12 @@ func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in Subscripti
 			INSERT INTO "Subscription" (
 			  id, "onchainSubscriptionId", "enrolmentTxHash", "merchantId", "customerId", "planId",
 			  status, "payerAddress", currency, amount, interval, "intervalCount",
-			  "currentPeriodStartAt", "currentPeriodEndAt", "nextChargeAt",
+			  "currentPeriodStartAt", "currentPeriodEndAt", "nextChargeAt", "trialEndsAt",
 			  "gracePeriodHours", mode, "createdAt", "updatedAt"
 			) VALUES (
 			  gen_random_uuid()::text, $1, $2, $3, $4, $5,
-			  'active'::"SubscriptionStatus", $6, $7::"PaymentCurrency", $8, $9::"SubscriptionInterval", $10,
-			  $11, $12, $13,
+			  $15::"SubscriptionStatus", $6, $7::"PaymentCurrency", $8, $9::"SubscriptionInterval", $10,
+			  $11, $12, $13, $16,
 			  48, $14::"Mode", NOW(), NOW()
 			)
 			ON CONFLICT ("onchainSubscriptionId") DO NOTHING
@@ -408,8 +422,8 @@ func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in Subscripti
 		`,
 			in.OnchainSubscriptionID.Int64(), in.OnchainTxHash, merchantID, customerID, planID,
 			in.PayerAddress, in.Currency, in.Amount, in.Interval, in.IntervalCount,
-			in.StartAt, in.CurrentPeriodEndAt, in.NextChargeAt,
-			in.Mode,
+			periodStart, periodEnd, in.NextChargeAt,
+			in.Mode, status, trialEndsAt,
 		).Scan(&subID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Replay — subscription already exists.
@@ -577,7 +591,7 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 			       "retryCount"           = 0,
 			       "nextRetryAt"          = NULL,
 			       status = CASE
-			         WHEN status = 'at_risk'::"SubscriptionStatus"
+			         WHEN status IN ('at_risk'::"SubscriptionStatus", 'trialing'::"SubscriptionStatus")
 			         THEN 'active'::"SubscriptionStatus"
 			         ELSE status
 			       END,
