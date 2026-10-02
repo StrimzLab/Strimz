@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common'
 import type { Job } from 'bullmq'
 import { encodeFunctionData, padHex } from 'viem'
+import { relayJobSchema, type RelayJob } from '@strimz/queue-contracts'
 
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
@@ -10,7 +11,6 @@ import type { RelayJobResult } from './relay.processor.js'
 import type {
   PayWithAuthorizationInput,
   PermitAndCreateSubscriptionInput,
-  RelayJobData,
   RelaySubmissionStatus,
   RelaySubmissionView,
 } from './relay.types.js'
@@ -189,15 +189,16 @@ export class RelayService {
 
   // ----- Internal -----
 
-  private async enqueue(data: RelayJobData): Promise<RelaySubmissionView> {
+  private async enqueue(job: RelayJob): Promise<RelaySubmissionView> {
+    const data = relayJobSchema.parse(job)
     const queue = this.queue.queue(QUEUE_NAMES.relaySubmission)
     // Using the idempotency key as the BullMQ job id makes
     // resubmission a no-op: BullMQ rejects duplicate ids with a
     // documented `Job <id> already exists` shape. We catch that and
     // return the existing job's view rather than failing the caller.
-    let job: Job<RelayJobData, RelayJobResult>
+    let added: Job<RelayJob, RelayJobResult>
     try {
-      job = (await queue.add(`relay:${data.reason}`, data, {
+      added = (await queue.add(`relay:${data.reason}`, data, {
         jobId: data.idempotencyKey,
         // Up to 5 attempts; exponential backoff starting at 2s capped
         // at 30s. On nonce / underpriced errors the worker resyncs
@@ -209,7 +210,7 @@ export class RelayService {
         // unbounded retention.
         removeOnComplete: { age: 3600 },
         removeOnFail: { age: 3600 },
-      })) as Job<RelayJobData, RelayJobResult>
+      })) as Job<RelayJob, RelayJobResult>
     } catch (err) {
       const existing = await queue.getJob(data.idempotencyKey)
       if (existing) {
@@ -218,10 +219,8 @@ export class RelayService {
       }
       throw err
     }
-    this.log.log(
-      `relay submission ${job.id} enqueued (reason=${data.reason}, gasLimit=${data.gasLimit})`,
-    )
-    return this.viewFromJob(job)
+    this.log.log(`relay submission ${added.id} enqueued (reason=${data.reason})`)
+    return this.viewFromJob(added)
   }
 
   /**
@@ -349,13 +348,13 @@ export class RelayService {
     }
   }
 
-  private async viewFromJob(job: Job<RelayJobData, RelayJobResult>): Promise<RelaySubmissionView> {
+  private async viewFromJob(job: Job<RelayJob, RelayJobResult>): Promise<RelaySubmissionView> {
     const state = await job.getState()
     return {
       id: String(job.id),
       idempotencyKey: job.data.idempotencyKey,
       status: mapStatus(state),
-      txHash: job.returnvalue?.txHash ?? null,
+      txHash: job.returnvalue && 'txHash' in job.returnvalue ? job.returnvalue.txHash : null,
       reason: job.data.reason,
       errorReason: job.failedReason ?? null,
       attemptCount: job.attemptsMade,
