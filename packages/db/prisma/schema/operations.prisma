@@ -36,3 +36,24 @@ model AuditLog {
   @@index([category, createdAt])
   @@index([targetType, targetId])
 }
+
+model IndexerDeadLetter {
+  id              String         @id @default(cuid())
+  environment     ArcEnvironment
+  contractAddress String         @db.VarChar(42)
+  txHash          String         @db.VarChar(66)
+  logIndex        Int
+  blockNumber     BigInt
+  blockHash       String         @db.VarChar(66)
+  blockTimestamp  DateTime
+  topics          String[]
+  data            String
+  reason          String
+  attempts        Int            @default(1)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  resolvedAt      DateTime?
+
+  @@unique([txHash, logIndex])
+  @@index([environment, resolvedAt, blockNumber])
+}
