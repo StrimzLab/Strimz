@@ -4,6 +4,7 @@ import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useAppKit } from '@reown/appkit/react'
+import { useRefreshWhile } from '@/hooks/use-refresh-while'
 import { ArrowRight, CheckCircle2, ExternalLink, Loader2, ShieldCheck, Wallet } from 'lucide-react'
 import { Badge, FieldLabel, Input } from '@strimz/ui'
 import type { MerchantPublicBrand, PaymentSession, TokenMetadata } from '@strimz/shared-types'
@@ -81,6 +82,13 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
   // phase mapping below renders an explicit "not ready" state when
   // the on-chain registry id is missing.
   const chainMerchantId = session?.chainMerchantId ?? null
+  useRefreshWhile(
+    session !== null && chainMerchantId === null && loadError === null,
+    MERCHANT_READY_POLL_MS,
+    () => strimzBrowserClient().checkout.session(sessionId),
+    setSession,
+    (err) => setLoadError(err.message),
+  )
   const amountBaseUnits = session ? BigInt(session.amount) : 0n
   const amountDisplay = formatAmount(amountBaseUnits, tokenMeta?.decimals ?? 6)
 
@@ -544,6 +552,8 @@ function ConnectedRow({ address, onChange }: { address: string; onChange: () => 
  * capabilities so an accidental submission attempt before the real
  * metadata lands fails loudly in `usePayCheckout.submit()`.
  */
+const MERCHANT_READY_POLL_MS = 3_000
+
 const PLACEHOLDER_TOKEN: TokenMetadata = {
   address: '0x0000000000000000000000000000000000000000',
   name: 'USDC',

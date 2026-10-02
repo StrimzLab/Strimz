@@ -46,7 +46,7 @@ export class SubscriptionPlansService {
     // plan creation regardless of mode. Idempotent. `mode` is preserved
     // in the signature for parity with other create() methods; the
     // SubscriptionPlan row itself has no per-mode field today.
-    await this.merchantChain.ensureRegistered(merchantId)
+    await this.merchantChain.requestRegistration(merchantId)
     const row = await this.prisma.db.subscriptionPlan.create({
       data: {
         merchantId,

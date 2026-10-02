@@ -3,9 +3,11 @@ import { Queue } from 'bullmq'
 import {
   agentActionJobSchema,
   QUEUE_NAMES,
+  relayJobSchema,
   webhookDeliveryJobSchema,
   type AgentActionJob,
   type QueueName,
+  type RelayJob,
   type WebhookDeliveryJob,
 } from '@strimz/queue-contracts'
 import { RedisService } from '../redis/redis.service.js'
@@ -37,6 +39,17 @@ export class QueueService implements OnModuleDestroy {
   async addWebhookDelivery(job: WebhookDeliveryJob): Promise<void> {
     const parsed = webhookDeliveryJobSchema.parse(job)
     await this.queue(QUEUE_NAMES.webhookDelivery).add('deliver', parsed)
+  }
+
+  async addRelaySubmission(job: RelayJob): Promise<void> {
+    const parsed = relayJobSchema.parse(job)
+    await this.queue(QUEUE_NAMES.relaySubmission).add(`relay:${parsed.reason}`, parsed, {
+      jobId: parsed.idempotencyKey,
+      attempts: 5,
+      backoff: { type: 'exponential', delay: 2000 },
+      removeOnComplete: { age: 3600 },
+      removeOnFail: { age: 3600 },
+    })
   }
 
   async onModuleDestroy(): Promise<void> {

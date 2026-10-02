@@ -4,6 +4,7 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module.js'
 import { GasPricingService } from './gas-pricing.service.js'
 import { NonceManager } from './nonce-manager.service.js'
 import { RelayController } from './relay.controller.js'
+import { RelayJobRunner } from './relay-job-runner.js'
 import { RelayProcessor } from './relay.processor.js'
 import { RelayService } from './relay.service.js'
 
@@ -29,7 +30,7 @@ import { RelayService } from './relay.service.js'
 @Module({
   imports: [SubscriptionsModule],
   controllers: [RelayController],
-  providers: [NonceManager, GasPricingService, RelayService, RelayProcessor],
+  providers: [NonceManager, GasPricingService, RelayService, RelayJobRunner, RelayProcessor],
   // NonceManager + GasPricingService are exported so other call sites
   // (e.g. MerchantChainService) that sign from the same KMS key share
   // a single nonce sequence and gas-pricing source of truth.

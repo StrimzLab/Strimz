@@ -78,7 +78,14 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 	// ----- Registry -----
 	case indabi.EventMerchantRegistered:
 		ev := payload.(*indabi.MerchantRegistered)
-		_, err = p.store.LinkOnchainMerchant(ctx, ev.MerchantID, strings.ToLower(ev.PayoutAddress.Hex()))
+		var linked int64
+		linked, err = p.store.LinkOnchainMerchant(ctx, ev.MerchantID, lg.TxHash.Hex())
+		if err == nil && linked == 0 {
+			p.log.Warn("MerchantRegistered matched no merchant",
+				"onchainMerchantId", ev.MerchantID.String(),
+				"owner", strings.ToLower(ev.Owner.Hex()),
+				"txHash", lg.TxHash.Hex())
+		}
 
 	case indabi.EventMerchantPayoutAddressUpdated:
 		ev := payload.(*indabi.MerchantPayoutAddressUpdated)

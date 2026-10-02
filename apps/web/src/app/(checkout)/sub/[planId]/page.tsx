@@ -4,6 +4,7 @@ import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useAppKit } from '@reown/appkit/react'
+import { useRefreshWhile } from '@/hooks/use-refresh-while'
 import { Loader2, Repeat, ShieldCheck, Wallet } from 'lucide-react'
 import { Badge, FieldLabel, Input } from '@strimz/ui'
 import type { MerchantPublicBrand, SubscriptionPlan, TokenMetadata } from '@strimz/shared-types'
@@ -98,6 +99,13 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
   }, [planId, address])
 
   const chainMerchantId = plan?.chainMerchantId ?? null
+  useRefreshWhile(
+    plan !== null && chainMerchantId === null && loadError === null,
+    MERCHANT_READY_POLL_MS,
+    () => strimzBrowserClient().checkout.plan(planId),
+    setPlan,
+    (err) => setLoadError(err.message),
+  )
   const amountBaseUnits = plan ? BigInt(plan.amount) : 0n
   const amountDisplay = formatAmount(amountBaseUnits, tokenMeta?.decimals ?? 6)
   const intervalSeconds = plan?.intervalSeconds ?? 0
@@ -495,6 +503,8 @@ function ConnectedRow({ address, onChange }: { address: string; onChange: () => 
     </div>
   )
 }
+
+const MERCHANT_READY_POLL_MS = 3_000
 
 const PLACEHOLDER_TOKEN: TokenMetadata = {
   address: '0x0000000000000000000000000000000000000000',

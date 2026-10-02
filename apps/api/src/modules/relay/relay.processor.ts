@@ -1,28 +1,12 @@
-import { Inject, Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common'
-import { Worker, type Job } from 'bullmq'
-import { hexToBigInt } from 'viem'
+import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common'
+import { Worker } from 'bullmq'
+import type { RelayJob } from '@strimz/queue-contracts'
 
-import { ChainService } from '../../infra/chain/chain.service.js'
-import { KMS_SIGNER } from '../../infra/kms/kms.tokens.js'
-import type { KmsSigner } from '../../infra/kms/kms.types.js'
-import { toKmsAccount } from '../../infra/kms/kms-account.js'
-import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QUEUE_NAMES } from '../../infra/queue/queue.service.js'
 import { RedisService } from '../../infra/redis/redis.service.js'
-import { GasPricingService } from './gas-pricing.service.js'
-import { NonceManager } from './nonce-manager.service.js'
-import type { RelayJobData } from './relay.types.js'
+import { RelayJobRunner, type RelayJobResult } from './relay-job-runner.js'
 
-/**
- * Result returned to BullMQ. On success contains the tx hash + block;
- * on failure the worker throws (BullMQ then surfaces the error and
- * applies its retry policy).
- */
-export interface RelayJobResult {
-  txHash: `0x${string}`
-  blockNumber: string // serialised bigint
-  blockHash: `0x${string}`
-}
+export { RelayPermanentError, type RelayJobResult } from './relay-job-runner.js'
 
 /**
  * BullMQ worker that drives one relay submission end-to-end:
@@ -44,21 +28,17 @@ export interface RelayJobResult {
 @Injectable()
 export class RelayProcessor implements OnModuleInit, OnModuleDestroy {
   private readonly log = new Logger(RelayProcessor.name)
-  private worker?: Worker<RelayJobData, RelayJobResult>
+  private worker?: Worker<RelayJob, RelayJobResult>
 
   constructor(
     private readonly redis: RedisService,
-    private readonly chain: ChainService,
-    private readonly nonces: NonceManager,
-    private readonly gas: GasPricingService,
-    private readonly prisma: PrismaService,
-    @Inject(KMS_SIGNER) private readonly signer: KmsSigner,
+    private readonly runner: RelayJobRunner,
   ) {}
 
   onModuleInit(): void {
-    this.worker = new Worker<RelayJobData, RelayJobResult>(
+    this.worker = new Worker<RelayJob, RelayJobResult>(
       QUEUE_NAMES.relaySubmission,
-      (job) => this.process(job),
+      (job) => this.runner.run(job),
       {
         connection: this.redis.client,
         concurrency: 1,
@@ -68,110 +48,16 @@ export class RelayProcessor implements OnModuleInit, OnModuleDestroy {
       this.log.warn(`relay job ${job?.id} failed: ${err.message}`)
     })
     this.worker.on('completed', (job, result) => {
-      this.log.log(`relay job ${job.id} confirmed in tx ${result.txHash}`)
+      this.log.log(
+        'txHash' in result
+          ? `relay job ${job.id} confirmed in tx ${result.txHash}`
+          : `relay job ${job.id} skipped: ${result.skipped}`,
+      )
     })
-    this.log.log(`relay worker ready (signer=${this.signer.address})`)
+    this.log.log('relay worker ready')
   }
 
   async onModuleDestroy(): Promise<void> {
     await this.worker?.close()
-  }
-
-  /**
-   * Single-job lifecycle. Each step throws on failure; BullMQ's retry
-   * policy decides whether to re-queue. The `attemptsMade` counter on
-   * the job is available via `job.attemptsMade`.
-   */
-  private async process(job: Job<RelayJobData, RelayJobResult>): Promise<RelayJobResult> {
-    const data = job.data
-    // `PublicClient.chain` is typed as optional. The Arc chain object
-    // is always wired in `ChainService` constructor, but TypeScript
-    // doesn't know that — assert and fail loudly if it ever isn't.
-    const chain = this.chain.client.chain
-    if (!chain) {
-      throw new Error('relay processor: chain client has no chain bound')
-    }
-    const chainId = chain.id
-
-    // Acquire a nonce. On any retry, `resync` is called first below
-    // so the counter re-anchors to the chain's view.
-    if (job.attemptsMade > 0) {
-      await this.nonces.resync(chainId, this.signer.address)
-    }
-    const nonce = await this.nonces.acquire(chainId, this.signer.address)
-
-    // EIP-1559 fee parameters. Bump the priority tip on retry to claw
-    // out of any congestion.
-    const priorityFeeGwei = 1 + job.attemptsMade
-    const { maxFeePerGas, maxPriorityFeePerGas } = await this.gas.compute({ priorityFeeGwei })
-
-    // Sign via the KMS-backed viem account. The account doesn't know
-    // (or care) whether the key sits in process memory or an HSM.
-    const account = toKmsAccount(this.signer)
-    const serialized = await account.signTransaction({
-      type: 'eip1559',
-      chainId,
-      nonce: Number(nonce),
-      to: data.toAddress,
-      data: data.callData,
-      value: 0n,
-      gas: hexToBigInt(`0x${BigInt(data.gasLimit).toString(16)}`),
-      maxFeePerGas,
-      maxPriorityFeePerGas,
-    })
-
-    // Broadcast. viem's `sendRawTransaction` accepts the signed RLP.
-    const txHash = await this.chain.client.sendRawTransaction({
-      serializedTransaction: serialized,
-    })
-    this.log.log(
-      `relay job ${job.id} broadcast tx=${txHash} nonce=${nonce} maxFee=${maxFeePerGas} tip=${maxPriorityFeePerGas}`,
-    )
-
-    // Wait for inclusion. Arc's <1s finality means this resolves
-    // quickly; we set a generous timeout so an RPC blip doesn't fail
-    // an otherwise-fine tx.
-    const receipt = await this.chain.client.waitForTransactionReceipt({
-      hash: txHash,
-      timeout: 60_000,
-      pollingInterval: 500,
-    })
-    if (receipt.status !== 'success') {
-      // The tx mined but reverted. BullMQ retry would just re-broadcast
-      // the same calldata and revert again. Mark and fail without retry.
-      throw new RelayPermanentError(`tx ${txHash} reverted in block ${receipt.blockNumber}`)
-    }
-
-    // Stamp the session as submitted so the dashboard reflects the
-    // payment seconds after mining. The indexer completes the flip to
-    // confirmed (and sets payerWalletAddress) when it projects the event.
-    if (data.sessionId) {
-      await this.prisma.db.paymentSession
-        .updateMany({
-          where: { id: data.sessionId, status: { in: ['created', 'awaiting_payment'] } },
-          data: { status: 'submitted', onchainTxHash: txHash },
-        })
-        .catch((err) => this.log.warn(`session stamp failed for ${data.sessionId}: ${err}`))
-    }
-
-    return {
-      txHash,
-      blockNumber: receipt.blockNumber.toString(),
-      blockHash: receipt.blockHash,
-    }
-  }
-}
-
-/**
- * Marker error: BullMQ retries every throw by default. Workers throw
- * `RelayPermanentError` to signal "do not retry, this will fail again."
- * The wiring in RelayService configures `removeOnFail` so permanent
- * failures don't accumulate in Redis.
- */
-export class RelayPermanentError extends Error {
-  readonly permanent = true
-  constructor(message: string) {
-    super(message)
-    this.name = 'RelayPermanentError'
   }
 }

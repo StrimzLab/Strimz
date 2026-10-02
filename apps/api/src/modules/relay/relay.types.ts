@@ -1,4 +1,4 @@
-import type { Hex } from 'viem'
+import type { RelayReason } from '@strimz/queue-contracts'
 
 /**
  * EIP-3009 ReceiveWithAuthorization fields the payer signs off-chain.
@@ -104,25 +104,8 @@ export interface RelaySubmissionView {
   idempotencyKey: string
   status: RelaySubmissionStatus
   txHash: `0x${string}` | null
-  reason: 'payWithAuthorization' | 'permitAndCreateSubscription'
+  reason: RelayReason
   errorReason: string | null
   attemptCount: number
   enqueuedAt: string
-}
-
-/**
- * Internal job payload. Lives in BullMQ; small and self-contained so
- * the worker can hydrate everything it needs from the queue without
- * a second DB read.
- */
-export interface RelayJobData {
-  idempotencyKey: string
-  reason: 'payWithAuthorization' | 'permitAndCreateSubscription'
-  toAddress: `0x${string}`
-  callData: Hex
-  gasLimit: string // serialised bigint
-  // Diagnostics for operator surfaces — not used by the worker logic.
-  merchantInternalId?: string
-  sessionId?: string
-  subscriptionInternalId?: string
 }

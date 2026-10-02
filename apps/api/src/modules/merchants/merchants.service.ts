@@ -9,6 +9,7 @@ import type {
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { TypedConfigService } from '../../config/index.js'
+import { MerchantChainService } from './merchant-chain.service.js'
 import { serialiseMerchant } from './merchants.serialiser.js'
 import type { OnboardInput } from './merchants.dto.js'
 
@@ -18,6 +19,7 @@ export class MerchantsService {
     private readonly prisma: PrismaService,
     private readonly chain: ChainService,
     private readonly cfg: TypedConfigService,
+    private readonly merchantChain: MerchantChainService,
   ) {}
 
   /**
@@ -157,6 +159,7 @@ export class MerchantsService {
         onboardingCompleted: true,
       },
     })
+    await this.merchantChain.startRegistrationIfEligible(id)
     return serialiseMerchant(updated)
   }
 
