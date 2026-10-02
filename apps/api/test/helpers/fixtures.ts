@@ -246,6 +246,7 @@ export function seedPlan(
     interval: SubscriptionInterval
     intervalCount: number
     status: 'active' | 'archived'
+    trialPeriodDays: number
   }> = {},
 ) {
   return prisma.subscriptionPlan.create({
@@ -257,6 +258,7 @@ export function seedPlan(
       interval: overrides.interval ?? 'monthly',
       intervalCount: overrides.intervalCount ?? 1,
       status: overrides.status ?? 'active',
+      trialPeriodDays: overrides.trialPeriodDays ?? null,
     },
   })
 }

@@ -538,6 +538,7 @@ func TestE2E_SubscriptionLifecycle_CreatedThenChargedThenChargeSkipped(t *testin
 		Interval:              "monthly",
 		IntervalCount:         1,
 		StartAt:               time.Now().UTC(),
+		BlockTimestamp:        time.Now().UTC(),
 		CurrentPeriodEndAt:    time.Now().Add(30 * 24 * time.Hour).UTC(),
 		NextChargeAt:          time.Now().Add(30 * 24 * time.Hour).UTC(),
 		OnchainTxHash:         "0x" + repeatStr("1", 64),
@@ -556,6 +557,7 @@ func TestE2E_SubscriptionLifecycle_CreatedThenChargedThenChargeSkipped(t *testin
 		Interval:              "monthly",
 		IntervalCount:         1,
 		StartAt:               time.Now().UTC(),
+		BlockTimestamp:        time.Now().UTC(),
 		CurrentPeriodEndAt:    time.Now().Add(30 * 24 * time.Hour).UTC(),
 		NextChargeAt:          time.Now().Add(30 * 24 * time.Hour).UTC(),
 		OnchainTxHash:         "0x" + repeatStr("1", 64),
@@ -650,6 +652,7 @@ func TestE2E_SubscriptionChargeSkip_NonPaymentFailureEmitsNoWebhook(t *testing.T
 		PayerAddress:          "0x000000000000000000000000000000000000aa22",
 		Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
 		StartAt:            time.Now().UTC(),
+		BlockTimestamp:     time.Now().UTC(),
 		CurrentPeriodEndAt: time.Now().Add(30 * 24 * time.Hour).UTC(),
 		NextChargeAt:       time.Now().Add(30 * 24 * time.Hour).UTC(),
 		Mode:               "live",
@@ -700,6 +703,7 @@ func TestE2E_SubscriptionChargeSkip_PaymentFailureAfterPaidCycles(t *testing.T) 
 		PayerAddress:          "0x000000000000000000000000000000000000aa33",
 		Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
 		StartAt:            start,
+		BlockTimestamp:     start,
 		CurrentPeriodEndAt: start.Add(interval),
 		NextChargeAt:       start,
 		OnchainTxHash:      "0x" + repeatStr("4", 64),
@@ -809,6 +813,7 @@ func TestE2E_SubscriptionCharged_RetryUnderSameAttemptIdUpgradesFailedRow(t *tes
 		PayerAddress:          "0x000000000000000000000000000000000000aa55",
 		Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
 		StartAt:            start,
+		BlockTimestamp:     start,
 		CurrentPeriodEndAt: start.Add(interval),
 		NextChargeAt:       start,
 		OnchainTxHash:      "0x" + repeatStr("6", 64),
@@ -899,6 +904,7 @@ func TestE2E_SubscriptionCharged_BatchKeepsOneTransactionPerCharge(t *testing.T)
 			PayerAddress:          fmt.Sprintf("0x%040x", 0xaa60+i),
 			Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
 			StartAt:            start,
+			BlockTimestamp:     start,
 			CurrentPeriodEndAt: start.Add(interval),
 			NextChargeAt:       start,
 			OnchainTxHash:      fmt.Sprintf("0x%064x", 0x6000+i),
@@ -991,6 +997,7 @@ func TestE2E_SubscriptionCharged_RecordsThePaidPeriod(t *testing.T) {
 		PayerAddress:          "0x000000000000000000000000000000000000aa66",
 		Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
 		StartAt:            start,
+		BlockTimestamp:     start,
 		CurrentPeriodEndAt: start.Add(interval),
 		NextChargeAt:       start,
 		OnchainTxHash:      "0x" + repeatStr("8", 64),
@@ -1062,6 +1069,7 @@ func TestE2E_MarkSubscriptionCancelled_NoOpForAlreadyCancelled(t *testing.T) {
 		PayerAddress:          "0x000000000000000000000000000000000000aa55",
 		Currency:              "USDC", Amount: "10000000", Interval: "monthly", IntervalCount: 1,
 		StartAt:            time.Now().UTC(),
+		BlockTimestamp:     time.Now().UTC(),
 		CurrentPeriodEndAt: time.Now().Add(30 * 24 * time.Hour).UTC(),
 		NextChargeAt:       time.Now().Add(30 * 24 * time.Hour).UTC(),
 		Mode:               "live",
@@ -1279,4 +1287,107 @@ func TestE2E_LogFeeAccrued_NoOpForUnknownMerchant(t *testing.T) {
 	var count int
 	require.NoError(t, s.pool.QueryRow(ctx, `SELECT count(*) FROM "AuditLog"`).Scan(&count))
 	assert.Equal(t, 0, count)
+}
+
+func TestE2E_SubscriptionCreated_FutureFirstChargeIsATrial(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_trial", "trial@x.io", "0x000000000000000000000000000000000000fe11", big.NewInt(410))
+
+	block := time.Now().UTC().Truncate(time.Second)
+	trialEnd := block.Add(14 * 24 * time.Hour)
+	subID := big.NewInt(40)
+
+	_, err := s.UpsertSubscriptionFromOnchain(ctx, SubscriptionCreatedInput{
+		OnchainSubscriptionID: subID,
+		MerchantOnchainID:     big.NewInt(410),
+		PayerAddress:          "0x000000000000000000000000000000000000aa40",
+		Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
+		StartAt:            trialEnd,
+		BlockTimestamp:     block,
+		CurrentPeriodEndAt: trialEnd.Add(30 * 24 * time.Hour),
+		NextChargeAt:       trialEnd,
+		OnchainTxHash:      "0x" + repeatStr("4", 64),
+		Mode:               "live",
+	})
+	require.NoError(t, err)
+
+	var status string
+	var trialEndsAt, periodStart, periodEnd, nextCharge time.Time
+	require.NoError(t, s.pool.QueryRow(ctx, `
+		SELECT status::text, "trialEndsAt", "currentPeriodStartAt", "currentPeriodEndAt", "nextChargeAt"
+		  FROM "Subscription" WHERE "onchainSubscriptionId" = 40`,
+	).Scan(&status, &trialEndsAt, &periodStart, &periodEnd, &nextCharge))
+	assert.Equal(t, "trialing", status)
+	assert.True(t, trialEndsAt.Equal(trialEnd), "trialEndsAt %s", trialEndsAt)
+	assert.True(t, periodStart.Equal(block), "currentPeriodStartAt %s", periodStart)
+	assert.True(t, periodEnd.Equal(trialEnd), "currentPeriodEndAt %s", periodEnd)
+	assert.True(t, nextCharge.Equal(trialEnd), "nextChargeAt %s", nextCharge)
+
+	_, err = s.InsertSubscriptionCharge(ctx, SubscriptionChargedInput{
+		OnchainSubscriptionID: subID,
+		ChargeAttemptID:       "0x" + repeatStr("e", 64),
+		Amount:                "20000000",
+		FeeAmount:             "300000",
+		NetAmount:             "19700000",
+		NextChargeAt:          trialEnd.Add(30 * 24 * time.Hour),
+		OnchainTxHash:         "0x" + repeatStr("5", 64),
+		BlockNumber:           1200,
+		BlockTimestamp:        trialEnd,
+		LogIndex:              0,
+		Mode:                  "live",
+	})
+	require.NoError(t, err)
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT status::text FROM "Subscription" WHERE "onchainSubscriptionId" = 40`,
+	).Scan(&status))
+	assert.Equal(t, "active", status)
+}
+
+func TestE2E_SubscriptionCreated_ImmediateFirstChargeIsActive(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_now", "now@x.io", "0x000000000000000000000000000000000000fe12", big.NewInt(411))
+
+	block := time.Now().UTC().Truncate(time.Second)
+	_, err := s.UpsertSubscriptionFromOnchain(ctx, SubscriptionCreatedInput{
+		OnchainSubscriptionID: big.NewInt(41),
+		MerchantOnchainID:     big.NewInt(411),
+		PayerAddress:          "0x000000000000000000000000000000000000aa41",
+		Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
+		StartAt:            block,
+		BlockTimestamp:     block,
+		CurrentPeriodEndAt: block.Add(30 * 24 * time.Hour),
+		NextChargeAt:       block,
+		OnchainTxHash:      "0x" + repeatStr("6", 64),
+		Mode:               "live",
+	})
+	require.NoError(t, err)
+
+	var status string
+	var trialEndsAt *time.Time
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT status::text, "trialEndsAt" FROM "Subscription" WHERE "onchainSubscriptionId" = 41`,
+	).Scan(&status, &trialEndsAt))
+	assert.Equal(t, "active", status)
+	assert.Nil(t, trialEndsAt)
+}
+
+func TestE2E_SubscriptionCreated_RequiresBlockTimestamp(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_nots", "nots@x.io", "0x000000000000000000000000000000000000fe13", big.NewInt(412))
+
+	_, err := s.UpsertSubscriptionFromOnchain(ctx, SubscriptionCreatedInput{
+		OnchainSubscriptionID: big.NewInt(42),
+		MerchantOnchainID:     big.NewInt(412),
+		PayerAddress:          "0x000000000000000000000000000000000000aa42",
+		Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
+		StartAt:            time.Now().UTC(),
+		CurrentPeriodEndAt: time.Now().Add(30 * 24 * time.Hour).UTC(),
+		NextChargeAt:       time.Now().UTC(),
+		OnchainTxHash:      "0x" + repeatStr("7", 64),
+		Mode:               "live",
+	})
+	require.Error(t, err)
 }

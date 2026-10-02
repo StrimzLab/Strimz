@@ -8,6 +8,7 @@ import {
   submitSubscriptionInputSchema,
 } from '../../../../src/modules/relay/relay.dto.js'
 import type { RelayService } from '../../../../src/modules/relay/relay.service.js'
+import type { EnrolmentTermsService } from '../../../../src/modules/subscription-plans/enrolment-terms.service.js'
 import type { SubscriptionsService } from '../../../../src/modules/subscriptions/subscriptions.service.js'
 import type {
   PayWithAuthorizationInput,
@@ -99,6 +100,7 @@ function parsedSubscriptionBody() {
 describe('RelayController', () => {
   let relay: ReturnType<typeof makeRelayMock>
   let subscriptions: { activeForPayer: ReturnType<typeof vi.fn> }
+  let enrolmentTerms: { verify: ReturnType<typeof vi.fn> }
   let controller: RelayController
 
   beforeEach(() => {
@@ -106,9 +108,11 @@ describe('RelayController', () => {
     subscriptions = {
       activeForPayer: vi.fn().mockResolvedValue({ active: false, subscriptionId: null }),
     }
+    enrolmentTerms = { verify: vi.fn().mockResolvedValue(undefined) }
     controller = new RelayController(
       relay as unknown as RelayService,
       subscriptions as unknown as SubscriptionsService,
+      enrolmentTerms as unknown as EnrolmentTermsService,
     )
   })
 
@@ -229,6 +233,18 @@ describe('RelayController', () => {
       expect(arg.permitSignature.v).toBe(28)
       expect(arg.intentSignature.v).toBe(28)
       expect(arg.merchantInternalId).toBe(ctx.merchantId)
+      expect(enrolmentTerms.verify).toHaveBeenCalledWith(
+        ctx.merchantId,
+        expect.objectContaining({ planId: 'sub_abc', payer: OWNER, startAt: 0n }),
+      )
+    })
+
+    it('does not enqueue when the terms do not match the plan', async () => {
+      enrolmentTerms.verify.mockRejectedValue(new Error('enrolment_terms_mismatch'))
+      await expect(controller.submitSubscription(ctx, parsedSubscriptionBody())).rejects.toThrow(
+        'enrolment_terms_mismatch',
+      )
+      expect(relay.submitPermitAndCreateSubscription).not.toHaveBeenCalled()
     })
 
     it('409s when the wallet already subscribes to the plan', async () => {

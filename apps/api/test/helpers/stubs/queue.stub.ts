@@ -31,7 +31,16 @@ export class StubQueueService implements Pick<
     return {
       add: (name: string, data: unknown, opts?: unknown) => {
         this.recorded.push({ queue: queueName, name, data, opts })
-        return Promise.resolve({ id: String(this.recorded.length) })
+        const id = (opts as { jobId?: string } | undefined)?.jobId ?? String(this.recorded.length)
+        return Promise.resolve({
+          id,
+          data,
+          timestamp: Date.now(),
+          attemptsMade: 0,
+          returnvalue: undefined,
+          failedReason: undefined,
+          getState: () => Promise.resolve('waiting'),
+        })
       },
     }
   }
