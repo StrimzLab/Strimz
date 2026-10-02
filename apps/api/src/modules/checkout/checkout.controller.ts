@@ -3,6 +3,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import type {
   MerchantPublicBrand,
   PaymentSession,
+  SubscriptionEnrolmentTerms,
   SubscriptionPlan,
   SubscriptionStatusResult,
 } from '@strimz/shared-types'
@@ -12,6 +13,7 @@ import { CustomersService } from '../customers/customers.service.js'
 import { MerchantsService } from '../merchants/merchants.service.js'
 import { PaymentSessionsService } from '../payment-sessions/payment-sessions.service.js'
 import { SubscriptionPlansService } from '../subscription-plans/subscription-plans.service.js'
+import { EnrolmentTermsService } from '../subscription-plans/enrolment-terms.service.js'
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
 import { PayerIdentityDto } from './checkout.dto.js'
 
@@ -44,6 +46,7 @@ export class CheckoutController {
     private readonly customers: CustomersService,
     private readonly merchants: MerchantsService,
     private readonly subscriptions: SubscriptionsService,
+    private readonly terms: EnrolmentTermsService,
   ) {}
 
   @ApiOperation({
@@ -101,6 +104,21 @@ export class CheckoutController {
   ): Promise<SubscriptionStatusResult> {
     await this.plans.retrievePublic(planId) // 404s on an unknown plan
     return this.subscriptions.activeForPayer(planId, payer ?? '')
+  }
+
+  @ApiOperation({
+    summary: 'Enrolment terms a payer must sign for a plan (public)',
+    description:
+      'Returns the startAt to sign: the end of the trial for a payer who has ' +
+      'never subscribed to this plan, otherwise 0. The relay rejects other values.',
+  })
+  @Public()
+  @Get('/plans/:id/terms')
+  planTerms(
+    @Param('id') planId: string,
+    @Query('payer') payer: string,
+  ): Promise<SubscriptionEnrolmentTerms> {
+    return this.terms.quote(planId, payer ?? '')
   }
 
   @ApiOperation({

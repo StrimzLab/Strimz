@@ -17,6 +17,7 @@ import {
 import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
+import { EnrolmentTermsService } from '../subscription-plans/enrolment-terms.service.js'
 import { SubmitPaymentDto, SubmitSubscriptionDto } from './relay.dto.js'
 import { RelayService } from './relay.service.js'
 import type { RelaySubmissionView } from './relay.types.js'
@@ -56,6 +57,7 @@ export class RelayController {
   constructor(
     private readonly relay: RelayService,
     private readonly subscriptions: SubscriptionsService,
+    private readonly enrolmentTerms: EnrolmentTermsService,
   ) {}
 
   @ApiOperation({
@@ -123,6 +125,16 @@ export class RelayController {
           subscriptionId: existing.subscriptionId,
         })
       }
+      await this.enrolmentTerms.verify(ctx.merchantId, {
+        planId: body.subscriptionInternalId,
+        payer: body.permitData.owner,
+        merchantId: body.merchantId,
+        token: body.token,
+        amount: body.amount,
+        interval: body.interval,
+        startAt: body.startAt,
+        endAt: body.endAt,
+      })
     }
 
     return this.relay.submitPermitAndCreateSubscription({

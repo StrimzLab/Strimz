@@ -29,6 +29,14 @@ const SECONDS_PER_INTERVAL: Record<string, number> = {
   yearly: 365 * 24 * 60 * 60,
 }
 
+export function intervalSeconds(interval: string, intervalCount: number): number {
+  const seconds = SECONDS_PER_INTERVAL[interval]
+  if (seconds === undefined) {
+    throw new Error(`unknown subscription interval: ${interval}`)
+  }
+  return seconds * intervalCount
+}
+
 @Injectable()
 export class SubscriptionPlansService {
   constructor(
