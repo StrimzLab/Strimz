@@ -17,17 +17,18 @@ import (
 // Server is the HTTP listener. Backed by stdlib net/http so we keep the
 // dependency surface tiny.
 type Server struct {
-	addr      string
-	srv       *http.Server
-	ready     atomic.Bool
-	freshness *FreshnessMonitor
+	addr        string
+	srv         *http.Server
+	ready       atomic.Bool
+	freshness   *FreshnessMonitor
+	deadLetters func() int64
 }
 
 // New returns a non-started server bound to `:port`. `freshness` may be
 // nil in tests where the stale-cursor check is not wired.
-func New(port int, freshness *FreshnessMonitor) *Server {
+func New(port int, freshness *FreshnessMonitor, deadLetters func() int64) *Server {
 	mux := http.NewServeMux()
-	s := &Server{addr: fmt.Sprintf(":%d", port), freshness: freshness}
+	s := &Server{addr: fmt.Sprintf(":%d", port), freshness: freshness, deadLetters: deadLetters}
 	mux.HandleFunc("/healthz", s.healthz)
 	mux.HandleFunc("/readyz", s.readyz)
 	mux.Handle("/metrics", promhttp.Handler())
@@ -83,6 +84,13 @@ func (s *Server) readyz(w http.ResponseWriter, _ *http.Request) {
 			s.freshness.StaleContract(), s.freshness.MaxLagSeconds(),
 		)
 		return
+	}
+	if s.deadLetters != nil {
+		if n := s.deadLetters(); n > 0 {
+			w.WriteHeader(http.StatusOK)
+			_, _ = fmt.Fprintf(w, `{"status":"degraded","dead_letters":%d}`, n)
+			return
+		}
 	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(`{"status":"ready"}`))

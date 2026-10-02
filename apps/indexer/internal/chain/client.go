@@ -30,6 +30,11 @@ type Client interface {
 	Close()
 }
 
+type Source interface {
+	Client
+	Pin() Client
+}
+
 // EthClient adapts a go-ethereum `*ethclient.Client` to our `Client`
 // interface.
 type EthClient struct {
@@ -160,6 +165,55 @@ func (fc *FailoverClient) BlockTime(ctx context.Context, blockNumber uint64) (ti
 func (fc *FailoverClient) BlockHash(ctx context.Context, blockNumber uint64) (string, error) {
 	return failoverDo(fc, func(c Client) (string, error) { return c.BlockHash(ctx, blockNumber) })
 }
+
+func (fc *FailoverClient) Pin() Client {
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+	return &pinnedClient{fc: fc, idx: fc.active}
+}
+
+func (fc *FailoverClient) moveOff(idx int, err error) {
+	fc.mu.Lock()
+	defer fc.mu.Unlock()
+	if fc.active != idx || len(fc.clients) < 2 {
+		return
+	}
+	fc.active = (idx + 1) % len(fc.clients)
+	fc.log.Warn("rpc failover", "from", redactURL(fc.urls[idx]), "to", redactURL(fc.urls[fc.active]), "err", err)
+}
+
+type pinnedClient struct {
+	fc  *FailoverClient
+	idx int
+}
+
+func pinnedDo[T any](p *pinnedClient, fn func(c Client) (T, error)) (T, error) {
+	out, err := fn(p.fc.clients[p.idx])
+	if err != nil {
+		p.fc.moveOff(p.idx, err)
+		var zero T
+		return zero, fmt.Errorf("rpc %s: %w", redactURL(p.fc.urls[p.idx]), err)
+	}
+	return out, nil
+}
+
+func (p *pinnedClient) BlockNumber(ctx context.Context) (uint64, error) {
+	return pinnedDo(p, func(c Client) (uint64, error) { return c.BlockNumber(ctx) })
+}
+
+func (p *pinnedClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
+	return pinnedDo(p, func(c Client) ([]types.Log, error) { return c.FilterLogs(ctx, q) })
+}
+
+func (p *pinnedClient) BlockTime(ctx context.Context, blockNumber uint64) (time.Time, error) {
+	return pinnedDo(p, func(c Client) (time.Time, error) { return c.BlockTime(ctx, blockNumber) })
+}
+
+func (p *pinnedClient) BlockHash(ctx context.Context, blockNumber uint64) (string, error) {
+	return pinnedDo(p, func(c Client) (string, error) { return c.BlockHash(ctx, blockNumber) })
+}
+
+func (p *pinnedClient) Close() {}
 
 func (fc *FailoverClient) Close() {
 	for _, c := range fc.clients {

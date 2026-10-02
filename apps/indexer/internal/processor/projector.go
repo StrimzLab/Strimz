@@ -63,12 +63,8 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 	if err != nil {
 		// Malformed event for a topic we own. Log and continue — a single
 		// bad log shouldn't stall the whole pipeline.
-		p.log.Warn("decode failed",
-			"contract", lg.Address.Hex(),
-			"tx", lg.TxHash.Hex(),
-			"index", lg.Index,
-			"err", err)
-		return nil
+		return fmt.Errorf("%w: decode %s log %s:%d: %v",
+			store.ErrUnresolvable, lg.Address.Hex(), lg.TxHash.Hex(), lg.Index, err)
 	}
 	if name == "" {
 		return nil // not subscribed
@@ -195,15 +191,7 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 	// ----- Agent escrow (full lifecycle) -----
 	case indabi.EventJobCreated:
 		ev := payload.(*indabi.JobCreated)
-		var linked int64
-		linked, err = p.store.LinkAgentJobOnchain(ctx, ev.JobID, strings.ToLower(ev.Vendor.Hex()), lg.TxHash.Hex(), blockTime)
-		if err == nil && linked == 0 {
-			p.log.Warn("JobCreated matched no funded off-chain job",
-				"onchainJobId", ev.JobID.String(),
-				"client", strings.ToLower(ev.Client.Hex()),
-				"vendor", strings.ToLower(ev.Vendor.Hex()),
-				"txHash", lg.TxHash.Hex())
-		}
+		_, err = p.store.LinkAgentJobOnchain(ctx, ev.JobID, strings.ToLower(ev.Vendor.Hex()), lg.TxHash.Hex(), blockTime)
 		if err == nil {
 			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.created", map[string]any{
 				"client": strings.ToLower(ev.Client.Hex()),
@@ -384,7 +372,7 @@ func (p *Projector) tokenSymbol(token common.Address) (string, error) {
 	if sym, ok := p.tokens[addr]; ok {
 		return sym, nil
 	}
-	return "", fmt.Errorf("token %s is not in STABLECOIN_ADDRESSES", addr)
+	return "", fmt.Errorf("%w: token %s is not in STABLECOIN_ADDRESSES", store.ErrUnresolvable, addr)
 }
 
 // decodeSessionRef interprets the bytes32 ref carried by `PaymentExecuted`.
