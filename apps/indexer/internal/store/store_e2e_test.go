@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -209,28 +210,49 @@ func TestE2E_SaveCheckpoint_IsIdempotent(t *testing.T) {
 
 // ===== Merchant registry =====
 
-func TestE2E_LinkOnchainMerchant_UpdatesByPayoutAddress(t *testing.T) {
+func TestE2E_LinkOnchainMerchant_MatchesRegistrationTxHash(t *testing.T) {
 	s := startTestPostgres(t)
 	ctx := context.Background()
 	payout := "0x000000000000000000000000000000000000beef"
+	ours := "0x" + strings.Repeat("ab", 32)
+	theirs := "0x" + strings.Repeat("cd", 32)
 
 	mustExec(t, s, ctx, `
-		INSERT INTO "Merchant" ("id", "privyUserId", "email", "payoutAddress", "createdAt", "updatedAt")
-		VALUES ('m_link', 'did:privy:e2e:link', 'l@x.io', $1, NOW(), NOW())
-	`, payout)
+		INSERT INTO "Merchant" ("id", "privyUserId", "email", "payoutAddress", "onchainRegistrationTxHash", "createdAt", "updatedAt")
+		VALUES ('m_ours', 'did:privy:e2e:ours', 'o@x.io', $1, $2, NOW(), NOW()),
+		       ('m_theirs', 'did:privy:e2e:theirs', 't@x.io', $1, $3, NOW(), NOW())
+	`, payout, ours, theirs)
 
-	rows, err := s.LinkOnchainMerchant(ctx, big.NewInt(42), payout)
+	rows, err := s.LinkOnchainMerchant(ctx, big.NewInt(42), strings.ToUpper(ours[:2])+ours[2:])
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), rows)
 
-	rows, err = s.LinkOnchainMerchant(ctx, big.NewInt(42), payout)
+	rows, err = s.LinkOnchainMerchant(ctx, big.NewInt(42), ours)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), rows)
 
 	var got int64
-	err = s.pool.QueryRow(ctx, `SELECT "onchainMerchantId" FROM "Merchant" WHERE id = 'm_link'`).Scan(&got)
+	err = s.pool.QueryRow(ctx, `SELECT "onchainMerchantId" FROM "Merchant" WHERE id = 'm_ours'`).Scan(&got)
 	require.NoError(t, err)
 	assert.Equal(t, int64(42), got)
+
+	var other *int64
+	err = s.pool.QueryRow(ctx, `SELECT "onchainMerchantId" FROM "Merchant" WHERE id = 'm_theirs'`).Scan(&other)
+	require.NoError(t, err)
+	assert.Nil(t, other)
+}
+
+func TestE2E_LinkOnchainMerchant_UnknownTxHashLinksNothing(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	mustExec(t, s, ctx, `
+		INSERT INTO "Merchant" ("id", "privyUserId", "email", "payoutAddress", "createdAt", "updatedAt")
+		VALUES ('m_none', 'did:privy:e2e:none', 'n@x.io', '0x000000000000000000000000000000000000beef', NOW(), NOW())
+	`)
+
+	rows, err := s.LinkOnchainMerchant(ctx, big.NewInt(43), "0x"+strings.Repeat("ef", 32))
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), rows)
 }
 
 func TestE2E_UpdateMerchantPayoutAddress(t *testing.T) {

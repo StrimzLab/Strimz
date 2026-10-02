@@ -31,7 +31,7 @@ export class InvoicesService {
     // hosted checkout, so the merchant needs a chain merchant id no
     // matter which mode we are in. Currently only Arc testnet is live;
     // when mainnet lands we'll route by mode to the right Registry.
-    await this.merchantChain.ensureRegistered(merchantId)
+    await this.merchantChain.requestRegistration(merchantId)
 
     const subtotal = input.lineItems
       .reduce((acc, li) => acc + BigInt(li.unitAmount) * BigInt(li.quantity), 0n)

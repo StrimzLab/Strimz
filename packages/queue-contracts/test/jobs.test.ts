@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 import {
   agentActionJobSchema,
   cctpBridgeJobSchema,
+  relayJobSchema,
   subscriptionDueJobSchema,
   webhookDeliveryJobSchema,
 } from '../src/index.js'
 import {
   agentActionJobFixtures,
   cctpBridgeJobFixture,
+  relayJobFixtures,
   subscriptionDueJobFixture,
   webhookDeliveryJobFixture,
 } from '../src/fixtures.js'
@@ -79,5 +81,51 @@ describe('other jobs', () => {
     expect(
       cctpBridgeJobSchema.safeParse({ ...cctpBridgeJobFixture, sourceTxHash: '0x1' }).success,
     ).toBe(false)
+  })
+})
+
+describe('relay submission jobs', () => {
+  const reasons = Object.keys(relayJobFixtures) as Array<keyof typeof relayJobFixtures>
+
+  it.each(reasons)('%s fixture parses and keeps its reason', (reason) => {
+    expect(relayJobSchema.parse(relayJobFixtures[reason]).reason).toBe(reason)
+  })
+
+  it.each(reasons)('%s with a recorded broadcast parses', (reason) => {
+    const withBroadcast = {
+      ...relayJobFixtures[reason],
+      broadcast: { txHash: `0x${'d'.repeat(64)}`, nonce: '12' },
+    }
+    expect(relayJobSchema.parse(withBroadcast).broadcast?.nonce).toBe('12')
+  })
+
+  it('rejects a registerMerchant job without the merchant id', () => {
+    const { merchantInternalId: _omitted, ...rest } = relayJobFixtures.registerMerchant
+    expect(relayJobSchema.safeParse(rest).success).toBe(false)
+  })
+
+  it('rejects a call job with malformed calldata or gas limit', () => {
+    const base = relayJobFixtures.payWithAuthorization
+    expect(relayJobSchema.safeParse({ ...base, callData: 'nope' }).success).toBe(false)
+    expect(relayJobSchema.safeParse({ ...base, gasLimit: '-1' }).success).toBe(false)
+  })
+
+  it('rejects a broadcast with a short hash or a non-integer nonce', () => {
+    const base = relayJobFixtures.registerMerchant
+    expect(
+      relayJobSchema.safeParse({ ...base, broadcast: { txHash: '0x1', nonce: '1' } }).success,
+    ).toBe(false)
+    expect(
+      relayJobSchema.safeParse({
+        ...base,
+        broadcast: { txHash: `0x${'d'.repeat(64)}`, nonce: '1.5' },
+      }).success,
+    ).toBe(false)
+  })
+
+  it('rejects an unknown reason', () => {
+    expect(relayJobSchema.safeParse({ reason: 'drainRelayer', idempotencyKey: 'k' }).success).toBe(
+      false,
+    )
   })
 })

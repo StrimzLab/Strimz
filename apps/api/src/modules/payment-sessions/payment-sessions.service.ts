@@ -44,7 +44,7 @@ export class PaymentSessionsService {
     // chain merchant id to render the pay button regardless of mode,
     // so we always ensure the merchant is on the Registry. Idempotent —
     // subsequent calls return the cached id in O(1).
-    await this.merchantChain.ensureRegistered(merchantId)
+    await this.merchantChain.requestRegistration(merchantId)
   }
 
   async insert(

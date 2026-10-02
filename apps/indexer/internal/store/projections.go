@@ -30,13 +30,14 @@ var errSkipLog = ErrSkipLog
 // row owns the matching `payoutAddress`. We don't insert a Merchant — that
 // row is created off-chain via `/auth/sync` long before the on-chain
 // transaction lands.
-func (s *Store) LinkOnchainMerchant(ctx context.Context, onchainID *big.Int, payoutAddress string) (int64, error) {
+func (s *Store) LinkOnchainMerchant(ctx context.Context, onchainID *big.Int, registrationTxHash string) (int64, error) {
 	tag, err := s.db().Exec(ctx, `
 		UPDATE "Merchant"
 		   SET "onchainMerchantId" = $1
-		 WHERE "payoutAddress" = $2
-		   AND ("onchainMerchantId" IS NULL OR "onchainMerchantId" = $1)
-	`, onchainID.Int64(), payoutAddress)
+		 WHERE (LOWER("onchainRegistrationTxHash") = LOWER($2)
+		        AND ("onchainMerchantId" IS NULL OR "onchainMerchantId" = $1))
+		    OR "onchainMerchantId" = $1
+	`, onchainID.Int64(), registrationTxHash)
 	if err != nil {
 		return 0, fmt.Errorf("link merchant: %w", err)
 	}

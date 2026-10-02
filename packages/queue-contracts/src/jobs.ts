@@ -95,3 +95,42 @@ export const cctpBridgeJobSchema = z.object({
   pollCount: z.number().int().nonnegative().default(0),
 })
 export type CctpBridgeJob = z.infer<typeof cctpBridgeJobSchema>
+
+// ----- Relay submission -----
+
+const hexMatching = (pattern: RegExp, label: string) =>
+  z.custom<`0x${string}`>((v) => typeof v === 'string' && pattern.test(v), { message: label })
+
+const txHashSchema = hexMatching(/^0x[0-9a-fA-F]{64}$/, 'expected a 32-byte hex hash')
+const addressSchema = hexMatching(/^0x[0-9a-fA-F]{40}$/, 'expected a 20-byte hex address')
+const calldataSchema = hexMatching(/^0x([0-9a-fA-F]{2})*$/, 'expected hex calldata')
+
+export const relayBroadcastSchema = z.object({
+  txHash: txHashSchema,
+  nonce: z.string().regex(/^\d+$/),
+})
+export type RelayBroadcast = z.infer<typeof relayBroadcastSchema>
+
+const relayCallFields = {
+  idempotencyKey: z.string().min(1),
+  toAddress: addressSchema,
+  callData: calldataSchema,
+  gasLimit: z.string().regex(/^\d+$/),
+  merchantInternalId: z.string().optional(),
+  sessionId: z.string().optional(),
+  subscriptionInternalId: z.string().optional(),
+  broadcast: relayBroadcastSchema.optional(),
+}
+
+export const relayJobSchema = z.discriminatedUnion('reason', [
+  z.object({ reason: z.literal('payWithAuthorization'), ...relayCallFields }),
+  z.object({ reason: z.literal('permitAndCreateSubscription'), ...relayCallFields }),
+  z.object({
+    reason: z.literal('registerMerchant'),
+    idempotencyKey: z.string().min(1),
+    merchantInternalId: z.string().min(1),
+    broadcast: relayBroadcastSchema.optional(),
+  }),
+])
+export type RelayJob = z.infer<typeof relayJobSchema>
+export type RelayReason = RelayJob['reason']

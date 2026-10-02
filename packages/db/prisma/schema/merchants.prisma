@@ -6,6 +6,8 @@ model Merchant {
   /// Server verifies inbound Privy access tokens; this is the join key.
   privyUserId          String?        @unique
   onchainMerchantId    Int?           @unique
+  onchainRegistrationTxHash      String?   @unique @db.VarChar(66)
+  onchainRegistrationRequestedAt DateTime?
   businessName         String?        @db.VarChar(120)
   email                String         @unique @db.VarChar(320)
   /// True after Privy confirms the email address. Required for live mode.

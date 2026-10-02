@@ -9,21 +9,23 @@ import { RelayService } from '../../../../src/modules/relay/relay.service.js'
 import type { QueueService } from '../../../../src/infra/queue/queue.service.js'
 import type { PrismaService } from '../../../../src/infra/prisma/prisma.service.js'
 import type { TypedConfigService } from '../../../../src/config/index.js'
+import type { RelayJob } from '@strimz/queue-contracts'
 import type {
   PayWithAuthorizationInput,
   PermitAndCreateSubscriptionInput,
-  RelayJobData,
 } from '../../../../src/modules/relay/relay.types.js'
 import { must } from '../../../helpers/must.js'
+
+type RelayCallJob = Exclude<RelayJob, { reason: 'registerMerchant' }>
 
 /**
  * Fake BullMQ queue. Records every `add()` call so tests can inspect
  * what calldata the service produced. `getJob` returns a frozen view.
  */
 function makeFakeQueueService() {
-  const jobs = new Map<string, { name: string; data: RelayJobData; timestamp: number }>()
+  const jobs = new Map<string, { name: string; data: RelayCallJob; timestamp: number }>()
   const queue = {
-    add(name: string, data: RelayJobData, opts: { jobId?: string }) {
+    add(name: string, data: RelayCallJob, opts: { jobId?: string }) {
       const id = opts.jobId ?? `auto-${jobs.size}`
       if (jobs.has(id)) {
         // Mirror BullMQ's documented behaviour: duplicate ids reject.
@@ -47,7 +49,7 @@ function makeFakeQueueService() {
 
 function makeJobView(
   id: string,
-  jobs: Map<string, { name: string; data: RelayJobData; timestamp: number }>,
+  jobs: Map<string, { name: string; data: RelayCallJob; timestamp: number }>,
 ) {
   const entry = must(jobs.get(id))
   return {
