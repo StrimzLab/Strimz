@@ -25,7 +25,7 @@ export class ApiKeysController {
     @CurrentMerchant() ctx: CurrentMerchantPayload,
     @Body(new ZodValidationPipe(createApiKeyInputSchema)) input: CreateApiKeyInput,
   ): Promise<CreateApiKeyOutput> {
-    return this.apiKeys.create(ctx.merchantId, input)
+    return this.apiKeys.create(ctx, input)
   }
 
   @RequireScopes('api_keys_read')
@@ -34,7 +34,7 @@ export class ApiKeysController {
     @CurrentMerchant() ctx: CurrentMerchantPayload,
     @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
   ) {
-    return this.apiKeys.list(ctx.merchantId, {
+    return this.apiKeys.list(ctx, {
       limit: q.limit,
       cursor: q.cursor ?? null,
       revoked: q.revoked === 'true' ? true : q.revoked === 'false' ? false : undefined,
@@ -47,13 +47,13 @@ export class ApiKeysController {
     @CurrentMerchant() ctx: CurrentMerchantPayload,
     @Param('id') id: string,
   ): Promise<ApiKey> {
-    return this.apiKeys.retrieve(ctx.merchantId, id)
+    return this.apiKeys.retrieve(ctx, id)
   }
 
   @RequireScopes('api_keys_write')
   @Post('/:id/revoke')
   revoke(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string): Promise<ApiKey> {
-    return this.apiKeys.revoke(ctx.merchantId, id)
+    return this.apiKeys.revoke(ctx, id)
   }
 
   @RequireScopes('api_keys_write')
@@ -63,6 +63,6 @@ export class ApiKeysController {
     @CurrentMerchant() ctx: CurrentMerchantPayload,
     @Param('id') id: string,
   ): Promise<CreateApiKeyOutput> {
-    return this.apiKeys.rotate(ctx.merchantId, id)
+    return this.apiKeys.rotate(ctx, id)
   }
 }

@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/co
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { Public } from '../../common/decorators/public.decorator.js'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
+import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
@@ -22,6 +23,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_read')
   @Get('/v1/storefront')
   @ApiOperation({ summary: 'Retrieve the merchant’s own storefront.' })
   retrieve(@CurrentMerchant() ctx: CurrentMerchantPayload) {
@@ -30,6 +32,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_write')
   @Post('/v1/storefront')
   @ApiOperation({ summary: 'Create or update the merchant storefront.' })
   upsert(@CurrentMerchant() ctx: CurrentMerchantPayload, @Body() dto: CreateStorefrontDto) {
@@ -38,6 +41,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_write')
   @Post('/v1/storefront/publish')
   publish(@CurrentMerchant() ctx: CurrentMerchantPayload) {
     return this.storefronts.setStatus(ctx.merchantId, 'published')
@@ -45,6 +49,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_write')
   @Post('/v1/storefront/archive')
   archive(@CurrentMerchant() ctx: CurrentMerchantPayload) {
     return this.storefronts.setStatus(ctx.merchantId, 'archived')
@@ -52,6 +57,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_read')
   @Get('/v1/storefront/products')
   listProducts(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
@@ -66,6 +72,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_write')
   @Post('/v1/storefront/products')
   createProduct(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
@@ -76,6 +83,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_read')
   @Get('/v1/storefront/products/:id')
   retrieveProduct(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string) {
     return this.storefronts.retrieveProduct(ctx.merchantId, id)
@@ -83,6 +91,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_write')
   @Post('/v1/storefront/products/:id/archive')
   archiveProduct(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string) {
     return this.storefronts.archiveProduct(ctx.merchantId, id)

@@ -75,6 +75,10 @@ enum ApiKeyScope {
   relay_write
   api_keys_read
   api_keys_write
+  merchants_read
+  customers_read
+  customers_write
+  analytics_read
 }
 
 // ---------- Payment sessions ----------

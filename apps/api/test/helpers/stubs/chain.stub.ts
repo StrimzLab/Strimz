@@ -1,6 +1,6 @@
 /** Replaces viem-backed `ChainService`; never makes a network call. */
 export class StubChainService {
-  public readonly environment = 'testnet' as const
+  public environment: 'testnet' | 'mainnet' = 'testnet'
   public readonly client = {
     getBlockNumber: () => Promise.resolve(1n),
   } as never
