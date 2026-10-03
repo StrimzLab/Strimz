@@ -1,6 +1,6 @@
 # ADR for Dummies: A list of who the Strimz website may talk to
 
-- **Status:** Proposed, awaiting maintainer approval
+- **Status:** Accepted 2026-10-03
 - **Date:** 2026-10-03
 
 ## The Idea
