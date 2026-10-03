@@ -63,12 +63,18 @@ land.
 Endpoint URLs must:
 
 - Use `https://`
-- Not resolve to private (RFC 1918), loopback, link-local, or CGNAT addresses
+- Not resolve to a private (RFC 1918), loopback, link-local, CGNAT, multicast,
+  benchmarking (`198.18.0.0/15`), documentation, or other reserved address. IPv6
+  addresses are checked too, including unique-local, NAT64, and IPv4-mapped
+  addresses such as `::ffff:10.0.0.1`.
 - Be DNS-resolvable at registration time
 
 The check runs again on every delivery, so an endpoint that starts
 resolving to internal infra later (DNS rebinding) gets blocked at
-send time.
+send time. Strimz connects to the exact address it checked, and it does
+not follow redirects: a `3xx` response counts as a failed attempt and is
+retried like any other failure. Point your endpoint URL at the final
+address.
 
 ## Auto-disable
 

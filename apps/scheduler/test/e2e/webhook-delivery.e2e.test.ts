@@ -17,10 +17,16 @@ import { must } from '../helpers/must.js'
 
 /** Spin up a tiny HTTP listener for the worker to POST to. */
 function startReceiver(
-  handler: (req: { signature: string | null; body: string }) => { status: number; body?: string },
+  handler: (req: { signature: string | null; body: string }) => {
+    status: number
+    body?: string
+    headers?: Record<string, string>
+  },
+  listenHost = '127.0.0.1',
 ) {
   return new Promise<{
     url: string
+    port: number
     close: () => Promise<void>
     received: { signature: string | null; body: string }[]
   }>((resolve) => {
@@ -32,14 +38,15 @@ function startReceiver(
         const sig = (req.headers['strimz-signature'] as string) ?? null
         received.push({ signature: sig, body })
         const out = handler({ signature: sig, body })
-        res.writeHead(out.status, { 'content-type': 'text/plain' })
+        res.writeHead(out.status, { 'content-type': 'text/plain', ...out.headers })
         res.end(out.body ?? '')
       })
     })
-    server.listen(0, '127.0.0.1', () => {
+    server.listen(0, listenHost, () => {
       const port = (server.address() as AddressInfo).port
       resolve({
         url: `http://127.0.0.1:${port}/hook`,
+        port,
         received,
         close: () => new Promise((r) => server.close(() => r())),
       })
@@ -57,11 +64,18 @@ describe('webhook-delivery worker e2e', () => {
   })
   beforeEach(async () => {
     await truncateAll(t.prisma.db)
+    t.webhookTargets.reset()
   })
+
+  async function startAllowedReceiver(handler: Parameters<typeof startReceiver>[0]) {
+    const recv = await startReceiver(handler)
+    t.webhookTargets.allowLoopbackPort(recv.port)
+    return recv
+  }
 
   it('signs the body, POSTs, marks delivered on 200, bumps lastDeliveredAt', async () => {
     const merchant = await seedMerchant(t.prisma.db)
-    const recv = await startReceiver(() => ({ status: 200 }))
+    const recv = await startAllowedReceiver(() => ({ status: 200 }))
     const { endpoint, secret } = await seedWebhookEndpoint(t.prisma.db, merchant.id, {
       url: recv.url,
       events: ['payment_completed'],
@@ -114,7 +128,7 @@ describe('webhook-delivery worker e2e', () => {
 
   it('schedules a retry on 5xx and bumps attempt', async () => {
     const merchant = await seedMerchant(t.prisma.db)
-    const recv = await startReceiver(() => ({ status: 500, body: 'boom' }))
+    const recv = await startAllowedReceiver(() => ({ status: 500, body: 'boom' }))
     const { endpoint, secret } = await seedWebhookEndpoint(t.prisma.db, merchant.id, {
       url: recv.url,
       events: ['payment_completed'],
@@ -166,9 +180,104 @@ describe('webhook-delivery worker e2e', () => {
     await recv.close()
   })
 
+  it('does not follow a redirect and records the 3xx as a failed attempt', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const target = await startAllowedReceiver(() => ({ status: 200 }))
+    const redirector = await startAllowedReceiver(() => ({
+      status: 302,
+      body: 'moved',
+      headers: { location: target.url },
+    }))
+    const { endpoint, secret } = await seedWebhookEndpoint(t.prisma.db, merchant.id, {
+      url: redirector.url,
+      events: ['payment_completed'],
+      mode: 'test',
+    })
+    await t.app.get(WebhookSecretCache).set(endpoint.id, secret)
+    const event = await seedWebhookEvent(t.prisma.db, merchant.id, 'payment_completed')
+    const delivery = await seedDelivery(
+      t.prisma.db,
+      merchant.id,
+      endpoint.id,
+      event.id,
+      'payment_completed',
+    )
+
+    const worker = t.app.get(WebhookDeliveryWorker)
+    const result = await worker.process({
+      data: {
+        deliveryId: delivery.id,
+        endpointId: endpoint.id,
+        url: redirector.url,
+        signingSecretHash: endpoint.signingSecretHash,
+        eventId: event.id,
+      },
+      queue: { add: () => Promise.resolve(undefined) },
+    } as never)
+
+    expect(result).toEqual({ status: 'retrying', httpStatus: 302 })
+    expect(redirector.received).toHaveLength(1)
+    expect(target.received).toHaveLength(0)
+
+    const updated = await t.prisma.db.webhookDelivery.findUniqueOrThrow({
+      where: { id: delivery.id },
+    })
+    expect(updated.status).toBe('retrying')
+    expect(updated.responseCode).toBe(302)
+    expect(updated.deliveredAt).toBeNull()
+
+    await redirector.close()
+    await target.close()
+  })
+
+  it('refuses at send time a hostname that resolves to loopback', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const internal = await startReceiver(() => ({ status: 200, body: 'internal secret' }), '::')
+    const url = `http://localhost:${internal.port}/hook`
+    const { endpoint, secret } = await seedWebhookEndpoint(t.prisma.db, merchant.id, {
+      url,
+      events: ['payment_completed'],
+      mode: 'test',
+    })
+    await t.app.get(WebhookSecretCache).set(endpoint.id, secret)
+    const event = await seedWebhookEvent(t.prisma.db, merchant.id, 'payment_completed')
+    const delivery = await seedDelivery(
+      t.prisma.db,
+      merchant.id,
+      endpoint.id,
+      event.id,
+      'payment_completed',
+    )
+
+    const worker = t.app.get(WebhookDeliveryWorker)
+    const result = await worker.process({
+      data: {
+        deliveryId: delivery.id,
+        endpointId: endpoint.id,
+        url,
+        signingSecretHash: endpoint.signingSecretHash,
+        eventId: event.id,
+      },
+      queue: { add: () => Promise.resolve(undefined) },
+    } as never)
+
+    expect(result.status).toBe('retrying')
+    expect(internal.received).toHaveLength(0)
+
+    const updated = await t.prisma.db.webhookDelivery.findUniqueOrThrow({
+      where: { id: delivery.id },
+    })
+    expect(updated.status).toBe('retrying')
+    expect(updated.responseCode).toBeNull()
+    expect(updated.responseBody).toBeNull()
+    expect(updated.lastError).toMatch(/localhost resolves to blocked address/)
+
+    await internal.close()
+  })
+
   it('marks permanently_failed after WEBHOOK_MAX_ATTEMPTS and emails the merchant', async () => {
     const merchant = await seedMerchant(t.prisma.db, { email: 'merchant-on-call@strimz.test' })
-    const recv = await startReceiver(() => ({ status: 503, body: 'unavailable' }))
+    const recv = await startAllowedReceiver(() => ({ status: 503, body: 'unavailable' }))
     const { endpoint, secret } = await seedWebhookEndpoint(t.prisma.db, merchant.id, {
       url: recv.url,
       events: ['payment_completed'],
@@ -223,7 +332,7 @@ describe('webhook-delivery worker e2e', () => {
 
   it('auto-disables the endpoint and emails after AUTO_DISABLE_THRESHOLD permanent failures in 24h', async () => {
     const merchant = await seedMerchant(t.prisma.db, { email: 'autodisable@strimz.test' })
-    const recv = await startReceiver(() => ({ status: 503, body: 'down' }))
+    const recv = await startAllowedReceiver(() => ({ status: 503, body: 'down' }))
     const { endpoint, secret } = await seedWebhookEndpoint(t.prisma.db, merchant.id, {
       url: recv.url,
       events: ['payment_completed'],
@@ -291,7 +400,7 @@ describe('webhook-delivery worker e2e', () => {
 
   it('skips processing when delivery is already terminal', async () => {
     const merchant = await seedMerchant(t.prisma.db)
-    const recv = await startReceiver(() => ({ status: 200 }))
+    const recv = await startAllowedReceiver(() => ({ status: 200 }))
     const { endpoint } = await seedWebhookEndpoint(t.prisma.db, merchant.id, {
       url: recv.url,
       events: ['payment_completed'],

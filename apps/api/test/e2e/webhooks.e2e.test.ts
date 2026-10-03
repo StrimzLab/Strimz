@@ -52,6 +52,35 @@ describe('webhooks e2e', () => {
     expect(res.statusCode).toBe(400)
   })
 
+  it.each([
+    'https://198.18.0.1/hook',
+    'https://198.19.255.254/hook',
+    'https://192.0.0.8/hook',
+    'https://224.0.0.1/hook',
+    'https://240.0.0.1/hook',
+    'https://[::ffff:127.0.0.1]/hook',
+    'https://[::ffff:a9fe:a9fe]/hook',
+    'https://[64:ff9b::7f00:1]/hook',
+    'https://[ff02::1]/hook',
+    'https://[::]/hook',
+  ])('rejects %s as a private or reserved address', async (url) => {
+    const m = await seedMerchant(t.prisma.db)
+    const k = await seedApiKey(t.prisma.db, m.id)
+    const res = await t.inject({
+      method: 'POST',
+      url: '/v1/webhook-endpoints',
+      headers: { authorization: `Bearer ${k.secretKey}` },
+      payload: { url, events: ['payment.completed'], mode: 'test' },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(res.json()).toMatchObject({
+      error: {
+        code: 'invalid_request',
+        message: 'webhook url resolves to a private or loopback address',
+      },
+    })
+  })
+
   it('creates an endpoint and returns the signing secret once', async () => {
     const m = await seedMerchant(t.prisma.db)
     const k = await seedApiKey(t.prisma.db, m.id)

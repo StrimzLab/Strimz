@@ -6,6 +6,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { WebhookSigningService } from '../../infra/webhook-signing/signing.service.js'
 import { WebhookSecretCache } from '../../infra/webhook-signing/secret-cache.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
+import { WebhookTransport } from '../../infra/webhook-transport/webhook-transport.service.js'
 import { QUEUE_NAMES } from '@strimz/queue-contracts'
 import { webhookDeliveryJobSchema, type WebhookDeliveryJob } from '@strimz/queue-contracts'
 
@@ -52,6 +53,7 @@ export class WebhookDeliveryWorker extends WorkerHost {
     private readonly secrets: WebhookSecretCache,
     private readonly email: EmailService,
     private readonly cfg: TypedConfigService,
+    private readonly transport: WebhookTransport,
     @InjectQueue(QUEUE_NAMES.webhookDelivery)
     private readonly retryQueue: Queue<WebhookDeliveryJob>,
   ) {
@@ -90,8 +92,7 @@ export class WebhookDeliveryWorker extends WorkerHost {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), this.cfg.env.WEBHOOK_DELIVERY_TIMEOUT_MS)
       try {
-        const res = await fetch(endpoint.url, {
-          method: 'POST',
+        const res = await this.transport.post(endpoint.url, {
           headers: {
             'Content-Type': 'application/json',
             'User-Agent': 'Strimz/1.0',
@@ -106,7 +107,7 @@ export class WebhookDeliveryWorker extends WorkerHost {
           signal: controller.signal,
         })
         httpStatus = res.status
-        responseBody = (await res.text()).slice(0, 4_000)
+        responseBody = res.body
       } finally {
         clearTimeout(timeout)
       }
