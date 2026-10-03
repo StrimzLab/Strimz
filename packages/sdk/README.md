@@ -68,7 +68,7 @@ signatures and response types come from
 
 | Resource            | Methods                                                                                                          |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `merchants`         | `me`, `update`, `changeTier`                                                                                     |
+| `merchants`         | `me`, `update` (deprecated), `changeTier` (deprecated)                                                           |
 | `apiKeys`           | `list`, `retrieve`, `create`, `revoke`                                                                           |
 | `customers`         | `retrieve`, `list`, `upsert`                                                                                     |
 | `paymentSessions`   | `create`, `retrieve`, `list`, `cancel`, `expire`                                                                 |
