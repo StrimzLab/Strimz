@@ -84,7 +84,7 @@ func runCmd() *cobra.Command {
 			)
 			go freshness.Start(ctx)
 
-			healthSrv := health.New(cfg.HTTPPort, freshness)
+			healthSrv := health.New(cfg.HTTPPort, freshness, runner.DeadLetters)
 			go func() {
 				if err := healthSrv.Start(ctx); err != nil {
 					slog.Error("health server stopped", "err", err)

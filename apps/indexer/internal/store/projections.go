@@ -19,10 +19,7 @@ import (
 // ErrSkipLog marks a log that cannot be projected in its current state
 // but must not wedge the cursor. The runner logs it loudly and moves on;
 // recovery is a manual cursor reset once the blocking state is fixed.
-var ErrSkipLog = errors.New("skip log")
-
-// keep the unexported alias used inside this package.
-var errSkipLog = ErrSkipLog
+var ErrUnresolvable = errors.New("unresolvable log")
 
 // ----- Merchant registry -----
 
@@ -168,7 +165,7 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 			// loudly instead; the tx is on-chain and can be replayed by
 			// resetting the cursor once the merchant link exists.
 			return fmt.Errorf("%w: PaymentExecuted tx %s for unlinked onchain merchant %s",
-				errSkipLog, in.OnchainTxHash, in.MerchantOnchainID)
+				ErrUnresolvable, in.OnchainTxHash, in.MerchantOnchainID)
 		}
 		if err != nil {
 			return err
@@ -390,6 +387,10 @@ func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in Subscripti
 	var rows int64
 	err := s.inTx(ctx, func(tx pgxTxLike) error {
 		merchantID, _, err := lookupMerchantByOnchain(ctx, tx, in.MerchantOnchainID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: SubscriptionCreated %s for unlinked onchain merchant %s",
+				ErrUnresolvable, in.OnchainSubscriptionID, in.MerchantOnchainID)
+		}
 		if err != nil {
 			return err
 		}
@@ -484,7 +485,8 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 				// SubscriptionCreated may not have been processed yet (e.g.
 				// out-of-order event delivery from RPC). Skip silently — a
 				// later replay or reorg will resolve.
-				return nil
+				return fmt.Errorf("%w: SubscriptionCharged for unknown subscription %s",
+					ErrUnresolvable, in.OnchainSubscriptionID)
 			}
 			return fmt.Errorf("subscription lookup: %w", err)
 		}
@@ -649,7 +651,8 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 		`, in.OnchainSubscriptionID.Int64()).Scan(&subID, &merchantID, &currency, &amount, &mode, &periodStart, &periodEnd)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return nil
+				return fmt.Errorf("%w: SubscriptionChargeSkipped for unknown subscription %s",
+					ErrUnresolvable, in.OnchainSubscriptionID)
 			}
 			return fmt.Errorf("subscription lookup: %w", err)
 		}
@@ -760,7 +763,19 @@ func (s *Store) MarkSubscriptionCancelled(ctx context.Context, onchainSubID *big
 	if err != nil {
 		return 0, fmt.Errorf("cancel sub: %w", err)
 	}
-	return tag.RowsAffected(), nil
+	if tag.RowsAffected() > 0 {
+		return tag.RowsAffected(), nil
+	}
+	var exists bool
+	if err := s.db().QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM "Subscription" WHERE "onchainSubscriptionId" = $1)`,
+		onchainSubID.Int64()).Scan(&exists); err != nil {
+		return 0, fmt.Errorf("cancel sub lookup: %w", err)
+	}
+	if !exists {
+		return 0, fmt.Errorf("%w: SubscriptionCancelled for unknown subscription %s", ErrUnresolvable, onchainSubID)
+	}
+	return 0, nil
 }
 
 // ----- Refunds -----
@@ -861,7 +876,7 @@ func (s *Store) LogAgentJobEvent(ctx context.Context, onchainJobID *big.Int, act
 		`SELECT id, "merchantId" FROM "AgentJob" WHERE "onchainJobId" = $1`,
 		onchainJobID.Int64()).Scan(&jobID, &merchantID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil // job not yet linked off-chain; log skipped
+			return fmt.Errorf("%w: %s for unknown onchain job %s", ErrUnresolvable, action, onchainJobID)
 		}
 		return fmt.Errorf("job lookup: %w", err)
 	}
@@ -893,7 +908,7 @@ func (s *Store) LogFeeAccrued(ctx context.Context, onchainMerchantID *big.Int, t
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Merchant not linked yet. No-op; the fee ledger on-chain is
 		// the source of truth and this row is only a dashboard view.
-		return nil
+		return fmt.Errorf("%w: FeeAccrued tx %s for unlinked onchain merchant %s", ErrUnresolvable, txHash, onchainMerchantID)
 	}
 	if err != nil {
 		return fmt.Errorf("fee accrual merchant lookup: %w", err)

@@ -10,9 +10,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -20,109 +17,35 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+
+	"github.com/StrimzLab/strimz/apps/indexer/internal/testpg"
 )
 
-// We share one container across the whole suite. Each test gets a fresh
-// schema state via `truncateAll`. Tests are run serially by `go test`'s
-// default mode within a package.
 var (
-	sharedStore   *Store
-	sharedCleanup func()
-	sharedOnce    sync.Once
+	sharedStore *Store
+	sharedOnce  sync.Once
 )
 
-// startTestPostgres brings up a Postgres container, applies prisma
-// migrations from the monorepo's @strimz/db package, and returns a Store
-// pointing at it. Subsequent calls reuse the running container.
 func startTestPostgres(t *testing.T) *Store {
 	t.Helper()
 	sharedOnce.Do(func() {
-		ctx := context.Background()
-
-		pg, err := tcpostgres.Run(ctx,
-			"postgres:16-alpine",
-			tcpostgres.WithDatabase("strimz_test"),
-			tcpostgres.WithUsername("postgres"),
-			tcpostgres.WithPassword("postgres"),
-			tcpostgres.BasicWaitStrategies(),
-			tcpostgres.WithSQLDriver("pgx"),
-		)
-		if err != nil {
-			t.Fatalf("start postgres: %v", err)
-		}
-
-		dsn, err := pg.ConnectionString(ctx, "sslmode=disable")
-		if err != nil {
-			t.Fatalf("conn string: %v", err)
-		}
-
-		repoRoot := repoRoot(t)
-		dbPkg := filepath.Join(repoRoot, "packages", "db")
-
-		migrate := exec.Command("pnpm", "db:migrate:deploy")
-		migrate.Dir = dbPkg
-		migrate.Env = append(os.Environ(), "DATABASE_URL="+dsn)
-		migrate.Stdout = testLogWriter{t}
-		migrate.Stderr = testLogWriter{t}
-		if err := migrate.Run(); err != nil {
-			t.Fatalf("prisma migrate deploy: %v", err)
-		}
-
-		store, err := New(ctx, dsn)
+		store, err := New(context.Background(), testpg.DSN(t))
 		if err != nil {
 			t.Fatalf("connect: %v", err)
 		}
-
 		sharedStore = store
-		sharedCleanup = func() {
-			store.Close()
-			_ = pg.Terminate(ctx)
-		}
 	})
 	require.NoError(t, truncateMost(context.Background(), sharedStore))
 	t.Cleanup(func() {
 		if t.Failed() {
 			return
 		}
-		// Per-test cleanup: truncate everything except IndexerCursor (which
-		// some tests assert on).
 		require.NoError(t, truncateMost(context.Background(), sharedStore))
 	})
 	return sharedStore
 }
 
-// TestMain owns the lifecycle for sharedCleanup so the container is torn
-// down even when individual tests fail.
-func TestMain(m *testing.M) {
-	if os.Getenv("DOCKER_HOST") == "" {
-		_ = os.Setenv("DOCKER_HOST", "unix://"+os.Getenv("HOME")+"/.docker/run/docker.sock")
-	}
-	code := m.Run()
-	if sharedCleanup != nil {
-		sharedCleanup()
-	}
-	os.Exit(code)
-}
-
-func repoRoot(t *testing.T) string {
-	t.Helper()
-	wd, err := os.Getwd()
-	require.NoError(t, err)
-	dir := wd
-	for i := 0; i < 8; i++ {
-		if _, err := os.Stat(filepath.Join(dir, "pnpm-workspace.yaml")); err == nil {
-			return dir
-		}
-		dir = filepath.Dir(dir)
-	}
-	t.Fatalf("could not locate repo root from %s", wd)
-	return ""
-}
-
-type testLogWriter struct{ t *testing.T }
-
-func (w testLogWriter) Write(p []byte) (int, error) { w.t.Log(string(p)); return len(p), nil }
+func TestMain(m *testing.M) { testpg.Main(m) }
 
 func truncateMost(ctx context.Context, s *Store) error {
 	_, err := s.pool.Exec(ctx, `
@@ -135,7 +58,8 @@ func truncateMost(ctx context.Context, s *Store) error {
 		  "Customer",
 		  "Merchant",
 		  "ComplianceLog",
-		  "IndexerCursor"
+		  "IndexerCursor",
+		  "IndexerDeadLetter"
 		RESTART IDENTITY CASCADE`)
 	return err
 }
@@ -1038,7 +962,7 @@ func TestE2E_SubscriptionCharged_RecordsThePaidPeriod(t *testing.T) {
 	assert.WithinDuration(t, start.Add(2*interval), secondEnd, time.Second)
 }
 
-func TestE2E_SubscriptionCharged_OutOfOrderEventDoesntFail(t *testing.T) {
+func TestE2E_SubscriptionCharged_OutOfOrderEventIsUnresolvable(t *testing.T) {
 	s := startTestPostgres(t)
 	ctx := context.Background()
 	// No SubscriptionCreated yet — Charged must silently no-op.
@@ -1053,7 +977,7 @@ func TestE2E_SubscriptionCharged_OutOfOrderEventDoesntFail(t *testing.T) {
 		BlockTimestamp:        time.Now().UTC(),
 		Mode:                  "live",
 	})
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrUnresolvable)
 	assert.Equal(t, int64(0), rows)
 }
 
@@ -1276,13 +1200,13 @@ func TestE2E_LogFeeAccrued_WritesAuditLogScopedToMerchant(t *testing.T) {
 	assert.Equal(t, 1, count)
 }
 
-func TestE2E_LogFeeAccrued_NoOpForUnknownMerchant(t *testing.T) {
+func TestE2E_LogFeeAccrued_UnknownMerchantIsUnresolvable(t *testing.T) {
 	s := startTestPostgres(t)
 	ctx := context.Background()
-	require.NoError(t, s.LogFeeAccrued(ctx, big.NewInt(99_999),
+	require.ErrorIs(t, s.LogFeeAccrued(ctx, big.NewInt(99_999),
 		"0x000000000000000000000000000000000000usdc",
 		"50000",
-		"0x"+repeatStr("f", 64)))
+		"0x"+repeatStr("f", 64)), ErrUnresolvable)
 
 	var count int
 	require.NoError(t, s.pool.QueryRow(ctx, `SELECT count(*) FROM "AuditLog"`).Scan(&count))
@@ -1390,4 +1314,155 @@ func TestE2E_SubscriptionCreated_RequiresBlockTimestamp(t *testing.T) {
 		Mode:               "live",
 	})
 	require.Error(t, err)
+}
+
+// ===== Unresolvable logs and dead letters =====
+
+func TestE2E_MissingRowsAreUnresolvable(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+
+	_, err := s.UpsertSubscriptionFromOnchain(ctx, SubscriptionCreatedInput{
+		OnchainSubscriptionID: big.NewInt(70),
+		MerchantOnchainID:     big.NewInt(999),
+		PayerAddress:          "0x000000000000000000000000000000000000aa70",
+		Currency:              "USDC", Amount: "1", Interval: "monthly", IntervalCount: 1,
+		StartAt: now, BlockTimestamp: now, CurrentPeriodEndAt: now, NextChargeAt: now,
+		OnchainTxHash: "0x" + repeatStr("a", 64), Mode: "live",
+	})
+	assert.ErrorIs(t, err, ErrUnresolvable, "SubscriptionCreated for an unlinked merchant")
+
+	_, err = s.InsertSubscriptionCharge(ctx, SubscriptionChargedInput{
+		OnchainSubscriptionID: big.NewInt(71),
+		ChargeAttemptID:       "0x" + repeatStr("b", 64),
+		Amount:                "1", FeeAmount: "0", NetAmount: "1",
+		NextChargeAt: now, OnchainTxHash: "0x" + repeatStr("c", 64),
+		BlockNumber: 1, BlockTimestamp: now, LogIndex: 0, Mode: "live",
+	})
+	assert.ErrorIs(t, err, ErrUnresolvable, "charge for an unknown subscription")
+
+	_, err = s.InsertSubscriptionChargeSkip(ctx, SubscriptionChargeSkippedInput{
+		OnchainSubscriptionID: big.NewInt(72),
+		ChargeAttemptID:       "0x" + repeatStr("d", 64),
+		Outcome:               "insufficient_balance",
+		IsPaymentFailure:      true,
+		BlockTimestamp:        now,
+	})
+	assert.ErrorIs(t, err, ErrUnresolvable, "skipped charge for an unknown subscription")
+
+	_, err = s.MarkSubscriptionCancelled(ctx, big.NewInt(73), "0x01", "0x"+repeatStr("e", 64), now)
+	assert.ErrorIs(t, err, ErrUnresolvable, "cancel for an unknown subscription")
+
+	err = s.LogAgentJobEvent(ctx, big.NewInt(74), "job.funded", nil)
+	assert.ErrorIs(t, err, ErrUnresolvable, "agent event for an unknown job")
+
+	err = s.LogFeeAccrued(ctx, big.NewInt(998), "0x01", "1", "0x"+repeatStr("f", 64))
+	assert.ErrorIs(t, err, ErrUnresolvable, "fee for an unlinked merchant")
+}
+
+func TestE2E_CancellingAnAlreadyCancelledSubscriptionIsNotAnError(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_cx", "cx@x.io", "0x000000000000000000000000000000000000fe20", big.NewInt(420))
+	now := time.Now().UTC().Truncate(time.Second)
+	_, err := s.UpsertSubscriptionFromOnchain(ctx, SubscriptionCreatedInput{
+		OnchainSubscriptionID: big.NewInt(75),
+		MerchantOnchainID:     big.NewInt(420),
+		PayerAddress:          "0x000000000000000000000000000000000000aa75",
+		Currency:              "USDC", Amount: "1", Interval: "monthly", IntervalCount: 1,
+		StartAt: now, BlockTimestamp: now, CurrentPeriodEndAt: now, NextChargeAt: now,
+		OnchainTxHash: "0x" + repeatStr("1", 64), Mode: "live",
+	})
+	require.NoError(t, err)
+
+	rows, err := s.MarkSubscriptionCancelled(ctx, big.NewInt(75), "0x01", "0x"+repeatStr("2", 64), now)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), rows)
+	rows, err = s.MarkSubscriptionCancelled(ctx, big.NewInt(75), "0x01", "0x"+repeatStr("2", 64), now)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), rows)
+}
+
+func TestE2E_SavepointRollsBackOnlyTheFailedStep(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+
+	err := s.RunBatch(ctx, func(tx *Store) error {
+		failed := tx.Savepoint(ctx, func() error {
+			if _, err := tx.db().Exec(ctx, `
+				INSERT INTO "Merchant" ("id", "privyUserId", "email", "createdAt", "updatedAt")
+				VALUES ('m_rolled', 'did:privy:e2e:rolled', 'rolled@x.io', NOW(), NOW())`); err != nil {
+				return err
+			}
+			return fmt.Errorf("%w: test", ErrUnresolvable)
+		})
+		require.ErrorIs(t, failed, ErrUnresolvable)
+		return tx.Savepoint(ctx, func() error {
+			_, err := tx.db().Exec(ctx, `
+				INSERT INTO "Merchant" ("id", "privyUserId", "email", "createdAt", "updatedAt")
+				VALUES ('m_kept', 'did:privy:e2e:kept', 'kept@x.io', NOW(), NOW())`)
+			return err
+		})
+	})
+	require.NoError(t, err)
+
+	var ids []string
+	rows, err := s.pool.Query(ctx, `SELECT id FROM "Merchant" ORDER BY id`)
+	require.NoError(t, err)
+	for rows.Next() {
+		var id string
+		require.NoError(t, rows.Scan(&id))
+		ids = append(ids, id)
+	}
+	assert.Equal(t, []string{"m_kept"}, ids)
+}
+
+func TestE2E_DeadLetters(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	at := time.Now().UTC().Truncate(time.Second)
+
+	letter := func(block uint64, index uint, txByte string) DeadLetter {
+		return DeadLetter{
+			Environment:     "testnet",
+			ContractAddress: "0x0000000000000000000000000000000000000a02",
+			TxHash:          "0x" + repeatStr(txByte, 64),
+			LogIndex:        index,
+			BlockNumber:     block,
+			BlockHash:       "0x" + repeatStr("9", 64),
+			BlockTimestamp:  at,
+			Topics:          []string{"0x" + repeatStr("1", 64)},
+			Data:            "0xabcd",
+			Reason:          "merchant not linked",
+		}
+	}
+
+	require.NoError(t, s.InsertDeadLetter(ctx, letter(20, 1, "b")))
+	require.NoError(t, s.InsertDeadLetter(ctx, letter(10, 0, "a")))
+	require.NoError(t, s.InsertDeadLetter(ctx, letter(10, 0, "a")))
+
+	n, err := s.CountUnresolvedDeadLetters(ctx, "testnet")
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), n)
+
+	open, err := s.UnresolvedDeadLetters(ctx, "testnet", 10)
+	require.NoError(t, err)
+	require.Len(t, open, 2)
+	assert.Equal(t, uint64(10), open[0].BlockNumber)
+	assert.Equal(t, []string{"0x" + repeatStr("1", 64)}, open[0].Topics)
+	assert.Equal(t, "0xabcd", open[0].Data)
+	assert.True(t, open[0].BlockTimestamp.Equal(at))
+
+	require.NoError(t, s.RecordDeadLetterAttempt(ctx, open[1].ID, "still missing"))
+	require.NoError(t, s.ResolveDeadLetter(ctx, open[0].ID))
+
+	n, err = s.CountUnresolvedDeadLetters(ctx, "testnet")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), n)
+	open, err = s.UnresolvedDeadLetters(ctx, "testnet", 10)
+	require.NoError(t, err)
+	require.Len(t, open, 1)
+	assert.Equal(t, 2, open[0].Attempts)
+	assert.Equal(t, "still missing", open[0].Reason)
 }
