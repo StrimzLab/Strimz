@@ -179,6 +179,38 @@ func TestDecode_SubscriptionCharged(t *testing.T) {
 	assert.Equal(t, nextCharge, sc.NextChargeAt)
 }
 
+func TestDecode_SubscriptionPeriodsSkipped(t *testing.T) {
+	r := MustLoad()
+	subID := big.NewInt(9)
+	periodsSkipped := big.NewInt(6)
+	paidPeriodStart := uint64(1_715_000_000)
+
+	topic, ok := r.TopicByName(EventSubscriptionPeriodsSkipped)
+	require.True(t, ok)
+
+	uint256, _ := ethabi.NewType("uint256", "", nil)
+	uint64Type, _ := ethabi.NewType("uint64", "", nil)
+	args := ethabi.Arguments{
+		{Type: uint256, Name: "periodsSkipped"},
+		{Type: uint64Type, Name: "paidPeriodStart"},
+	}
+	data, err := args.Pack(periodsSkipped, paidPeriodStart)
+	require.NoError(t, err)
+
+	log := types.Log{
+		Topics: []common.Hash{topic, common.BigToHash(subID)},
+		Data:   data,
+	}
+	name, payload, err := r.Decode(log)
+	require.NoError(t, err)
+	assert.Equal(t, EventSubscriptionPeriodsSkipped, name)
+	ps := payload.(*SubscriptionPeriodsSkipped)
+	assert.Equal(t, 0, ps.SubscriptionID.Cmp(subID))
+	assert.Equal(t, 0, ps.PeriodsSkipped.Cmp(periodsSkipped))
+	assert.Equal(t, paidPeriodStart, ps.PaidPeriodStart)
+	assert.Contains(t, SubscribedEvents, EventSubscriptionPeriodsSkipped)
+}
+
 func TestDecode_JobCreated(t *testing.T) {
 	r := MustLoad()
 	jobID := big.NewInt(1)

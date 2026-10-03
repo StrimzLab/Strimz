@@ -622,6 +622,50 @@ func (in SubscriptionChargedInput) Currency(fallback string) string {
 	return "USDC"
 }
 
+type SubscriptionPeriodsSkippedInput struct {
+	OnchainSubscriptionID *big.Int
+	PeriodsSkipped        *big.Int
+	PaidPeriodStart       time.Time
+	OnchainTxHash         string
+}
+
+func (s *Store) RecordSubscriptionPeriodsSkipped(ctx context.Context, in SubscriptionPeriodsSkippedInput) (int64, error) {
+	var rows int64
+	err := s.inTx(ctx, func(tx pgxTxLike) error {
+		var subID, merchantID string
+		err := tx.QueryRow(ctx, `
+			UPDATE "Subscription"
+			   SET "nextChargeAt" = $2,
+			       "updatedAt"    = NOW()
+			 WHERE "onchainSubscriptionId" = $1
+			RETURNING id, "merchantId"
+		`, in.OnchainSubscriptionID.Int64(), in.PaidPeriodStart).Scan(&subID, &merchantID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("%w: SubscriptionPeriodsSkipped for unknown subscription %s",
+					ErrUnresolvable, in.OnchainSubscriptionID)
+			}
+			return fmt.Errorf("move period start: %w", err)
+		}
+		if err := insertAuditInTx(ctx, tx, merchantID, auditEntry{
+			Category:   "subscription",
+			Action:     "subscription.periods_skipped",
+			TargetType: "Subscription",
+			TargetID:   subID,
+			Metadata: map[string]any{
+				"periodsSkipped":  in.PeriodsSkipped,
+				"paidPeriodStart": in.PaidPeriodStart.UTC().Format(time.RFC3339),
+				"txHash":          in.OnchainTxHash,
+			},
+		}); err != nil {
+			return fmt.Errorf("audit periods skipped: %w", err)
+		}
+		rows = 1
+		return nil
+	})
+	return rows, err
+}
+
 // SubscriptionChargeSkippedInput projects a failed-charge attempt.
 type SubscriptionChargeSkippedInput struct {
 	OnchainSubscriptionID *big.Int
