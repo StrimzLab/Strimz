@@ -8,6 +8,7 @@ import { arcTestnet } from '@strimz/shared-config'
 import { env } from '@/lib/env'
 import { MerchantApiProvider } from '@/hooks/api/merchant-api-context'
 import { AdminApiProvider } from '@/hooks/admin/admin-context'
+import { SessionCacheGuard } from '@/components/auth/session-cache-guard'
 
 /**
  * Root-provider tree. Strimz is light-mode only.
@@ -61,6 +62,7 @@ export function Providers({ children }: { children: ReactNode }) {
         supportedChains: [arcTestnet],
       }}
     >
+      <SessionCacheGuard cache={queryClient} />
       {tree}
     </PrivyProvider>
   )
