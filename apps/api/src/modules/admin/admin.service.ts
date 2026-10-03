@@ -1,4 +1,11 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common'
 import type { AdminRole, AdminUserStatus, MerchantTier } from '@strimz/db'
 import {
   AdminBroadcastEmail,
@@ -12,6 +19,8 @@ import type { BroadcastAudience, CreateBroadcastInput } from '@strimz/shared-typ
 import { TypedConfigService } from '../../config/index.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { PrivyService } from '../../infra/privy/privy.service.js'
+import { hashAdminInviteToken, issueAdminInviteToken } from './admin-invite-token.js'
 
 interface DateRange {
   from?: string
@@ -40,6 +49,7 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly email: EmailService,
     private readonly cfg: TypedConfigService,
+    private readonly privy: PrivyService,
   ) {}
 
   // ------------------------------------------------------------------
@@ -450,12 +460,19 @@ export class AdminService {
         role: true,
         status: true,
         invitedAt: true,
+        inviteExpiresAt: true,
+        privyUserId: true,
         lastLoginAt: true,
         createdAt: true,
         invitedBy: { select: { id: true, email: true } },
       },
     })
-    return { data: admins }
+    return {
+      data: admins.map(({ privyUserId, ...admin }) => ({
+        ...admin,
+        invitePending: privyUserId === null,
+      })),
+    }
   }
 
   async inviteAdmin(input: { email: string; name?: string; role: AdminRole; invitedById: string }) {
@@ -475,14 +492,25 @@ export class AdminService {
       select: { name: true, email: true },
     })
 
+    const invite = issueAdminInviteToken()
     const admin = await this.prisma.db.adminUser.create({
       data: {
         email: input.email.toLowerCase(),
         name: input.name ?? null,
         role: input.role,
         invitedById: input.invitedById,
+        inviteTokenHash: invite.hash,
+        inviteExpiresAt: invite.expiresAt,
       },
-      select: { id: true, email: true, name: true, role: true, status: true, invitedAt: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        invitedAt: true,
+        inviteExpiresAt: true,
+      },
     })
 
     await this.writeAudit({
@@ -497,20 +525,7 @@ export class AdminService {
     // — the invitee can still be told out-of-band, and the dashboard
     // lets the inviter re-trigger. We log and continue.
     try {
-      const html = await renderToHtml(
-        AdminInviteEmail({
-          inviteeName: admin.name,
-          role: admin.role,
-          inviterDisplay: inviter?.name ?? inviter?.email ?? 'A Strimz admin',
-          inviterEmail: inviter?.email ?? 'strimztokenstream@gmail.com',
-          dashboardUrl: `${this.cfg.env.STRIMZ_DASHBOARD_URL.replace(/\/+$/, '')}/admin`,
-        }),
-      )
-      const result = await this.email.send({
-        to: admin.email,
-        subject: 'You’re a Strimz admin',
-        html,
-      })
+      const result = await this.sendInviteEmail(admin, inviter, invite.token)
       this.log.log(
         `admin invite emailed: to=${admin.email} resendId=${result.id ?? 'stub'} queued=${result.queued}`,
       )
@@ -521,6 +536,183 @@ export class AdminService {
     }
 
     return admin
+  }
+
+  async resendInvite(adminId: string, actorId: string) {
+    const target = await this.prisma.db.adminUser.findUnique({
+      where: { id: adminId },
+      select: { id: true, email: true, name: true, role: true, status: true, privyUserId: true },
+    })
+    if (!target) throw new NotFoundException({ code: 'not_found' })
+    if (target.privyUserId !== null) {
+      throw new BadRequestException({
+        code: 'invalid_state',
+        message: 'invite already accepted',
+      })
+    }
+    if (target.status !== 'active') {
+      throw new BadRequestException({
+        code: 'invalid_state',
+        message: `admin is ${target.status}; reactivate before re-sending the invite`,
+      })
+    }
+
+    const invite = issueAdminInviteToken()
+    const inviter = await this.prisma.db.adminUser.findUnique({
+      where: { id: actorId },
+      select: { name: true, email: true },
+    })
+    const renewed = await this.prisma.db.adminUser.updateMany({
+      where: { id: target.id, privyUserId: null, status: 'active' },
+      data: { inviteTokenHash: invite.hash, inviteExpiresAt: invite.expiresAt },
+    })
+    if (renewed.count !== 1) {
+      throw new BadRequestException({
+        code: 'invalid_state',
+        message: 'invite changed while re-sending; reload and try again',
+      })
+    }
+    const admin = await this.prisma.db.adminUser.findUniqueOrThrow({
+      where: { id: target.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        invitedAt: true,
+        inviteExpiresAt: true,
+      },
+    })
+
+    await this.writeAudit({
+      actorId,
+      action: 'admin.invite_resent',
+      targetType: 'AdminUser',
+      targetId: admin.id,
+      metadata: { email: admin.email, role: admin.role },
+    })
+
+    const result = await this.sendInviteEmail(admin, inviter, invite.token).catch(
+      (err: unknown) => {
+        this.log.warn(
+          `admin invite re-send email failed for ${admin.email}: ${(err as Error).message}`,
+        )
+        throw new ServiceUnavailableException({
+          code: 'invite_email_failed',
+          message: 'the invite was renewed but the email could not be sent; try again',
+        })
+      },
+    )
+    this.log.log(
+      `admin invite re-sent: to=${admin.email} resendId=${result.id ?? 'stub'} queued=${result.queued}`,
+    )
+
+    return admin
+  }
+
+  async acceptInvite(input: { token: string; privyUserId: string }) {
+    const tokenHash = hashAdminInviteToken(input.token)
+    const now = new Date()
+    const invite = await this.prisma.db.adminUser.findUnique({
+      where: { inviteTokenHash: tokenHash },
+      select: { id: true, email: true, status: true, privyUserId: true, inviteExpiresAt: true },
+    })
+    if (
+      !invite ||
+      invite.privyUserId !== null ||
+      invite.status !== 'active' ||
+      !invite.inviteExpiresAt ||
+      invite.inviteExpiresAt <= now
+    ) {
+      throw invalidInvite()
+    }
+
+    const alreadyAdmin = await this.prisma.db.adminUser.findUnique({
+      where: { privyUserId: input.privyUserId },
+      select: { id: true },
+    })
+    if (alreadyAdmin) {
+      throw new BadRequestException({
+        code: 'already_admin',
+        message: 'this account is already a Strimz admin',
+      })
+    }
+
+    const user = await this.privy.getUser(input.privyUserId)
+    const email = this.privy.primaryEmail(user)
+    if (email !== invite.email) {
+      throw new ForbiddenException({
+        code: 'invite_email_mismatch',
+        message: 'sign in with the email address the invite was sent to',
+      })
+    }
+
+    return this.prisma.db.$transaction(async (tx) => {
+      const { count } = await tx.adminUser.updateMany({
+        where: {
+          id: invite.id,
+          email,
+          inviteTokenHash: tokenHash,
+          privyUserId: null,
+          status: 'active',
+          inviteExpiresAt: { gt: now },
+        },
+        data: {
+          privyUserId: input.privyUserId,
+          inviteTokenHash: null,
+          inviteExpiresAt: null,
+          lastLoginAt: now,
+        },
+      })
+      if (count !== 1) throw invalidInvite()
+
+      await tx.auditLog.create({
+        data: {
+          actorId: invite.id,
+          category: 'admin',
+          action: 'admin.invite_accepted',
+          targetType: 'AdminUser',
+          targetId: invite.id,
+          metadata: { privyUserId: input.privyUserId },
+        },
+      })
+
+      return tx.adminUser.findUniqueOrThrow({
+        where: { id: invite.id },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          status: true,
+          lastLoginAt: true,
+          createdAt: true,
+        },
+      })
+    })
+  }
+
+  private async sendInviteEmail(
+    admin: { email: string; name: string | null; role: AdminRole },
+    inviter: { name: string | null; email: string } | null,
+    token: string,
+  ) {
+    const acceptUrl = `${this.cfg.env.STRIMZ_DASHBOARD_URL.replace(/\/+$/, '')}/admin/accept-invite?token=${encodeURIComponent(token)}`
+    const html = await renderToHtml(
+      AdminInviteEmail({
+        inviteeName: admin.name,
+        role: admin.role,
+        inviterDisplay: inviter?.name ?? inviter?.email ?? 'A Strimz admin',
+        inviterEmail: inviter?.email ?? 'strimztokenstream@gmail.com',
+        dashboardUrl: acceptUrl,
+      }),
+    )
+    return this.email.send({
+      to: admin.email,
+      subject: 'You’re invited to be a Strimz admin',
+      html,
+    })
   }
 
   async setAdminRole(adminId: string, role: AdminRole, actorId: string) {
@@ -883,4 +1075,12 @@ function normaliseToMonthly(amount: bigint, interval: string, intervalCount: num
     default:
       return amount
   }
+}
+
+function invalidInvite() {
+  return new BadRequestException({
+    code: 'invite_invalid',
+    message:
+      'this invite link is invalid, already used, or expired; ask a super admin to re-send it',
+  })
 }
