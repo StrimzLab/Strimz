@@ -1,5 +1,6 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common'
 import type { FastifyRequest } from 'fastify'
+import type { ApiKeyScope } from '@strimz/shared-types'
 
 export interface CurrentMerchantPayload {
   merchantId: string
@@ -7,6 +8,7 @@ export interface CurrentMerchantPayload {
   memberId?: string
   /** Present when authenticated by API key. */
   apiKeyId?: string
+  apiKeyScopes?: ApiKeyScope[]
   mode: 'test' | 'live'
 }
 
