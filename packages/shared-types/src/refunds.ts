@@ -59,13 +59,15 @@ export const createRefundInputSchema = z.object({
   reason: refundReasonSchema,
   note: z.string().max(500).optional(),
 })
-export type CreateRefundInput = z.infer<typeof createRefundInputSchema>
+export type CreateRefundInput = z.input<typeof createRefundInputSchema>
+export type CreateRefundParsed = z.output<typeof createRefundInputSchema>
 
 export const submitRefundSignatureInputSchema = z.object({
   id: idSchema,
   refundTxHash: evmTxHashSchema,
 })
-export type SubmitRefundSignatureInput = z.infer<typeof submitRefundSignatureInputSchema>
+export type SubmitRefundSignatureInput = z.input<typeof submitRefundSignatureInputSchema>
+export type SubmitRefundSignatureParsed = z.output<typeof submitRefundSignatureInputSchema>
 
 /**
  * Response envelope for `POST /v1/refunds`. The API returns the newly

@@ -14,7 +14,7 @@ import {
   AdminStatusChangedEmail,
   renderToHtml,
 } from '@strimz/email-templates'
-import type { BroadcastAudience, CreateBroadcastInput } from '@strimz/shared-types'
+import type { BroadcastAudience, CreateBroadcastParsed } from '@strimz/shared-types'
 
 import { TypedConfigService } from '../../config/index.js'
 import { EmailService } from '../../infra/email/email.service.js'
@@ -900,7 +900,7 @@ export class AdminService {
    * merchants are skipped from email fan-out but still see the tray
    * notification on next login.
    */
-  async createBroadcast(input: CreateBroadcastInput, senderId: string) {
+  async createBroadcast(input: CreateBroadcastParsed, senderId: string) {
     const sender = await this.prisma.db.adminUser.findUnique({
       where: { id: senderId },
       select: { id: true, email: true, name: true },

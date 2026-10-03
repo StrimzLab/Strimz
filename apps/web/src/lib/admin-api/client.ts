@@ -1,6 +1,7 @@
 import { env } from '@/lib/env'
 import { type AccessTokenProvider, defaultAccessTokenProvider } from '@/lib/merchant-api/auth-token'
 import { buildApiError, type ApiErrorBody, AuthenticationError } from '@/lib/merchant-api/errors'
+import type { CreateBroadcastInput } from '@strimz/shared-types'
 
 import type {
   AdminMerchantDetail,
@@ -10,7 +11,6 @@ import type {
   Broadcast,
   BroadcastAudience,
   BroadcastListResponse,
-  CreateBroadcastInput,
   HealthResponse,
   InviteAdminInput,
   PlatformOverview,

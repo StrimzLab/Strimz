@@ -65,7 +65,8 @@ export type AgentMerchantConfig = z.infer<typeof agentMerchantConfigSchema>
 export const updateAgentConfigInputSchema = agentMerchantConfigSchema
   .omit({ merchantId: true, updatedAt: true })
   .partial()
-export type UpdateAgentConfigInput = z.infer<typeof updateAgentConfigInputSchema>
+export type UpdateAgentConfigInput = z.input<typeof updateAgentConfigInputSchema>
+export type UpdateAgentConfigParsed = z.output<typeof updateAgentConfigInputSchema>
 
 // ---------- Activity log ----------
 
@@ -153,4 +154,5 @@ export const createAgentJobInputSchema = z.object({
   currency: z.enum(['USDC', 'EURC']),
   assessorAddress: evmAddressSchema.optional(),
 })
-export type CreateAgentJobInput = z.infer<typeof createAgentJobInputSchema>
+export type CreateAgentJobInput = z.input<typeof createAgentJobInputSchema>
+export type CreateAgentJobParsed = z.output<typeof createAgentJobInputSchema>

@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
-import type { CreateInvoiceInput, Invoice, Mode } from '@strimz/shared-types'
+import type { CreateInvoiceParsed, Invoice, Mode } from '@strimz/shared-types'
 import { effectiveFeeBps } from '@strimz/shared-config'
 import type { Prisma } from '@strimz/db'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
@@ -25,7 +25,7 @@ export class InvoicesService {
   async create(
     merchantId: string,
     mode: 'test' | 'live',
-    input: CreateInvoiceInput,
+    input: CreateInvoiceParsed,
   ): Promise<Invoice> {
     // Every invoice backs a real PaymentSession that funnels through the
     // hosted checkout, so the merchant needs a chain merchant id no
@@ -37,7 +37,7 @@ export class InvoicesService {
       .reduce((acc, li) => acc + BigInt(li.unitAmount) * BigInt(li.quantity), 0n)
       .toString()
     const total = subtotal // No taxes / discounts in M1.
-    const dueAt = new Date(Date.now() + (input.dueInDays ?? 7) * 86_400_000)
+    const dueAt = new Date(Date.now() + input.dueInDays * 86_400_000)
 
     const merchant = await this.prisma.db.merchant.findUniqueOrThrow({ where: { id: merchantId } })
     const feeBps = effectiveFeeBps(merchant.tier as never, 'one_shot') ?? 150

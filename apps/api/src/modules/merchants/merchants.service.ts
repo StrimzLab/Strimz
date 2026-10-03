@@ -3,8 +3,8 @@ import { erc20Abi, formatUnits, getAddress } from 'viem'
 import type {
   Merchant,
   MerchantBalanceView,
-  UpdateMerchantInput,
-  ChangeTierInput,
+  UpdateMerchantParsed,
+  ChangeTierParsed,
 } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
@@ -108,7 +108,7 @@ export class MerchantsService {
     return serialiseMerchant(m)
   }
 
-  async update(id: string, input: UpdateMerchantInput): Promise<Merchant> {
+  async update(id: string, input: UpdateMerchantParsed): Promise<Merchant> {
     let metadata: unknown = input.metadata
     if (input.emailPrefs) {
       const existing = await this.prisma.db.merchant.findUniqueOrThrow({
@@ -184,7 +184,7 @@ export class MerchantsService {
     }
   }
 
-  async changeTier(id: string, input: ChangeTierInput): Promise<Merchant> {
+  async changeTier(id: string, input: ChangeTierParsed): Promise<Merchant> {
     const updated = await this.prisma.db.merchant.update({
       where: { id },
       data: { tier: input.tier },

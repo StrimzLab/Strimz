@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { createApiKeyInputSchema } from '@strimz/shared-types'
-import type { ApiKey, CreateApiKeyInput, CreateApiKeyOutput } from '@strimz/shared-types'
+import type { ApiKey, CreateApiKeyParsed, CreateApiKeyOutput } from '@strimz/shared-types'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import {
   CurrentMerchant,
@@ -23,7 +23,7 @@ export class ApiKeysController {
   @Post()
   create(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Body(new ZodValidationPipe(createApiKeyInputSchema)) input: CreateApiKeyInput,
+    @Body(new ZodValidationPipe(createApiKeyInputSchema)) input: CreateApiKeyParsed,
   ): Promise<CreateApiKeyOutput> {
     return this.apiKeys.create(ctx, input)
   }

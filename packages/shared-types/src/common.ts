@@ -66,7 +66,8 @@ export const paginationInputSchema = z.object({
   limit: z.number().int().min(1).max(100).default(25),
   cursor: z.string().min(1).max(200).nullish(),
 })
-export type PaginationInput = z.infer<typeof paginationInputSchema>
+export type PaginationInput = z.input<typeof paginationInputSchema>
+export type PaginationParsed = z.output<typeof paginationInputSchema>
 
 /** Pagination envelope used by every list response. */
 export const makePaginatedSchema = <T extends z.ZodTypeAny>(item: T) =>

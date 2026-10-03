@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
-import type { CancelSubscriptionInput, Mode, Subscription } from '@strimz/shared-types'
+import type { CancelSubscriptionParsed, Mode, Subscription } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QueueService } from '../../infra/queue/queue.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
@@ -87,7 +87,7 @@ export class SubscriptionsService {
   async cancel(
     merchantId: string,
     mode: Mode,
-    input: CancelSubscriptionInput,
+    input: CancelSubscriptionParsed,
   ): Promise<Subscription> {
     const sub = await this.prisma.db.subscription.findFirst({
       where: { id: input.id, merchantId, mode },

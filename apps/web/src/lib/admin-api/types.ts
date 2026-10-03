@@ -195,10 +195,3 @@ export interface Broadcast {
 export interface BroadcastListResponse {
   data: Broadcast[]
 }
-
-export interface CreateBroadcastInput {
-  title: string
-  body: string
-  audience: BroadcastAudience
-  merchantId?: string
-}

@@ -37,4 +37,5 @@ export const upsertCustomerInputSchema = z.object({
   displayName: z.string().min(1).max(120).optional(),
   metadata: metadataSchema.optional(),
 })
-export type UpsertCustomerInput = z.infer<typeof upsertCustomerInputSchema>
+export type UpsertCustomerInput = z.input<typeof upsertCustomerInputSchema>
+export type UpsertCustomerParsed = z.output<typeof upsertCustomerInputSchema>
