@@ -981,6 +981,105 @@ func TestE2E_SubscriptionCharged_OutOfOrderEventIsUnresolvable(t *testing.T) {
 	assert.Equal(t, int64(0), rows)
 }
 
+func TestE2E_SubscriptionPeriodsSkipped_MovesThePaidPeriodAndAudits(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_skip", "skip@x.io", "0x000000000000000000000000000000000000fe06", big.NewInt(407))
+
+	interval := 30 * 24 * time.Hour
+	start := time.Now().UTC().Truncate(time.Second)
+	subID := big.NewInt(10)
+	_, err := s.UpsertSubscriptionFromOnchain(ctx, SubscriptionCreatedInput{
+		OnchainSubscriptionID: subID,
+		MerchantOnchainID:     big.NewInt(407),
+		PayerAddress:          "0x000000000000000000000000000000000000aa67",
+		Currency:              "USDC", Amount: "50000000", Interval: "monthly", IntervalCount: 1,
+		StartAt:            start,
+		BlockTimestamp:     start,
+		CurrentPeriodEndAt: start.Add(interval),
+		NextChargeAt:       start,
+		OnchainTxHash:      "0x" + repeatStr("7", 64),
+		Mode:               "live",
+	})
+	require.NoError(t, err)
+
+	paidPeriodStart := start.Add(6 * interval)
+	chargeTx := "0x" + repeatStr("6", 64)
+	rows, err := s.RecordSubscriptionPeriodsSkipped(ctx, SubscriptionPeriodsSkippedInput{
+		OnchainSubscriptionID: subID,
+		PeriodsSkipped:        big.NewInt(6),
+		PaidPeriodStart:       paidPeriodStart,
+		OnchainTxHash:         chargeTx,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), rows)
+
+	var nextChargeAt time.Time
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT "nextChargeAt" FROM "Subscription" WHERE "onchainSubscriptionId" = 10`,
+	).Scan(&nextChargeAt))
+	assert.WithinDuration(t, paidPeriodStart, nextChargeAt, time.Second)
+
+	var category, targetType, periodsSkipped, auditedStart, auditedTx string
+	require.NoError(t, s.pool.QueryRow(ctx, `
+		SELECT category::text, "targetType", metadata->>'periodsSkipped', metadata->>'paidPeriodStart', metadata->>'txHash'
+		  FROM "AuditLog"
+		 WHERE "merchantId" = 'm_skip' AND action = 'subscription.periods_skipped'
+	`).Scan(&category, &targetType, &periodsSkipped, &auditedStart, &auditedTx))
+	assert.Equal(t, "subscription", category)
+	assert.Equal(t, "Subscription", targetType)
+	assert.Equal(t, "6", periodsSkipped)
+	assert.Equal(t, paidPeriodStart.Format(time.RFC3339), auditedStart)
+	assert.Equal(t, chargeTx, auditedTx)
+
+	_, err = s.InsertSubscriptionCharge(ctx, SubscriptionChargedInput{
+		OnchainSubscriptionID: subID,
+		ChargeAttemptID:       "0x" + repeatStr("5", 64),
+		Amount:                "50000000",
+		FeeAmount:             "500000",
+		NetAmount:             "49500000",
+		NextChargeAt:          paidPeriodStart.Add(interval),
+		OnchainTxHash:         chargeTx,
+		BlockNumber:           6000,
+		BlockTimestamp:        paidPeriodStart.Add(time.Hour),
+		LogIndex:              1,
+		Mode:                  "live",
+	})
+	require.NoError(t, err)
+
+	var periodStart, periodEnd, currentPeriodStart time.Time
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT "periodStartAt", "periodEndAt" FROM "SubscriptionCharge" WHERE "chargeAttemptId" = $1`,
+		"0x"+repeatStr("5", 64),
+	).Scan(&periodStart, &periodEnd))
+	assert.WithinDuration(t, paidPeriodStart, periodStart, time.Second)
+	assert.WithinDuration(t, paidPeriodStart.Add(interval), periodEnd, time.Second)
+
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT "currentPeriodStartAt", "nextChargeAt" FROM "Subscription" WHERE "onchainSubscriptionId" = 10`,
+	).Scan(&currentPeriodStart, &nextChargeAt))
+	assert.WithinDuration(t, paidPeriodStart, currentPeriodStart, time.Second)
+	assert.WithinDuration(t, paidPeriodStart.Add(interval), nextChargeAt, time.Second)
+}
+
+func TestE2E_SubscriptionPeriodsSkipped_UnknownSubscriptionIsUnresolvable(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+
+	rows, err := s.RecordSubscriptionPeriodsSkipped(ctx, SubscriptionPeriodsSkippedInput{
+		OnchainSubscriptionID: big.NewInt(9_998),
+		PeriodsSkipped:        big.NewInt(2),
+		PaidPeriodStart:       time.Now().UTC().Truncate(time.Second),
+		OnchainTxHash:         "0x" + repeatStr("4", 64),
+	})
+	require.ErrorIs(t, err, ErrUnresolvable)
+	assert.Equal(t, int64(0), rows)
+
+	var count int
+	require.NoError(t, s.pool.QueryRow(ctx, `SELECT count(*) FROM "AuditLog"`).Scan(&count))
+	assert.Equal(t, 0, count)
+}
+
 func TestE2E_MarkSubscriptionCancelled_NoOpForAlreadyCancelled(t *testing.T) {
 	s := startTestPostgres(t)
 	ctx := context.Background()

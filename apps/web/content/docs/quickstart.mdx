@@ -54,10 +54,34 @@ export STRIMZ_KEY=sk_test_xxxxxxxxxxxxxxxxxxxx
 ### Install the SDK
 
 <Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
-  <Tab value="pnpm">```bash pnpm add @strimz/sdk ```</Tab>
-  <Tab value="npm">```bash npm install @strimz/sdk ```</Tab>
-  <Tab value="yarn">```bash yarn add @strimz/sdk ```</Tab>
-  <Tab value="bun">```bash bun add @strimz/sdk ```</Tab>
+  <Tab value="pnpm">
+
+```bash
+pnpm add @strimz/sdk
+```
+
+  </Tab>
+  <Tab value="npm">
+
+```bash
+npm install @strimz/sdk
+```
+
+  </Tab>
+  <Tab value="yarn">
+
+```bash
+yarn add @strimz/sdk
+```
+
+  </Tab>
+  <Tab value="bun">
+
+```bash
+bun add @strimz/sdk
+```
+
+  </Tab>
 </Tabs>
 
 If you'd rather not add a Node dependency, skip ahead to step 4 and use
@@ -78,9 +102,9 @@ on-chain.
 <Tabs items={['TypeScript', 'curl']}>
   <Tab value="TypeScript">
     ```ts title="server.ts"
-    import { Strimz } from '@strimz/sdk'
+    import { StrimzClient } from '@strimz/sdk'
 
-    const strimz = new Strimz({ apiKey: process.env.STRIMZ_KEY! })
+    const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_KEY! })
 
     const session = await strimz.paymentSessions.create({
       amount: '50000000',          // 50 USDC, expressed in 6-decimal units
@@ -127,9 +151,10 @@ and within a few seconds its status moves from `pending` to `confirmed`.
 ### Receive your first webhook
 
 Polling for state changes works but it gets old fast. A webhook
-endpoint is the right shape:
+endpoint is the right shape. Register it from your server with the same
+`StrimzClient`. Your secret key never belongs in browser code:
 
-```ts
+```ts title="server.ts"
 const endpoint = await strimz.webhookEndpoints.create({
   url: 'https://your-site.com/webhooks/strimz',
   events: ['payment.completed', 'payment.failed'],
@@ -139,20 +164,26 @@ const endpoint = await strimz.webhookEndpoints.create({
 console.log(endpoint.signingSecret) // shown ONCE. Store it now.
 ```
 
-Now wire the receiver:
+Now wire the receiver. It runs on your server and must verify the raw
+request body, exactly as received, before anything parses it. This
+Express example uses `express.raw` so `req.body` is the unparsed bytes:
 
 ```ts title="receiver.ts"
+import express from 'express'
 import { verifyWebhookSignature } from '@strimz/sdk'
 
-app.post('/webhooks/strimz', (req, res) => {
-  const ok = verifyWebhookSignature({
-    secret: process.env.STRIMZ_WEBHOOK_SECRET!,
-    body: req.rawBody,
-    signatureHeader: req.headers['strimz-signature'] as string,
-  })
-  if (!ok) return res.status(401).end()
+const app = express()
 
-  const event = JSON.parse(req.rawBody.toString())
+app.post('/webhooks/strimz', express.raw({ type: 'application/json' }), async (req, res) => {
+  const payload = req.body.toString('utf8')
+  const result = await verifyWebhookSignature(
+    payload,
+    req.get('strimz-signature') ?? '',
+    process.env.STRIMZ_WEBHOOK_SECRET!,
+  )
+  if (!result.valid) return res.status(401).end()
+
+  const event = JSON.parse(payload)
   switch (event.type) {
     case 'payment.completed':
       console.log('payment confirmed:', event.data.id, event.data.amount)
@@ -165,8 +196,11 @@ app.post('/webhooks/strimz', (req, res) => {
 })
 ```
 
-`verifyWebhookSignature` does a timing-safe equality check and rejects
-anything older than 300 seconds. The signature format and the algorithm
+`verifyWebhookSignature(payload, signatureHeader, secret)` is async. It
+resolves to `{ valid: true }` or `{ valid: false, reason }`, so always
+`await` it and check `result.valid`: the unawaited Promise is always
+truthy. It does a timing-safe equality check and rejects anything older
+than 300 seconds. The signature format and the algorithm
 itself are documented on [Verifying webhooks](/docs/guides/webhooks).
 
 </Step>

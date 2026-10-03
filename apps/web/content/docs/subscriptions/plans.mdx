@@ -84,7 +84,7 @@ You send this to anyone you want to subscribe. The page handles wallet connect, 
 
 You don't need to call `subscriptions.create` from the API for this flow. The hosted checkout flow handles it end-to-end. Payer signs, our relayer broadcasts `permitAndCreateSubscription(...)`, the indexer projects the resulting `Subscription`, and your `subscription.created` webhook fires.
 
-If you want to embed the enrolment in your own UI, use `useSubscriptionCheckout(planId)` from the React SDK. See [Embedded checkout](/docs/checkout/embed).
+The React SDK does not have a subscription enrolment hook today. Its components open payment sessions only, so send payers to the plan link for subscriptions. See [Embedded checkout](/docs/checkout/embed).
 
 ## The plan ↔ subscription relationship
 

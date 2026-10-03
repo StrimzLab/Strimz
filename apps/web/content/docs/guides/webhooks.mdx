@@ -17,20 +17,29 @@ We sign the raw body, byte-for-byte, before any framework parses it. If your fra
 
 ## The receiver
 
-The reference implementation lives in `@strimz/sdk`:
+The reference implementation lives in `@strimz/sdk`. Its signature is
+`verifyWebhookSignature(payload, signatureHeader, secret, options?)`,
+where `payload` is the raw body as a string. It is async and resolves to
+`{ valid: true }` or `{ valid: false, reason }`. Always `await` it and
+check `result.valid`. An unawaited call returns a Promise, which is
+always truthy, so a check like `if (!ok)` would accept every request.
 
-```ts
+```ts title="receiver.ts"
+import express from 'express'
 import { verifyWebhookSignature } from '@strimz/sdk'
 
-app.post('/webhooks/strimz', (req, res) => {
-  const ok = verifyWebhookSignature({
-    secret: process.env.STRIMZ_WEBHOOK_SECRET!,
-    body: req.rawBody, // Buffer or string
-    signatureHeader: req.headers['strimz-signature'] as string,
-  })
-  if (!ok) return res.status(401).end()
+const app = express()
 
-  const event = JSON.parse(req.rawBody.toString())
+app.post('/webhooks/strimz', express.raw({ type: 'application/json' }), async (req, res) => {
+  const payload = req.body.toString('utf8')
+  const result = await verifyWebhookSignature(
+    payload,
+    req.get('strimz-signature') ?? '',
+    process.env.STRIMZ_WEBHOOK_SECRET!,
+  )
+  if (!result.valid) return res.status(401).end()
+
+  const event = JSON.parse(payload)
   // ... handle event ...
   res.status(200).end()
 })
