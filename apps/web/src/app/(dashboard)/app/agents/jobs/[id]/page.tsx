@@ -91,8 +91,8 @@ export default function AgentJobDetailPage({ params }: { params: Promise<{ id: s
             <div>
               <div className="text-sm font-medium">Awaiting your approval</div>
               <p className="text-muted-foreground text-xs">
-                Approval releases escrow to the vendor. This is the value-moving step, and it
-                requires your signature.
+                Approval funds an on-chain escrow for this job. Strimz signs that transaction, and
+                the vendor is paid only when the job is released.
               </p>
             </div>
             <Button

@@ -1,6 +1,6 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common'
 import { PrivyClient, type AuthTokenClaims, type User } from '@privy-io/server-auth'
-import { TypedConfigService } from '../../config/index.js'
+import { TypedConfigService } from '../../config/typed-config.service.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 

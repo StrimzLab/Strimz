@@ -10,6 +10,7 @@
     "dev": "nest start --watch",
     "start": "node dist/main.js",
     "start:prod": "NODE_ENV=production node dist/main.js",
+    "admin:bootstrap": "node dist/cli/admin-bootstrap.main.js",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run --passWithNoTests",

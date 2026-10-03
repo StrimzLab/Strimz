@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { encryptAesGcm, randomBase64Url, sha256Hex } from '@strimz/shared-crypto'
 import type {
-  CreateWebhookEndpointInput,
+  CreateWebhookEndpointParsed,
   CreateWebhookEndpointOutput,
   WebhookEndpoint,
   WebhookDelivery,
@@ -70,7 +70,7 @@ export class WebhooksService {
 
   async createEndpoint(
     merchantId: string,
-    input: CreateWebhookEndpointInput,
+    input: CreateWebhookEndpointParsed,
   ): Promise<CreateWebhookEndpointOutput> {
     await assertSafeUrl(input.url)
     const secret = `whsec_${randomBase64Url(32)}`

@@ -103,6 +103,28 @@ docker exec -it strimz su-exec postgres psql strimz
 sudo HTTP_PORT=8080 bash infra/lightsail/deploy.sh
 ```
 
+## First admin
+
+A fresh database has no admin. After the first deploy, and whenever no active
+`super_admin` exists, create one from the server with the operator's Privy DID
+(Privy dashboard, Users):
+
+```bash
+docker exec -it strimz sh -c \
+  'cd /repo/apps/api && node dist/cli/admin-bootstrap.main.js --privy-did did:privy:<id> --name "<name>"'
+```
+
+The command refuses once an active `super_admin` exists; further admins are invited from
+`/admin/admins`. Check the current admins with:
+
+```bash
+docker exec -it strimz su-exec postgres psql strimz -c \
+  'SELECT id, "privyUserId", role, status, "invitedById", "lastLoginAt", "createdAt"
+     FROM "AdminUser" ORDER BY "createdAt";'
+```
+
+Error codes, invites and the break-glass procedure: `docs/runbooks/admin-bootstrap.md`.
+
 ## 6 · Backups
 
 Everything worth backing up lives on the `strimz-data` volume. Snapshot it periodically:

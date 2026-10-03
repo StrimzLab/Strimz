@@ -52,7 +52,8 @@ export const createMerchantInputSchema = z.object({
   countryCode: z.string().length(2).optional(),
   websiteUrl: z.string().url().optional(),
 })
-export type CreateMerchantInput = z.infer<typeof createMerchantInputSchema>
+export type CreateMerchantInput = z.input<typeof createMerchantInputSchema>
+export type CreateMerchantParsed = z.output<typeof createMerchantInputSchema>
 
 /**
  * Merchant email opt-outs, persisted at `Merchant.metadata.emailPrefs`.
@@ -83,12 +84,14 @@ export const updateMerchantInputSchema = z
     emailPrefs: merchantEmailPrefsSchema.partial(),
   })
   .partial()
-export type UpdateMerchantInput = z.infer<typeof updateMerchantInputSchema>
+export type UpdateMerchantInput = z.input<typeof updateMerchantInputSchema>
+export type UpdateMerchantParsed = z.output<typeof updateMerchantInputSchema>
 
 export const changeTierInputSchema = z.object({
   tier: merchantTierSchema,
 })
-export type ChangeTierInput = z.infer<typeof changeTierInputSchema>
+export type ChangeTierInput = z.input<typeof changeTierInputSchema>
+export type ChangeTierParsed = z.output<typeof changeTierInputSchema>
 
 /**
  * Self-attested onboarding form the dashboard collects after a
@@ -110,7 +113,8 @@ export const onboardMerchantInputSchema = z.object({
   payoutAddress: evmAddressSchema,
   defaultCurrency: z.enum(['USDC', 'EURC']).optional(),
 })
-export type OnboardMerchantInput = z.infer<typeof onboardMerchantInputSchema>
+export type OnboardMerchantInput = z.input<typeof onboardMerchantInputSchema>
+export type OnboardMerchantParsed = z.output<typeof onboardMerchantInputSchema>
 
 export const merchantPublicBrandSchema = z.object({
   id: idSchema,
@@ -170,7 +174,8 @@ export const inviteMemberInputSchema = z.object({
   email: emailSchema,
   role: merchantRoleSchema,
 })
-export type InviteMemberInput = z.infer<typeof inviteMemberInputSchema>
+export type InviteMemberInput = z.input<typeof inviteMemberInputSchema>
+export type InviteMemberParsed = z.output<typeof inviteMemberInputSchema>
 
 // ---------- Auth ----------
 
@@ -178,7 +183,8 @@ export const loginInputSchema = z.object({
   email: emailSchema,
   password: z.string().min(1).max(128),
 })
-export type LoginInput = z.infer<typeof loginInputSchema>
+export type LoginInput = z.input<typeof loginInputSchema>
+export type LoginParsed = z.output<typeof loginInputSchema>
 
 export const loginOutputSchema = z.object({
   accessToken: z.string(),

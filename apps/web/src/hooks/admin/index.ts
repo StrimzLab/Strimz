@@ -278,6 +278,33 @@ export function useInviteAdmin() {
   })
 }
 
+export function useResendAdminInvite() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (id: string) => api.resendAdminInvite(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: adminKeys.admins() }),
+    messages: {
+      loading: 'Re-sending invite…',
+      success: (a) => `New invite sent to ${a.email}`,
+    },
+  })
+}
+
+export function useAcceptAdminInvite() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (token: string) => api.acceptAdminInvite(token),
+    onSuccess: (profile) => qc.setQueryData(adminKeys.me(), profile),
+    messages: {
+      loading: 'Accepting invite…',
+      success: 'Invite accepted',
+      error: (err) => (err instanceof Error ? err.message : 'Could not accept the invite'),
+    },
+  })
+}
+
 export function useSetAdminRole() {
   const api = useAdminApi()
   const qc = useQueryClient()
