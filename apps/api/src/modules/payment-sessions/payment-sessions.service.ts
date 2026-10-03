@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { effectiveFeeBps } from '@strimz/shared-config'
 import type {
-  CreatePaymentSessionInput,
+  CreatePaymentSessionParsed,
   Mode,
   PaymentCurrency,
   PaymentSession,
@@ -33,7 +33,7 @@ export class PaymentSessionsService {
   async create(
     merchantId: string,
     mode: 'test' | 'live',
-    input: CreatePaymentSessionInput,
+    input: CreatePaymentSessionParsed,
   ): Promise<PaymentSession> {
     await this.prepareMerchant(merchantId)
     return this.insert(this.prisma.db, merchantId, mode, input)
@@ -51,7 +51,7 @@ export class PaymentSessionsService {
     db: Prisma.TransactionClient,
     merchantId: string,
     mode: 'test' | 'live',
-    input: CreatePaymentSessionInput,
+    input: CreatePaymentSessionParsed,
     link: { storefrontProductId: string } | null = null,
   ): Promise<PaymentSession> {
     const merchant = await db.merchant.findUniqueOrThrow({ where: { id: merchantId } })
@@ -59,7 +59,7 @@ export class PaymentSessionsService {
     const amount = BigInt(input.amount)
     const feeAmount = (amount * BigInt(feeBps)) / 10_000n
     const netAmount = amount - feeAmount
-    const expiresAt = new Date(Date.now() + (input.expiresInMinutes ?? 30) * 60_000)
+    const expiresAt = new Date(Date.now() + input.expiresInMinutes * 60_000)
 
     const customer = input.customer?.walletAddress
       ? await db.customer.upsert({

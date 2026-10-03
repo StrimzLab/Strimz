@@ -3,7 +3,7 @@ import {
   changeTierInputSchema,
   onboardMerchantInputSchema,
   updateMerchantInputSchema,
-  type OnboardMerchantInput,
+  type OnboardMerchantParsed,
 } from '@strimz/shared-types'
 
 export class UpdateMerchantDto extends createZodDto(updateMerchantInputSchema) {}
@@ -13,4 +13,4 @@ export class ChangeTierDto extends createZodDto(changeTierInputSchema) {}
  *  hook consumes the same schema. Keeping the DTO here just gives Nest
  *  a validation class it can @Body() against. */
 export class OnboardDto extends createZodDto(onboardMerchantInputSchema) {}
-export type OnboardInput = OnboardMerchantInput
+export type OnboardInput = OnboardMerchantParsed
