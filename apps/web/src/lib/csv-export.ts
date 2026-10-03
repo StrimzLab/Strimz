@@ -2,6 +2,8 @@
 
 import Papa from 'papaparse'
 
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/
+
 /**
  * Trigger a browser download of an arbitrary row set as CSV.
  * Pass `columns` to override which fields appear and in what order.
@@ -11,6 +13,22 @@ export function downloadCsv<T extends Record<string, unknown>>(
   rows: T[],
   columns?: { key: keyof T & string; header: string }[],
 ): void {
+  const csv = buildCsv(rows, columns)
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+export function buildCsv<T extends Record<string, unknown>>(
+  rows: T[],
+  columns?: { key: keyof T & string; header: string }[],
+): string {
   const fields = columns ? columns.map((c) => c.key) : rows[0] ? Object.keys(rows[0]) : []
   const headers = columns ? columns.map((c) => c.header) : fields
 
@@ -21,14 +39,5 @@ export function downloadCsv<T extends Record<string, unknown>>(
     }, {}),
   )
 
-  const csv = Papa.unparse(data, { quotes: true })
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
+  return Papa.unparse(data, { quotes: true, escapeFormulae: FORMULA_TRIGGER })
 }
