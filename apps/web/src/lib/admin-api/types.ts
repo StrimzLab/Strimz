@@ -26,6 +26,8 @@ export interface AdminProfile {
 export interface AdminListItem extends AdminProfile {
   invitedAt: string
   invitedBy: { id: string; email: string } | null
+  invitePending: boolean
+  inviteExpiresAt: string | null
 }
 
 export interface PlatformOverview {
