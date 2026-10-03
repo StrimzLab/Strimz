@@ -28,7 +28,7 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable } from '@/components/dashboard/data-table'
 import { downloadCsv } from '@/lib/csv-export'
 import { relativeTime, shortAddress } from '@/lib/format'
-import { useCustomers } from '@/hooks/api'
+import { serverRowsOf, useCustomerPages } from '@/hooks/api'
 
 interface EmailHistoryEntry {
   email: string
@@ -74,15 +74,23 @@ function readEmailHistory(customer: Customer): EmailHistoryEntry[] {
 interface CustomersView {
   rows: Customer[]
   count: number
+  hasMore: boolean
 }
 
 export default function CustomersPage() {
   const [historyCustomer, setHistoryCustomer] = React.useState<Customer | null>(null)
 
-  const { data, isLoading, isError, error, refetch } = useCustomers(
+  const customersQuery = useCustomerPages(
     { limit: 100 },
-    { select: (page): CustomersView => ({ rows: page.data, count: page.data.length }) },
+    {
+      select: (loaded): CustomersView => ({
+        rows: loaded.rows,
+        count: loaded.rows.length,
+        hasMore: loaded.hasMore,
+      }),
+    },
   )
+  const { data, isLoading, isError, error, refetch } = customersQuery
 
   const columns = React.useMemo<ColumnDef<Customer>[]>(
     () => [
@@ -239,10 +247,13 @@ export default function CustomersPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Stat label="Total customers" value={data ? data.count.toLocaleString() : '—'} />
+        <Stat
+          label={data?.hasMore ? 'Customers loaded' : 'Total customers'}
+          value={data ? data.count.toLocaleString() : '—'}
+        />
       </div>
 
-      {isError ? (
+      {isError && !data ? (
         <ErrorBanner message={error?.message ?? 'Failed to load customers'} onRetry={refetch} />
       ) : (
         <DataTable
@@ -252,6 +263,7 @@ export default function CustomersPage() {
           searchPlaceholder="Search by name, email, wallet…"
           emptyTitle="No customers yet"
           emptyDescription="Once a wallet pays you, they show up here automatically."
+          serverRows={serverRowsOf(customersQuery)}
         />
       )}
 

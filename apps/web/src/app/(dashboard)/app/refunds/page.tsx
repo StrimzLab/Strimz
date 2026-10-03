@@ -45,8 +45,15 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
-import { formatTokenAmount, relativeTime, shortAddress, tokenAmountToNumber } from '@/lib/format'
-import { useCreateRefund, useRefunds, useSubmitRefundSignature } from '@/hooks/api'
+import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
+import { formatCurrencyTotals, sumByCurrency, type CurrencyTotal } from '@/lib/currency-totals'
+import type { LoadedRows } from '@/lib/cursor-pages'
+import {
+  serverRowsOf,
+  useCreateRefund,
+  useRefundPages,
+  useSubmitRefundSignature,
+} from '@/hooks/api'
 
 const STATUS_TONE: Record<RefundStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
   completed: 'positive',
@@ -59,20 +66,22 @@ const STATUS_TONE: Record<RefundStatus, 'positive' | 'warning' | 'danger' | 'inf
 
 interface RefundsView {
   rows: Refund[]
+  hasMore: boolean
   completed: Refund[]
-  refundedUsdc: number
+  refunded: CurrencyTotal[]
   awaiting: number
   failed: number
 }
 
-function projectRefunds(page: { data: Refund[] }): RefundsView {
-  const completed = page.data.filter((r) => r.status === 'completed')
+function projectRefunds(loaded: LoadedRows<Refund>): RefundsView {
+  const completed = loaded.rows.filter((r) => r.status === 'completed')
   return {
-    rows: page.data,
+    rows: loaded.rows,
+    hasMore: loaded.hasMore,
     completed,
-    refundedUsdc: completed.reduce((s, r) => s + tokenAmountToNumber(r.amount), 0),
-    awaiting: page.data.filter((r) => r.status === 'awaiting_signature').length,
-    failed: page.data.filter((r) => r.status === 'failed').length,
+    refunded: sumByCurrency(completed, (r) => ({ amount: r.amount, currency: r.currency })),
+    awaiting: loaded.rows.filter((r) => r.status === 'awaiting_signature').length,
+    failed: loaded.rows.filter((r) => r.status === 'failed').length,
   }
 }
 
@@ -159,10 +168,8 @@ function useRefundSigner() {
 }
 
 export default function RefundsPage() {
-  const { data, isLoading, isError, error, refetch } = useRefunds(
-    { limit: 100 },
-    { select: projectRefunds },
-  )
+  const refundsQuery = useRefundPages({ limit: 100 }, { select: projectRefunds })
+  const { data, isLoading, isError, error, refetch } = refundsQuery
   const { sign: signRefund, isSigning } = useRefundSigner()
   const [signingId, setSigningId] = React.useState<string | null>(null)
 
@@ -351,12 +358,12 @@ export default function RefundsPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat
           label="Completed"
-          value={
+          value={data ? formatCurrencyTotals(data.refunded) : '—'}
+          note={
             data
-              ? `${data.refundedUsdc.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
-              : '—'
+              ? `${data.completed.length} refunds${data.hasMore ? '. Loaded refunds only' : ''}`
+              : undefined
           }
-          note={data ? `${data.completed.length} refunds` : undefined}
         />
         <Stat label="Awaiting signature" value={data ? data.awaiting.toString() : '—'} />
         <Stat
@@ -366,7 +373,7 @@ export default function RefundsPage() {
         />
       </div>
 
-      {isError ? (
+      {isError && !data ? (
         <ErrorBanner message={error?.message ?? 'Failed to load refunds'} onRetry={refetch} />
       ) : (
         <DataTable
@@ -376,6 +383,7 @@ export default function RefundsPage() {
           searchPlaceholder="Search by refund ID, original tx, wallet…"
           emptyTitle="No refunds"
           emptyDescription="Refunds you create from confirmed transactions appear here."
+          serverRows={serverRowsOf(refundsQuery)}
         />
       )}
     </div>

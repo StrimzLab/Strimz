@@ -20,7 +20,13 @@ import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
-import { useCancelSubscription, useSubscriptions } from '@/hooks/api'
+import type { LoadedRows } from '@/lib/cursor-pages'
+import { cancelSubscriptionConfirm } from '@/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@/components/dashboard/confirm-action-dialog'
+import { serverRowsOf, useCancelSubscription, useSubscriptionPages } from '@/hooks/api'
 
 const STATUS_TONE: Record<
   SubscriptionStatus,
@@ -51,6 +57,7 @@ const FILTERS: ReadonlyArray<SubscriptionStatus | 'all'> = [
  */
 interface SubscriptionsView {
   rows: Subscription[]
+  hasMore: boolean
   counts: Record<SubscriptionStatus, number>
 }
 
@@ -63,10 +70,10 @@ const EMPTY_COUNTS: Record<SubscriptionStatus, number> = {
   lapsed: 0,
 }
 
-function projectSubscriptions(page: { data: Subscription[] }): SubscriptionsView {
+function projectSubscriptions(loaded: LoadedRows<Subscription>): SubscriptionsView {
   const counts = { ...EMPTY_COUNTS }
-  for (const row of page.data) counts[row.status] = (counts[row.status] ?? 0) + 1
-  return { rows: page.data, counts }
+  for (const row of loaded.rows) counts[row.status] = (counts[row.status] ?? 0) + 1
+  return { rows: loaded.rows, hasMore: loaded.hasMore, counts }
 }
 
 export default function SubscriptionsPage() {
@@ -76,9 +83,11 @@ export default function SubscriptionsPage() {
     () => ({ status: statusFilter === 'all' ? undefined : statusFilter, limit: 100 }),
     [statusFilter],
   )
-  const { data, isLoading, isError, error, refetch } = useSubscriptions(subscriptionsParams, {
+  const subscriptionsQuery = useSubscriptionPages(subscriptionsParams, {
     select: projectSubscriptions,
   })
+  const { data, isLoading, isError, error, refetch } = subscriptionsQuery
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   const cancelMutation = useCancelSubscription()
 
@@ -179,10 +188,15 @@ export default function SubscriptionsPage() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-rose-600 focus:text-rose-600"
-                      onClick={() => cancelMutation.mutate({ id: sub.id })}
+                      onClick={() =>
+                        setPendingConfirm({
+                          copy: cancelSubscriptionConfirm(sub),
+                          run: () => cancelMutation.mutate({ id: sub.id }),
+                        })
+                      }
                       disabled={cancelMutation.isPending}
                     >
-                      <Ban className="mr-2 size-4" /> Cancel at period end
+                      <Ban className="mr-2 size-4" /> Cancel subscription
                     </DropdownMenuItem>
                   </>
                 ) : null}
@@ -241,13 +255,15 @@ export default function SubscriptionsPage() {
               <span className="font-sora text-2xl font-semibold">
                 {data ? data.counts[s] : '—'}
               </span>
-              <span className="text-muted-foreground text-xs">subscriptions</span>
+              <span className="text-muted-foreground text-xs">
+                {data?.hasMore ? 'in loaded rows' : 'subscriptions'}
+              </span>
             </div>
           </div>
         ))}
       </div>
 
-      {isError ? (
+      {isError && !data ? (
         <ErrorBanner message={error?.message ?? 'Failed to load subscriptions'} onRetry={refetch} />
       ) : (
         <DataTable
@@ -257,6 +273,7 @@ export default function SubscriptionsPage() {
           searchPlaceholder="Search by subscriber wallet, plan…"
           emptyTitle="No subscriptions"
           emptyDescription="Send customers your hosted plan URL to start subscribing."
+          serverRows={serverRowsOf(subscriptionsQuery)}
           toolbar={
             <div className="flex flex-wrap items-center gap-1">
               {FILTERS.map((s) => (
@@ -277,6 +294,8 @@ export default function SubscriptionsPage() {
           }
         />
       )}
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
   )
 }

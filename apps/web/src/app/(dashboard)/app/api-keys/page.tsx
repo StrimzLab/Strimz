@@ -45,7 +45,18 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { useDashboardMode } from '@/lib/dashboard-mode'
 import { relativeTime } from '@/lib/format'
-import { useApiKeys, useCreateApiKey, useRevokeApiKey, useRotateApiKey } from '@/hooks/api'
+import { revokeApiKeyConfirm } from '@/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@/components/dashboard/confirm-action-dialog'
+import {
+  serverRowsOf,
+  useApiKeyPages,
+  useCreateApiKey,
+  useRevokeApiKey,
+  useRotateApiKey,
+} from '@/hooks/api'
 
 const ALL_SCOPES: readonly ApiKeyScope[] = apiKeyScopeSchema.options
 
@@ -64,9 +75,11 @@ export default function ApiKeysPage() {
     [filter],
   )
 
-  const { data, isLoading, isError, error, refetch } = useApiKeys(params, {
-    select: (page) => ({ rows: page.data }),
+  const keysQuery = useApiKeyPages(params, {
+    select: (loaded) => ({ rows: loaded.rows }),
   })
+  const { data, isLoading, isError, error, refetch } = keysQuery
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   const revokeMutation = useRevokeApiKey()
   const rotateMutation = useRotateApiKey()
@@ -189,7 +202,12 @@ export default function ApiKeysPage() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-rose-600 focus:text-rose-600"
-                      onClick={() => revokeMutation.mutate(key.id)}
+                      onClick={() =>
+                        setPendingConfirm({
+                          copy: revokeApiKeyConfirm(key),
+                          run: () => revokeMutation.mutate(key.id),
+                        })
+                      }
                       disabled={revokeMutation.isPending}
                     >
                       <Ban className="mr-2 size-4" /> Revoke
@@ -237,7 +255,7 @@ export default function ApiKeysPage() {
         </div>
       </div>
 
-      {isError ? (
+      {isError && !data ? (
         <ErrorBanner message={error?.message ?? 'Failed to load API keys'} onRetry={refetch} />
       ) : (
         <DataTable
@@ -247,6 +265,7 @@ export default function ApiKeysPage() {
           searchPlaceholder="Search by name, prefix…"
           emptyTitle="No API keys"
           emptyDescription="Issue your first key to start integrating."
+          serverRows={serverRowsOf(keysQuery)}
         />
       )}
 
@@ -256,6 +275,8 @@ export default function ApiKeysPage() {
           if (!open) setRotatedSecret(null)
         }}
       />
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
   )
 }

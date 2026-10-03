@@ -43,6 +43,8 @@ export const paymentSessionKeys = {
   all: ['payment-sessions'] as const,
   lists: () => [...paymentSessionKeys.all, 'list'] as const,
   list: (params: ListPaymentSessionsParams) => [...paymentSessionKeys.lists(), params] as const,
+  pages: (params: Omit<ListPaymentSessionsParams, 'cursor'>) =>
+    [...paymentSessionKeys.lists(), 'pages', params] as const,
   details: () => [...paymentSessionKeys.all, 'detail'] as const,
   detail: (id: string) => [...paymentSessionKeys.details(), id] as const,
 }
@@ -59,6 +61,8 @@ export const subscriptionKeys = {
   all: ['subscriptions'] as const,
   lists: () => [...subscriptionKeys.all, 'list'] as const,
   list: (params: ListSubscriptionsParams) => [...subscriptionKeys.lists(), params] as const,
+  pages: (params: Omit<ListSubscriptionsParams, 'cursor'>) =>
+    [...subscriptionKeys.lists(), 'pages', params] as const,
   details: () => [...subscriptionKeys.all, 'detail'] as const,
   detail: (id: string) => [...subscriptionKeys.details(), id] as const,
 }
@@ -67,6 +71,8 @@ export const customerKeys = {
   all: ['customers'] as const,
   lists: () => [...customerKeys.all, 'list'] as const,
   list: (params: ListCustomersParams) => [...customerKeys.lists(), params] as const,
+  pages: (params: Omit<ListCustomersParams, 'cursor'>) =>
+    [...customerKeys.lists(), 'pages', params] as const,
   details: () => [...customerKeys.all, 'detail'] as const,
   detail: (id: string) => [...customerKeys.details(), id] as const,
 }
@@ -75,6 +81,8 @@ export const apiKeyKeys = {
   all: ['api-keys'] as const,
   lists: () => [...apiKeyKeys.all, 'list'] as const,
   list: (params: ListApiKeysParams) => [...apiKeyKeys.lists(), params] as const,
+  pages: (params: Omit<ListApiKeysParams, 'cursor'>) =>
+    [...apiKeyKeys.lists(), 'pages', params] as const,
   details: () => [...apiKeyKeys.all, 'detail'] as const,
   detail: (id: string) => [...apiKeyKeys.details(), id] as const,
 }
@@ -103,6 +111,8 @@ export const refundKeys = {
   all: ['refunds'] as const,
   lists: () => [...refundKeys.all, 'list'] as const,
   list: (params: ListRefundsParams) => [...refundKeys.lists(), params] as const,
+  pages: (params: Omit<ListRefundsParams, 'cursor'>) =>
+    [...refundKeys.lists(), 'pages', params] as const,
   details: () => [...refundKeys.all, 'detail'] as const,
   detail: (id: string) => [...refundKeys.details(), id] as const,
 }
@@ -111,6 +121,8 @@ export const invoiceKeys = {
   all: ['invoices'] as const,
   lists: () => [...invoiceKeys.all, 'list'] as const,
   list: (params: ListInvoicesParams) => [...invoiceKeys.lists(), params] as const,
+  pages: (params: Omit<ListInvoicesParams, 'cursor'>) =>
+    [...invoiceKeys.lists(), 'pages', params] as const,
   details: () => [...invoiceKeys.all, 'detail'] as const,
   detail: (id: string) => [...invoiceKeys.details(), id] as const,
 }
