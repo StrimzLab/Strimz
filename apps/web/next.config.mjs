@@ -6,6 +6,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const withMDX = createMDX()
 
+const BASELINE_SECURITY_HEADERS = [
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+]
+
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
@@ -46,9 +53,15 @@ const config = {
     // We use `quality={100}` on a few brand assets (logos, hero vector).
     // Pre-declare both common values so Next 16 stops warning.
     qualities: [75, 100],
-    remotePatterns: [
-      { protocol: 'https', hostname: '**' },
-    ],
+  },
+  headers() {
+    return Promise.resolve([
+      { source: '/:path*', headers: BASELINE_SECURITY_HEADERS },
+      {
+        source: '/((?!pay(?:/|$)|sub(?:/|$)).*)',
+        headers: [{ key: 'X-Frame-Options', value: 'DENY' }],
+      },
+    ])
   },
 }
 
