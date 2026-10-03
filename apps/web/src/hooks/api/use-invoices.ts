@@ -10,8 +10,10 @@ import type { CreateInvoiceInput, Invoice } from '@strimz/shared-types'
 
 import type { ListInvoicesParams } from '@/lib/merchant-api/resources/invoices'
 import type { Page } from '@/lib/merchant-api'
+import type { LoadedRows } from '@/lib/cursor-pages'
 
 import { useMerchantApi } from './merchant-api-context'
+import { useCursorList } from './use-cursor-list'
 import { useMutationWithToast } from './use-mutation-with-toast'
 import { invoiceKeys } from './query-keys'
 
@@ -97,4 +99,16 @@ export function useVoidInvoice() {
       success: (inv) => `Invoice ${inv.number} voided`,
     },
   })
+}
+
+export function useInvoicePages<TView>(
+  params: Omit<ListInvoicesParams, 'cursor'>,
+  options: { select: (loaded: LoadedRows<Invoice>) => TView },
+) {
+  const api = useMerchantApi()
+  return useCursorList(
+    invoiceKeys.pages(params),
+    (cursor, signal) => api.invoices.list({ ...params, cursor }, { signal }),
+    options,
+  )
 }

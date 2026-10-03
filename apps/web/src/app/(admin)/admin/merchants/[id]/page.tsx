@@ -19,6 +19,11 @@ import {
 import { PageHeader } from '@/components/dashboard/page-header'
 import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
 import type { MerchantTier } from '@/lib/admin-api'
+import { suspendMerchantConfirm } from '@/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@/components/dashboard/confirm-action-dialog'
 import {
   useAdminMerchantDetail,
   useReactivateMerchant,
@@ -35,6 +40,7 @@ export default function AdminMerchantDetailPage() {
   const suspendMutation = useSuspendMerchant()
   const reactivateMutation = useReactivateMerchant()
   const tierMutation = useSetMerchantTier()
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   if (isLoading) {
     return <div className="bg-muted/30 mt-6 h-32 animate-pulse rounded-xl" />
@@ -179,7 +185,14 @@ export default function AdminMerchantDetailPage() {
                     size="sm"
                     variant="outline"
                     className="border-rose-500/40 text-rose-600 hover:bg-rose-500/10"
-                    onClick={() => suspendMutation.mutate(merchant.id)}
+                    onClick={() =>
+                      setPendingConfirm({
+                        copy: suspendMerchantConfirm({
+                          businessName: merchant.businessName ?? merchant.email,
+                        }),
+                        run: () => suspendMutation.mutate(merchant.id),
+                      })
+                    }
                     disabled={suspendMutation.isPending}
                   >
                     <Ban className="mr-1.5 size-3" /> Suspend
@@ -218,6 +231,8 @@ export default function AdminMerchantDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
   )
 }

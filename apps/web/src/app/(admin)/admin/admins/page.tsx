@@ -33,6 +33,11 @@ import {
 import { PageHeader } from '@/components/dashboard/page-header'
 import { relativeTime } from '@/lib/format'
 import type { AdminRole } from '@/lib/admin-api'
+import { removeAdminConfirm, suspendAdminConfirm } from '@/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@/components/dashboard/confirm-action-dialog'
 import {
   useAdminList,
   useAdminMe,
@@ -66,6 +71,7 @@ export default function AdminAdminsPage() {
   const removeMutation = useRemoveAdmin()
   const roleMutation = useSetAdminRole()
   const statusMutation = useSetAdminStatus()
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   return (
     <div className="space-y-6">
@@ -153,9 +159,13 @@ export default function AdminAdminsPage() {
                           {a.status === 'active' ? (
                             <DropdownMenuItem
                               onClick={() =>
-                                statusMutation.mutate({
-                                  id: a.id,
-                                  input: { status: 'suspended' },
+                                setPendingConfirm({
+                                  copy: suspendAdminConfirm(a),
+                                  run: () =>
+                                    statusMutation.mutate({
+                                      id: a.id,
+                                      input: { status: 'suspended' },
+                                    }),
                                 })
                               }
                             >
@@ -175,7 +185,12 @@ export default function AdminAdminsPage() {
                           )}
                           <DropdownMenuItem
                             className="text-rose-600 focus:text-rose-600"
-                            onClick={() => removeMutation.mutate(a.id)}
+                            onClick={() =>
+                              setPendingConfirm({
+                                copy: removeAdminConfirm(a),
+                                run: () => removeMutation.mutate(a.id),
+                              })
+                            }
                           >
                             Remove
                           </DropdownMenuItem>
@@ -189,6 +204,8 @@ export default function AdminAdminsPage() {
           </CardContent>
         </Card>
       )}
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
   )
 }

@@ -10,8 +10,10 @@ import type { Customer, UpsertCustomerInput } from '@strimz/shared-types'
 
 import type { ListCustomersParams } from '@/lib/merchant-api/resources/customers'
 import type { Page } from '@/lib/merchant-api'
+import type { LoadedRows } from '@/lib/cursor-pages'
 
 import { useMerchantApi } from './merchant-api-context'
+import { useCursorList } from './use-cursor-list'
 import { useMutationWithToast } from './use-mutation-with-toast'
 import { customerKeys } from './query-keys'
 
@@ -65,4 +67,16 @@ export function useUpsertCustomer() {
       success: (c) => `${c.email ?? c.displayName ?? 'Customer'} saved`,
     },
   })
+}
+
+export function useCustomerPages<TView>(
+  params: Omit<ListCustomersParams, 'cursor'>,
+  options: { select: (loaded: LoadedRows<Customer>) => TView },
+) {
+  const api = useMerchantApi()
+  return useCursorList(
+    customerKeys.pages(params),
+    (cursor, signal) => api.customers.list({ ...params, cursor }, { signal }),
+    options,
+  )
 }

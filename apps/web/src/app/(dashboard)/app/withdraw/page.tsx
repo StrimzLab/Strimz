@@ -13,7 +13,15 @@ import {
   ShieldAlert,
   Wallet as WalletIcon,
 } from 'lucide-react'
-import { encodeFunctionData, erc20Abi, getAddress, isAddress, parseUnits } from 'viem'
+import {
+  encodeFunctionData,
+  erc20Abi,
+  formatUnits,
+  getAddress,
+  isAddress,
+  parseUnits,
+  toHex,
+} from 'viem'
 import { arcTestnet } from '@strimz/shared-config'
 import { Badge, Button, Card, CardContent, FieldLabel, Input, Label } from '@strimz/ui'
 import type { MerchantBalanceView } from '@strimz/shared-types'
@@ -21,7 +29,10 @@ import type { MerchantBalanceView } from '@strimz/shared-types'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { useMerchantBalance } from '@/hooks/api/use-merchant'
+import { useWithdrawGasQuote } from '@/hooks/use-withdraw-gas-quote'
 import { env } from '@/lib/env'
+import { formatTokenAmount } from '@/lib/format'
+import { checkWithdrawAmount, maxWithdrawable, type WithdrawCheck } from '@/lib/withdraw-gas'
 
 const EXPLORER_BY_ENV = {
   testnet: 'https://testnet.arcscan.app/tx/',
@@ -71,16 +82,57 @@ export default function WithdrawPage() {
   }, [wallets])
 
   const destinationOk = destination.trim() !== '' && isAddress(destination.trim())
-  const amountOk = useMemo(() => {
-    if (!amount || !selectedBalance) return false
+  const destinationAddress = destinationOk ? getAddress(destination.trim()) : null
+  const usdcBalance = BigInt(balance?.balances.find((b) => b.currency === 'USDC')?.raw ?? '0')
+  const signingWallet = balance?.canSignFromDashboard ? embeddedWallet : null
+
+  const gasQuery = useWithdrawGasQuote({
+    wallet: signingWallet,
+    chainId: chain.id,
+    token:
+      selectedBalance && isAddress(selectedBalance.contractAddress)
+        ? selectedBalance.contractAddress
+        : undefined,
+    destination: destinationAddress,
+  })
+  const gasReserve = gasQuery.data?.reserve ?? null
+
+  const wanted = useMemo(() => {
+    if (!amount || !selectedBalance) return null
     try {
-      const wanted = parseUnits(amount, selectedBalance.decimals)
-      if (wanted <= 0n) return false
-      return wanted <= BigInt(selectedBalance.raw)
+      return parseUnits(amount, selectedBalance.decimals)
     } catch {
-      return false
+      return null
     }
   }, [amount, selectedBalance])
+
+  const amountCheck: WithdrawCheck | null =
+    wanted === null
+      ? amount
+        ? { ok: false, reason: 'exceeds_balance' }
+        : null
+      : selectedBalance && gasReserve !== null
+        ? checkWithdrawAmount({
+            currency,
+            amount: wanted,
+            balance: BigInt(selectedBalance.raw),
+            usdcBalance,
+            reserve: gasReserve,
+          })
+        : null
+  const amountOk = amountCheck?.ok === true
+
+  function fillMax() {
+    if (!selectedBalance || gasReserve === null) return
+    const max = maxWithdrawable({
+      currency,
+      balance: BigInt(selectedBalance.raw),
+      usdcBalance,
+      reserve: gasReserve,
+    })
+    setAmount(formatUnits(max, selectedBalance.decimals))
+  }
+
   const canSubmit =
     balance?.canSignFromDashboard &&
     Boolean(embeddedWallet) &&
@@ -95,7 +147,8 @@ export default function WithdrawPage() {
 
   async function handleWithdraw(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!canSubmit || !embeddedWallet || !selectedBalance) return
+    if (!canSubmit || !embeddedWallet || !selectedBalance || !destinationAddress || wanted === null)
+      return
     setSubmitting(true)
     setLastTx(null)
     try {
@@ -103,10 +156,29 @@ export default function WithdrawPage() {
       // Privy handles the switch prompt if needed.
       await embeddedWallet.switchChain(chain.id)
 
+      const fresh = await gasQuery.refetch()
+      if (!fresh.data) {
+        throw new Error(
+          `Couldn't estimate the network fee: ${fresh.error?.message ?? 'no estimate returned'}`,
+        )
+      }
+      const freshCheck = checkWithdrawAmount({
+        currency,
+        amount: wanted,
+        balance: BigInt(selectedBalance.raw),
+        usdcBalance,
+        reserve: fresh.data.reserve,
+      })
+      if (!freshCheck.ok) {
+        throw new Error(
+          withdrawProblem(freshCheck.reason, currency, fresh.data.reserve, usdcBalance),
+        )
+      }
+
       const data = encodeFunctionData({
         abi: erc20Abi,
         functionName: 'transfer',
-        args: [getAddress(destination.trim()), parseUnits(amount, selectedBalance.decimals)],
+        args: [destinationAddress, wanted],
       })
 
       const provider = await embeddedWallet.getEthereumProvider()
@@ -118,6 +190,9 @@ export default function WithdrawPage() {
             to: selectedBalance.contractAddress,
             data,
             value: '0x0',
+            gas: toHex(fresh.data.quote.gas),
+            maxFeePerGas: toHex(fresh.data.quote.maxFeePerGas),
+            maxPriorityFeePerGas: toHex(fresh.data.quote.maxPriorityFeePerGas),
           },
         ],
       })
@@ -266,8 +341,14 @@ export default function WithdrawPage() {
                       {selectedBalance && (
                         <button
                           type="button"
-                          onClick={() => setAmount(selectedBalance.formatted)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-[#02C76A]/10 px-2 py-1 text-[10px] font-semibold text-[#02C76A]"
+                          onClick={fillMax}
+                          disabled={gasReserve === null}
+                          title={
+                            gasReserve === null
+                              ? 'Enter a destination so the network fee can be estimated'
+                              : undefined
+                          }
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-[#02C76A]/10 px-2 py-1 text-[10px] font-semibold text-[#02C76A] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           MAX
                         </button>
@@ -278,9 +359,19 @@ export default function WithdrawPage() {
                         Balance: {selectedBalance.formatted} {selectedBalance.currency}
                       </p>
                     )}
-                    {amount && !amountOk && (
+                    {balance.canSignFromDashboard && (
+                      <NetworkFeeNote
+                        destinationOk={destinationOk}
+                        loading={gasQuery.isFetching && gasReserve === null}
+                        error={gasQuery.isError ? gasQuery.error.message : null}
+                        reserve={gasReserve}
+                        currency={currency}
+                        usdcBalance={usdcBalance}
+                      />
+                    )}
+                    {amountCheck && !amountCheck.ok && (
                       <p className="font-poppins mt-1 text-xs text-rose-600">
-                        Enter an amount within your available balance.
+                        {withdrawProblem(amountCheck.reason, currency, gasReserve, usdcBalance)}
                       </p>
                     )}
                   </div>
@@ -354,6 +445,67 @@ export default function WithdrawPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+function withdrawProblem(
+  reason: Exclude<WithdrawCheck, { ok: true }>['reason'],
+  currency: 'USDC' | 'EURC',
+  reserve: bigint | null,
+  usdcBalance: bigint,
+): string {
+  if (reason === 'not_positive') return 'Enter an amount above zero.'
+  if (reason === 'exceeds_balance') return 'Enter an amount within your available balance.'
+  const fee = reserve === null ? 'the network fee' : formatTokenAmount(reserve.toString(), 'USDC')
+  if (currency === 'USDC') {
+    return `Leave up to ${fee} in USDC for the network fee. MAX does this for you.`
+  }
+  return `Gas on Arc is paid in USDC. You need up to ${fee} for this transfer and have ${formatTokenAmount(usdcBalance.toString(), 'USDC')}. Add USDC to this wallet first.`
+}
+
+function NetworkFeeNote({
+  destinationOk,
+  loading,
+  error,
+  reserve,
+  currency,
+  usdcBalance,
+}: {
+  destinationOk: boolean
+  loading: boolean
+  error: string | null
+  reserve: bigint | null
+  currency: 'USDC' | 'EURC'
+  usdcBalance: bigint
+}) {
+  if (error) {
+    return (
+      <p className="font-poppins mt-1 text-xs text-rose-600">
+        Couldn&apos;t estimate the network fee: {error}
+      </p>
+    )
+  }
+  if (!destinationOk) {
+    return (
+      <p className="font-poppins text-muted-foreground mt-1 text-[10px]">
+        Enter a destination to estimate the network fee.
+      </p>
+    )
+  }
+  if (loading || reserve === null) {
+    return (
+      <p className="font-poppins text-muted-foreground mt-1 text-[10px]">
+        Estimating the network fee…
+      </p>
+    )
+  }
+  const fee = formatTokenAmount(reserve.toString(), 'USDC')
+  return (
+    <p className="font-poppins text-muted-foreground mt-1 text-[10px]">
+      {currency === 'USDC'
+        ? `Up to ${fee} is held back for the network fee, which Arc charges in USDC.`
+        : `Arc charges the network fee in USDC: up to ${fee} comes from your USDC balance (${formatTokenAmount(usdcBalance.toString(), 'USDC')}).`}
+    </p>
   )
 }
 

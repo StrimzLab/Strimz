@@ -10,8 +10,10 @@ import type { CreatePaymentSessionInput, PaymentSession } from '@strimz/shared-t
 
 import type { ListPaymentSessionsParams } from '@/lib/merchant-api/resources/payment-sessions'
 import type { Page } from '@/lib/merchant-api'
+import { patchListCacheRow, type ListCache, type LoadedRows } from '@/lib/cursor-pages'
 
 import { useMerchantApi } from './merchant-api-context'
+import { useCursorList } from './use-cursor-list'
 import { useMutationWithToast } from './use-mutation-with-toast'
 import { paymentSessionKeys } from './query-keys'
 
@@ -117,7 +119,7 @@ export function useCancelPaymentSession() {
       await qc.cancelQueries({ queryKey: paymentSessionKeys.lists() })
 
       const previousDetail = qc.getQueryData<PaymentSession>(paymentSessionKeys.detail(id))
-      const previousLists = qc.getQueriesData<Page<PaymentSession>>({
+      const previousLists = qc.getQueriesData<ListCache<PaymentSession>>({
         queryKey: paymentSessionKeys.lists(),
       })
 
@@ -130,15 +132,12 @@ export function useCancelPaymentSession() {
       }
 
       // Optimistic list patches. Only touch lists that already render the row.
-      for (const [key, page] of previousLists) {
-        if (!page) continue
-        const idx = page.data.findIndex((row) => row.id === id)
-        if (idx === -1) continue
-        const target = page.data[idx]
-        if (!target) continue
-        const nextData = [...page.data]
-        nextData[idx] = { ...target, status: 'cancelled' as const }
-        qc.setQueryData(key, { ...page, data: nextData })
+      for (const [key, cache] of previousLists) {
+        const next = patchListCacheRow(cache, id, (row) => ({
+          ...row,
+          status: 'cancelled' as const,
+        }))
+        if (next) qc.setQueryData(key, next)
       }
 
       return { previousDetail, previousLists }
@@ -174,4 +173,16 @@ export function usePrefetchPaymentSession() {
       queryKey: paymentSessionKeys.detail(id),
       queryFn: ({ signal }) => api.paymentSessions.retrieve(id, { signal }),
     })
+}
+
+export function usePaymentSessionPages<TView>(
+  params: Omit<ListPaymentSessionsParams, 'cursor'>,
+  options: { select: (loaded: LoadedRows<PaymentSession>) => TView },
+) {
+  const api = useMerchantApi()
+  return useCursorList(
+    paymentSessionKeys.pages(params),
+    (cursor, signal) => api.paymentSessions.list({ ...params, cursor }, { signal }),
+    options,
+  )
 }
