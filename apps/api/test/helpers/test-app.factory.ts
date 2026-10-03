@@ -25,6 +25,7 @@ export interface TestApp {
   queue: StubQueueService
   email: StubEmailService
   chain: StubChainService
+  redis: StubRedisService
   /** Convenience: same Fastify request injector you'd get from supertest. */
   inject: NestFastifyApplication['inject']
   close: () => Promise<void>
@@ -81,6 +82,7 @@ export async function createTestApp(): Promise<TestApp> {
     queue: stubQueue,
     email: stubEmail,
     chain: stubChain,
+    redis: stubRedis,
     inject,
     close: async () => {
       await app.close()

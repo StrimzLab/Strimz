@@ -6,6 +6,8 @@ import {
   permitAndCreateSubscriptionAbi,
 } from '../../../../src/modules/relay/abi.js'
 import { RelayService } from '../../../../src/modules/relay/relay.service.js'
+import type { RelayAttemptPointers } from '../../../../src/modules/relay/relay-attempts.js'
+import type { RelayChainProbe } from '../../../../src/modules/relay/relay-chain-probe.js'
 import type { QueueService } from '../../../../src/infra/queue/queue.service.js'
 import type { PrismaService } from '../../../../src/infra/prisma/prisma.service.js'
 import type { TypedConfigService } from '../../../../src/config/index.js'
@@ -93,6 +95,23 @@ function makeFakePrisma(): PrismaService {
   } as unknown as PrismaService
 }
 
+function makeFakeProbe(): RelayChainProbe {
+  return {
+    simulate: () => Promise.resolve(),
+    receiptStatus: () => Promise.resolve(null),
+    latestBlockTimestamp: () => Promise.resolve(1_700_000_000n),
+  } as unknown as RelayChainProbe
+}
+
+function makeFakePointers(): RelayAttemptPointers {
+  return {
+    current: () => Promise.resolve(null),
+    claim: () => Promise.resolve(true),
+  } as unknown as RelayAttemptPointers
+}
+
+const MERCHANT_INTERNAL_ID = 'merchant_1'
+
 function payInput(over: Partial<PayWithAuthorizationInput> = {}): PayWithAuthorizationInput {
   return {
     idempotencyKey: 'idem-1',
@@ -108,6 +127,7 @@ function payInput(over: Partial<PayWithAuthorizationInput> = {}): PayWithAuthori
     ref: keccak256(toHex('session-1')),
     authSignature: { v: 27, r: padHex('0xab', { size: 32 }), s: padHex('0xcd', { size: 32 }) },
     intentSignature: { v: 27, r: padHex('0x1a', { size: 32 }), s: padHex('0x1b', { size: 32 }) },
+    merchantInternalId: MERCHANT_INTERNAL_ID,
     ...over,
   }
 }
@@ -130,6 +150,7 @@ function subsInput(
     },
     permitSignature: { v: 28, r: padHex('0xde', { size: 32 }), s: padHex('0xef', { size: 32 }) },
     intentSignature: { v: 28, r: padHex('0x2a', { size: 32 }), s: padHex('0x2b', { size: 32 }) },
+    merchantInternalId: MERCHANT_INTERNAL_ID,
     ...over,
   }
 }
@@ -141,7 +162,13 @@ describe('RelayService', () => {
   beforeEach(() => {
     const { svc, queue: q } = makeFakeQueueService()
     queue = q
-    service = new RelayService(svc, makeFakePrisma(), makeCfg())
+    service = new RelayService(
+      svc,
+      makeFakePrisma(),
+      makeCfg(),
+      makeFakeProbe(),
+      makeFakePointers(),
+    )
   })
 
   describe('submitPayWithAuthorization', () => {
@@ -150,9 +177,11 @@ describe('RelayService', () => {
       const view = await service.submitPayWithAuthorization(input)
       expect(view.status).toBe('queued')
       expect(view.reason).toBe('payWithAuthorization')
-      expect(view.idempotencyKey).toBe(input.idempotencyKey)
+      expect(view.idempotencyKey).toMatch(/^relay-pay-[0-9a-f]{64}$/u)
+      expect(view.idempotencyKey).not.toBe(input.idempotencyKey)
 
-      const job = must(queue._jobs.get(input.idempotencyKey))
+      const job = must(queue._jobs.get(view.idempotencyKey))
+      expect(job.data.idempotencyKey).toBe(view.idempotencyKey)
       expect(job.data.toAddress.toLowerCase()).toBe(PAYMENTS_ADDR.toLowerCase())
 
       const decoded = decodeFunctionData({
@@ -183,7 +212,7 @@ describe('RelayService', () => {
       expect(intentSig.s).toBe(input.intentSignature.s)
     })
 
-    it('is idempotent on the idempotencyKey', async () => {
+    it('is idempotent on the signed payload', async () => {
       const input = payInput({ idempotencyKey: 'idem-dup' })
       const a = await service.submitPayWithAuthorization(input)
       const b = await service.submitPayWithAuthorization(input)
@@ -192,9 +221,8 @@ describe('RelayService', () => {
     })
 
     it('uses the configured payments address as the target', async () => {
-      const input = payInput()
-      await service.submitPayWithAuthorization(input)
-      const job = must(queue._jobs.get(input.idempotencyKey))
+      const view = await service.submitPayWithAuthorization(payInput())
+      const job = must(queue._jobs.get(view.idempotencyKey))
       expect(job.data.toAddress).toBe(PAYMENTS_ADDR)
     })
 
@@ -203,7 +231,13 @@ describe('RelayService', () => {
       const cfgEmpty = {
         env: { STRIMZ_PAYMENTS_ADDRESS: undefined },
       } as unknown as TypedConfigService
-      const svcNoAddr = new RelayService(svc, makeFakePrisma(), cfgEmpty)
+      const svcNoAddr = new RelayService(
+        svc,
+        makeFakePrisma(),
+        cfgEmpty,
+        makeFakeProbe(),
+        makeFakePointers(),
+      )
       await expect(svcNoAddr.submitPayWithAuthorization(payInput())).rejects.toThrow(
         /STRIMZ_PAYMENTS_ADDRESS/,
       )
@@ -215,7 +249,8 @@ describe('RelayService', () => {
       const input = subsInput()
       const view = await service.submitPermitAndCreateSubscription(input)
       expect(view.reason).toBe('permitAndCreateSubscription')
-      const job = must(queue._jobs.get(input.idempotencyKey))
+      expect(view.idempotencyKey).toMatch(/^relay-sub-[0-9a-f]{64}$/u)
+      const job = must(queue._jobs.get(view.idempotencyKey))
       expect(job.data.toAddress).toBe(SUBS_ADDR)
 
       const decoded = decodeFunctionData({
@@ -238,14 +273,18 @@ describe('RelayService', () => {
 
   describe('getByIdempotencyKey', () => {
     it('returns null for an unknown key', async () => {
-      const view = await service.getByIdempotencyKey('does-not-exist')
+      const view = await service.getByIdempotencyKey('does-not-exist', {
+        merchantInternalId: MERCHANT_INTERNAL_ID,
+      })
       expect(view).toBeNull()
     })
 
     it('returns the same view shape produced by enqueue', async () => {
       const input = payInput({ idempotencyKey: 'idem-lookup' })
       const enqueued = await service.submitPayWithAuthorization(input)
-      const looked = await service.getByIdempotencyKey('idem-lookup')
+      const looked = await service.getByIdempotencyKey(enqueued.idempotencyKey, {
+        merchantInternalId: MERCHANT_INTERNAL_ID,
+      })
       expect(looked).not.toBeNull()
       expect(must(looked).idempotencyKey).toBe(enqueued.idempotencyKey)
       expect(must(looked).reason).toBe(enqueued.reason)
