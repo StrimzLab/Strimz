@@ -41,6 +41,10 @@ export const apiKeyScopeSchema = z.enum([
   // keys per sub-tenant.
   'api_keys_read',
   'api_keys_write',
+  'merchants_read',
+  'customers_read',
+  'customers_write',
+  'analytics_read',
 ])
 export type ApiKeyScope = z.infer<typeof apiKeyScopeSchema>
 

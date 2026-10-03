@@ -24,6 +24,7 @@ export interface TestApp {
   turnstile: StubTurnstileService
   queue: StubQueueService
   email: StubEmailService
+  chain: StubChainService
   /** Convenience: same Fastify request injector you'd get from supertest. */
   inject: NestFastifyApplication['inject']
   close: () => Promise<void>
@@ -79,6 +80,7 @@ export async function createTestApp(): Promise<TestApp> {
     turnstile: stubTurnstile,
     queue: stubQueue,
     email: stubEmail,
+    chain: stubChain,
     inject,
     close: async () => {
       await app.close()
