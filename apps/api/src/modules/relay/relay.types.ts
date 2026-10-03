@@ -41,7 +41,7 @@ export interface VRSSignature {
  * existing submission rather than creating a second one.
  */
 export interface PayWithAuthorizationInput {
-  idempotencyKey: string
+  idempotencyKey?: string
   merchantId: bigint
   token: `0x${string}`
   auth: PayAuthorization
@@ -60,7 +60,7 @@ export interface PayWithAuthorizationInput {
  * Caller-facing inputs for the EIP-2612 subscription enrolment path.
  */
 export interface PermitAndCreateSubscriptionInput {
-  idempotencyKey: string
+  idempotencyKey?: string
   merchantId: bigint
   token: `0x${string}`
   amount: bigint
@@ -108,4 +108,9 @@ export interface RelaySubmissionView {
   errorReason: string | null
   attemptCount: number
   enqueuedAt: string
+}
+
+export interface RelaySubmissionScope {
+  merchantInternalId: string
+  sessionId?: string
 }

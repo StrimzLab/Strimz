@@ -1,16 +1,24 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common'
+import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common'
 import type { Job } from 'bullmq'
-import { encodeFunctionData, padHex } from 'viem'
+import { decodeFunctionData, encodeFunctionData, keccak256, padHex, type Hex } from 'viem'
 import { relayJobSchema, type RelayJob } from '@strimz/queue-contracts'
+import { checkoutPaymentNonce } from '@strimz/shared-crypto/checkout'
 
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QUEUE_NAMES, QueueService } from '../../infra/queue/queue.service.js'
 import { payWithAuthorizationAbi, permitAndCreateSubscriptionAbi } from './abi.js'
+import {
+  paymentAttemptScope,
+  RelayAttemptPointers,
+  subscriptionAttemptScope,
+} from './relay-attempts.js'
+import { RelayChainProbe } from './relay-chain-probe.js'
 import type { RelayJobResult } from './relay.processor.js'
 import type {
   PayWithAuthorizationInput,
   PermitAndCreateSubscriptionInput,
+  RelaySubmissionScope,
   RelaySubmissionStatus,
   RelaySubmissionView,
 } from './relay.types.js'
@@ -26,6 +34,17 @@ const GAS_LIMITS = {
   payWithAuthorization: 280_000n,
   permitAndCreateSubscription: 320_000n,
 } as const
+
+type RelayCallReason = 'payWithAuthorization' | 'permitAndCreateSubscription'
+
+const RELAY_KEY_PREFIX: Record<RelayCallReason, string> = {
+  payWithAuthorization: 'relay-pay-',
+  permitAndCreateSubscription: 'relay-sub-',
+}
+
+export function relayKeyFor(reason: RelayCallReason, callData: Hex): string {
+  return `${RELAY_KEY_PREFIX[reason]}${keccak256(callData).slice(2)}`
+}
 
 /**
  * Public surface of the meta-tx relay layer. Other modules
@@ -54,6 +73,8 @@ export class RelayService {
     private readonly queue: QueueService,
     private readonly prisma: PrismaService,
     cfg: TypedConfigService,
+    private readonly probe: RelayChainProbe,
+    private readonly attempts: RelayAttemptPointers,
   ) {
     this.paymentsAddress = cfg.env.STRIMZ_PAYMENTS_ADDRESS as `0x${string}` | undefined
     this.subscriptionsAddress = cfg.env.STRIMZ_SUBSCRIPTIONS_ADDRESS as `0x${string}` | undefined
@@ -64,19 +85,6 @@ export class RelayService {
   async submitPayWithAuthorization(input: PayWithAuthorizationInput): Promise<RelaySubmissionView> {
     if (!this.paymentsAddress) {
       throw new Error('STRIMZ_PAYMENTS_ADDRESS is not configured')
-    }
-
-    // Durable double-pay guard. BullMQ-only idempotency expires when
-    // a completed job is aged out (`removeOnComplete: { age: 3600 }`),
-    // so a re-submission of the same session more than an hour after
-    // a successful pay would otherwise pass through, broadcast a fresh
-    // signed authorization, and charge the payer twice. The indexer
-    // stamps `onchainTxHash` onto the session at confirmation time;
-    // that's the source of truth the chain itself respects.
-    if (input.sessionId) {
-      const alreadyPaid = await this.alreadyPaidView(input.sessionId, input.idempotencyKey)
-      if (alreadyPaid) return alreadyPaid
-      await this.assertSessionPayable(input.sessionId, input.merchantId, input.auth.amount)
     }
 
     const callData = encodeFunctionData({
@@ -105,15 +113,39 @@ export class RelayService {
         },
       ],
     })
-    return this.enqueue({
-      idempotencyKey: input.idempotencyKey,
-      reason: 'payWithAuthorization',
-      toAddress: this.paymentsAddress,
-      callData,
-      gasLimit: GAS_LIMITS.payWithAuthorization.toString(),
-      merchantInternalId: input.merchantInternalId,
-      sessionId: input.sessionId,
-    })
+    const key = relayKeyFor('payWithAuthorization', callData)
+
+    // Durable double-pay guard. BullMQ-only idempotency expires when
+    // a completed job is aged out (`removeOnComplete: { age: 3600 }`),
+    // so a re-submission of the same session more than an hour after
+    // a successful pay would otherwise pass through, broadcast a fresh
+    // signed authorization, and charge the payer twice. The indexer
+    // stamps `onchainTxHash` onto the session at confirmation time;
+    // that's the source of truth the chain itself respects.
+    if (input.sessionId) {
+      const alreadyPaid = await this.alreadyPaidView(input.sessionId, key)
+      if (alreadyPaid) return alreadyPaid
+    }
+    const replay = await this.existingView(key)
+    if (replay) return replay
+    if (input.sessionId) {
+      await this.assertSessionPayable(input.sessionId, input.merchantId, input.auth.amount)
+      assertSessionNonce(input.sessionId, input.auth.nonce)
+    }
+
+    await this.probe.simulate({ to: this.paymentsAddress, data: callData })
+    return this.enqueue(
+      {
+        idempotencyKey: key,
+        reason: 'payWithAuthorization',
+        toAddress: this.paymentsAddress,
+        callData,
+        gasLimit: GAS_LIMITS.payWithAuthorization.toString(),
+        merchantInternalId: input.merchantInternalId,
+        sessionId: input.sessionId,
+      },
+      input.sessionId ? paymentAttemptScope(input.sessionId) : null,
+    )
   }
 
   async submitPermitAndCreateSubscription(
@@ -121,20 +153,6 @@ export class RelayService {
   ): Promise<RelaySubmissionView> {
     if (!this.subscriptionsAddress) {
       throw new Error('STRIMZ_SUBSCRIPTIONS_ADDRESS is not configured')
-    }
-
-    // Durable double-enrolment guard. Same shape as the payment-side
-    // safety net: a refresh past BullMQ's 1h retention would otherwise
-    // sign a fresh permit (different USDC nonce) and create a SECOND
-    // on-chain subscription for the same payer-plan pair. The scheduler
-    // would then charge both every period.
-    if (input.subscriptionInternalId) {
-      const alreadyEnrolled = await this.alreadyEnrolledView(
-        input.subscriptionInternalId,
-        input.permitData.owner,
-        input.idempotencyKey,
-      )
-      if (alreadyEnrolled) return alreadyEnrolled
     }
 
     const callData = encodeFunctionData({
@@ -164,15 +182,39 @@ export class RelayService {
         },
       ],
     })
-    return this.enqueue({
-      idempotencyKey: input.idempotencyKey,
-      reason: 'permitAndCreateSubscription',
-      toAddress: this.subscriptionsAddress,
-      callData,
-      gasLimit: GAS_LIMITS.permitAndCreateSubscription.toString(),
-      merchantInternalId: input.merchantInternalId,
-      subscriptionInternalId: input.subscriptionInternalId,
-    })
+    const key = relayKeyFor('permitAndCreateSubscription', callData)
+
+    // Durable double-enrolment guard. Same shape as the payment-side
+    // safety net: a refresh past BullMQ's 1h retention would otherwise
+    // sign a fresh permit (different USDC nonce) and create a SECOND
+    // on-chain subscription for the same payer-plan pair. The scheduler
+    // would then charge both every period.
+    if (input.subscriptionInternalId) {
+      const alreadyEnrolled = await this.alreadyEnrolledView(
+        input.subscriptionInternalId,
+        input.permitData.owner,
+        key,
+      )
+      if (alreadyEnrolled) return alreadyEnrolled
+    }
+    const replay = await this.existingView(key)
+    if (replay) return replay
+
+    await this.probe.simulate({ to: this.subscriptionsAddress, data: callData })
+    return this.enqueue(
+      {
+        idempotencyKey: key,
+        reason: 'permitAndCreateSubscription',
+        toAddress: this.subscriptionsAddress,
+        callData,
+        gasLimit: GAS_LIMITS.permitAndCreateSubscription.toString(),
+        merchantInternalId: input.merchantInternalId,
+        subscriptionInternalId: input.subscriptionInternalId,
+      },
+      input.subscriptionInternalId
+        ? subscriptionAttemptScope(input.subscriptionInternalId, input.permitData.owner)
+        : null,
+    )
   }
 
   /**
@@ -180,18 +222,62 @@ export class RelayService {
    * Returns `null` if no job is found (i.e. it was never submitted,
    * or it completed long enough ago that BullMQ aged it out).
    */
-  async getByIdempotencyKey(idempotencyKey: string): Promise<RelaySubmissionView | null> {
-    const queue = this.queue.queue(QUEUE_NAMES.relaySubmission)
-    const job = await queue.getJob(idempotencyKey)
-    if (!job) return null
+  async getByIdempotencyKey(
+    idempotencyKey: string,
+    scope: RelaySubmissionScope,
+  ): Promise<RelaySubmissionView | null> {
+    const job = await this.findJob(idempotencyKey)
+    if (!job || !jobInScope(job.data, scope)) return null
     return this.viewFromJob(job)
   }
 
   // ----- Internal -----
 
-  private async enqueue(job: RelayJob): Promise<RelaySubmissionView> {
+  private async findJob(key: string): Promise<Job<RelayJob, RelayJobResult> | null> {
+    const queue = this.queue.queue(QUEUE_NAMES.relaySubmission)
+    const job = (await queue.getJob(key)) as Job<RelayJob, RelayJobResult> | undefined
+    return job ?? null
+  }
+
+  private async existingView(key: string): Promise<RelaySubmissionView | null> {
+    const job = await this.findJob(key)
+    if (!job) return null
+    this.log.log(`relay submission ${key} replayed (identical signed payload)`)
+    return this.viewFromJob(job)
+  }
+
+  private async claimAttempt(scope: string, key: string): Promise<void> {
+    const current = await this.attempts.current(scope)
+    if (current === key) return
+    if (current !== null) await this.assertAttemptReplaceable(current)
+    if (await this.attempts.claim(scope, current, key)) return
+    const winner = await this.attempts.current(scope)
+    const job = winner ? await this.findJob(winner) : null
+    throw attemptInProgress(job ? await this.viewFromJob(job) : null)
+  }
+
+  private async assertAttemptReplaceable(previousKey: string): Promise<void> {
+    const job = await this.findJob(previousKey)
+    if (!job) return
+    const state = await job.getState()
+    if (state === 'completed') throw alreadySettled(await this.viewFromJob(job))
+    if (state !== 'failed') throw attemptInProgress(await this.viewFromJob(job))
+
+    const data = job.data
+    if (data.reason === 'registerMerchant' || !data.broadcast) return
+    const receipt = await this.probe.receiptStatus(data.broadcast.txHash)
+    if (receipt === 'success') throw alreadySettled(await this.viewFromJob(job))
+    if (receipt === 'reverted') return
+    if (data.reason === 'permitAndCreateSubscription') return
+    const validBefore = authorizationValidBefore(data.callData)
+    if (validBefore <= (await this.probe.latestBlockTimestamp())) return
+    throw attemptInProgress(await this.viewFromJob(job))
+  }
+
+  private async enqueue(job: RelayJob, attemptScope: string | null): Promise<RelaySubmissionView> {
     const data = relayJobSchema.parse(job)
     const queue = this.queue.queue(QUEUE_NAMES.relaySubmission)
+    if (attemptScope) await this.claimAttempt(attemptScope, data.idempotencyKey)
     // Using the idempotency key as the BullMQ job id makes
     // resubmission a no-op: BullMQ rejects duplicate ids with a
     // documented `Job <id> already exists` shape. We catch that and
@@ -260,6 +346,12 @@ export class RelayService {
       throw new BadRequestException({
         code: 'session_invalid_state',
         message: `session is ${session.status}`,
+      })
+    }
+    if (session.status === 'submitted') {
+      throw new ConflictException({
+        code: 'session_already_submitted',
+        message: 'a payment for this session has already been mined',
       })
     }
     if (session.expiresAt && session.expiresAt.getTime() < Date.now()) {
@@ -361,6 +453,43 @@ export class RelayService {
       enqueuedAt: new Date(job.timestamp).toISOString(),
     }
   }
+}
+
+function assertSessionNonce(sessionId: string, nonce: Hex): void {
+  if (nonce.toLowerCase() !== checkoutPaymentNonce(sessionId)) {
+    throw new BadRequestException({
+      code: 'auth_nonce_mismatch',
+      message: 'the authorization nonce must be checkoutPaymentNonce(sessionId)',
+    })
+  }
+}
+
+function authorizationValidBefore(callData: Hex): bigint {
+  const decoded = decodeFunctionData({ abi: payWithAuthorizationAbi, data: callData })
+  return decoded.args[2].validBefore
+}
+
+function jobInScope(data: RelayJob, scope: RelaySubmissionScope): boolean {
+  if (data.merchantInternalId !== scope.merchantInternalId) return false
+  if (!scope.sessionId) return true
+  if (data.reason === 'registerMerchant') return false
+  return data.sessionId === scope.sessionId || data.subscriptionInternalId === scope.sessionId
+}
+
+function attemptInProgress(current: RelaySubmissionView | null): ConflictException {
+  return new ConflictException({
+    code: 'attempt_in_progress',
+    message: 'an earlier attempt for this checkout can still land; poll it before retrying',
+    details: { submission: current },
+  })
+}
+
+function alreadySettled(current: RelaySubmissionView): ConflictException {
+  return new ConflictException({
+    code: 'already_settled',
+    message: 'an earlier attempt for this checkout already settled on-chain',
+    details: { submission: current },
+  })
 }
 
 function mapStatus(state: string): RelaySubmissionStatus {
