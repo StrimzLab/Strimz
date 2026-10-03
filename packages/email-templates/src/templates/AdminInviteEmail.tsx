@@ -52,14 +52,14 @@ export function AdminInviteEmail({
   const greeting = inviteeName ?? 'there'
   return (
     <Shell
-      preview={`${inviterDisplay} added you as a Strimz admin`}
-      title={`You’re a Strimz admin, ${greeting}.`}
-      subtitle="Admin access granted"
+      preview={`${inviterDisplay} invited you to be a Strimz admin`}
+      title={`You’re invited to Strimz admin, ${greeting}.`}
+      subtitle="Admin invite"
       tone="success"
     >
       <Text style={leadStyle}>
-        Hi {greeting}, {inviterDisplay} ({inviterEmail}) added you as a Strimz operator. Your access
-        is ready as soon as you sign in.
+        Hi {greeting}, {inviterDisplay} ({inviterEmail}) invited you to be a Strimz operator. Accept
+        the invite to activate your access.
       </Text>
 
       <Section style={detailBoxStyle}>
@@ -72,13 +72,13 @@ export function AdminInviteEmail({
 
       <Section style={{ textAlign: 'center', margin: '24px 0 8px' }}>
         <Button href={dashboardUrl} style={primaryButtonStyle}>
-          Open admin dashboard
+          Accept invite
         </Button>
       </Section>
 
       <Text style={tipStyle}>
-        Sign in with this same email through Privy on the dashboard. Your admin profile is created
-        automatically the first time you authenticate — no separate signup, no password to remember.
+        Open the link, sign in through Privy with this same email, and accept. The link works once
+        and expires in 7 days. If it expires, ask a super admin to re-send the invite.
       </Text>
     </Shell>
   )

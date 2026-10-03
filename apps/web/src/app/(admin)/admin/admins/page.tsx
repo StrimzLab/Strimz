@@ -43,6 +43,7 @@ import {
   useAdminMe,
   useInviteAdmin,
   useRemoveAdmin,
+  useResendAdminInvite,
   useSetAdminRole,
   useSetAdminStatus,
 } from '@/hooks/admin'
@@ -71,6 +72,7 @@ export default function AdminAdminsPage() {
   const removeMutation = useRemoveAdmin()
   const roleMutation = useSetAdminRole()
   const statusMutation = useSetAdminStatus()
+  const resendMutation = useResendAdminInvite()
   const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   return (
@@ -125,10 +127,15 @@ export default function AdminAdminsPage() {
                       {a.role.replace('_', ' ')}
                     </span>
                   </div>
-                  <div className="col-span-2">
+                  <div className="col-span-2 space-y-1">
                     <Badge variant="outline" className="capitalize">
                       {a.status}
                     </Badge>
+                    {a.invitePending ? (
+                      <div className="text-muted-foreground text-[11px]">
+                        {inviteStateLabel(a.inviteExpiresAt)}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="col-span-2 text-xs">
                     {a.lastLoginAt ? relativeTime(a.lastLoginAt) : 'never'}
@@ -145,6 +152,17 @@ export default function AdminAdminsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {a.invitePending && a.status === 'active' ? (
+                            <>
+                              <DropdownMenuItem
+                                disabled={resendMutation.isPending}
+                                onClick={() => resendMutation.mutate(a.id)}
+                              >
+                                Resend invite
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
+                          ) : null}
                           <DropdownMenuLabel>Role</DropdownMenuLabel>
                           {ROLES.filter((r) => r !== a.role).map((r) => (
                             <DropdownMenuItem
@@ -210,6 +228,12 @@ export default function AdminAdminsPage() {
   )
 }
 
+function inviteStateLabel(expiresAt: string | null): string {
+  if (!expiresAt) return 'Invite pending: resend to issue a link'
+  if (new Date(expiresAt).getTime() <= Date.now()) return 'Invite expired: resend it'
+  return `Invite pending, expires ${relativeTime(expiresAt)}`
+}
+
 function InviteAdminDialog() {
   const [open, setOpen] = React.useState(false)
   const [email, setEmail] = React.useState('')
@@ -257,8 +281,9 @@ function InviteAdminDialog() {
         <DialogHeader>
           <DialogTitle>Invite admin</DialogTitle>
           <DialogDescription>
-            The invitee signs in with the same email through Privy; their `AdminUser` row claims
-            their Privy account automatically.
+            The invitee gets a one-time link that expires in 7 days. They accept it while signed in
+            through Privy with this email address. Resend the invite from the admin list if it
+            expires.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">

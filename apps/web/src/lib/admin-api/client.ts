@@ -123,6 +123,10 @@ export class AdminApiClient {
     this.bffPatch<AdminListItem>(`/api/admin/admins/${encodeURIComponent(id)}/status`, input)
   removeAdmin = (id: string) =>
     this.bffDelete<AdminListItem>(`/api/admin/admins/${encodeURIComponent(id)}`)
+  resendAdminInvite = (id: string) =>
+    this.bff<AdminListItem>(`/api/admin/admins/${encodeURIComponent(id)}/invite`, {})
+  acceptAdminInvite = (token: string) =>
+    this.bff<AdminProfile>('/api/admin/invites/accept', { token })
 
   // ----- Broadcasts -----
   listBroadcasts = (
