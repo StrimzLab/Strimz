@@ -56,24 +56,60 @@ checkout intent.
 
 ## Scopes
 
-Every secret key has a scope list. When you issue a new key from the dashboard, you tick the actions it can take. The API enforces the list on every request. If your key has `subscriptions_read` but tries to call `POST /v1/subscriptions/{id}/cancel`, you'll get a `permission_denied` error.
+Every secret key has a scope list. When you issue a new key from the dashboard, you tick the actions it can take. The API enforces the list on every request. If your key has `subscriptions_read` but tries to call `POST /v1/subscriptions/{id}/cancel`, you'll get a `permission_denied` error. A route that does not name a scope rejects every API key.
 
 Available scopes (underscore-separated, alphabetical):
 
 ```
 agents_read           agents_write
+analytics_read
 api_keys_read         api_keys_write
 customers_read        customers_write
 invoices_read         invoices_write
+merchants_read
 refunds_read          refunds_write
+relay_read            relay_write
 sessions_read         sessions_write
 storefronts_read      storefronts_write
 subscriptions_read    subscriptions_write
-transactions_read     transactions_write
+transactions_read
 webhooks_read         webhooks_write
 ```
 
-The dashboard offers preset scope bundles ("read-only", "checkout-only", "full") so you don't have to tick eighteen boxes for every key. You can always issue a more permissive key later and revoke the narrow one.
+What the less obvious scopes unlock:
+
+| Scope               | Routes                                                                                                                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `merchants_read`    | `GET /v1/merchants/me`, `GET /v1/merchants/me/live-mode-eligibility`, `GET /v1/merchants/me/chain-status`, `GET /v1/merchants/me/onchain-state`, `GET /v1/merchants/me/balance` |
+| `customers_read`    | `GET /v1/customers`, `GET /v1/customers/{id}`                                                                                                                                   |
+| `customers_write`   | `POST /v1/customers`                                                                                                                                                            |
+| `analytics_read`    | `GET /v1/stats/conversion`, `/churn`, `/mrr`, `/ltv`, `/forecast`                                                                                                               |
+| `storefronts_read`  | `GET /v1/storefront`, `GET /v1/storefront/products`, `GET /v1/storefront/products/{id}`                                                                                         |
+| `storefronts_write` | `POST /v1/storefront`, `/publish`, `/archive`, `POST /v1/storefront/products`, `POST /v1/storefront/products/{id}/archive`                                                      |
+
+The dashboard offers preset scope bundles ("Full access", "Read-only", "Sessions only") so you don't have to tick every box for every key. You can always issue a more permissive key later and revoke the narrow one.
+
+### Dashboard-only routes
+
+These routes change where your money goes, what it costs, or the dashboard itself. They accept only a dashboard session and return `permission_denied` to every API key, whatever its scopes:
+
+- `PATCH /v1/merchants/me`
+- `POST /v1/merchants/me/onboard`
+- `POST /v1/merchants/me/tier`
+- `GET /v1/notifications`
+- `POST /v1/notifications/mark-all-read`
+
+`strimz.merchants.update()` and `strimz.merchants.changeTier()` call the first and third of these, so they no longer work with a secret key. Both are deprecated and will be removed from `@strimz/sdk` in the next minor release. Change your profile, payout address, and tier in the dashboard.
+
+### Keys that manage keys
+
+A key with `api_keys_write` can create, rotate and revoke keys, within limits:
+
+- A key can only grant scopes it holds itself, and only in its own mode. A test key cannot create a live key.
+- A key only sees keys of its own mode. A test key gets `not_found` for a live key, on read, revoke and rotate.
+- A key can only rotate a key whose scopes it holds itself.
+
+A dashboard session manages keys of both modes with any scopes.
 
 ## Live-mode eligibility
 
@@ -82,11 +118,15 @@ You can't issue a live-mode key the moment you sign up. Live-mode unlocks once y
 1. **Email verification.** Privy verifies your email address.
 2. **Two-factor authentication.** Enabled in your Privy account settings.
 3. **Business onboarding.** The self-attested form in the dashboard (business name, sector, country, payout address).
+4. **Payout address.** A payout wallet address is set on your account.
 
 The dashboard checks `GET /v1/merchants/me/live-mode-eligibility`,
 which returns structured `reasons` so the UI can point you at the
-right step. There is no manual review queue on the basic plan. The
-key unlocks the moment all three checks pass.
+right step. There is no manual review queue on the basic plan.
+
+The API checks the same list when a live key is created or rotated. If a check fails, it returns `403` with code `live_mode_ineligible` and the same `reasons` in `error.details.reasons`, and no key is written. Existing live keys keep working if a check later fails; the list is checked again on the next create or rotate.
+
+Until Strimz runs on Arc mainnet, live mode is closed: creating or rotating a live key returns `403` with code `live_mode_unavailable`, whatever your eligibility.
 
 ## Rotating a key
 

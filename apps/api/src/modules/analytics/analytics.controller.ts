@@ -1,6 +1,7 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
+import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
@@ -14,6 +15,7 @@ import { AnalyticsService } from './analytics.service.js'
 export class AnalyticsController {
   constructor(private readonly analytics: AnalyticsService) {}
 
+  @RequireScopes('analytics_read')
   @Get('/conversion')
   @ApiOperation({ summary: 'Daily checkout conversion rate.' })
   conversion(
@@ -24,6 +26,7 @@ export class AnalyticsController {
     return this.analytics.conversion(ctx.merchantId, ctx.mode, { from, to })
   }
 
+  @RequireScopes('analytics_read')
   @Get('/churn')
   @ApiOperation({ summary: 'Monthly subscription churn rate.' })
   churn(
@@ -34,12 +37,14 @@ export class AnalyticsController {
     return this.analytics.churn(ctx.merchantId, ctx.mode, { from, to })
   }
 
+  @RequireScopes('analytics_read')
   @Get('/mrr')
   @ApiOperation({ summary: 'Monthly recurring revenue from active subscriptions.' })
   mrr(@CurrentMerchant() ctx: CurrentMerchantPayload) {
     return this.analytics.mrr(ctx.merchantId, ctx.mode)
   }
 
+  @RequireScopes('analytics_read')
   @Get('/ltv')
   @ApiOperation({ summary: 'Customer lifetime value, ranked by total spend.' })
   ltv(
@@ -53,6 +58,7 @@ export class AnalyticsController {
     })
   }
 
+  @RequireScopes('analytics_read')
   @Get('/forecast')
   @ApiOperation({
     summary: '30/60/90-day revenue forecast (linear regression over 90-day history).',

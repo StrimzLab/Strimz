@@ -11,8 +11,7 @@ import { hashApiKey } from '@strimz/shared-crypto'
 import { kindFromKey, modeFromKey } from '@strimz/shared-config'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js'
-import { REQUIRED_SCOPES_KEY } from '../decorators/scopes.decorator.js'
-import type { ApiKeyScope } from '@strimz/shared-types'
+import { assertApiKeyRouteAccess } from './api-key-route-access.js'
 
 /**
  * Authenticates SDK callers via secret API key.
@@ -72,26 +71,12 @@ export class ApiKeyGuard implements CanActivate {
       throw new ForbiddenException({ code: 'permission_denied', message: 'merchant suspended' })
     }
 
-    const required =
-      this.reflector.getAllAndOverride<ApiKeyScope[]>(REQUIRED_SCOPES_KEY, [
-        ctx.getHandler(),
-        ctx.getClass(),
-      ]) ?? []
-    if (required.length > 0) {
-      const has = new Set(apiKey.scopes as unknown as string[])
-      for (const s of required) {
-        if (!has.has(s)) {
-          throw new ForbiddenException({
-            code: 'permission_denied',
-            message: `api key missing scope ${s}`,
-          })
-        }
-      }
-    }
+    assertApiKeyRouteAccess(this.reflector, ctx, apiKey.scopes)
 
     req.merchant = {
       merchantId: apiKey.merchantId,
       apiKeyId: apiKey.id,
+      apiKeyScopes: apiKey.scopes,
       mode: apiKey.mode as 'test' | 'live',
     }
 
