@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { generateApiKey } from '@strimz/shared-crypto'
 import type {
   ApiKeyScope,
-  CreateApiKeyInput,
+  CreateApiKeyParsed,
   CreateApiKeyOutput,
   ApiKey,
   Mode,
@@ -22,7 +22,7 @@ export class ApiKeysService {
     private readonly chain: ChainService,
   ) {}
 
-  async create(caller: ApiKeyCaller, input: CreateApiKeyInput): Promise<CreateApiKeyOutput> {
+  async create(caller: ApiKeyCaller, input: CreateApiKeyParsed): Promise<CreateApiKeyOutput> {
     const merchantId = caller.merchantId
     if (caller.apiKeyScopes) {
       if (input.mode !== caller.mode) {

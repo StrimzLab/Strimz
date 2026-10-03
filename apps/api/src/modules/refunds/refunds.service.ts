@@ -6,10 +6,10 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import type {
-  CreateRefundInput,
+  CreateRefundParsed,
   Mode,
   Refund,
-  SubmitRefundSignatureInput,
+  SubmitRefundSignatureParsed,
 } from '@strimz/shared-types'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
@@ -54,7 +54,7 @@ export class RefundsService {
     merchantId: string,
     mode: Mode,
     actorId: string,
-    input: CreateRefundInput,
+    input: CreateRefundParsed,
   ): Promise<RefundCreateOutput> {
     const tx = await this.prisma.db.transaction.findFirst({
       where: { id: input.transactionId, merchantId, mode },
@@ -163,7 +163,7 @@ export class RefundsService {
   async submitSignature(
     merchantId: string,
     mode: Mode,
-    input: SubmitRefundSignatureInput,
+    input: SubmitRefundSignatureParsed,
   ): Promise<Refund> {
     const refund = await this.prisma.db.refund.findFirst({
       where: { id: input.id, merchantId, mode },

@@ -47,7 +47,8 @@ export const createStorefrontInputSchema = storefrontSchema.pick({
   accentColor: true,
   socialLinks: true,
 })
-export type CreateStorefrontInput = z.infer<typeof createStorefrontInputSchema>
+export type CreateStorefrontInput = z.input<typeof createStorefrontInputSchema>
+export type CreateStorefrontParsed = z.output<typeof createStorefrontInputSchema>
 
 // ---------- Products ----------
 
@@ -103,7 +104,8 @@ export const createStorefrontProductInputSchema = storefrontProductSchema
       })
     }
   })
-export type CreateStorefrontProductInput = z.infer<typeof createStorefrontProductInputSchema>
+export type CreateStorefrontProductInput = z.input<typeof createStorefrontProductInputSchema>
+export type CreateStorefrontProductParsed = z.output<typeof createStorefrontProductInputSchema>
 
 /**
  * Payload for the public `/store/:slug/products/:id/checkout` endpoint.
@@ -116,7 +118,8 @@ export const storefrontCheckoutInputSchema = z.object({
   customerEmail: z.string().email().optional(),
   returnPath: z.string().max(200).optional(),
 })
-export type StorefrontCheckoutInput = z.infer<typeof storefrontCheckoutInputSchema>
+export type StorefrontCheckoutInput = z.input<typeof storefrontCheckoutInputSchema>
+export type StorefrontCheckoutParsed = z.output<typeof storefrontCheckoutInputSchema>
 
 /** Response shape from the public product-checkout endpoint. */
 export const storefrontCheckoutResponseSchema = z.object({

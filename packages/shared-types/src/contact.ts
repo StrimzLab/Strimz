@@ -18,7 +18,8 @@ export const contactRequestInputSchema = z.object({
   topic: contactTopicSchema,
   message: z.string().min(20).max(4000),
 })
-export type ContactRequestInput = z.infer<typeof contactRequestInputSchema>
+export type ContactRequestInput = z.input<typeof contactRequestInputSchema>
+export type ContactRequestParsed = z.output<typeof contactRequestInputSchema>
 
 export const contactRequestOutputSchema = z.object({
   ok: z.literal(true),
