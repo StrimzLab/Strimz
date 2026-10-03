@@ -19,14 +19,9 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { KpiCard } from '@/components/dashboard/kpi-card'
 import { stagger, inViewOnce } from '@/lib/motion'
 import { formatTokenAmount, tokenAmountToNumber } from '@/lib/format'
+import { bucketDailyTotals, formatCurrencyTotals, sumByCurrency } from '@/lib/currency-totals'
 import { useDashboardTour } from '@/hooks/use-dashboard-tour'
-import {
-  useInvoices,
-  useMerchantMe,
-  useMrr,
-  usePaymentSessions,
-  useSubscriptions,
-} from '@/hooks/api'
+import { useInvoices, useMerchantMe, useMrr, usePaymentSessions } from '@/hooks/api'
 
 const STEPS = [
   {
@@ -49,12 +44,14 @@ const STEPS = [
   },
 ] as const
 
+const SESSION_SAMPLE = 100
+const INVOICE_SAMPLE = 100
+
 export default function DashboardHome() {
   const merchantQuery = useMerchantMe()
   const mrrQuery = useMrr()
-  const sessionsQuery = usePaymentSessions({ limit: 100 })
-  const subsQuery = useSubscriptions({ status: 'active', limit: 100 })
-  const invoicesQuery = useInvoices({ limit: 100 })
+  const sessionsQuery = usePaymentSessions({ limit: SESSION_SAMPLE })
+  const invoicesQuery = useInvoices({ limit: INVOICE_SAMPLE })
 
   useDashboardTour({ enabled: Boolean(merchantQuery.data) })
 
@@ -67,7 +64,11 @@ export default function DashboardHome() {
     const confirmed = sessions.filter((s) => s.status === 'confirmed')
     const confirmed7d = confirmed.filter((s) => now - new Date(s.updatedAt).getTime() < sevenDays)
     const confirmed30d = confirmed.filter((s) => now - new Date(s.updatedAt).getTime() < thirtyDays)
-    const volume7d = confirmed7d.reduce((s, r) => s + tokenAmountToNumber(r.amount), 0)
+    const volume7d = sumByCurrency(confirmed7d, (r) => ({ amount: r.amount, currency: r.currency }))
+    const volume30d = sumByCurrency(confirmed30d, (r) => ({
+      amount: r.amount,
+      currency: r.currency,
+    }))
 
     const invoices = invoicesQuery.data?.data ?? []
     const openInvoices = invoices.filter((i) => i.status === 'sent' || i.status === 'overdue')
@@ -77,30 +78,33 @@ export default function DashboardHome() {
     // x-axis even when a day has no confirmed transactions.
     const dayLabel = (d: Date) =>
       d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-    const buckets: { date: Date; day: string; volume: number; count: number }[] = []
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(now - i * 86_400_000)
-      d.setUTCHours(0, 0, 0, 0)
-      buckets.push({ date: d, day: dayLabel(d), volume: 0, count: 0 })
-    }
-    for (const s of confirmed30d) {
-      const d = new Date(s.updatedAt)
-      d.setUTCHours(0, 0, 0, 0)
-      const slot = buckets.find((b) => b.date.getTime() === d.getTime())
-      if (slot) {
-        slot.volume += tokenAmountToNumber(s.amount)
-        slot.count += 1
-      }
-    }
+    const currencies = volume30d.map((t) => t.currency)
+    const buckets = bucketDailyTotals(
+      confirmed30d.map((s) => ({ at: s.updatedAt, amount: s.amount, currency: s.currency })),
+      now,
+      30,
+    )
     return {
       volume7d,
+      volume30d,
       confirmedCount7d: confirmed7d.length,
-      activeSubsCount: subsQuery.data?.data.length ?? 0,
+      sessionsPartial: sessionsQuery.data?.hasMore ?? false,
       openInvoiceCount: openInvoices.length,
+      invoicesPartial: invoicesQuery.data?.hasMore ?? false,
       anyConfirmedAtAll: confirmed.length > 0,
-      series: buckets.map(({ day, volume, count }) => ({ day, volume, count })),
+      currencies,
+      series: buckets.map((b) => ({
+        day: dayLabel(new Date(b.dayStart)),
+        count: b.count,
+        ...Object.fromEntries(
+          currencies.map((currency) => [
+            currency,
+            tokenAmountToNumber((b.totals[currency] ?? 0n).toString()),
+          ]),
+        ),
+      })),
     }
-  }, [sessionsQuery.data, subsQuery.data, invoicesQuery.data])
+  }, [sessionsQuery.data, invoicesQuery.data])
 
   const merchant = merchantQuery.data
   const showGettingStarted = !derived.anyConfirmedAtAll
@@ -115,24 +119,30 @@ export default function DashboardHome() {
     },
     {
       label: 'Active subscribers',
-      value: derived.activeSubsCount.toLocaleString(),
+      value: mrrQuery.data ? mrrQuery.data.activeSubscribers.toLocaleString() : '—',
       icon: Users,
       href: '/app/subscriptions',
       subtle: 'Customers cycling',
     },
     {
       label: '7-day volume',
-      value: derived.volume7d.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' USDC',
+      value: formatCurrencyTotals(derived.volume7d),
       icon: CreditCard,
       href: '/app/payment-sessions',
-      subtle: `${derived.confirmedCount7d} confirmed`,
+      subtle: derived.sessionsPartial
+        ? `${derived.confirmedCount7d} confirmed in the latest ${SESSION_SAMPLE} sessions`
+        : `${derived.confirmedCount7d} confirmed`,
     },
     {
       label: 'Open invoices',
-      value: derived.openInvoiceCount.toString(),
+      value: derived.invoicesPartial
+        ? `${derived.openInvoiceCount}+`
+        : derived.openInvoiceCount.toString(),
       icon: Receipt,
       href: '/app/invoices',
-      subtle: 'Sent or overdue',
+      subtle: derived.invoicesPartial
+        ? `Sent or overdue in the latest ${INVOICE_SAMPLE} invoices`
+        : 'Sent or overdue',
     },
   ] as const
 
@@ -159,22 +169,35 @@ export default function DashboardHome() {
         ))}
       </motion.div>
 
-      <VolumeChartCard series={derived.series} isLoading={sessionsQuery.isPending} />
+      <VolumeChartCard
+        series={derived.series}
+        currencies={derived.currencies}
+        total={formatCurrencyTotals(derived.volume30d)}
+        partial={derived.sessionsPartial}
+        isLoading={sessionsQuery.isPending}
+      />
 
       <div className="mt-6">{showGettingStarted ? <GetStartedCard /> : <RecentSessionsCard />}</div>
     </>
   )
 }
 
+const CURRENCY_STROKE: Record<string, string> = { USDC: '#02C76A', EURC: '#2563EB' }
+
 function VolumeChartCard({
   series,
+  currencies,
+  total,
+  partial,
   isLoading,
 }: {
-  series: { day: string; volume: number; count: number }[]
+  series: ({ day: string; count: number } & Record<string, number | string>)[]
+  currencies: string[]
+  total: string
+  partial: boolean
   isLoading: boolean
 }) {
-  const total = series.reduce((s, p) => s + p.volume, 0)
-  const empty = !isLoading && total === 0
+  const empty = !isLoading && currencies.length === 0
 
   return (
     <Card className="shadow-sub-card border-border/60 mt-6" data-tour="volume-chart">
@@ -182,12 +205,14 @@ function VolumeChartCard({
         <div className="flex items-start justify-between">
           <div>
             <h3 className="font-poppins font-semibold">Volume (30 days)</h3>
-            <p className="text-muted-foreground text-xs">Confirmed payments, USDC.</p>
+            <p className="text-muted-foreground text-xs">
+              {partial
+                ? `Confirmed payments in the latest ${SESSION_SAMPLE} sessions, per currency.`
+                : 'Confirmed payments, per currency.'}
+            </p>
           </div>
           <div className="text-right">
-            <div className="font-sora text-lg font-semibold">
-              {total.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC
-            </div>
+            <div className="font-sora text-lg font-semibold">{total}</div>
             <div className="text-muted-foreground text-xs">Rolling total</div>
           </div>
         </div>
@@ -202,10 +227,27 @@ function VolumeChartCard({
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={series} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="strimzVol" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#02C76A" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#02C76A" stopOpacity={0} />
-                  </linearGradient>
+                  {currencies.map((currency) => (
+                    <linearGradient
+                      key={currency}
+                      id={`strimzVol-${currency}`}
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor={CURRENCY_STROKE[currency] ?? '#58556A'}
+                        stopOpacity={0.35}
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor={CURRENCY_STROKE[currency] ?? '#58556A'}
+                        stopOpacity={0}
+                      />
+                    </linearGradient>
+                  ))}
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
                 <XAxis
@@ -216,16 +258,23 @@ function VolumeChartCard({
                 />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip
-                  formatter={(value: number) => [`${value.toFixed(2)} USDC`, 'Volume']}
+                  formatter={(value: number, currency: string) => [
+                    `${value.toFixed(2)} ${currency}`,
+                    'Volume',
+                  ]}
                   labelStyle={{ fontSize: 11 }}
                 />
-                <Area
-                  type="monotone"
-                  dataKey="volume"
-                  stroke="#02C76A"
-                  strokeWidth={2}
-                  fill="url(#strimzVol)"
-                />
+                {currencies.map((currency) => (
+                  <Area
+                    key={currency}
+                    type="monotone"
+                    dataKey={currency}
+                    name={currency}
+                    stroke={CURRENCY_STROKE[currency] ?? '#58556A'}
+                    strokeWidth={2}
+                    fill={`url(#strimzVol-${currency})`}
+                  />
+                ))}
               </AreaChart>
             </ResponsiveContainer>
           )}

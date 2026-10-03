@@ -10,8 +10,10 @@ import type { ApiKey, CreateApiKeyInput, CreateApiKeyOutput } from '@strimz/shar
 
 import type { ListApiKeysParams } from '@/lib/merchant-api/resources/api-keys'
 import type { Page } from '@/lib/merchant-api'
+import { patchListCacheRow, type ListCache, type LoadedRows } from '@/lib/cursor-pages'
 
 import { useMerchantApi } from './merchant-api-context'
+import { useCursorList } from './use-cursor-list'
 import { useMutationWithToast } from './use-mutation-with-toast'
 import { apiKeyKeys } from './query-keys'
 
@@ -92,17 +94,11 @@ export function useRevokeApiKey() {
     },
     onMutate: async (id) => {
       await qc.cancelQueries({ queryKey: apiKeyKeys.lists() })
-      const previous = qc.getQueriesData<Page<ApiKey>>({ queryKey: apiKeyKeys.lists() })
+      const previous = qc.getQueriesData<ListCache<ApiKey>>({ queryKey: apiKeyKeys.lists() })
       const stampedAt = new Date().toISOString()
-      for (const [key, page] of previous) {
-        if (!page) continue
-        const idx = page.data.findIndex((row) => row.id === id)
-        if (idx === -1) continue
-        const target = page.data[idx]
-        if (!target) continue
-        const nextData = [...page.data]
-        nextData[idx] = { ...target, revokedAt: stampedAt }
-        qc.setQueryData(key, { ...page, data: nextData })
+      for (const [key, cache] of previous) {
+        const next = patchListCacheRow(cache, id, (row) => ({ ...row, revokedAt: stampedAt }))
+        if (next) qc.setQueryData(key, next)
       }
       return { previous }
     },
@@ -114,4 +110,16 @@ export function useRevokeApiKey() {
       qc.invalidateQueries({ queryKey: apiKeyKeys.lists() })
     },
   })
+}
+
+export function useApiKeyPages<TView>(
+  params: Omit<ListApiKeysParams, 'cursor'>,
+  options: { select: (loaded: LoadedRows<ApiKey>) => TView },
+) {
+  const api = useMerchantApi()
+  return useCursorList(
+    apiKeyKeys.pages(params),
+    (cursor, signal) => api.apiKeys.list({ ...params, cursor }, { signal }),
+    options,
+  )
 }

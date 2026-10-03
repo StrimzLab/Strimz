@@ -30,6 +30,8 @@ import {
   cn,
 } from '@strimz/ui'
 
+import type { ServerRows } from '@/lib/cursor-pages'
+
 export interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
@@ -48,6 +50,7 @@ export interface DataTableProps<TData, TValue> {
    * flashing "No results" before the query resolves.
    */
   loading?: boolean
+  serverRows?: ServerRows
 }
 
 export function DataTable<TData, TValue>({
@@ -59,6 +62,7 @@ export function DataTable<TData, TValue>({
   emptyDescription = 'Nothing here yet. Adjust your filters or check back later.',
   pageSize = 10,
   loading = false,
+  serverRows,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -187,12 +191,27 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
 
-      <div className="flex items-center justify-between gap-3 pt-1">
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
         <div className="text-muted-foreground text-xs">
           {table.getFilteredRowModel().rows.length}{' '}
           {table.getFilteredRowModel().rows.length === 1 ? 'row' : 'rows'}
           {globalFilter ? ` matching "${globalFilter}"` : ''}
+          {serverRows?.hasMore ? ' loaded. Older records are not loaded yet.' : ''}
+          {serverRows?.loadMoreError ? (
+            <span className="ml-2 text-rose-600">{serverRows.loadMoreError}</span>
+          ) : null}
         </div>
+        {serverRows?.hasMore ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8"
+            onClick={serverRows.onLoadMore}
+            disabled={serverRows.loadingMore}
+          >
+            {serverRows.loadingMore ? 'Loading…' : 'Load more'}
+          </Button>
+        ) : null}
         <div className="flex items-center gap-2">
           <div className="text-muted-foreground text-xs">
             Page {table.getState().pagination.pageIndex + 1} of {Math.max(1, table.getPageCount())}

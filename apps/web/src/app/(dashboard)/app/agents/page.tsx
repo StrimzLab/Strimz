@@ -43,6 +43,11 @@ import {
 } from '@/components/dashboard/agents/settings-dialogs'
 import { CreateAgentJobDialog } from '@/components/dashboard/agents/create-job-dialog'
 import { relativeTime, shortAddress } from '@/lib/format'
+import { approveAgentJobConfirm } from '@/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@/components/dashboard/confirm-action-dialog'
 import {
   useAgentActivity,
   useAgentConfig,
@@ -134,6 +139,7 @@ export default function AgentsPage() {
   const jobsQuery = useAgentJobs({ limit: 50 })
   const approveMutation = useApproveAgentJob()
   const updateConfigMutation = useUpdateAgentConfig()
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   const config = configQuery.data
   const enabledSet = React.useMemo(
@@ -191,11 +197,18 @@ export default function AgentsPage() {
             isError={jobsQuery.isError}
             error={jobsQuery.error}
             onRetry={jobsQuery.refetch}
-            onApprove={(id) => approveMutation.mutate(id)}
+            onApprove={(job) =>
+              setPendingConfirm({
+                copy: approveAgentJobConfirm(job),
+                run: () => approveMutation.mutate(job.id),
+              })
+            }
             isApproving={approveMutation.isPending}
           />
         </TabsContent>
       </Tabs>
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
   )
 }
@@ -432,7 +445,7 @@ function JobsTab({
   isError: boolean
   error: Error | null
   onRetry: () => void
-  onApprove: (id: string) => void
+  onApprove: (job: AgentJob) => void
   isApproving: boolean
 }) {
   const [openCreate, setOpenCreate] = React.useState(false)
@@ -496,7 +509,7 @@ function JobsTab({
                 className="h-7 px-2 text-xs"
                 onClick={(e) => {
                   e.preventDefault()
-                  onApprove(job.id)
+                  onApprove(job)
                 }}
                 disabled={isApproving}
               >

@@ -12,6 +12,11 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { StatusPill } from '@/components/dashboard/data-table'
 import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
 import { env } from '@/lib/env'
+import { approveAgentJobConfirm } from '@/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@/components/dashboard/confirm-action-dialog'
 import { useAgentJob, useApproveAgentJob } from '@/hooks/api'
 
 const EXPLORER_BY_ENV = {
@@ -41,6 +46,7 @@ export default function AgentJobDetailPage({ params }: { params: Promise<{ id: s
   const { id } = use(params)
   const { data: job, isLoading, isError, error } = useAgentJob(id)
   const approve = useApproveAgentJob()
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   if (isLoading) {
     return (
@@ -90,7 +96,12 @@ export default function AgentJobDetailPage({ params }: { params: Promise<{ id: s
               </p>
             </div>
             <Button
-              onClick={() => approve.mutate(job.id)}
+              onClick={() =>
+                setPendingConfirm({
+                  copy: approveAgentJobConfirm(job),
+                  run: () => approve.mutate(job.id),
+                })
+              }
               disabled={approve.isPending}
               className="shrink-0"
             >
@@ -100,6 +111,8 @@ export default function AgentJobDetailPage({ params }: { params: Promise<{ id: s
           </CardContent>
         </Card>
       ) : null}
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
   )
 }

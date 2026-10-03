@@ -15,8 +15,10 @@ import type {
 
 import type { ListRefundsParams } from '@/lib/merchant-api/resources/refunds'
 import type { Page } from '@/lib/merchant-api'
+import type { LoadedRows } from '@/lib/cursor-pages'
 
 import { useMerchantApi } from './merchant-api-context'
+import { useCursorList } from './use-cursor-list'
 import { useMutationWithToast } from './use-mutation-with-toast'
 import { paymentSessionKeys, refundKeys, transactionKeys } from './query-keys'
 
@@ -102,4 +104,16 @@ export function useSubmitRefundSignature() {
       qc.invalidateQueries({ queryKey: transactionKeys.lists() })
     },
   })
+}
+
+export function useRefundPages<TView>(
+  params: Omit<ListRefundsParams, 'cursor'>,
+  options: { select: (loaded: LoadedRows<Refund>) => TView },
+) {
+  const api = useMerchantApi()
+  return useCursorList(
+    refundKeys.pages(params),
+    (cursor, signal) => api.refunds.list({ ...params, cursor }, { signal }),
+    options,
+  )
 }

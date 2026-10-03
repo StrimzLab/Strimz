@@ -13,6 +13,11 @@ import { StatusPill } from '@/components/dashboard/data-table'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { formatTokenAmount, relativeTime, tokenAmountToNumber } from '@/lib/format'
 import { downloadInvoicePdf } from '@/lib/invoice-pdf'
+import { voidInvoiceConfirm } from '@/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@/components/dashboard/confirm-action-dialog'
 import { useInvoice, useMerchantMe, useSendInvoice, useVoidInvoice } from '@/hooks/api'
 
 const STATUS_TONE: Record<InvoiceStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
@@ -30,6 +35,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   const sendMutation = useSendInvoice()
   const voidMutation = useVoidInvoice()
   const [downloading, setDownloading] = React.useState(false)
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   if (isPending) {
     return (
@@ -112,7 +118,12 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                   variant="outline"
                   size="sm"
                   className="text-rose-600 hover:text-rose-600"
-                  onClick={() => voidMutation.mutate(invoice.id)}
+                  onClick={() =>
+                    setPendingConfirm({
+                      copy: voidInvoiceConfirm(invoice),
+                      run: () => voidMutation.mutate(invoice.id),
+                    })
+                  }
                   disabled={voidMutation.isPending}
                 >
                   <Ban className="mr-1.5 size-4" />
@@ -334,6 +345,8 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </Card>
         </div>
       </div>
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
   )
 }
