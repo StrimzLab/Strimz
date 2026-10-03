@@ -36,6 +36,7 @@ Every group is also available as a subpath import.
 | `/webhook`     | `signWebhookPayload`, `verifyWebhookSignature` (timestamp + HMAC scheme)                                |
 | `/api-key`     | `generateApiKey`, `hashApiKey`, `redactApiKey`                                                          |
 | `/aes-gcm`     | `encryptAesGcm`, `decryptAesGcm`, `generateAesGcmKey` (envelope encryption for webhook secrets at rest) |
+| `/checkout`    | `checkoutPaymentNonce` (the EIP-3009 nonce the hosted checkout signs for a payment session)             |
 
 The package root re-exports every subpath.
 

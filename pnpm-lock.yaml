@@ -490,6 +490,9 @@ importers:
       '@strimz/shared-config':
         specifier: workspace:*
         version: link:../../packages/shared-config
+      '@strimz/shared-crypto':
+        specifier: workspace:*
+        version: link:../../packages/shared-crypto
       '@strimz/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
@@ -894,6 +897,9 @@ importers:
       '@strimz/shared-config':
         specifier: workspace:*
         version: link:../shared-config
+      viem:
+        specifier: ^2.22.6
+        version: 2.48.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.4.1)
     devDependencies:
       '@strimz/eslint-config':
         specifier: workspace:*
@@ -25264,6 +25270,23 @@ snapshots:
       abitype: 1.2.3(typescript@5.9.3)(zod@3.25.76)
       isows: 1.0.7(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))
       ox: 0.14.20(typescript@5.9.3)(zod@3.25.76)
+      ws: 8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+      - zod
+
+  viem@2.48.11(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.4.1):
+    dependencies:
+      '@noble/curves': 1.9.1
+      '@noble/hashes': 1.8.0
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      abitype: 1.2.3(typescript@5.9.3)(zod@4.4.1)
+      isows: 1.0.7(ws@8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6))
+      ox: 0.14.20(typescript@5.9.3)(zod@4.4.1)
       ws: 8.18.3(bufferutil@4.1.0)(utf-8-validate@6.0.6)
     optionalDependencies:
       typescript: 5.9.3

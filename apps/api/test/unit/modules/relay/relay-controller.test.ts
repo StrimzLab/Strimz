@@ -13,6 +13,7 @@ import type { SubscriptionsService } from '../../../../src/modules/subscriptions
 import type {
   PayWithAuthorizationInput,
   PermitAndCreateSubscriptionInput,
+  RelaySubmissionScope,
   RelaySubmissionView,
 } from '../../../../src/modules/relay/relay.types.js'
 import type { CurrentMerchantPayload } from '../../../../src/common/decorators/current-merchant.decorator.js'
@@ -45,7 +46,8 @@ function makeRelayMock() {
       vi.fn<(input: PayWithAuthorizationInput) => Promise<RelaySubmissionView>>(),
     submitPermitAndCreateSubscription:
       vi.fn<(input: PermitAndCreateSubscriptionInput) => Promise<RelaySubmissionView>>(),
-    getByIdempotencyKey: vi.fn<(key: string) => Promise<RelaySubmissionView | null>>(),
+    getByIdempotencyKey:
+      vi.fn<(key: string, scope: RelaySubmissionScope) => Promise<RelaySubmissionView | null>>(),
   }
 }
 
@@ -174,6 +176,25 @@ describe('RelayController', () => {
       ).toThrow(/27 or 28/)
     })
 
+    it('accepts a body without an idempotencyKey', () => {
+      const { idempotencyKey: _ignored, ...withoutKey } = {
+        idempotencyKey: 'k',
+        merchantId: '1',
+        token: TOKEN,
+        auth: {
+          from: PAYER,
+          amount: '1',
+          validAfter: '0',
+          validBefore: '1',
+          nonce: keccak256(toHex('n')),
+        },
+        ref: keccak256(toHex('r')),
+        authSignature: AUTH_SIG,
+        intentSignature: INTENT_SIG,
+      }
+      expect(submitPaymentInputSchema.parse(withoutKey).idempotencyKey).toBeUndefined()
+    })
+
     it('rejects idempotency keys with whitespace or control characters', () => {
       expect(() =>
         submitPaymentInputSchema.parse({
@@ -277,14 +298,33 @@ describe('RelayController', () => {
   describe('GET /v1/relay/submissions/:idempotencyKey', () => {
     it('returns the submission when found', async () => {
       relay.getByIdempotencyKey.mockResolvedValue(VIEW)
-      const result = await controller.getSubmission('idem-1')
+      const result = await controller.getSubmission(ctx, 'idem-1', {})
       expect(result).toBe(VIEW)
-      expect(relay.getByIdempotencyKey).toHaveBeenCalledWith('idem-1')
+      expect(relay.getByIdempotencyKey).toHaveBeenCalledWith('idem-1', {
+        merchantInternalId: ctx.merchantId,
+        sessionId: undefined,
+      })
+    })
+
+    it('scopes the lookup to the caller merchant and the ?sessionId= query', async () => {
+      relay.getByIdempotencyKey.mockResolvedValue(VIEW)
+      await controller.getSubmission(ctx, 'relay-pay-abc', { sessionId: 'ses_abc' })
+      expect(relay.getByIdempotencyKey).toHaveBeenCalledWith('relay-pay-abc', {
+        merchantInternalId: ctx.merchantId,
+        sessionId: 'ses_abc',
+      })
+    })
+
+    it('404s when the submission is outside the caller scope', async () => {
+      relay.getByIdempotencyKey.mockResolvedValue(null)
+      await expect(
+        controller.getSubmission(ctx, 'relay-pay-abc', { sessionId: 'ses_other' }),
+      ).rejects.toThrow(NotFoundException)
     })
 
     it('throws NotFoundException when no submission exists', async () => {
       relay.getByIdempotencyKey.mockResolvedValue(null)
-      await expect(controller.getSubmission('missing')).rejects.toThrow(NotFoundException)
+      await expect(controller.getSubmission(ctx, 'missing', {})).rejects.toThrow(NotFoundException)
     })
   })
 })

@@ -28,19 +28,26 @@ export class StubQueueService implements Pick<
   public readonly recorded: RecordedJob[] = []
 
   queue(queueName: string) {
+    const view = (id: string, data: unknown) => ({
+      id,
+      data,
+      timestamp: Date.now(),
+      attemptsMade: 0,
+      returnvalue: undefined,
+      failedReason: undefined,
+      getState: () => Promise.resolve('waiting'),
+    })
     return {
       add: (name: string, data: unknown, opts?: unknown) => {
         this.recorded.push({ queue: queueName, name, data, opts })
         const id = (opts as { jobId?: string } | undefined)?.jobId ?? String(this.recorded.length)
-        return Promise.resolve({
-          id,
-          data,
-          timestamp: Date.now(),
-          attemptsMade: 0,
-          returnvalue: undefined,
-          failedReason: undefined,
-          getState: () => Promise.resolve('waiting'),
-        })
+        return Promise.resolve(view(id, data))
+      },
+      getJob: (id: string) => {
+        const job = this.recorded.find(
+          (j) => j.queue === queueName && (j.opts as { jobId?: string } | undefined)?.jobId === id,
+        )
+        return Promise.resolve(job ? view(id, job.data) : undefined)
       },
     }
   }

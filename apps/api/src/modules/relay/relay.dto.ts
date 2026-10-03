@@ -59,7 +59,7 @@ const payAuthorizationSchema = z.object({
 })
 
 export const submitPaymentInputSchema = z.object({
-  idempotencyKey: idempotencyKeySchema,
+  idempotencyKey: idempotencyKeySchema.optional(),
   /** On-chain merchant id from the StrimzRegistry (uint96). */
   merchantId: bigintStringSchema,
   token: addressSchema,
@@ -85,7 +85,7 @@ const permitDataSchema = z.object({
 })
 
 export const submitSubscriptionInputSchema = z.object({
-  idempotencyKey: idempotencyKeySchema,
+  idempotencyKey: idempotencyKeySchema.optional(),
   merchantId: bigintStringSchema,
   token: addressSchema,
   amount: bigintStringSchema,
@@ -104,3 +104,9 @@ export const submitSubscriptionInputSchema = z.object({
 })
 
 export class SubmitSubscriptionDto extends createZodDto(submitSubscriptionInputSchema) {}
+
+export const submissionQuerySchema = z.object({
+  sessionId: z.string().min(1).max(80).optional(),
+})
+
+export type SubmissionQuery = z.infer<typeof submissionQuerySchema>

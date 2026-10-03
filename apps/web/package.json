@@ -25,6 +25,7 @@
     "@strimz/sdk": "workspace:*",
     "@strimz/sdk-react": "workspace:*",
     "@strimz/shared-config": "workspace:*",
+    "@strimz/shared-crypto": "workspace:*",
     "@strimz/shared-types": "workspace:*",
     "@strimz/ui": "workspace:*",
     "@tanstack/react-query": "^5.62.16",

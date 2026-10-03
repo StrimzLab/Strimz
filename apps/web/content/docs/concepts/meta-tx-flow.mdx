@@ -63,7 +63,7 @@ USDC ReceiveWithAuthorization
   value:         50000000               (= 50.00 USDC)
   validAfter:    1715000000             (signature valid after)
   validBefore:   1715000300             (signature expires)
-  nonce:         0x... (32 random bytes)
+  nonce:         0x... (checkoutPaymentNonce(sessionId))
 ```
 
 **Prompt 2. Strimz PayIntent (StrimzPayments domain):**
@@ -103,9 +103,12 @@ This means:
 - **Strimz cannot move a customer's funds without both signatures.**
   The relayer holds no authority. It only submits the pair the
   customer minted in their wallet.
-- **Signatures are single-use.** EIP-3009 tracks a random `nonce`
+- **Signatures are single-use.** EIP-3009 tracks a `nonce`
   per-authorizer. EIP-2612 tracks a monotonic per-owner nonce. Either
-  gets burned on first successful use.
+  gets burned on first successful use. The hosted checkout signs every
+  authorization for a payment session with the same nonce,
+  `checkoutPaymentNonce(sessionId)` from `@strimz/shared-crypto`, so a
+  retry from the same wallet can never become a second charge.
 - **Signatures expire.** `validBefore` (EIP-3009) and `deadline`
   (EIP-2612) bound the validity window. The Strimz intent expires with
   its paired token signature. Checkout defaults to 5 minutes for

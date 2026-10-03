@@ -6,6 +6,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
@@ -16,9 +17,15 @@ import {
 } from '../../common/decorators/current-merchant.decorator.js'
 import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
+import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
 import { EnrolmentTermsService } from '../subscription-plans/enrolment-terms.service.js'
-import { SubmitPaymentDto, SubmitSubscriptionDto } from './relay.dto.js'
+import {
+  submissionQuerySchema,
+  SubmitPaymentDto,
+  SubmitSubscriptionDto,
+  type SubmissionQuery,
+} from './relay.dto.js'
 import { RelayService } from './relay.service.js'
 import type { RelaySubmissionView } from './relay.types.js'
 
@@ -64,7 +71,9 @@ export class RelayController {
     summary: 'Submit a payer-signed one-shot payment (EIP-3009)',
     description:
       'Accepts a payer-signed ReceiveWithAuthorization and submits it on-chain ' +
-      'via the StrimzPayments contract. Idempotent on `idempotencyKey`.',
+      'via the StrimzPayments contract. Idempotent on the signed payload; the response ' +
+      'carries the server-issued `idempotencyKey` to poll. A body `idempotencyKey` is ' +
+      'deprecated and ignored.',
   })
   @RequireScopes('relay_write')
   @Post('/payments')
@@ -103,7 +112,9 @@ export class RelayController {
     summary: 'Submit a payer-signed subscription enrolment (EIP-2612 permit)',
     description:
       'Accepts a payer-signed Permit and creates the on-chain subscription via ' +
-      'StrimzSubscriptions.permitAndCreateSubscription. Idempotent on `idempotencyKey`.',
+      'StrimzSubscriptions.permitAndCreateSubscription. Idempotent on the signed payload; ' +
+      'the response carries the server-issued `idempotencyKey` to poll. A body ' +
+      '`idempotencyKey` is deprecated and ignored.',
   })
   @RequireScopes('relay_write')
   @Post('/subscriptions')
@@ -170,14 +181,20 @@ export class RelayController {
     description:
       'Returns the latest known state of a previously submitted relay job. ' +
       'Returns 404 if no submission exists for the given key (either it was ' +
-      'never submitted, or BullMQ aged it out of the retention window).',
+      'never submitted, or BullMQ aged it out of the retention window), if it ' +
+      'belongs to another merchant, or if `?sessionId=` names another session or plan.',
   })
   @RequireScopes('relay_read')
   @Get('/submissions/:idempotencyKey')
   async getSubmission(
+    @CurrentMerchant() ctx: CurrentMerchantPayload,
     @Param('idempotencyKey') idempotencyKey: string,
+    @Query(new ZodValidationPipe(submissionQuerySchema)) query: SubmissionQuery,
   ): Promise<RelaySubmissionView> {
-    const submission = await this.relay.getByIdempotencyKey(idempotencyKey)
+    const submission = await this.relay.getByIdempotencyKey(idempotencyKey, {
+      merchantInternalId: ctx.merchantId,
+      sessionId: query.sessionId,
+    })
     if (!submission) {
       throw new NotFoundException({
         code: 'submission_not_found',

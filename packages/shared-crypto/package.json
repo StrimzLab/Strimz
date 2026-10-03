@@ -74,6 +74,11 @@
       "types": "./dist/aes-gcm.d.ts",
       "import": "./dist/aes-gcm.js",
       "require": "./dist/aes-gcm.cjs"
+    },
+    "./checkout": {
+      "types": "./dist/checkout.d.ts",
+      "import": "./dist/checkout.js",
+      "require": "./dist/checkout.cjs"
     }
   },
   "files": [
@@ -92,7 +97,8 @@
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
-    "@strimz/shared-config": "workspace:*"
+    "@strimz/shared-config": "workspace:*",
+    "viem": "^2.22.6"
   },
   "devDependencies": {
     "@strimz/eslint-config": "workspace:*",
