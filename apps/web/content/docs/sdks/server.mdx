@@ -20,17 +20,17 @@ bun  add @strimz/sdk
 ## Construct
 
 ```ts
-import { Strimz } from '@strimz/sdk'
+import { StrimzClient } from '@strimz/sdk'
 
-const strimz = new Strimz({
+const strimz = new StrimzClient({
   apiKey: process.env.STRIMZ_KEY!,
   baseUrl: 'https://api.strimz.finance', // optional override; defaults to live
-  timeout: 30_000,
-  retries: 3,
+  timeoutMs: 30_000,
+  maxRetries: 3,
 })
 ```
 
-The constructor doesn't make any network calls. The first time you call a method, it lazily initialises a `fetcher` with your config.
+The constructor doesn't make any network calls. It throws `StrimzAuthenticationError` unless `apiKey` is a secret key (`sk_test_…` or `sk_live_…`). `StrimzClient` is server-side only: never ship a secret key to the browser. Browser code uses `StrimzBrowserClient` from `@strimz/sdk/browser` or the [React SDK](/docs/sdks/react), both with a publishable key.
 
 ## Resources
 
@@ -116,16 +116,23 @@ See [Errors](/docs/errors) for the full list.
 
 ## Webhook signature verification
 
+`verifyWebhookSignature(payload, signatureHeader, secret, options?)` is async. Pass the raw request body as a string, exactly as received, then check `result.valid`:
+
 ```ts
 import { verifyWebhookSignature } from '@strimz/sdk'
 
-const ok = verifyWebhookSignature({
-  secret: process.env.STRIMZ_WEBHOOK_SECRET!,
-  body: req.rawBody,
-  signatureHeader: req.headers['strimz-signature'] as string,
-  toleranceSeconds: 300, // optional; defaults to 300
-})
+const result = await verifyWebhookSignature(
+  rawBody,
+  signatureHeader,
+  process.env.STRIMZ_WEBHOOK_SECRET!,
+  { toleranceSeconds: 300 }, // optional; defaults to 300
+)
+if (!result.valid) {
+  console.error('rejected webhook:', result.reason)
+}
 ```
+
+`result.reason` is one of `malformed_header`, `missing_timestamp`, `missing_signature`, `timestamp_out_of_range`, or `signature_mismatch`.
 
 Constant-time comparison; safe to use directly without wrapping in your own `crypto.timingSafeEqual` call.
 

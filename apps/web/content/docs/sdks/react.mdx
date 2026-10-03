@@ -3,8 +3,8 @@ title: '@strimz/sdk-react'
 description: React provider, components, and hooks for browser-side Strimz integrations.
 ---
 
-The React SDK gives you read-only client hooks and a few components
-for embedded checkout. It uses publishable keys (`pk_test_…` and
+The React SDK gives you a provider, hooks, and two components that
+open Strimz hosted checkout from your own page. It uses publishable keys (`pk_test_…` and
 `pk_live_…`), which are safe to ship in a browser bundle.
 
 ## Install
@@ -23,16 +23,18 @@ import { StrimzProvider } from '@strimz/sdk-react'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <StrimzProvider config={{ baseUrl: 'https://api.strimz.finance' }}>{children}</StrimzProvider>
+    <StrimzProvider publishableKey={process.env.NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY!}>
+      {children}
+    </StrimzProvider>
   )
 }
 ```
 
-`StrimzProvider` doesn't take an API key. The components issue requests through your own backend (server-side Strimz client) for any write operations. Read-only paths can use a publishable key:
-
-```tsx
-<StrimzProvider config={{ baseUrl: 'https://api.strimz.finance', publishableKey: 'pk_live_xxx' }}>
-```
+`StrimzProvider` takes a publishable key, never a secret key. Write
+operations, such as creating a payment session, go through your own
+backend with the server-side `StrimzClient`. The provider also accepts
+`apiBaseUrl` to override the API base URL and `checkoutOrigin` to
+override the hosted-checkout origin (default `https://strimz.finance`).
 
 ## `<StrimzPayButton />`
 
@@ -40,25 +42,32 @@ Drop-in checkout button for an existing session:
 
 ```tsx
 'use client'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { StrimzPayButton } from '@strimz/sdk-react'
 
 export function Checkout({ session }: { session: { id: string } }) {
+  const router = useRouter()
   return (
     <StrimzPayButton
       sessionId={session.id}
-      onSuccess={(tx) => router.push(`/thanks?tx=${tx.txHash}`)}
+      onSuccess={(txHash) => router.push(`/thanks?tx=${txHash ?? ''}`)}
       onError={(err) => toast.error(err.message)}
     />
   )
 }
 ```
 
-Internally the button uses Reown AppKit to connect a wallet. It then
-prompts the customer for two typed-data signatures. The first is an
+The button opens Strimz hosted checkout for the session, in a popup by
+default or as a full-page redirect with `mode="redirect"`. The hosted
+checkout uses Reown AppKit to connect a wallet. It then prompts the
+customer for two typed-data signatures. The first is an
 EIP-3009 `ReceiveWithAuthorization` that authorises USDC (or EURC) to
 move. The second is a Strimz `PayIntent` that binds the payment to
-this specific merchant, amount, and session. The button resolves once
-the on-chain transaction confirms.
+this specific merchant, amount, and session. `onSuccess` receives the
+on-chain transaction hash when the checkout reports success. Treat it
+as a UI signal only: your webhook is the source of truth for
+fulfilment.
 
 The `PayIntent` signature is what stops an intercepted EIP-3009 auth
 from being replayed to a different merchant. Same story on
@@ -73,26 +82,33 @@ For a full embedded checkout (no redirect):
 <StrimzCheckoutEmbed
   sessionId={session.id}
   className="rounded-xl border"
-  onSuccess={(tx) => router.push(`/thanks?tx=${tx.txHash}`)}
+  onSuccess={(txHash) => router.push(`/thanks?tx=${txHash ?? ''}`)}
 />
 ```
 
-Renders the same UI as the hosted page but inline. Useful for cart-style flows where you don't want to lose the buyer's context.
+Renders the hosted checkout inline in an iframe. Useful for cart-style flows where you don't want to lose the buyer's context.
 
 ## Hooks
 
+The package exports three hooks. All of them must be used inside `<StrimzProvider>`.
+
+- `useStrimzSession(sessionId, { pollIntervalMs? })` reads a payment session with the publishable key and polls until it reaches a terminal state (`confirmed`, `failed`, `expired`, or `cancelled`). It returns `{ session, loading, error, refresh }`.
+- `useStrimzCheckout({ mode?, onSuccess?, onCancel?, onError? })` is the imperative opener behind `<StrimzPayButton />`. It returns `{ open(sessionId), close(), status }`.
+- `useStrimzClient()` returns the provider's `StrimzBrowserClient`.
+
 ```tsx
-import { usePaymentSession, useSubscription, useTransaction } from '@strimz/sdk-react'
+'use client'
+import { useStrimzSession } from '@strimz/sdk-react'
 
 function PaymentStatus({ sessionId }: { sessionId: string }) {
-  const { data, isLoading, error } = usePaymentSession(sessionId)
-  if (isLoading) return <Spinner />
-  if (error) return <ErrorBanner error={error} />
-  return <p>Status: {data.status}</p>
+  const { session, loading, error } = useStrimzSession(sessionId)
+  if (error) return <p>Could not load the payment: {error.message}</p>
+  if (loading && !session) return <p>Loading…</p>
+  return <p>Status: {session?.status}</p>
 }
 ```
 
-Hooks use TanStack Query under the hood. Bring your own `QueryClient`, or wrap with `<QueryClientProvider>` if you don't already have one.
+The hooks have no TanStack Query dependency.
 
 ## Source
 
