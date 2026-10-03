@@ -21,6 +21,8 @@ pragma solidity ^0.8.28;
 ///              not Charged — protecting against silent-fund-loss
 ///              zero-defaulting.
 
+import { Vm } from "forge-std/Vm.sol";
+
 import { StrimzTestBase } from "./Helpers.t.sol";
 import { StrimzRegistry } from "../src/core/StrimzRegistry.sol";
 import { TokenWhitelist } from "../src/tokens/TokenWhitelist.sol";
@@ -490,7 +492,188 @@ contract StrimzSubscriptionsTest is StrimzTestBase {
         subs.createSubscription(merchantId, rogue, 50_000_000, 1 hours, uint64(block.timestamp), 0);
     }
 
+    function test_chargeAfterOneMissedPeriodChargesOnceOnNextAnchor() public {
+        _assertGapChargesOnce(1);
+    }
+
+    function test_chargeAfterTwoMissedPeriodsChargesOnceOnNextAnchor() public {
+        _assertGapChargesOnce(2);
+    }
+
+    function test_chargeAfterSixMissedPeriodsChargesOnceOnNextAnchor() public {
+        _assertGapChargesOnce(6);
+    }
+
+    function test_chargeExactlyOneIntervalLateSkipsOnePeriod() public {
+        uint256 id = _createSub(50_000_000);
+        uint64 anchor = subs.getSubscription(id).nextChargeAt;
+        vm.warp(anchor + 1 hours);
+
+        (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "one-interval-late");
+        vm.recordLogs();
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory outcomes = subs.batchCharge(ids, attempts);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(uint256(outcomes[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Charged));
+        uint256 skipIndex = _indexOfTopic(logs, IStrimzSubscriptions.SubscriptionPeriodsSkipped.selector);
+        assertLt(skipIndex, logs.length);
+        (uint256 periodsSkipped, uint64 paidPeriodStart) = abi.decode(logs[skipIndex].data, (uint256, uint64));
+        assertEq(periodsSkipped, 1);
+        assertEq(paidPeriodStart, anchor + 1 hours);
+        assertEq(subs.getSubscription(id).nextChargeAt, anchor + 2 hours);
+    }
+
+    function test_chargeWithinOneIntervalAdvancesOnePeriodWithoutSkipEvent() public {
+        uint256 id = _createSub(50_000_000);
+        uint64 anchor = subs.getSubscription(id).nextChargeAt;
+        vm.warp(anchor + 1 hours - 1);
+
+        (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "within-interval");
+        vm.recordLogs();
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory outcomes = subs.batchCharge(ids, attempts);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(uint256(outcomes[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Charged));
+        assertEq(_indexOfTopic(logs, IStrimzSubscriptions.SubscriptionPeriodsSkipped.selector), type(uint256).max);
+        uint256 chargedIndex = _indexOfTopic(logs, IStrimzSubscriptions.SubscriptionCharged.selector);
+        assertLt(chargedIndex, logs.length);
+        (,,, uint64 emittedNext) = abi.decode(logs[chargedIndex].data, (uint256, uint256, uint256, uint64));
+        assertEq(emittedNext, anchor + 1 hours);
+        assertEq(subs.getSubscription(id).nextChargeAt, anchor + 1 hours);
+        assertEq(usdc.balanceOf(merchantPayout), 49_500_000);
+    }
+
+    function test_failedTransferAfterGapChangesNothing() public {
+        uint256 id = _createSub(50_000_000);
+        uint64 anchor = subs.getSubscription(id).nextChargeAt;
+        uint256 payerBefore = usdc.balanceOf(payer);
+        vm.warp(anchor + 3 hours + 1);
+
+        vm.mockCallRevert(address(usdc), abi.encodeWithSelector(usdc.transferFrom.selector), "blocked");
+        (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "blocked-after-gap");
+        vm.recordLogs();
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory outcomes = subs.batchCharge(ids, attempts);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        vm.clearMockedCalls();
+
+        assertEq(uint256(outcomes[0]), uint256(IStrimzSubscriptions.ChargeOutcome.TransferFailed));
+        assertEq(_indexOfTopic(logs, IStrimzSubscriptions.SubscriptionPeriodsSkipped.selector), type(uint256).max);
+        assertEq(_indexOfTopic(logs, IStrimzSubscriptions.SubscriptionCharged.selector), type(uint256).max);
+        assertEq(subs.getSubscription(id).nextChargeAt, anchor);
+        assertEq(usdc.balanceOf(payer), payerBefore);
+        assertEq(usdc.balanceOf(merchantPayout), 0);
+        assertEq(usdc.balanceOf(address(feeCollector)), 0);
+    }
+
+    function test_gapPastEndAtReturnsEnded() public {
+        uint64 startAt = uint64(block.timestamp);
+        vm.prank(payer);
+        uint256 id = subs.createSubscription(merchantId, address(usdc), 50_000_000, 1 hours, startAt, startAt + 3 hours);
+
+        vm.warp(startAt + 5 hours);
+        (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "gap-past-end");
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory outcomes = subs.batchCharge(ids, attempts);
+
+        assertEq(uint256(outcomes[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Ended));
+        assertEq(subs.getSubscription(id).nextChargeAt, startAt);
+        assertEq(usdc.balanceOf(merchantPayout), 0);
+    }
+
+    function test_chargeAfterGapStillStopsAtEndAt() public {
+        uint64 startAt = uint64(block.timestamp);
+        vm.prank(payer);
+        uint256 id = subs.createSubscription(merchantId, address(usdc), 50_000_000, 1 hours, startAt, startAt + 3 hours);
+
+        vm.warp(startAt + 2 hours + 1);
+        (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "gap-before-end");
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory outcomes = subs.batchCharge(ids, attempts);
+        assertEq(uint256(outcomes[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Charged));
+        assertEq(subs.getSubscription(id).nextChargeAt, startAt + 3 hours);
+
+        vm.warp(startAt + 3 hours);
+        (ids, attempts) = _oneRow(id, "at-end");
+        vm.prank(admin);
+        outcomes = subs.batchCharge(ids, attempts);
+        assertEq(uint256(outcomes[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Ended));
+        assertEq(usdc.balanceOf(merchantPayout), 49_500_000);
+    }
+
+    function testFuzz_chargeAfterAnyGapLandsOnFutureAnchor(uint32 interval, uint64 gap) public {
+        interval = uint32(bound(interval, subs.MIN_INTERVAL(), type(uint32).max));
+        gap = uint64(bound(gap, 0, 100 * 365 days));
+
+        vm.prank(payer);
+        uint256 id = subs.createSubscription(merchantId, address(usdc), 50_000_000, interval, uint64(block.timestamp), 0);
+        uint64 firstChargeAt = subs.getSubscription(id).nextChargeAt;
+        vm.warp(uint256(firstChargeAt) + gap);
+
+        (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "fuzz-gap");
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory outcomes = subs.batchCharge(ids, attempts);
+        assertEq(uint256(outcomes[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Charged));
+
+        uint64 nextChargeAt = subs.getSubscription(id).nextChargeAt;
+        assertGt(nextChargeAt, block.timestamp);
+        assertEq((nextChargeAt - firstChargeAt) % interval, 0);
+        assertEq(usdc.balanceOf(merchantPayout), 49_500_000);
+    }
+
     // ---------- Helpers ----------
+
+    function _assertGapChargesOnce(uint64 missed) internal {
+        uint256 id = _createSub(50_000_000);
+        uint64 anchor = subs.getSubscription(id).nextChargeAt;
+        uint64 interval = 1 hours;
+        uint64 paidPeriodStart = anchor + missed * interval;
+        vm.warp(paidPeriodStart + interval / 2);
+
+        (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "after-gap");
+        vm.recordLogs();
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory outcomes = subs.batchCharge(ids, attempts);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(uint256(outcomes[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Charged));
+        assertEq(usdc.balanceOf(merchantPayout), 49_500_000);
+        assertEq(usdc.balanceOf(address(feeCollector)), 500_000);
+
+        uint64 nextChargeAt = subs.getSubscription(id).nextChargeAt;
+        assertEq(nextChargeAt, paidPeriodStart + interval);
+        assertGt(nextChargeAt, block.timestamp);
+
+        uint256 skipIndex = _indexOfTopic(logs, IStrimzSubscriptions.SubscriptionPeriodsSkipped.selector);
+        assertLt(skipIndex + 1, logs.length);
+        assertEq(logs[skipIndex].emitter, address(subs));
+        assertEq(logs[skipIndex].topics[1], bytes32(id));
+        (uint256 periodsSkipped, uint64 emittedStart) = abi.decode(logs[skipIndex].data, (uint256, uint64));
+        assertEq(periodsSkipped, missed);
+        assertEq(emittedStart, paidPeriodStart);
+
+        Vm.Log memory charged = logs[skipIndex + 1];
+        assertEq(charged.topics[0], IStrimzSubscriptions.SubscriptionCharged.selector);
+        assertEq(charged.topics[1], bytes32(id));
+        assertEq(charged.topics[2], attempts[0]);
+        (,,, uint64 emittedNext) = abi.decode(charged.data, (uint256, uint256, uint256, uint64));
+        assertEq(emittedNext, paidPeriodStart + interval);
+
+        (ids, attempts) = _oneRow(id, "same-period-retry");
+        vm.prank(admin);
+        outcomes = subs.batchCharge(ids, attempts);
+        assertEq(uint256(outcomes[0]), uint256(IStrimzSubscriptions.ChargeOutcome.NotDue));
+        assertEq(usdc.balanceOf(merchantPayout), 49_500_000);
+    }
+
+    function _indexOfTopic(Vm.Log[] memory logs, bytes32 topic) internal pure returns (uint256) {
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == topic) return i;
+        }
+        return type(uint256).max;
+    }
 
     function _createSub(uint256 amount) internal returns (uint256) {
         vm.prank(payer);

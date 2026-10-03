@@ -382,6 +382,9 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         }
         uint256 netAmount = amount - feeAmount;
 
+        uint256 periodsSkipped = (block.timestamp - sub.nextChargeAt) / sub.interval;
+        uint64 paidPeriodStart = SafeCast.toUint64(sub.nextChargeAt + periodsSkipped * sub.interval);
+
         // Burn the attempt id here: the last instruction before money can
         // move. `_settleCharge` reverting is caught below and does NOT
         // unwind this write, so a token that partially settles can never
@@ -405,7 +408,10 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
                 // Advance one period only. A scheduler outage silently
                 // drops missed periods — we bias predictable billing
                 // over surprise multi-charges.
-                sub.nextChargeAt += sub.interval;
+                sub.nextChargeAt = paidPeriodStart + sub.interval;
+            }
+            if (periodsSkipped > 0) {
+                emit SubscriptionPeriodsSkipped(subscriptionId, periodsSkipped, paidPeriodStart);
             }
             emit SubscriptionCharged(subscriptionId, chargeAttemptId, amount, feeAmount, netAmount, sub.nextChargeAt);
             return ChargeOutcome.Charged;

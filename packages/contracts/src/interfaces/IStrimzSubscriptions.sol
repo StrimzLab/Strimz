@@ -75,6 +75,8 @@ interface IStrimzSubscriptions {
         uint64 nextChargeAt
     );
 
+    event SubscriptionPeriodsSkipped(uint256 indexed subscriptionId, uint256 periodsSkipped, uint64 paidPeriodStart);
+
     event SubscriptionChargeSkipped(
         uint256 indexed subscriptionId, bytes32 indexed chargeAttemptId, ChargeOutcome outcome
     );

@@ -39,10 +39,11 @@ const (
 	EventPaymentExecuted EventName = "PaymentExecuted"
 
 	// Subscriptions
-	EventSubscriptionCreated       EventName = "SubscriptionCreated"
-	EventSubscriptionCharged       EventName = "SubscriptionCharged"
-	EventSubscriptionChargeSkipped EventName = "SubscriptionChargeSkipped"
-	EventSubscriptionCancelled     EventName = "SubscriptionCancelled"
+	EventSubscriptionCreated        EventName = "SubscriptionCreated"
+	EventSubscriptionCharged        EventName = "SubscriptionCharged"
+	EventSubscriptionPeriodsSkipped EventName = "SubscriptionPeriodsSkipped"
+	EventSubscriptionChargeSkipped  EventName = "SubscriptionChargeSkipped"
+	EventSubscriptionCancelled      EventName = "SubscriptionCancelled"
 
 	// Agent escrow
 	EventJobCreated   EventName = "JobCreated"
@@ -73,7 +74,8 @@ var SubscribedEvents = []EventName{
 	EventMerchantRegistered, EventMerchantPayoutAddressUpdated, EventMerchantFeeBpsUpdated,
 	EventMerchantActiveSet, EventMerchantOwnerTransferred,
 	EventPaymentExecuted,
-	EventSubscriptionCreated, EventSubscriptionCharged, EventSubscriptionChargeSkipped, EventSubscriptionCancelled,
+	EventSubscriptionCreated, EventSubscriptionCharged, EventSubscriptionPeriodsSkipped,
+	EventSubscriptionChargeSkipped, EventSubscriptionCancelled,
 	EventJobCreated, EventJobFunded, EventJobStarted, EventJobDelivered,
 	EventJobApproved, EventJobReleased, EventJobDisputed, EventJobCancelled,
 	EventJobRefunded, EventJobResolved, EventJobReclaimed,
@@ -363,6 +365,12 @@ func (c ChargeOutcome) IsPaymentFailure() bool {
 	}
 }
 
+type SubscriptionPeriodsSkipped struct {
+	SubscriptionID  *big.Int
+	PeriodsSkipped  *big.Int
+	PaidPeriodStart uint64
+}
+
 type SubscriptionChargeSkipped struct {
 	SubscriptionID  *big.Int
 	ChargeAttemptID [32]byte
@@ -614,6 +622,17 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 		return &SubscriptionCharged{
 			SubscriptionID: subID, ChargeAttemptID: attempt,
 			Amount: amount, FeeAmount: fee, NetAmount: net, NextChargeAt: next,
+		}, nil
+
+	case EventSubscriptionPeriodsSkipped:
+		subID, e1 := bigint("subscriptionId")
+		skipped, e2 := bigint("periodsSkipped")
+		paidPeriodStart, e3 := u64("paidPeriodStart")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &SubscriptionPeriodsSkipped{
+			SubscriptionID: subID, PeriodsSkipped: skipped, PaidPeriodStart: paidPeriodStart,
 		}, nil
 
 	case EventSubscriptionChargeSkipped:
