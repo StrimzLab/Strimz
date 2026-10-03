@@ -304,3 +304,58 @@ func TestE2E_Stream_SortsWithinABlockByLogIndex(t *testing.T) {
 	}))
 	assert.Equal(t, [2]uint64{1, 2}, got[0])
 }
+
+func TestE2E_Stream_PeriodsSkippedMovesThePeriodTheChargePaid(t *testing.T) {
+	c := &rangeChain{head: 30}
+	r, st := newTestRunner(t, c, 1)
+	onchainID := int64(9)
+	seedMerchant(t, st, "m_gap", "0x"+fmt.Sprintf("%064x", 2), &onchainID)
+
+	const interval = uint32(86_400)
+	startAt := uint64(1_700_000_000)
+	paidPeriodStart := startAt + 6*uint64(interval)
+	subID := common.BigToHash(big.NewInt(3))
+	chargeTx := txHash(0x41)
+	var attempt [32]byte
+	attempt[31] = 0x42
+	blockHash := func(n uint64) common.Hash { return common.HexToHash(fmt.Sprintf("0x%064x", n)) }
+
+	c.logs = []types.Log{
+		{
+			Address: subsAddr,
+			Topics: []common.Hash{
+				mustTopic(t, indabi.EventSubscriptionCreated),
+				subID,
+				common.BigToHash(big.NewInt(onchainID)),
+				common.BytesToHash(common.HexToAddress("0xaaaa").Bytes()),
+			},
+			Data:        pack(t, []string{"address", "uint256", "uint32", "uint64"}, usdcAddr, big.NewInt(50_000_000), interval, startAt),
+			BlockNumber: 10, Index: 0, TxHash: txHash(0x40), BlockHash: blockHash(10),
+		},
+		{
+			Address:     subsAddr,
+			Topics:      []common.Hash{mustTopic(t, indabi.EventSubscriptionPeriodsSkipped), subID},
+			Data:        pack(t, []string{"uint256", "uint64"}, big.NewInt(6), paidPeriodStart),
+			BlockNumber: 20, Index: 4, TxHash: chargeTx, BlockHash: blockHash(20),
+		},
+		{
+			Address:     subsAddr,
+			Topics:      []common.Hash{mustTopic(t, indabi.EventSubscriptionCharged), subID, common.BytesToHash(attempt[:])},
+			Data:        pack(t, []string{"uint256", "uint256", "uint256", "uint64"}, big.NewInt(50_000_000), big.NewInt(500_000), big.NewInt(49_500_000), paidPeriodStart+uint64(interval)),
+			BlockNumber: 20, Index: 5, TxHash: chargeTx, BlockHash: blockHash(20),
+		},
+	}
+
+	require.NoError(t, r.Tick(context.Background()))
+
+	assert.Equal(t, 0, countRows(t, st, `SELECT count(*) FROM "IndexerDeadLetter"`))
+	var periodStart, periodEnd time.Time
+	require.NoError(t, st.Pool().QueryRow(context.Background(),
+		`SELECT "periodStartAt", "periodEndAt" FROM "SubscriptionCharge" WHERE "chargeAttemptId" = $1`,
+		"0x"+fmt.Sprintf("%064x", 0x42),
+	).Scan(&periodStart, &periodEnd))
+	assert.Equal(t, time.Unix(int64(paidPeriodStart), 0).UTC(), periodStart.UTC())
+	assert.Equal(t, time.Unix(int64(paidPeriodStart+uint64(interval)), 0).UTC(), periodEnd.UTC())
+	assert.Equal(t, 1, countRows(t, st,
+		`SELECT count(*) FROM "AuditLog" WHERE "merchantId" = 'm_gap' AND action = 'subscription.periods_skipped'`))
+}

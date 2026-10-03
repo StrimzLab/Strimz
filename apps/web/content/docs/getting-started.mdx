@@ -20,10 +20,12 @@ enable 2FA.
 
 ## 3. Send a test payment
 
-```ts
-import { Strimz } from '@strimz/sdk'
+Run this on your server. The secret key never belongs in browser code.
 
-const strimz = new Strimz({ apiKey: process.env.STRIMZ_KEY! })
+```ts title="server.ts"
+import { StrimzClient } from '@strimz/sdk'
+
+const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_KEY! })
 
 const session = await strimz.paymentSessions.create({
   amount: '50000000', // 50 USDC (6 decimals)
@@ -62,18 +64,23 @@ create-endpoint call. Save it in your secrets manager immediately. On
 our side it lives only as an AES-256-GCM ciphertext in Postgres, so
 we cannot read it back to you later.
 
-Verify the signature on receipt:
+Verify the signature on receipt, on your server, against the raw
+request body. `verifyWebhookSignature` is async, so `await` it and check
+`result.valid`:
 
-```ts
+```ts title="receiver.ts"
+import express from 'express'
 import { verifyWebhookSignature } from '@strimz/sdk'
 
-app.post('/webhooks/strimz', (req, res) => {
-  const ok = verifyWebhookSignature({
-    secret: process.env.STRIMZ_WEBHOOK_SECRET!,
-    body: req.rawBody,
-    signatureHeader: req.headers['strimz-signature'],
-  })
-  if (!ok) return res.status(401).end()
+const app = express()
+
+app.post('/webhooks/strimz', express.raw({ type: 'application/json' }), async (req, res) => {
+  const result = await verifyWebhookSignature(
+    req.body.toString('utf8'),
+    req.get('strimz-signature') ?? '',
+    process.env.STRIMZ_WEBHOOK_SECRET!,
+  )
+  if (!result.valid) return res.status(401).end()
   // ... handle event
   res.status(200).end()
 })

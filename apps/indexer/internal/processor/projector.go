@@ -168,6 +168,15 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 			Mode:                  p.mode,
 		})
 
+	case indabi.EventSubscriptionPeriodsSkipped:
+		ev := payload.(*indabi.SubscriptionPeriodsSkipped)
+		_, err = p.store.RecordSubscriptionPeriodsSkipped(ctx, store.SubscriptionPeriodsSkippedInput{
+			OnchainSubscriptionID: ev.SubscriptionID,
+			PeriodsSkipped:        ev.PeriodsSkipped,
+			PaidPeriodStart:       time.Unix(int64(ev.PaidPeriodStart), 0).UTC(),
+			OnchainTxHash:         lg.TxHash.Hex(),
+		})
+
 	case indabi.EventSubscriptionChargeSkipped:
 		ev := payload.(*indabi.SubscriptionChargeSkipped)
 		_, err = p.store.InsertSubscriptionChargeSkip(ctx, store.SubscriptionChargeSkippedInput{
