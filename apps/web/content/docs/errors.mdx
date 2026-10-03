@@ -25,7 +25,9 @@ key support uses to find your request in the logs.
 | Code                    | HTTP | Meaning                                                                                            |
 | ----------------------- | ---- | -------------------------------------------------------------------------------------------------- |
 | `authentication_error`  | 401  | Missing, invalid, or expired auth token                                                            |
-| `permission_denied`     | 403  | Token is valid but lacks the required scope                                                        |
+| `permission_denied`     | 403  | Token is valid but lacks the required scope, or the route accepts only a dashboard session         |
+| `live_mode_ineligible`  | 403  | A live key was requested but the account fails a live-mode check; `details.reasons` lists which    |
+| `live_mode_unavailable` | 403  | A live key was requested while live mode is closed, before Strimz runs on Arc mainnet              |
 | `merchant_not_synced`   | 401  | Privy session is valid but no Merchant row. Call `POST /v1/auth/sync` first.                       |
 | `not_found`             | 404  | Resource doesn't exist or isn't visible to your token                                              |
 | `invalid_request`       | 400  | Validation failure; `details.issues` has the Zod paths                                             |
@@ -61,6 +63,51 @@ You forgot the `Authorization: Bearer …` header. Or the key is malformed.
 ```
 
 Your key has read access but not write. Re-issue with broader scopes from the dashboard.
+
+```json
+{
+  "error": {
+    "code": "permission_denied",
+    "message": "route requires a dashboard session"
+  }
+}
+```
+
+The route accepts only a dashboard session, whatever scopes your key holds. See [dashboard-only routes](/docs/authentication#dashboard-only-routes).
+
+### `live_mode_ineligible`
+
+```json
+{
+  "error": {
+    "code": "live_mode_ineligible",
+    "message": "merchant is not eligible for live mode",
+    "details": {
+      "reasons": [
+        {
+          "code": "mfa_required",
+          "message": "Enable two-factor authentication in your account settings."
+        }
+      ]
+    }
+  }
+}
+```
+
+Returned when creating or rotating a live key. Each reason's `code` is one of `email_unverified`, `mfa_required`, `onboarding_incomplete` or `payout_address_missing`. Complete the steps, then try again. See [live-mode eligibility](/docs/authentication#live-mode-eligibility).
+
+### `live_mode_unavailable`
+
+```json
+{
+  "error": {
+    "code": "live_mode_unavailable",
+    "message": "live mode is not available until Arc mainnet is configured"
+  }
+}
+```
+
+Live keys cannot be created or rotated until Strimz runs on Arc mainnet. Use test-mode keys until then.
 
 ### `invalid_request`
 
@@ -112,7 +159,9 @@ Wait 30 seconds, then retry. The `@strimz/sdk` does this automatically.
 - **5xx errors.** Yes, with exponential backoff. The SDK handles this.
 - **`rate_limited`.** Yes, after `Retry-After`. The SDK handles this.
 - **`authentication_error`.** No. Your key needs to be fixed.
-- **`permission_denied`.** No. Your scope needs to change.
+- **`permission_denied`.** No. Your scope needs to change, or the route needs a dashboard session.
+- **`live_mode_ineligible`.** No. Complete the steps in `details.reasons` first.
+- **`live_mode_unavailable`.** No. Live mode is not open yet.
 - **`invalid_request`.** No. Your payload needs to change.
 - **`session_invalid_state`.** No. The resource's state needs to change first.
 

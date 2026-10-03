@@ -1,6 +1,6 @@
 # ADR: Content-Security-Policy and checkout framing policy for the web app
 
-- **Status:** Proposed, awaiting maintainer approval
+- **Status:** Accepted 2026-10-03
 - **Date:** 2026-10-03
 - **Scope:** `apps/web/next.config.mjs` response headers, and possibly `apps/web/src/middleware.ts` if nonces are chosen. No API, SDK, contract or schema change.
 

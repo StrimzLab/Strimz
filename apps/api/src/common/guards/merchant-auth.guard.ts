@@ -11,12 +11,11 @@ import { Reflector } from '@nestjs/core'
 import type { FastifyRequest } from 'fastify'
 import { hashApiKey } from '@strimz/shared-crypto'
 import { kindFromKey, modeFromKey } from '@strimz/shared-config'
-import type { ApiKeyScope } from '@strimz/shared-types'
 
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { PrivyService } from '../../infra/privy/privy.service.js'
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js'
-import { REQUIRED_SCOPES_KEY } from '../decorators/scopes.decorator.js'
+import { assertApiKeyRouteAccess } from './api-key-route-access.js'
 
 /**
  * Unified merchant auth guard.
@@ -120,26 +119,12 @@ export class MerchantAuthGuard implements CanActivate {
       })
     }
 
-    const required =
-      this.reflector.getAllAndOverride<ApiKeyScope[]>(REQUIRED_SCOPES_KEY, [
-        ctx.getHandler(),
-        ctx.getClass(),
-      ]) ?? []
-    if (required.length > 0) {
-      const has = new Set(apiKey.scopes as unknown as string[])
-      for (const s of required) {
-        if (!has.has(s)) {
-          throw new ForbiddenException({
-            code: 'permission_denied',
-            message: `api key missing scope ${s}`,
-          })
-        }
-      }
-    }
+    assertApiKeyRouteAccess(this.reflector, ctx, apiKey.scopes)
 
     req.merchant = {
       merchantId: apiKey.merchantId,
       apiKeyId: apiKey.id,
+      apiKeyScopes: apiKey.scopes,
       mode: apiKey.mode as 'test' | 'live',
     }
 

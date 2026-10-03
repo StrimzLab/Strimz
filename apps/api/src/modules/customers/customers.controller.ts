@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/co
 import { upsertCustomerInputSchema } from '@strimz/shared-types'
 import type { Customer, UpsertCustomerInput } from '@strimz/shared-types'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
+import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
@@ -14,6 +15,7 @@ import { CustomersService } from './customers.service.js'
 export class CustomersController {
   constructor(private readonly customers: CustomersService) {}
 
+  @RequireScopes('customers_write')
   @Post()
   upsert(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
@@ -22,6 +24,7 @@ export class CustomersController {
     return this.customers.upsert(ctx.merchantId, input)
   }
 
+  @RequireScopes('customers_read')
   @Get('/:id')
   retrieve(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
@@ -30,6 +33,7 @@ export class CustomersController {
     return this.customers.retrieve(ctx.merchantId, id)
   }
 
+  @RequireScopes('customers_read')
   @Get()
   list(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
