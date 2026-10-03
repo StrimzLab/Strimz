@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { createSubscriptionPlanInputSchema } from '@strimz/shared-types'
-import type { CreateSubscriptionPlanInput, SubscriptionPlan } from '@strimz/shared-types'
+import type { CreateSubscriptionPlanParsed, SubscriptionPlan } from '@strimz/shared-types'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import {
   CurrentMerchant,
@@ -21,7 +21,7 @@ export class SubscriptionPlansController {
   create(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
     @Body(new ZodValidationPipe(createSubscriptionPlanInputSchema))
-    input: CreateSubscriptionPlanInput,
+    input: CreateSubscriptionPlanParsed,
   ): Promise<SubscriptionPlan> {
     return this.plans.create(ctx.merchantId, ctx.mode, input)
   }

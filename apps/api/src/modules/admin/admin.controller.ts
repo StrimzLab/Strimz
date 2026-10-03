@@ -1,7 +1,19 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common'
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 
 import { AdminAuthGuard } from '../../common/guards/admin-auth.guard.js'
+import { PrivySessionGuard } from '../../common/guards/privy-session.guard.js'
 import { RequireAdminRoles } from '../../common/decorators/admin-role.decorator.js'
 import { RateLimit } from '../../common/decorators/rate-limit.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
@@ -10,8 +22,13 @@ import {
   CurrentAdmin,
   type CurrentAdminPayload,
 } from '../../common/decorators/current-admin.decorator.js'
+import {
+  CurrentPrivySession,
+  type CurrentPrivySessionPayload,
+} from '../../common/decorators/current-privy-session.decorator.js'
 import { AdminService } from './admin.service.js'
 import {
+  AcceptAdminInviteDto,
   CreateBroadcastDto,
   InviteAdminDto,
   SetAdminRoleDto,
@@ -178,6 +195,14 @@ export class AdminController {
   }
 
   @RequireAdminRoles('super_admin')
+  @RateLimit({ max: 5, windowMs: 60 * 60 * 1000, keyBy: 'actor', label: 'admin.invite_resend' })
+  @Post('/admins/:id/invite')
+  @ApiOperation({ summary: 'Re-send a pending invite with a new token.' })
+  resendInvite(@CurrentAdmin() ctx: CurrentAdminPayload, @Param('id') id: string) {
+    return this.admin.resendInvite(id, ctx.adminId)
+  }
+
+  @RequireAdminRoles('super_admin')
   @Patch('/admins/:id/role')
   @ApiOperation({ summary: "Change an admin's role." })
   setAdminRole(
@@ -229,5 +254,24 @@ export class AdminController {
       audience: q.audience as BroadcastAudience | undefined,
       limit: q.limit,
     })
+  }
+}
+
+@ApiTags('admin')
+@ApiBearerAuth()
+@UseGuards(PrivySessionGuard)
+@Controller('/v1/admin/invites')
+export class AdminInvitesController {
+  constructor(private readonly admin: AdminService) {}
+
+  @Post('/accept')
+  @HttpCode(200)
+  @RateLimit({ max: 20, windowMs: 15 * 60 * 1000, keyBy: 'ip', label: 'admin.invite_accept' })
+  @ApiOperation({ summary: 'Accept an admin invite with its one-time token.' })
+  acceptInvite(
+    @CurrentPrivySession() session: CurrentPrivySessionPayload,
+    @Body() dto: AcceptAdminInviteDto,
+  ) {
+    return this.admin.acceptInvite({ token: dto.token, privyUserId: session.privyUserId })
   }
 }

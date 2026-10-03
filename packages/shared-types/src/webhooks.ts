@@ -67,7 +67,8 @@ export const createWebhookEndpointInputSchema = z.object({
   description: z.string().max(200).optional(),
   mode: modeSchema,
 })
-export type CreateWebhookEndpointInput = z.infer<typeof createWebhookEndpointInputSchema>
+export type CreateWebhookEndpointInput = z.input<typeof createWebhookEndpointInputSchema>
+export type CreateWebhookEndpointParsed = z.output<typeof createWebhookEndpointInputSchema>
 
 export const createWebhookEndpointOutputSchema = z.object({
   endpoint: webhookEndpointSchema,
@@ -118,4 +119,5 @@ export type WebhookDeliveryDetail = z.infer<typeof webhookDeliveryDetailSchema>
 export const replayDeliveryInputSchema = z.object({
   id: idSchema,
 })
-export type ReplayDeliveryInput = z.infer<typeof replayDeliveryInputSchema>
+export type ReplayDeliveryInput = z.input<typeof replayDeliveryInputSchema>
+export type ReplayDeliveryParsed = z.output<typeof replayDeliveryInputSchema>

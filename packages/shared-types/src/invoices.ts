@@ -50,4 +50,5 @@ export const createInvoiceInputSchema = z.object({
   note: z.string().max(2000).optional(),
   dueInDays: z.number().int().min(1).max(90).default(7),
 })
-export type CreateInvoiceInput = z.infer<typeof createInvoiceInputSchema>
+export type CreateInvoiceInput = z.input<typeof createInvoiceInputSchema>
+export type CreateInvoiceParsed = z.output<typeof createInvoiceInputSchema>

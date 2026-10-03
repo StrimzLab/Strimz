@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import type {
-  CreateSubscriptionPlanInput,
+  CreateSubscriptionPlanParsed,
   PaymentCurrency,
   SubscriptionPlan,
 } from '@strimz/shared-types'
@@ -48,7 +48,7 @@ export class SubscriptionPlansService {
   async create(
     merchantId: string,
     _mode: 'test' | 'live',
-    input: CreateSubscriptionPlanInput,
+    input: CreateSubscriptionPlanParsed,
   ): Promise<SubscriptionPlan> {
     // Every plan enrolment needs a chain merchant id, so register at
     // plan creation regardless of mode. Idempotent. `mode` is preserved
@@ -63,7 +63,7 @@ export class SubscriptionPlansService {
         amount: input.amount,
         currency: input.currency,
         interval: input.interval,
-        intervalCount: input.intervalCount ?? 1,
+        intervalCount: input.intervalCount,
         trialPeriodDays: input.trialPeriodDays ?? null,
         metadata: (input.metadata ?? {}) as never,
       },

@@ -26,6 +26,8 @@ export interface AdminProfile {
 export interface AdminListItem extends AdminProfile {
   invitedAt: string
   invitedBy: { id: string; email: string } | null
+  invitePending: boolean
+  inviteExpiresAt: string | null
 }
 
 export interface PlatformOverview {
@@ -192,11 +194,4 @@ export interface Broadcast {
 
 export interface BroadcastListResponse {
   data: Broadcast[]
-}
-
-export interface CreateBroadcastInput {
-  title: string
-  body: string
-  audience: BroadcastAudience
-  merchantId?: string
 }

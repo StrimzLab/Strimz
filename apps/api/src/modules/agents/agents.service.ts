@@ -2,8 +2,8 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import type {
   AgentJob,
   AgentMerchantConfig,
-  CreateAgentJobInput,
-  UpdateAgentConfigInput,
+  CreateAgentJobParsed,
+  UpdateAgentConfigParsed,
 } from '@strimz/shared-types'
 import { AGENT_DEFAULTS } from '@strimz/shared-config'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
@@ -31,7 +31,7 @@ export class AgentsService {
 
   async updateConfig(
     merchantId: string,
-    input: UpdateAgentConfigInput,
+    input: UpdateAgentConfigParsed,
   ): Promise<AgentMerchantConfig> {
     await this.prisma.db.agentMerchantConfig.upsert({
       where: { merchantId },
@@ -103,7 +103,7 @@ export class AgentsService {
     return serialiseJob(row)
   }
 
-  async createJob(merchantId: string, input: CreateAgentJobInput): Promise<AgentJob> {
+  async createJob(merchantId: string, input: CreateAgentJobParsed): Promise<AgentJob> {
     const cfg = await this.retrieveConfig(merchantId)
 
     if (!cfg.enabledCapabilities.includes('commerce')) {

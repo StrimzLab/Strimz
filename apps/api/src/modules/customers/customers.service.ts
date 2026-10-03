@@ -1,12 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import type { Customer, UpsertCustomerInput } from '@strimz/shared-types'
+import type { Customer, UpsertCustomerParsed } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 
 @Injectable()
 export class CustomersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async upsert(merchantId: string, input: UpsertCustomerInput): Promise<Customer> {
+  async upsert(merchantId: string, input: UpsertCustomerParsed): Promise<Customer> {
     const row = await this.prisma.db.customer.upsert({
       where: { merchantId_walletAddress: { merchantId, walletAddress: input.walletAddress } },
       create: {

@@ -133,7 +133,8 @@ export const createPaymentSessionInputSchema = z.object({
     .optional(),
   metadata: metadataSchema.optional(),
 })
-export type CreatePaymentSessionInput = z.infer<typeof createPaymentSessionInputSchema>
+export type CreatePaymentSessionInput = z.input<typeof createPaymentSessionInputSchema>
+export type CreatePaymentSessionParsed = z.output<typeof createPaymentSessionInputSchema>
 
 export const submitPaymentSessionInputSchema = z.object({
   sourceChain: z.enum([
@@ -150,4 +151,5 @@ export const submitPaymentSessionInputSchema = z.object({
   bridgeTxHash: evmTxHashSchema.optional(),
   payerWalletAddress: evmAddressSchema,
 })
-export type SubmitPaymentSessionInput = z.infer<typeof submitPaymentSessionInputSchema>
+export type SubmitPaymentSessionInput = z.input<typeof submitPaymentSessionInputSchema>
+export type SubmitPaymentSessionParsed = z.output<typeof submitPaymentSessionInputSchema>

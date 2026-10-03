@@ -19,6 +19,14 @@ export const inviteAdminInputSchema = z.object({
 })
 export class InviteAdminDto extends createZodDto(inviteAdminInputSchema) {}
 
+export const acceptAdminInviteInputSchema = z.object({
+  token: z
+    .string()
+    .length(43)
+    .regex(/^[A-Za-z0-9_-]+$/),
+})
+export class AcceptAdminInviteDto extends createZodDto(acceptAdminInviteInputSchema) {}
+
 export const setAdminRoleInputSchema = z.object({
   role: z.enum(['super_admin', 'admin', 'read_only']),
 })

@@ -5,10 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import type {
-  CreateStorefrontInput,
-  CreateStorefrontProductInput,
+  CreateStorefrontParsed,
+  CreateStorefrontProductParsed,
   Storefront,
-  StorefrontCheckoutInput,
+  StorefrontCheckoutParsed,
   StorefrontCheckoutResponse,
   StorefrontProduct,
 } from '@strimz/shared-types'
@@ -31,7 +31,7 @@ export class StorefrontsService {
     return row ? serialise(row) : null
   }
 
-  async upsert(merchantId: string, input: CreateStorefrontInput): Promise<Storefront> {
+  async upsert(merchantId: string, input: CreateStorefrontParsed): Promise<Storefront> {
     const existing = await this.prisma.db.storefront.findFirst({
       where: { slug: input.slug, NOT: { merchantId } },
     })
@@ -51,7 +51,7 @@ export class StorefrontsService {
         logoUrl: input.logoUrl ?? null,
         coverImageUrl: input.coverImageUrl ?? null,
         accentColor: input.accentColor ?? null,
-        socialLinks: (input.socialLinks ?? []) as never,
+        socialLinks: input.socialLinks as never,
       },
       update: {
         slug: input.slug,
@@ -60,7 +60,7 @@ export class StorefrontsService {
         logoUrl: input.logoUrl ?? null,
         coverImageUrl: input.coverImageUrl ?? null,
         accentColor: input.accentColor ?? null,
-        socialLinks: (input.socialLinks ?? []) as never,
+        socialLinks: input.socialLinks as never,
       },
     })
     return serialise(row)
@@ -99,7 +99,7 @@ export class StorefrontsService {
 
   async createProduct(
     merchantId: string,
-    input: CreateStorefrontProductInput,
+    input: CreateStorefrontProductParsed,
   ): Promise<StorefrontProduct> {
     const sf = await this.prisma.db.storefront.findUnique({ where: { merchantId } })
     if (!sf) {
@@ -120,7 +120,7 @@ export class StorefrontsService {
         stock: input.stock ?? null,
         planId: input.planId ?? null,
         isActive: input.isActive ?? true,
-        sortOrder: input.sortOrder ?? 0,
+        sortOrder: input.sortOrder,
       },
     })
     return serialiseProduct(row)
@@ -129,7 +129,7 @@ export class StorefrontsService {
   private async assertPlanMatches(
     merchantId: string,
     planId: string,
-    input: CreateStorefrontProductInput,
+    input: CreateStorefrontProductParsed,
   ): Promise<void> {
     const plan = await this.prisma.db.subscriptionPlan.findFirst({
       where: { id: planId, merchantId, status: 'active' },
@@ -206,7 +206,7 @@ export class StorefrontsService {
   async checkoutFromProduct(
     slug: string,
     productId: string,
-    input: StorefrontCheckoutInput,
+    input: StorefrontCheckoutParsed,
   ): Promise<StorefrontCheckoutResponse> {
     const sf = await this.prisma.db.storefront.findUnique({ where: { slug } })
     if (!sf || sf.status !== 'published') {

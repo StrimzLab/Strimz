@@ -71,7 +71,8 @@ export const createApiKeyInputSchema = z.object({
   mode: modeSchema,
   scopes: z.array(apiKeyScopeSchema).nonempty(),
 })
-export type CreateApiKeyInput = z.infer<typeof createApiKeyInputSchema>
+export type CreateApiKeyInput = z.input<typeof createApiKeyInputSchema>
+export type CreateApiKeyParsed = z.output<typeof createApiKeyInputSchema>
 
 export const createApiKeyOutputSchema = z.object({
   apiKey: apiKeySchema,
@@ -83,4 +84,5 @@ export type CreateApiKeyOutput = z.infer<typeof createApiKeyOutputSchema>
 export const rotateApiKeyInputSchema = z.object({
   id: idSchema,
 })
-export type RotateApiKeyInput = z.infer<typeof rotateApiKeyInputSchema>
+export type RotateApiKeyInput = z.input<typeof rotateApiKeyInputSchema>
+export type RotateApiKeyParsed = z.output<typeof rotateApiKeyInputSchema>

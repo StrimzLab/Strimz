@@ -13,6 +13,7 @@ contract StrimzAgentRegistry is IStrimzAgentRegistry, StrimzAccessControl, UUPSU
     /// @custom:storage-location erc7201:strimz.storage.StrimzAgentRegistry
     struct Storage {
         mapping(address agent => Agent data) agents;
+        mapping(address agent => bool) suspended;
     }
 
     // keccak256(abi.encode(uint256(keccak256("strimz.storage.StrimzAgentRegistry")) - 1)) & ~bytes32(uint256(0xff))
@@ -86,6 +87,7 @@ contract StrimzAgentRegistry is IStrimzAgentRegistry, StrimzAccessControl, UUPSU
         if (msg.sender != a.controller && !hasRole(AGENT_ADMIN_ROLE, msg.sender)) {
             revert AgentRegistry__NotController();
         }
+        if (hasRole(AGENT_ADMIN_ROLE, msg.sender)) _s().suspended[agent] = true;
         a.active = false;
         emit AgentDeactivated(agent);
     }
@@ -93,8 +95,13 @@ contract StrimzAgentRegistry is IStrimzAgentRegistry, StrimzAccessControl, UUPSU
     /// @inheritdoc IStrimzAgentRegistry
     function activate(address agent) external override {
         Agent storage a = _loadAgent(agent);
-        if (msg.sender != a.controller && !hasRole(AGENT_ADMIN_ROLE, msg.sender)) {
+        Storage storage $ = _s();
+        if (hasRole(AGENT_ADMIN_ROLE, msg.sender)) {
+            $.suspended[agent] = false;
+        } else if (msg.sender != a.controller) {
             revert AgentRegistry__NotController();
+        } else if ($.suspended[agent]) {
+            revert AgentRegistry__Suspended(agent);
         }
         a.active = true;
         emit AgentActivated(agent);
@@ -107,8 +114,13 @@ contract StrimzAgentRegistry is IStrimzAgentRegistry, StrimzAccessControl, UUPSU
 
     /// @inheritdoc IStrimzAgentRegistry
     function isActive(address agent) external view override returns (bool) {
-        Agent storage a = _s().agents[agent];
-        return a.controller != address(0) && a.active;
+        Storage storage $ = _s();
+        Agent storage a = $.agents[agent];
+        return a.controller != address(0) && a.active && !$.suspended[agent];
+    }
+
+    function isSuspended(address agent) external view override returns (bool) {
+        return _s().suspended[agent];
     }
 
     function _loadAgent(address agent) private view returns (Agent storage a) {

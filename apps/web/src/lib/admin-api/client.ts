@@ -1,6 +1,7 @@
 import { env } from '@/lib/env'
 import { type AccessTokenProvider, defaultAccessTokenProvider } from '@/lib/merchant-api/auth-token'
 import { buildApiError, type ApiErrorBody, AuthenticationError } from '@/lib/merchant-api/errors'
+import type { CreateBroadcastInput } from '@strimz/shared-types'
 
 import type {
   AdminMerchantDetail,
@@ -10,7 +11,6 @@ import type {
   Broadcast,
   BroadcastAudience,
   BroadcastListResponse,
-  CreateBroadcastInput,
   HealthResponse,
   InviteAdminInput,
   PlatformOverview,
@@ -123,6 +123,10 @@ export class AdminApiClient {
     this.bffPatch<AdminListItem>(`/api/admin/admins/${encodeURIComponent(id)}/status`, input)
   removeAdmin = (id: string) =>
     this.bffDelete<AdminListItem>(`/api/admin/admins/${encodeURIComponent(id)}`)
+  resendAdminInvite = (id: string) =>
+    this.bff<AdminListItem>(`/api/admin/admins/${encodeURIComponent(id)}/invite`, {})
+  acceptAdminInvite = (token: string) =>
+    this.bff<AdminProfile>('/api/admin/invites/accept', { token })
 
   // ----- Broadcasts -----
   listBroadcasts = (

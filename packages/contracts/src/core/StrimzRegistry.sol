@@ -21,6 +21,7 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
     struct Storage {
         uint256 nextMerchantId;
         mapping(uint256 merchantId => Merchant data) merchants;
+        mapping(uint256 merchantId => uint64 acceptableAt) ownershipAcceptableAt;
     }
 
     // keccak256(abi.encode(uint256(keccak256("strimz.storage.StrimzRegistry")) - 1)) & ~bytes32(uint256(0xff))
@@ -71,6 +72,11 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
     /// @inheritdoc IStrimzRegistry
     function pendingOwnerOf(uint256 merchantId) external view override returns (address) {
         return _load(merchantId).pendingOwner;
+    }
+
+    function pendingOwnerAcceptableAt(uint256 merchantId) external view override returns (uint64) {
+        _load(merchantId);
+        return _s().ownershipAcceptableAt[merchantId];
     }
 
     // ---------- Register ----------
@@ -173,10 +179,11 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
     function cancelPayoutAddressChange(uint256 merchantId) external override {
         Merchant storage m = _load(merchantId);
         if (msg.sender != m.owner) revert Registry__NotMerchantOwner();
-        if (m.pendingPayoutAddress == address(0)) revert Registry__NoPendingPayoutChange();
-        m.pendingPayoutAddress = address(0);
-        m.payoutChangeCommitAt = 0;
-        emit MerchantPayoutChangeCancelled(merchantId);
+        _cancelPayoutChange(merchantId, m);
+    }
+
+    function adminCancelPayoutChange(uint256 merchantId) external override onlyRole(ADMIN_ROLE) {
+        _cancelPayoutChange(merchantId, _load(merchantId));
     }
 
     // ---------- Two-step ownership ----------
@@ -188,6 +195,7 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
         if (newOwner == address(0)) revert Registry__ZeroAddress();
         if (newOwner == m.owner) revert Registry__SameOwner();
         m.pendingOwner = newOwner;
+        _s().ownershipAcceptableAt[merchantId] = uint64(block.timestamp) + PAYOUT_CHANGE_DELAY;
         emit MerchantOwnershipTransferInitiated(merchantId, m.owner, newOwner);
     }
 
@@ -197,10 +205,19 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
         address pending = m.pendingOwner;
         if (pending == address(0)) revert Registry__NoPendingTransfer();
         if (msg.sender != pending) revert Registry__NotPendingOwner();
+        Storage storage $ = _s();
+        uint64 acceptableAt = $.ownershipAcceptableAt[merchantId];
+        if (acceptableAt == 0 || block.timestamp < acceptableAt) revert Registry__OwnershipTransferNotDue();
 
         address previous = m.owner;
         m.owner = pending;
         m.pendingOwner = address(0);
+        delete $.ownershipAcceptableAt[merchantId];
+        if (m.pendingPayoutAddress != address(0)) {
+            m.pendingPayoutAddress = address(0);
+            m.payoutChangeCommitAt = 0;
+            emit MerchantPayoutChangeCancelled(merchantId);
+        }
         emit MerchantOwnershipTransferAccepted(merchantId, previous, pending);
     }
 
@@ -208,8 +225,24 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
     function cancelOwnershipTransfer(uint256 merchantId) external override {
         Merchant storage m = _load(merchantId);
         if (msg.sender != m.owner) revert Registry__NotMerchantOwner();
+        _cancelOwnershipTransfer(merchantId, m);
+    }
+
+    function adminCancelOwnershipTransfer(uint256 merchantId) external override onlyRole(ADMIN_ROLE) {
+        _cancelOwnershipTransfer(merchantId, _load(merchantId));
+    }
+
+    function _cancelPayoutChange(uint256 merchantId, Merchant storage m) private {
+        if (m.pendingPayoutAddress == address(0)) revert Registry__NoPendingPayoutChange();
+        m.pendingPayoutAddress = address(0);
+        m.payoutChangeCommitAt = 0;
+        emit MerchantPayoutChangeCancelled(merchantId);
+    }
+
+    function _cancelOwnershipTransfer(uint256 merchantId, Merchant storage m) private {
         if (m.pendingOwner == address(0)) revert Registry__NoPendingTransfer();
         m.pendingOwner = address(0);
+        delete _s().ownershipAcceptableAt[merchantId];
         emit MerchantOwnershipTransferCancelled(merchantId);
     }
 
