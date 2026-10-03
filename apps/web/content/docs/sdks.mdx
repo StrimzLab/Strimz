@@ -11,10 +11,12 @@ description: Server and browser SDKs for Strimz.
 pnpm add @strimz/sdk
 ```
 
-```ts
-import { Strimz } from '@strimz/sdk'
+Server-side only: `StrimzClient` takes your secret key, which never belongs in browser code.
 
-const strimz = new Strimz({ apiKey: process.env.STRIMZ_KEY! })
+```ts
+import { StrimzClient } from '@strimz/sdk'
+
+const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_KEY! })
 
 const session = await strimz.paymentSessions.create({ amount: '50000000', currency: 'USDC' })
 const sub = await strimz.subscriptions.retrieve('sub_xyz')
@@ -44,14 +46,16 @@ pnpm add @strimz/sdk-react
 'use client'
 import { StrimzProvider, StrimzPayButton } from '@strimz/sdk-react'
 
-export function App({ children }) {
+export function App({ children }: { children: React.ReactNode }) {
   return (
-    <StrimzProvider config={{ baseUrl: 'https://api.strimz.finance' }}>{children}</StrimzProvider>
+    <StrimzProvider publishableKey={process.env.NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY!}>
+      {children}
+    </StrimzProvider>
   )
 }
 
 export function Checkout({ sessionId }: { sessionId: string }) {
-  return <StrimzPayButton sessionId={sessionId} onSuccess={(tx) => console.log(tx)} />
+  return <StrimzPayButton sessionId={sessionId} onSuccess={(txHash) => console.log(txHash)} />
 }
 ```
 
