@@ -83,6 +83,37 @@ Authorization: Bearer sk_test_xxx
 - `POST /v1/relay/subscriptions`. Submits a payer-signed EIP-2612 permit plus enrolment.
 - `GET  /v1/relay/submissions/:idempotencyKey`. Looks up a submission's on-chain status.
 
+Strimz issues the submission key. Both `POST` endpoints return it as
+`idempotencyKey` in the response: `relay-pay-<hex>` or `relay-sub-<hex>`,
+where `<hex>` is the keccak256 hash of the signed calldata. Poll the
+`GET` endpoint with that key; a key you chose yourself returns `404`.
+Sending the identical signed payload again returns the same submission
+and never broadcasts it twice. A newly signed payload is a new
+submission.
+
+- `idempotencyKey` in the request body is deprecated. It is accepted
+  and ignored, and will be removed.
+- Before a submission is queued, Strimz simulates the exact call
+  against the latest block. A call that would revert is refused with
+  `400 relay_simulation_failed`; `error.details.revert` names the
+  revert.
+- When the body carries a `sessionId`, the EIP-3009 `nonce` must be
+  `checkoutPaymentNonce(sessionId)` from `@strimz/shared-crypto`,
+  otherwise the request is refused with `400 auth_nonce_mismatch`.
+  Every authorization for one session shares that nonce, so the token
+  accepts at most one of them per payer wallet.
+- A session whose payment has already been mined is refused with
+  `409 session_already_submitted`.
+- One attempt per payment session, or per plan and payer, is live at a
+  time. A new attempt is refused with `409 attempt_in_progress` while
+  the earlier one can still land; `error.details.submission` is the
+  earlier submission, which you can poll. If the earlier attempt
+  already settled on-chain the answer is `409 already_settled`.
+- `GET /v1/relay/submissions/:idempotencyKey` only returns submissions
+  made by your merchant account. Add `?sessionId=` to also require
+  that the submission belongs to that payment session or plan. A
+  mismatch is a `404`, the same answer as an unknown key.
+
 The `tokens` and `checkout` namespaces sit outside the auth boundary
 on purpose. Both serve data that is either chain-derived or already
 shown to the payer, so there is nothing confidential to protect. The

@@ -5,6 +5,7 @@ import { useAccount, useChainId, useSignTypedData } from 'wagmi'
 import { buildPermitTypedData, buildSubscriptionIntentTypedData } from '@strimz/sdk/eip712'
 import type { TokenMetadata } from '@strimz/shared-types'
 
+import { inProgressSubmission } from '@/lib/checkout-submission'
 import { env } from '@/lib/env'
 import { strimzBrowserClient } from '@/lib/strimz-browser'
 import type { RelaySubmissionView } from '@/lib/strimz-bff'
@@ -189,11 +190,8 @@ export function useSubscriptionCheckout(
       // sessionId here is the shared planId, so scope the relay dedupe key by
       // payer — otherwise a second wallet on the same plan collides with the
       // first. BullMQ job ids can't contain ':', so join with '-'.
-      const idempotencyKey = `${sessionId}-${address.toLowerCase()}`
-
       const submission = await postSubmit(sessionId, {
         kind: 'subscription',
-        idempotencyKey,
         merchantId: merchantId.toString(),
         token: tokenAddress,
         amount: amount.toString(),
@@ -209,8 +207,13 @@ export function useSubscriptionCheckout(
         intentSignature: { v: intentSig.v, r: intentSig.r, s: intentSig.s },
       })
 
+      const settled = mapTerminalPhase(submission.status)
+      if (settled) {
+        setState({ phase: settled, error: null, txHash: submission.txHash, submission })
+        return
+      }
       setState({ phase: 'polling', error: null, txHash: null, submission })
-      await pollUntilTerminal(sessionId, idempotencyKey, (next) => {
+      await pollUntilTerminal(sessionId, submission.idempotencyKey, (next) => {
         setState((prev) => ({ ...prev, submission: next, txHash: next.txHash }))
         return mapTerminalPhase(next.status)
       }).then((terminal) => {
@@ -265,7 +268,6 @@ function splitSignature(sigHex: `0x${string}`): {
 
 interface SubmitBody {
   kind: 'subscription'
-  idempotencyKey: string
   merchantId: string
   token: `0x${string}`
   amount: string
@@ -285,6 +287,8 @@ async function postSubmit(sessionId: string, body: SubmitBody): Promise<RelaySub
   })
   if (!res.ok) {
     const detail = await res.json().catch(() => ({ message: `submit failed (${res.status})` }))
+    const live = res.status === 409 ? inProgressSubmission(detail) : null
+    if (live) return live
     throw new Error(detail.message ?? `submit failed (${res.status})`)
   }
   return (await res.json()) as RelaySubmissionView

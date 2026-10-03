@@ -16,9 +16,9 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ sessionId: string; idempotencyKey: string }> },
 ): Promise<NextResponse> {
-  const { idempotencyKey } = await params
+  const { sessionId, idempotencyKey } = await params
   try {
-    const view = await bffGetSubmission(idempotencyKey)
+    const view = await bffGetSubmission(idempotencyKey, sessionId)
     if (!view) {
       return NextResponse.json(
         { code: 'submission_not_found', message: 'no relay submission for this key' },

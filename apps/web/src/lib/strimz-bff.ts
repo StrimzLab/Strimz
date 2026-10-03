@@ -33,7 +33,6 @@ interface RelaySubmissionView {
 export type { RelaySubmissionView }
 
 interface SubmitPaymentBody {
-  idempotencyKey: string
   merchantId: string
   token: `0x${string}`
   auth: {
@@ -56,7 +55,6 @@ export function bffSubmitPayment(body: SubmitPaymentBody): Promise<RelaySubmissi
 }
 
 interface SubmitSubscriptionBody {
-  idempotencyKey: string
   merchantId: string
   token: `0x${string}`
   amount: string
@@ -77,9 +75,11 @@ export function bffSubmitSubscription(body: SubmitSubscriptionBody): Promise<Rel
 
 export async function bffGetSubmission(
   idempotencyKey: string,
+  sessionId: string,
 ): Promise<RelaySubmissionView | null> {
+  const query = new URLSearchParams({ sessionId })
   const res = await fetch(
-    `${env.apiUrl}/v1/relay/submissions/${encodeURIComponent(idempotencyKey)}`,
+    `${env.apiUrl}/v1/relay/submissions/${encodeURIComponent(idempotencyKey)}?${query}`,
     { method: 'GET', headers: authHeaders(), cache: 'no-store' },
   )
   if (res.status === 404) return null

@@ -38,7 +38,6 @@ const bytes32Schema = z.string().regex(/^0x[0-9a-fA-F]{64}$/u)
 
 const paymentBodySchema = z.object({
   kind: z.literal('payment'),
-  idempotencyKey: z.string().min(1).max(128),
   merchantId: bigintStringSchema,
   token: addressSchema,
   auth: z.object({
@@ -55,7 +54,6 @@ const paymentBodySchema = z.object({
 
 const subscriptionBodySchema = z.object({
   kind: z.literal('subscription'),
-  idempotencyKey: z.string().min(1).max(128),
   merchantId: bigintStringSchema,
   token: addressSchema,
   amount: bigintStringSchema,
