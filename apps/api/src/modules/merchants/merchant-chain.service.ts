@@ -127,7 +127,7 @@ export class MerchantChainService {
     if (!row?.onchainMerchantId) return null
 
     try {
-      const [record, delaySeconds] = await Promise.all([
+      const [record, delaySeconds, ownerAcceptableAt] = await Promise.all([
         this.chain.client.readContract({
           address: this.registryAddress,
           abi: registryReadAbi,
@@ -138,6 +138,12 @@ export class MerchantChainService {
           address: this.registryAddress,
           abi: registryReadAbi,
           functionName: 'PAYOUT_CHANGE_DELAY',
+        }),
+        this.chain.client.readContract({
+          address: this.registryAddress,
+          abi: registryReadAbi,
+          functionName: 'pendingOwnerAcceptableAt',
+          args: [BigInt(row.onchainMerchantId)],
         }),
       ])
       return {
@@ -153,6 +159,7 @@ export class MerchantChainService {
           record.pendingOwner === '0x0000000000000000000000000000000000000000'
             ? null
             : record.pendingOwner,
+        pendingOwnerAcceptableAt: Number(ownerAcceptableAt) || null,
         pendingPayoutAddress:
           record.pendingPayoutAddress === '0x0000000000000000000000000000000000000000'
             ? null
@@ -182,6 +189,7 @@ export interface OnchainMerchantState {
   maxFeeBps: number
   active: boolean
   pendingOwner: `0x${string}` | null
+  pendingOwnerAcceptableAt: number | null
   pendingPayoutAddress: `0x${string}` | null
   payoutChangeCommitAt: number | null
   payoutChangeDelaySeconds: number

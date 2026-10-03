@@ -63,6 +63,7 @@ interface IStrimzRegistry {
     error Registry__SamePayoutAddress();
     error Registry__NoPendingPayoutChange();
     error Registry__PayoutChangeNotDue();
+    error Registry__OwnershipTransferNotDue();
 
     // solhint-disable-next-line func-name-mixedcase
     // forge-lint: disable-next-line(mixed-case-function)
@@ -111,6 +112,8 @@ interface IStrimzRegistry {
     ///         issued by an attacker before the key was revoked.
     function cancelPayoutAddressChange(uint256 merchantId) external;
 
+    function adminCancelPayoutChange(uint256 merchantId) external;
+
     /// @notice Nominate a new owner. Current owner stays in charge
     ///         until the nominee calls `acceptMerchantOwnership`.
     function transferMerchantOwnership(uint256 merchantId, address newOwner) external;
@@ -121,7 +124,10 @@ interface IStrimzRegistry {
     /// @notice Current owner drops a pending nomination.
     function cancelOwnershipTransfer(uint256 merchantId) external;
 
+    function adminCancelOwnershipTransfer(uint256 merchantId) external;
+
     function pendingOwnerOf(uint256 merchantId) external view returns (address);
+    function pendingOwnerAcceptableAt(uint256 merchantId) external view returns (uint64);
 
     function getMerchant(uint256 merchantId) external view returns (Merchant memory);
     function requireActiveMerchant(uint256 merchantId) external view returns (Merchant memory);

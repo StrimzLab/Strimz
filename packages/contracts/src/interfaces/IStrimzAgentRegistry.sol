@@ -30,6 +30,7 @@ interface IStrimzAgentRegistry {
     error AgentRegistry__NotController();
     error AgentRegistry__NotAgent();
     error AgentRegistry__ZeroAddress();
+    error AgentRegistry__Suspended(address agent);
 
     function registerAgent(address agent, bytes32 credentialDigest, string calldata name, string calldata version)
         external;
@@ -44,4 +45,5 @@ interface IStrimzAgentRegistry {
 
     function getAgent(address agent) external view returns (Agent memory);
     function isActive(address agent) external view returns (bool);
+    function isSuspended(address agent) external view returns (bool);
 }

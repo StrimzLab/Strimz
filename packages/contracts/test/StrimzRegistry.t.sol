@@ -249,6 +249,7 @@ contract StrimzRegistryTest is StrimzTestBase {
         vm.expectRevert(IStrimzRegistry.Registry__NotPendingOwner.selector);
         registry.acceptMerchantOwnership(id);
 
+        vm.warp(block.timestamp + registry.PAYOUT_CHANGE_DELAY());
         vm.prank(next);
         registry.acceptMerchantOwnership(id);
         assertEq(registry.getMerchant(id).owner, next);
@@ -279,6 +280,7 @@ contract StrimzRegistryTest is StrimzTestBase {
         vm.expectRevert(IStrimzRegistry.Registry__NotPendingOwner.selector);
         registry.acceptMerchantOwnership(id);
 
+        vm.warp(block.timestamp + registry.PAYOUT_CHANGE_DELAY());
         vm.prank(second);
         registry.acceptMerchantOwnership(id);
         assertEq(registry.getMerchant(id).owner, second);

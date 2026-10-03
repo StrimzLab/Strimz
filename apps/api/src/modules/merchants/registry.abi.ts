@@ -68,6 +68,13 @@ export const registryReadAbi = [
     inputs: [],
     outputs: [{ type: 'uint64' }],
   },
+  {
+    type: 'function',
+    name: 'pendingOwnerAcceptableAt',
+    stateMutability: 'view',
+    inputs: [{ name: 'merchantId', type: 'uint256' }],
+    outputs: [{ type: 'uint64' }],
+  },
   // Registry custom errors so viem decodes reverts to a real name
   // instead of "unknown signature 0xc1e52643".
   {
