@@ -81,7 +81,8 @@ export const createSubscriptionPlanInputSchema = z.object({
   trialPeriodDays: z.number().int().min(0).max(365).optional(),
   metadata: metadataSchema.optional(),
 })
-export type CreateSubscriptionPlanInput = z.infer<typeof createSubscriptionPlanInputSchema>
+export type CreateSubscriptionPlanInput = z.input<typeof createSubscriptionPlanInputSchema>
+export type CreateSubscriptionPlanParsed = z.output<typeof createSubscriptionPlanInputSchema>
 
 // ---------- Subscriptions ----------
 
@@ -143,13 +144,15 @@ export const createSubscriptionInputSchema = z.object({
   gracePeriodHours: z.union([z.literal(24), z.literal(48), z.literal(72)]).default(48),
   metadata: metadataSchema.optional(),
 })
-export type CreateSubscriptionInput = z.infer<typeof createSubscriptionInputSchema>
+export type CreateSubscriptionInput = z.input<typeof createSubscriptionInputSchema>
+export type CreateSubscriptionParsed = z.output<typeof createSubscriptionInputSchema>
 
 export const cancelSubscriptionInputSchema = z.object({
   id: idSchema,
   reason: z.string().max(500).optional(),
 })
-export type CancelSubscriptionInput = z.infer<typeof cancelSubscriptionInputSchema>
+export type CancelSubscriptionInput = z.input<typeof cancelSubscriptionInputSchema>
+export type CancelSubscriptionParsed = z.output<typeof cancelSubscriptionInputSchema>
 
 // ---------- Charges ----------
 
