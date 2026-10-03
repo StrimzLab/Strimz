@@ -23,6 +23,8 @@ model AdminUser {
   /// the bootstrap super_admin (no one to attribute that to).
   invitedById   String?
   invitedAt     DateTime         @default(now())
+  inviteTokenHash String?        @unique
+  inviteExpiresAt DateTime?
   lastLoginAt   DateTime?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
