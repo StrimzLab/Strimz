@@ -1,7 +1,7 @@
 import { env } from '@/lib/env'
 import { type AccessTokenProvider, defaultAccessTokenProvider } from '@/lib/merchant-api/auth-token'
 import { buildApiError, type ApiErrorBody, AuthenticationError } from '@/lib/merchant-api/errors'
-import type { CreateBroadcastInput } from '@strimz/shared-types'
+import type { CreateBroadcastInput, Mode, PaymentCurrency } from '@strimz/shared-types'
 
 import type {
   AdminMerchantDetail,
@@ -61,8 +61,8 @@ export class AdminApiClient {
 
   // ----- Reads (direct to /v1/admin/*) -----
   me = (options?: RequestOptions) => this.directGet<AdminProfile>('/v1/admin/me', options)
-  overview = (options?: RequestOptions) =>
-    this.directGet<PlatformOverview>('/v1/admin/overview', options)
+  overview = (mode: Mode, options?: RequestOptions) =>
+    this.directGet<PlatformOverview>('/v1/admin/overview', { ...options, query: { mode } })
   listMerchants = (
     params: {
       status?: string
@@ -83,19 +83,28 @@ export class AdminApiClient {
         cursor: params.cursor ?? undefined,
       },
     })
-  getMerchant = (id: string, options?: RequestOptions) =>
-    this.directGet<AdminMerchantDetail>(`/v1/admin/merchants/${encodeURIComponent(id)}`, options)
-  volumeSeries = (range: { from?: string; to?: string } = {}, options?: RequestOptions) =>
-    this.directGet<VolumeSeriesResponse>('/v1/admin/analytics/volume', { ...options, query: range })
+  getMerchant = (id: string, mode: Mode, options?: RequestOptions) =>
+    this.directGet<AdminMerchantDetail>(`/v1/admin/merchants/${encodeURIComponent(id)}`, {
+      ...options,
+      query: { mode },
+    })
+  volumeSeries = (params: { from?: string; to?: string; mode: Mode }, options?: RequestOptions) =>
+    this.directGet<VolumeSeriesResponse>('/v1/admin/analytics/volume', {
+      ...options,
+      query: params,
+    })
   signupSeries = (range: { from?: string; to?: string } = {}, options?: RequestOptions) =>
     this.directGet<SignupSeriesResponse>('/v1/admin/analytics/signups', {
       ...options,
       query: range,
     })
-  topMerchants = (limit = 10, options?: RequestOptions) =>
+  topMerchants = (
+    params: { currency: PaymentCurrency; mode: Mode; limit: number },
+    options?: RequestOptions,
+  ) =>
     this.directGet<TopMerchantsResponse>('/v1/admin/analytics/top-merchants', {
       ...options,
-      query: { limit },
+      query: params,
     })
   health = (options?: RequestOptions) => this.directGet<HealthResponse>('/v1/admin/health', options)
   listAdmins = (options?: RequestOptions) =>

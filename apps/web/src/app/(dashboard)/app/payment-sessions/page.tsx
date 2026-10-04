@@ -19,7 +19,7 @@ import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
-import { formatCurrencyTotals, sumByCurrency } from '@/lib/currency-totals'
+import { paymentSessionCards, summaryValue } from '@/lib/stats-summary'
 import type { LoadedRows } from '@/lib/cursor-pages'
 import { cancelPaymentSessionConfirm } from '@/lib/destructive-actions'
 import {
@@ -31,6 +31,7 @@ import {
   useCancelPaymentSession,
   usePaymentSessionPages,
   usePrefetchPaymentSession,
+  useStatsSummary,
 } from '@/hooks/api'
 
 /**
@@ -71,29 +72,10 @@ const FILTER_OPTIONS: ReadonlyArray<PaymentSessionStatus | 'all'> = [
 interface PaymentSessionsView {
   rows: PaymentSession[]
   hasMore: boolean
-  total: number
-  confirmedCount: number
-  confirmedTotal: string
-  pendingCount: number
-  conversionRate: number
 }
 
 function project(loaded: LoadedRows<PaymentSession>): PaymentSessionsView {
-  const rows = loaded.rows
-  const confirmedRows = rows.filter((s) => s.status === 'confirmed')
-  return {
-    rows,
-    hasMore: loaded.hasMore,
-    total: rows.length,
-    confirmedCount: confirmedRows.length,
-    confirmedTotal: formatCurrencyTotals(
-      sumByCurrency(confirmedRows, (r) => ({ amount: r.amount, currency: r.currency })),
-    ),
-    pendingCount: rows.filter(
-      (s) => s.status === 'created' || s.status === 'awaiting_payment' || s.status === 'submitted',
-    ).length,
-    conversionRate: rows.length === 0 ? 0 : Math.round((100 * confirmedRows.length) / rows.length),
-  }
+  return { rows: loaded.rows, hasMore: loaded.hasMore }
 }
 
 export default function PaymentSessionsPage() {
@@ -115,6 +97,7 @@ export default function PaymentSessionsPage() {
     select: project,
   })
   const { data, isLoading, isError, error, refetch } = sessionsQuery
+  const summaryQuery = useStatsSummary({ select: (summary) => summary.paymentSessions })
   const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   const prefetch = usePrefetchPaymentSession()
@@ -279,12 +262,21 @@ export default function PaymentSessionsPage() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
-          label={data?.hasMore ? 'Sessions loaded' : 'Total sessions'}
-          value={data ? data.total.toLocaleString() : '—'}
+          label="Total sessions"
+          value={summaryValue(summaryQuery, (d) => paymentSessionCards(d).total)}
         />
-        <Stat label="Confirmed" value={data ? data.confirmedTotal : '—'} />
-        <Stat label="In-flight" value={data ? data.pendingCount.toLocaleString() : '—'} />
-        <Stat label="Conversion" value={data ? `${data.conversionRate}%` : '—'} />
+        <Stat
+          label="Confirmed"
+          value={summaryValue(summaryQuery, (d) => paymentSessionCards(d).confirmed)}
+        />
+        <Stat
+          label="In-flight"
+          value={summaryValue(summaryQuery, (d) => paymentSessionCards(d).inFlight)}
+        />
+        <Stat
+          label="Conversion"
+          value={summaryValue(summaryQuery, (d) => paymentSessionCards(d).conversion)}
+        />
       </div>
 
       {isError && !data ? (

@@ -28,7 +28,8 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable } from '@/components/dashboard/data-table'
 import { downloadCsv } from '@/lib/csv-export'
 import { relativeTime, shortAddress } from '@/lib/format'
-import { serverRowsOf, useCustomerPages } from '@/hooks/api'
+import { serverRowsOf, useCustomerPages, useStatsSummary } from '@/hooks/api'
+import { customerCards, summaryValue } from '@/lib/stats-summary'
 
 interface EmailHistoryEntry {
   email: string
@@ -91,6 +92,7 @@ export default function CustomersPage() {
     },
   )
   const { data, isLoading, isError, error, refetch } = customersQuery
+  const summaryQuery = useStatsSummary({ select: (summary) => customerCards(summary.customers) })
 
   const columns = React.useMemo<ColumnDef<Customer>[]>(
     () => [
@@ -247,10 +249,7 @@ export default function CustomersPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Stat
-          label={data?.hasMore ? 'Customers loaded' : 'Total customers'}
-          value={data ? data.count.toLocaleString() : '—'}
-        />
+        <Stat label="Total customers" value={summaryValue(summaryQuery, (c) => c.total)} />
       </div>
 
       {isError && !data ? (

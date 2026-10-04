@@ -153,4 +153,7 @@ export const analyticsKeys = {
   mrr: () => [...analyticsKeys.all, 'mrr'] as const,
   ltv: (params: unknown) => [...analyticsKeys.all, 'ltv', params] as const,
   forecast: () => [...analyticsKeys.all, 'forecast'] as const,
+  summary: () => [...analyticsKeys.all, 'summary'] as const,
+  volume: (range: { from?: string; to?: string }) =>
+    [...analyticsKeys.all, 'volume', range] as const,
 }

@@ -26,7 +26,13 @@ import {
   ConfirmActionDialog,
   type PendingConfirm,
 } from '@/components/dashboard/confirm-action-dialog'
-import { serverRowsOf, useCancelSubscription, useSubscriptionPages } from '@/hooks/api'
+import {
+  serverRowsOf,
+  useCancelSubscription,
+  useStatsSummary,
+  useSubscriptionPages,
+} from '@/hooks/api'
+import { SUBSCRIPTION_CARD_STATUSES, subscriptionCards, summaryValue } from '@/lib/stats-summary'
 
 const STATUS_TONE: Record<
   SubscriptionStatus,
@@ -58,22 +64,10 @@ const FILTERS: ReadonlyArray<SubscriptionStatus | 'all'> = [
 interface SubscriptionsView {
   rows: Subscription[]
   hasMore: boolean
-  counts: Record<SubscriptionStatus, number>
-}
-
-const EMPTY_COUNTS: Record<SubscriptionStatus, number> = {
-  active: 0,
-  trialing: 0,
-  at_risk: 0,
-  paused: 0,
-  cancelled: 0,
-  lapsed: 0,
 }
 
 function projectSubscriptions(loaded: LoadedRows<Subscription>): SubscriptionsView {
-  const counts = { ...EMPTY_COUNTS }
-  for (const row of loaded.rows) counts[row.status] = (counts[row.status] ?? 0) + 1
-  return { rows: loaded.rows, hasMore: loaded.hasMore, counts }
+  return { rows: loaded.rows, hasMore: loaded.hasMore }
 }
 
 export default function SubscriptionsPage() {
@@ -87,6 +81,9 @@ export default function SubscriptionsPage() {
     select: projectSubscriptions,
   })
   const { data, isLoading, isError, error, refetch } = subscriptionsQuery
+  const summaryQuery = useStatsSummary({
+    select: (summary) => subscriptionCards(summary.subscriptions),
+  })
   const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   const cancelMutation = useCancelSubscription()
@@ -245,7 +242,7 @@ export default function SubscriptionsPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {(['active', 'at_risk', 'trialing', 'lapsed'] as const).map((s) => (
+        {SUBSCRIPTION_CARD_STATUSES.map((s) => (
           <div
             key={s}
             className="shadow-sub-card border-border/60 bg-background rounded-xl border p-4"
@@ -253,11 +250,9 @@ export default function SubscriptionsPage() {
             <div className="text-muted-foreground text-xs capitalize">{s.replace(/_/g, ' ')}</div>
             <div className="mt-1 flex items-baseline gap-2">
               <span className="font-sora text-2xl font-semibold">
-                {data ? data.counts[s] : '—'}
+                {summaryValue(summaryQuery, (cards) => cards[s])}
               </span>
-              <span className="text-muted-foreground text-xs">
-                {data?.hasMore ? 'in loaded rows' : 'subscriptions'}
-              </span>
+              <span className="text-muted-foreground text-xs">subscriptions</span>
             </div>
           </div>
         ))}

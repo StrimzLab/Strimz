@@ -13,6 +13,8 @@ import type {
   BroadcastAudience,
   BroadcastListResponse,
   CreateBroadcastInput,
+  Mode,
+  PaymentCurrency,
 } from '@strimz/shared-types'
 import type {
   AdminListItem,
@@ -40,13 +42,16 @@ export const adminKeys = {
   all: ['admin'] as const,
   me: () => [...adminKeys.all, 'me'] as const,
   overview: () => [...adminKeys.all, 'overview'] as const,
+  overviewFor: (mode: Mode) => [...adminKeys.overview(), mode] as const,
   merchants: () => [...adminKeys.all, 'merchants'] as const,
   merchantList: (params: unknown) => [...adminKeys.merchants(), 'list', params] as const,
   merchantDetail: (id: string) => [...adminKeys.merchants(), 'detail', id] as const,
+  merchantDetailFor: (id: string, mode: Mode) => [...adminKeys.merchantDetail(id), mode] as const,
   analytics: () => [...adminKeys.all, 'analytics'] as const,
   volume: (range: unknown) => [...adminKeys.analytics(), 'volume', range] as const,
   signups: (range: unknown) => [...adminKeys.analytics(), 'signups', range] as const,
-  topMerchants: (limit: number) => [...adminKeys.analytics(), 'top', limit] as const,
+  topMerchants: (params: { currency: PaymentCurrency; mode: Mode; limit: number }) =>
+    [...adminKeys.analytics(), 'top', params] as const,
   health: () => [...adminKeys.all, 'health'] as const,
   admins: () => [...adminKeys.all, 'admins'] as const,
   broadcasts: (audience?: BroadcastAudience) =>
@@ -72,15 +77,17 @@ export function useAdminMe<TData = AdminProfile>(
 }
 
 export function useAdminOverview<TData = PlatformOverview>(
+  mode: Mode,
   options?: Omit<
-    UseQueryOptions<PlatformOverview, Error, TData, ReturnType<typeof adminKeys.overview>>,
+    UseQueryOptions<PlatformOverview, Error, TData, ReturnType<typeof adminKeys.overviewFor>>,
     'queryKey' | 'queryFn'
   >,
 ) {
   const api = useAdminApi()
   return useQuery({
-    queryKey: adminKeys.overview(),
-    queryFn: ({ signal }) => api.overview({ signal }),
+    queryKey: adminKeys.overviewFor(mode),
+    queryFn: ({ signal }) => api.overview(mode, { signal }),
+    placeholderData: keepPreviousData,
     staleTime: 60_000,
     ...options,
   })
@@ -115,22 +122,29 @@ export function useAdminMerchants<TData = AdminMerchantListResponse>(
 
 export function useAdminMerchantDetail<TData = AdminMerchantDetail>(
   id: string | undefined | null,
+  mode: Mode,
   options?: Omit<
-    UseQueryOptions<AdminMerchantDetail, Error, TData, ReturnType<typeof adminKeys.merchantDetail>>,
+    UseQueryOptions<
+      AdminMerchantDetail,
+      Error,
+      TData,
+      ReturnType<typeof adminKeys.merchantDetailFor>
+    >,
     'queryKey' | 'queryFn'
   >,
 ) {
   const api = useAdminApi()
   return useQuery({
-    queryKey: adminKeys.merchantDetail(id ?? '__unset'),
-    queryFn: ({ signal }) => api.getMerchant(id as string, { signal }),
+    queryKey: adminKeys.merchantDetailFor(id ?? '__unset', mode),
+    queryFn: ({ signal }) => api.getMerchant(id as string, mode, { signal }),
+    placeholderData: keepPreviousData,
     enabled: typeof id === 'string' && id.length > 0,
     ...options,
   })
 }
 
 export function useAdminVolume<TData = VolumeSeriesResponse>(
-  range: { from?: string; to?: string } = {},
+  range: { from?: string; to?: string; mode: Mode },
   options?: Omit<
     UseQueryOptions<VolumeSeriesResponse, Error, TData, ReturnType<typeof adminKeys.volume>>,
     'queryKey' | 'queryFn'
@@ -162,7 +176,7 @@ export function useAdminSignups<TData = SignupSeriesResponse>(
 }
 
 export function useAdminTopMerchants<TData = TopMerchantsResponse>(
-  limit = 10,
+  params: { currency: PaymentCurrency; mode: Mode; limit: number },
   options?: Omit<
     UseQueryOptions<TopMerchantsResponse, Error, TData, ReturnType<typeof adminKeys.topMerchants>>,
     'queryKey' | 'queryFn'
@@ -170,8 +184,8 @@ export function useAdminTopMerchants<TData = TopMerchantsResponse>(
 ) {
   const api = useAdminApi()
   return useQuery({
-    queryKey: adminKeys.topMerchants(limit),
-    queryFn: ({ signal }) => api.topMerchants(limit, { signal }),
+    queryKey: adminKeys.topMerchants(params),
+    queryFn: ({ signal }) => api.topMerchants(params, { signal }),
     staleTime: 5 * 60_000,
     ...options,
   })

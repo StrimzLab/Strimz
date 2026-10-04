@@ -36,7 +36,14 @@ import {
   SetMerchantStatusDto,
   SetMerchantTierDto,
 } from './admin.dto.js'
-import type { BroadcastAudience } from '@strimz/shared-types'
+import {
+  adminStatsModeQuerySchema,
+  adminTopMerchantsQuerySchema,
+  adminVolumeQuerySchema,
+  type BroadcastAudience,
+  type Mode,
+  type PaymentCurrency,
+} from '@strimz/shared-types'
 
 /**
  * `/v1/admin/*` surface for Strimz operators.
@@ -70,8 +77,8 @@ export class AdminController {
   // ------------------------------------------------------------------
   @Get('/overview')
   @ApiOperation({ summary: 'Platform-wide KPIs.' })
-  overview() {
-    return this.admin.getOverview()
+  overview(@Query(new ZodValidationPipe(adminStatsModeQuerySchema)) q: { mode: Mode }) {
+    return this.admin.getOverview(q.mode)
   }
 
   // ------------------------------------------------------------------
@@ -91,8 +98,11 @@ export class AdminController {
 
   @Get('/merchants/:id')
   @ApiOperation({ summary: 'Merchant detail with stats.' })
-  getMerchant(@Param('id') id: string) {
-    return this.admin.getMerchant(id)
+  getMerchant(
+    @Param('id') id: string,
+    @Query(new ZodValidationPipe(adminStatsModeQuerySchema)) q: { mode: Mode },
+  ) {
+    return this.admin.getMerchant(id, q.mode)
   }
 
   @RequireAdminRoles('super_admin', 'admin')
@@ -145,8 +155,15 @@ export class AdminController {
   // ------------------------------------------------------------------
   @Get('/analytics/volume')
   @ApiOperation({ summary: 'Daily platform volume (gross + fees) over a date range.' })
-  volumeSeries(@Query('from') from?: string, @Query('to') to?: string) {
-    return this.admin.getVolumeSeries({ from, to })
+  volumeSeries(
+    @Query(new ZodValidationPipe(adminVolumeQuerySchema))
+    q: {
+      from?: string
+      to?: string
+      mode: Mode
+    },
+  ) {
+    return this.admin.getVolumeSeries({ from: q.from, to: q.to }, q.mode)
   }
 
   @Get('/analytics/signups')
@@ -157,8 +174,15 @@ export class AdminController {
 
   @Get('/analytics/top-merchants')
   @ApiOperation({ summary: 'Top merchants by confirmed-transaction volume.' })
-  topMerchants(@Query('limit') limit?: string) {
-    return this.admin.getTopMerchants(limit ? Number(limit) : undefined)
+  topMerchants(
+    @Query(new ZodValidationPipe(adminTopMerchantsQuerySchema))
+    q: {
+      currency: PaymentCurrency
+      mode: Mode
+      limit: number
+    },
+  ) {
+    return this.admin.getTopMerchants(q)
   }
 
   // ------------------------------------------------------------------

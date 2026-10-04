@@ -3,14 +3,18 @@
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query'
 
 import type {
+  StatsForecast,
+  StatsLtv,
+  StatsLtvQuery,
+  StatsMrr,
+  StatsSummary,
+  StatsVolume,
+} from '@strimz/shared-types'
+import type {
   ChurnResponse,
   ConversionResponse,
   DateRange,
-  ForecastResponse,
-  LtvResponse,
-  MrrResponse,
 } from '@/lib/merchant-api/resources/analytics'
-import type { PaginationParams } from '@/lib/merchant-api'
 
 import { useMerchantApi } from './merchant-api-context'
 import { analyticsKeys } from './query-keys'
@@ -25,18 +29,28 @@ type ChurnOptions<TData = ChurnResponse> = Omit<
   'queryKey' | 'queryFn'
 >
 
-type MrrOptions<TData = MrrResponse> = Omit<
-  UseQueryOptions<MrrResponse, Error, TData, ReturnType<typeof analyticsKeys.mrr>>,
+type MrrOptions<TData = StatsMrr> = Omit<
+  UseQueryOptions<StatsMrr, Error, TData, ReturnType<typeof analyticsKeys.mrr>>,
   'queryKey' | 'queryFn'
 >
 
-type LtvOptions<TData = LtvResponse> = Omit<
-  UseQueryOptions<LtvResponse, Error, TData, ReturnType<typeof analyticsKeys.ltv>>,
+type LtvOptions<TData = StatsLtv> = Omit<
+  UseQueryOptions<StatsLtv, Error, TData, ReturnType<typeof analyticsKeys.ltv>>,
   'queryKey' | 'queryFn'
 >
 
-type ForecastOptions<TData = ForecastResponse> = Omit<
-  UseQueryOptions<ForecastResponse, Error, TData, ReturnType<typeof analyticsKeys.forecast>>,
+type ForecastOptions<TData = StatsForecast> = Omit<
+  UseQueryOptions<StatsForecast, Error, TData, ReturnType<typeof analyticsKeys.forecast>>,
+  'queryKey' | 'queryFn'
+>
+
+type SummaryOptions<TData = StatsSummary> = Omit<
+  UseQueryOptions<StatsSummary, Error, TData, ReturnType<typeof analyticsKeys.summary>>,
+  'queryKey' | 'queryFn'
+>
+
+type VolumeOptions<TData = StatsVolume> = Omit<
+  UseQueryOptions<StatsVolume, Error, TData, ReturnType<typeof analyticsKeys.volume>>,
   'queryKey' | 'queryFn'
 >
 
@@ -73,7 +87,7 @@ export function useChurn<TData = ChurnResponse>(
   })
 }
 
-export function useMrr<TData = MrrResponse>(options?: MrrOptions<TData>) {
+export function useMrr<TData = StatsMrr>(options?: MrrOptions<TData>) {
   const api = useMerchantApi()
   return useQuery({
     queryKey: analyticsKeys.mrr(),
@@ -83,10 +97,7 @@ export function useMrr<TData = MrrResponse>(options?: MrrOptions<TData>) {
   })
 }
 
-export function useLtv<TData = LtvResponse>(
-  params: PaginationParams = {},
-  options?: LtvOptions<TData>,
-) {
+export function useLtv<TData = StatsLtv>(params: StatsLtvQuery, options?: LtvOptions<TData>) {
   const api = useMerchantApi()
   return useQuery({
     queryKey: analyticsKeys.ltv(params),
@@ -96,11 +107,34 @@ export function useLtv<TData = LtvResponse>(
   })
 }
 
-export function useForecast<TData = ForecastResponse>(options?: ForecastOptions<TData>) {
+export function useForecast<TData = StatsForecast>(options?: ForecastOptions<TData>) {
   const api = useMerchantApi()
   return useQuery({
     queryKey: analyticsKeys.forecast(),
     queryFn: ({ signal }) => api.analytics.forecast({ signal }),
+    staleTime: LONG_STALE_TIME,
+    ...options,
+  })
+}
+
+export function useStatsSummary<TData = StatsSummary>(options?: SummaryOptions<TData>) {
+  const api = useMerchantApi()
+  return useQuery({
+    queryKey: analyticsKeys.summary(),
+    queryFn: ({ signal }) => api.analytics.summary({ signal }),
+    staleTime: LONG_STALE_TIME,
+    ...options,
+  })
+}
+
+export function useStatsVolume<TData = StatsVolume>(
+  range: DateRange = {},
+  options?: VolumeOptions<TData>,
+) {
+  const api = useMerchantApi()
+  return useQuery({
+    queryKey: analyticsKeys.volume(range),
+    queryFn: ({ signal }) => api.analytics.volume(range, { signal }),
     staleTime: LONG_STALE_TIME,
     ...options,
   })
