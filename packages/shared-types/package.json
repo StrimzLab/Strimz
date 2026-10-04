@@ -103,6 +103,11 @@
       "types": "./dist/events.d.ts",
       "import": "./dist/events.js",
       "require": "./dist/events.cjs"
+    },
+    "./analytics": {
+      "types": "./dist/analytics.d.ts",
+      "import": "./dist/analytics.js",
+      "require": "./dist/analytics.cjs"
     }
   },
   "files": [

@@ -42,6 +42,7 @@ model Transaction {
   @@index([onchainTxHash])
   @@index([merchantId, kind, blockTimestamp])
   @@index([merchantId, status])
+  @@index([merchantId, mode, status, blockTimestamp])
   @@index([customerId])
   @@index([payerAddress])
   @@index([blockNumber])

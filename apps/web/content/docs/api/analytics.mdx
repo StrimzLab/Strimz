@@ -3,7 +3,7 @@ title: Analytics
 description: SQL-backed conversion, churn, MRR, LTV, forecast.
 ---
 
-All endpoints below take optional `?from=ISO8601&to=ISO8601` query params.
+`/conversion`, `/churn` and `/volume` take optional `?from=ISO8601&to=ISO8601` query params.
 
 ## Conversion
 
@@ -34,6 +34,140 @@ GET /v1/stats/churn
 
 Monthly churn rate over the last 12 months. Numerator: subs that flipped to `cancelled` or `lapsed` in that month. Denominator: total subs created in that month.
 
+## Amounts per currency
+
+Every money figure is a `CurrencyAmounts` object with one base-unit string per payment
+currency. Both currencies are always present; a currency with no activity is `"0"`.
+USDC and EURC are never added together, and Strimz does not convert between them.
+
+```json
+{ "USDC": "60000000", "EURC": "9000000" }
+```
+
+The schemas and types for every response below ship in `@strimz/shared-types`
+(`statsSummarySchema`, `statsVolumeSchema`, `statsMrrSchema`, `statsLtvSchema`,
+`statsForecastSchema`).
+
+## Summary
+
+```http
+GET /v1/stats/summary
+```
+
+Dashboard totals for the key's mode, computed on the server over every row:
+
+```json
+{
+  "mode": "test",
+  "generatedAt": "2026-10-03T12:00:00.000Z",
+  "volume": {
+    "last7d": {
+      "count": 2,
+      "gross": { "USDC": "10000000", "EURC": "3000000" },
+      "fees": { "USDC": "100000", "EURC": "30000" },
+      "net": { "USDC": "9900000", "EURC": "2970000" }
+    },
+    "last30d": {
+      "count": 3,
+      "gross": { "USDC": "30000000", "EURC": "3000000" },
+      "fees": { "USDC": "300000", "EURC": "30000" },
+      "net": { "USDC": "29700000", "EURC": "2970000" }
+    },
+    "allTime": {
+      "count": 4,
+      "gross": { "USDC": "30000000", "EURC": "7000000" },
+      "fees": { "USDC": "300000", "EURC": "70000" },
+      "net": { "USDC": "29700000", "EURC": "6930000" }
+    }
+  },
+  "paymentSessions": {
+    "total": 4,
+    "byStatus": {
+      "created": 1,
+      "awaiting_payment": 0,
+      "submitted": 0,
+      "confirmed": 2,
+      "failed": 0,
+      "expired": 1,
+      "cancelled": 0
+    },
+    "confirmed": { "count": 2, "amount": { "USDC": "10000000", "EURC": "3000000" } }
+  },
+  "invoices": {
+    "byStatus": { "draft": 1, "sent": 1, "paid": 2, "overdue": 2, "void": 0 },
+    "outstanding": { "count": 3, "amount": { "USDC": "105000000", "EURC": "40000000" } },
+    "overdue": { "count": 2, "amount": { "USDC": "5000000", "EURC": "40000000" } },
+    "paidLast30d": { "count": 1, "amount": { "USDC": "12000000", "EURC": "0" } }
+  },
+  "refunds": {
+    "byStatus": {
+      "pending": 0,
+      "awaiting_signature": 1,
+      "submitted": 0,
+      "completed": 2,
+      "failed": 1,
+      "cancelled": 0
+    },
+    "completed": { "count": 2, "amount": { "USDC": "2000000", "EURC": "1000000" } }
+  },
+  "subscriptions": {
+    "total": 4,
+    "byStatus": {
+      "trialing": 1,
+      "active": 2,
+      "at_risk": 0,
+      "paused": 0,
+      "cancelled": 1,
+      "lapsed": 0
+    }
+  },
+  "customers": { "total": 2 }
+}
+```
+
+- `volume` counts confirmed inbound transactions (one-off payments, subscription charges,
+  invoice and storefront payments; refunds excluded), timed by block. The 7 and 30 day
+  windows roll back from now.
+- `invoices.outstanding` is `sent` plus `overdue`; `paidLast30d` is `paid` with a paid
+  time in the last 30 days.
+- Every `byStatus` lists every status, zero included.
+- `customers.total` is not split by mode; customers are shared by both modes.
+
+## Volume
+
+```http
+GET /v1/stats/volume?from=2026-09-03T00:00:00Z&to=2026-10-03T00:00:00Z
+```
+
+Daily confirmed inbound volume, one row per UTC day and currency that had volume, ordered
+by day then USDC before EURC. `from` and `to` are ISO timestamps; they default to the
+last 30 days and may be at most 366 days apart. Empty days are omitted.
+
+```json
+{
+  "from": "2026-09-03T00:00:00.000Z",
+  "to": "2026-10-03T00:00:00.000Z",
+  "data": [
+    {
+      "day": "2026-10-01",
+      "currency": "USDC",
+      "count": 2,
+      "gross": "15000000",
+      "fees": "150000",
+      "net": "14850000"
+    },
+    {
+      "day": "2026-10-01",
+      "currency": "EURC",
+      "count": 1,
+      "gross": "3000000",
+      "fees": "30000",
+      "net": "2970000"
+    }
+  ]
+}
+```
+
 ## MRR
 
 ```http
@@ -42,31 +176,36 @@ GET /v1/stats/mrr
 
 ```json
 {
-  "mrr": "60000000",       // 60 USDC, smallest units
-  "activeSubscribers": 3
+  "mrr": { "USDC": "60000000", "EURC": "9000000" },
+  "activeSubscribers": 4
 }
 ```
 
-Interval-normalised: `daily × 30`, `weekly × 30/7`, `monthly`, `quarterly / 3`, `yearly / 12`. Returns gross MRR; for net subtract your tier's per-transaction fee.
+Only `active` subscriptions count. Each subscription is interval-normalised on its own:
+`daily × 30`, `weekly × 30/7`, `monthly`, `quarterly / 3`, `yearly / 12`, then summed
+within its currency. Returns gross MRR; for net subtract your tier's per-transaction fee.
 
 ## LTV
 
 ```http
-GET /v1/stats/ltv?limit=25
+GET /v1/stats/ltv?currency=USDC&limit=25
 ```
 
-Top customers by lifetime spend:
+Top customers by lifetime spend in one currency. `currency` is required (`USDC` or
+`EURC`); without it the API answers `400 invalid_request`. Spend is the gross amount of
+confirmed inbound transactions. A payment is attributed to the customer on the
+transaction, or else to the customer of its payment session or subscription.
 
 ```json
 {
-  "data": [
-    { "customerId": "cus_xyz", "totalSpend": "500000000", "transactionCount": 12 },
-    ...
-  ],
-  "nextCursor": null,
-  "hasMore": false
+  "currency": "USDC",
+  "data": [{ "customerId": "cus_xyz", "totalSpend": "500000000", "transactionCount": 12 }],
+  "nextCursor": "eyJzIjoiNTAwMDAwMDAwIiwiYyI6ImN1c194eXoifQ",
+  "hasMore": true
 }
 ```
+
+Pass `nextCursor` back as `cursor` for the next page. `limit` is 1 to 100, default 25.
 
 ## Forecast
 
@@ -74,16 +213,31 @@ Top customers by lifetime spend:
 GET /v1/stats/forecast
 ```
 
-Linear regression over the last 90 days of confirmed transactions:
+One linear regression per currency over that currency's daily net revenue for the last
+90 days. Days with no revenue count as zero, from the first day with revenue up to
+yesterday. `nextN` is the sum of the projected daily values over the next N days, never
+below zero.
 
 ```json
 {
-  "confidence": "high",       // 'low' | 'medium' | 'high', based on sample size
-  "last90DayRevenue": "...",
-  "next30": "...",
-  "next60": "...",
-  "next90": "..."
+  "byCurrency": {
+    "USDC": {
+      "confidence": "medium",
+      "last90DayRevenue": "900000000",
+      "next30": "320000000",
+      "next60": "650000000",
+      "next90": "990000000"
+    },
+    "EURC": {
+      "confidence": "low",
+      "last90DayRevenue": "10000000",
+      "next30": "0",
+      "next60": "0",
+      "next90": "0"
+    }
+  }
 }
 ```
 
-Confidence: `low` if < 30 days of data, `medium` if 30-60, `high` if 60+.
+Confidence per currency: `low` below 30 days with revenue, `medium` from 30, `high` from 60. Fewer than 7 days with revenue gives `low` and zero projections.
+`last90DayRevenue` is always the real 90-day total.

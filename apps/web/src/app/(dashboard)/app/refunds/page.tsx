@@ -46,12 +46,13 @@ import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
-import { formatCurrencyTotals, sumByCurrency, type CurrencyTotal } from '@/lib/currency-totals'
+import { refundCards, summaryValue } from '@/lib/stats-summary'
 import type { LoadedRows } from '@/lib/cursor-pages'
 import {
   serverRowsOf,
   useCreateRefund,
   useRefundPages,
+  useStatsSummary,
   useSubmitRefundSignature,
 } from '@/hooks/api'
 
@@ -67,22 +68,10 @@ const STATUS_TONE: Record<RefundStatus, 'positive' | 'warning' | 'danger' | 'inf
 interface RefundsView {
   rows: Refund[]
   hasMore: boolean
-  completed: Refund[]
-  refunded: CurrencyTotal[]
-  awaiting: number
-  failed: number
 }
 
 function projectRefunds(loaded: LoadedRows<Refund>): RefundsView {
-  const completed = loaded.rows.filter((r) => r.status === 'completed')
-  return {
-    rows: loaded.rows,
-    hasMore: loaded.hasMore,
-    completed,
-    refunded: sumByCurrency(completed, (r) => ({ amount: r.amount, currency: r.currency })),
-    awaiting: loaded.rows.filter((r) => r.status === 'awaiting_signature').length,
-    failed: loaded.rows.filter((r) => r.status === 'failed').length,
-  }
+  return { rows: loaded.rows, hasMore: loaded.hasMore }
 }
 
 /**
@@ -170,6 +159,8 @@ function useRefundSigner() {
 export default function RefundsPage() {
   const refundsQuery = useRefundPages({ limit: 100 }, { select: projectRefunds })
   const { data, isLoading, isError, error, refetch } = refundsQuery
+  const summaryQuery = useStatsSummary({ select: (summary) => refundCards(summary.refunds) })
+  const cards = summaryQuery.data
   const { sign: signRefund, isSigning } = useRefundSigner()
   const [signingId, setSigningId] = React.useState<string | null>(null)
 
@@ -358,18 +349,17 @@ export default function RefundsPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat
           label="Completed"
-          value={data ? formatCurrencyTotals(data.refunded) : '—'}
-          note={
-            data
-              ? `${data.completed.length} refunds${data.hasMore ? '. Loaded refunds only' : ''}`
-              : undefined
-          }
+          value={summaryValue(summaryQuery, (c) => c.completed)}
+          note={cards?.completedNote}
         />
-        <Stat label="Awaiting signature" value={data ? data.awaiting.toString() : '—'} />
+        <Stat
+          label="Awaiting signature"
+          value={summaryValue(summaryQuery, (c) => c.awaitingSignature)}
+        />
         <Stat
           label="Failed"
-          value={data ? data.failed.toString() : '—'}
-          tone={data && data.failed > 0 ? 'danger' : undefined}
+          value={summaryValue(summaryQuery, (c) => c.failed)}
+          tone={cards && cards.failedCount > 0 ? 'danger' : undefined}
         />
       </div>
 

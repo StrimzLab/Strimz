@@ -14,12 +14,23 @@ import {
   AdminStatusChangedEmail,
   renderToHtml,
 } from '@strimz/email-templates'
-import type { BroadcastAudience, CreateBroadcastParsed } from '@strimz/shared-types'
+import type {
+  AdminMerchantStats,
+  AdminOverview,
+  AdminTopMerchants,
+  AdminVolumeSeries,
+  BroadcastAudience,
+  CreateBroadcastParsed,
+  Mode,
+  PaymentCurrency,
+} from '@strimz/shared-types'
+import { paymentCurrencySchema } from '@strimz/shared-types'
 
 import { TypedConfigService } from '../../config/index.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { PrivyService } from '../../infra/privy/privy.service.js'
+import { toCurrencyAmounts } from '../../common/money/currency-amounts.js'
 import { hashAdminInviteToken, issueAdminInviteToken } from './admin-invite-token.js'
 
 interface DateRange {
@@ -75,46 +86,41 @@ export class AdminService {
   // ------------------------------------------------------------------
   // Platform overview
   // ------------------------------------------------------------------
-  async getOverview() {
-    const [
-      merchants,
-      activeSubscriptions,
-      confirmedSessions,
-      lifetimeVolumeRow,
-      lifetimeFeesRow,
-      last30dVolumeRow,
-      last30dSignups,
-    ] = await Promise.all([
-      this.prisma.db.merchant.groupBy({
-        by: ['status'],
-        _count: { _all: true },
-      }),
-      this.prisma.db.subscription.count({ where: { status: 'active' } }),
-      this.prisma.db.paymentSession.count({ where: { status: 'confirmed' } }),
-      this.prisma.db.$queryRawUnsafe<{ sum: bigint | null }[]>(
-        `SELECT sum(("amount")::numeric)::bigint AS sum FROM "Transaction" WHERE status='confirmed'`,
-      ),
-      this.prisma.db.$queryRawUnsafe<{ sum: bigint | null }[]>(
-        `SELECT sum(("feeAmount")::numeric)::bigint AS sum FROM "Transaction" WHERE status='confirmed'`,
-      ),
-      this.prisma.db.$queryRawUnsafe<{ sum: bigint | null }[]>(
-        `SELECT sum(("amount")::numeric)::bigint AS sum
-         FROM "Transaction"
-         WHERE status='confirmed' AND "blockTimestamp" >= NOW() - INTERVAL '30 days'`,
-      ),
-      this.prisma.db.merchant.count({
-        where: { createdAt: { gte: new Date(Date.now() - 30 * 86_400_000) } },
-      }),
-    ])
+  async getOverview(mode: Mode): Promise<AdminOverview> {
+    const [merchants, activeSubscriptions, confirmedSessions, volumeRows, last30dSignups] =
+      await Promise.all([
+        this.prisma.db.merchant.groupBy({
+          by: ['status'],
+          _count: { _all: true },
+        }),
+        this.prisma.db.subscription.count({ where: { status: 'active', mode } }),
+        this.prisma.db.paymentSession.count({ where: { status: 'confirmed', mode } }),
+        this.prisma.db.$queryRawUnsafe<
+          { currency: string; lifetime: string; fees: string; last30d: string }[]
+        >(
+          `SELECT currency::text AS currency,
+                  sum(("amount")::numeric)::text AS lifetime,
+                  sum(("feeAmount")::numeric)::text AS fees,
+                  coalesce(sum(("amount")::numeric) FILTER (WHERE "blockTimestamp" >= NOW() - INTERVAL '30 days'), 0)::text AS "last30d"
+           FROM "Transaction"
+           WHERE status='confirmed' AND mode = $1::"Mode"
+           GROUP BY currency`,
+          mode,
+        ),
+        this.prisma.db.merchant.count({
+          where: { createdAt: { gte: new Date(Date.now() - 30 * 86_400_000) } },
+        }),
+      ])
 
     // MRR — sum of every active subscription's monthly-normalised amount.
     const activeSubs = await this.prisma.db.subscription.findMany({
-      where: { status: 'active' },
-      select: { amount: true, interval: true, intervalCount: true },
+      where: { status: 'active', mode },
+      select: { amount: true, interval: true, intervalCount: true, currency: true },
     })
-    let mrrUnits = 0n
+    const mrr = new Map<PaymentCurrency, bigint>()
     for (const s of activeSubs) {
-      mrrUnits += normaliseToMonthly(BigInt(s.amount), s.interval, s.intervalCount)
+      const monthly = normaliseToMonthly(BigInt(s.amount), s.interval, s.intervalCount)
+      mrr.set(s.currency, (mrr.get(s.currency) ?? 0n) + monthly)
     }
 
     const merchantsByStatus: Record<string, number> = {}
@@ -125,20 +131,29 @@ export class AdminService {
     }
 
     return {
+      mode,
       merchants: {
         total: totalMerchants,
         byStatus: merchantsByStatus,
         last30dSignups,
       },
       volume: {
-        lifetimeUsdc: (lifetimeVolumeRow[0]?.sum ?? 0n).toString(),
-        lifetimeFeesUsdc: (lifetimeFeesRow[0]?.sum ?? 0n).toString(),
-        last30dUsdc: (last30dVolumeRow[0]?.sum ?? 0n).toString(),
+        lifetime: toCurrencyAmounts(
+          volumeRows.map((r) => ({ currency: r.currency, amount: r.lifetime })),
+        ),
+        lifetimeFees: toCurrencyAmounts(
+          volumeRows.map((r) => ({ currency: r.currency, amount: r.fees })),
+        ),
+        last30d: toCurrencyAmounts(
+          volumeRows.map((r) => ({ currency: r.currency, amount: r.last30d })),
+        ),
         confirmedSessions,
       },
       subscriptions: {
         active: activeSubscriptions,
-        mrrUsdc: mrrUnits.toString(),
+        mrr: toCurrencyAmounts(
+          [...mrr].map(([currency, amount]) => ({ currency, amount: amount.toString() })),
+        ),
       },
     }
   }
@@ -189,7 +204,7 @@ export class AdminService {
     return { data, nextCursor, hasMore }
   }
 
-  async getMerchant(merchantId: string) {
+  async getMerchant(merchantId: string, mode: Mode) {
     const merchant = await this.prisma.db.merchant.findUnique({
       where: { id: merchantId },
       select: {
@@ -211,36 +226,37 @@ export class AdminService {
     if (!merchant) throw new NotFoundException({ code: 'not_found' })
 
     // Counts adjacent to the merchant — useful in the drilldown.
-    const [paymentCount, subscriptionCount, lifetimeRow, last30dRow] = await Promise.all([
+    const [paymentCount, subscriptionCount, volumeRows] = await Promise.all([
       this.prisma.db.paymentSession.count({
-        where: { merchantId, status: 'confirmed' },
+        where: { merchantId, status: 'confirmed', mode },
       }),
       this.prisma.db.subscription.count({
-        where: { merchantId, status: 'active' },
+        where: { merchantId, status: 'active', mode },
       }),
-      this.prisma.db.$queryRawUnsafe<{ sum: bigint | null }[]>(
-        `SELECT sum(("amount")::numeric)::bigint AS sum
-         FROM "Transaction" WHERE "merchantId" = $1 AND status='confirmed'`,
-        merchantId,
-      ),
-      this.prisma.db.$queryRawUnsafe<{ sum: bigint | null }[]>(
-        `SELECT sum(("amount")::numeric)::bigint AS sum
+      this.prisma.db.$queryRawUnsafe<{ currency: string; lifetime: string; last30d: string }[]>(
+        `SELECT currency::text AS currency,
+                sum(("amount")::numeric)::text AS lifetime,
+                coalesce(sum(("amount")::numeric) FILTER (WHERE "blockTimestamp" >= NOW() - INTERVAL '30 days'), 0)::text AS "last30d"
          FROM "Transaction"
-         WHERE "merchantId" = $1 AND status='confirmed'
-           AND "blockTimestamp" >= NOW() - INTERVAL '30 days'`,
+         WHERE "merchantId" = $1 AND status='confirmed' AND mode = $2::"Mode"
+         GROUP BY currency`,
         merchantId,
+        mode,
       ),
     ])
 
-    return {
-      ...merchant,
-      stats: {
-        confirmedPayments: paymentCount,
-        activeSubscriptions: subscriptionCount,
-        lifetimeVolumeUsdc: (lifetimeRow[0]?.sum ?? 0n).toString(),
-        last30dVolumeUsdc: (last30dRow[0]?.sum ?? 0n).toString(),
-      },
+    const stats: AdminMerchantStats = {
+      mode,
+      confirmedPayments: paymentCount,
+      activeSubscriptions: subscriptionCount,
+      lifetimeVolume: toCurrencyAmounts(
+        volumeRows.map((r) => ({ currency: r.currency, amount: r.lifetime })),
+      ),
+      last30dVolume: toCurrencyAmounts(
+        volumeRows.map((r) => ({ currency: r.currency, amount: r.last30d })),
+      ),
     }
+    return { ...merchant, stats }
   }
 
   async setMerchantStatus(
@@ -306,30 +322,34 @@ export class AdminService {
   // ------------------------------------------------------------------
   // Analytics — platform-wide
   // ------------------------------------------------------------------
-  async getVolumeSeries(range: DateRange) {
+  async getVolumeSeries(range: DateRange, mode: Mode): Promise<AdminVolumeSeries> {
     const from = range.from ? new Date(range.from) : new Date(Date.now() - 90 * 86_400_000)
     const to = range.to ? new Date(range.to) : new Date()
-    type Row = { day: Date; volume: bigint; fees: bigint; count: bigint }
+    type Row = { day: string; currency: string; volume: string; fees: string; count: bigint }
     const rows = (await this.prisma.db.$queryRawUnsafe(
       `SELECT
-         date_trunc('day', "blockTimestamp")::timestamp AS day,
-         sum(("amount")::numeric)::bigint AS volume,
-         sum(("feeAmount")::numeric)::bigint AS fees,
+         to_char(date_trunc('day', "blockTimestamp"), 'YYYY-MM-DD') AS day,
+         currency::text AS currency,
+         sum(("amount")::numeric)::text AS volume,
+         sum(("feeAmount")::numeric)::text AS fees,
          count(*) AS count
        FROM "Transaction"
-       WHERE status='confirmed' AND "blockTimestamp" BETWEEN $1 AND $2
-       GROUP BY day
-       ORDER BY day ASC`,
+       WHERE status='confirmed' AND mode = $3::"Mode" AND "blockTimestamp" BETWEEN $1 AND $2
+       GROUP BY date_trunc('day', "blockTimestamp"), currency
+       ORDER BY date_trunc('day', "blockTimestamp") ASC, "Transaction".currency ASC`,
       from,
       to,
+      mode,
     )) as Row[]
     return {
+      mode,
       from: from.toISOString(),
       to: to.toISOString(),
       data: rows.map((r) => ({
-        day: r.day.toISOString().slice(0, 10),
-        volume: r.volume.toString(),
-        fees: r.fees.toString(),
+        day: r.day,
+        currency: paymentCurrencySchema.parse(r.currency),
+        volume: r.volume,
+        fees: r.fees,
         count: Number(r.count),
       })),
     }
@@ -358,12 +378,16 @@ export class AdminService {
     }
   }
 
-  async getTopMerchants(limit = 10) {
+  async getTopMerchants(params: {
+    currency: PaymentCurrency
+    mode: Mode
+    limit: number
+  }): Promise<AdminTopMerchants> {
     type Row = {
       merchantId: string
       businessName: string | null
       email: string
-      volume: bigint
+      volume: string
       txCount: bigint
     }
     const rows = (await this.prisma.db.$queryRawUnsafe(
@@ -371,22 +395,26 @@ export class AdminService {
          m.id AS "merchantId",
          m."businessName",
          m.email,
-         sum(("t"."amount")::numeric)::bigint AS volume,
+         sum(("t"."amount")::numeric)::text AS volume,
          count(*) AS "txCount"
        FROM "Merchant" m
        JOIN "Transaction" t ON t."merchantId" = m.id
-       WHERE t.status = 'confirmed'
+       WHERE t.status = 'confirmed' AND t.mode = $2::"Mode" AND t.currency = $3::"PaymentCurrency"
        GROUP BY m.id
-       ORDER BY volume DESC
+       ORDER BY sum(("t"."amount")::numeric) DESC, m.id ASC
        LIMIT $1`,
-      Math.min(limit, 50),
+      Math.min(params.limit, 50),
+      params.mode,
+      params.currency,
     )) as Row[]
     return {
+      mode: params.mode,
+      currency: params.currency,
       data: rows.map((r) => ({
         merchantId: r.merchantId,
         businessName: r.businessName,
         email: r.email,
-        volumeUsdc: r.volume.toString(),
+        volume: r.volume,
         transactionCount: Number(r.txCount),
       })),
     }

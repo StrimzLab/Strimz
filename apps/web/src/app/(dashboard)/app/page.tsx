@@ -19,9 +19,17 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { KpiCard } from '@/components/dashboard/kpi-card'
 import { stagger, inViewOnce } from '@/lib/motion'
 import { formatTokenAmount, tokenAmountToNumber } from '@/lib/format'
-import { bucketDailyTotals, formatCurrencyTotals, sumByCurrency } from '@/lib/currency-totals'
+import { bucketVolumeDays, formatCurrencyAmounts, utcDayStart } from '@/lib/currency-totals'
+import { homeCards, summaryValue } from '@/lib/stats-summary'
+import { paymentCurrencies } from '@strimz/shared-types'
 import { useDashboardTour } from '@/hooks/use-dashboard-tour'
-import { useInvoices, useMerchantMe, useMrr, usePaymentSessions } from '@/hooks/api'
+import {
+  useMerchantMe,
+  useMrr,
+  usePaymentSessions,
+  useStatsSummary,
+  useStatsVolume,
+} from '@/hooks/api'
 
 const STEPS = [
   {
@@ -44,54 +52,36 @@ const STEPS = [
   },
 ] as const
 
-const SESSION_SAMPLE = 100
-const INVOICE_SAMPLE = 100
+const CHART_DAYS = 30
 
 export default function DashboardHome() {
   const merchantQuery = useMerchantMe()
   const mrrQuery = useMrr()
-  const sessionsQuery = usePaymentSessions({ limit: SESSION_SAMPLE })
-  const invoicesQuery = useInvoices({ limit: INVOICE_SAMPLE })
+  const summaryQuery = useStatsSummary()
+  const [chartRange] = React.useState(() => {
+    const now = Date.now()
+    return {
+      nowMs: now,
+      from: new Date(utcDayStart(now, CHART_DAYS - 1)).toISOString(),
+      to: new Date(now).toISOString(),
+    }
+  })
+  const volumeQuery = useStatsVolume({ from: chartRange.from, to: chartRange.to })
 
   useDashboardTour({ enabled: Boolean(merchantQuery.data) })
 
-  const derived = React.useMemo(() => {
-    const now = Date.now()
-    const sevenDays = 7 * 86_400_000
-    const thirtyDays = 30 * 86_400_000
+  const cards = summaryQuery.data ? homeCards(summaryQuery.data) : null
 
-    const sessions = sessionsQuery.data?.data ?? []
-    const confirmed = sessions.filter((s) => s.status === 'confirmed')
-    const confirmed7d = confirmed.filter((s) => now - new Date(s.updatedAt).getTime() < sevenDays)
-    const confirmed30d = confirmed.filter((s) => now - new Date(s.updatedAt).getTime() < thirtyDays)
-    const volume7d = sumByCurrency(confirmed7d, (r) => ({ amount: r.amount, currency: r.currency }))
-    const volume30d = sumByCurrency(confirmed30d, (r) => ({
-      amount: r.amount,
-      currency: r.currency,
-    }))
-
-    const invoices = invoicesQuery.data?.data ?? []
-    const openInvoices = invoices.filter((i) => i.status === 'sent' || i.status === 'overdue')
-
+  const chart = React.useMemo(() => {
     // Per-day series for the volume chart. We index into a 30-slot
     // array keyed by midnight-UTC day so the chart shows a stable
     // x-axis even when a day has no confirmed transactions.
     const dayLabel = (d: Date) =>
       d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-    const currencies = volume30d.map((t) => t.currency)
-    const buckets = bucketDailyTotals(
-      confirmed30d.map((s) => ({ at: s.updatedAt, amount: s.amount, currency: s.currency })),
-      now,
-      30,
-    )
+    const rows = volumeQuery.data?.data ?? []
+    const currencies = paymentCurrencies.filter((c) => rows.some((r) => r.currency === c))
+    const buckets = bucketVolumeDays(rows, chartRange.nowMs, CHART_DAYS)
     return {
-      volume7d,
-      volume30d,
-      confirmedCount7d: confirmed7d.length,
-      sessionsPartial: sessionsQuery.data?.hasMore ?? false,
-      openInvoiceCount: openInvoices.length,
-      invoicesPartial: invoicesQuery.data?.hasMore ?? false,
-      anyConfirmedAtAll: confirmed.length > 0,
       currencies,
       series: buckets.map((b) => ({
         day: dayLabel(new Date(b.dayStart)),
@@ -104,45 +94,47 @@ export default function DashboardHome() {
         ),
       })),
     }
-  }, [sessionsQuery.data, invoicesQuery.data])
+  }, [volumeQuery.data, chartRange.nowMs])
 
   const merchant = merchantQuery.data
-  const showGettingStarted = !derived.anyConfirmedAtAll
+  const showGettingStarted = cards ? !cards.anyConfirmedAtAll : false
 
   const KPIS = [
     {
       label: 'MRR',
-      value: mrrQuery.data ? formatTokenAmount(mrrQuery.data.mrr, 'USDC') : '—',
+      value: summaryValue(mrrQuery, (d) => formatCurrencyAmounts(d.mrr)),
       icon: Wallet,
       href: '/app/analytics',
-      subtle: mrrQuery.data ? `${mrrQuery.data.activeSubscribers} active` : 'Loading…',
+      subtle: mrrQuery.data
+        ? `${mrrQuery.data.activeSubscribers} active`
+        : mrrQuery.isError
+          ? 'Could not load MRR'
+          : 'Loading…',
     },
     {
       label: 'Active subscribers',
-      value: mrrQuery.data ? mrrQuery.data.activeSubscribers.toLocaleString() : '—',
+      value: summaryValue(mrrQuery, (d) => d.activeSubscribers.toLocaleString()),
       icon: Users,
       href: '/app/subscriptions',
       subtle: 'Customers cycling',
     },
     {
       label: '7-day volume',
-      value: formatCurrencyTotals(derived.volume7d),
+      value: summaryValue(summaryQuery, (d) => homeCards(d).volume7d),
       icon: CreditCard,
       href: '/app/payment-sessions',
-      subtle: derived.sessionsPartial
-        ? `${derived.confirmedCount7d} confirmed in the latest ${SESSION_SAMPLE} sessions`
-        : `${derived.confirmedCount7d} confirmed`,
+      subtle: cards
+        ? cards.volume7dNote
+        : summaryQuery.isError
+          ? 'Could not load volume'
+          : 'Loading…',
     },
     {
       label: 'Open invoices',
-      value: derived.invoicesPartial
-        ? `${derived.openInvoiceCount}+`
-        : derived.openInvoiceCount.toString(),
+      value: summaryValue(summaryQuery, (d) => homeCards(d).openInvoices),
       icon: Receipt,
       href: '/app/invoices',
-      subtle: derived.invoicesPartial
-        ? `Sent or overdue in the latest ${INVOICE_SAMPLE} invoices`
-        : 'Sent or overdue',
+      subtle: 'Sent or overdue',
     },
   ] as const
 
@@ -170,11 +162,12 @@ export default function DashboardHome() {
       </motion.div>
 
       <VolumeChartCard
-        series={derived.series}
-        currencies={derived.currencies}
-        total={formatCurrencyTotals(derived.volume30d)}
-        partial={derived.sessionsPartial}
-        isLoading={sessionsQuery.isPending}
+        series={chart.series}
+        currencies={chart.currencies}
+        total={summaryValue(summaryQuery, (d) => homeCards(d).volume30d)}
+        isLoading={volumeQuery.isPending}
+        error={volumeQuery.isError ? volumeQuery.error.message : null}
+        onRetry={() => void volumeQuery.refetch()}
       />
 
       <div className="mt-6">{showGettingStarted ? <GetStartedCard /> : <RecentSessionsCard />}</div>
@@ -188,14 +181,16 @@ function VolumeChartCard({
   series,
   currencies,
   total,
-  partial,
   isLoading,
+  error,
+  onRetry,
 }: {
   series: ({ day: string; count: number } & Record<string, number | string>)[]
   currencies: string[]
   total: string
-  partial: boolean
   isLoading: boolean
+  error: string | null
+  onRetry: () => void
 }) {
   const empty = !isLoading && currencies.length === 0
 
@@ -206,9 +201,7 @@ function VolumeChartCard({
           <div>
             <h3 className="font-poppins font-semibold">Volume (30 days)</h3>
             <p className="text-muted-foreground text-xs">
-              {partial
-                ? `Confirmed payments in the latest ${SESSION_SAMPLE} sessions, per currency.`
-                : 'Confirmed payments, per currency.'}
+              Confirmed payments and subscription charges, per currency.
             </p>
           </div>
           <div className="text-right">
@@ -219,6 +212,17 @@ function VolumeChartCard({
         <div className="mt-4">
           {isLoading ? (
             <div className="bg-muted/30 h-[220px] animate-pulse rounded-md" />
+          ) : error ? (
+            <div className="text-muted-foreground flex h-[220px] flex-col items-center justify-center gap-2 text-xs">
+              <span>Could not load volume: {error}</span>
+              <button
+                type="button"
+                onClick={onRetry}
+                className="font-medium text-[#02C76A] hover:underline"
+              >
+                Retry
+              </button>
+            </div>
           ) : empty ? (
             <div className="text-muted-foreground flex h-[220px] items-center justify-center text-xs">
               No confirmed payments in the last 30 days.

@@ -17,7 +17,11 @@ import {
 } from '@strimz/ui'
 
 import { PageHeader } from '@/components/dashboard/page-header'
-import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
+import type { Mode } from '@strimz/shared-types'
+import { SegmentedToggle } from '@/components/shared/segmented-toggle'
+import { relativeTime, shortAddress } from '@/lib/format'
+import { formatCurrencyAmounts } from '@/lib/currency-totals'
+import { MODE_OPTIONS } from '@/lib/admin-volume'
 import type { MerchantTier } from '@/lib/admin-api'
 import { suspendMerchantConfirm } from '@/lib/destructive-actions'
 import {
@@ -35,7 +39,8 @@ const TIERS: MerchantTier[] = ['free', 'growth', 'business', 'enterprise']
 
 export default function AdminMerchantDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { data: merchant, isLoading, isError, error, refetch } = useAdminMerchantDetail(id)
+  const [mode, setMode] = React.useState<Mode>('live')
+  const { data: merchant, isLoading, isError, error, refetch } = useAdminMerchantDetail(id, mode)
 
   const suspendMutation = useSuspendMerchant()
   const reactivateMutation = useReactivateMerchant()
@@ -88,15 +93,19 @@ export default function AdminMerchantDetailPage() {
         />
       </div>
 
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground text-xs">
+          Figures below are for {merchant.stats.mode} mode.
+        </span>
+        <SegmentedToggle label="Mode" options={MODE_OPTIONS} value={mode} onChange={setMode} />
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Lifetime volume"
-          value={formatTokenAmount(merchant.stats.lifetimeVolumeUsdc, 'USDC')}
+          value={formatCurrencyAmounts(merchant.stats.lifetimeVolume)}
         />
-        <Stat
-          label="30-day volume"
-          value={formatTokenAmount(merchant.stats.last30dVolumeUsdc, 'USDC')}
-        />
+        <Stat label="30-day volume" value={formatCurrencyAmounts(merchant.stats.last30dVolume)} />
         <Stat
           label="Confirmed payments"
           value={merchant.stats.confirmedPayments.toLocaleString()}

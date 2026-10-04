@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import {
   Area,
   AreaChart,
@@ -14,7 +15,11 @@ import {
 import { Card, CardContent } from '@strimz/ui'
 
 import { PageHeader } from '@/components/dashboard/page-header'
+import type { Mode, PaymentCurrency } from '@strimz/shared-types'
+import { SegmentedToggle } from '@/components/shared/segmented-toggle'
 import { formatTokenAmount } from '@/lib/format'
+import { formatCurrencyAmounts } from '@/lib/currency-totals'
+import { CURRENCY_OPTIONS, MODE_OPTIONS, pivotVolumeByCurrency } from '@/lib/admin-volume'
 import {
   useAdminOverview,
   useAdminSignups,
@@ -23,17 +28,19 @@ import {
 } from '@/hooks/admin'
 
 export default function AdminAnalyticsPage() {
-  const overviewQuery = useAdminOverview()
-  const volumeQuery = useAdminVolume({})
+  const [mode, setMode] = React.useState<Mode>('live')
+  const [topCurrency, setTopCurrency] = React.useState<PaymentCurrency>('USDC')
+  const overviewQuery = useAdminOverview(mode)
+  const volumeQuery = useAdminVolume({ mode })
   const signupsQuery = useAdminSignups({})
-  const topQuery = useAdminTopMerchants(15)
+  const topQuery = useAdminTopMerchants({ currency: topCurrency, mode, limit: 15 })
 
   const overview = overviewQuery.data
-  const volumeChart = (volumeQuery.data?.data ?? []).map((p) => ({
-    day: p.day.slice(5),
-    volume: Number(BigInt(p.volume) / 1_000_000n),
-    fees: Number(BigInt(p.fees) / 1_000_000n),
-  }))
+  const unavailable = overviewQuery.isError ? 'Unavailable' : '—'
+  const volumeChart = React.useMemo(
+    () => pivotVolumeByCurrency(volumeQuery.data?.data ?? []),
+    [volumeQuery.data],
+  )
   const signupChart = (signupsQuery.data?.data ?? []).map((p) => ({
     day: p.day.slice(5),
     count: p.count,
@@ -44,24 +51,27 @@ export default function AdminAnalyticsPage() {
       <PageHeader
         title="Analytics"
         description="Volume + signups across the platform. Bare numbers, no projections. This is what already happened."
+        action={
+          <SegmentedToggle label="Mode" options={MODE_OPTIONS} value={mode} onChange={setMode} />
+        }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Lifetime gross volume"
-          value={overview ? formatTokenAmount(overview.volume.lifetimeUsdc, 'USDC') : '—'}
+          value={overview ? formatCurrencyAmounts(overview.volume.lifetime) : unavailable}
         />
         <Stat
           label="Lifetime fees"
-          value={overview ? formatTokenAmount(overview.volume.lifetimeFeesUsdc, 'USDC') : '—'}
+          value={overview ? formatCurrencyAmounts(overview.volume.lifetimeFees) : unavailable}
         />
         <Stat
           label="30-day volume"
-          value={overview ? formatTokenAmount(overview.volume.last30dUsdc, 'USDC') : '—'}
+          value={overview ? formatCurrencyAmounts(overview.volume.last30d) : unavailable}
         />
         <Stat
           label="Active subs"
-          value={overview ? overview.subscriptions.active.toLocaleString() : '—'}
+          value={overview ? overview.subscriptions.active.toLocaleString() : unavailable}
         />
       </div>
 
@@ -69,35 +79,44 @@ export default function AdminAnalyticsPage() {
         <CardContent className="p-6">
           <h3 className="font-sora text-base font-semibold">Volume + fees (90d)</h3>
           <p className="text-muted-foreground mt-1 text-xs">
-            Daily confirmed transaction volume with Strimz's cut shaded underneath.
+            Daily confirmed transaction volume per currency, {mode} mode, with Strimz's cut shaded
+            underneath.
           </p>
           <div className="mt-4 h-[320px]">
-            {volumeChart.length === 0 ? (
+            {volumeQuery.isError ? (
+              <Empty label={`Could not load volume: ${volumeQuery.error.message}`} />
+            ) : volumeQuery.isLoading ? (
+              <div className="bg-muted/30 h-full animate-pulse rounded-md" />
+            ) : volumeChart.points.length === 0 ? (
               <Empty />
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={volumeChart}>
+                <AreaChart data={volumeChart.points}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" />
                   <XAxis dataKey="day" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="volume"
-                    name="Volume (USDC)"
-                    stroke="#02C76A"
-                    fill="#02C76A"
-                    fillOpacity={0.15}
-                    strokeWidth={2}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="fees"
-                    name="Fees (USDC)"
-                    stroke="#0c7a3e"
-                    fill="#0c7a3e"
-                    fillOpacity={0.3}
-                  />
+                  {volumeChart.currencies.flatMap((currency) => [
+                    <Area
+                      key={currency}
+                      type="monotone"
+                      dataKey={currency}
+                      name={`Volume (${currency})`}
+                      stroke={CURRENCY_STROKE[currency].volume}
+                      fill={CURRENCY_STROKE[currency].volume}
+                      fillOpacity={0.15}
+                      strokeWidth={2}
+                    />,
+                    <Area
+                      key={`${currency}_fees`}
+                      type="monotone"
+                      dataKey={`${currency}_fees`}
+                      name={`Fees (${currency})`}
+                      stroke={CURRENCY_STROKE[currency].fees}
+                      fill={CURRENCY_STROKE[currency].fees}
+                      fillOpacity={0.3}
+                    />,
+                  ])}
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -131,8 +150,22 @@ export default function AdminAnalyticsPage() {
 
       <Card className="border-border/60">
         <CardContent className="p-6">
-          <h3 className="font-sora text-base font-semibold">Top merchants by volume</h3>
-          {topQuery.isLoading ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-sora text-base font-semibold">
+              Top merchants by volume in {topCurrency}
+            </h3>
+            <SegmentedToggle
+              label="Currency"
+              options={CURRENCY_OPTIONS}
+              value={topCurrency}
+              onChange={setTopCurrency}
+            />
+          </div>
+          {topQuery.isError ? (
+            <p className="text-destructive mt-4 text-xs">
+              Could not load top merchants: {topQuery.error.message}
+            </p>
+          ) : topQuery.isLoading ? (
             <div className="mt-4 space-y-2">
               {[1, 2, 3].map((i) => (
                 <div
@@ -157,7 +190,7 @@ export default function AdminAnalyticsPage() {
                   </div>
                   <div className="text-right">
                     <div className="font-mono text-sm font-medium">
-                      {formatTokenAmount(m.volumeUsdc, 'USDC')}
+                      {formatTokenAmount(m.volume, topQuery.data.currency)}
                     </div>
                     <div className="text-muted-foreground text-xs">{m.transactionCount} tx</div>
                   </div>
@@ -182,10 +215,15 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-function Empty() {
+function Empty({ label = 'No data in the selected window.' }: { label?: string }) {
   return (
     <div className="text-muted-foreground flex h-full items-center justify-center text-xs">
-      No data in the selected window.
+      {label}
     </div>
   )
+}
+
+const CURRENCY_STROKE: Record<PaymentCurrency, { volume: string; fees: string }> = {
+  USDC: { volume: '#02C76A', fees: '#0c7a3e' },
+  EURC: { volume: '#2563EB', fees: '#1e3a8a' },
 }
