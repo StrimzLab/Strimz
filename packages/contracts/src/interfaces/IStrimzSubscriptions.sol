@@ -97,6 +97,7 @@ interface IStrimzSubscriptions {
     error Subscriptions__UnsupportedCapability(address token);
     error Subscriptions__InvalidIntent();
     error Subscriptions__AlreadyCancelled(uint256 subscriptionId);
+    error Subscriptions__IntentAlreadyUsed(bytes32 nonce);
 
     /// @param merchantId The merchant the subscription bills to.
     /// @param token ERC20 token address — must be whitelisted.
@@ -136,6 +137,7 @@ interface IStrimzSubscriptions {
         uint32 interval,
         uint64 startAt,
         uint64 endAt,
+        bytes32 nonce,
         PermitData calldata permitData,
         Sig calldata permitSig,
         Sig calldata intentSig
