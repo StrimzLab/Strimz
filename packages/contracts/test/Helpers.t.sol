@@ -206,10 +206,11 @@ abstract contract StrimzTestBase is Test {
         uint32 interval,
         uint64 startAt,
         uint64 endAt,
-        uint256 permitDeadline
+        uint256 permitDeadline,
+        bytes32 nonce
     ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
         bytes32 digest = subs.subscriptionIntentDigest(
-            merchantId, token, amount, interval, startAt, endAt, permitDeadline
+            merchantId, token, amount, interval, startAt, endAt, permitDeadline, nonce
         );
         (v, r, s) = vm.sign(signerPk, digest);
     }
