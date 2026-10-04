@@ -16,7 +16,10 @@ import { AlertCircle, RefreshCcw } from 'lucide-react'
 import { Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } from '@strimz/ui'
 
 import { PageHeader } from '@/components/dashboard/page-header'
+import { paymentCurrencies, type Forecast, type PaymentCurrency } from '@strimz/shared-types'
 import { formatTokenAmount, shortAddress } from '@/lib/format'
+import { formatCurrencyAmounts } from '@/lib/currency-totals'
+import { forecastAmounts, forecastConfidenceNote } from '@/lib/stats-summary'
 import { useChurn, useConversion, useForecast, useLtv, useMrr } from '@/hooks/api'
 
 export default function AnalyticsPage() {
@@ -24,7 +27,8 @@ export default function AnalyticsPage() {
   const forecastQuery = useForecast()
   const conversionQuery = useConversion({})
   const churnQuery = useChurn({})
-  const ltvQuery = useLtv({ limit: 10 })
+  const [ltvCurrency, setLtvCurrency] = React.useState<PaymentCurrency>('USDC')
+  const ltvQuery = useLtv({ currency: ltvCurrency, limit: 10 })
 
   const mrr = mrrQuery.data
   const forecast = forecastQuery.data
@@ -65,7 +69,7 @@ export default function AnalyticsPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi
           label="MRR"
-          value={mrr ? formatTokenAmount(mrr.mrr, 'USDC') : '—'}
+          value={mrr ? formatCurrencyAmounts(mrr.mrr) : mrrQuery.isError ? 'Unavailable' : '—'}
           loading={mrrQuery.isLoading}
           subtle={mrr ? `${mrr.activeSubscribers} active subs` : undefined}
         />
@@ -96,9 +100,15 @@ export default function AnalyticsPage() {
         />
         <Kpi
           label="Forecast. Next 30d"
-          value={forecast ? formatTokenAmount(forecast.next30, 'USDC') : '—'}
+          value={
+            forecast
+              ? formatCurrencyAmounts(forecastAmounts(forecast, 'next30'))
+              : forecastQuery.isError
+                ? 'Unavailable'
+                : '—'
+          }
           loading={forecastQuery.isLoading}
-          subtle={forecast ? `${forecast.confidence} confidence` : undefined}
+          subtle={forecast ? forecastConfidenceNote(forecast) : undefined}
         />
       </div>
 
@@ -164,10 +174,38 @@ export default function AnalyticsPage() {
           <Card className="border-border/60">
             <CardContent className="p-6">
               <h3 className="font-sora text-base font-semibold">Top customers by spend</h3>
-              <p className="text-muted-foreground mt-1 text-xs">
-                The customers who've paid you the most across confirmed transactions.
-              </p>
-              {ltvQuery.isLoading ? (
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-muted-foreground text-xs">
+                  The customers who've paid you the most in {ltvCurrency} across confirmed
+                  transactions.
+                </p>
+                <div className="flex items-center gap-1" role="group" aria-label="Currency">
+                  {paymentCurrencies.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setLtvCurrency(c)}
+                      aria-pressed={ltvCurrency === c}
+                      className={[
+                        'h-8 rounded-md border px-2.5 text-xs font-medium transition-colors',
+                        ltvCurrency === c
+                          ? 'border-[#02C76A] bg-[#02C76A]/10 text-[#02C76A]'
+                          : 'border-border/60 hover:bg-muted',
+                      ].join(' ')}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {ltvQuery.isError ? (
+                <div className="bg-destructive/10 mt-4 flex items-center justify-between rounded-md p-4">
+                  <span className="text-destructive text-xs">Failed to load. Try again.</span>
+                  <Button variant="outline" size="sm" onClick={() => void ltvQuery.refetch()}>
+                    <RefreshCcw className="mr-1 size-3" /> Retry
+                  </Button>
+                </div>
+              ) : ltvQuery.isLoading ? (
                 <div className="mt-4 space-y-2">
                   {[1, 2, 3].map((i) => (
                     <div
@@ -193,14 +231,14 @@ export default function AnalyticsPage() {
                         </span>
                       </div>
                       <span className="font-mono text-sm font-medium">
-                        {formatTokenAmount(row.totalSpend, 'USDC')}
+                        {formatTokenAmount(row.totalSpend, ltvQuery.data?.currency ?? ltvCurrency)}
                       </span>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="text-muted-foreground mt-4 py-6 text-center text-xs">
-                  No customer transactions yet.
+                  No customer transactions in {ltvCurrency} yet.
                 </div>
               )}
             </CardContent>
@@ -215,22 +253,24 @@ export default function AnalyticsPage() {
                 Linear projection over your last 90 days of confirmed transaction revenue. Cheap
                 model; useful for "next quarter" sizing.
               </p>
-              {forecastQuery.isLoading ? (
+              {forecastQuery.isError ? (
+                <div className="bg-destructive/10 mt-4 flex items-center justify-between rounded-md p-4">
+                  <span className="text-destructive text-xs">Failed to load. Try again.</span>
+                  <Button variant="outline" size="sm" onClick={() => void forecastQuery.refetch()}>
+                    <RefreshCcw className="mr-1 size-3" /> Retry
+                  </Button>
+                </div>
+              ) : forecastQuery.isLoading ? (
                 <div className="border-border/60 bg-muted/30 mt-4 h-32 animate-pulse rounded-lg border" />
               ) : forecast ? (
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <ForecastBucket label="Next 30 days" value={forecast.next30} />
-                  <ForecastBucket label="Next 60 days" value={forecast.next60} />
-                  <ForecastBucket label="Next 90 days" value={forecast.next90} />
-                </div>
-              ) : null}
-              {forecast?.confidence === 'low' ? (
-                <div className="mt-4 flex items-start gap-2 rounded-md bg-amber-50 p-3 text-xs text-amber-800">
-                  <AlertCircle className="size-4 shrink-0" />
-                  <p>
-                    Low confidence. We need at least 30 days of transaction data for a meaningful
-                    projection. Try again after a few more weeks of activity.
-                  </p>
+                <div className="mt-4 space-y-6">
+                  {paymentCurrencies.map((currency) => (
+                    <CurrencyForecast
+                      key={currency}
+                      currency={currency}
+                      forecast={forecast.byCurrency[currency]}
+                    />
+                  ))}
                 </div>
               ) : null}
             </CardContent>
@@ -284,11 +324,54 @@ function Kpi({
   )
 }
 
-function ForecastBucket({ label, value }: { label: string; value: string }) {
+function CurrencyForecast({
+  currency,
+  forecast,
+}: {
+  currency: PaymentCurrency
+  forecast: Forecast
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between">
+        <h4 className="font-sora text-sm font-semibold">{currency}</h4>
+        <span className="text-muted-foreground text-xs">
+          Last 90 days: {formatTokenAmount(forecast.last90DayRevenue, currency)}
+        </span>
+      </div>
+      <div className="mt-2 grid gap-3 sm:grid-cols-3">
+        <ForecastBucket label="Next 30 days" value={forecast.next30} currency={currency} />
+        <ForecastBucket label="Next 60 days" value={forecast.next60} currency={currency} />
+        <ForecastBucket label="Next 90 days" value={forecast.next90} currency={currency} />
+      </div>
+      {forecast.confidence === 'low' ? (
+        <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-50 p-3 text-xs text-amber-800">
+          <AlertCircle className="size-4 shrink-0" />
+          <p>
+            Low confidence. We need at least 30 days of transaction data for a meaningful
+            projection. Try again after a few more weeks of activity.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function ForecastBucket({
+  label,
+  value,
+  currency,
+}: {
+  label: string
+  value: string
+  currency: PaymentCurrency
+}) {
   return (
     <div className="border-border/60 rounded-lg border p-4">
       <div className="text-muted-foreground text-xs">{label}</div>
-      <div className="font-sora mt-1 text-xl font-semibold">{formatTokenAmount(value, 'USDC')}</div>
+      <div className="font-sora mt-1 text-xl font-semibold">
+        {formatTokenAmount(value, currency)}
+      </div>
     </div>
   )
 }

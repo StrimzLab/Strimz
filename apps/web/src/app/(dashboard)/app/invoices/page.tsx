@@ -23,7 +23,7 @@ import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { downloadInvoicePdf } from '@/lib/invoice-pdf'
 import { formatTokenAmount, relativeTime } from '@/lib/format'
-import { formatCurrencyTotals, sumByCurrency, type CurrencyTotal } from '@/lib/currency-totals'
+import { invoiceCards, summaryValue } from '@/lib/stats-summary'
 import type { LoadedRows } from '@/lib/cursor-pages'
 import { voidInvoiceConfirm } from '@/lib/destructive-actions'
 import {
@@ -35,6 +35,7 @@ import {
   useInvoicePages,
   useMerchantMe,
   useSendInvoice,
+  useStatsSummary,
   useVoidInvoice,
 } from '@/hooks/api'
 
@@ -49,42 +50,18 @@ const STATUS_TONE: Record<InvoiceStatus, 'positive' | 'warning' | 'danger' | 'in
 interface InvoicesView {
   rows: Invoice[]
   hasMore: boolean
-  outstanding: CurrencyTotal[]
-  outstandingCount: number
-  paid30dCount: number
-  paid30d: CurrencyTotal[]
-  overdueCount: number
-  overdueTotal: CurrencyTotal[]
 }
-
-const invoiceMoney = (inv: Invoice) => ({ amount: inv.total, currency: inv.currency })
 
 function projectInvoices(loaded: LoadedRows<Invoice>): InvoicesView {
-  const now = Date.now()
-  const thirtyDays = 30 * 86_400_000
-  const outstanding = loaded.rows.filter((i) => i.status === 'sent' || i.status === 'overdue')
-  const paid30d = loaded.rows.filter(
-    (i) => i.status === 'paid' && i.paidAt && now - new Date(i.paidAt).getTime() < thirtyDays,
-  )
-  const overdue = loaded.rows.filter((i) => i.status === 'overdue')
-  return {
-    rows: loaded.rows,
-    hasMore: loaded.hasMore,
-    outstanding: sumByCurrency(outstanding, invoiceMoney),
-    outstandingCount: outstanding.length,
-    paid30d: sumByCurrency(paid30d, invoiceMoney),
-    paid30dCount: paid30d.length,
-    overdueCount: overdue.length,
-    overdueTotal: sumByCurrency(overdue, invoiceMoney),
-  }
+  return { rows: loaded.rows, hasMore: loaded.hasMore }
 }
-
-const LOADED_ONLY = 'Loaded invoices only'
 
 export default function InvoicesPage() {
   const router = useRouter()
   const invoicesQuery = useInvoicePages({ limit: 100 }, { select: projectInvoices })
   const { data, isLoading, isError, error, refetch } = invoicesQuery
+  const summaryQuery = useStatsSummary({ select: (summary) => invoiceCards(summary.invoices) })
+  const cards = summaryQuery.data
   const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
   const { data: merchant } = useMerchantMe()
   const sendMutation = useSendInvoice()
@@ -258,31 +235,19 @@ export default function InvoicesPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat
           label="Outstanding"
-          value={data ? formatCurrencyTotals(data.outstanding) : '—'}
-          note={
-            data
-              ? `${data.outstandingCount} invoices${data.hasMore ? `. ${LOADED_ONLY}` : ''}`
-              : undefined
-          }
+          value={summaryValue(summaryQuery, (c) => c.outstanding)}
+          note={cards?.outstandingNote}
         />
         <Stat
           label="Paid (30d)"
-          value={data ? formatCurrencyTotals(data.paid30d) : '—'}
-          note={
-            data
-              ? `${data.paid30dCount} invoices${data.hasMore ? `. ${LOADED_ONLY}` : ''}`
-              : undefined
-          }
+          value={summaryValue(summaryQuery, (c) => c.paidLast30d)}
+          note={cards?.paidLast30dNote}
         />
         <Stat
           label="Overdue"
-          value={data ? data.overdueCount.toString() : '—'}
-          note={
-            data
-              ? `${formatCurrencyTotals(data.overdueTotal)}${data.hasMore ? `. ${LOADED_ONLY}` : ''}`
-              : undefined
-          }
-          tone={data && data.overdueCount > 0 ? 'danger' : undefined}
+          value={summaryValue(summaryQuery, (c) => c.overdue)}
+          note={cards?.overdueNote}
+          tone={cards && cards.overdueCount > 0 ? 'danger' : undefined}
         />
       </div>
 
