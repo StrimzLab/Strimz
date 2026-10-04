@@ -7,6 +7,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.s
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { LowLevelCall } from "@openzeppelin/contracts/utils/LowLevelCall.sol";
 
 import { IStrimzSubscriptions } from "../interfaces/IStrimzSubscriptions.sol";
 import { IStrimzRegistry } from "../interfaces/IStrimzRegistry.sol";
@@ -41,7 +42,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
     ///      valid permit alone cannot enrol the payer in an arbitrary
     ///      subscription.
     bytes32 private constant SUBSCRIPTION_INTENT_TYPEHASH = keccak256(
-        "SubscriptionIntent(uint256 merchantId,address token,uint256 amount,uint32 interval,uint64 startAt,uint64 endAt,uint256 permitDeadline)"
+        "SubscriptionIntent(uint256 merchantId,address token,uint256 amount,uint32 interval,uint64 startAt,uint64 endAt,uint256 permitDeadline,bytes32 nonce)"
     );
 
     /// @custom:storage-location erc7201:strimz.storage.StrimzSubscriptions
@@ -52,6 +53,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         uint256 nextSubscriptionId;
         mapping(uint256 subscriptionId => Subscription data) subscriptions;
         mapping(bytes32 chargeAttemptId => bool used) usedAttempts;
+        mapping(address payer => mapping(bytes32 nonce => bool used)) usedIntentNonces;
     }
 
     // keccak256(abi.encode(uint256(keccak256("strimz.storage.StrimzSubscriptions")) - 1)) & ~bytes32(uint256(0xff))
@@ -176,6 +178,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         uint32 interval,
         uint64 startAt,
         uint64 endAt,
+        bytes32 nonce,
         PermitData calldata permitData,
         IStrimzSubscriptions.Sig calldata permitSig,
         IStrimzSubscriptions.Sig calldata intentSig
@@ -197,16 +200,13 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         // Verify the Strimz intent BEFORE calling permit — a bad intent
         // must not consume the permit's nonce on the token.
         _verifySubscriptionIntent(
-            merchantId, token, amount, interval, startAt, endAt, permitData, intentSig
+            merchantId, token, amount, interval, startAt, endAt, nonce, permitData, intentSig
         );
 
-        IERC2612(token).permit(
-            permitData.owner,
-            address(this),
-            permitData.value,
-            permitData.deadline,
-            permitSig.v, permitSig.r, permitSig.s
-        );
+        if ($.usedIntentNonces[permitData.owner][nonce]) revert Subscriptions__IntentAlreadyUsed(nonce);
+        $.usedIntentNonces[permitData.owner][nonce] = true;
+
+        _permitOrRequireAllowance(token, permitData, permitSig);
 
         uint64 firstChargeAt = startAt == 0 ? uint64(block.timestamp) : startAt;
         if (endAt != 0 && endAt <= firstChargeAt) revert Subscriptions__InvalidEndAt();
@@ -241,6 +241,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         uint32 interval,
         uint64 startAt,
         uint64 endAt,
+        bytes32 nonce,
         PermitData calldata permitData,
         IStrimzSubscriptions.Sig calldata intentSig
     ) internal view {
@@ -252,11 +253,30 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
             interval,
             startAt,
             endAt,
-            permitData.deadline
+            permitData.deadline,
+            nonce
         ));
         bytes32 digest = _hashTypedDataV4(structHash);
         address recovered = ECDSA.recover(digest, intentSig.v, intentSig.r, intentSig.s);
         if (recovered != permitData.owner) revert Subscriptions__InvalidIntent();
+    }
+
+    function _permitOrRequireAllowance(
+        address token,
+        PermitData calldata permitData,
+        IStrimzSubscriptions.Sig calldata permitSig
+    ) private {
+        try IERC2612(token).permit(
+            permitData.owner,
+            address(this),
+            permitData.value,
+            permitData.deadline,
+            permitSig.v, permitSig.r, permitSig.s
+        ) { } catch (bytes memory reason) {
+            if (IERC20(token).allowance(permitData.owner, address(this)) < permitData.value) {
+                LowLevelCall.bubbleRevert(reason);
+            }
+        }
     }
 
     /// @notice Exposed so off-chain SDKs can derive the same digest they
@@ -268,7 +288,8 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         uint32 interval,
         uint64 startAt,
         uint64 endAt,
-        uint256 permitDeadline
+        uint256 permitDeadline,
+        bytes32 nonce
     ) external view returns (bytes32) {
         bytes32 structHash = keccak256(abi.encode(
             SUBSCRIPTION_INTENT_TYPEHASH,
@@ -278,7 +299,8 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
             interval,
             startAt,
             endAt,
-            permitDeadline
+            permitDeadline,
+            nonce
         ));
         return _hashTypedDataV4(structHash);
     }
