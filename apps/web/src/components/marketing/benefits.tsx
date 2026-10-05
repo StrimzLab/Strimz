@@ -58,7 +58,7 @@ const BLOCKS = [
  */
 export function Benefits() {
   return (
-    <section className="w-full bg-white px-4 py-20 md:px-6 lg:py-28">
+    <section className="bg-background w-full px-4 py-20 md:px-6 lg:py-28">
       <motion.div
         {...inViewOnce}
         variants={stagger(0.05, 0.1)}
@@ -66,13 +66,13 @@ export function Benefits() {
       >
         <motion.h2
           variants={fadeUp}
-          className="font-sora text-[32px] font-[700] leading-[40px] text-[#050020] md:text-[40px] md:leading-[48px]"
+          className="font-sora text-foreground text-[32px] font-[700] leading-[40px] md:text-[40px] md:leading-[48px]"
         >
           The billing primitives, already built.
         </motion.h2>
         <motion.p
           variants={fadeUp}
-          className="font-poppins mt-4 max-w-[488px] text-base font-[400] text-[#58556A]"
+          className="font-poppins text-muted-foreground mt-4 max-w-[488px] text-base font-[400]"
         >
           Pick what you need, copy the snippet, ship the feature. We deal with retries and
           reconciliation; the contracts handle idempotency.
@@ -85,7 +85,7 @@ export function Benefits() {
             key={b.chip}
             {...inViewOnce}
             variants={fadeUp}
-            className="grid items-stretch gap-0 overflow-hidden rounded-[16px] border border-[#E5E7EB] bg-[#F9FAFB] md:grid-cols-2"
+            className="border-border bg-muted grid items-stretch gap-0 overflow-hidden rounded-[16px] border md:grid-cols-2"
           >
             {/* Text side */}
             <div
@@ -94,27 +94,27 @@ export function Benefits() {
                 i % 2 === 1 ? 'md:order-2' : '',
               ].join(' ')}
             >
-              <span className="font-poppins inline-flex w-fit items-center gap-1.5 rounded-full bg-[#02C76A]/10 px-3 py-1 text-[12px] font-[500] text-[#02C76A]">
-                <span className="size-1.5 rounded-full bg-[#02C76A]" />
+              <span className="font-poppins bg-accent/10 text-accent inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-[500]">
+                <span className="bg-accent size-1.5 rounded-full" />
                 {b.chip}
               </span>
-              <h3 className="font-sora mt-4 text-[24px] font-[700] leading-[32px] text-[#050020] md:text-[30px] md:leading-[38px]">
+              <h3 className="font-sora text-foreground mt-4 text-[24px] font-[700] leading-[32px] md:text-[30px] md:leading-[38px]">
                 {b.title}
               </h3>
-              <p className="font-poppins mt-3 text-[15px] font-[400] leading-[26px] text-[#58556A]">
+              <p className="font-poppins text-muted-foreground mt-3 text-[15px] font-[400] leading-[26px]">
                 {b.body}
               </p>
-              <ul className="font-poppins mt-5 space-y-2.5 text-[14px] text-[#050020]">
+              <ul className="font-poppins text-foreground mt-5 space-y-2.5 text-[14px]">
                 {b.bullets.map((bu) => (
                   <li key={bu} className="flex items-start gap-2">
-                    <Check className="mt-0.5 size-4 shrink-0 text-[#02C76A]" />
+                    <Check className="text-accent mt-0.5 size-4 shrink-0" />
                     <span>{bu}</span>
                   </li>
                 ))}
               </ul>
               <Link
                 href={b.href}
-                className="font-poppins group mt-6 inline-flex w-fit items-center gap-1 text-sm font-[500] text-[#02C76A]"
+                className="font-poppins text-accent group mt-6 inline-flex w-fit items-center gap-1 text-sm font-[500]"
               >
                 {b.cta}
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
@@ -124,7 +124,7 @@ export function Benefits() {
             {/* Mock side. Fills the cell, no negative space */}
             <div
               className={[
-                'from-[#02C76A]/8 relative flex items-stretch overflow-hidden bg-gradient-to-br via-[#F9FAFB] to-[#F9FAFB] p-6 md:p-8 lg:p-10',
+                'from-accent/8 via-muted to-muted relative flex items-stretch overflow-hidden bg-gradient-to-br p-6 md:p-8 lg:p-10',
                 i % 2 === 1 ? 'md:order-1' : '',
               ].join(' ')}
             >
@@ -143,17 +143,17 @@ function MockShell({ children, label }: { children: React.ReactNode; label?: str
   return (
     <div className="relative flex w-full flex-col">
       <div
-        className="absolute -inset-4 rounded-[20px] bg-gradient-to-br from-[#02C76A]/15 via-transparent to-transparent blur-2xl"
+        className="from-accent/15 absolute -inset-4 rounded-[20px] bg-gradient-to-br via-transparent to-transparent blur-2xl"
         aria-hidden
       />
-      <div className="shadow-sub-card relative flex w-full flex-col overflow-hidden rounded-[12px] border border-[#E5E7EB] bg-white">
+      <div className="shadow-sub-card border-border bg-card relative flex w-full flex-col overflow-hidden rounded-[12px] border">
         {label ? (
-          <div className="flex items-center justify-between border-b border-[#E5E7EB] bg-[#F9FAFB] px-4 py-2.5">
+          <div className="border-border bg-muted flex items-center justify-between border-b px-4 py-2.5">
             <span className="flex items-center gap-2">
-              <span className="size-2 rounded-full bg-[#02C76A]" />
-              <code className="font-mono text-[11px] text-[#58556A]">{label}</code>
+              <span className="bg-accent size-2 rounded-full" />
+              <code className="text-muted-foreground font-mono text-[11px]">{label}</code>
             </span>
-            <span className="font-poppins rounded-full bg-[#02C76A]/10 px-2 py-0.5 text-[10px] font-[500] text-[#02C76A]">
+            <span className="font-poppins bg-accent/10 text-accent rounded-full px-2 py-0.5 text-[10px] font-[500]">
               200 OK · 84ms
             </span>
           </div>
@@ -185,7 +185,7 @@ function SubscriptionMock() {
   return (
     <MockShell label="POST /v1/subscription-plans">
       <CodeBlock code={SUBSCRIPTION_REQUEST} language="json" tone="light" />
-      <div className="mt-3 border-t border-[#E5E7EB] pt-3">
+      <div className="border-border mt-3 border-t pt-3">
         <CodeBlock code={SUBSCRIPTION_RESPONSE} language="js" tone="light" />
       </div>
     </MockShell>
@@ -200,14 +200,14 @@ function RefundMock() {
         <RefundStep n={2} status="submitted" label="Tx hash recorded" time="1m ago" />
         <RefundStep n={3} status="completed" label="Indexer confirmed" time="just now" active />
       </div>
-      <div className="mt-4 flex items-center justify-between rounded-[8px] border border-[#02C76A]/20 bg-[#02C76A]/5 px-3 py-2.5">
+      <div className="border-accent/20 bg-accent/5 mt-4 flex items-center justify-between rounded-[8px] border px-3 py-2.5">
         <div>
-          <div className="font-mono text-[11px] text-[#58556A]">refund.completed</div>
-          <div className="font-poppins text-[12px] font-[500] text-[#050020]">
+          <div className="text-muted-foreground font-mono text-[11px]">refund.completed</div>
+          <div className="font-poppins text-foreground text-[12px] font-[500]">
             webhook delivered
           </div>
         </div>
-        <ExternalLink className="size-3.5 text-[#02C76A]" />
+        <ExternalLink className="text-accent size-3.5" />
       </div>
     </MockShell>
   )
@@ -227,20 +227,20 @@ function RefundStep({
   active?: boolean
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-[8px] border border-[#E5E7EB] bg-[#F9FAFB] p-2.5">
+    <div className="border-border bg-muted flex items-center gap-3 rounded-[8px] border p-2.5">
       <span
         className={[
           'font-poppins flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-[600]',
-          active ? 'shadow-sub-icon bg-[#02C76A] text-white' : 'bg-white text-[#58556A]',
+          active ? 'shadow-sub-icon bg-accent text-white' : 'bg-card text-muted-foreground',
         ].join(' ')}
       >
         {n}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="font-poppins text-[13px] font-[500] text-[#050020]">{label}</div>
-        <div className="font-mono text-[10px] text-[#58556A]">{status}</div>
+        <div className="font-poppins text-foreground text-[13px] font-[500]">{label}</div>
+        <div className="text-muted-foreground font-mono text-[10px]">{status}</div>
       </div>
-      <span className="font-poppins text-[10px] text-[#58556A]">{time}</span>
+      <span className="font-poppins text-muted-foreground text-[10px]">{time}</span>
     </div>
   )
 }
@@ -254,14 +254,14 @@ function ForecastMock() {
           { label: 'Churn 12m', value: '4.1%', delta: '-0.4pt' },
           { label: '90d', value: '+18%', delta: 'high' },
         ].map((kpi) => (
-          <div key={kpi.label} className="rounded-[8px] border border-[#E5E7EB] bg-[#F9FAFB] p-2.5">
-            <div className="font-poppins text-[10px] uppercase tracking-wider text-[#58556A]">
+          <div key={kpi.label} className="border-border bg-muted rounded-[8px] border p-2.5">
+            <div className="font-poppins text-muted-foreground text-[10px] uppercase tracking-wider">
               {kpi.label}
             </div>
-            <div className="font-sora mt-0.5 text-[15px] font-[700] text-[#050020]">
+            <div className="font-sora text-foreground mt-0.5 text-[15px] font-[700]">
               {kpi.value}
             </div>
-            <div className="mt-0.5 font-mono text-[10px] text-[#02C76A]">{kpi.delta}</div>
+            <div className="text-accent mt-0.5 font-mono text-[10px]">{kpi.delta}</div>
           </div>
         ))}
       </div>
@@ -284,9 +284,9 @@ function ForecastMock() {
         />
         <circle cx="240" cy="12" r="3" fill="#02C76A" />
       </svg>
-      <div className="font-poppins mt-2 flex items-center justify-between text-[10px] text-[#58556A]">
+      <div className="font-poppins text-muted-foreground mt-2 flex items-center justify-between text-[10px]">
         <span>last 90 days</span>
-        <span className="text-[#02C76A]">forecast: high confidence</span>
+        <span className="text-accent">forecast: high confidence</span>
       </div>
     </MockShell>
   )

@@ -31,7 +31,7 @@ export function ModeToggle() {
   return (
     <TooltipProvider delayDuration={100}>
       <div
-        className="hover:shadow-sub-icon border-border/60 inline-flex h-9 items-center rounded-md border bg-white p-0.5 text-xs font-medium"
+        className="hover:shadow-sub-icon border-border/60 bg-card inline-flex h-9 items-center rounded-md border p-0.5 text-xs font-medium"
         role="group"
         aria-label="Dashboard mode"
       >
@@ -41,8 +41,8 @@ export function ModeToggle() {
           className={cn(
             'h-full rounded-[5px] px-2 transition-colors sm:px-2.5',
             mode === 'test'
-              ? 'bg-[#02C76A]/12 text-[#02C76A]'
-              : 'text-[#58556A] hover:text-[#050020]',
+              ? 'bg-accent/12 text-accent'
+              : 'text-muted-foreground hover:text-foreground',
           )}
         >
           Test
@@ -55,7 +55,7 @@ export function ModeToggle() {
               disabled
               aria-disabled="true"
               className={cn(
-                'inline-flex h-full items-center gap-1 rounded-[5px] px-2 text-[#8B8896] sm:px-2.5',
+                'text-muted-foreground inline-flex h-full items-center gap-1 rounded-[5px] px-2 sm:px-2.5',
                 'cursor-not-allowed opacity-70',
               )}
             >

@@ -78,7 +78,7 @@ export default function DeliveryDetailPage({ params }: { params: Promise<{ id: s
             <Row label="Endpoint">
               <Link
                 href={`/app/webhooks/endpoints/${delivery.endpointId}`}
-                className="text-xs text-[#02C76A] hover:underline"
+                className="text-accent text-xs hover:underline"
               >
                 <code>{delivery.endpointId}</code>
               </Link>

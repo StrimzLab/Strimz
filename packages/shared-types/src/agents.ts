@@ -39,32 +39,67 @@ export const agentCapabilitySchema = z.enum([
 ])
 export type AgentCapability = z.infer<typeof agentCapabilitySchema>
 
+const enabledCapabilitiesSchema = z.array(agentCapabilitySchema)
+const recoveryGracePeriodHoursSchema = z.union([z.literal(24), z.literal(48), z.literal(72)])
+const recoveryStrategySchema = z.enum(['once', 'twice', 'until_grace_ends'])
+const recoveryNotificationTemplateSchema = z.string().max(2000).nullable()
+const cashflowDigestEnabledSchema = z.boolean()
+const cashflowAnomalySensitivitySchema = z.enum(['low', 'medium', 'high'])
+const cashflowAutoConvertToYieldSchema = z.boolean()
+const cashflowMinimumLiquidReserveCentsSchema = z.number().int().nonnegative()
+const commerceRequireHumanApprovalAboveUsdCentsSchema = z.number().int().nonnegative()
+const commerceApprovedVendorsSchema = z.array(evmAddressSchema)
+const commerceMonthlySpendCapUsdCentsSchema = z.number().int().nonnegative().nullable()
+
 export const agentMerchantConfigSchema = z.object({
   merchantId: idSchema,
-  enabledCapabilities: z.array(agentCapabilitySchema).default([]),
+  enabledCapabilities: enabledCapabilitiesSchema.default([]),
   recovery: z.object({
-    gracePeriodHours: z.union([z.literal(24), z.literal(48), z.literal(72)]).default(48),
-    strategy: z.enum(['once', 'twice', 'until_grace_ends']).default('twice'),
-    notificationTemplate: z.string().max(2000).nullable(),
+    gracePeriodHours: recoveryGracePeriodHoursSchema.default(48),
+    strategy: recoveryStrategySchema.default('twice'),
+    notificationTemplate: recoveryNotificationTemplateSchema,
   }),
   cashflow: z.object({
-    digestEnabled: z.boolean().default(false),
-    anomalySensitivity: z.enum(['low', 'medium', 'high']).default('medium'),
-    autoConvertToYield: z.boolean().default(false),
-    minimumLiquidReserveCents: z.number().int().nonnegative().default(100_000),
+    digestEnabled: cashflowDigestEnabledSchema.default(false),
+    anomalySensitivity: cashflowAnomalySensitivitySchema.default('medium'),
+    autoConvertToYield: cashflowAutoConvertToYieldSchema.default(false),
+    minimumLiquidReserveCents: cashflowMinimumLiquidReserveCentsSchema.default(100_000),
   }),
   commerce: z.object({
-    requireHumanApprovalAboveUsdCents: z.number().int().nonnegative().default(100_000),
-    approvedVendors: z.array(evmAddressSchema).default([]),
-    monthlySpendCapUsdCents: z.number().int().nonnegative().nullable(),
+    requireHumanApprovalAboveUsdCents:
+      commerceRequireHumanApprovalAboveUsdCentsSchema.default(100_000),
+    approvedVendors: commerceApprovedVendorsSchema.default([]),
+    monthlySpendCapUsdCents: commerceMonthlySpendCapUsdCentsSchema,
   }),
   updatedAt: isoTimestampSchema,
 })
 export type AgentMerchantConfig = z.infer<typeof agentMerchantConfigSchema>
 
-export const updateAgentConfigInputSchema = agentMerchantConfigSchema
-  .omit({ merchantId: true, updatedAt: true })
-  .partial()
+export const updateAgentConfigInputSchema = z.object({
+  enabledCapabilities: enabledCapabilitiesSchema.optional(),
+  recovery: z
+    .object({
+      gracePeriodHours: recoveryGracePeriodHoursSchema.optional(),
+      strategy: recoveryStrategySchema.optional(),
+      notificationTemplate: recoveryNotificationTemplateSchema.optional(),
+    })
+    .optional(),
+  cashflow: z
+    .object({
+      digestEnabled: cashflowDigestEnabledSchema.optional(),
+      anomalySensitivity: cashflowAnomalySensitivitySchema.optional(),
+      autoConvertToYield: cashflowAutoConvertToYieldSchema.optional(),
+      minimumLiquidReserveCents: cashflowMinimumLiquidReserveCentsSchema.optional(),
+    })
+    .optional(),
+  commerce: z
+    .object({
+      requireHumanApprovalAboveUsdCents: commerceRequireHumanApprovalAboveUsdCentsSchema.optional(),
+      approvedVendors: commerceApprovedVendorsSchema.optional(),
+      monthlySpendCapUsdCents: commerceMonthlySpendCapUsdCentsSchema.optional(),
+    })
+    .optional(),
+})
 export type UpdateAgentConfigInput = z.input<typeof updateAgentConfigInputSchema>
 export type UpdateAgentConfigParsed = z.output<typeof updateAgentConfigInputSchema>
 

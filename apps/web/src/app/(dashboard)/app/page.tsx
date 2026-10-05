@@ -218,7 +218,7 @@ function VolumeChartCard({
               <button
                 type="button"
                 onClick={onRetry}
-                className="font-medium text-[#02C76A] hover:underline"
+                className="text-accent font-medium hover:underline"
               >
                 Retry
               </button>
@@ -298,7 +298,7 @@ function GetStartedCard() {
             href="https://strimz.finance/docs/getting-started/quickstart"
             target="_blank"
             rel="noreferrer"
-            className="text-xs font-medium text-[#02C76A] hover:underline"
+            className="text-accent text-xs font-medium hover:underline"
           >
             Open the docs →
           </Link>
@@ -308,9 +308,9 @@ function GetStartedCard() {
             <Link
               key={s.n}
               href={s.href}
-              className="border-border/60 bg-background group flex items-start gap-3 rounded-lg border p-4 transition-all hover:border-[#02C76A]/40 hover:shadow-sm"
+              className="border-border/60 bg-background hover:border-accent/40 group flex items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm"
             >
-              <div className="font-sora flex size-8 shrink-0 items-center justify-center rounded-full bg-[#02C76A]/10 text-sm font-semibold text-[#02C76A]">
+              <div className="font-sora bg-accent/10 text-accent flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
                 {s.n}
               </div>
               <div className="min-w-0 flex-1">
@@ -339,7 +339,7 @@ function RecentSessionsCard() {
           <h3 className="font-poppins font-semibold">Recent activity</h3>
           <Link
             href="/app/payment-sessions"
-            className="text-xs font-medium text-[#02C76A] hover:underline"
+            className="text-accent text-xs font-medium hover:underline"
           >
             View all →
           </Link>

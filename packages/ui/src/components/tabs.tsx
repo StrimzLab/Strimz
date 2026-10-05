@@ -21,7 +21,7 @@ export const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      'no-scrollbar font-poppins relative inline-flex h-11 max-w-full items-center justify-start gap-1 overflow-x-auto rounded-[10px] border border-[#E5E7EB] bg-[#F9FAFB] p-1 text-sm text-[#58556A]',
+      'no-scrollbar font-poppins border-border bg-muted text-muted-foreground relative inline-flex h-11 max-w-full items-center justify-start gap-1 overflow-x-auto rounded-[10px] border p-1 text-sm',
       className,
     )}
     {...props}
@@ -37,12 +37,12 @@ export const TabsTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       'font-poppins group relative inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md px-3.5 py-1.5 text-sm font-[500] transition-all',
-      'text-[#58556A] hover:text-[#050020]',
+      'text-muted-foreground hover:text-foreground',
       // Active state: white surface, navy text, brand-green left bar
-      'data-[state=active]:bg-white data-[state=active]:text-[#050020]',
+      'data-[state=active]:bg-card data-[state=active]:text-foreground',
       'data-[state=active]:shadow-[0_1px_2px_-1px_rgba(0,0,0,0.1),0_1px_3px_0_rgba(0,0,0,0.08)]',
-      'data-[state=active]:ring-1 data-[state=active]:ring-inset data-[state=active]:ring-[#02C76A]/30',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#02C76A]/40 focus-visible:ring-offset-1',
+      'data-[state=active]:ring-accent/30 data-[state=active]:ring-1 data-[state=active]:ring-inset',
+      'focus-visible:ring-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
       'disabled:pointer-events-none disabled:opacity-50',
       className,
     )}
@@ -58,7 +58,7 @@ export const TabsContent = React.forwardRef<
   <TabsPrimitive.Content
     ref={ref}
     className={cn(
-      'mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#02C76A]/40 focus-visible:ring-offset-2',
+      'focus-visible:ring-accent/40 mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
       className,
     )}
     {...props}

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
+import { ThemeToggle } from '@strimz/ui'
 import { Logo } from '@/components/shared/logo'
 import { ScrollProgressBar } from '@/components/shared/scroll-progress-bar'
 import { MobileNav } from '@/components/shared/mobile-nav'
@@ -21,7 +22,7 @@ export function MarketingNav() {
   return (
     <>
       <ScrollProgressBar />
-      <header className="flex h-[80px] w-full items-center bg-white px-4 md:h-[82px] md:px-8 lg:px-16">
+      <header className="bg-background flex h-[80px] w-full items-center px-4 md:h-[82px] md:px-8 lg:px-16">
         <nav className="mx-auto flex w-full max-w-6xl items-center justify-between">
           <Logo />
 
@@ -32,7 +33,7 @@ export function MarketingNav() {
                 href={link.href}
                 target={link.external ? '_blank' : undefined}
                 rel={link.external ? 'noreferrer' : undefined}
-                className="font-poppins cursor-pointer text-[15px] font-[400] capitalize text-[#58556A] transition-all hover:text-[#050020]"
+                className="font-poppins text-muted-foreground hover:text-foreground cursor-pointer text-[15px] font-[400] capitalize transition-all"
               >
                 {link.label}
               </Link>
@@ -40,11 +41,12 @@ export function MarketingNav() {
           </div>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <InteractiveHoverButton
               type="button"
               icon={<ArrowRight className="h-4 w-4" />}
-              innerClassName="bg-[#02C76A] rounded-[8px]"
-              className="shadow-nav-cta font-poppins flex h-[40px] cursor-pointer items-center justify-center whitespace-nowrap rounded-[8px] bg-[#F9FAFB] px-5 text-[14px] font-[500] text-[#050020] transition-all duration-300 hover:text-white"
+              innerClassName="bg-accent rounded-[8px]"
+              className="shadow-nav-cta font-poppins bg-muted text-foreground flex h-[40px] cursor-pointer items-center justify-center whitespace-nowrap rounded-[8px] px-5 text-[14px] font-[500] transition-all duration-300 hover:text-white"
               onClick={() => (window.location.href = '/signup')}
             >
               Get started

@@ -41,20 +41,20 @@ export default function ContactPage() {
   return (
     <>
       {/* Hero */}
-      <section className="relative overflow-hidden bg-white">
+      <section className="bg-background relative overflow-hidden">
         <div
           className="strimz-wave-1 absolute inset-x-0 -top-32 mx-auto h-[360px] max-w-2xl rounded-full opacity-60 blur-3xl"
           aria-hidden
         />
         <div className="relative mx-auto max-w-3xl px-4 py-20 text-center sm:px-6 lg:py-24">
-          <span className="font-poppins inline-flex items-center gap-1.5 rounded-full bg-[#02C76A]/10 px-3 py-1 text-[12px] font-[600] text-[#02C76A]">
-            <span className="size-1.5 rounded-full bg-[#02C76A]" />
+          <span className="font-poppins bg-accent/10 text-accent inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-[600]">
+            <span className="bg-accent size-1.5 rounded-full" />
             Contact
           </span>
-          <h1 className="font-sora mt-5 text-[40px] font-[700] leading-[48px] text-[#050020] md:text-[56px] md:leading-[60px]">
+          <h1 className="font-sora text-foreground mt-5 text-[40px] font-[700] leading-[48px] md:text-[56px] md:leading-[60px]">
             Talk to a real person.
           </h1>
-          <p className="font-poppins mx-auto mt-4 max-w-xl text-base font-[400] leading-[28px] text-[#58556A]">
+          <p className="font-poppins text-muted-foreground mx-auto mt-4 max-w-xl text-base font-[400] leading-[28px]">
             Pick the inbox that matches your question, or fill in the form below. Either way, your
             message lands with someone on our team.
           </p>
@@ -62,35 +62,35 @@ export default function ContactPage() {
       </section>
 
       {/* Routes */}
-      <section className="bg-white pb-12">
+      <section className="bg-background pb-12">
         <div className="mx-auto grid max-w-5xl gap-4 px-4 sm:grid-cols-3 sm:px-6">
           {ROUTES.map((r) => (
             <a
               key={r.addr}
               href={`mailto:${r.addr}`}
-              className="shadow-sub-card rounded-[16px] border border-[#E5E7EB] bg-white p-6 transition-colors hover:border-[#02C76A]/40"
+              className="shadow-sub-card border-border bg-card hover:border-accent/40 rounded-[16px] border p-6 transition-colors"
             >
-              <span className="shadow-sub-icon inline-flex size-10 items-center justify-center rounded-[10px] bg-[#02C76A]/10 text-[#02C76A]">
+              <span className="shadow-sub-icon bg-accent/10 text-accent inline-flex size-10 items-center justify-center rounded-[10px]">
                 <r.icon className="size-5" />
               </span>
-              <div className="font-poppins mt-4 text-[11px] font-[600] uppercase tracking-widest text-[#58556A]">
+              <div className="font-poppins text-muted-foreground mt-4 text-[11px] font-[600] uppercase tracking-widest">
                 {r.label}
               </div>
-              <div className="mt-1 font-mono text-sm text-[#050020]">{r.addr}</div>
-              <p className="font-poppins mt-3 text-sm text-[#58556A]">{r.body}</p>
+              <div className="text-foreground mt-1 font-mono text-sm">{r.addr}</div>
+              <p className="font-poppins text-muted-foreground mt-3 text-sm">{r.body}</p>
             </a>
           ))}
         </div>
       </section>
 
       {/* Form + side info */}
-      <section className="bg-[#F9FAFB] py-16">
+      <section className="bg-muted py-16">
         <div className="mx-auto grid max-w-5xl gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_320px]">
-          <div className="shadow-sub-card rounded-[20px] border border-[#E5E7EB] bg-white p-8">
-            <h2 className="font-sora text-[24px] font-[700] text-[#050020] md:text-[28px]">
+          <div className="shadow-sub-card border-border bg-card rounded-[20px] border p-8">
+            <h2 className="font-sora text-foreground text-[24px] font-[700] md:text-[28px]">
               Send us a message
             </h2>
-            <p className="font-poppins mt-2 text-sm text-[#58556A]">
+            <p className="font-poppins text-muted-foreground mt-2 text-sm">
               Tell us what you&apos;re building. We&apos;ll get it to the right person and reply
               within one business day.
             </p>
@@ -98,23 +98,23 @@ export default function ContactPage() {
           </div>
 
           <aside className="space-y-4">
-            <div className="shadow-sub-card rounded-[16px] border border-[#E5E7EB] bg-white p-5">
-              <h4 className="font-sora text-base font-[700] text-[#050020]">
+            <div className="shadow-sub-card border-border bg-card rounded-[16px] border p-5">
+              <h4 className="font-sora text-foreground text-base font-[700]">
                 Need a Slack channel?
               </h4>
-              <p className="font-poppins mt-2 text-sm text-[#58556A]">
+              <p className="font-poppins text-muted-foreground mt-2 text-sm">
                 Dedicated Slack and a solutions engineer come with the Growth and Enterprise plans.
               </p>
               <a
                 href="/pricing"
-                className="font-poppins mt-3 inline-flex items-center text-sm font-[500] text-[#02C76A] hover:underline"
+                className="font-poppins text-accent mt-3 inline-flex items-center text-sm font-[500] hover:underline"
               >
                 See plans →
               </a>
             </div>
-            <div className="shadow-sub-card rounded-[16px] border border-[#E5E7EB] bg-white p-5">
-              <h4 className="font-sora text-base font-[700] text-[#050020]">Office hours</h4>
-              <p className="font-poppins mt-2 text-sm text-[#58556A]">
+            <div className="shadow-sub-card border-border bg-card rounded-[16px] border p-5">
+              <h4 className="font-sora text-foreground text-base font-[700]">Office hours</h4>
+              <p className="font-poppins text-muted-foreground mt-2 text-sm">
                 Monday – Friday, 09:00–18:00 UTC. Outside those hours we still answer security and
                 production outage emails right away.
               </p>

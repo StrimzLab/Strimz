@@ -6,9 +6,11 @@ import { useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { toast } from 'sonner'
 import { ArrowRight } from 'lucide-react'
+import { useResolvedTheme } from '@strimz/ui'
 import { AuthCard } from '@/components/auth/auth-card'
 import { SubmitButton } from '@/components/auth/submit-button'
 import { env } from '@/lib/env'
+import { turnstileTheme, type TurnstileTheme } from '@/lib/theme'
 
 interface TurnstileApi {
   render: (
@@ -16,7 +18,7 @@ interface TurnstileApi {
     opts: {
       sitekey: string
       action?: string
-      theme?: 'light' | 'dark' | 'auto'
+      theme?: TurnstileTheme
       callback: (token: string) => void
       'error-callback'?: (errorCode: string) => void
       'expired-callback'?: () => void
@@ -36,6 +38,7 @@ export default function SignupPage() {
   const privy = usePrivyOrNull()
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
   const [verifying, setVerifying] = useState(false)
+  const widgetTheme = turnstileTheme(useResolvedTheme())
 
   useEffect(() => {
     if (!env.turnstileSiteKey) return
@@ -59,7 +62,7 @@ export default function SignupPage() {
         // `action` lets Cloudflare differentiate signup-page tokens and
         // lets the api-side validator confirm the surface the token came from.
         action: 'signup',
-        theme: 'light',
+        theme: widgetTheme,
         callback: (token) => setTurnstileToken(token),
         // Token expired before submit — clear it so the user gets a fresh
         // challenge instead of a stale token the api would reject.
@@ -108,7 +111,7 @@ export default function SignupPage() {
       if (widgetId && turnstile?.remove) turnstile.remove(widgetId)
       else container.innerHTML = ''
     }
-  }, [])
+  }, [widgetTheme])
 
   async function handleStart() {
     if (env.turnstileSiteKey && !turnstileToken) {
@@ -182,14 +185,14 @@ export default function SignupPage() {
         <ArrowRight className="size-4" />
       </SubmitButton>
 
-      <p className="font-poppins mt-6 text-center text-sm text-[#58556A]">
+      <p className="font-poppins text-muted-foreground mt-6 text-center text-sm">
         Already have an account?{' '}
-        <Link href="/login" className="font-[500] text-[#050020] hover:underline">
+        <Link href="/login" className="text-foreground font-[500] hover:underline">
           Log in
         </Link>
       </p>
 
-      <p className="font-poppins mt-6 text-center text-xs text-[#58556A]">
+      <p className="font-poppins text-muted-foreground mt-6 text-center text-xs">
         By continuing you agree to our{' '}
         <Link
           href="/legal/terms"

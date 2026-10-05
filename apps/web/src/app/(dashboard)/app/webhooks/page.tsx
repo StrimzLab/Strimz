@@ -564,7 +564,7 @@ function NewEndpointDialog() {
                         disabled
                           ? 'border-border/60 text-muted-foreground cursor-not-allowed opacity-70'
                           : mode === m
-                            ? 'border-[#02C76A] bg-[#02C76A]/10 text-[#02C76A]'
+                            ? 'border-accent bg-accent/10 text-accent'
                             : 'border-border/60 hover:bg-muted',
                       ].join(' ')}
                     >

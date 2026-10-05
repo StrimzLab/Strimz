@@ -9,6 +9,8 @@ import { EmailService } from '../../src/infra/email/email.service.js'
 import { ChainService } from '../../src/infra/chain/chain.service.js'
 import { RedisService } from '../../src/infra/redis/redis.service.js'
 import { PrismaService } from '../../src/infra/prisma/prisma.service.js'
+import { TypedConfigService } from '../../src/config/index.js'
+import { corsPolicy } from '../../src/common/http/cors-policy.js'
 
 import { StubPrivyService } from './stubs/privy.stub.js'
 import { StubTurnstileService } from './stubs/turnstile.stub.js'
@@ -68,6 +70,7 @@ export async function createTestApp(): Promise<TestApp> {
     .compile()
 
   const app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter())
+  app.enableCors(corsPolicy(app.get(TypedConfigService).env))
   await app.init()
   await app.getHttpAdapter().getInstance().ready()
 

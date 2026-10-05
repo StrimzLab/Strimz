@@ -48,7 +48,7 @@ const TIERS: readonly Tier[] = [
 
 export function PricingTeaser() {
   return (
-    <section className="w-full bg-white px-4 py-20 md:py-24">
+    <section className="bg-background w-full px-4 py-20 md:py-24">
       <motion.div
         {...inViewOnce}
         variants={stagger(0.05, 0.1)}
@@ -56,13 +56,13 @@ export function PricingTeaser() {
       >
         <motion.h2
           variants={fadeUp}
-          className="font-sora text-[32px] font-[700] leading-[40px] text-[#050020] md:text-[40px] md:leading-[48px]"
+          className="font-sora text-foreground text-[32px] font-[700] leading-[40px] md:text-[40px] md:leading-[48px]"
         >
           Pricing that gets cheaper as you grow.
         </motion.h2>
         <motion.p
           variants={fadeUp}
-          className="font-poppins mt-4 text-base font-[400] text-[#58556A]"
+          className="font-poppins text-muted-foreground mt-4 text-base font-[400]"
         >
           You pay a percentage of each transaction. The more you process, the lower the rate. No
           platform fees. No hidden tiers.
@@ -81,25 +81,29 @@ export function PricingTeaser() {
             whileHover={{ y: -4 }}
             transition={{ type: 'spring', stiffness: 220, damping: 18 }}
             className={[
-              'flex flex-col rounded-[16px] bg-white p-6 transition-colors',
-              t.featured ? 'shadow-sub-card border-2 border-[#02C76A]' : 'border border-[#E5E7EB]',
+              'bg-card flex flex-col rounded-[16px] p-6 transition-colors',
+              t.featured ? 'shadow-sub-card border-accent border-2' : 'border-border border',
             ].join(' ')}
           >
             {t.featured && (
-              <span className="font-poppins mb-3 self-start rounded-full bg-[#02C76A] px-2.5 py-0.5 text-[11px] font-[600] text-white">
+              <span className="font-poppins bg-accent mb-3 self-start rounded-full px-2.5 py-0.5 text-[11px] font-[600] text-white">
                 Most popular
               </span>
             )}
-            <div className="font-poppins text-[13px] font-[500] text-[#58556A]">{t.name}</div>
-            <div className="font-sora mt-2 text-[36px] font-[700] leading-none text-[#050020]">
+            <div className="font-poppins text-muted-foreground text-[13px] font-[500]">
+              {t.name}
+            </div>
+            <div className="font-sora text-foreground mt-2 text-[36px] font-[700] leading-none">
               {t.fee}
             </div>
-            <div className="font-poppins mt-1 text-[11px] text-[#58556A]">per transaction</div>
-            <div className="font-poppins mt-4 text-sm font-[500] text-[#050020]">{t.limit}</div>
-            <ul className="font-poppins mt-4 flex-1 space-y-2 text-[13px] text-[#58556A]">
+            <div className="font-poppins text-muted-foreground mt-1 text-[11px]">
+              per transaction
+            </div>
+            <div className="font-poppins text-foreground mt-4 text-sm font-[500]">{t.limit}</div>
+            <ul className="font-poppins text-muted-foreground mt-4 flex-1 space-y-2 text-[13px]">
               {t.bullets.map((b) => (
                 <li key={b} className="flex items-start gap-2">
-                  <Check className="mt-0.5 size-4 shrink-0 text-[#02C76A]" />
+                  <Check className="text-accent mt-0.5 size-4 shrink-0" />
                   {b}
                 </li>
               ))}
@@ -109,8 +113,8 @@ export function PricingTeaser() {
               className={[
                 'font-poppins mt-6 inline-flex h-[40px] items-center justify-center rounded-[8px] text-[14px] font-[500] transition-transform hover:scale-[1.02]',
                 t.featured
-                  ? 'shadow-cta bg-[#02C76A] text-white'
-                  : 'border border-[#E5E7EB] bg-white text-[#050020]',
+                  ? 'shadow-cta bg-accent text-white'
+                  : 'border-border bg-card text-foreground border',
               ].join(' ')}
             >
               {t.cta}
@@ -122,7 +126,7 @@ export function PricingTeaser() {
       <motion.div {...inViewOnce} variants={fadeUp} className="mt-8 text-center">
         <Link
           href="/pricing"
-          className="font-poppins text-sm text-[#58556A] transition-colors hover:text-[#050020]"
+          className="font-poppins text-muted-foreground hover:text-foreground text-sm transition-colors"
         >
           See full pricing comparison →
         </Link>

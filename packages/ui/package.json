@@ -23,6 +23,11 @@
       "import": "./src/lib/cn.ts",
       "default": "./src/lib/cn.ts"
     },
+    "./theme": {
+      "types": "./src/lib/theme.ts",
+      "import": "./src/lib/theme.ts",
+      "default": "./src/lib/theme.ts"
+    },
     "./components/*": {
       "types": "./src/components/*.tsx",
       "import": "./src/components/*.tsx",

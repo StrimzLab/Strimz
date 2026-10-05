@@ -62,15 +62,15 @@ export function ContactForm() {
 
   if (submitted) {
     return (
-      <div className="mt-6 rounded-[12px] border border-[#02C76A]/30 bg-[#02C76A]/5 p-5">
-        <p className="font-sora text-base font-[600] text-[#050020]">Message sent ✨</p>
-        <p className="font-poppins mt-1 text-sm text-[#58556A]">
+      <div className="border-accent/30 bg-accent/5 mt-6 rounded-[12px] border p-5">
+        <p className="font-sora text-foreground text-base font-[600]">Message sent ✨</p>
+        <p className="font-poppins text-muted-foreground mt-1 text-sm">
           We&apos;ll get back within 1 business day. Watch your inbox.
         </p>
         <button
           type="button"
           onClick={() => setSubmitted(false)}
-          className="font-poppins mt-3 text-sm font-[500] text-[#02C76A] hover:underline"
+          className="font-poppins text-accent mt-3 text-sm font-[500] hover:underline"
         >
           Send another message →
         </button>
@@ -118,7 +118,7 @@ export function ContactForm() {
       />
 
       <div className="grid gap-1.5">
-        <FieldLabel htmlFor="topic" className="text-[13px] text-[#58556A]" required>
+        <FieldLabel htmlFor="topic" className="text-muted-foreground text-[13px]" required>
           What&apos;s this about?
         </FieldLabel>
         <Select
@@ -155,7 +155,7 @@ export function ContactForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="font-poppins shadow-cta inline-flex h-[44px] items-center justify-center gap-2 rounded-[8px] bg-[#02C76A] text-sm font-[600] text-white transition-transform hover:scale-[1.01] disabled:scale-100 disabled:opacity-70"
+        className="font-poppins shadow-cta bg-accent inline-flex h-[44px] items-center justify-center gap-2 rounded-[8px] text-sm font-[600] text-white transition-transform hover:scale-[1.01] disabled:scale-100 disabled:opacity-70"
       >
         {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
         {isSubmitting ? 'Sending…' : 'Send message'}
@@ -177,7 +177,7 @@ function Field({
 }) {
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={id} className="text-[13px] text-[#58556A]">
+      <Label htmlFor={id} className="text-muted-foreground text-[13px]">
         {label}
       </Label>
       {input}

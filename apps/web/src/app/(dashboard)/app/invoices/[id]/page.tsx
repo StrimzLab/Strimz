@@ -40,7 +40,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   if (isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="size-6 animate-spin text-[#02C76A]" />
+        <Loader2 className="text-accent size-6 animate-spin" />
       </div>
     )
   }
@@ -206,7 +206,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           <Card>
             <CardContent className="p-6">
               <h3 className="font-sora text-sm font-semibold">Line items</h3>
-              <div className="border-border/60 mt-3 grid grid-cols-[minmax(0,3fr)_60px_120px_120px] gap-2 border-b pb-2 text-[10px] uppercase tracking-wider text-[#8B8896]">
+              <div className="border-border/60 text-muted-foreground mt-3 grid grid-cols-[minmax(0,3fr)_60px_120px_120px] gap-2 border-b pb-2 text-[10px] uppercase tracking-wider">
                 <span>Description</span>
                 <span className="text-right">Qty</span>
                 <span className="text-right">Unit</span>
@@ -357,7 +357,7 @@ function TimelineItem({ label, value, done }: { label: string; value: string; do
       <div
         className={[
           'mt-1.5 size-1.5 rounded-full',
-          done ? 'bg-[#02C76A]' : 'bg-muted-foreground/40',
+          done ? 'bg-accent' : 'bg-muted-foreground/40',
         ].join(' ')}
       />
       <div className="flex-1 text-sm">

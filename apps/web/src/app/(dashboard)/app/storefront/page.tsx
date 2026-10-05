@@ -127,7 +127,7 @@ function StorefrontDetails({ storefront }: { storefront: Storefront }) {
                   variant="outline"
                   className={
                     storefront.status === 'published'
-                      ? 'border-[#02C76A]/40 bg-[#02C76A]/10 text-[10px] text-[#02C76A]'
+                      ? 'border-accent/40 bg-accent/10 text-accent text-[10px]'
                       : 'text-[10px]'
                   }
                 >
@@ -557,7 +557,7 @@ function AddProductDialog() {
                 className={[
                   'h-7 rounded-md border px-2 capitalize transition-colors',
                   type === t
-                    ? 'border-[#02C76A] bg-[#02C76A]/10 text-[#02C76A]'
+                    ? 'border-accent bg-accent/10 text-accent'
                     : 'border-border/60 hover:bg-muted',
                 ].join(' ')}
               >

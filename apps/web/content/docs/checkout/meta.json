@@ -1,4 +1,4 @@
 {
   "title": "Hosted checkout",
-  "pages": ["hosted", "branding", "callbacks", "embed"]
+  "pages": ["hosted", "server-sessions", "branding", "callbacks", "embed"]
 }

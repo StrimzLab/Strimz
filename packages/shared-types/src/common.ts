@@ -45,7 +45,6 @@ export const httpUrlSchema = z.string().url()
 export const tokenAmountSchema = z
   .string()
   .regex(/^[0-9]+$/, 'must be a non-negative integer string (base-10)')
-  .refine((v) => BigInt(v) >= 0n, 'must be >= 0')
 
 /** Unsigned integer up to 2^53 - 1; validated and returned as number. */
 export const uintSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)

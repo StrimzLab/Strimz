@@ -248,7 +248,7 @@ function CapabilitiesTab({
       <Card className="border-border/60">
         <CardContent className="p-6 text-center text-sm">
           Agents aren't enabled for this account yet. Contact{' '}
-          <a className="text-[#02C76A]" href="mailto:support@strimz.finance">
+          <a className="text-accent" href="mailto:support@strimz.finance">
             support
           </a>{' '}
           to provision the agent identity for your merchant.
@@ -269,7 +269,7 @@ function CapabilitiesTab({
             <Card key={cap.key} className="border-border/60">
               <CardContent className="flex items-start justify-between gap-4 p-4">
                 <div className="flex flex-1 items-start gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#02C76A]/10 text-[#02C76A]">
+                  <div className="bg-accent/10 text-accent flex h-9 w-9 items-center justify-center rounded-md">
                     <Icon className="size-4" />
                   </div>
                   <div>
@@ -294,7 +294,7 @@ function CapabilitiesTab({
                       {isEnabled && !isManaged && !isComingSoon ? (
                         <Badge
                           variant="outline"
-                          className="border-[#02C76A]/40 bg-[#02C76A]/10 text-[10px] text-[#02C76A]"
+                          className="border-accent/40 bg-accent/10 text-accent text-[10px]"
                         >
                           Enabled
                         </Badge>
@@ -326,7 +326,7 @@ function CapabilitiesTab({
                   {isManaged ? (
                     <Badge
                       variant="outline"
-                      className="border-[#02C76A]/40 bg-[#02C76A]/10 text-[10px] text-[#02C76A]"
+                      className="border-accent/40 bg-accent/10 text-accent text-[10px]"
                     >
                       Active
                     </Badge>
@@ -517,7 +517,7 @@ function JobsTab({
               </Button>
             )
           }
-          if (job.status === 'completed') return <Check className="size-4 text-[#02C76A]" />
+          if (job.status === 'completed') return <Check className="text-accent size-4" />
           if (job.status === 'disputed') return <X className="size-4 text-rose-600" />
           if (job.status === 'cancelled') return <X className="text-muted-foreground size-4" />
           return <Clock className="text-muted-foreground size-4" />

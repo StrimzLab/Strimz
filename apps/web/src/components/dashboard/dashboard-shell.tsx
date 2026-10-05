@@ -21,14 +21,14 @@ export function DashboardShell({ children, title }: { children: React.ReactNode;
 
   if (isPending || needsOnboarding) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-white">
-        <Loader2 className="size-6 animate-spin text-[#02C76A]" />
+      <div className="bg-background flex min-h-screen items-center justify-center">
+        <Loader2 className="text-accent size-6 animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="bg-background flex min-h-screen">
       <DashboardSidebar open={open} onClose={() => setOpen(false)} />
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <DashboardTopbar title={title} menuOpen={open} onMenuClick={() => setOpen((o) => !o)} />

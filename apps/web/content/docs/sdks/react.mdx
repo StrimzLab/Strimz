@@ -5,7 +5,10 @@ description: React provider, components, and hooks for browser-side Strimz integ
 
 The React SDK gives you a provider, hooks, and two components that
 open Strimz hosted checkout from your own page. It uses publishable keys (`pk_test_…` and
-`pk_live_…`), which are safe to ship in a browser bundle.
+`pk_live_…`), which are safe to ship in a browser bundle. A publishable key grants no
+access: the SDK reads test or live mode from its prefix and calls only the public
+`/v1/checkout` and `/v1/tokens` routes, which answer browsers on any origin. See
+[Calling Strimz from a browser](/docs/authentication#calling-strimz-from-a-browser).
 
 ## Install
 
@@ -32,7 +35,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
 `StrimzProvider` takes a publishable key, never a secret key. Write
 operations, such as creating a payment session, go through your own
-backend with the server-side `StrimzClient`. The provider also accepts
+backend with the server-side `StrimzClient`, which refuses to start in a browser (see
+[Create sessions on your server](/docs/checkout/server-sessions)). The provider also accepts
 `apiBaseUrl` to override the API base URL and `checkoutOrigin` to
 override the hosted-checkout origin (default `https://strimz.finance`).
 
@@ -87,6 +91,17 @@ For a full embedded checkout (no redirect):
 ```
 
 Renders the hosted checkout inline in an iframe. Useful for cart-style flows where you don't want to lose the buyer's context.
+
+| Prop        | Type                        | Default            | Description                                                                        |
+| ----------- | --------------------------- | ------------------ | ---------------------------------------------------------------------------------- |
+| `sessionId` | `string`                    | required           | The payment session to pay.                                                        |
+| `height`    | `number \| string`          | `600`              | Iframe height.                                                                     |
+| `theme`     | `'light' \| 'dark'`         | payer's preference | Pins the embedded checkout to light or dark. Omit it to follow the payer's system. |
+| `onSuccess` | `(txHash?: string) => void` |                    | Called with the transaction hash after a successful payment.                       |
+| `onCancel`  | `() => void`                |                    | Called when the payer cancels.                                                     |
+| `onError`   | `(error: Error) => void`    |                    | Called when the checkout reports an error.                                         |
+| `className` | `string`                    |                    | Class name for the iframe wrapper.                                                 |
+| `style`     | `React.CSSProperties`       |                    | Inline style for the iframe wrapper.                                               |
 
 ## Hooks
 
