@@ -26,6 +26,7 @@ Required env vars (see `.env.example`):
 
 ```
 ARC_ENVIRONMENT=mainnet            # or testnet
+ARC_CHAIN_ID=5042
 ARC_RPC_URL=https://your-arc-rpc.com
 DATABASE_URL=postgresql://...
 
@@ -34,13 +35,24 @@ PAYMENTS_ADDRESS=0x...
 SUBSCRIPTIONS_ADDRESS=0x...
 AGENT_ESCROW_ADDRESS=0x...
 FEE_COLLECTOR_ADDRESS=0x...
+TOKEN_WHITELIST_ADDRESS=0x...
+STABLECOIN_ADDRESSES=USDC:0x...,EURC:0x...
 
-CONFIRMATIONS=5                     # blocks to wait before projecting
+START_BLOCK=12345678
+CONFIRMATIONS=1                     # blocks to wait before projecting
 POLL_INTERVAL_MS=5000               # how often to check for new blocks
 BLOCK_BATCH_SIZE=500                # max blocks per RPC call
 ```
 
-`STABLECOIN_ADDRESSES` is a comma-separated list of ERC-20 contract addresses to also scan (for refund-completion `Transfer` events). Leave empty if you only need to project Strimz's own contracts.
+`STABLECOIN_ADDRESSES` is a comma-separated list of `SYMBOL:address` pairs (`USDC` and `EURC`) for the stablecoins Strimz accepts. The indexer resolves payment tokens through it and scans those contracts for refund-completion `Transfer` events. At least one entry is required.
+
+`ARC_CHAIN_ID`, `START_BLOCK`, `CONFIRMATIONS` and `TOKEN_WHITELIST_ADDRESS` have no default. A missing or malformed value stops the indexer at boot with the variable named.
+
+- `ARC_CHAIN_ID` is `5042002` on Arc testnet and `5042` on Arc mainnet. At boot the indexer asks every RPC endpoint (`ARC_RPC_URL` and each `ARC_FALLBACK_RPC_URLS` entry) for its chain id. An endpoint on another chain stops the boot; an endpoint that does not answer is dropped with a warning.
+- `START_BLOCK` is the block your core contracts were deployed at. A fresh database starts indexing there.
+- `TOKEN_WHITELIST_ADDRESS` is the `TokenWhitelist` contract. The indexer records its token changes and logs an error when a newly whitelisted token is missing from `STABLECOIN_ADDRESSES`.
+
+Run one indexer and one database per network. The indexer's bookmarks are keyed by chain id, but the tables it projects into are not, so testnet and mainnet must not share a database.
 
 ## Migrations
 
