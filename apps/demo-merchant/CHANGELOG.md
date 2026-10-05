@@ -1,5 +1,14 @@
 # @strimz/demo-merchant
 
+## 0.0.11
+
+### Patch Changes
+
+- Updated dependencies [5713650]
+- Updated dependencies [aa97e01]
+  - @strimz/sdk@0.8.0
+  - @strimz/sdk-react@0.1.12
+
 ## 0.0.10
 
 ### Patch Changes
