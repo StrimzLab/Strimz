@@ -21,19 +21,19 @@ const SECTORS = [
 export function SocialProof() {
   return (
     <>
-      <section className="border-y border-[#E5E7EB] bg-[#F9FAFB]">
+      <section className="border-border bg-muted border-y">
         <div className="mx-auto w-full max-w-6xl px-4 py-12 md:px-8 lg:px-16">
-          <p className="font-poppins text-center text-[11px] font-[500] uppercase tracking-[0.22em] text-[#58556A]">
+          <p className="font-poppins text-muted-foreground text-center text-[11px] font-[500] uppercase tracking-[0.22em]">
             Built for
           </p>
           <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 lg:gap-4">
             {SECTORS.map((s) => (
               <div
                 key={s.label}
-                className="flex items-center justify-center gap-2 whitespace-nowrap rounded-[10px] border border-[#E5E7EB] bg-white px-3 py-3 transition-colors hover:border-[#02C76A]/40"
+                className="border-border bg-card hover:border-accent/40 flex items-center justify-center gap-2 whitespace-nowrap rounded-[10px] border px-3 py-3 transition-colors"
               >
-                <s.icon className="size-4 shrink-0 text-[#02C76A]" />
-                <span className="font-poppins text-[13px] font-[500] text-[#050020]">
+                <s.icon className="text-accent size-4 shrink-0" />
+                <span className="font-poppins text-foreground text-[13px] font-[500]">
                   {s.label}
                 </span>
               </div>

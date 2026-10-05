@@ -58,7 +58,7 @@ export default function AuthCallbackPage() {
         {error ? (
           <p className="font-poppins text-sm text-rose-600">{error}</p>
         ) : (
-          <Loader2 className="size-6 animate-spin text-[#02C76A]" />
+          <Loader2 className="text-accent size-6 animate-spin" />
         )}
       </div>
     </AuthCard>

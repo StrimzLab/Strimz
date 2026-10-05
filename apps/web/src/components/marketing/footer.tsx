@@ -35,11 +35,11 @@ export function MarketingFooter() {
   const year = new Date().getFullYear()
   return (
     <>
-      <footer className="flex w-full flex-col bg-[#050020] px-4 pb-10 pt-12 md:px-12 lg:px-20 lg:pt-20">
-        <section className="flex w-full flex-col items-start justify-between gap-12 border-b border-[#58556A] pb-10 md:flex-row md:gap-0">
+      <footer className="bg-ink flex w-full flex-col px-4 pb-10 pt-12 md:px-12 lg:px-20 lg:pt-20">
+        <section className="border-muted-foreground flex w-full flex-col items-start justify-between gap-12 border-b pb-10 md:flex-row md:gap-0">
           <div className="max-w-xs">
             <Logo variant="white" className="lg:w-[126.98px]" />
-            <p className="font-poppins mt-5 text-sm text-[#D1D5DB]">
+            <p className="font-poppins text-ink-muted mt-5 text-sm">
               Stablecoin billing for businesses. One API for one-time payments, subscriptions, and
               agent-driven escrow. Settled in USDC on Arc.
             </p>
@@ -47,21 +47,21 @@ export function MarketingFooter() {
               <Link
                 href="https://x.com/Strimz_HQ"
                 target="_blank"
-                className="text-[#D1D5DB] transition hover:text-white"
+                className="text-ink-muted transition hover:text-white"
               >
                 <FaXTwitter className="size-5" />
               </Link>
               <Link
                 href="https://www.linkedin.com/company/strimzhq/"
                 target="_blank"
-                className="text-[#D1D5DB] transition hover:text-white"
+                className="text-ink-muted transition hover:text-white"
               >
                 <FaLinkedin className="size-5" />
               </Link>
               <Link
                 href="https://github.com/StrimzLab/strimz"
                 target="_blank"
-                className="text-[#D1D5DB] transition hover:text-white"
+                className="text-ink-muted transition hover:text-white"
               >
                 <FaGithub className="size-5" />
               </Link>
@@ -74,7 +74,7 @@ export function MarketingFooter() {
                 <div className="font-sora mb-4 text-sm font-[600] uppercase tracking-wide text-white">
                   {col.label}
                 </div>
-                <ul className="font-poppins space-y-3 text-sm text-[#D1D5DB]">
+                <ul className="font-poppins text-ink-muted space-y-3 text-sm">
                   {col.links.map((l) => (
                     <li key={l.href}>
                       <Link href={l.href} className="transition hover:text-white">
@@ -89,8 +89,8 @@ export function MarketingFooter() {
         </section>
 
         <section className="flex w-full flex-col items-center justify-between gap-4 pt-6 md:flex-row md:gap-0">
-          <p className="font-poppins text-sm text-[#D1D5DB] md:text-base">Built by the Strimz</p>
-          <p className="font-poppins text-sm text-[#D1D5DB] md:text-base">
+          <p className="font-poppins text-ink-muted text-sm md:text-base">Built by the Strimz</p>
+          <p className="font-poppins text-ink-muted text-sm md:text-base">
             © {year} Strimz. All rights reserved.
           </p>
         </section>

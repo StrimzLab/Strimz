@@ -49,7 +49,7 @@ const FAQS = [
 
 export function Faqs() {
   return (
-    <section className="w-full bg-white px-6 py-16 md:py-20">
+    <section className="bg-background w-full px-6 py-16 md:py-20">
       <motion.div
         {...inViewOnce}
         variants={stagger(0.05, 0.1)}
@@ -57,18 +57,18 @@ export function Faqs() {
       >
         <motion.h2
           variants={fadeUp}
-          className="font-sora text-[32px] font-[700] leading-[40px] text-[#050020] md:text-[40px] md:leading-[48px]"
+          className="font-sora text-foreground text-[32px] font-[700] leading-[40px] md:text-[40px] md:leading-[48px]"
         >
           Frequently asked questions
         </motion.h2>
         <motion.p
           variants={fadeUp}
-          className="font-poppins mt-4 text-base font-[400] text-[#58556A]"
+          className="font-poppins text-muted-foreground mt-4 text-base font-[400]"
         >
           Don&apos;t see yours?{' '}
           <a
             href="mailto:support@strimz.finance"
-            className="font-[500] text-[#050020] underline-offset-4 hover:underline"
+            className="text-foreground font-[500] underline-offset-4 hover:underline"
           >
             Email us
           </a>
@@ -82,12 +82,12 @@ export function Faqs() {
             <AccordionItem
               key={i}
               value={String(i)}
-              className="rounded-[8px] border border-[#E5E7EB] bg-[#F3F4F6] px-4 md:px-8"
+              className="border-border bg-secondary rounded-[8px] border px-4 md:px-8"
             >
-              <AccordionTrigger className="font-poppins py-4 text-[16px] font-[500] text-[#050020] md:text-[18px] md:leading-[28px]">
+              <AccordionTrigger className="font-poppins text-foreground py-4 text-[16px] font-[500] md:text-[18px] md:leading-[28px]">
                 {f.q}
               </AccordionTrigger>
-              <AccordionContent className="font-poppins pb-4 text-base leading-[28px] text-[#58556A]">
+              <AccordionContent className="font-poppins text-muted-foreground pb-4 text-base leading-[28px]">
                 {f.a}
               </AccordionContent>
             </AccordionItem>

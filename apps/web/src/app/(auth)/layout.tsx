@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
+import { ThemeToggle } from '@strimz/ui'
 import { Logo } from '@/components/shared/logo'
 import authPattern from '@/../public/patterns/authPattern.png'
 import authPattern2 from '@/../public/patterns/authPattern2.png'
@@ -27,7 +28,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-8">
       {/* Left. Dark panel (hidden on mobile) */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-[#050020] p-10 text-white md:col-span-3 md:flex lg:p-12">
+      <aside className="bg-ink text-ink-foreground relative hidden flex-col justify-between overflow-hidden p-10 md:col-span-3 md:flex lg:p-12">
         <Image
           src={authPattern}
           alt=""
@@ -55,28 +56,31 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <h2 className="font-sora text-[28px] font-[700] leading-[36px] text-white lg:text-[34px] lg:leading-[42px]">
             Stablecoin billing infrastructure for the next billion businesses.
           </h2>
-          <p className="font-poppins text-[14px] leading-[24px] text-[#D1D5DB]">
+          <p className="font-poppins text-ink-muted text-[14px] leading-[24px]">
             One API. Settled in USDC on Arc. Gas-free for your customers, instant payouts for you.
           </p>
         </div>
 
-        <div className="font-poppins relative z-10 flex items-center gap-2 text-[12px] text-[#D1D5DB]">
-          <span className="size-1.5 rounded-full bg-[#02C76A]" />
+        <div className="font-poppins text-ink-muted relative z-10 flex items-center gap-2 text-[12px]">
+          <span className="bg-accent size-1.5 rounded-full" />
           Live on Arc
         </div>
       </aside>
 
       {/* Right. Form panel */}
-      <section className="relative flex flex-col bg-[#F9FAFB] md:col-span-5">
+      <section className="bg-muted relative flex flex-col md:col-span-5">
         <header className="flex items-center justify-between px-4 py-5 sm:px-8 md:px-10">
           <Logo className="md:hidden" />
           <span className="hidden md:block" />
-          <Link
-            href="/"
-            className="font-poppins text-sm text-[#58556A] transition-colors hover:text-[#050020]"
-          >
-            Back to site
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="font-poppins text-muted-foreground hover:text-foreground text-sm transition-colors"
+            >
+              Back to site
+            </Link>
+            <ThemeToggle />
+          </div>
         </header>
 
         <div className="flex flex-1 items-center justify-center px-4 pb-16 sm:px-8">{children}</div>

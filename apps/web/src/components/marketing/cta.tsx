@@ -17,7 +17,7 @@ import ctaPattern from '@/../public/patterns/ctaPattern.svg'
 export function ClosingCta() {
   const router = useRouter()
   return (
-    <section className="w-full bg-[#050020] py-16 md:py-20">
+    <section className="bg-ink w-full py-16 md:py-20">
       <motion.div
         {...inViewOnce}
         variants={stagger(0.05, 0.1)}
@@ -45,8 +45,8 @@ export function ClosingCta() {
           <InteractiveHoverButton
             type="button"
             icon={<MoveRight className="h-5 w-5" />}
-            innerClassName="bg-white rounded-[8px]"
-            className="font-poppins shadow-cta flex h-[48px] w-[200px] cursor-pointer items-center justify-center rounded-[8px] bg-[#02C76A] text-[14px] font-[600] text-white hover:text-[#050020]"
+            innerClassName="bg-ink-foreground rounded-[8px]"
+            className="font-poppins shadow-cta bg-accent hover:text-ink flex h-[48px] w-[200px] cursor-pointer items-center justify-center rounded-[8px] text-[14px] font-[600] text-white"
             onClick={() => router.push('/signup')}
           >
             Get your API keys
@@ -73,7 +73,7 @@ export function ClosingCta() {
           className="h-[145px] w-full animate-pulse object-cover opacity-90"
         />
         <span className="absolute inline-flex h-[50px] w-[50px] md:h-[70px] md:w-[70px] lg:h-[90px] lg:w-[90px]">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#02C76A] opacity-70" />
+          <span className="bg-accent absolute inline-flex h-full w-full animate-ping rounded-full opacity-70" />
           <Image
             src={strimzVector}
             alt=""
