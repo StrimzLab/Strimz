@@ -107,7 +107,7 @@ export default function AdminBroadcastsPage() {
                       key={v}
                       htmlFor={`audience-${v}`}
                       className={`border-border/60 flex cursor-pointer items-start gap-3 rounded-md border p-3 transition-colors ${
-                        audience === v ? 'border-[#02C76A]/60 bg-[#02C76A]/5' : ''
+                        audience === v ? 'border-accent/60 bg-accent/5' : ''
                       }`}
                     >
                       <RadioGroupItem id={`audience-${v}`} value={v} className="mt-0.5" />
@@ -138,9 +138,9 @@ export default function AdminBroadcastsPage() {
                   </div>
                   <div className="border-border/60 mt-2 max-h-40 overflow-y-auto rounded-md border">
                     {merchantsQuery.isPending ? (
-                      <div className="font-poppins p-3 text-xs text-[#58556A]">Loading…</div>
+                      <div className="font-poppins text-muted-foreground p-3 text-xs">Loading…</div>
                     ) : (merchantsQuery.data?.data ?? []).length === 0 ? (
-                      <div className="font-poppins p-3 text-xs text-[#58556A]">
+                      <div className="font-poppins text-muted-foreground p-3 text-xs">
                         No merchants match &ldquo;{merchantQuery}&rdquo;.
                       </div>
                     ) : (
@@ -151,14 +151,14 @@ export default function AdminBroadcastsPage() {
                               type="button"
                               onClick={() => setMerchantId(m.id)}
                               className={`hover:bg-muted/40 flex w-full items-start gap-2 px-3 py-2 text-left transition-colors ${
-                                merchantId === m.id ? 'bg-[#02C76A]/10' : ''
+                                merchantId === m.id ? 'bg-accent/10' : ''
                               }`}
                             >
                               <div className="min-w-0 flex-1">
-                                <div className="font-poppins truncate text-sm text-[#050020]">
+                                <div className="font-poppins text-foreground truncate text-sm">
                                   {m.businessName ?? m.email}
                                 </div>
-                                <div className="font-poppins truncate text-xs text-[#58556A]">
+                                <div className="font-poppins text-muted-foreground truncate text-xs">
                                   {m.email}
                                 </div>
                               </div>
@@ -217,18 +217,18 @@ export default function AdminBroadcastsPage() {
 
         <div className="space-y-3">
           <div className="flex items-center gap-2">
-            <Users className="size-4 text-[#58556A]" />
+            <Users className="text-muted-foreground size-4" />
             <h3 className="font-poppins text-sm font-medium">Recent broadcasts</h3>
           </div>
           {broadcastsQuery.isPending ? (
             <Card className="border-border/60">
-              <CardContent className="font-poppins p-4 text-xs text-[#58556A]">
+              <CardContent className="font-poppins text-muted-foreground p-4 text-xs">
                 Loading…
               </CardContent>
             </Card>
           ) : (broadcastsQuery.data?.data ?? []).length === 0 ? (
             <Card className="border-border/60 border-dashed">
-              <CardContent className="font-poppins p-4 text-xs text-[#58556A]">
+              <CardContent className="font-poppins text-muted-foreground p-4 text-xs">
                 No broadcasts sent yet. Yours will show up here.
               </CardContent>
             </Card>
@@ -240,10 +240,10 @@ export default function AdminBroadcastsPage() {
                     <CardContent className="p-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <div className="font-poppins truncate text-sm font-medium text-[#050020]">
+                          <div className="font-poppins text-foreground truncate text-sm font-medium">
                             {b.title}
                           </div>
-                          <div className="font-poppins mt-0.5 text-[10px] text-[#58556A]">
+                          <div className="font-poppins text-muted-foreground mt-0.5 text-[10px]">
                             {formatDistanceToNow(new Date(b.createdAt), {
                               addSuffix: true,
                             })}{' '}

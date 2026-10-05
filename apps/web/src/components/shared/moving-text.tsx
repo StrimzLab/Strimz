@@ -6,12 +6,12 @@ import strimzBlueLogoIcon from '@/../public/logoIcons/strimzBlueLogoPNG.svg'
 
 /**
  * Horizontally scrolling marquee. Direct match to strimz-subscription's
- * `MovingText`. `bg-[#F9FAFB]` strip with the blue Strimz icon and the
+ * `MovingText`. `bg-muted` strip with the blue Strimz icon and the
  * brand line repeating. Sits underneath the hero.
  */
 export function MovingText() {
   return (
-    <Marquee className="h-[60px] w-full bg-[#F9FAFB]" speed={48}>
+    <Marquee className="bg-muted h-[60px] w-full" speed={48}>
       {Array.from({ length: 11 }).map((_, i) => (
         <Pill key={i} />
       ))}
@@ -31,7 +31,7 @@ function Pill() {
         quality={100}
         priority
       />
-      <p className="font-poppins px-2.5 text-sm font-[400] text-[#050020] md:text-base">
+      <p className="font-poppins text-foreground px-2.5 text-sm font-[400] md:text-base">
         Streamline payments anytime
       </p>
     </div>

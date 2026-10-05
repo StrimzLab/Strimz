@@ -15,26 +15,38 @@ import strimzVectorSrc from '@/../public/logoIcons/StrimzVector.svg'
  */
 export function Logo({
   href = '/',
-  variant = 'blue',
+  variant = 'themed',
   className,
 }: {
   href?: string
-  variant?: 'blue' | 'white'
+  variant?: 'themed' | 'blue' | 'white'
   className?: string
 }) {
-  const src: StaticImageData = variant === 'white' ? whiteLogoSrc : blueLogoSrc
   return (
     <Link href={href} className={cn('inline-block w-[101px] shrink-0 md:w-[116px]', className)}>
-      <Image
-        src={src}
-        alt="Strimz"
-        className="h-auto w-full"
-        width={407}
-        height={128}
-        priority
-        quality={100}
-      />
+      {variant === 'themed' ? (
+        <>
+          <LogoImage src={blueLogoSrc} className="dark:hidden" />
+          <LogoImage src={whiteLogoSrc} className="hidden dark:block" />
+        </>
+      ) : (
+        <LogoImage src={variant === 'white' ? whiteLogoSrc : blueLogoSrc} />
+      )}
     </Link>
+  )
+}
+
+function LogoImage({ src, className }: { src: StaticImageData; className?: string }) {
+  return (
+    <Image
+      src={src}
+      alt="Strimz"
+      className={cn('h-auto w-full', className)}
+      width={407}
+      height={128}
+      priority
+      quality={100}
+    />
   )
 }
 

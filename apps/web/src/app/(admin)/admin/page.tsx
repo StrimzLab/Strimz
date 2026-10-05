@@ -208,7 +208,7 @@ export default function AdminOverviewPage() {
                 <Link
                   key={m.merchantId}
                   href={`/admin/merchants/${m.merchantId}`}
-                  className="border-border/60 flex items-center justify-between rounded-lg border px-3 py-2.5 transition-colors hover:border-[#02C76A]/40"
+                  className="border-border/60 hover:border-accent/40 flex items-center justify-between rounded-lg border px-3 py-2.5 transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-muted-foreground w-6 font-mono text-xs">#{idx + 1}</span>

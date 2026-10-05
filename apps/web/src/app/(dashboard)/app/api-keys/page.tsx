@@ -245,7 +245,7 @@ export default function ApiKeysPage() {
               className={[
                 'h-7 rounded-md border px-2 capitalize transition-colors',
                 filter === v
-                  ? 'border-[#02C76A] bg-[#02C76A]/10 text-[#02C76A]'
+                  ? 'border-accent bg-accent/10 text-accent'
                   : 'border-border/60 hover:bg-muted',
               ].join(' ')}
             >

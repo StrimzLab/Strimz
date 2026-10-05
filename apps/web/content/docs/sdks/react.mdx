@@ -92,6 +92,17 @@ For a full embedded checkout (no redirect):
 
 Renders the hosted checkout inline in an iframe. Useful for cart-style flows where you don't want to lose the buyer's context.
 
+| Prop        | Type                        | Default            | Description                                                                        |
+| ----------- | --------------------------- | ------------------ | ---------------------------------------------------------------------------------- |
+| `sessionId` | `string`                    | required           | The payment session to pay.                                                        |
+| `height`    | `number \| string`          | `600`              | Iframe height.                                                                     |
+| `theme`     | `'light' \| 'dark'`         | payer's preference | Pins the embedded checkout to light or dark. Omit it to follow the payer's system. |
+| `onSuccess` | `(txHash?: string) => void` |                    | Called with the transaction hash after a successful payment.                       |
+| `onCancel`  | `() => void`                |                    | Called when the payer cancels.                                                     |
+| `onError`   | `(error: Error) => void`    |                    | Called when the checkout reports an error.                                         |
+| `className` | `string`                    |                    | Class name for the iframe wrapper.                                                 |
+| `style`     | `React.CSSProperties`       |                    | Inline style for the iframe wrapper.                                               |
+
 ## Hooks
 
 The package exports three hooks. All of them must be used inside `<StrimzProvider>`.

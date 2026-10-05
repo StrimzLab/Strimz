@@ -27,7 +27,7 @@ export function SegmentedToggle<T extends string>({
           className={[
             'h-8 rounded-md border px-2.5 text-xs font-medium transition-colors',
             value === option.value
-              ? 'border-[#02C76A] bg-[#02C76A]/10 text-[#02C76A]'
+              ? 'border-accent bg-accent/10 text-accent'
               : 'border-border/60 hover:bg-muted',
           ].join(' ')}
         >

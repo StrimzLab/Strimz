@@ -228,7 +228,7 @@ function ExplorerLink({ hash, base }: { hash: string; base: string }) {
       href={`${base}${hash}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-xs text-[#02C76A] hover:underline"
+      className="text-accent inline-flex items-center gap-1 text-xs hover:underline"
     >
       {shortAddress(hash)}
       <ExternalLink className="size-3" />

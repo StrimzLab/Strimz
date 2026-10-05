@@ -107,19 +107,19 @@ export function DashboardSidebar({ open, onClose }: Props) {
 
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 flex h-[100dvh] w-64 shrink-0 flex-col bg-[#F9FAFB] transition-transform duration-300 ease-out',
-          'lg:sticky lg:translate-x-0 lg:border-r lg:border-[#E5E7EB]',
+          'bg-muted fixed left-0 top-0 z-40 flex h-[100dvh] w-64 shrink-0 flex-col transition-transform duration-300 ease-out',
+          'lg:border-border lg:sticky lg:translate-x-0 lg:border-r',
           open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
         )}
       >
         {/* Sticky logo block. Close button shows on mobile only */}
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-[#E5E7EB] bg-[#F9FAFB] px-5">
+        <div className="border-border bg-muted flex h-16 shrink-0 items-center justify-between border-b px-5">
           <Logo />
           <button
             type="button"
             aria-label="Close sidebar"
             onClick={onClose}
-            className="flex size-8 items-center justify-center rounded-md border border-[#E5E7EB] bg-white text-[#58556A] transition-colors hover:bg-[#F9FAFB] hover:text-[#050020] lg:hidden"
+            className="border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground flex size-8 items-center justify-center rounded-md border transition-colors lg:hidden"
           >
             <ArrowLeft className="size-4" />
           </button>
@@ -129,7 +129,7 @@ export function DashboardSidebar({ open, onClose }: Props) {
         <nav className="no-scrollbar flex-1 space-y-6 overflow-y-auto p-3 pt-5">
           {SECTIONS.map((section) => (
             <div key={section.label}>
-              <div className="font-poppins mb-1.5 px-3 text-[10px] font-[600] uppercase tracking-[0.18em] text-[#58556A]/80">
+              <div className="font-poppins text-muted-foreground/80 mb-1.5 px-3 text-[10px] font-[600] uppercase tracking-[0.18em]">
                 {section.label}
               </div>
               <div className="space-y-0.5">
@@ -144,11 +144,11 @@ export function DashboardSidebar({ open, onClose }: Props) {
                       className={cn(
                         'font-poppins flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-all',
                         active
-                          ? 'shadow-sidebar-link border border-[#E5E7EB] bg-white font-[500] text-[#050020]'
-                          : 'border border-transparent text-[#58556A] hover:bg-white/60 hover:text-[#050020]',
+                          ? 'shadow-sidebar-link border-border bg-card text-foreground border font-[500]'
+                          : 'text-muted-foreground hover:text-foreground border border-transparent hover:bg-white/60',
                       )}
                     >
-                      <link.icon className={cn('size-4', active && 'text-[#02C76A]')} />
+                      <link.icon className={cn('size-4', active && 'text-accent')} />
                       {link.label}
                     </Link>
                   )
@@ -159,13 +159,13 @@ export function DashboardSidebar({ open, onClose }: Props) {
         </nav>
 
         {/* Sticky bottom block */}
-        <div className="shrink-0 space-y-1 border-t border-[#E5E7EB] p-3">
+        <div className="border-border shrink-0 space-y-1 border-t p-3">
           <OnboardingCard />
           <Link
             href="/docs"
             target="_blank"
             rel="noreferrer"
-            className="font-poppins flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-[#58556A] transition-colors hover:bg-white hover:text-[#050020]"
+            className="font-poppins text-muted-foreground hover:bg-card hover:text-foreground flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors"
           >
             <Boxes className="size-4" />
             Documentation
@@ -174,7 +174,7 @@ export function DashboardSidebar({ open, onClose }: Props) {
             href="https://github.com/StrimzLab/strimz"
             target="_blank"
             rel="noreferrer"
-            className="font-poppins flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-[#58556A] transition-colors hover:bg-white hover:text-[#050020]"
+            className="font-poppins text-muted-foreground hover:bg-card hover:text-foreground flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors"
           >
             <Globe2 className="size-4" />
             GitHub
@@ -200,14 +200,14 @@ function OnboardingCard() {
   const { data: merchant } = useMerchantMe()
   if (!merchant || merchant.onboardingCompleted) return null
   return (
-    <div className="strimz-alert-gradient mb-2 rounded-xl p-4 text-white shadow-lg shadow-[#02C76A]/15">
+    <div className="strimz-alert-gradient shadow-accent/15 mb-2 rounded-xl p-4 text-white shadow-lg">
       <p className="font-poppins text-sm font-[500]">Unlock live mode ⚡</p>
       <p className="font-poppins mt-1 text-xs text-white/80">
         Finish onboarding and turn on 2FA to issue live keys.
       </p>
       <Link
         href="/onboarding"
-        className="font-poppins mt-3 inline-flex h-8 w-full items-center justify-center rounded-md bg-white/95 text-xs font-[500] text-[#050020] transition-transform hover:scale-[1.02]"
+        className="font-poppins text-foreground mt-3 inline-flex h-8 w-full items-center justify-center rounded-md bg-white/95 text-xs font-[500] transition-transform hover:scale-[1.02]"
       >
         Continue
       </Link>

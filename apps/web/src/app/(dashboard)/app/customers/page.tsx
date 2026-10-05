@@ -118,7 +118,7 @@ export default function CustomersPage() {
                         <button
                           type="button"
                           onClick={() => setHistoryCustomer(row.original)}
-                          className="inline-flex items-center rounded-full border border-[#02C76A]/30 bg-[#02C76A]/10 px-1.5 text-[10px] font-medium text-[#02C76A] hover:bg-[#02C76A]/15"
+                          className="border-accent/30 bg-accent/10 text-accent hover:bg-accent/15 inline-flex items-center rounded-full border px-1.5 text-[10px] font-medium"
                         >
                           +{extraCount} more
                         </button>
@@ -311,7 +311,7 @@ function EmailHistoryDialog({
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-medium">{entry.email}</span>
                         {idx === 0 ? (
-                          <span className="inline-flex items-center rounded-full border border-[#02C76A]/30 bg-[#02C76A]/10 px-1.5 text-[10px] font-medium text-[#02C76A]">
+                          <span className="border-accent/30 bg-accent/10 text-accent inline-flex items-center rounded-full border px-1.5 text-[10px] font-medium">
                             current
                           </span>
                         ) : null}

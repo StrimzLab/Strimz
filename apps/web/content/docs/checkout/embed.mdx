@@ -107,6 +107,12 @@ export function CheckoutPanel({ sessionId }: { sessionId: string }) {
 }
 ```
 
+The embedded checkout follows the payer's system light or dark preference and has no theme toggle of its own. To match your page, pass `theme="light"` or `theme="dark"`:
+
+```tsx
+<StrimzCheckoutEmbed sessionId={sessionId} height={640} theme="dark" />
+```
+
 `useStrimzSession` reads the session with the publishable key and polls until it reaches a terminal state (`confirmed`, `failed`, `expired`, or `cancelled`), so the panel switches to its success state on its own.
 
 If you'd rather open the checkout in a popup from your own button, use `<StrimzPayButton sessionId={sessionId} />` or the `useStrimzCheckout()` hook, which returns `{ open(sessionId), close(), status }`.

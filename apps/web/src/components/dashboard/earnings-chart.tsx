@@ -54,7 +54,7 @@ export function EarningsChart() {
                 <h2 className="font-sora text-3xl font-bold">
                   $1,255<span className="text-muted-foreground text-base">.50 USD</span>
                 </h2>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#02C76A]/10 px-2 py-0.5 text-xs font-medium text-[#02C76A]">
+                <span className="bg-accent/10 text-accent inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium">
                   <ArrowUpRight className="size-3" />
                   +7%
                 </span>

@@ -248,7 +248,7 @@ export function StatusPill({
   children: React.ReactNode
 }) {
   const tones: Record<typeof tone, string> = {
-    positive: 'bg-[#02C76A]/10 text-[#02C76A] border-[#02C76A]/20',
+    positive: 'bg-accent/10 text-accent border-accent/20',
     warning: 'bg-amber-500/10  text-amber-600  border-amber-500/20',
     danger: 'bg-rose-500/10   text-rose-600   border-rose-500/20',
     info: 'bg-sky-500/10    text-sky-600    border-sky-500/20',
