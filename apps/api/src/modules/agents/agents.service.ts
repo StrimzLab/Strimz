@@ -1,18 +1,28 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
-import type {
-  AgentJob,
-  AgentMerchantConfig,
-  CreateAgentJobParsed,
-  UpdateAgentConfigParsed,
+import {
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common'
+import {
+  agentMerchantConfigSchema,
+  type AgentJob,
+  type AgentMerchantConfig,
+  type CreateAgentJobParsed,
+  type UpdateAgentConfigParsed,
 } from '@strimz/shared-types'
 import { AGENT_DEFAULTS } from '@strimz/shared-config'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QueueService } from '../../infra/queue/queue.service.js'
+import { mergeAgentConfig } from './agent-config-merge.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 @Injectable()
 export class AgentsService {
+  private readonly log = new Logger(AgentsService.name)
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly queue: QueueService,
@@ -29,32 +39,46 @@ export class AgentsService {
     return serialiseConfig(row)
   }
 
-  async updateConfig(
-    merchantId: string,
-    input: UpdateAgentConfigParsed,
-  ): Promise<AgentMerchantConfig> {
-    await this.prisma.db.agentMerchantConfig.upsert({
-      where: { merchantId },
-      create: { merchantId, enabledCapabilities: [] },
-      update: {},
+  updateConfig(merchantId: string, input: UpdateAgentConfigParsed): Promise<AgentMerchantConfig> {
+    return this.prisma.db.$transaction(async (tx) => {
+      await tx.agentMerchantConfig.upsert({
+        where: { merchantId },
+        create: { merchantId, enabledCapabilities: [] },
+        update: {},
+      })
+      await tx.$queryRaw`SELECT id FROM "AgentMerchantConfig" WHERE "merchantId" = ${merchantId} FOR UPDATE`
+      const stored = await tx.agentMerchantConfig.findUniqueOrThrow({ where: { merchantId } })
+      const merged = agentMerchantConfigSchema.safeParse(
+        mergeAgentConfig(serialiseConfig(stored), input),
+      )
+      if (!merged.success) {
+        this.log.error(
+          `stored agent config for merchant ${merchantId} fails the schema: ${merged.error.message}`,
+        )
+        throw new InternalServerErrorException({
+          code: 'internal_error',
+          message: 'stored agent config is invalid',
+        })
+      }
+      const config = merged.data
+      const updated = await tx.agentMerchantConfig.update({
+        where: { merchantId },
+        data: {
+          enabledCapabilities: config.enabledCapabilities,
+          recoveryGracePeriodHours: config.recovery.gracePeriodHours,
+          recoveryStrategy: config.recovery.strategy,
+          recoveryNotificationTemplate: config.recovery.notificationTemplate,
+          cashflowDigestEnabled: config.cashflow.digestEnabled,
+          cashflowAnomalySensitivity: config.cashflow.anomalySensitivity,
+          cashflowAutoConvertToYield: config.cashflow.autoConvertToYield,
+          cashflowMinimumLiquidReserveCents: config.cashflow.minimumLiquidReserveCents,
+          commerceHumanApprovalAboveUsdCents: config.commerce.requireHumanApprovalAboveUsdCents,
+          commerceApprovedVendors: config.commerce.approvedVendors,
+          commerceMonthlySpendCapUsdCents: config.commerce.monthlySpendCapUsdCents,
+        },
+      })
+      return serialiseConfig(updated)
     })
-    const updated = await this.prisma.db.agentMerchantConfig.update({
-      where: { merchantId },
-      data: {
-        enabledCapabilities: input.enabledCapabilities as never,
-        recoveryGracePeriodHours: input.recovery?.gracePeriodHours,
-        recoveryStrategy: input.recovery?.strategy,
-        recoveryNotificationTemplate: input.recovery?.notificationTemplate ?? undefined,
-        cashflowDigestEnabled: input.cashflow?.digestEnabled,
-        cashflowAnomalySensitivity: input.cashflow?.anomalySensitivity,
-        cashflowAutoConvertToYield: input.cashflow?.autoConvertToYield,
-        cashflowMinimumLiquidReserveCents: input.cashflow?.minimumLiquidReserveCents,
-        commerceHumanApprovalAboveUsdCents: input.commerce?.requireHumanApprovalAboveUsdCents,
-        commerceApprovedVendors: input.commerce?.approvedVendors as never,
-        commerceMonthlySpendCapUsdCents: input.commerce?.monthlySpendCapUsdCents ?? undefined,
-      },
-    })
-    return serialiseConfig(updated)
   }
 
   // ----- Activity -----
