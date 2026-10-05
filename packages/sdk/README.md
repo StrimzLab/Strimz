@@ -68,13 +68,13 @@ signatures and response types come from
 
 | Resource            | Methods                                                                                                          |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `merchants`         | `me`, `update` (deprecated), `changeTier` (deprecated)                                                           |
+| `merchants`         | `me`                                                                                                             |
 | `apiKeys`           | `list`, `retrieve`, `create`, `revoke`                                                                           |
 | `customers`         | `retrieve`, `list`, `upsert`                                                                                     |
 | `paymentSessions`   | `create`, `retrieve`, `list`, `cancel`, `expire`                                                                 |
 | `transactions`      | `retrieve`, `list`                                                                                               |
 | `subscriptionPlans` | `create`, `retrieve`, `list`, `archive`                                                                          |
-| `subscriptions`     | `create`, `retrieve`, `list`, `cancel`                                                                           |
+| `subscriptions`     | `retrieve`, `list`, `cancel`                                                                                     |
 | `refunds`           | `create`, `retrieve`, `list`, `submitSignature`                                                                  |
 | `webhookEndpoints`  | `create`, `retrieve`, `list`, `enable`, `disable`, `rotateSecret`                                                |
 | `webhookDeliveries` | `retrieve`, `list`, `replay`                                                                                     |

@@ -126,7 +126,7 @@ These routes change where your money goes, what it costs, or the dashboard itsel
 - `GET /v1/notifications`
 - `POST /v1/notifications/mark-all-read`
 
-`strimz.merchants.update()` and `strimz.merchants.changeTier()` call the first and third of these, so they no longer work with a secret key. Both are deprecated and will be removed from `@strimz/sdk` in the next minor release. Change your profile, payout address, and tier in the dashboard.
+`strimz.merchants.update()` and `strimz.merchants.changeTier()` call the first and third of these, so they do not work with a secret key. Both were removed from `@strimz/sdk` in 0.8.0. Change your profile, payout address, and tier in the dashboard.
 
 ### Keys that manage keys
 
