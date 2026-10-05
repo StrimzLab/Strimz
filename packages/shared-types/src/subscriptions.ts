@@ -134,19 +134,6 @@ export const subscriptionEnrolmentTermsSchema = z.object({
 })
 export type SubscriptionEnrolmentTerms = z.infer<typeof subscriptionEnrolmentTermsSchema>
 
-export const createSubscriptionInputSchema = z.object({
-  planId: idSchema,
-  customer: z.object({
-    walletAddress: evmAddressSchema,
-    email: z.string().email().optional(),
-    externalRef: z.string().max(120).optional(),
-  }),
-  gracePeriodHours: z.union([z.literal(24), z.literal(48), z.literal(72)]).default(48),
-  metadata: metadataSchema.optional(),
-})
-export type CreateSubscriptionInput = z.input<typeof createSubscriptionInputSchema>
-export type CreateSubscriptionParsed = z.output<typeof createSubscriptionInputSchema>
-
 export const cancelSubscriptionInputSchema = z.object({
   id: idSchema,
   reason: z.string().max(500).optional(),
