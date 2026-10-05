@@ -62,6 +62,24 @@ describe('SDK request methods take the caller-facing input type', () => {
     })
   })
 
+  it('agents.updateConfig accepts a recovery or commerce section without its nullable field', () => {
+    expectTypeOf(client.agents.updateConfig).toBeCallableWith({
+      recovery: { strategy: 'once' },
+    })
+    expectTypeOf(client.agents.updateConfig).toBeCallableWith({
+      commerce: { monthlySpendCapUsdCents: null },
+    })
+  })
+
+  it('the agent config update schema has the keys of the full config schema', () => {
+    type Full = Omit<z.output<typeof T.agentMerchantConfigSchema>, 'merchantId' | 'updatedAt'>
+    type Update = z.output<typeof T.updateAgentConfigInputSchema>
+    expectTypeOf<keyof Update>().toEqualTypeOf<keyof Full>()
+    expectTypeOf<keyof NonNullable<Update['recovery']>>().toEqualTypeOf<keyof Full['recovery']>()
+    expectTypeOf<keyof NonNullable<Update['cashflow']>>().toEqualTypeOf<keyof Full['cashflow']>()
+    expectTypeOf<keyof NonNullable<Update['commerce']>>().toEqualTypeOf<keyof Full['commerce']>()
+  })
+
   it('every input-taking method is typed with z.input of its schema', () => {
     expectTypeOf<FirstArg<StrimzClient['apiKeys']['create']>>().toEqualTypeOf<
       z.input<typeof T.createApiKeyInputSchema>
