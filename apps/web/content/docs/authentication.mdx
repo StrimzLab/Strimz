@@ -49,10 +49,37 @@ own scanner spots one in a public source, Strimz rotates it
 automatically. You get an email and the old key starts returning
 `401`s.
 
-**Publishable keys** are scoped to read-only methods and the
-create-session endpoint, so they're safe in the browser. The browser
-SDK uses them so your server doesn't have to round-trip every
-checkout intent.
+**Publishable keys** are safe in the browser because they grant no
+access. `StrimzBrowserClient` and `@strimz/sdk-react` read the mode
+(test or live) from the key's prefix and send it with their calls to
+the public checkout and token routes, which do not check it. Every
+other route rejects a publishable key with `401 authentication_error`.
+A publishable key cannot create a payment session: create sessions on
+your server with a secret key, as shown in
+[Create sessions on your server](/docs/checkout/server-sessions).
+
+## Calling Strimz from a browser
+
+Browser code may call these routes from any website. They answer with
+`Access-Control-Allow-Origin: *` and never with credentials:
+
+| Route                                      | Used by                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------- |
+| `GET /v1/checkout/merchants/{id}`          | hosted checkout, `StrimzBrowserClient.checkout`                     |
+| `GET /v1/checkout/sessions/{id}`           | hosted checkout, `StrimzBrowserClient.checkout`, `useStrimzSession` |
+| `GET /v1/checkout/plans/{id}`              | hosted checkout, `StrimzBrowserClient.checkout`                     |
+| `GET /v1/checkout/plans/{id}/subscription` | hosted checkout, `StrimzBrowserClient.checkout`                     |
+| `GET /v1/checkout/plans/{id}/terms`        | hosted checkout, `StrimzBrowserClient.checkout`                     |
+| `POST /v1/checkout/sessions/{id}/payer`    | hosted checkout                                                     |
+| `POST /v1/checkout/plans/{id}/payer`       | hosted checkout                                                     |
+| `GET /v1/tokens/{address}`                 | `StrimzBrowserClient.tokens`                                        |
+| `GET /v1/tokens/{address}/permit-nonce`    | `StrimzBrowserClient.tokens`                                        |
+
+Every other route refuses browsers on any origin other than the Strimz
+dashboard: the CORS preflight fails and the request never reaches
+Strimz. Call those routes from your server with a secret key. If you
+see a CORS error from `api.strimz.finance`, read
+[Seeing a CORS error?](/docs/checkout/server-sessions#seeing-a-cors-error).
 
 ## Scopes
 
@@ -99,7 +126,7 @@ These routes change where your money goes, what it costs, or the dashboard itsel
 - `GET /v1/notifications`
 - `POST /v1/notifications/mark-all-read`
 
-`strimz.merchants.update()` and `strimz.merchants.changeTier()` call the first and third of these, so they no longer work with a secret key. Both are deprecated and will be removed from `@strimz/sdk` in the next minor release. Change your profile, payout address, and tier in the dashboard.
+`strimz.merchants.update()` and `strimz.merchants.changeTier()` call the first and third of these, so they do not work with a secret key. Both were removed from `@strimz/sdk` in 0.8.0. Change your profile, payout address, and tier in the dashboard.
 
 ### Keys that manage keys
 

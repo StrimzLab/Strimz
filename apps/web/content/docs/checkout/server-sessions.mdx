@@ -1,0 +1,119 @@
+---
+title: Create sessions on your server
+description: Your secret key stays on your server. Create the payment session there, send the session id to the browser, and open checkout from the browser with a publishable key.
+---
+
+A payment session sets what the payer is charged: the amount, the currency, and the metadata you read back in your webhook. Only your server should decide that, so only your server creates sessions, with your secret key (`sk_test_…` or `sk_live_…`).
+
+The browser never sees the secret key. It asks your server for a session, gets back the session id, and opens checkout for that id with your publishable key (`pk_test_…` or `pk_live_…`).
+
+## Why the secret key stays on the server
+
+Anything in a browser bundle can be read by anyone who loads your page. A secret key there lets anyone create sessions, issue refunds, and read your customers under your account.
+
+To stop that early, `StrimzClient` from `@strimz/sdk` refuses to start in a browser. Constructing it in a page, a web worker, an Electron renderer, or a React Native app throws `StrimzAuthenticationError` with code `secret_key_in_browser`. See [`@strimz/sdk`](/docs/sdks/server#where-strimzclient-runs) for how the runtime is detected.
+
+The Strimz API backs this up: routes that take a secret key only answer browsers on the Strimz dashboard's own origin. A browser call from your site to `POST /v1/payment-sessions` fails its CORS check before it reaches Strimz.
+
+## The flow
+
+1. The payer clicks **Pay** on your page.
+2. Your page calls your own server, for example `POST /api/checkout`.
+3. Your server calls `strimz.paymentSessions.create(...)` with your secret key and returns `{ id }`.
+4. Your page opens checkout for that id with `useStrimzCheckout().open(id)`.
+5. Strimz sends `payment.completed` to your [webhook](/docs/guides/webhooks) when the payment confirms. Fulfil the order there.
+
+## Server: Next.js route handler
+
+```ts title="app/api/checkout/route.ts"
+import { StrimzClient } from '@strimz/sdk'
+
+const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_SECRET_KEY! })
+
+export async function POST() {
+  const session = await strimz.paymentSessions.create({
+    amount: '10000000',
+    currency: 'USDC',
+    description: 'Pro plan, monthly',
+  })
+  return Response.json({ id: session.id })
+}
+```
+
+Route handlers run on the server, so `StrimzClient` works here, on the Node.js and Edge runtimes alike. Keep the key in a variable without the `NEXT_PUBLIC_` prefix so Next.js never inlines it into the browser bundle.
+
+Set the amount on the server from your own catalogue. Do not take it from the request body, which the payer controls.
+
+## Server: Express
+
+```ts title="server.ts"
+import express from 'express'
+import { StrimzClient } from '@strimz/sdk'
+
+const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_SECRET_KEY! })
+const app = express()
+
+app.post('/api/checkout', async (_req, res, next) => {
+  try {
+    const session = await strimz.paymentSessions.create({
+      amount: '10000000',
+      currency: 'USDC',
+      description: 'Pro plan, monthly',
+    })
+    res.json({ id: session.id })
+  } catch (err) {
+    next(err)
+  }
+})
+
+app.listen(4242)
+```
+
+## Browser: open checkout
+
+Wrap your app in `StrimzProvider` with your publishable key, as shown in [`@strimz/sdk-react`](/docs/sdks/react). Then:
+
+```tsx title="components/pay-button.tsx"
+'use client'
+
+import { useState } from 'react'
+import { useStrimzCheckout } from '@strimz/sdk-react'
+
+export function PayButton() {
+  const checkout = useStrimzCheckout({ onSuccess: () => window.location.assign('/thanks') })
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function pay() {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/checkout', { method: 'POST' })
+      if (!res.ok) throw new Error(`Checkout failed with status ${res.status}`)
+      const { id } = (await res.json()) as { id: string }
+      checkout.open(id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Checkout failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <button onClick={pay} disabled={loading}>
+        {loading ? 'Starting checkout…' : 'Pay'}
+      </button>
+      {error && <p role="alert">{error}</p>}
+    </>
+  )
+}
+```
+
+To show the payment inline instead of in a popup, pass the id to `<StrimzCheckoutEmbed sessionId={id} />`. See [Embedded checkout](/docs/checkout/embed).
+
+## Seeing a CORS error?
+
+If your browser console shows a CORS error from `api.strimz.finance` on a call such as `POST /v1/payment-sessions`, the API is working as intended. That route takes a secret key, and Strimz refuses it from any website other than the Strimz dashboard so that secret keys cannot be used from browser code.
+
+Move the call into a server route like the ones above and have the browser call your route instead. The routes a browser may call from any origin are listed in [Calling Strimz from a browser](/docs/authentication#calling-strimz-from-a-browser).

@@ -68,13 +68,13 @@ signatures and response types come from
 
 | Resource            | Methods                                                                                                          |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `merchants`         | `me`, `update` (deprecated), `changeTier` (deprecated)                                                           |
+| `merchants`         | `me`                                                                                                             |
 | `apiKeys`           | `list`, `retrieve`, `create`, `revoke`                                                                           |
 | `customers`         | `retrieve`, `list`, `upsert`                                                                                     |
 | `paymentSessions`   | `create`, `retrieve`, `list`, `cancel`, `expire`                                                                 |
 | `transactions`      | `retrieve`, `list`                                                                                               |
 | `subscriptionPlans` | `create`, `retrieve`, `list`, `archive`                                                                          |
-| `subscriptions`     | `create`, `retrieve`, `list`, `cancel`                                                                           |
+| `subscriptions`     | `retrieve`, `list`, `cancel`                                                                                     |
 | `refunds`           | `create`, `retrieve`, `list`, `submitSignature`                                                                  |
 | `webhookEndpoints`  | `create`, `retrieve`, `list`, `enable`, `disable`, `rotateSecret`                                                |
 | `webhookDeliveries` | `retrieve`, `list`, `replay`                                                                                     |
@@ -183,6 +183,8 @@ The full code list is documented at
 | Deno               | Should work, not regularly tested                    |
 | Bun                | Should work, not regularly tested                    |
 | Browsers           | Use `StrimzBrowserClient` from `@strimz/sdk/browser` |
+
+`StrimzClient` refuses to start in a browser runtime: a page, a web worker, an Electron renderer, or React Native. It throws `StrimzAuthenticationError` with code `secret_key_in_browser` and a message that never contains the key. Node with a DOM shim such as jsdom, Deno, Bun, Vercel Edge and Cloudflare Workers count as servers. There is no option to turn the check off. Create payment sessions on your server and pass the session id to the browser; see [strimz.finance/docs/checkout/server-sessions](https://strimz.finance/docs/checkout/server-sessions).
 
 ## Links
 
