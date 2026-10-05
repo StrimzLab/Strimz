@@ -68,7 +68,7 @@ export function BuyButton({ slug, productId, currency, priceLabel, productType }
   return (
     <div className="space-y-3">
       <div>
-        <Label htmlFor="buy-email" className="text-xs text-[#58556A]">
+        <Label htmlFor="buy-email" className="text-muted-foreground text-xs">
           Email (optional. For your receipt)
         </Label>
         <Input
@@ -94,7 +94,7 @@ export function BuyButton({ slug, productId, currency, priceLabel, productType }
           </>
         )}
       </Button>
-      <p className="font-poppins text-center text-[10px] text-[#58556A]">
+      <p className="font-poppins text-muted-foreground text-center text-[10px]">
         Powered by Strimz · Settles in ~13s on Arc
       </p>
     </div>
