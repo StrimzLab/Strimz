@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/big"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 
@@ -40,12 +41,15 @@ var (
 type rangeChain struct {
 	head  uint64
 	logs  []types.Log
+	mu    sync.Mutex
 	calls []ethereum.FilterQuery
 }
 
 func (c *rangeChain) BlockNumber(context.Context) (uint64, error) { return c.head, nil }
 func (c *rangeChain) FilterLogs(_ context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
+	c.mu.Lock()
 	c.calls = append(c.calls, q)
+	c.mu.Unlock()
 	wanted := map[common.Address]bool{}
 	for _, a := range q.Addresses {
 		wanted[a] = true
@@ -68,8 +72,9 @@ func (c *rangeChain) BlockTime(_ context.Context, n uint64) (time.Time, error) {
 func (c *rangeChain) BlockHash(_ context.Context, n uint64) (string, error) {
 	return fmt.Sprintf("0x%064x", n), nil
 }
-func (c *rangeChain) Close()            {}
-func (c *rangeChain) Pin() chain.Client { return c }
+func (c *rangeChain) ChainID(context.Context) (uint64, error) { return arcTestnetChainID, nil }
+func (c *rangeChain) Close()                                  {}
+func (c *rangeChain) Pin() chain.Client                       { return c }
 
 func newTestRunner(t *testing.T, c *rangeChain, startBlock uint64) (*Runner, *store.Store) {
 	t.Helper()
@@ -84,6 +89,7 @@ func newTestRunner(t *testing.T, c *rangeChain, startBlock uint64) (*Runner, *st
 
 	cfg := &config.Config{
 		Environment:          config.EnvTestnet,
+		ChainID:              arcTestnetChainID,
 		Confirmations:        0,
 		BlockBatchSize:       1000,
 		PollIntervalMillis:   1000,
@@ -96,15 +102,17 @@ func newTestRunner(t *testing.T, c *rangeChain, startBlock uint64) (*Runner, *st
 	}
 	registry := indabi.MustLoad()
 	r := &Runner{
-		cfg:              cfg,
-		chain:            c,
-		store:            st,
-		registry:         registry,
-		projector:        NewProjector(st, registry, string(cfg.Environment), map[string]string{usdcAddr.Hex(): "USDC"}),
-		log:              slog.Default(),
-		contractAddrs:    []common.Address{registryAddr, paymentsAddr, subsAddr, escrowAddr, feesAddr},
-		subscribedTopics: registry.SubscribedTopics(),
-		blockTimes:       map[uint64]time.Time{},
+		cfg:               cfg,
+		chain:             c,
+		store:             st,
+		registry:          registry,
+		projector:         NewProjector(st, registry, string(cfg.Environment), cfg.ChainID, map[string]string{usdcAddr.Hex(): "USDC"}),
+		log:               slog.Default(),
+		chainID:           cfg.ChainID,
+		contractAddrs:     []common.Address{registryAddr, paymentsAddr, subsAddr, escrowAddr, feesAddr},
+		legacyCursorAddrs: []common.Address{registryAddr, paymentsAddr, subsAddr, escrowAddr, feesAddr},
+		subscribedTopics:  registry.SubscribedTopics(),
+		blockTimes:        map[uint64]time.Time{},
 	}
 	return r, st
 }
@@ -188,7 +196,7 @@ func countRows(t *testing.T, st *store.Store, sql string, args ...any) int {
 
 func coreCursor(t *testing.T, st *store.Store) uint64 {
 	t.Helper()
-	cp, err := st.LoadCheckpoint(context.Background(), "testnet", coreCursorKey)
+	cp, err := st.LoadCheckpoint(context.Background(), arcTestnetChainID, coreCursorKey)
 	require.NoError(t, err)
 	return cp.LastProcessedBlock
 }
@@ -271,7 +279,7 @@ func TestE2E_Stream_CutoverSkipsWhatOldCursorsProcessed(t *testing.T) {
 		registryAddr: 20, paymentsAddr: 5, subsAddr: 25, escrowAddr: 25, feesAddr: 25,
 	} {
 		require.NoError(t, st.SaveCheckpoint(ctx, &store.Checkpoint{
-			ContractAddress: addr.Hex(), Environment: "testnet",
+			ChainID: arcTestnetChainID, ContractAddress: addr.Hex(), Environment: "testnet",
 			LastProcessedBlock: block, LastProcessedLogIndex: -1,
 			LastBlockHash: fmt.Sprintf("0x%064x", block),
 		}))

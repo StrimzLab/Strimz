@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,7 +32,13 @@ func (s *stubClient) FilterLogs(context.Context, ethereum.FilterQuery) ([]types.
 }
 func (s *stubClient) BlockTime(context.Context, uint64) (time.Time, error) { return time.Time{}, nil }
 func (s *stubClient) BlockHash(context.Context, uint64) (string, error)    { return "", nil }
-func (s *stubClient) Close()                                               { s.closed = true }
+func (s *stubClient) ChainID(context.Context) (uint64, error) {
+	if s.fail {
+		return 0, errors.New("down")
+	}
+	return s.id, nil
+}
+func (s *stubClient) Close() { s.closed = true }
 
 func newFailover(clients ...Client) *FailoverClient {
 	urls := make([]string, len(clients))
@@ -108,5 +115,41 @@ func TestFailover_PinnedSessionFailsInsteadOfSwitching(t *testing.T) {
 	next := fc.Pin()
 	if got, err := next.BlockNumber(context.Background()); err != nil || got != 2 {
 		t.Fatalf("the next session should start on the next endpoint, got %d/%v", got, err)
+	}
+}
+
+func TestVerifyChainID_DropsAnEndpointThatErrors(t *testing.T) {
+	down := &stubClient{id: 5042002, fail: true}
+	up := &stubClient{id: 5042002}
+	fc := newFailover(down, up)
+
+	if err := fc.VerifyChainID(context.Background(), 5042002); err != nil {
+		t.Fatalf("want nil, got %v", err)
+	}
+	if len(fc.clients) != 1 || fc.clients[0] != up {
+		t.Fatalf("want only the answering endpoint kept, got %d clients", len(fc.clients))
+	}
+	if !down.closed {
+		t.Fatal("the dropped endpoint was not closed")
+	}
+}
+
+func TestVerifyChainID_FailsWhenAnEndpointServesAnotherChain(t *testing.T) {
+	fc := newFailover(&stubClient{id: 5042002}, &stubClient{id: 5042})
+	err := fc.VerifyChainID(context.Background(), 5042002)
+	if err == nil {
+		t.Fatal("want an error for an endpoint on another chain")
+	}
+	for _, want := range []string{"5042002", "5042", "http://stub"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error %q does not name %s", err, want)
+		}
+	}
+}
+
+func TestVerifyChainID_FailsWhenNoEndpointAnswers(t *testing.T) {
+	fc := newFailover(&stubClient{fail: true}, &stubClient{fail: true})
+	if err := fc.VerifyChainID(context.Background(), 5042002); err == nil {
+		t.Fatal("want an error when every endpoint fails eth_chainId")
 	}
 }

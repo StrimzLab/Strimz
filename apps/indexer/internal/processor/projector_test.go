@@ -31,7 +31,7 @@ func TestDecodeSessionRef_TreatsAllNulAsEmpty(t *testing.T) {
 func TestProjector_TokenSymbol_ResolvesConfiguredTokens(t *testing.T) {
 	usdcAddr := common.HexToAddress("0x0000000000000000000000000000000000000a01")
 	eurcAddr := common.HexToAddress("0x0000000000000000000000000000000000000a02")
-	p := NewProjector(nil, nil, "testnet", map[string]string{
+	p := NewProjector(nil, nil, "testnet", 5042002, map[string]string{
 		usdcAddr.Hex(): "USDC",
 		eurcAddr.Hex(): "EURC",
 	})
@@ -44,7 +44,7 @@ func TestProjector_TokenSymbol_ResolvesConfiguredTokens(t *testing.T) {
 }
 
 func TestProjector_TokenSymbol_FailsForUnknownToken(t *testing.T) {
-	p := NewProjector(nil, nil, "testnet", map[string]string{
+	p := NewProjector(nil, nil, "testnet", 5042002, map[string]string{
 		"0x0000000000000000000000000000000000000a01": "USDC",
 	})
 	addr := common.HexToAddress("0x000000000000000000000000000000000000dead")

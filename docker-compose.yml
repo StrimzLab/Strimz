@@ -174,6 +174,9 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/strimz?schema=public
       ARC_RPC_URL: http://anvil:8545
       ARC_ENVIRONMENT: testnet
+      ARC_CHAIN_ID: '31337'
+      START_BLOCK: '1'
+      CONFIRMATIONS: '0'
       HTTP_PORT: '4100'
       LOG_LEVEL: info
     ports:
