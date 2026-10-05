@@ -26,7 +26,7 @@ export function KpiCard({
       transition={{ type: 'spring', stiffness: 240, damping: 18 }}
     >
       <Link href={href} className="group block">
-        <Card className="shadow-sub-card border-border/60 transition-colors hover:border-[#02C76A]/40">
+        <Card className="shadow-sub-card border-border/60 hover:border-accent/40 transition-colors">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="text-muted-foreground text-sm font-medium">{label}</div>
@@ -34,7 +34,7 @@ export function KpiCard({
             </div>
             <div className="font-sora mt-3 text-2xl font-bold tracking-tight">{value}</div>
             {subtle && <div className="text-muted-foreground mt-1 text-xs">{subtle}</div>}
-            <div className="mt-4 inline-flex items-center text-xs font-medium text-[#02C76A] opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="text-accent mt-4 inline-flex items-center text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100">
               View details <ArrowUpRight className="ml-1 size-3" />
             </div>
           </CardContent>

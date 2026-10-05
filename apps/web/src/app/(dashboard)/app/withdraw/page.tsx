@@ -232,9 +232,9 @@ export default function WithdrawPage() {
             <BalanceCard balance={balance} onCopy={copyAddress} />
           ) : (
             <Card className="border-border/60 border-dashed">
-              <CardContent className="p-6 text-sm text-[#58556A]">
+              <CardContent className="text-muted-foreground p-6 text-sm">
                 Set a payout address on the{' '}
-                <Link href="/app/settings" className="text-[#02C76A] underline">
+                <Link href="/app/settings" className="text-accent underline">
                   Settings page
                 </Link>{' '}
                 before you can withdraw.
@@ -246,25 +246,25 @@ export default function WithdrawPage() {
             <Card className="border-border/60">
               <CardContent className="p-6">
                 <h3 className="font-sora inline-flex items-center gap-2 text-base font-[600]">
-                  <ArrowUpFromLine className="size-4 text-[#02C76A]" />
+                  <ArrowUpFromLine className="text-accent size-4" />
                   Send funds
                 </h3>
                 {balance.canSignFromDashboard ? (
-                  <p className="font-poppins mt-1 text-xs text-[#58556A]">
+                  <p className="font-poppins text-muted-foreground mt-1 text-xs">
                     You&apos;re paying yourself. Sign the transfer with your Strimz-embedded wallet.
                     No external wallet needed.
                   </p>
                 ) : (
-                  <div className="border-border/60 mt-4 flex items-start gap-2 rounded-md border bg-[#F9FAFB] p-3 text-xs text-[#58556A]">
+                  <div className="border-border/60 bg-muted text-muted-foreground mt-4 flex items-start gap-2 rounded-md border p-3 text-xs">
                     <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
                     <div>
-                      <p className="font-medium text-[#050020]">
+                      <p className="text-foreground font-medium">
                         Your payout goes to an external wallet.
                       </p>
                       <p className="mt-1">
                         You can&apos;t send from this dashboard. Sign in with the wallet that
                         controls{' '}
-                        <code className="text-[#050020]">
+                        <code className="text-foreground">
                           {balance.payoutAddress.slice(0, 6)}…{balance.payoutAddress.slice(-4)}
                         </code>{' '}
                         and transfer from there. Or point your payout to a different address on the
@@ -284,13 +284,13 @@ export default function WithdrawPage() {
                           type="button"
                           onClick={() => setCurrency(b.currency)}
                           className={`border-border/60 flex items-center gap-2 rounded-md border p-3 text-left transition-colors ${
-                            currency === b.currency ? 'border-[#02C76A]/60 bg-[#02C76A]/5' : ''
+                            currency === b.currency ? 'border-accent/60 bg-accent/5' : ''
                           }`}
                         >
                           <TokenLogo symbol={b.currency} size={20} />
                           <div className="flex-1">
                             <div className="font-poppins text-sm font-medium">{b.currency}</div>
-                            <div className="font-poppins text-[10px] text-[#58556A]">
+                            <div className="font-poppins text-muted-foreground text-[10px]">
                               Available {b.formatted}
                             </div>
                           </div>
@@ -348,14 +348,14 @@ export default function WithdrawPage() {
                               ? 'Enter a destination so the network fee can be estimated'
                               : undefined
                           }
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-[#02C76A]/10 px-2 py-1 text-[10px] font-semibold text-[#02C76A] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="bg-accent/10 text-accent absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-[10px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           MAX
                         </button>
                       )}
                     </div>
                     {selectedBalance && (
-                      <p className="font-poppins mt-1 text-[10px] text-[#58556A]">
+                      <p className="font-poppins text-muted-foreground mt-1 text-[10px]">
                         Balance: {selectedBalance.formatted} {selectedBalance.currency}
                       </p>
                     )}
@@ -377,7 +377,7 @@ export default function WithdrawPage() {
                   </div>
 
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-1 text-[10px] text-[#58556A]">
+                    <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
                       <Info className="size-3" />
                       Settles in ~13s on {chain.name}
                     </div>
@@ -398,13 +398,13 @@ export default function WithdrawPage() {
                 </form>
 
                 {lastTx && (
-                  <div className="border-border/60 mt-5 rounded-md border bg-[#02C76A]/5 p-3 text-xs">
-                    <p className="font-poppins font-medium text-[#050020]">Transfer signed</p>
+                  <div className="border-border/60 bg-accent/5 mt-5 rounded-md border p-3 text-xs">
+                    <p className="font-poppins text-foreground font-medium">Transfer signed</p>
                     <a
                       href={`${explorerBase}${lastTx}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-poppins mt-1 inline-flex items-center gap-1 break-all text-[#02C76A] hover:underline"
+                      className="font-poppins text-accent mt-1 inline-flex items-center gap-1 break-all hover:underline"
                     >
                       {lastTx}
                       <ExternalLink className="size-3 shrink-0" />
@@ -420,7 +420,7 @@ export default function WithdrawPage() {
           <Card className="border-border/60">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <WalletIcon className="size-4 text-[#58556A]" />
+                <WalletIcon className="text-muted-foreground size-4" />
                 <h3 className="font-poppins text-sm font-medium">Non-custodial</h3>
               </div>
               <p className="font-poppins text-muted-foreground mt-2 text-xs leading-5">
@@ -429,11 +429,11 @@ export default function WithdrawPage() {
                 payout from us.
               </p>
               <div className="border-border/60 mt-3 border-t pt-3">
-                <p className="font-poppins text-[10px] uppercase tracking-wider text-[#58556A]">
+                <p className="font-poppins text-muted-foreground text-[10px] uppercase tracking-wider">
                   Settlement chain
                 </p>
                 <div className="mt-1 flex items-center gap-2">
-                  <span className="size-1.5 rounded-full bg-[#02C76A]" />
+                  <span className="bg-accent size-1.5 rounded-full" />
                   <span className="font-poppins text-sm">{chain.name}</span>
                   <Badge variant="outline" className="ml-auto text-[10px] capitalize">
                     {env.arcEnvironment}
@@ -535,11 +535,11 @@ function BalanceCard({
       <CardContent className="p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="font-poppins text-[10px] uppercase tracking-wider text-[#58556A]">
+            <p className="font-poppins text-muted-foreground text-[10px] uppercase tracking-wider">
               Payout address
             </p>
             <div className="mt-1 flex items-center gap-2">
-              <code className="font-mono text-sm text-[#050020]">
+              <code className="text-foreground font-mono text-sm">
                 {balance.payoutAddress?.slice(0, 8)}…{balance.payoutAddress?.slice(-6)}
               </code>
               <button
@@ -553,7 +553,7 @@ function BalanceCard({
             </div>
           </div>
           {balance.canSignFromDashboard ? (
-            <Badge className="bg-[#02C76A]/10 text-[#02C76A] hover:bg-[#02C76A]/10">Managed</Badge>
+            <Badge className="bg-accent/10 text-accent hover:bg-accent/10">Managed</Badge>
           ) : (
             <Badge variant="outline">External</Badge>
           )}
@@ -566,8 +566,8 @@ function BalanceCard({
                 <TokenLogo symbol={b.currency} size={20} />
                 <span className="font-poppins text-sm font-medium">{b.currency}</span>
               </div>
-              <p className="font-sora mt-2 text-2xl font-[600] text-[#050020]">{b.formatted}</p>
-              <p className="font-poppins text-[10px] text-[#58556A]">on-chain balance</p>
+              <p className="font-sora text-foreground mt-2 text-2xl font-[600]">{b.formatted}</p>
+              <p className="font-poppins text-muted-foreground text-[10px]">on-chain balance</p>
             </div>
           ))}
         </div>

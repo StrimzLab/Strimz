@@ -87,9 +87,9 @@ export function ImageUpload({
 
   return (
     <div className={className}>
-      {label && <p className="font-poppins mb-1.5 text-sm font-[500] text-[#050020]">{label}</p>}
+      {label && <p className="font-poppins text-foreground mb-1.5 text-sm font-[500]">{label}</p>}
       {value ? (
-        <div className="group relative overflow-hidden rounded-md border border-[#E5E7EB] bg-[#F9FAFB]">
+        <div className="border-border bg-muted group relative overflow-hidden rounded-md border">
           <div className={aspectClass}>
             <Image
               src={value}
@@ -114,7 +114,7 @@ export function ImageUpload({
           htmlFor={`upload-${endpoint}`}
           className={[
             aspectClass,
-            'grid cursor-pointer place-items-center rounded-md border-2 border-dashed border-[#E5E7EB] bg-[#F9FAFB] transition-colors hover:border-[#02C76A]/60 hover:bg-[#02C76A]/5',
+            'border-border bg-muted hover:border-accent/60 hover:bg-accent/5 grid cursor-pointer place-items-center rounded-md border-2 border-dashed transition-colors',
             isUploading ? 'pointer-events-none opacity-70' : '',
           ].join(' ')}
         >
@@ -130,17 +130,19 @@ export function ImageUpload({
           <div className="text-center">
             {isUploading ? (
               <>
-                <Loader2 className="mx-auto size-6 animate-spin text-[#02C76A]" />
-                <p className="font-poppins mt-2 text-xs font-[500] text-[#58556A]">Uploading…</p>
+                <Loader2 className="text-accent mx-auto size-6 animate-spin" />
+                <p className="font-poppins text-muted-foreground mt-2 text-xs font-[500]">
+                  Uploading…
+                </p>
               </>
             ) : (
               <>
-                <ImagePlus className="mx-auto size-6 text-[#58556A]" />
-                <p className="font-poppins mt-2 text-xs font-[500] text-[#050020]">
+                <ImagePlus className="text-muted-foreground mx-auto size-6" />
+                <p className="font-poppins text-foreground mt-2 text-xs font-[500]">
                   Click to upload
                 </p>
                 {maxSizeLabel && (
-                  <p className="font-poppins mt-1 text-[10px] text-[#58556A]">
+                  <p className="font-poppins text-muted-foreground mt-1 text-[10px]">
                     PNG or JPG · up to {maxSizeLabel}
                   </p>
                 )}

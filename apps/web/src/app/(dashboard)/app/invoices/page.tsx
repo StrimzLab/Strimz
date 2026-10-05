@@ -86,7 +86,7 @@ export default function InvoicesPage() {
         cell: ({ row }) => (
           <Link
             href={`/app/invoices/${row.original.id}`}
-            className="font-mono text-sm font-medium hover:text-[#02C76A] hover:underline"
+            className="hover:text-accent font-mono text-sm font-medium hover:underline"
           >
             {row.original.number}
           </Link>

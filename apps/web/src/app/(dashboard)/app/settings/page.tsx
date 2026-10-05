@@ -244,7 +244,7 @@ function BusinessSection({ merchant }: { merchant: Merchant }) {
               Managed by Privy. Required to issue or rotate live-mode keys.
             </div>
           </div>
-          <Badge variant="outline" className="border-[#02C76A]/40 bg-[#02C76A]/10 text-[#02C76A]">
+          <Badge variant="outline" className="border-accent/40 bg-accent/10 text-accent">
             Managed by Privy
           </Badge>
         </div>
@@ -400,7 +400,7 @@ function BillingSection({ merchant }: { merchant: Merchant }) {
                 {merchant.tier === 'free' ? '0.5% per transaction' : 'Negotiated rate'}
               </div>
             </div>
-            <Badge variant="outline" className="border-[#02C76A]/40 bg-[#02C76A]/10 text-[#02C76A]">
+            <Badge variant="outline" className="border-accent/40 bg-accent/10 text-accent">
               Current
             </Badge>
           </div>
