@@ -1,5 +1,11 @@
 # @strimz/sdk-react
 
+## 0.2.0
+
+### Minor Changes
+
+- 101ab34: `StrimzCheckoutEmbed` accepts an optional `theme` prop (`'light'` or `'dark'`) that pins the embedded checkout's colour scheme. Without it the embedded checkout now follows the payer's system light or dark preference instead of always rendering light; pass `theme="light"` to keep the previous look.
+
 ## 0.1.13
 
 ### Patch Changes
