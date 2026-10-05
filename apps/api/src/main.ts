@@ -9,6 +9,7 @@ import { patchNestJsSwagger } from 'nestjs-zod'
 
 import { AppModule } from './app.module.js'
 import { TypedConfigService } from './config/index.js'
+import { corsPolicy } from './common/http/cors-policy.js'
 
 // Patches `@nestjs/swagger` so it understands DTOs created via
 // `createZodDto(...)`. Must be called before SwaggerModule.createDocument.
@@ -50,30 +51,14 @@ async function bootstrap(): Promise<void> {
       'CORS_ORIGIN="*" is not allowed in production. Set a comma-separated allowlist.',
     )
   }
-  app.enableCors({
-    origin: cfg.env.CORS_ORIGIN === '*' ? true : cfg.env.CORS_ORIGIN.split(','),
-    credentials: true,
-    // Fastify's default advertises only GET / HEAD / POST, so PATCH
-    // and DELETE preflight-fail without an explicit allowlist.
-    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-    // Every custom header any browser client sends must appear here,
-    // otherwise the preflight rejects and the actual request never
-    // hits the controller. Includes the dashboard mode toggle plus
-    // every SDK-emitted `X-Strimz-*` header (see
-    // `packages/sdk/src/http/headers.ts`).
-    allowedHeaders: [
-      'authorization',
-      'content-type',
-      'accept',
-      'x-strimz-mode',
-      'x-strimz-sdk',
-      'x-strimz-sdk-version',
-      'x-strimz-sdk-runtime',
-      'x-strimz-idempotency-key',
-      'x-strimz-request-id',
-    ],
-    exposedHeaders: ['x-strimz-request-id'],
-  })
+  // Fastify's default advertises only GET / HEAD / POST, so PATCH
+  // and DELETE preflight-fail without an explicit allowlist.
+  // Every custom header any browser client sends must appear here,
+  // otherwise the preflight rejects and the actual request never
+  // hits the controller. Includes the dashboard mode toggle plus
+  // every SDK-emitted `X-Strimz-*` header (see
+  // `packages/sdk/src/http/headers.ts`).
+  app.enableCors(corsPolicy(cfg.env))
 
   // OpenAPI spec — used by both /openapi.json and the Scalar UI at /docs.
   const swaggerConfig = new DocumentBuilder()
