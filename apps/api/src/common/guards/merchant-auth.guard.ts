@@ -10,12 +10,13 @@ import {
 import { Reflector } from '@nestjs/core'
 import type { FastifyRequest } from 'fastify'
 import { hashApiKey } from '@strimz/shared-crypto'
-import { kindFromKey, modeFromKey } from '@strimz/shared-config'
+import { modeFromKey } from '@strimz/shared-config'
 
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { PrivyService } from '../../infra/privy/privy.service.js'
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js'
 import { assertApiKeyRouteAccess } from './api-key-route-access.js'
+import { assertSecretKeyKind } from './api-key-kind.js'
 
 /**
  * Unified merchant auth guard.
@@ -87,12 +88,7 @@ export class MerchantAuthGuard implements CanActivate {
     ctx: ExecutionContext,
     req: FastifyRequest,
   ): Promise<void> {
-    if (kindFromKey(token) !== 'secret') {
-      throw new UnauthorizedException({
-        code: 'authentication_error',
-        message: 'invalid api key kind',
-      })
-    }
+    assertSecretKeyKind(token)
     const mode = modeFromKey(token)
     if (mode == null) {
       throw new UnauthorizedException({

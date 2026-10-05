@@ -41,6 +41,9 @@ export interface StrimzClientOptions {
 
 const DEFAULT_BASE_URL = 'https://api.strimz.finance'
 
+const SECRET_KEY_IN_BROWSER_MESSAGE =
+  'StrimzClient cannot run in a browser: secret keys must stay on your server. Create payment sessions from a server route and pass the session id to the browser. See https://strimz.finance/docs/checkout/server-sessions'
+
 export class StrimzClient {
   /** Resolved mode, either `test` or `live`. Derived from the API key prefix. */
   public readonly mode: ApiKeyMode
@@ -83,6 +86,12 @@ export class StrimzClient {
         401,
       )
     }
+    if (classifyRuntime().kind === 'browser') {
+      throw new StrimzAuthenticationError({
+        code: 'secret_key_in_browser',
+        message: SECRET_KEY_IN_BROWSER_MESSAGE,
+      })
+    }
     this.mode = mode
 
     const fetcher = new Fetcher({
@@ -112,11 +121,45 @@ export class StrimzClient {
   }
 }
 
-function detectRuntime(): string {
+interface RuntimeGlobals {
+  Deno?: unknown
+  Bun?: unknown
+  WorkerGlobalScope?: unknown
+  self?: unknown
+  window?: unknown
+  document?: unknown
+  navigator?: { userAgent?: unknown; product?: unknown }
+  process?: { type?: unknown; versions?: { node?: unknown; electron?: unknown } }
+}
+
+interface RuntimeClass {
+  kind: 'browser' | 'server'
+  name: string
+}
+
+function classifyRuntime(): RuntimeClass {
+  const g: RuntimeGlobals = globalThis
   // @ts-expect-error EdgeRuntime is a Vercel global; not in node types.
-  if (typeof EdgeRuntime !== 'undefined') return 'edge'
-  if (typeof process !== 'undefined' && process.versions?.node)
-    return `node-${process.versions.node}`
-  if (typeof navigator !== 'undefined' && navigator.userAgent) return 'browser'
-  return 'unknown'
+  if (typeof EdgeRuntime !== 'undefined') return { kind: 'server', name: 'edge' }
+  if (typeof g.Deno !== 'undefined') return { kind: 'server', name: 'deno' }
+  if (typeof g.Bun !== 'undefined') return { kind: 'server', name: 'bun' }
+  if (g.navigator?.userAgent === 'Cloudflare-Workers') return { kind: 'server', name: 'workerd' }
+  const versions = g.process?.versions
+  if (versions?.electron && g.process?.type === 'renderer') {
+    return { kind: 'browser', name: 'electron-renderer' }
+  }
+  if (versions?.node) return { kind: 'server', name: `node-${String(versions.node)}` }
+  if (typeof g.window !== 'undefined' && typeof g.document !== 'undefined') {
+    return { kind: 'browser', name: 'browser' }
+  }
+  const workerScope = g.WorkerGlobalScope
+  if (typeof workerScope === 'function' && g.self instanceof workerScope) {
+    return { kind: 'browser', name: 'browser' }
+  }
+  if (g.navigator?.product === 'ReactNative') return { kind: 'browser', name: 'react-native' }
+  return { kind: 'server', name: 'unknown' }
+}
+
+function detectRuntime(): string {
+  return classifyRuntime().name
 }
