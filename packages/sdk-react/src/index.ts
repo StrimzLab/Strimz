@@ -34,4 +34,5 @@ export {
 export {
   StrimzCheckoutEmbed,
   type StrimzCheckoutEmbedProps,
+  type StrimzCheckoutTheme,
 } from './components/StrimzCheckoutEmbed.js'
