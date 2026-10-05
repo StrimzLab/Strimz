@@ -24,13 +24,6 @@ describe('SDK request methods take the caller-facing input type', () => {
     })
   })
 
-  it('subscriptions.create accepts a body without gracePeriodHours', () => {
-    expectTypeOf(client.subscriptions.create).toBeCallableWith({
-      planId: 'plan_1',
-      customer: { walletAddress: '0x0000000000000000000000000000000000000001' },
-    })
-  })
-
   it('invoices.create accepts a body without dueInDays', () => {
     expectTypeOf(client.invoices.create).toBeCallableWith({
       lineItems: [{ description: 'Seat', quantity: 1, unitAmount: '1000000' }],
@@ -88,12 +81,6 @@ describe('SDK request methods take the caller-facing input type', () => {
   })
 
   it('every input-taking method is typed with z.input of its schema', () => {
-    expectTypeOf<FirstArg<StrimzClient['merchants']['update']>>().toEqualTypeOf<
-      z.input<typeof T.updateMerchantInputSchema>
-    >()
-    expectTypeOf<FirstArg<StrimzClient['merchants']['changeTier']>>().toEqualTypeOf<
-      z.input<typeof T.changeTierInputSchema>
-    >()
     expectTypeOf<FirstArg<StrimzClient['apiKeys']['create']>>().toEqualTypeOf<
       z.input<typeof T.createApiKeyInputSchema>
     >()
@@ -105,9 +92,6 @@ describe('SDK request methods take the caller-facing input type', () => {
     >()
     expectTypeOf<FirstArg<StrimzClient['subscriptionPlans']['create']>>().toEqualTypeOf<
       z.input<typeof T.createSubscriptionPlanInputSchema>
-    >()
-    expectTypeOf<FirstArg<StrimzClient['subscriptions']['create']>>().toEqualTypeOf<
-      z.input<typeof T.createSubscriptionInputSchema>
     >()
     expectTypeOf<FirstArg<StrimzClient['subscriptions']['cancel']>>().toEqualTypeOf<
       z.input<typeof T.cancelSubscriptionInputSchema>
@@ -167,9 +151,6 @@ describe('shared-types Input aliases are z.input of their schema', () => {
     >()
     expectTypeOf<T.CreateSubscriptionPlanInput>().toEqualTypeOf<
       z.input<typeof T.createSubscriptionPlanInputSchema>
-    >()
-    expectTypeOf<T.CreateSubscriptionInput>().toEqualTypeOf<
-      z.input<typeof T.createSubscriptionInputSchema>
     >()
     expectTypeOf<T.CancelSubscriptionInput>().toEqualTypeOf<
       z.input<typeof T.cancelSubscriptionInputSchema>
@@ -237,9 +218,6 @@ describe('shared-types Parsed aliases are z.output of their schema', () => {
     >()
     expectTypeOf<T.CreateSubscriptionPlanParsed>().toEqualTypeOf<
       z.output<typeof T.createSubscriptionPlanInputSchema>
-    >()
-    expectTypeOf<T.CreateSubscriptionParsed>().toEqualTypeOf<
-      z.output<typeof T.createSubscriptionInputSchema>
     >()
     expectTypeOf<T.CancelSubscriptionParsed>().toEqualTypeOf<
       z.output<typeof T.cancelSubscriptionInputSchema>
