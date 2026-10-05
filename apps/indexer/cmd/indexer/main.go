@@ -78,7 +78,7 @@ func runCmd() *cobra.Command {
 			// /readyz stale when any cursor stalls past the threshold.
 			freshness := health.NewFreshnessMonitor(
 				runner.Store().Pool(),
-				string(cfg.Environment),
+				cfg.ChainID,
 				runner.MonitoredAddresses(),
 				time.Duration(cfg.StaleCursorSeconds)*time.Second,
 			)

@@ -92,7 +92,7 @@ func repeatStr(s string, n int) string {
 
 func TestE2E_LoadCheckpoint_ReturnsZeroForNewContract(t *testing.T) {
 	s := startTestPostgres(t)
-	cp, err := s.LoadCheckpoint(context.Background(), "testnet", "0x0000000000000000000000000000000000000001")
+	cp, err := s.LoadCheckpoint(context.Background(), arcTestnetChainID, "0x0000000000000000000000000000000000000001")
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), cp.LastProcessedBlock)
 	assert.Equal(t, int32(-1), cp.LastProcessedLogIndex)
@@ -104,12 +104,13 @@ func TestE2E_SaveCheckpoint_RoundTrips(t *testing.T) {
 	addr := "0x0000000000000000000000000000000000000002"
 
 	require.NoError(t, s.SaveCheckpoint(ctx, &Checkpoint{
+		ChainID:               arcTestnetChainID,
 		ContractAddress:       addr,
 		Environment:           "testnet",
 		LastProcessedBlock:    1234,
 		LastProcessedLogIndex: 7,
 	}))
-	cp, err := s.LoadCheckpoint(ctx, "testnet", addr)
+	cp, err := s.LoadCheckpoint(ctx, arcTestnetChainID, addr)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1234), cp.LastProcessedBlock)
 	assert.Equal(t, int32(7), cp.LastProcessedLogIndex)
@@ -122,12 +123,13 @@ func TestE2E_SaveCheckpoint_IsIdempotent(t *testing.T) {
 
 	for _, block := range []uint64{100, 200, 300} {
 		require.NoError(t, s.SaveCheckpoint(ctx, &Checkpoint{
+			ChainID:            arcTestnetChainID,
 			ContractAddress:    addr,
 			Environment:        "testnet",
 			LastProcessedBlock: block,
 		}))
 	}
-	cp, err := s.LoadCheckpoint(ctx, "testnet", addr)
+	cp, err := s.LoadCheckpoint(ctx, arcTestnetChainID, addr)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(300), cp.LastProcessedBlock)
 }
@@ -1524,6 +1526,7 @@ func TestE2E_DeadLetters(t *testing.T) {
 
 	letter := func(block uint64, index uint, txByte string) DeadLetter {
 		return DeadLetter{
+			ChainID:         arcTestnetChainID,
 			Environment:     "testnet",
 			ContractAddress: "0x0000000000000000000000000000000000000a02",
 			TxHash:          "0x" + repeatStr(txByte, 64),
@@ -1541,11 +1544,11 @@ func TestE2E_DeadLetters(t *testing.T) {
 	require.NoError(t, s.InsertDeadLetter(ctx, letter(10, 0, "a")))
 	require.NoError(t, s.InsertDeadLetter(ctx, letter(10, 0, "a")))
 
-	n, err := s.CountUnresolvedDeadLetters(ctx, "testnet")
+	n, err := s.CountUnresolvedDeadLetters(ctx, arcTestnetChainID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), n)
 
-	open, err := s.UnresolvedDeadLetters(ctx, "testnet", 10)
+	open, err := s.UnresolvedDeadLetters(ctx, arcTestnetChainID, 10)
 	require.NoError(t, err)
 	require.Len(t, open, 2)
 	assert.Equal(t, uint64(10), open[0].BlockNumber)
@@ -1556,10 +1559,10 @@ func TestE2E_DeadLetters(t *testing.T) {
 	require.NoError(t, s.RecordDeadLetterAttempt(ctx, open[1].ID, "still missing"))
 	require.NoError(t, s.ResolveDeadLetter(ctx, open[0].ID))
 
-	n, err = s.CountUnresolvedDeadLetters(ctx, "testnet")
+	n, err = s.CountUnresolvedDeadLetters(ctx, arcTestnetChainID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), n)
-	open, err = s.UnresolvedDeadLetters(ctx, "testnet", 10)
+	open, err = s.UnresolvedDeadLetters(ctx, arcTestnetChainID, 10)
 	require.NoError(t, err)
 	require.Len(t, open, 1)
 	assert.Equal(t, 2, open[0].Attempts)

@@ -12,20 +12,23 @@ const fakeAddr = "0x0000000000000000000000000000000000000001"
 
 func validConfig() *Config {
 	return &Config{
-		Environment:          EnvTestnet,
-		RPCURL:               "https://example.test/rpc",
-		DatabaseURL:          "postgres://localhost/strimz",
-		HTTPPort:             4100,
-		LogLevel:             "info",
-		PollIntervalMillis:   5000,
-		Confirmations:        5,
-		BlockBatchSize:       500,
-		RegistryAddress:      fakeAddr,
-		PaymentsAddress:      fakeAddr,
-		SubscriptionsAddress: fakeAddr,
-		AgentEscrowAddress:   fakeAddr,
-		FeeCollectorAddress:  fakeAddr,
-		StablecoinAddresses:  []string{"USDC:" + fakeAddr},
+		Environment:           EnvTestnet,
+		ChainID:               5042002,
+		RPCURL:                "https://example.test/rpc",
+		DatabaseURL:           "postgres://localhost/strimz",
+		HTTPPort:              4100,
+		LogLevel:              "info",
+		PollIntervalMillis:    5000,
+		Confirmations:         1,
+		StartBlock:            1,
+		BlockBatchSize:        500,
+		RegistryAddress:       fakeAddr,
+		PaymentsAddress:       fakeAddr,
+		SubscriptionsAddress:  fakeAddr,
+		AgentEscrowAddress:    fakeAddr,
+		FeeCollectorAddress:   fakeAddr,
+		TokenWhitelistAddress: fakeAddr,
+		StablecoinAddresses:   []string{"USDC:" + fakeAddr},
 	}
 }
 

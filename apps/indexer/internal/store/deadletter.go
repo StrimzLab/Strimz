@@ -11,6 +11,7 @@ import (
 
 type DeadLetter struct {
 	ID              string
+	ChainID         int64
 	Environment     string
 	ContractAddress string
 	TxHash          string
@@ -46,14 +47,14 @@ func (s *Store) Savepoint(ctx context.Context, fn func() error) error {
 func (s *Store) InsertDeadLetter(ctx context.Context, d DeadLetter) error {
 	_, err := s.db().Exec(ctx, `
 		INSERT INTO "IndexerDeadLetter" (
-		  id, environment, "contractAddress", "txHash", "logIndex", "blockNumber",
+		  id, "chainId", environment, "contractAddress", "txHash", "logIndex", "blockNumber",
 		  "blockHash", "blockTimestamp", topics, data, reason, attempts, "createdAt", "updatedAt"
 		) VALUES (
-		  gen_random_uuid()::text, $1::"ArcEnvironment", $2, $3, $4, $5,
-		  $6, $7, $8, $9, $10, 1, NOW(), NOW()
+		  gen_random_uuid()::text, $1, $2::"ArcEnvironment", $3, $4, $5, $6,
+		  $7, $8, $9, $10, $11, 1, NOW(), NOW()
 		)
-		ON CONFLICT ("txHash", "logIndex") DO NOTHING
-	`, d.Environment, d.ContractAddress, d.TxHash, int64(d.LogIndex), int64(d.BlockNumber),
+		ON CONFLICT ("chainId", "txHash", "logIndex") DO NOTHING
+	`, d.ChainID, d.Environment, d.ContractAddress, d.TxHash, int64(d.LogIndex), int64(d.BlockNumber),
 		d.BlockHash, d.BlockTimestamp, d.Topics, d.Data, d.Reason)
 	if err != nil {
 		return fmt.Errorf("insert dead letter %s:%d: %w", d.TxHash, d.LogIndex, err)
@@ -61,22 +62,22 @@ func (s *Store) InsertDeadLetter(ctx context.Context, d DeadLetter) error {
 	return nil
 }
 
-func (s *Store) UnresolvedDeadLetters(ctx context.Context, env string, limit int) ([]DeadLetter, error) {
+func (s *Store) UnresolvedDeadLetters(ctx context.Context, chainID int64, limit int) ([]DeadLetter, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT id, environment::text, "contractAddress", "txHash", "logIndex", "blockNumber",
+		SELECT id, "chainId", environment::text, "contractAddress", "txHash", "logIndex", "blockNumber",
 		       "blockHash", "blockTimestamp", topics, data, reason, attempts
 		  FROM "IndexerDeadLetter"
-		 WHERE environment::text = $1 AND "resolvedAt" IS NULL
+		 WHERE "chainId" = $1 AND "resolvedAt" IS NULL
 		 ORDER BY "blockNumber", "logIndex"
 		 LIMIT $2
-	`, env, limit)
+	`, chainID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("list dead letters: %w", err)
 	}
 	letters, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (DeadLetter, error) {
 		var d DeadLetter
 		var logIndex, block int64
-		err := row.Scan(&d.ID, &d.Environment, &d.ContractAddress, &d.TxHash, &logIndex, &block,
+		err := row.Scan(&d.ID, &d.ChainID, &d.Environment, &d.ContractAddress, &d.TxHash, &logIndex, &block,
 			&d.BlockHash, &d.BlockTimestamp, &d.Topics, &d.Data, &d.Reason, &d.Attempts)
 		d.LogIndex = uint(logIndex)
 		d.BlockNumber = uint64(block)
@@ -89,11 +90,11 @@ func (s *Store) UnresolvedDeadLetters(ctx context.Context, env string, limit int
 	return letters, nil
 }
 
-func (s *Store) CountUnresolvedDeadLetters(ctx context.Context, env string) (int64, error) {
+func (s *Store) CountUnresolvedDeadLetters(ctx context.Context, chainID int64) (int64, error) {
 	var n int64
 	err := s.db().QueryRow(ctx,
-		`SELECT count(*) FROM "IndexerDeadLetter" WHERE environment::text = $1 AND "resolvedAt" IS NULL`,
-		env).Scan(&n)
+		`SELECT count(*) FROM "IndexerDeadLetter" WHERE "chainId" = $1 AND "resolvedAt" IS NULL`,
+		chainID).Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("count dead letters: %w", err)
 	}

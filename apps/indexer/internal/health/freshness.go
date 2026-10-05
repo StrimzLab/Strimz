@@ -22,7 +22,7 @@ import (
 // oldest-updatedAt query forever and jam the alarm on.
 type FreshnessMonitor struct {
 	pool          *pgxpool.Pool
-	env           string
+	chainID       int64
 	addresses     []string
 	staleAfter    time.Duration
 	pollEvery     time.Duration
@@ -35,10 +35,10 @@ type FreshnessMonitor struct {
 // NewFreshnessMonitor wires the checker. `addresses` is the configured
 // contract set in checkpoint (checksummed hex) form; staleAfter <= 0
 // disables the check entirely (monitor becomes a no-op).
-func NewFreshnessMonitor(pool *pgxpool.Pool, env string, addresses []string, staleAfter time.Duration) *FreshnessMonitor {
+func NewFreshnessMonitor(pool *pgxpool.Pool, chainID int64, addresses []string, staleAfter time.Duration) *FreshnessMonitor {
 	return &FreshnessMonitor{
 		pool:       pool,
-		env:        env,
+		chainID:    chainID,
 		addresses:  addresses,
 		staleAfter: staleAfter,
 		pollEvery:  15 * time.Second,
@@ -83,11 +83,11 @@ func (f *FreshnessMonitor) check(ctx context.Context) {
 	row := f.pool.QueryRow(ctx,
 		`SELECT "contractAddress", EXTRACT(EPOCH FROM (NOW() - "updatedAt"))::bigint
 		   FROM "IndexerCursor"
-		  WHERE environment = $1
+		  WHERE "chainId" = $1
 		    AND "contractAddress" = ANY($2)
 		  ORDER BY "updatedAt" ASC
 		  LIMIT 1`,
-		f.env, f.addresses)
+		f.chainID, f.addresses)
 	var addr string
 	var lag int64
 	if err := row.Scan(&addr, &lag); err != nil {
