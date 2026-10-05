@@ -54,9 +54,11 @@ type Runner struct {
 	registry  *indabi.Registry
 	projector *Projector
 	log       *slog.Logger
+	chainID   int64
 
 	// addresses we monitor — built once at startup.
 	contractAddrs       []common.Address
+	legacyCursorAddrs   []common.Address
 	subscribedTopics    []common.Hash
 	stablecoinAddresses []common.Address
 
@@ -78,6 +80,11 @@ func NewRunner(ctx context.Context, cfg *config.Config) (*Runner, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := cli.VerifyChainID(ctx, uint64(cfg.ChainID)); err != nil {
+		cli.Close()
+		return nil, err
+	}
+	log.Info("rpc endpoints verified", "chainId", cfg.ChainID)
 	st, err := store.New(ctx, cfg.DatabaseURL)
 	if err != nil {
 		cli.Close()
@@ -90,13 +97,14 @@ func NewRunner(ctx context.Context, cfg *config.Config) (*Runner, error) {
 		return nil, fmt.Errorf("load abis: %w", err)
 	}
 
-	contractAddrs := []common.Address{
+	legacyCursorAddrs := []common.Address{
 		common.HexToAddress(cfg.RegistryAddress),
 		common.HexToAddress(cfg.PaymentsAddress),
 		common.HexToAddress(cfg.SubscriptionsAddress),
 		common.HexToAddress(cfg.AgentEscrowAddress),
 		common.HexToAddress(cfg.FeeCollectorAddress),
 	}
+	contractAddrs := append(append([]common.Address{}, legacyCursorAddrs...), common.HexToAddress(cfg.TokenWhitelistAddress))
 	stables := make([]common.Address, 0, len(cfg.Stablecoins))
 	tokenMap := make(map[string]string, len(cfg.Stablecoins))
 	for _, coin := range cfg.Stablecoins {
@@ -109,9 +117,11 @@ func NewRunner(ctx context.Context, cfg *config.Config) (*Runner, error) {
 		chain:               cli,
 		store:               st,
 		registry:            registry,
-		projector:           NewProjector(st, registry, string(cfg.Environment), tokenMap),
+		projector:           NewProjector(st, registry, string(cfg.Environment), cfg.ChainID, tokenMap),
 		log:                 slog.Default().With("component", "processor"),
+		chainID:             cfg.ChainID,
 		contractAddrs:       contractAddrs,
+		legacyCursorAddrs:   legacyCursorAddrs,
 		subscribedTopics:    registry.SubscribedTopics(),
 		stablecoinAddresses: stables,
 		blockTimes:          make(map[uint64]time.Time, blockTimeCacheMax),
@@ -149,6 +159,7 @@ func (r *Runner) MonitoredAddresses() []string {
 func (r *Runner) Run(ctx context.Context) error {
 	r.log.Info("indexer starting",
 		"environment", r.cfg.Environment,
+		"chainId", r.chainID,
 		"rpcURL", r.cfg.RPCURL,
 		"pollMs", r.cfg.PollIntervalMillis,
 		"confirmations", r.cfg.Confirmations,
@@ -249,7 +260,7 @@ func (r *Runner) Tick(ctx context.Context) error {
 }
 
 func (r *Runner) processContract(ctx context.Context, addr common.Address, safeHead uint64, topics []common.Hash, startAtHead bool) error {
-	cp, err := r.store.LoadCheckpoint(ctx, string(r.cfg.Environment), addr.Hex())
+	cp, err := r.store.LoadCheckpoint(ctx, r.chainID, addr.Hex())
 	if err != nil {
 		return err
 	}
@@ -327,6 +338,7 @@ func (r *Runner) processContract(ctx context.Context, addr common.Address, safeH
 				}
 			}
 			return txStore.SaveCheckpoint(ctx, &store.Checkpoint{
+				ChainID:               r.chainID,
 				ContractAddress:       addr.Hex(),
 				Environment:           string(r.cfg.Environment),
 				LastProcessedBlock:    batchTo,
@@ -402,7 +414,7 @@ func (r *Runner) advanceCore(ctx context.Context, safeHead uint64) error {
 
 func (r *Runner) processCore(ctx context.Context, safeHead uint64) error {
 	env := string(r.cfg.Environment)
-	cp, err := r.store.LoadCheckpoint(ctx, env, coreCursorKey)
+	cp, err := r.store.LoadCheckpoint(ctx, r.chainID, coreCursorKey)
 	if err != nil {
 		return err
 	}
@@ -468,6 +480,7 @@ func (r *Runner) processCore(ctx context.Context, safeHead uint64) error {
 				}
 			}
 			return txStore.SaveCheckpoint(ctx, &store.Checkpoint{
+				ChainID:               r.chainID,
 				ContractAddress:       coreCursorKey,
 				Environment:           env,
 				LastProcessedBlock:    to,
@@ -497,12 +510,11 @@ func (r *Runner) applyOrPark(ctx context.Context, txStore *store.Store, p *Proje
 		"block", lg.BlockNumber,
 		"index", lg.Index,
 		"err", applyErr)
-	return txStore.InsertDeadLetter(ctx, deadLetterFor(string(r.cfg.Environment), lg, blockTime, applyErr))
+	return txStore.InsertDeadLetter(ctx, deadLetterFor(r.chainID, string(r.cfg.Environment), lg, blockTime, applyErr))
 }
 
 func (r *Runner) retryDeadLetters(ctx context.Context) error {
-	env := string(r.cfg.Environment)
-	letters, err := r.store.UnresolvedDeadLetters(ctx, env, deadLetterRetryLimit)
+	letters, err := r.store.UnresolvedDeadLetters(ctx, r.chainID, deadLetterRetryLimit)
 	if err != nil {
 		return err
 	}
@@ -528,7 +540,7 @@ func (r *Runner) retryDeadLetters(ctx context.Context) error {
 			return fmt.Errorf("retry dead letter %s: %w", d.ID, err)
 		}
 	}
-	n, err := r.store.CountUnresolvedDeadLetters(ctx, env)
+	n, err := r.store.CountUnresolvedDeadLetters(ctx, r.chainID)
 	if err != nil {
 		return err
 	}
@@ -544,9 +556,9 @@ func (r *Runner) loadLegacyCursors(ctx context.Context) (map[common.Address]uint
 	if r.cfg.StartBlock > 0 {
 		floor = r.cfg.StartBlock - 1
 	}
-	legacy := make(map[common.Address]uint64, len(r.contractAddrs))
-	for _, addr := range r.contractAddrs {
-		cp, err := r.store.LoadCheckpoint(ctx, string(r.cfg.Environment), addr.Hex())
+	legacy := make(map[common.Address]uint64, len(r.legacyCursorAddrs))
+	for _, addr := range r.legacyCursorAddrs {
+		cp, err := r.store.LoadCheckpoint(ctx, r.chainID, addr.Hex())
 		if err != nil {
 			return nil, err
 		}
@@ -587,12 +599,13 @@ func sortLogs(logs []types.Log) {
 	})
 }
 
-func deadLetterFor(env string, lg types.Log, blockTime time.Time, cause error) store.DeadLetter {
+func deadLetterFor(chainID int64, env string, lg types.Log, blockTime time.Time, cause error) store.DeadLetter {
 	topics := make([]string, len(lg.Topics))
 	for i, t := range lg.Topics {
 		topics[i] = t.Hex()
 	}
 	return store.DeadLetter{
+		ChainID:         chainID,
 		Environment:     env,
 		ContractAddress: lg.Address.Hex(),
 		TxHash:          lg.TxHash.Hex(),

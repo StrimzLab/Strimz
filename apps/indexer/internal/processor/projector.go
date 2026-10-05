@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"strings"
 	"time"
 
@@ -24,11 +25,12 @@ type Projector struct {
 	mode     string            // "test" | "live"
 	tokens   map[string]string // lowercase token addr → symbol (USDC/EURC)
 	log      *slog.Logger
+	chainID  int64
 }
 
 // NewProjector returns a ready-to-use projector. `mode` is fixed by the
 // indexer's environment: testnet → "test", mainnet → "live".
-func NewProjector(s *store.Store, registry *indabi.Registry, env string, tokens map[string]string) *Projector {
+func NewProjector(s *store.Store, registry *indabi.Registry, env string, chainID int64, tokens map[string]string) *Projector {
 	mode := "test"
 	if env == "mainnet" {
 		mode = "live"
@@ -41,6 +43,7 @@ func NewProjector(s *store.Store, registry *indabi.Registry, env string, tokens 
 		store:    s,
 		registry: registry,
 		mode:     mode,
+		chainID:  chainID,
 		tokens:   normalised,
 		log:      slog.Default().With("component", "projector"),
 	}
@@ -95,9 +98,52 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 		ev := payload.(*indabi.MerchantFeeBpsUpdated)
 		err = p.store.LogMerchantFeeBpsChange(ctx, ev.MerchantID, ev.NewFeeBps, lg.TxHash.Hex())
 
-	case indabi.EventMerchantOwnerTransferred:
-		ev := payload.(*indabi.MerchantOwnerTransferred)
-		err = p.store.LogMerchantOwnerTransfer(ctx, ev.MerchantID, ev.NewOwner.Hex(), lg.TxHash.Hex())
+	case indabi.EventMerchantOwnershipTransferInitiated:
+		ev := payload.(*indabi.MerchantOwnershipTransferInitiated)
+		current, pending := lowerHex(ev.CurrentOwner), lowerHex(ev.PendingOwner)
+		p.log.Warn("merchant ownership transfer initiated on-chain",
+			"onchainMerchantId", ev.MerchantID.String(),
+			"currentOwner", current,
+			"pendingOwner", pending,
+			"txHash", lg.TxHash.Hex())
+		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.ownership_transfer_initiated_onchain", map[string]any{
+			"currentOwner": current,
+			"pendingOwner": pending,
+		})
+
+	case indabi.EventMerchantOwnershipTransferAccepted:
+		ev := payload.(*indabi.MerchantOwnershipTransferAccepted)
+		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.ownership_transfer_accepted_onchain", map[string]any{
+			"previousOwner": lowerHex(ev.PreviousOwner),
+			"newOwner":      lowerHex(ev.NewOwner),
+		})
+
+	case indabi.EventMerchantOwnershipTransferCancelled:
+		ev := payload.(*indabi.MerchantOwnershipTransferCancelled)
+		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.ownership_transfer_cancelled_onchain", nil)
+
+	case indabi.EventMerchantPayoutChangeInitiated:
+		ev := payload.(*indabi.MerchantPayoutChangeInitiated)
+		newPayout := lowerHex(ev.NewPayoutAddress)
+		p.log.Warn("merchant payout change initiated on-chain",
+			"onchainMerchantId", ev.MerchantID.String(),
+			"newPayoutAddress", newPayout,
+			"commitAt", ev.CommitAt,
+			"txHash", lg.TxHash.Hex())
+		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.payout_change_initiated_onchain", map[string]any{
+			"newPayoutAddress": newPayout,
+			"commitAt":         ev.CommitAt,
+		})
+
+	case indabi.EventMerchantPayoutChangeCancelled:
+		ev := payload.(*indabi.MerchantPayoutChangeCancelled)
+		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.payout_change_cancelled_onchain", nil)
+
+	case indabi.EventMerchantMaxFeeBpsLowered:
+		ev := payload.(*indabi.MerchantMaxFeeBpsLowered)
+		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.max_fee_bps_lowered_onchain", map[string]any{
+			"newMaxFeeBps": int(ev.NewMaxFeeBps),
+		})
 
 	// ----- Payments -----
 	case indabi.EventPaymentExecuted:
@@ -364,6 +410,50 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 			ev.Amount.String(),
 			lg.TxHash.Hex())
 
+	case indabi.EventPaused:
+		ev := payload.(*indabi.Paused)
+		err = p.logContractOperation(ctx, lg, "contract.paused", map[string]any{"account": lowerHex(ev.Account)})
+
+	case indabi.EventUnpaused:
+		ev := payload.(*indabi.Unpaused)
+		err = p.logContractOperation(ctx, lg, "contract.unpaused", map[string]any{"account": lowerHex(ev.Account)})
+
+	case indabi.EventDependencyUpdated:
+		ev := payload.(*indabi.DependencyUpdated)
+		err = p.logContractOperation(ctx, lg, "contract.dependency_updated", map[string]any{
+			"name":       ev.Name,
+			"newAddress": lowerHex(ev.NewAddress),
+		})
+
+	case indabi.EventFeeWithdrawn:
+		ev := payload.(*indabi.FeeWithdrawn)
+		err = p.logContractOperation(ctx, lg, "fees.withdrawn", map[string]any{
+			"token":  lowerHex(ev.Token),
+			"to":     lowerHex(ev.To),
+			"amount": ev.Amount.String(),
+		})
+
+	case indabi.EventTokenAdded:
+		ev := payload.(*indabi.TokenAdded)
+		token := lowerHex(ev.Token)
+		if _, known := p.tokens[token]; !known {
+			p.log.Error("whitelisted token is not in STABLECOIN_ADDRESSES; its payments will park until the config lists it",
+				"token", token,
+				"txHash", lg.TxHash.Hex())
+		}
+		err = p.logContractOperation(ctx, lg, "token_whitelist.token_added", map[string]any{"token": token})
+
+	case indabi.EventTokenRemoved:
+		ev := payload.(*indabi.TokenRemoved)
+		err = p.logContractOperation(ctx, lg, "token_whitelist.token_removed", map[string]any{"token": lowerHex(ev.Token)})
+
+	case indabi.EventTokenCapabilitiesSet:
+		ev := payload.(*indabi.TokenCapabilitiesSet)
+		err = p.logContractOperation(ctx, lg, "token_whitelist.capabilities_set", map[string]any{
+			"token":        lowerHex(ev.Token),
+			"capabilities": ev.Capabilities,
+		})
+
 	default:
 		p.log.Warn("unhandled subscribed event in dispatch", "name", string(name))
 	}
@@ -372,6 +462,37 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 		return fmt.Errorf("project %s: %w", name, err)
 	}
 	return nil
+}
+
+func (p *Projector) logRef(lg types.Log) store.OnchainLogRef {
+	return store.OnchainLogRef{
+		ChainID:     p.chainID,
+		TxHash:      lg.TxHash.Hex(),
+		LogIndex:    lg.Index,
+		BlockNumber: lg.BlockNumber,
+	}
+}
+
+func (p *Projector) logGovernance(ctx context.Context, lg types.Log, onchainMerchantID *big.Int, action string, metadata map[string]any) error {
+	return p.store.LogMerchantGovernance(ctx, store.MerchantGovernanceInput{
+		Log:               p.logRef(lg),
+		OnchainMerchantID: onchainMerchantID,
+		Action:            action,
+		Metadata:          metadata,
+	})
+}
+
+func (p *Projector) logContractOperation(ctx context.Context, lg types.Log, action string, metadata map[string]any) error {
+	return p.store.LogContractOperation(ctx, store.ContractOperationInput{
+		Log:      p.logRef(lg),
+		Contract: lowerHex(lg.Address),
+		Action:   action,
+		Metadata: metadata,
+	})
+}
+
+func lowerHex(a common.Address) string {
+	return strings.ToLower(a.Hex())
 }
 
 // tokenSymbol resolves a token contract address to its display symbol via

@@ -27,6 +27,7 @@ type Client interface {
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 	BlockTime(ctx context.Context, blockNumber uint64) (time.Time, error)
 	BlockHash(ctx context.Context, blockNumber uint64) (string, error)
+	ChainID(ctx context.Context) (uint64, error)
 	Close()
 }
 
@@ -75,6 +76,17 @@ func (e *EthClient) BlockHash(ctx context.Context, blockNumber uint64) (string, 
 		return "", fmt.Errorf("header @%d: %w", blockNumber, err)
 	}
 	return h.Hash().Hex(), nil
+}
+
+func (e *EthClient) ChainID(ctx context.Context) (uint64, error) {
+	id, err := e.c.ChainID(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if !id.IsUint64() {
+		return 0, fmt.Errorf("chain id %s does not fit in uint64", id)
+	}
+	return id.Uint64(), nil
 }
 
 func (e *EthClient) Close() { e.c.Close() }
@@ -166,6 +178,39 @@ func (fc *FailoverClient) BlockHash(ctx context.Context, blockNumber uint64) (st
 	return failoverDo(fc, func(c Client) (string, error) { return c.BlockHash(ctx, blockNumber) })
 }
 
+func (fc *FailoverClient) ChainID(ctx context.Context) (uint64, error) {
+	return failoverDo(fc, func(c Client) (uint64, error) { return c.ChainID(ctx) })
+}
+
+func (fc *FailoverClient) VerifyChainID(ctx context.Context, want uint64) error {
+	clients := make([]Client, 0, len(fc.clients))
+	urls := make([]string, 0, len(fc.urls))
+	var dropped []Client
+	for i, c := range fc.clients {
+		got, err := c.ChainID(ctx)
+		if err != nil {
+			fc.log.Warn("rpc endpoint failed eth_chainId at startup, dropping it", "url", redactURL(fc.urls[i]), "err", err)
+			dropped = append(dropped, c)
+			continue
+		}
+		if got != want {
+			return fmt.Errorf("rpc endpoint %s serves chain id %d, ARC_CHAIN_ID is %d", redactURL(fc.urls[i]), got, want)
+		}
+		clients = append(clients, c)
+		urls = append(urls, fc.urls[i])
+	}
+	if len(clients) == 0 {
+		return fmt.Errorf("no rpc endpoint answered eth_chainId for chain id %d", want)
+	}
+	for _, c := range dropped {
+		c.Close()
+	}
+	fc.mu.Lock()
+	fc.clients, fc.urls, fc.active = clients, urls, 0
+	fc.mu.Unlock()
+	return nil
+}
+
 func (fc *FailoverClient) Pin() Client {
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
@@ -211,6 +256,10 @@ func (p *pinnedClient) BlockTime(ctx context.Context, blockNumber uint64) (time.
 
 func (p *pinnedClient) BlockHash(ctx context.Context, blockNumber uint64) (string, error) {
 	return pinnedDo(p, func(c Client) (string, error) { return c.BlockHash(ctx, blockNumber) })
+}
+
+func (p *pinnedClient) ChainID(ctx context.Context) (uint64, error) {
+	return pinnedDo(p, func(c Client) (uint64, error) { return c.ChainID(ctx) })
 }
 
 func (p *pinnedClient) Close() {}

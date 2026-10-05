@@ -89,22 +89,6 @@ func (s *Store) LogMerchantFeeBpsChange(ctx context.Context, onchainID *big.Int,
 	})
 }
 
-// LogMerchantOwnerTransfer records `MerchantOwnerTransferred`. Owner is an
-// on-chain concept (address); off-chain we map by the dashboard user/email.
-// M1 records the event; M2 will reconcile to the off-chain Merchant.privyUserId.
-func (s *Store) LogMerchantOwnerTransfer(ctx context.Context, onchainID *big.Int, newOwner, txHash string) error {
-	return s.appendAudit(ctx, auditEntry{
-		Category:   "merchant",
-		Action:     "merchant.owner_transferred_onchain",
-		TargetType: "Merchant",
-		TargetID:   fmt.Sprintf("onchain:%s", onchainID.String()),
-		Metadata: map[string]any{
-			"newOwner":        strings.ToLower(newOwner),
-			"transactionHash": txHash,
-		},
-	})
-}
-
 // ----- Payments (one-shot) -----
 
 // OneShotTxInput is the parameter for InsertOneShotTransaction.

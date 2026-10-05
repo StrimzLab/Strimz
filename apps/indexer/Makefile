@@ -4,7 +4,7 @@ SHELL := /bin/bash
 
 CONTRACTS_DIR := ../../packages/contracts
 ABI_DEST := internal/abi
-CONTRACTS := StrimzRegistry StrimzPayments StrimzSubscriptions StrimzAgentEscrow FeeCollector IERC20
+CONTRACTS := StrimzRegistry StrimzPayments StrimzSubscriptions StrimzAgentEscrow FeeCollector TokenWhitelist IERC20
 
 build:
 	go build -o bin/indexer ./cmd/indexer

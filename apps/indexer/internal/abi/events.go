@@ -33,7 +33,22 @@ const (
 	EventMerchantPayoutAddressUpdated EventName = "MerchantPayoutAddressUpdated"
 	EventMerchantFeeBpsUpdated        EventName = "MerchantFeeBpsUpdated"
 	EventMerchantActiveSet            EventName = "MerchantActiveSet"
-	EventMerchantOwnerTransferred     EventName = "MerchantOwnerTransferred"
+
+	EventMerchantOwnershipTransferInitiated EventName = "MerchantOwnershipTransferInitiated"
+	EventMerchantOwnershipTransferAccepted  EventName = "MerchantOwnershipTransferAccepted"
+	EventMerchantOwnershipTransferCancelled EventName = "MerchantOwnershipTransferCancelled"
+	EventMerchantPayoutChangeInitiated      EventName = "MerchantPayoutChangeInitiated"
+	EventMerchantPayoutChangeCancelled      EventName = "MerchantPayoutChangeCancelled"
+	EventMerchantMaxFeeBpsLowered           EventName = "MerchantMaxFeeBpsLowered"
+
+	EventPaused            EventName = "Paused"
+	EventUnpaused          EventName = "Unpaused"
+	EventDependencyUpdated EventName = "DependencyUpdated"
+	EventFeeWithdrawn      EventName = "FeeWithdrawn"
+
+	EventTokenAdded           EventName = "TokenAdded"
+	EventTokenRemoved         EventName = "TokenRemoved"
+	EventTokenCapabilitiesSet EventName = "TokenCapabilitiesSet"
 
 	// Payments (one-shot)
 	EventPaymentExecuted EventName = "PaymentExecuted"
@@ -72,7 +87,10 @@ const (
 // in this list with a matching topic[0] is decoded but logged-and-skipped.
 var SubscribedEvents = []EventName{
 	EventMerchantRegistered, EventMerchantPayoutAddressUpdated, EventMerchantFeeBpsUpdated,
-	EventMerchantActiveSet, EventMerchantOwnerTransferred,
+	EventMerchantActiveSet,
+	EventMerchantOwnershipTransferInitiated, EventMerchantOwnershipTransferAccepted,
+	EventMerchantOwnershipTransferCancelled, EventMerchantPayoutChangeInitiated,
+	EventMerchantPayoutChangeCancelled, EventMerchantMaxFeeBpsLowered,
 	EventPaymentExecuted,
 	EventSubscriptionCreated, EventSubscriptionCharged, EventSubscriptionPeriodsSkipped,
 	EventSubscriptionChargeSkipped, EventSubscriptionCancelled,
@@ -80,8 +98,18 @@ var SubscribedEvents = []EventName{
 	EventJobApproved, EventJobReleased, EventJobDisputed, EventJobCancelled,
 	EventJobRefunded, EventJobResolved, EventJobReclaimed,
 	EventFeeAccrued,
+	EventPaused, EventUnpaused, EventDependencyUpdated, EventFeeWithdrawn,
+	EventTokenAdded, EventTokenRemoved, EventTokenCapabilitiesSet,
 	EventERC20Transfer,
 }
+
+var subscribed = func() map[EventName]bool {
+	set := make(map[EventName]bool, len(SubscribedEvents))
+	for _, name := range SubscribedEvents {
+		set[name] = true
+	}
+	return set
+}()
 
 // Registry holds parsed ABIs and a topic-to-event lookup table.
 type Registry struct {
@@ -196,6 +224,9 @@ func (r *Registry) Decode(log types.Log) (EventName, interface{}, error) {
 	if !ok {
 		return "", nil, nil
 	}
+	if !subscribed[EventName(bound.event.Name)] {
+		return EventName(bound.event.Name), nil, nil
+	}
 	parsed := r.abis[bound.contract]
 
 	values := make(map[string]interface{}, len(bound.event.Inputs))
@@ -251,9 +282,67 @@ type MerchantActiveSet struct {
 	Active     bool
 }
 
-type MerchantOwnerTransferred struct {
+type MerchantOwnershipTransferInitiated struct {
+	MerchantID   *big.Int
+	CurrentOwner common.Address
+	PendingOwner common.Address
+}
+
+type MerchantOwnershipTransferAccepted struct {
+	MerchantID    *big.Int
+	PreviousOwner common.Address
+	NewOwner      common.Address
+}
+
+type MerchantOwnershipTransferCancelled struct {
 	MerchantID *big.Int
-	NewOwner   common.Address
+}
+
+type MerchantPayoutChangeInitiated struct {
+	MerchantID       *big.Int
+	NewPayoutAddress common.Address
+	CommitAt         uint64
+}
+
+type MerchantPayoutChangeCancelled struct {
+	MerchantID *big.Int
+}
+
+type MerchantMaxFeeBpsLowered struct {
+	MerchantID   *big.Int
+	NewMaxFeeBps uint16
+}
+
+type Paused struct {
+	Account common.Address
+}
+
+type Unpaused struct {
+	Account common.Address
+}
+
+type DependencyUpdated struct {
+	Name       string
+	NewAddress common.Address
+}
+
+type FeeWithdrawn struct {
+	Token  common.Address
+	To     common.Address
+	Amount *big.Int
+}
+
+type TokenAdded struct {
+	Token common.Address
+}
+
+type TokenRemoved struct {
+	Token common.Address
+}
+
+type TokenCapabilitiesSet struct {
+	Token        common.Address
+	Capabilities uint8
 }
 
 type PaymentExecuted struct {
@@ -569,13 +658,54 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 		}
 		return &MerchantActiveSet{MerchantID: merchantID, Active: active}, nil
 
-	case EventMerchantOwnerTransferred:
+	case EventMerchantOwnershipTransferInitiated:
 		merchantID, e1 := bigint("merchantId")
-		owner, e2 := addr("newOwner")
+		current, e2 := addr("currentOwner")
+		pending, e3 := addr("pendingOwner")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &MerchantOwnershipTransferInitiated{MerchantID: merchantID, CurrentOwner: current, PendingOwner: pending}, nil
+
+	case EventMerchantOwnershipTransferAccepted:
+		merchantID, e1 := bigint("merchantId")
+		previous, e2 := addr("previousOwner")
+		owner, e3 := addr("newOwner")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &MerchantOwnershipTransferAccepted{MerchantID: merchantID, PreviousOwner: previous, NewOwner: owner}, nil
+
+	case EventMerchantOwnershipTransferCancelled:
+		merchantID, err := bigint("merchantId")
+		if err != nil {
+			return nil, err
+		}
+		return &MerchantOwnershipTransferCancelled{MerchantID: merchantID}, nil
+
+	case EventMerchantPayoutChangeInitiated:
+		merchantID, e1 := bigint("merchantId")
+		payout, e2 := addr("newPayoutAddress")
+		commitAt, e3 := u64("commitAt")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &MerchantPayoutChangeInitiated{MerchantID: merchantID, NewPayoutAddress: payout, CommitAt: commitAt}, nil
+
+	case EventMerchantPayoutChangeCancelled:
+		merchantID, err := bigint("merchantId")
+		if err != nil {
+			return nil, err
+		}
+		return &MerchantPayoutChangeCancelled{MerchantID: merchantID}, nil
+
+	case EventMerchantMaxFeeBpsLowered:
+		merchantID, e1 := bigint("merchantId")
+		maxFee, e2 := u16("newMaxFeeBps")
 		if err := firstErr(e1, e2); err != nil {
 			return nil, err
 		}
-		return &MerchantOwnerTransferred{MerchantID: merchantID, NewOwner: owner}, nil
+		return &MerchantMaxFeeBpsLowered{MerchantID: merchantID, NewMaxFeeBps: maxFee}, nil
 
 	case EventPaymentExecuted:
 		merchantID, e1 := bigint("merchantId")
@@ -759,6 +889,59 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 			return nil, err
 		}
 		return &FeeAccrued{Token: token, MerchantID: merchantID, Amount: amount}, nil
+
+	case EventPaused:
+		account, err := addr("account")
+		if err != nil {
+			return nil, err
+		}
+		return &Paused{Account: account}, nil
+
+	case EventUnpaused:
+		account, err := addr("account")
+		if err != nil {
+			return nil, err
+		}
+		return &Unpaused{Account: account}, nil
+
+	case EventDependencyUpdated:
+		depName, e1 := str("name")
+		newAddress, e2 := addr("newAddress")
+		if err := firstErr(e1, e2); err != nil {
+			return nil, err
+		}
+		return &DependencyUpdated{Name: depName, NewAddress: newAddress}, nil
+
+	case EventFeeWithdrawn:
+		token, e1 := addr("token")
+		to, e2 := addr("to")
+		amount, e3 := bigint("amount")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &FeeWithdrawn{Token: token, To: to, Amount: amount}, nil
+
+	case EventTokenAdded:
+		token, err := addr("token")
+		if err != nil {
+			return nil, err
+		}
+		return &TokenAdded{Token: token}, nil
+
+	case EventTokenRemoved:
+		token, err := addr("token")
+		if err != nil {
+			return nil, err
+		}
+		return &TokenRemoved{Token: token}, nil
+
+	case EventTokenCapabilitiesSet:
+		token, e1 := addr("token")
+		capabilities, e2 := u8("capabilities")
+		if err := firstErr(e1, e2); err != nil {
+			return nil, err
+		}
+		return &TokenCapabilitiesSet{Token: token, Capabilities: capabilities}, nil
 
 	case EventERC20Transfer:
 		from, e1 := addr("from")

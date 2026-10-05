@@ -6,6 +6,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/kelseyhightower/envconfig"
@@ -27,6 +28,7 @@ const (
 // (`0x` + 20 bytes) so the chain client receives well-formed values.
 type Config struct {
 	Environment Environment `envconfig:"ARC_ENVIRONMENT"   required:"true"`
+	ChainID     int64       `envconfig:"ARC_CHAIN_ID"      required:"true"`
 	RPCURL      string      `envconfig:"ARC_RPC_URL"       required:"true"`
 	// Optional ordered fallback endpoints. The client tries ARC_RPC_URL
 	// first, then these in order when a request errors.
@@ -35,8 +37,8 @@ type Config struct {
 	HTTPPort           int      `envconfig:"HTTP_PORT"         default:"4100"`
 	LogLevel           string   `envconfig:"LOG_LEVEL"         default:"info"`
 	PollIntervalMillis int      `envconfig:"POLL_INTERVAL_MS"  default:"5000"`
-	Confirmations      uint64   `envconfig:"CONFIRMATIONS"     default:"5"`
-	StartBlock         uint64   `envconfig:"START_BLOCK"       default:"0"`
+	Confirmations      uint64   `envconfig:"CONFIRMATIONS"     required:"true"`
+	StartBlock         uint64   `envconfig:"START_BLOCK"       required:"true"`
 	BlockBatchSize     uint64   `envconfig:"BLOCK_BATCH_SIZE"  default:"500"`
 	// StaleCursorSeconds: /readyz flips to 503 if any Strimz-contract
 	// cursor has not moved in this many seconds. Also drives a per-tick
@@ -44,11 +46,12 @@ type Config struct {
 	StaleCursorSeconds int `envconfig:"STALE_CURSOR_SECONDS" default:"120"`
 
 	// Contract addresses — emitted by the Foundry deployment script.
-	RegistryAddress      string `envconfig:"REGISTRY_ADDRESS"       required:"true"`
-	PaymentsAddress      string `envconfig:"PAYMENTS_ADDRESS"       required:"true"`
-	SubscriptionsAddress string `envconfig:"SUBSCRIPTIONS_ADDRESS"  required:"true"`
-	AgentEscrowAddress   string `envconfig:"AGENT_ESCROW_ADDRESS"   required:"true"`
-	FeeCollectorAddress  string `envconfig:"FEE_COLLECTOR_ADDRESS"  required:"true"`
+	RegistryAddress       string `envconfig:"REGISTRY_ADDRESS"       required:"true"`
+	PaymentsAddress       string `envconfig:"PAYMENTS_ADDRESS"       required:"true"`
+	SubscriptionsAddress  string `envconfig:"SUBSCRIPTIONS_ADDRESS"  required:"true"`
+	AgentEscrowAddress    string `envconfig:"AGENT_ESCROW_ADDRESS"   required:"true"`
+	FeeCollectorAddress   string `envconfig:"FEE_COLLECTOR_ADDRESS"  required:"true"`
+	TokenWhitelistAddress string `envconfig:"TOKEN_WHITELIST_ADDRESS" required:"true"`
 	// Optional: stablecoin addresses to scan for refund-completion Transfers.
 	StablecoinAddresses []string `envconfig:"STABLECOIN_ADDRESSES" default:""`
 	Stablecoins         []Stablecoin
@@ -76,6 +79,12 @@ func Validate(c *Config) (*Config, error) {
 	if c.Environment != EnvTestnet && c.Environment != EnvMainnet {
 		return nil, fmt.Errorf("ARC_ENVIRONMENT must be testnet or mainnet, got %q", c.Environment)
 	}
+	if c.ChainID < 1 || c.ChainID > math.MaxInt32 {
+		return nil, fmt.Errorf("ARC_CHAIN_ID must be an integer in [1, %d], got %d", math.MaxInt32, c.ChainID)
+	}
+	if c.StartBlock < 1 {
+		return nil, errors.New("START_BLOCK must be >= 1, the block the core contracts were deployed at")
+	}
 	if c.PollIntervalMillis < 500 {
 		return nil, errors.New("POLL_INTERVAL_MS must be >= 500")
 	}
@@ -83,11 +92,12 @@ func Validate(c *Config) (*Config, error) {
 		return nil, errors.New("BLOCK_BATCH_SIZE must be in [1, 5000]")
 	}
 	addrs := map[string]string{
-		"REGISTRY_ADDRESS":      c.RegistryAddress,
-		"PAYMENTS_ADDRESS":      c.PaymentsAddress,
-		"SUBSCRIPTIONS_ADDRESS": c.SubscriptionsAddress,
-		"AGENT_ESCROW_ADDRESS":  c.AgentEscrowAddress,
-		"FEE_COLLECTOR_ADDRESS": c.FeeCollectorAddress,
+		"REGISTRY_ADDRESS":        c.RegistryAddress,
+		"PAYMENTS_ADDRESS":        c.PaymentsAddress,
+		"SUBSCRIPTIONS_ADDRESS":   c.SubscriptionsAddress,
+		"AGENT_ESCROW_ADDRESS":    c.AgentEscrowAddress,
+		"FEE_COLLECTOR_ADDRESS":   c.FeeCollectorAddress,
+		"TOKEN_WHITELIST_ADDRESS": c.TokenWhitelistAddress,
 	}
 	for name, v := range addrs {
 		if !isEvmAddress(v) {
