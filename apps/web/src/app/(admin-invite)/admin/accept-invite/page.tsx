@@ -102,7 +102,7 @@ function InviteCard({
     <div className="bg-background flex min-h-screen items-center justify-center p-6">
       <div className="border-border/60 bg-card mx-auto w-full max-w-md space-y-4 rounded-xl border p-6">
         <Link href="/" className="flex items-center gap-2">
-          <span className="inline-block h-2 w-2 rounded-full bg-[#02C76A]" />
+          <span className="bg-accent inline-block h-2 w-2 rounded-full" />
           <span className="font-display font-semibold">Strimz Admin</span>
         </Link>
         <h1 className="font-sora text-xl font-semibold">{title}</h1>

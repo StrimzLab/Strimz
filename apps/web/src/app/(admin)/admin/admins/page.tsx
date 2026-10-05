@@ -51,7 +51,7 @@ import {
 const ROLES: AdminRole[] = ['super_admin', 'admin', 'read_only']
 
 const ROLE_TINT: Record<AdminRole, string> = {
-  super_admin: 'border-[#02C76A]/40 bg-[#02C76A]/10 text-[#02C76A]',
+  super_admin: 'border-accent/40 bg-accent/10 text-accent',
   admin: 'border-sky-400/40 bg-sky-50 text-sky-700',
   read_only: 'border-border/60',
 }

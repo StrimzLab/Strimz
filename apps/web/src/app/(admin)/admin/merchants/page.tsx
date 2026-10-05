@@ -11,7 +11,7 @@ import type { MerchantStatus, MerchantTier } from '@/lib/admin-api'
 import { useAdminMerchants } from '@/hooks/admin'
 
 const STATUS_TINT: Record<MerchantStatus, string> = {
-  active: 'border-[#02C76A]/40 bg-[#02C76A]/10 text-[#02C76A]',
+  active: 'border-accent/40 bg-accent/10 text-accent',
   suspended: 'border-amber-400/40 bg-amber-50 text-amber-700',
   closed: 'border-rose-500/40 bg-rose-50 text-rose-700',
 }
@@ -20,7 +20,7 @@ const TIER_TINT: Record<MerchantTier, string> = {
   free: 'border-border/60',
   growth: 'border-sky-400/40 bg-sky-50 text-sky-700',
   business: 'border-violet-400/40 bg-violet-50 text-violet-700',
-  enterprise: 'border-[#02C76A]/40 bg-[#02C76A]/10 text-[#02C76A]',
+  enterprise: 'border-accent/40 bg-accent/10 text-accent',
 }
 
 const STATUS_FILTERS: ReadonlyArray<MerchantStatus | 'all'> = [
@@ -73,7 +73,7 @@ export default function AdminMerchantsPage() {
               className={[
                 'h-8 rounded-md border px-2.5 text-xs font-medium transition-colors',
                 statusFilter === s
-                  ? 'border-[#02C76A] bg-[#02C76A]/10 text-[#02C76A]'
+                  ? 'border-accent bg-accent/10 text-accent'
                   : 'border-border/60 hover:bg-muted',
               ].join(' ')}
             >

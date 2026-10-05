@@ -140,7 +140,7 @@ export default function AdminMerchantDetailPage() {
                 href={merchant.websiteUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs text-[#02C76A] hover:underline"
+                className="text-accent text-xs hover:underline"
               >
                 {merchant.websiteUrl}
               </a>
