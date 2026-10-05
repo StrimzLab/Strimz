@@ -1,5 +1,19 @@
 # @strimz/shared-types
 
+## 0.10.0
+
+### Minor Changes
+
+- 2f573b1: `updateAgentConfigInputSchema` no longer fills defaults inside `recovery`, `cashflow` and `commerce`. Every field in those sections is optional, and the parsed value holds exactly the keys the caller sent, so `PATCH /v1/agents/config` changes only the fields it names. `recovery.notificationTemplate` and `commerce.monthlySpendCapUsdCents` accept `null`, which clears them; `null` on any other field is rejected.
+
+  `UpdateAgentConfigInput` only widens: every value that compiled before still compiles and still passes `strimz.agents.updateConfig`'s check. `UpdateAgentConfigParsed` narrows: nested fields that were always present are now optional, so code that reads, for example, `parsed.cashflow.anomalySensitivity` as a `string` no longer compiles.
+
+  The server-side fix ships with the API, so older SDK versions get the corrected merge without upgrading.
+
+### Patch Changes
+
+- 6c98c1a: `tokenAmountSchema.safeParse` now returns a validation error for a malformed amount such as `"1.5"`, `"1e6"` or `"abc"` instead of throwing `SyntaxError: Cannot convert ... to a BigInt`. The redundant `BigInt(v) >= 0n` refine is removed; the base-10 digits regex already accepts only non-negative integers. The inferred type is still `string`; the exported schema is now a plain `ZodString` rather than a `ZodEffects` wrapper.
+
 ## 0.9.0
 
 ### Minor Changes
