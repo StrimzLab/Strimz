@@ -69,6 +69,12 @@ Strict Zod validation at boot. See `src/config/env.schema.ts`. The process refus
 | `COMPLIANCE_PROVIDER`            | –        | `disabled` / `trm` / `elliptic`       |
 | `CORS_ORIGIN`                    | –        | comma-separated list or `*`           |
 
+`CORS_ORIGIN` lists the browser origins allowed on every route except the public
+checkout and token routes. Routes under `/v1/checkout/` and `/v1/tokens/` answer
+every origin with `Access-Control-Allow-Origin: *` and no credentials, whatever
+`CORS_ORIGIN` says. The policy lives in `src/common/http/cors-policy.ts`; boot fails
+in production when `CORS_ORIGIN` is `*`.
+
 ## Scripts
 
 | Script                                | Action                                     |

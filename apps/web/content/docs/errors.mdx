@@ -29,6 +29,7 @@ key support uses to find your request in the logs.
 | `live_mode_ineligible`  | 403  | A live key was requested but the account fails a live-mode check; `details.reasons` lists which    |
 | `live_mode_unavailable` | 403  | A live key was requested while live mode is closed, before Strimz runs on Arc mainnet              |
 | `merchant_not_synced`   | 401  | Privy session is valid but no Merchant row. Call `POST /v1/auth/sync` first.                       |
+| `secret_key_in_browser` | none | Thrown by `@strimz/sdk` when `StrimzClient` is constructed in a browser. No request is sent.       |
 | `not_found`             | 404  | Resource doesn't exist or isn't visible to your token                                              |
 | `invalid_request`       | 400  | Validation failure; `details.issues` has the Zod paths                                             |
 | `session_invalid_state` | 403  | The action conflicts with the resource's current status (e.g. cancelling an already-cancelled sub) |
@@ -50,6 +51,29 @@ key support uses to find your request in the logs.
 ```
 
 You forgot the `Authorization: Bearer …` header. Or the key is malformed.
+
+A publishable key sent to a route that needs a secret key gets the same code with this message:
+
+```json
+{
+  "error": {
+    "code": "authentication_error",
+    "message": "publishable keys can only call /v1/checkout and /v1/tokens; use a secret key from your server"
+  }
+}
+```
+
+Publishable keys only work with the public checkout and token routes. Make the call from your server with a secret key.
+
+### `secret_key_in_browser`
+
+This one never comes from the API. `@strimz/sdk` throws it as a `StrimzAuthenticationError`, with no `httpStatus`, when you construct `StrimzClient` with a secret key in a browser, a web worker, an Electron renderer, or a React Native app:
+
+```
+StrimzClient cannot run in a browser: secret keys must stay on your server. Create payment sessions from a server route and pass the session id to the browser. See https://strimz.finance/docs/checkout/server-sessions
+```
+
+Move the code that uses `StrimzClient` into a server route and rotate the key if it has already shipped to browsers. See [Create sessions on your server](/docs/checkout/server-sessions).
 
 ### `permission_denied`
 
