@@ -1,20 +1,13 @@
 import {
   subscriptionSchema,
-  createSubscriptionInputSchema,
   cancelSubscriptionInputSchema,
   type Subscription,
-  type CreateSubscriptionInput,
   type CancelSubscriptionInput,
 } from '@strimz/shared-types'
 import type { PaginationParams, Page } from '../pagination.js'
 import { BaseResource, type RequestOptions } from './base-resource.js'
 
 export class SubscriptionsResource extends BaseResource {
-  create(input: CreateSubscriptionInput, options?: RequestOptions): Promise<Subscription> {
-    createSubscriptionInputSchema.parse(input)
-    return this.post('/v1/subscriptions', input, subscriptionSchema, options)
-  }
-
   retrieve(id: string): Promise<Subscription> {
     return this.get(`/v1/subscriptions/${encodeURIComponent(id)}`, subscriptionSchema)
   }

@@ -61,6 +61,20 @@ describe('payment sessions e2e', () => {
     expect(r.status).toBe(from)
   })
 
+  it('answers a decimal amount with a 400 validation error', async () => {
+    const m = await seedMerchant(t.prisma.db)
+    const k = await seedApiKey(t.prisma.db, m.id)
+    const res = await t.inject({
+      method: 'POST',
+      url: '/v1/payment-sessions',
+      headers: { authorization: `Bearer ${k.secretKey}` },
+      payload: { amount: '1.5', currency: 'USDC' },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(JSON.parse(res.body).error).toMatchObject({ code: 'invalid_request', param: 'amount' })
+    expect(await t.prisma.db.paymentSession.count()).toBe(0)
+  })
+
   it('returns 404 for another merchant’s session', async () => {
     const owner = await seedMerchant(t.prisma.db)
     const intruder = await seedMerchant(t.prisma.db)

@@ -1,5 +1,29 @@
 # @strimz/shared-types
 
+## 0.10.0
+
+### Minor Changes
+
+- 2f573b1: `updateAgentConfigInputSchema` no longer fills defaults inside `recovery`, `cashflow` and `commerce`. Every field in those sections is optional, and the parsed value holds exactly the keys the caller sent, so `PATCH /v1/agents/config` changes only the fields it names. `recovery.notificationTemplate` and `commerce.monthlySpendCapUsdCents` accept `null`, which clears them; `null` on any other field is rejected.
+
+  `UpdateAgentConfigInput` only widens: every value that compiled before still compiles and still passes `strimz.agents.updateConfig`'s check. `UpdateAgentConfigParsed` narrows: nested fields that were always present are now optional, so code that reads, for example, `parsed.cashflow.anomalySensitivity` as a `string` no longer compiles.
+
+  The server-side fix ships with the API, so older SDK versions get the corrected merge without upgrading.
+
+### Patch Changes
+
+- 6c98c1a: `tokenAmountSchema.safeParse` now returns a validation error for a malformed amount such as `"1.5"`, `"1e6"` or `"abc"` instead of throwing `SyntaxError: Cannot convert ... to a BigInt`. The redundant `BigInt(v) >= 0n` refine is removed; the base-10 digits regex already accepts only non-negative integers. The inferred type is still `string`; the exported schema is now a plain `ZodString` rather than a `ZodEffects` wrapper.
+
+## 0.9.0
+
+### Minor Changes
+
+- 5713650: Breaking: remove the SDK methods the API cannot serve. No deprecation window: none of them succeeds against the current API.
+  - `@strimz/sdk`: `strimz.subscriptions.create()` is removed. It sent `POST /v1/subscriptions`, which the API has never had, so every call returned 404. A subscription is created by the payer, who signs on the plan's hosted-checkout link (`/sub/<planId>`). Create the plan with `strimz.subscriptionPlans.create()`, send payers to its link, and read the result from the `subscription.created` webhook or `strimz.subscriptions.list()` / `retrieve()`.
+  - `@strimz/sdk`: `strimz.merchants.update()` and `strimz.merchants.changeTier()` are removed, as announced in 0.6.0. Their routes accept only a dashboard session and returned 403 `permission_denied` to every API key. Change the merchant profile, payout address and tier in the dashboard. `strimz.merchants.me()` is unchanged.
+  - `@strimz/sdk`: the `CreateSubscriptionInput` type export is removed.
+  - `@strimz/shared-types`: `createSubscriptionInputSchema`, `CreateSubscriptionInput` and `CreateSubscriptionParsed` are removed. No API route accepted them, and the `gracePeriodHours` they carried was never applied: every subscription gets 48 hours. `updateMerchantInputSchema` and `changeTierInputSchema` and their types stay; the dashboard API uses them.
+
 ## 0.8.0
 
 ### Minor Changes
