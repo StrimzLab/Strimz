@@ -59,9 +59,10 @@ describe('cashflow digest e2e', () => {
     })
     expect(log).not.toBeNull()
     const meta = must(log).metadata as Record<string, unknown>
-    expect(meta.revenue).toBe('150000000')
-    expect(meta.fees).toBe('2250000')
-    expect(meta.net).toBe('147750000')
+    expect(meta.revenueUsdc).toBe('150000000')
+    expect(meta.feesUsdc).toBe('2250000')
+    expect(meta.netUsdc).toBe('147750000')
+    expect(meta.revenueEurc).toBe('0')
     expect(meta.count).toBe(2)
   })
 

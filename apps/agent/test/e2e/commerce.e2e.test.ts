@@ -54,14 +54,14 @@ describe('commerce monthly summary e2e', () => {
     expect(t.email.sent).toHaveLength(1)
     const html = must(t.email.sent[0]).html
     expect(html).toContain('1 job(s)') // proposed count
-    expect(html).toContain('80.00') // $80 spent
+    expect(html).toContain('80 USDC') // $80 spent
 
     const log = await t.prisma.db.agentActivityLog.findFirst({
       where: { capability: 'commerce', actionType: 'commerce_job_completed' },
     })
     const meta = must(log).metadata as Record<string, unknown>
     expect(meta.stage).toBe('monthly_summary')
-    expect(meta.totalSpendCents).toBe(8_000)
+    expect(meta.spendUsdc).toBe('80000000')
     expect(meta.capUtilisationPct).toBe(8) // 80 / 1000 = 8%
   })
 
@@ -81,5 +81,39 @@ describe('commerce monthly summary e2e', () => {
     const result = await t.app.get(CommerceService).tick()
     expect(result.sent).toBe(1)
     expect(must(t.email.sent[0]).html).toContain('No vendor activity')
+  })
+
+  it('totals every vendor, not only the five listed in the email', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    await seedAgentConfig(t.prisma.db, merchant.id, { enabledCapabilities: ['commerce'] })
+
+    const august = new Date(Date.UTC(2026, 7, 15))
+    for (const [i, amount] of [
+      '10000000',
+      '10000000',
+      '10000000',
+      '10000000',
+      '10000000',
+      '5000000',
+    ].entries()) {
+      await seedAgentJob(t.prisma.db, merchant.id, {
+        vendorAddress: '0x' + String(i + 1).repeat(40),
+        amount,
+        status: 'completed',
+        createdAt: august,
+      })
+    }
+
+    const result = await t.app.get(CommerceService).tick(new Date(Date.UTC(2026, 8, 1, 9)))
+    expect(result.sent).toBe(1)
+    expect(must(t.email.sent[0]).html).toContain('55 USDC across 6 jobs')
+
+    const log = await t.prisma.db.agentActivityLog.findFirst({
+      where: { merchantId: merchant.id, capability: 'commerce' },
+    })
+    const meta = must(log).metadata as Record<string, unknown>
+    expect(meta.spendUsdc).toBe('55000000')
+    expect(meta.jobCount).toBe(6)
+    expect(meta.topVendorCount).toBe(5)
   })
 })

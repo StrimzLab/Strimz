@@ -115,6 +115,8 @@ export function seedTransaction(
     blockTimestamp: Date
     kind: 'one_shot' | 'subscription_charge' | 'refund'
     status: 'pending' | 'confirmed' | 'failed'
+    currency: 'USDC' | 'EURC'
+    mode: 'live' | 'test'
   }> = {},
 ): Promise<any> {
   return prisma.transaction.create({
@@ -124,7 +126,7 @@ export function seedTransaction(
       amount: overrides.amount ?? '100000000',
       netAmount: overrides.netAmount ?? '98500000',
       feeAmount: overrides.feeAmount ?? '1500000',
-      currency: 'USDC',
+      currency: overrides.currency ?? 'USDC',
       payerAddress: '0x' + 'b'.repeat(40),
       merchantAddress: '0x' + 'd'.repeat(40),
       onchainTxHash: '0x' + Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64),
@@ -132,7 +134,7 @@ export function seedTransaction(
       blockTimestamp: overrides.blockTimestamp ?? new Date(),
       logIndex: 0,
       status: (overrides.status ?? 'confirmed') as never,
-      mode: 'live',
+      mode: overrides.mode ?? 'live',
       customerId: overrides.customerId ?? null,
     },
   })
