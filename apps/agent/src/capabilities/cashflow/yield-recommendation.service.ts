@@ -3,6 +3,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { ActivityLogService } from '../../infra/activity-log/activity-log.service.js'
 import { escapeHtml } from '../../common/escape-html.js'
+import { formatAmount } from '../../common/money/currency-amounts.js'
 
 /**
  * Computes whether a merchant has cumulative net revenue above their
@@ -45,7 +46,7 @@ export class CashflowYieldService {
       // Track-record balance: sum of confirmed `Transaction.netAmount` to
       // date, minus refunds. Off-chain projection — the on-chain wallet
       // balance might differ if the merchant has been moving funds out.
-      const balanceCents = await this.estimateLiquidReserveCents(cfg.merchantId)
+      const { balanceCents, eurcBalance } = await this.estimateLiquidReserveCents(cfg.merchantId)
       if (balanceCents <= cfg.cashflowMinimumLiquidReserveCents) {
         skipped++
         continue
@@ -76,6 +77,7 @@ export class CashflowYieldService {
             merchantName: cfg.merchant.businessName ?? 'merchant',
             surplusCents,
             reserveCents: cfg.cashflowMinimumLiquidReserveCents,
+            eurcBalance,
           }),
         })
       } catch (err) {
@@ -97,6 +99,7 @@ export class CashflowYieldService {
           surplusCents,
           reserveCents: cfg.cashflowMinimumLiquidReserveCents,
           balanceCents,
+          eurcBalance: eurcBalance.toString(),
           stage: 'recommendation_sent',
         },
       })
@@ -113,23 +116,37 @@ export class CashflowYieldService {
    *
    * USDC has 6 decimals; cents = micros / 10_000.
    */
-  private async estimateLiquidReserveCents(merchantId: string): Promise<number> {
-    type Row = { net: bigint | null; refunded: bigint | null }
+  private async estimateLiquidReserveCents(
+    merchantId: string,
+  ): Promise<{ balanceCents: number; eurcBalance: bigint }> {
+    type Row = { currency: string; net: string; refunded: string }
     const rows = (await this.prisma.db.$queryRawUnsafe(
-      `SELECT
-         COALESCE((SELECT sum(("netAmount")::numeric) FROM "Transaction"
-                    WHERE "merchantId" = $1
-                      AND status = 'confirmed'::"TransactionStatus"
-                      AND kind != 'refund'::"TransactionKind"), 0)::bigint AS net,
-         COALESCE((SELECT sum(("amount")::numeric) FROM "Refund"
-                    WHERE "merchantId" = $1
-                      AND status = 'completed'::"RefundStatus"), 0)::bigint AS refunded`,
+      `SELECT c.currency::text AS currency,
+              COALESCE((SELECT sum(("netAmount")::numeric) FROM "Transaction"
+                         WHERE "merchantId" = $1
+                           AND currency = c.currency
+                           AND mode = 'live'::"Mode"
+                           AND status = 'confirmed'::"TransactionStatus"
+                           AND kind != 'refund'::"TransactionKind"), 0)::text AS net,
+              COALESCE((SELECT sum(("amount")::numeric) FROM "Refund"
+                         WHERE "merchantId" = $1
+                           AND currency = c.currency
+                           AND mode = 'live'::"Mode"
+                           AND status = 'completed'::"RefundStatus"), 0)::text AS refunded
+         FROM unnest(enum_range(NULL::"PaymentCurrency")) AS c(currency)`,
       merchantId,
     )) as Row[]
-    const r = rows[0] ?? { net: 0n, refunded: 0n }
-    const micros = (r.net ?? 0n) - (r.refunded ?? 0n)
-    if (micros <= 0n) return 0
-    return Number(micros / 10_000n)
+    const balance = (currency: 'USDC' | 'EURC'): bigint => {
+      const row = rows.find((r) => r.currency === currency)
+      if (!row) {
+        throw new Error(
+          `yield balance query returned no ${currency} row for merchant=${merchantId}`,
+        )
+      }
+      const micros = BigInt(row.net) - BigInt(row.refunded)
+      return micros > 0n ? micros : 0n
+    }
+    return { balanceCents: Number(balance('USDC') / 10_000n), eurcBalance: balance('EURC') }
   }
 }
 
@@ -137,6 +154,7 @@ function renderYieldEmail(input: {
   merchantName: string
   surplusCents: number
   reserveCents: number
+  eurcBalance: bigint
 }): string {
   return `
     <div style="font-family:ui-sans-serif,system-ui,sans-serif;max-width:560px;margin:auto;color:#1a1a1a;">
@@ -144,6 +162,7 @@ function renderYieldEmail(input: {
       <p>${escapeHtml(input.merchantName)} — your operating balance is currently above your configured liquid reserve.</p>
       <p><strong>Surplus:</strong> $${(input.surplusCents / 100).toFixed(2)}<br/>
          <strong>Reserve target:</strong> $${(input.reserveCents / 100).toFixed(2)}</p>
+      <p><strong>EURC balance:</strong> ${formatAmount(input.eurcBalance, 'EURC')} (not counted towards the reserve)</p>
       <p>Consider moving the surplus into a yield position. We'll wire the deposit transaction once you confirm in the dashboard.</p>
     </div>
   `

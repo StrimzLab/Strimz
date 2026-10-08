@@ -2,6 +2,13 @@ import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { escapeHtml } from '../../common/escape-html.js'
+import { forecastDailyRevenue, utcDayKey, type RevenueForecast } from './forecast.js'
+import {
+  paymentCurrencies,
+  paymentCurrencySchema,
+  type PaymentCurrency,
+} from '@strimz/shared-types'
+import { currenciesToShow, formatAmount } from '../../common/money/currency-amounts.js'
 
 /**
  * Monthly pricing-intelligence digest. Aggregates the same SQL the API
@@ -21,7 +28,7 @@ export class PricingService {
     private readonly email: EmailService,
   ) {}
 
-  async tick(): Promise<{ sent: number }> {
+  async tick(now: Date = new Date()): Promise<{ sent: number }> {
     const merchants = await this.prisma.db.agentMerchantConfig.findMany({
       where: { enabledCapabilities: { has: 'pricing_intelligence' } },
       include: { merchant: true },
@@ -32,7 +39,7 @@ export class PricingService {
       const [mrr, churn, forecast] = await Promise.all([
         this.computeMrr(cfg.merchantId),
         this.computeChurn(cfg.merchantId),
-        this.computeForecast(cfg.merchantId),
+        this.computeForecast(cfg.merchantId, now),
       ])
 
       try {
@@ -58,36 +65,19 @@ export class PricingService {
   }
 
   /** Sum of active subscription amounts, normalised to monthly cadence. */
-  private async computeMrr(merchantId: string): Promise<bigint> {
+  private async computeMrr(merchantId: string): Promise<PerCurrency<bigint>> {
     const subs = await this.prisma.db.subscription.findMany({
-      where: { merchantId, status: 'active' },
-      select: { amount: true, interval: true, intervalCount: true },
+      where: { merchantId, status: 'active', mode: 'live' },
+      select: { amount: true, currency: true, interval: true, intervalCount: true },
     })
-    let mrr = 0n
+    const mrr: Record<PaymentCurrency, bigint> = { USDC: 0n, EURC: 0n }
+    const active = new Set<PaymentCurrency>()
     for (const s of subs) {
-      const amount = BigInt(s.amount)
-      const factor = BigInt(s.intervalCount || 1)
-      switch (s.interval) {
-        case 'daily':
-          mrr += (amount * 30n) / factor
-          break
-        case 'weekly':
-          mrr += (amount * 30n) / (factor * 7n)
-          break
-        case 'monthly':
-          mrr += amount / factor
-          break
-        case 'quarterly':
-          mrr += amount / (factor * 3n)
-          break
-        case 'yearly':
-          mrr += amount / (factor * 12n)
-          break
-        default:
-          mrr += amount
-      }
+      const currency = paymentCurrencySchema.parse(s.currency)
+      mrr[currency] += normaliseToMonthly(BigInt(s.amount), s.interval, s.intervalCount)
+      active.add(currency)
     }
-    return mrr
+    return { values: mrr, active }
   }
 
   /** Trailing-12-month average monthly churn. */
@@ -102,6 +92,7 @@ export class PricingService {
            END AS rate
          FROM "Subscription"
          WHERE "merchantId" = $1
+           AND mode = 'live'::"Mode"
            AND "createdAt" >= NOW() - INTERVAL '12 months'
          GROUP BY m
        ) m`,
@@ -111,76 +102,97 @@ export class PricingService {
   }
 
   /** Linear regression over last 90 days of confirmed transactions. */
-  private async computeForecast(merchantId: string): Promise<{
-    confidence: 'low' | 'medium' | 'high'
-    next30: bigint
-    next60: bigint
-    next90: bigint
-  }> {
-    type Row = { rev: bigint }
+  private async computeForecast(
+    merchantId: string,
+    now: Date,
+  ): Promise<PerCurrency<RevenueForecast>> {
+    const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+    const from = new Date(to.getTime() - 90 * 86_400_000)
+    type Row = { day: string; currency: string; rev: string }
     const rows = (await this.prisma.db.$queryRawUnsafe(
-      `SELECT date_trunc('day', "blockTimestamp") AS day,
-              sum(("netAmount")::numeric)::bigint AS rev
+      `SELECT to_char(date_trunc('day', "blockTimestamp"), 'YYYY-MM-DD') AS day,
+              currency::text AS currency,
+              sum(("netAmount")::numeric)::text AS rev
          FROM "Transaction"
         WHERE "merchantId" = $1
           AND status = 'confirmed'::"TransactionStatus"
-          AND "blockTimestamp" >= NOW() - INTERVAL '90 days'
-        GROUP BY day
-        ORDER BY day ASC`,
+          AND mode = 'live'::"Mode"
+          AND kind <> 'refund'::"TransactionKind"
+          AND "blockTimestamp" >= $2
+          AND "blockTimestamp" < $3
+        GROUP BY day, currency`,
       merchantId,
+      from,
+      to,
     )) as Row[]
-    if (rows.length < 7) {
-      return { confidence: 'low', next30: 0n, next60: 0n, next90: 0n }
+    const lastDay = utcDayKey(new Date(to.getTime() - 86_400_000))
+    const active = new Set<PaymentCurrency>()
+    const daily: Record<PaymentCurrency, Map<string, bigint>> = { USDC: new Map(), EURC: new Map() }
+    for (const r of rows) {
+      const currency = paymentCurrencySchema.parse(r.currency)
+      daily[currency].set(r.day, BigInt(r.rev))
+      active.add(currency)
     }
-    const n = rows.length
-    const xs: number[] = rows.map((_r, i) => i)
-    const ys: number[] = rows.map((r) => Number(r.rev) / 1_000_000)
-    const sumX = xs.reduce((a, b) => a + b, 0)
-    const sumY = ys.reduce((a, b) => a + b, 0)
-    const sumXY = xs.reduce((acc, x, i) => acc + x * (ys[i] ?? 0), 0)
-    const sumXX = xs.reduce((acc, x) => acc + x * x, 0)
-    const denom = n * sumXX - sumX * sumX
-    const slope = denom === 0 ? 0 : (n * sumXY - sumX * sumY) / denom
-    const intercept = (sumY - slope * sumX) / n
-    const last = n - 1
-    const project = (days: number): bigint => {
-      const v = (slope * (last + days) + intercept) * days
-      const micros = Math.max(0, Math.round(v * 1_000_000))
-      return BigInt(micros)
+    const values = {} as Record<PaymentCurrency, RevenueForecast>
+    for (const currency of paymentCurrencies) {
+      values[currency] = forecastDailyRevenue(daily[currency], lastDay)
     }
-    return {
-      confidence: n >= 60 ? 'high' : n >= 30 ? 'medium' : 'low',
-      next30: project(30),
-      next60: project(60),
-      next90: project(90),
-    }
+    return { values, active }
+  }
+}
+
+interface PerCurrency<T> {
+  values: Record<PaymentCurrency, T>
+  active: Set<PaymentCurrency>
+}
+
+function normaliseToMonthly(amount: bigint, interval: string, intervalCount: number): bigint {
+  const factor = BigInt(intervalCount || 1)
+  switch (interval) {
+    case 'daily':
+      return (amount * 30n) / factor
+    case 'weekly':
+      return (amount * 30n) / (factor * 7n)
+    case 'monthly':
+      return amount / factor
+    case 'quarterly':
+      return amount / (factor * 3n)
+    case 'yearly':
+      return amount / (factor * 12n)
+    default:
+      return amount
   }
 }
 
 function renderPricingEmail(input: {
   merchantName: string
-  mrr: bigint
+  mrr: PerCurrency<bigint>
   churnRate: number
-  forecast: { confidence: string; next30: bigint; next60: bigint; next90: bigint }
+  forecast: PerCurrency<RevenueForecast>
 }): string {
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:8px;border-bottom:1px solid #eee;">${label}</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${value}</td></tr>`
+  const shown = currenciesToShow(new Set([...input.mrr.active, ...input.forecast.active]))
+  const currencyRows = shown
+    .map((c) => {
+      const f = input.forecast.values[c]
+      return [
+        row(`MRR (${c})`, formatAmount(input.mrr.values[c], c)),
+        row(`Forecast confidence (${c})`, f.confidence),
+        row(`Next 30 days (${c})`, formatAmount(f.next30, c)),
+        row(`Next 60 days (${c})`, formatAmount(f.next60, c)),
+        row(`Next 90 days (${c})`, formatAmount(f.next90, c)),
+      ].join('')
+    })
+    .join('')
   return `
     <div style="font-family:ui-sans-serif,system-ui,sans-serif;max-width:560px;margin:auto;color:#1a1a1a;">
       <h2 style="color:#02C76A;margin:0 0 16px;">Pricing intelligence</h2>
       <p>${escapeHtml(input.merchantName)} — here's the AutoPay Agent's read on your pricing & growth this period.</p>
       <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-        <tr><td style="padding:8px;border-bottom:1px solid #eee;">MRR</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${humanise(input.mrr)} USDC</td></tr>
-        <tr><td style="padding:8px;border-bottom:1px solid #eee;">Churn (12-month avg)</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${(input.churnRate * 100).toFixed(2)}%</td></tr>
-        <tr><td style="padding:8px;border-bottom:1px solid #eee;">Forecast confidence</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${input.forecast.confidence}</td></tr>
-        <tr><td style="padding:8px;border-bottom:1px solid #eee;">Next 30 days</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${humanise(input.forecast.next30)} USDC</td></tr>
-        <tr><td style="padding:8px;border-bottom:1px solid #eee;">Next 60 days</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${humanise(input.forecast.next60)} USDC</td></tr>
-        <tr><td style="padding:8px;">Next 90 days</td><td style="padding:8px;text-align:right;">${humanise(input.forecast.next90)} USDC</td></tr>
+        ${row('Churn (12-month avg)', `${(input.churnRate * 100).toFixed(2)}%`)}
+        ${currencyRows}
       </table>
     </div>
   `
-}
-
-function humanise(raw: bigint): string {
-  const whole = raw / 1_000_000n
-  const frac = (raw % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '')
-  return frac.length === 0 ? whole.toString() : `${whole}.${frac}`
 }
