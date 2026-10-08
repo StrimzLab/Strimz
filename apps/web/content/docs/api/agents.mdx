@@ -46,6 +46,17 @@ GET /v1/agents/activity?capability=recovery&outcome=success
 
 Returns chronological agent actions. Filter by `capability`, `actionType`, `outcome`, `subscriptionId`, `transactionId`, `jobId`.
 
+`metadata` is a flat object. Token amounts are base-unit strings (6 decimals), one key per currency, and USDC and EURC are never added together; `...Cents` values are USD cents. Reports count live-mode activity only, except commerce (see below).
+
+| `actionType`                                        | Money keys in `metadata`                                                                                                              |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `cashflow_digest_sent`                              | `revenueUsdc`, `revenueEurc`, `feesUsdc`, `feesEurc`, `netUsdc`, `netEurc`, plus `count` and `uniqueCustomers` across both currencies |
+| `cashflow_anomaly_flagged`                          | `currency`, `actualRevenue`, `expectedMean`, `stddev` in that currency, plus `zScore`. One row per currency and hour                  |
+| `cashflow_yield_converted`                          | `balanceCents`, `surplusCents`, `reserveCents` from USDC only, plus `eurcBalance`                                                     |
+| `commerce_job_completed` (`stage: monthly_summary`) | `spendUsdc`, `spendEurc`; `capUtilisationPct` counts USDC only. Commerce jobs carry no mode, so test jobs are included                |
+
+Rows written before 2026-10 carry `revenue`, `fees`, `net` and `totalSpendCents` instead, with both currencies added together.
+
 ## Jobs
 
 ```http

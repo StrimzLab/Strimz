@@ -22,7 +22,6 @@ DATABASE_URL=postgresql://...
 REDIS_URL=redis://...
 
 ARC_ENVIRONMENT=mainnet
-ARC_RPC_URL=https://your-arc-rpc.com
 
 # Cron schedules
 RECOVERY_TICK_CRON=0 0 * * * *
@@ -74,7 +73,7 @@ configured through `BullMQ.concurrency`.
 
 ## Observability
 
-- `/healthz`, `/readyz`
+- `/healthz` (process is up), `/readyz` (Postgres and Redis answer; `503` otherwise)
 - Activity log written to `AgentActivityLog` for every action
 - AuditLog entries for `cashflow.anomaly_detected`, `merchant.fee_bps_changed_onchain`, `fees.accrued`
 
