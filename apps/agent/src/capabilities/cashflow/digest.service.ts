@@ -3,6 +3,12 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { ActivityLogService } from '../../infra/activity-log/activity-log.service.js'
 import { escapeHtml } from '../../common/escape-html.js'
+import type { CurrencyAmounts, PaymentCurrency } from '@strimz/shared-types'
+import {
+  currenciesToShow,
+  formatAmount,
+  toCurrencyAmounts,
+} from '../../common/money/currency-amounts.js'
 
 /**
  * Daily cashflow digest. For every merchant with
@@ -81,9 +87,12 @@ export class CashflowDigestService {
           outcome: 'success',
           metadata: {
             day: dayStart.toISOString().slice(0, 10),
-            revenue: stats.revenue.toString(),
-            fees: stats.fees.toString(),
-            net: stats.net.toString(),
+            revenueUsdc: stats.revenue.USDC,
+            revenueEurc: stats.revenue.EURC,
+            feesUsdc: stats.fees.USDC,
+            feesEurc: stats.fees.EURC,
+            netUsdc: stats.net.USDC,
+            netEurc: stats.net.EURC,
             count: stats.count,
             uniqueCustomers: stats.uniqueCustomers,
           },
@@ -111,48 +120,61 @@ export class CashflowDigestService {
     from: Date,
     to: Date,
   ): Promise<{
-    revenue: bigint
-    fees: bigint
-    net: bigint
+    revenue: CurrencyAmounts
+    fees: CurrencyAmounts
+    net: CurrencyAmounts
+    active: Set<PaymentCurrency>
     count: number
     uniqueCustomers: number
   }> {
-    type Row = {
-      revenue: bigint | null
-      fees: bigint | null
-      net: bigint | null
-      count: bigint
-      uniqueCustomers: bigint
-    }
-    const rows = (await this.prisma.db.$queryRawUnsafe(
-      `SELECT
-         COALESCE(sum(("amount")::numeric), 0)::bigint     AS revenue,
-         COALESCE(sum(("feeAmount")::numeric), 0)::bigint  AS fees,
-         COALESCE(sum(("netAmount")::numeric), 0)::bigint  AS net,
-         count(*)::bigint                                  AS count,
-         count(DISTINCT "customerId")::bigint              AS "uniqueCustomers"
-       FROM "Transaction"
-       WHERE "merchantId" = $1
-         AND status = 'confirmed'::"TransactionStatus"
-         AND "blockTimestamp" >= $2
-         AND "blockTimestamp" < $3`,
+    type CurrencyRow = { currency: string; revenue: string; fees: string; net: string }
+    const currencyRows = (await this.prisma.db.$queryRawUnsafe(
+      `SELECT currency::text                       AS currency,
+              sum(("amount")::numeric)::text        AS revenue,
+              sum(("feeAmount")::numeric)::text     AS fees,
+              sum(("netAmount")::numeric)::text     AS net
+         FROM "Transaction"
+        WHERE "merchantId" = $1
+          AND status = 'confirmed'::"TransactionStatus"
+          AND mode = 'live'::"Mode"
+          AND kind <> 'refund'::"TransactionKind"
+          AND "blockTimestamp" >= $2
+          AND "blockTimestamp" < $3
+        GROUP BY currency`,
       merchantId,
       from,
       to,
-    )) as Row[]
-    const r = rows[0] ?? {
-      revenue: 0n,
-      fees: 0n,
-      net: 0n,
-      count: 0n,
-      uniqueCustomers: 0n,
+    )) as CurrencyRow[]
+
+    type CountRow = { count: bigint; uniqueCustomers: bigint }
+    const countRows = (await this.prisma.db.$queryRawUnsafe(
+      `SELECT count(*)::bigint                     AS count,
+              count(DISTINCT "customerId")::bigint AS "uniqueCustomers"
+         FROM "Transaction"
+        WHERE "merchantId" = $1
+          AND status = 'confirmed'::"TransactionStatus"
+          AND mode = 'live'::"Mode"
+          AND kind <> 'refund'::"TransactionKind"
+          AND "blockTimestamp" >= $2
+          AND "blockTimestamp" < $3`,
+      merchantId,
+      from,
+      to,
+    )) as CountRow[]
+    const counts = countRows[0]
+    if (!counts) {
+      throw new Error(`digest count query returned no row for merchant=${merchantId}`)
     }
+
     return {
-      revenue: r.revenue ?? 0n,
-      fees: r.fees ?? 0n,
-      net: r.net ?? 0n,
-      count: Number(r.count),
-      uniqueCustomers: Number(r.uniqueCustomers),
+      revenue: toCurrencyAmounts(
+        currencyRows.map((r) => ({ currency: r.currency, amount: r.revenue })),
+      ),
+      fees: toCurrencyAmounts(currencyRows.map((r) => ({ currency: r.currency, amount: r.fees }))),
+      net: toCurrencyAmounts(currencyRows.map((r) => ({ currency: r.currency, amount: r.net }))),
+      active: new Set(currencyRows.map((r) => r.currency as PaymentCurrency)),
+      count: Number(counts.count),
+      uniqueCustomers: Number(counts.uniqueCustomers),
     }
   }
 }
@@ -168,29 +190,29 @@ function formatDate(d: Date): string {
 function renderDigestEmail(input: {
   merchantName: string
   date: Date
-  revenue: bigint
-  fees: bigint
-  net: bigint
+  revenue: CurrencyAmounts
+  fees: CurrencyAmounts
+  net: CurrencyAmounts
+  active: Set<PaymentCurrency>
   count: number
   uniqueCustomers: number
 }): string {
+  const currencyRows = currenciesToShow(input.active)
+    .map(
+      (c) => `
+        <tr><td style="padding:8px;border-bottom:1px solid #eee;">Revenue (${c})</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${formatAmount(input.revenue[c], c)}</td></tr>
+        <tr><td style="padding:8px;border-bottom:1px solid #eee;">Fees (${c})</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${formatAmount(input.fees[c], c)}</td></tr>
+        <tr><td style="padding:8px;border-bottom:1px solid #eee;">Net (${c})</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">${formatAmount(input.net[c], c)}</td></tr>`,
+    )
+    .join('')
   return `
     <div style="font-family:ui-sans-serif,system-ui,sans-serif;max-width:560px;margin:auto;color:#1a1a1a;">
       <h2 style="color:#02C76A;margin:0 0 16px;">Daily digest — ${formatDate(input.date)}</h2>
       <p>${escapeHtml(input.merchantName)} — yesterday's activity:</p>
-      <table style="width:100%;border-collapse:collapse;margin:16px 0;">
-        <tr><td style="padding:8px;border-bottom:1px solid #eee;">Revenue</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${humanise(input.revenue)} USDC</td></tr>
-        <tr><td style="padding:8px;border-bottom:1px solid #eee;">Fees</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${humanise(input.fees)} USDC</td></tr>
-        <tr><td style="padding:8px;border-bottom:1px solid #eee;">Net</td><td style="padding:8px;border-bottom:1px solid #eee;text-align:right;font-weight:600;">${humanise(input.net)} USDC</td></tr>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;">${currencyRows}
         <tr><td style="padding:8px;">Transactions</td><td style="padding:8px;text-align:right;">${input.count}</td></tr>
         <tr><td style="padding:8px;">Unique customers</td><td style="padding:8px;text-align:right;">${input.uniqueCustomers}</td></tr>
       </table>
     </div>
   `
-}
-
-function humanise(raw: bigint): string {
-  const whole = raw / 1_000_000n
-  const frac = (raw % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '')
-  return frac.length === 0 ? whole.toString() : `${whole}.${frac}`
 }

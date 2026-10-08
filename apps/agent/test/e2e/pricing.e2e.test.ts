@@ -52,7 +52,7 @@ describe('pricing intelligence e2e', () => {
         currentPeriodStartAt: new Date(),
         currentPeriodEndAt: new Date(Date.now() + 30 * 86_400_000),
         gracePeriodHours: 48,
-        mode: 'test',
+        mode: 'live',
       },
     })
 
@@ -78,5 +78,41 @@ describe('pricing intelligence e2e', () => {
     const result = await t.app.get(PricingService).tick()
     expect(result.sent).toBe(0)
     expect(t.email.sent).toHaveLength(0)
+  })
+
+  it('sums the projected daily revenue over each forecast horizon', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    await seedAgentConfig(t.prisma.db, merchant.id, {
+      enabledCapabilities: ['pricing_intelligence'],
+    })
+    for (let back = 1; back <= 10; back++) {
+      await seedTransaction(t.prisma.db, merchant.id, {
+        netAmount: String((11 - back) * 1_000_000),
+        blockTimestamp: new Date(Date.now() - back * 86_400_000),
+      })
+    }
+
+    await t.app.get(PricingService).tick()
+    const html = must(t.email.sent[0]).html
+    expect(html).toMatch(/Next 30 days \(USDC\)<\/td><td[^>]*>765 USDC/)
+    expect(html).toMatch(/Next 60 days \(USDC\)<\/td><td[^>]*>2430 USDC/)
+  })
+
+  it('regresses over calendar days, counting days without revenue as zero', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    await seedAgentConfig(t.prisma.db, merchant.id, {
+      enabledCapabilities: ['pricing_intelligence'],
+    })
+    for (let back = 1; back <= 19; back += 2) {
+      await seedTransaction(t.prisma.db, merchant.id, {
+        netAmount: '10000000',
+        blockTimestamp: new Date(Date.now() - back * 86_400_000),
+      })
+    }
+
+    await t.app.get(PricingService).tick()
+    expect(must(t.email.sent[0]).html).toMatch(
+      /Next 30 days \(USDC\)<\/td><td[^>]*>157.894737 USDC/,
+    )
   })
 })

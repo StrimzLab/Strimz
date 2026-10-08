@@ -73,6 +73,9 @@ importers:
       bullmq:
         specifier: ^5.34.5
         version: 5.76.2
+      cron:
+        specifier: 3.5.0
+        version: 3.5.0
       fastify:
         specifier: ^5.2.1
         version: 5.8.4

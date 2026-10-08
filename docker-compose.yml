@@ -153,7 +153,6 @@ services:
       PORT: '4300'
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/strimz?schema=public
       REDIS_URL: redis://redis:6379
-      ARC_RPC_URL: http://anvil:8545
       ARC_ENVIRONMENT: testnet
     ports:
       - '4300:4300'
