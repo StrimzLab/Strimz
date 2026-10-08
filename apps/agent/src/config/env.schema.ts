@@ -9,7 +9,6 @@ export const envSchema = z.object({
   REDIS_URL: z.string().url(),
 
   ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).default('testnet'),
-  ARC_RPC_URL: z.string().url(),
 
   RECOVERY_TICK_CRON: z.string().default('0 0 * * * *'),
   CASHFLOW_DIGEST_CRON: z.string().default('0 0 9 * * *'),
