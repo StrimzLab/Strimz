@@ -1,5 +1,12 @@
 import { env } from './env'
 
+const PAYER_REFUSALS: Record<string, string> = {
+  payer_already_bound:
+    'This checkout is linked to another wallet. Reconnect it, or ask the merchant for a new link.',
+  session_not_open: 'This checkout is no longer open. Ask the merchant for a new link.',
+  plan_not_active: 'This plan is no longer offered. Ask the merchant for a new link.',
+}
+
 interface AttachInput {
   sessionId?: string
   planId?: string
@@ -27,10 +34,15 @@ async function post<T>(path: string, input: AttachInput): Promise<T> {
   })
   if (!res.ok) {
     const detail = (await res.json().catch(() => ({}))) as {
-      error?: { message?: string }
+      error?: { code?: string; message?: string }
       message?: string
     }
-    const message = detail.error?.message ?? detail.message ?? `Attach payer failed (${res.status})`
+    const code = detail.error?.code
+    const message =
+      (code ? PAYER_REFUSALS[code] : undefined) ??
+      detail.error?.message ??
+      detail.message ??
+      `Attach payer failed (${res.status})`
     throw new Error(message)
   }
   return (await res.json()) as T

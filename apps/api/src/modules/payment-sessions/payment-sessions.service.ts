@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common'
 import { effectiveFeeBps } from '@strimz/shared-config'
 import type {
   CreatePaymentSessionParsed,
@@ -139,10 +144,37 @@ export class PaymentSessionsService {
     return { ...s, feeAmount: '0', netAmount: s.amount, metadata: {} }
   }
 
-  async linkCustomer(sessionId: string, customerId: string): Promise<void> {
-    await this.prisma.db.paymentSession.update({
-      where: { id: sessionId },
+  async bindCustomer(
+    db: Prisma.TransactionClient,
+    sessionId: string,
+    customerId: string,
+  ): Promise<void> {
+    const now = new Date()
+    const { count } = await db.paymentSession.updateMany({
+      where: {
+        id: sessionId,
+        status: { in: OPEN_SESSION_STATUSES },
+        expiresAt: { gt: now },
+        OR: [{ customerId: null }, { customerId }],
+      },
       data: { customerId },
+    })
+    if (count === 1) return
+
+    const row = await db.paymentSession.findUnique({
+      where: { id: sessionId },
+      select: { status: true, expiresAt: true },
+    })
+    if (!row) throw new NotFoundException({ code: 'not_found', message: 'session not found' })
+    if (!OPEN_SESSION_STATUSES.includes(row.status) || row.expiresAt <= now) {
+      throw new ConflictException({
+        code: 'session_not_open',
+        message: 'this checkout session is no longer open',
+      })
+    }
+    throw new ConflictException({
+      code: 'payer_already_bound',
+      message: 'this checkout session is linked to another wallet',
     })
   }
 

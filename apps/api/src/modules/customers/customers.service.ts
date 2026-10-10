@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
+import type { Prisma } from '@strimz/db'
 import type { Customer, UpsertCustomerParsed } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 
@@ -34,16 +35,19 @@ export class CustomersService {
     return serialise(row)
   }
 
-  async upsertFromCheckout(input: {
-    merchantId: string
-    walletAddress: string
-    email: string
-  }): Promise<Customer> {
+  async upsertFromCheckout(
+    input: {
+      merchantId: string
+      walletAddress: string
+      email: string
+    },
+    db: Prisma.TransactionClient = this.prisma.db,
+  ): Promise<Customer> {
     // Lowercase to match the indexer's Customer upsert; a checksummed
     // wallet here would create a second, email-less row from chain events.
     const walletAddress = input.walletAddress.toLowerCase()
     const now = new Date()
-    const existing = await this.prisma.db.customer.findUnique({
+    const existing = await db.customer.findUnique({
       where: {
         merchantId_walletAddress: {
           merchantId: input.merchantId,
@@ -53,7 +57,7 @@ export class CustomersService {
     })
 
     if (!existing) {
-      const created = await this.prisma.db.customer.create({
+      const created = await db.customer.create({
         data: {
           merchantId: input.merchantId,
           walletAddress,
@@ -66,23 +70,29 @@ export class CustomersService {
       return serialise(created)
     }
 
-    const priorHistory = readEmailHistory(existing.metadata)
-    const emailChanged = existing.email !== input.email
-    const nextHistory =
-      emailChanged || priorHistory.length === 0
-        ? [...priorHistory, { email: input.email, seenAt: now.toISOString() }]
-        : priorHistory
+    if (existing.email !== null) {
+      const seen = await db.customer.update({
+        where: { id: existing.id },
+        data: { lastSeenAt: now },
+      })
+      return serialise(seen)
+    }
+
+    const nextHistory = [
+      ...readEmailHistory(existing.metadata),
+      { email: input.email, seenAt: now.toISOString() },
+    ]
     const nextMetadata = { ...toRecord(existing.metadata), emailHistory: nextHistory }
 
-    const updated = await this.prisma.db.customer.update({
-      where: { id: existing.id },
+    await db.customer.updateMany({
+      where: { id: existing.id, email: null },
       data: {
         email: input.email,
         metadata: nextMetadata as never,
         lastSeenAt: now,
       },
     })
-    return serialise(updated)
+    return serialise(await db.customer.findUniqueOrThrow({ where: { id: existing.id } }))
   }
 
   async list(

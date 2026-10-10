@@ -7,6 +7,7 @@ import { RelayModule } from '../relay/relay.module.js'
 import { SubscriptionPlansModule } from '../subscription-plans/subscription-plans.module.js'
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module.js'
 import { CheckoutController } from './checkout.controller.js'
+import { CheckoutPayerService } from './checkout-payer.service.js'
 
 @Module({
   imports: [
@@ -18,5 +19,6 @@ import { CheckoutController } from './checkout.controller.js'
     RelayModule,
   ],
   controllers: [CheckoutController],
+  providers: [CheckoutPayerService],
 })
 export class CheckoutModule {}
