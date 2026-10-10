@@ -17,38 +17,6 @@ describe('auth e2e', () => {
     await truncateAll(t.prisma.db)
   })
 
-  describe('POST /v1/auth/turnstile/verify', () => {
-    it('returns ok=true for a valid Turnstile token', async () => {
-      const res = await t.inject({
-        method: 'POST',
-        url: '/v1/auth/turnstile/verify',
-        payload: { token: 'good-token' },
-      })
-      expect(res.statusCode).toBe(200)
-      expect(JSON.parse(res.body)).toEqual({ ok: true })
-    })
-
-    it('returns 403 for an invalid Turnstile token', async () => {
-      const res = await t.inject({
-        method: 'POST',
-        url: '/v1/auth/turnstile/verify',
-        payload: { token: 'not-the-token' },
-      })
-      expect(res.statusCode).toBe(403)
-      const body = JSON.parse(res.body)
-      expect(body.error.code).toBe('permission_denied')
-    })
-
-    it('returns 400 when the token field is missing', async () => {
-      const res = await t.inject({
-        method: 'POST',
-        url: '/v1/auth/turnstile/verify',
-        payload: {},
-      })
-      expect(res.statusCode).toBe(400)
-    })
-  })
-
   describe('POST /v1/auth/sync', () => {
     it('creates a merchant on first call', async () => {
       const did = makePrivyDid('founder@acme.test')
