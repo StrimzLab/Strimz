@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common'
+import { Body, Controller, Get, NotFoundException, Param, Post, Query } from '@nestjs/common'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import type {
   MerchantPublicBrand,
@@ -9,9 +9,14 @@ import type {
 } from '@strimz/shared-types'
 
 import { Public } from '../../common/decorators/public.decorator.js'
+import { RateLimit } from '../../common/decorators/rate-limit.decorator.js'
 import { CustomersService } from '../customers/customers.service.js'
 import { MerchantsService } from '../merchants/merchants.service.js'
 import { PaymentSessionsService } from '../payment-sessions/payment-sessions.service.js'
+import { CheckoutEnrolmentRelayDto, CheckoutPaymentRelayDto } from '../relay/relay.dto.js'
+import { enrolmentRelayInput, paymentRelayInput } from '../relay/relay-inputs.js'
+import { RelayService } from '../relay/relay.service.js'
+import type { RelaySubmissionView } from '../relay/relay.types.js'
 import { SubscriptionPlansService } from '../subscription-plans/subscription-plans.service.js'
 import { EnrolmentTermsService } from '../subscription-plans/enrolment-terms.service.js'
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
@@ -47,6 +52,7 @@ export class CheckoutController {
     private readonly merchants: MerchantsService,
     private readonly subscriptions: SubscriptionsService,
     private readonly terms: EnrolmentTermsService,
+    private readonly relay: RelayService,
   ) {}
 
   @ApiOperation({
@@ -169,5 +175,101 @@ export class CheckoutController {
       email: body.email,
     })
     return { customerId: customer.id }
+  }
+
+  @ApiOperation({
+    summary: 'Relay a payer-signed payment for a payment session (public)',
+    description:
+      'Submits the payer-signed EIP-3009 authorization for this session through the ' +
+      'Strimz relayer. The session decides the merchant, the amount, the token and the ' +
+      'authorization nonce; the submission is attributed to the session merchant. ' +
+      'Idempotent on the signed payload.',
+  })
+  @Public()
+  @RateLimit({ max: 20, windowMs: 60_000, keyBy: 'ip', label: 'checkout.session_relay' })
+  @Post('/sessions/:id/relay')
+  async relaySessionPayment(
+    @Param('id') sessionId: string,
+    @Body() body: CheckoutPaymentRelayDto,
+  ): Promise<RelaySubmissionView> {
+    const session = await this.sessions.retrievePublic(sessionId)
+    return this.relay.submitPayWithAuthorization(
+      paymentRelayInput(body, { merchantInternalId: session.merchantId, sessionId }),
+    )
+  }
+
+  @ApiOperation({
+    summary: 'Relay a payer-signed enrolment into a subscription plan (public)',
+    description:
+      'Submits the payer-signed EIP-2612 permit and enrolment for this plan through the ' +
+      'Strimz relayer. The plan decides the merchant and the terms; the payer must hold ' +
+      'at least the plan amount. Idempotent on the signed payload.',
+  })
+  @Public()
+  @RateLimit({ max: 20, windowMs: 60_000, keyBy: 'ip', label: 'checkout.plan_relay' })
+  @Post('/plans/:id/relay')
+  async relayPlanEnrolment(
+    @Param('id') planId: string,
+    @Body() body: CheckoutEnrolmentRelayDto,
+  ): Promise<RelaySubmissionView> {
+    const plan = await this.plans.retrievePublic(planId)
+    return this.relay.submitPermitAndCreateSubscription(
+      enrolmentRelayInput(body, {
+        merchantInternalId: plan.merchantId,
+        subscriptionInternalId: planId,
+      }),
+    )
+  }
+
+  @ApiOperation({
+    summary: 'Look up a relayed payment for a payment session (public)',
+    description:
+      'Returns the state of a relay submission made for this session. 404 when the key ' +
+      'belongs to another session or merchant, or BullMQ aged it out.',
+  })
+  @Public()
+  @RateLimit({ max: 120, windowMs: 60_000, keyBy: 'ip', label: 'checkout.session_submission' })
+  @Get('/sessions/:id/submissions/:key')
+  async sessionSubmission(
+    @Param('id') sessionId: string,
+    @Param('key') key: string,
+  ): Promise<RelaySubmissionView> {
+    const session = await this.sessions.retrievePublic(sessionId)
+    return this.submission(key, session.merchantId, sessionId)
+  }
+
+  @ApiOperation({
+    summary: 'Look up a relayed enrolment for a subscription plan (public)',
+    description:
+      'Returns the state of a relay submission made for this plan. 404 when the key ' +
+      'belongs to another plan or merchant, or BullMQ aged it out.',
+  })
+  @Public()
+  @RateLimit({ max: 120, windowMs: 60_000, keyBy: 'ip', label: 'checkout.plan_submission' })
+  @Get('/plans/:id/submissions/:key')
+  async planSubmission(
+    @Param('id') planId: string,
+    @Param('key') key: string,
+  ): Promise<RelaySubmissionView> {
+    const plan = await this.plans.retrievePublic(planId)
+    return this.submission(key, plan.merchantId, planId)
+  }
+
+  private async submission(
+    key: string,
+    merchantInternalId: string,
+    checkoutId: string,
+  ): Promise<RelaySubmissionView> {
+    const found = await this.relay.getByIdempotencyKey(key, {
+      merchantInternalId,
+      sessionId: checkoutId,
+    })
+    if (!found) {
+      throw new NotFoundException({
+        code: 'submission_not_found',
+        message: `no relay submission for idempotency key ${key}`,
+      })
+    }
+    return found
   }
 }

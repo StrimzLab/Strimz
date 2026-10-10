@@ -22,6 +22,7 @@ import {
   registrationGaps,
 } from '../merchants/registration.js'
 import { GasPricingService } from './gas-pricing.service.js'
+import { RelayBudgetService } from './relay-budget.service.js'
 import { NonceManager } from './nonce-manager.service.js'
 
 export interface RelayJobHandle {
@@ -61,6 +62,7 @@ export class RelayJobRunner {
     private readonly prisma: PrismaService,
     @Inject(KMS_SIGNER) private readonly signer: KmsSigner,
     cfg: TypedConfigService,
+    private readonly budget: RelayBudgetService,
   ) {
     const registry = cfg.env.STRIMZ_REGISTRY_ADDRESS
     if (!registry) {
@@ -80,6 +82,12 @@ export class RelayJobRunner {
       data: data.callData,
       gas: BigInt(data.gasLimit),
     })
+    if (data.merchantInternalId) {
+      await this.budget.recordGas(
+        data.merchantInternalId,
+        receipt.gasUsed * receipt.effectiveGasPrice,
+      )
+    }
 
     // Stamp the session as submitted so the dashboard reflects the
     // payment seconds after mining. The indexer completes the flip to

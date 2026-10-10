@@ -76,6 +76,12 @@ export const submitPaymentInputSchema = z.object({
 
 export class SubmitPaymentDto extends createZodDto(submitPaymentInputSchema) {}
 
+export const checkoutPaymentRelayInputSchema = submitPaymentInputSchema.omit({ sessionId: true })
+
+export class CheckoutPaymentRelayDto extends createZodDto(checkoutPaymentRelayInputSchema) {}
+
+export type PaymentRelayBody = z.output<typeof checkoutPaymentRelayInputSchema>
+
 // ---- POST /v1/relay/subscriptions ----
 
 const permitDataSchema = z.object({
@@ -104,6 +110,14 @@ export const submitSubscriptionInputSchema = z.object({
 })
 
 export class SubmitSubscriptionDto extends createZodDto(submitSubscriptionInputSchema) {}
+
+export const checkoutEnrolmentRelayInputSchema = submitSubscriptionInputSchema.omit({
+  subscriptionInternalId: true,
+})
+
+export class CheckoutEnrolmentRelayDto extends createZodDto(checkoutEnrolmentRelayInputSchema) {}
+
+export type EnrolmentRelayBody = z.output<typeof checkoutEnrolmentRelayInputSchema>
 
 export const submissionQuerySchema = z.object({
   sessionId: z.string().min(1).max(80).optional(),

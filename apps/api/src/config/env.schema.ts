@@ -67,6 +67,10 @@ export const envSchema = z.object({
    * URL in staging, the apex once it's wired).
    */
   STRIMZ_DASHBOARD_URL: z.string().url().default('https://strimz.finance'),
+  OPS_ALERT_EMAIL: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().email().optional(),
+  ),
 
   // ----- Chain -----
   ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).default('testnet'),

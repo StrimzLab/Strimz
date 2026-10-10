@@ -5,7 +5,9 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module.js'
 import { GasPricingService } from './gas-pricing.service.js'
 import { NonceManager } from './nonce-manager.service.js'
 import { RelayAttemptPointers } from './relay-attempts.js'
+import { RelayBudgetService } from './relay-budget.service.js'
 import { RelayChainProbe } from './relay-chain-probe.js'
+import { RelayEnrolmentGate } from './relay-enrolment-gate.js'
 import { RelayController } from './relay.controller.js'
 import { RelayJobRunner } from './relay-job-runner.js'
 import { RelayProcessor } from './relay.processor.js'
@@ -38,6 +40,8 @@ import { RelayService } from './relay.service.js'
     GasPricingService,
     RelayChainProbe,
     RelayAttemptPointers,
+    RelayBudgetService,
+    RelayEnrolmentGate,
     RelayService,
     RelayJobRunner,
     RelayProcessor,

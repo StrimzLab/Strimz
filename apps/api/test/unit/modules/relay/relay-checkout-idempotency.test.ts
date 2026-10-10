@@ -9,6 +9,8 @@ import {
 import { RelayService } from '../../../../src/modules/relay/relay.service.js'
 import type { RelayAttemptPointers } from '../../../../src/modules/relay/relay-attempts.js'
 import type { RelayChainProbe } from '../../../../src/modules/relay/relay-chain-probe.js'
+import type { RelayBudgetService } from '../../../../src/modules/relay/relay-budget.service.js'
+import type { RelayEnrolmentGate } from '../../../../src/modules/relay/relay-enrolment-gate.js'
 import type { QueueService } from '../../../../src/infra/queue/queue.service.js'
 import type { PrismaService } from '../../../../src/infra/prisma/prisma.service.js'
 import type { TypedConfigService } from '../../../../src/config/index.js'
@@ -93,6 +95,7 @@ function makeCfg(): TypedConfigService {
     env: {
       STRIMZ_PAYMENTS_ADDRESS: PAYMENTS_ADDR,
       STRIMZ_SUBSCRIPTIONS_ADDRESS: SUBS_ADDR,
+      ARC_USDC_ADDRESS: TOKEN_ADDR,
     },
   } as unknown as TypedConfigService
 }
@@ -105,6 +108,7 @@ function makePrisma(sessionStatus: { current: string }): PrismaService {
           Promise.resolve({
             status: sessionStatus.current,
             amount: AMOUNT.toString(),
+            currency: 'USDC',
             expiresAt: null,
             onchainTxHash: null,
             updatedAt: new Date('2026-10-03T00:00:00Z'),
@@ -196,6 +200,17 @@ function makePointers(): RelayAttemptPointers {
   } as unknown as RelayAttemptPointers
 }
 
+function makeEnrolmentGate(): RelayEnrolmentGate {
+  return {
+    assertPlanTerms: () => Promise.resolve(),
+    assertFunded: () => Promise.resolve(),
+  } as unknown as RelayEnrolmentGate
+}
+
+function makeBudget(): RelayBudgetService {
+  return { consume: () => Promise.resolve() } as unknown as RelayBudgetService
+}
+
 function payAuthSignatureOf(job: FakeJob): string {
   const decoded = decodeFunctionData({ abi: payWithAuthorizationAbi, data: job.data.callData })
   return (decoded.args[4] as { r: string }).r
@@ -224,6 +239,8 @@ describe('RelayService checkout idempotency', () => {
       makeCfg(),
       makeProbe(),
       makePointers(),
+      makeEnrolmentGate(),
+      makeBudget(),
     )
   })
 

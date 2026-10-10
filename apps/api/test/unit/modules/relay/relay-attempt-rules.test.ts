@@ -13,6 +13,8 @@ import type {
   RelayChainProbe,
   RelayReceiptStatus,
 } from '../../../../src/modules/relay/relay-chain-probe.js'
+import type { RelayBudgetService } from '../../../../src/modules/relay/relay-budget.service.js'
+import type { RelayEnrolmentGate } from '../../../../src/modules/relay/relay-enrolment-gate.js'
 import type { QueueService } from '../../../../src/infra/queue/queue.service.js'
 import type { PrismaService } from '../../../../src/infra/prisma/prisma.service.js'
 import type { TypedConfigService } from '../../../../src/config/index.js'
@@ -123,6 +125,7 @@ function makePrisma(status: { current: string }): PrismaService {
           Promise.resolve({
             status: status.current,
             amount: AMOUNT.toString(),
+            currency: 'USDC',
             expiresAt: null,
             onchainTxHash: null,
             updatedAt: new Date('2026-10-03T00:00:00Z'),
@@ -136,8 +139,23 @@ function makePrisma(status: { current: string }): PrismaService {
 
 function makeCfg(): TypedConfigService {
   return {
-    env: { STRIMZ_PAYMENTS_ADDRESS: PAYMENTS_ADDR, STRIMZ_SUBSCRIPTIONS_ADDRESS: SUBS_ADDR },
+    env: {
+      STRIMZ_PAYMENTS_ADDRESS: PAYMENTS_ADDR,
+      STRIMZ_SUBSCRIPTIONS_ADDRESS: SUBS_ADDR,
+      ARC_USDC_ADDRESS: TOKEN_ADDR,
+    },
   } as unknown as TypedConfigService
+}
+
+function makeEnrolmentGate(): RelayEnrolmentGate {
+  return {
+    assertPlanTerms: () => Promise.resolve(),
+    assertFunded: () => Promise.resolve(),
+  } as unknown as RelayEnrolmentGate
+}
+
+function makeBudget(): RelayBudgetService {
+  return { consume: () => Promise.resolve() } as unknown as RelayBudgetService
 }
 
 function sig(tag: string) {
@@ -198,6 +216,8 @@ describe('RelayService live-attempt pointer', () => {
       makeCfg(),
       probe.probe,
       pointers.pointers,
+      makeEnrolmentGate(),
+      makeBudget(),
     )
   })
 

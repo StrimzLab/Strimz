@@ -163,10 +163,7 @@ describe('subscription trials', () => {
 
     it('leaves enrolments without a plan id to the merchant', async () => {
       const { k } = await setup(null)
-      const res = await enrol(k.secretKey, 'unused', {
-        subscriptionInternalId: undefined,
-        amount: '1',
-      })
+      const res = await enrol(k.secretKey, 'unused', { subscriptionInternalId: undefined })
       expect(res.statusCode).toBe(201)
       expect(relayJobs()).toHaveLength(1)
     })
