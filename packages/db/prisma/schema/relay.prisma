@@ -1,0 +1,14 @@
+model RelayDailyUsage {
+  merchantId  String
+  day         DateTime  @db.Date
+  submissions Int       @default(0)
+  gasUsedWei  Decimal   @default(0) @db.Decimal(78, 0)
+  warnedAt    DateTime?
+  exhaustedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  merchant    Merchant  @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+
+  @@id([merchantId, day])
+}
