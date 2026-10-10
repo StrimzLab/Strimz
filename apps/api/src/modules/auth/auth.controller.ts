@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Ip, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { createZodDto } from 'nestjs-zod'
 import { z } from 'zod'
@@ -12,10 +12,6 @@ import { PrivyAuthGuard } from '../../common/guards/privy.guard.js'
 import { AuthService, type SyncResult } from './auth.service.js'
 import { MerchantsService } from '../merchants/merchants.service.js'
 
-class TurnstileVerifyDto extends createZodDto(
-  z.object({ token: z.string().min(1, 'token is required') }),
-) {}
-
 class SyncDto extends createZodDto(
   z.object({ accessToken: z.string().min(1, 'accessToken is required') }),
 ) {}
@@ -27,15 +23,6 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly merchants: MerchantsService,
   ) {}
-
-  @Public()
-  @RateLimit({ max: 30, windowMs: 60_000, keyBy: 'ip', label: 'auth.turnstile_verify' })
-  @Post('/turnstile/verify')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Verify a Cloudflare Turnstile token before opening Privy.' })
-  verifyTurnstile(@Body() dto: TurnstileVerifyDto, @Ip() ip: string) {
-    return this.auth.verifyTurnstile(dto.token, ip)
-  }
 
   @Public()
   @RateLimit({ max: 30, windowMs: 60_000, keyBy: 'ip', label: 'auth.sync' })
