@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { BadGatewayException, Injectable, Logger } from '@nestjs/common'
 import type { ContactRequestParsed } from '@strimz/shared-types'
 import { EmailService } from '../../infra/email/email.service.js'
 import { TypedConfigService } from '../../config/index.js'
@@ -54,6 +54,10 @@ export class ContactService {
       // Deliberately do NOT rethrow. The submitter shouldn't see an
       // "email failed" 5xx just because Resend is temporarily
       // unavailable — a message we've logged is still recoverable.
+      throw new BadGatewayException({
+        code: 'email_unavailable',
+        message: 'the message could not be sent; try again later',
+      })
     }
 
     return { ok: true }

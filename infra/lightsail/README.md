@@ -66,7 +66,7 @@ The first build takes ~5 minutes (Node install + Prisma generate + Go build). Su
 `infra/lightsail/env.example` is the full template. Required secrets:
 
 - `PRIVY_APP_ID` + `PRIVY_APP_SECRET` — from privy.io
-- `TURNSTILE_SECRET_KEY` — from Cloudflare (signup bot check)
+- `TURNSTILE_SECRET_KEY` — from Cloudflare (signup and contact form bot check). The API does not start with `NODE_ENV=production` without it.
 - `STRIMZ_WEBHOOK_SIGNING_SECRET` + `WEBHOOK_SECRET_ENCRYPTION_KEY` — any 32-byte hex; both services need the **same** values
 - `RESEND_API_KEY`, `RESEND_FROM_EMAIL` — from resend.com
 - `KMS_SOFTWARE_PRIVATE_KEY` — the private key of your relayer EOA (fund from Circle's Arc testnet faucet)

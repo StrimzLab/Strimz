@@ -132,6 +132,12 @@ describe('next.config content security policy', () => {
     },
   )
 
+  it('lets the contact page load the Turnstile challenge', async () => {
+    const policy = await reportOnlyPolicy('/contact')
+    expect(policy.get('script-src')).toContain('https://challenges.cloudflare.com')
+    expect(policy.get('frame-src')).toContain('https://challenges.cloudflare.com')
+  })
+
   it('allows the Privy, WalletConnect and Turnstile frames', async () => {
     const policy = await reportOnlyPolicy('/login')
     const frames = policy.get('frame-src') ?? []

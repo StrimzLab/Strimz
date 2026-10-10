@@ -17,6 +17,7 @@ export const contactRequestInputSchema = z.object({
   company: z.string().min(1).max(120).optional(),
   topic: contactTopicSchema,
   message: z.string().min(20).max(4000),
+  turnstileToken: z.string().min(1).max(2048).optional(),
 })
 export type ContactRequestInput = z.input<typeof contactRequestInputSchema>
 export type ContactRequestParsed = z.output<typeof contactRequestInputSchema>
