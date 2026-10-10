@@ -82,6 +82,14 @@ DNS provider → A-record → your static Lightsail IP.
 
 If you want TLS, install [Caddy](https://caddyserver.com/) or `certbot` on the host and put it in front of port 80 in Docker (change `HTTP_PORT=8080` in `deploy.sh` and run Caddy on 80/443). The nginx inside the container does not terminate TLS — one job, HTTP-in HTTP-out.
 
+With any `HTTP_PORT` other than 80, `deploy.sh` publishes the container on `127.0.0.1` only, so clients reach it only through the host proxy. Set `BIND_ADDR` to override the address (`0.0.0.0` is the default when `HTTP_PORT` is 80).
+
+Per-IP rate limits depend on the client address the host proxy forwards:
+
+- The container's nginx takes the right-most `X-Forwarded-For` entry from requests that arrive from the Docker bridge gateway (`set_real_ip_from 172.17.0.1` in `infra/lightsail/nginx.conf`) and forwards that single address to the API, which trusts only the local nginx. Check that `docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}'` prints `172.17.0.1`; if it does not, change `set_real_ip_from` before deploying.
+- Caddy must replace, not extend, the client's forwarding headers. Its default does this; keep the site block free of `trusted_proxies` and of `header_up X-Forwarded-For` or `header_up X-Real-IP`.
+- After a deploy, `curl -s https://<your-domain>/health -H 'X-Forwarded-For: 6.6.6.6'` must log the real client address in `docker logs strimz`, not `6.6.6.6`.
+
 ## 5 · Day-2 ops
 
 ```bash

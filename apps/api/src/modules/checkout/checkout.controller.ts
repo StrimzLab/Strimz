@@ -63,6 +63,7 @@ export class CheckoutController {
       'checkout URL already exposes the session/plan tied to this merchant.',
   })
   @Public()
+  @RateLimit({ max: 120, windowMs: 60_000, keyBy: 'ip', label: 'checkout.merchant' })
   @Get('/merchants/:id')
   retrieveMerchant(@Param('id') id: string): Promise<MerchantPublicBrand> {
     return this.merchants.getPublicBrand(id)
@@ -76,6 +77,7 @@ export class CheckoutController {
       'EIP-712 typed-data.',
   })
   @Public()
+  @RateLimit({ max: 120, windowMs: 60_000, keyBy: 'ip', label: 'checkout.session' })
   @Get('/sessions/:id')
   retrieveSession(@Param('id') id: string): Promise<PaymentSession> {
     return this.sessions.retrievePublic(id)
@@ -89,6 +91,7 @@ export class CheckoutController {
       'enrolment page can build the EIP-2612 permit.',
   })
   @Public()
+  @RateLimit({ max: 120, windowMs: 60_000, keyBy: 'ip', label: 'checkout.plan' })
   @Get('/plans/:id')
   retrievePlan(@Param('id') id: string): Promise<SubscriptionPlan> {
     return this.plans.retrievePublic(id)
@@ -103,6 +106,7 @@ export class CheckoutController {
       'to a different plan or merchant never matches.',
   })
   @Public()
+  @RateLimit({ max: 60, windowMs: 60_000, keyBy: 'ip', label: 'checkout.plan_subscription' })
   @Get('/plans/:id/subscription')
   async planSubscriptionStatus(
     @Param('id') planId: string,
@@ -119,6 +123,7 @@ export class CheckoutController {
       'never subscribed to this plan, otherwise 0. The relay rejects other values.',
   })
   @Public()
+  @RateLimit({ max: 60, windowMs: 60_000, keyBy: 'ip', label: 'checkout.plan_terms' })
   @Get('/plans/:id/terms')
   planTerms(
     @Param('id') planId: string,
@@ -138,6 +143,7 @@ export class CheckoutController {
       'once the on-chain confirmation lands.',
   })
   @Public()
+  @RateLimit({ max: 10, windowMs: 60_000, keyBy: 'ip', label: 'checkout.session_payer' })
   @Post('/sessions/:id/payer')
   async attachSessionPayer(
     @Param('id') sessionId: string,
@@ -163,6 +169,7 @@ export class CheckoutController {
       'enrolment event confirms on-chain (by matching wallet address).',
   })
   @Public()
+  @RateLimit({ max: 10, windowMs: 60_000, keyBy: 'ip', label: 'checkout.plan_payer' })
   @Post('/plans/:id/payer')
   async attachPlanPayer(
     @Param('id') planId: string,

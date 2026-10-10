@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { createZodDto } from 'nestjs-zod'
 import { z } from 'zod'
 import { Public } from '../../common/decorators/public.decorator.js'
+import { RateLimit } from '../../common/decorators/rate-limit.decorator.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
@@ -28,6 +29,7 @@ export class AuthController {
   ) {}
 
   @Public()
+  @RateLimit({ max: 30, windowMs: 60_000, keyBy: 'ip', label: 'auth.turnstile_verify' })
   @Post('/turnstile/verify')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify a Cloudflare Turnstile token before opening Privy.' })
@@ -36,6 +38,7 @@ export class AuthController {
   }
 
   @Public()
+  @RateLimit({ max: 30, windowMs: 60_000, keyBy: 'ip', label: 'auth.sync' })
   @Post('/sync')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

@@ -10,13 +10,14 @@ import { patchNestJsSwagger } from 'nestjs-zod'
 import { AppModule } from './app.module.js'
 import { TypedConfigService } from './config/index.js'
 import { corsPolicy } from './common/http/cors-policy.js'
+import { TRUSTED_PROXIES } from './common/http/trust-proxy.js'
 
 // Patches `@nestjs/swagger` so it understands DTOs created via
 // `createZodDto(...)`. Must be called before SwaggerModule.createDocument.
 patchNestJsSwagger()
 
 async function bootstrap(): Promise<void> {
-  const adapter = new FastifyAdapter({ logger: false, trustProxy: true })
+  const adapter = new FastifyAdapter({ logger: false, trustProxy: TRUSTED_PROXIES })
   // Svix / Privy webhook signature verification needs the exact bytes
   // Fastify received: re-serialising the parsed body loses ordering
   // and whitespace, and the HMAC no longer matches. We register our

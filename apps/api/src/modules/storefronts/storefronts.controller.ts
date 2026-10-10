@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { Public } from '../../common/decorators/public.decorator.js'
+import { RateLimit } from '../../common/decorators/rate-limit.decorator.js'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import {
@@ -100,6 +101,7 @@ export class StorefrontsController {
   // ----- Public read by slug (hosted storefront page) -----
 
   @Public()
+  @RateLimit({ max: 120, windowMs: 60_000, keyBy: 'ip', label: 'storefront.page' })
   @Get('/store/:slug')
   @ApiOperation({ summary: 'Public storefront page by slug. Used by apps/web.' })
   retrievePublic(@Param('slug') slug: string) {
@@ -114,6 +116,7 @@ export class StorefrontsController {
    * `published` status IS the authorisation model.
    */
   @Public()
+  @RateLimit({ max: 10, windowMs: 60_000, keyBy: 'ip', label: 'storefront.checkout' })
   @Post('/store/:slug/products/:productId/checkout')
   @ApiOperation({
     summary:
