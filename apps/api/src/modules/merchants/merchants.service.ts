@@ -1,11 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { erc20Abi, formatUnits, getAddress } from 'viem'
-import type {
-  Merchant,
-  MerchantBalanceView,
-  UpdateMerchantParsed,
-  ChangeTierParsed,
-} from '@strimz/shared-types'
+import type { Merchant, MerchantBalanceView, UpdateMerchantParsed } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { TypedConfigService } from '../../config/index.js'
@@ -182,14 +177,6 @@ export class MerchantsService {
       logoUrl: row.logoUrl ?? null,
       walletAddress: row.walletAddress ?? null,
     }
-  }
-
-  async changeTier(id: string, input: ChangeTierParsed): Promise<Merchant> {
-    const updated = await this.prisma.db.merchant.update({
-      where: { id },
-      data: { tier: input.tier },
-    })
-    return serialiseMerchant(updated)
   }
 
   /**

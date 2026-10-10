@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -25,11 +26,13 @@ import type {
   PaymentCurrency,
 } from '@strimz/shared-types'
 import { paymentCurrencySchema } from '@strimz/shared-types'
+import { effectiveFeeBps } from '@strimz/shared-config'
 
 import { TypedConfigService } from '../../config/index.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { PrivyService } from '../../infra/privy/privy.service.js'
+import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { toCurrencyAmounts } from '../../common/money/currency-amounts.js'
 import { hashAdminInviteToken, issueAdminInviteToken } from './admin-invite-token.js'
 
@@ -61,6 +64,7 @@ export class AdminService {
     private readonly email: EmailService,
     private readonly cfg: TypedConfigService,
     private readonly privy: PrivyService,
+    private readonly merchantChain: MerchantChainService,
   ) {}
 
   // ------------------------------------------------------------------
@@ -297,9 +301,11 @@ export class AdminService {
   async setMerchantTier(merchantId: string, tier: MerchantTier, actorId: string) {
     const merchant = await this.prisma.db.merchant.findUnique({
       where: { id: merchantId },
-      select: { tier: true },
+      select: { tier: true, onchainMerchantId: true },
     })
     if (!merchant) throw new NotFoundException({ code: 'not_found' })
+
+    const onchain = await this.verifyOnchainFeeForTier(merchant.onchainMerchantId, tier)
 
     const updated = await this.prisma.db.merchant.update({
       where: { id: merchantId },
@@ -313,10 +319,53 @@ export class AdminService {
       action: 'merchant.tier_changed',
       targetType: 'Merchant',
       targetId: merchantId,
-      metadata: { previous: merchant.tier, next: tier },
+      metadata: {
+        previous: merchant.tier,
+        next: tier,
+        onchainMerchantId: onchain?.onchainMerchantId ?? null,
+        onchainFeeBps: onchain?.onchainFeeBps ?? null,
+      },
     })
 
     return updated
+  }
+
+  private async verifyOnchainFeeForTier(
+    onchainMerchantId: number | null,
+    tier: MerchantTier,
+  ): Promise<{ onchainMerchantId: string; onchainFeeBps: number } | null> {
+    if (onchainMerchantId === null) {
+      if (tier === 'free') return null
+      throw new ConflictException({
+        code: 'merchant_not_registered',
+        message:
+          'the merchant is not registered on-chain yet; only the free tier can be set before registration',
+      })
+    }
+
+    const { feeBps, maxFeeBps } = await this.merchantChain.readRegistryFee(
+      BigInt(onchainMerchantId),
+    )
+    const onchain = { onchainMerchantId: String(onchainMerchantId), onchainFeeBps: feeBps }
+    const requiredFeeBps = effectiveFeeBps(tier, 'one_shot')
+    if (requiredFeeBps === null) return onchain
+
+    const details = { ...onchain, requiredFeeBps, maxFeeBps }
+    if (requiredFeeBps > maxFeeBps) {
+      throw new ConflictException({
+        code: 'onchain_fee_above_ceiling',
+        message: `the ${tier} fee of ${requiredFeeBps} bps is above the merchant's on-chain ceiling of ${maxFeeBps} bps`,
+        details,
+      })
+    }
+    if (feeBps !== requiredFeeBps) {
+      throw new ConflictException({
+        code: 'onchain_fee_mismatch',
+        message: `the registry charges ${feeBps} bps but the ${tier} tier needs ${requiredFeeBps} bps; send setFeeBps(${onchainMerchantId}, ${requiredFeeBps}) with the admin key first`,
+        details,
+      })
+    }
+    return onchain
   }
 
   // ------------------------------------------------------------------

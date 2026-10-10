@@ -50,7 +50,6 @@ const unscopedRoutes: RouteCase[] = [
       payoutAddress: '0x' + 'e'.repeat(40),
     },
   },
-  { method: 'POST', url: '/v1/merchants/me/tier', payload: { tier: 'enterprise' } },
   { method: 'GET', url: '/v1/merchants/me/live-mode-eligibility' },
   { method: 'GET', url: '/v1/merchants/me/chain-status' },
   { method: 'GET', url: '/v1/merchants/me/onchain-state' },
@@ -94,7 +93,6 @@ const sessionOnlyRoutes: RouteCase[] = [
       payoutAddress: '0x' + 'e'.repeat(40),
     },
   },
-  { method: 'POST', url: '/v1/merchants/me/tier', payload: { tier: 'enterprise' } },
   { method: 'GET', url: '/v1/notifications' },
   { method: 'POST', url: '/v1/notifications/mark-all-read' },
 ]
