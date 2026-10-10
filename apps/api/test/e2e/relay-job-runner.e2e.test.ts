@@ -19,6 +19,7 @@ import { seedMerchant } from '../helpers/fixtures.js'
 import { must } from '../helpers/must.js'
 import { SoftwareKmsProvider } from '../../src/infra/kms/software-kms.provider.js'
 import { registerMerchantAbi } from '../../src/modules/merchants/registry.abi.js'
+import { RelayBudgetService } from '../../src/modules/relay/relay-budget.service.js'
 import { RelayJobRunner, type RelayJobHandle } from '../../src/modules/relay/relay-job-runner.js'
 import type { ChainService } from '../../src/infra/chain/chain.service.js'
 import type { NonceManager } from '../../src/modules/relay/nonce-manager.service.js'
@@ -28,12 +29,16 @@ import type { TypedConfigService } from '../../src/config/index.js'
 const REGISTRY = '0x0000000000000000000000000000000000000a01' as const
 const WALLET = '0x00000000000000000000000000000000000000c1'
 const CHAIN_ID = 5042002
+const GAS_USED = 61_000n
+const EFFECTIVE_GAS_PRICE = 21_000_000_000n
 
 interface FakeReceipt {
   status: 'success' | 'reverted'
   transactionHash: Hex
   blockNumber: bigint
   blockHash: Hex
+  gasUsed: bigint
+  effectiveGasPrice: bigint
   logs: Array<{ address: Hex; topics: Hex[]; data: Hex }>
 }
 
@@ -106,6 +111,8 @@ class FakeChain {
       transactionHash: hash,
       blockNumber: 7n,
       blockHash: `0x${'b'.repeat(64)}`,
+      gasUsed: GAS_USED,
+      effectiveGasPrice: EFFECTIVE_GAS_PRICE,
       logs,
     })
   }
@@ -170,6 +177,7 @@ describe('relay job runner', () => {
       t.prisma,
       new SoftwareKmsProvider(),
       { env: { STRIMZ_REGISTRY_ADDRESS: REGISTRY } } as unknown as TypedConfigService,
+      t.app.get(RelayBudgetService),
     )
   })
 
@@ -287,11 +295,24 @@ describe('relay job runner', () => {
   })
 
   it('never broadcasts a payment twice across a receipt timeout', async () => {
+    const m = await seedMerchant(t.prisma.db)
     chain.timeoutWaits = 1
-    const job = handle(relayJobFixtures.payWithAuthorization)
+    const job = handle({ ...relayJobFixtures.payWithAuthorization, merchantInternalId: m.id })
     await expect(runner.run(job)).rejects.toBeInstanceOf(WaitForTransactionReceiptTimeoutError)
     const result = await runner.run(handle(job.data, 1))
     expect(chain.sent).toHaveLength(1)
     expect(result).toMatchObject({ txHash: must(chain.sent[0]).hash })
+  })
+
+  it("adds what each relayed call cost in gas to the merchant's daily usage", async () => {
+    const m = await seedMerchant(t.prisma.db)
+    await runner.run(handle({ ...relayJobFixtures.payWithAuthorization, merchantInternalId: m.id }))
+    await runner.run(
+      handle({ ...relayJobFixtures.permitAndCreateSubscription, merchantInternalId: m.id }),
+    )
+
+    const row = await t.prisma.db.relayDailyUsage.findFirstOrThrow({ where: { merchantId: m.id } })
+    expect(row.gasUsedWei.toFixed()).toBe((2n * GAS_USED * EFFECTIVE_GAS_PRICE).toString())
+    expect(row.submissions).toBe(0)
   })
 })
