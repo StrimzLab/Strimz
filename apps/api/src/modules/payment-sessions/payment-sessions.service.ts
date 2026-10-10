@@ -8,6 +8,7 @@ import type {
 } from '@strimz/shared-types'
 import type { PaymentSessionStatus, Prisma } from '@strimz/db'
 import { TypedConfigService } from '../../config/index.js'
+import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { tokenAddressForCurrency } from './token-resolver.js'
@@ -54,6 +55,7 @@ export class PaymentSessionsService {
     input: CreatePaymentSessionParsed,
     link: { storefrontProductId: string } | null = null,
   ): Promise<PaymentSession> {
+    assertMinimumAmount(input.amount)
     const merchant = await db.merchant.findUniqueOrThrow({ where: { id: merchantId } })
     const feeBps = effectiveFeeBps(merchant.tier as never, 'one_shot') ?? 150
     const amount = BigInt(input.amount)

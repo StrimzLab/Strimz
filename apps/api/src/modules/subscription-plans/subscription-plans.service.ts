@@ -5,6 +5,7 @@ import type {
   SubscriptionPlan,
 } from '@strimz/shared-types'
 import { TypedConfigService } from '../../config/index.js'
+import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { tokenAddressForCurrency } from '../payment-sessions/token-resolver.js'
@@ -50,6 +51,7 @@ export class SubscriptionPlansService {
     _mode: 'test' | 'live',
     input: CreateSubscriptionPlanParsed,
   ): Promise<SubscriptionPlan> {
+    assertMinimumAmount(input.amount)
     // Every plan enrolment needs a chain merchant id, so register at
     // plan creation regardless of mode. Idempotent. `mode` is preserved
     // in the signature for parity with other create() methods; the

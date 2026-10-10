@@ -13,6 +13,7 @@ import type {
   StorefrontProduct,
 } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
 import { TypedConfigService } from '../../config/index.js'
 import { PaymentSessionsService } from '../payment-sessions/payment-sessions.service.js'
 
@@ -101,6 +102,7 @@ export class StorefrontsService {
     merchantId: string,
     input: CreateStorefrontProductParsed,
   ): Promise<StorefrontProduct> {
+    assertMinimumAmount(input.price)
     const sf = await this.prisma.db.storefront.findUnique({ where: { merchantId } })
     if (!sf) {
       throw new NotFoundException({ code: 'not_found', message: 'storefront not yet created' })
