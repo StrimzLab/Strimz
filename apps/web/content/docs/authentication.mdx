@@ -118,15 +118,14 @@ The dashboard offers preset scope bundles ("Full access", "Read-only", "Sessions
 
 ### Dashboard-only routes
 
-These routes change where your money goes, what it costs, or the dashboard itself. They accept only a dashboard session and return `permission_denied` to every API key, whatever its scopes:
+These routes change your profile, where your money goes, or the dashboard itself. They accept only a dashboard session and return `permission_denied` to every API key, whatever its scopes:
 
 - `PATCH /v1/merchants/me`
 - `POST /v1/merchants/me/onboard`
-- `POST /v1/merchants/me/tier`
 - `GET /v1/notifications`
 - `POST /v1/notifications/mark-all-read`
 
-`strimz.merchants.update()` and `strimz.merchants.changeTier()` call the first and third of these, so they do not work with a secret key. Both were removed from `@strimz/sdk` in 0.8.0. Change your profile, payout address, and tier in the dashboard.
+`strimz.merchants.update()` calls the first of these, so it does not work with a secret key. It was removed from `@strimz/sdk` in 0.8.0, together with `strimz.merchants.changeTier()`. Change your profile and payout address in the dashboard. Strimz sets your pricing tier; it cannot be changed from the dashboard or the API.
 
 ### Keys that manage keys
 
