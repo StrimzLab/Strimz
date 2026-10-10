@@ -1,4 +1,10 @@
-import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common'
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+} from '@nestjs/common'
 import type { Job } from 'bullmq'
 import { decodeFunctionData, encodeFunctionData, keccak256, padHex, type Hex } from 'viem'
 import { relayJobSchema, type RelayJob } from '@strimz/queue-contracts'
@@ -93,6 +99,23 @@ export class RelayService {
 
   // ----- Public submission entrypoints -----
 
+  async assertOwnMerchant(merchantInternalId: string, onchainMerchantId: bigint): Promise<void> {
+    const merchant = await this.prisma.db.merchant.findUnique({
+      where: { id: merchantInternalId },
+      select: { onchainMerchantId: true },
+    })
+    if (
+      merchant?.onchainMerchantId != null &&
+      BigInt(merchant.onchainMerchantId) === onchainMerchantId
+    ) {
+      return
+    }
+    throw new ForbiddenException({
+      code: 'merchant_mismatch',
+      message: 'merchantId is not the on-chain id of the calling merchant',
+    })
+  }
+
   async submitPayWithAuthorization(input: PayWithAuthorizationInput): Promise<RelaySubmissionView> {
     if (!this.paymentsAddress) {
       throw new Error('STRIMZ_PAYMENTS_ADDRESS is not configured')
@@ -133,22 +156,18 @@ export class RelayService {
     // signed authorization, and charge the payer twice. The indexer
     // stamps `onchainTxHash` onto the session at confirmation time;
     // that's the source of truth the chain itself respects.
-    if (input.sessionId) {
-      const alreadyPaid = await this.alreadyPaidView(input.sessionId, key)
-      if (alreadyPaid) return alreadyPaid
-    }
+    const alreadyPaid = await this.alreadyPaidView(input.sessionId, key)
+    if (alreadyPaid) return alreadyPaid
     const replay = await this.existingView(key)
     if (replay) return replay
     assertMinimumAmount(input.auth.amount)
-    if (input.sessionId) {
-      await this.assertSessionPayable(
-        input.sessionId,
-        input.merchantId,
-        input.auth.amount,
-        input.token,
-      )
-      assertSessionNonce(input.sessionId, input.auth.nonce)
-    }
+    await this.assertSessionPayable(
+      input.sessionId,
+      input.merchantId,
+      input.auth.amount,
+      input.token,
+    )
+    assertSessionNonce(input.sessionId, input.auth.nonce)
 
     await this.probe.simulate({ to: this.paymentsAddress, data: callData })
     return this.enqueue(
@@ -161,7 +180,7 @@ export class RelayService {
         merchantInternalId: input.merchantInternalId,
         sessionId: input.sessionId,
       },
-      input.sessionId ? paymentAttemptScope(input.sessionId) : null,
+      paymentAttemptScope(input.sessionId),
     )
   }
 
@@ -207,14 +226,12 @@ export class RelayService {
     // sign a fresh permit (different USDC nonce) and create a SECOND
     // on-chain subscription for the same payer-plan pair. The scheduler
     // would then charge both every period.
-    if (input.subscriptionInternalId) {
-      const alreadyEnrolled = await this.alreadyEnrolledView(
-        input.subscriptionInternalId,
-        input.permitData.owner,
-        key,
-      )
-      if (alreadyEnrolled) return alreadyEnrolled
-    }
+    const alreadyEnrolled = await this.alreadyEnrolledView(
+      input.subscriptionInternalId,
+      input.permitData.owner,
+      key,
+    )
+    if (alreadyEnrolled) return alreadyEnrolled
     const replay = await this.existingView(key)
     if (replay) return replay
     assertMinimumAmount(input.amount)
@@ -231,9 +248,7 @@ export class RelayService {
         merchantInternalId: input.merchantInternalId,
         subscriptionInternalId: input.subscriptionInternalId,
       },
-      input.subscriptionInternalId
-        ? subscriptionAttemptScope(input.subscriptionInternalId, input.permitData.owner)
-        : null,
+      subscriptionAttemptScope(input.subscriptionInternalId, input.permitData.owner),
     )
   }
 
@@ -294,13 +309,10 @@ export class RelayService {
     throw attemptInProgress(await this.viewFromJob(job))
   }
 
-  private async enqueue(
-    job: RelayCallJob,
-    attemptScope: string | null,
-  ): Promise<RelaySubmissionView> {
+  private async enqueue(job: RelayCallJob, attemptScope: string): Promise<RelaySubmissionView> {
     const data = relayJobSchema.parse(job)
     const queue = this.queue.queue(QUEUE_NAMES.relaySubmission)
-    if (attemptScope) await this.claimAttempt(attemptScope, data.idempotencyKey)
+    await this.claimAttempt(attemptScope, data.idempotencyKey)
     await this.budget.consume(job.merchantInternalId)
     // Using the idempotency key as the BullMQ job id makes
     // resubmission a no-op: BullMQ rejects duplicate ids with a
