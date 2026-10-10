@@ -167,6 +167,7 @@ describe('third-party widgets follow the active theme', () => {
     ['Privy', 'src/components/providers.tsx', /theme:\s*'light'/],
     ['Reown AppKit', 'src/components/checkout-providers.tsx', /themeMode:\s*'light'/],
     ['Turnstile', 'src/app/(auth)/signup/page.tsx', /theme:\s*'light'/],
+    ['Turnstile (contact)', 'src/components/turnstile-widget.tsx', /theme:\s*'light'/],
   ])('%s is not pinned to light', (_widget, path, pinned) => {
     expect(read(join(WEB_ROOT, path))).not.toMatch(pinned)
   })
