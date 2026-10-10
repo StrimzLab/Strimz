@@ -49,7 +49,7 @@ export async function forwardAdminWrite(req: Request, opts: ForwardOptions): Pro
   const origin = req.headers.get('origin')
   if (origin && !ALLOWED_ORIGINS.has(origin)) {
     return NextResponse.json(
-      { code: 'csrf_origin_mismatch', message: 'cross-origin admin write rejected' },
+      { error: { code: 'csrf_origin_mismatch', message: 'cross-origin admin write rejected' } },
       { status: 403 },
     )
   }
@@ -58,7 +58,7 @@ export async function forwardAdminWrite(req: Request, opts: ForwardOptions): Pro
   const auth = req.headers.get('authorization')
   if (!auth || !auth.startsWith('Bearer ')) {
     return NextResponse.json(
-      { code: 'authentication_error', message: 'missing bearer token' },
+      { error: { code: 'authentication_error', message: 'missing bearer token' } },
       { status: 401 },
     )
   }

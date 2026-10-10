@@ -23,6 +23,7 @@ import { relativeTime, shortAddress } from '@/lib/format'
 import { formatCurrencyAmounts } from '@/lib/currency-totals'
 import { MODE_OPTIONS } from '@/lib/admin-volume'
 import type { MerchantTier } from '@/lib/admin-api'
+import { tierRefusal } from '@/lib/admin-api/tier-refusal'
 import { suspendMerchantConfirm } from '@/lib/destructive-actions'
 import {
   ConfirmActionDialog,
@@ -45,6 +46,7 @@ export default function AdminMerchantDetailPage() {
   const suspendMutation = useSuspendMerchant()
   const reactivateMutation = useReactivateMerchant()
   const tierMutation = useSetMerchantTier()
+  const refusal = tierRefusal(tierMutation.error)
   const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   if (isLoading) {
@@ -239,6 +241,24 @@ export default function AdminMerchantDetailPage() {
                   </SelectContent>
                 </Select>
               </div>
+              {refusal ? (
+                <div
+                  role="alert"
+                  className="border-destructive/30 bg-destructive/5 mt-3 rounded-md border px-3 py-2 text-xs"
+                >
+                  <p className="text-destructive">{refusal.message}</p>
+                  {refusal.facts.length > 0 ? (
+                    <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                      {refusal.facts.map(([label, value]) => (
+                        <React.Fragment key={label}>
+                          <dt className="text-muted-foreground">{label}</dt>
+                          <dd className="font-mono">{value}</dd>
+                        </React.Fragment>
+                      ))}
+                    </dl>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         </CardContent>
