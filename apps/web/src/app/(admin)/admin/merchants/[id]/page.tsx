@@ -213,8 +213,11 @@ export default function AdminMerchantDetailPage() {
             <div className="border-border/60 rounded-md border p-3">
               <div className="text-sm font-medium">Tier</div>
               <p className="text-muted-foreground mt-1 text-xs">
-                Changes apply to new payments immediately. Existing payments keep their original
-                fee.
+                The tier must match the fee the on-chain registry charges this merchant. Free,
+                Growth and Business need their exact fee; Enterprise accepts any fee. To change the
+                fee, an operator sends setFeeBps with the registry admin key, waits for the receipt,
+                then sets the tier here. An unregistered merchant can only be set to Free. A
+                mismatch is refused with the fee the registry needs.
               </p>
               <div className="mt-3">
                 <Select
