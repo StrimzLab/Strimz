@@ -36,6 +36,7 @@ export class TokensController {
       'SDK uses this to pick which meta-tx path to take for a given token.',
   })
   @Public()
+  @RateLimit({ max: 60, windowMs: 60_000, keyBy: 'ip', label: 'tokens.metadata' })
   @Get('/:address')
   async getMetadata(@Param('address') addressParam: string): Promise<TokenMetadata> {
     const metadata = await this.tokens.getMetadata(parseAddress(addressParam))

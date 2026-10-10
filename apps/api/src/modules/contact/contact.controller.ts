@@ -1,6 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import { Public } from '../../common/decorators/public.decorator.js'
+import { RateLimit } from '../../common/decorators/rate-limit.decorator.js'
 import { ContactService } from './contact.service.js'
 import { ContactRequestDto } from './contact.dto.js'
 
@@ -10,6 +11,7 @@ export class ContactController {
   constructor(private readonly contact: ContactService) {}
 
   @Public()
+  @RateLimit({ max: 5, windowMs: 60 * 60 * 1000, keyBy: 'ip', label: 'contact.submit' })
   @Post()
   @ApiOperation({
     summary:
