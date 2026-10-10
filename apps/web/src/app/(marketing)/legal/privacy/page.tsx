@@ -127,7 +127,7 @@ export default function PrivacyPage() {
         </li>
         <li>
           <strong>TRM Labs / Elliptic</strong>. Wallet sanctions screening when the compliance
-          integration is enabled (wallet address only).
+          integration is enabled (wallet address only). It is not enabled today.
         </li>
       </ul>
       <p>
