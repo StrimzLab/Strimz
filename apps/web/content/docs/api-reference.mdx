@@ -119,6 +119,20 @@ the merchant, and every check below runs against it:
 - `POST /v1/relay/subscriptions`. Submits a payer-signed EIP-2612 permit plus enrolment.
 - `GET  /v1/relay/submissions/:idempotencyKey`. Looks up a submission's on-chain status.
 
+These routes relay only for your own merchant account, and only for one of your
+payment sessions or plans. This is a breaking change from 2026-10-10 for
+integrations that call them directly:
+
+- `sessionId` is required on `POST /v1/relay/payments` and `subscriptionInternalId`
+  (the plan id) on `POST /v1/relay/subscriptions`. A body without it is
+  `400 invalid_request`.
+- The body `merchantId` must be the on-chain id of the merchant that owns the key.
+  Any other id is `403 merchant_mismatch`, and so is every call from a merchant
+  account that is not registered on-chain yet. This is checked before the session
+  or plan is looked up and before the call is simulated.
+- A session or plan of another merchant is therefore refused too, because its
+  on-chain merchant id is not yours.
+
 Strimz issues the submission key. Both `POST` endpoints return it as
 `idempotencyKey` in the response: `relay-pay-<hex>` or `relay-sub-<hex>`,
 where `<hex>` is the keccak256 hash of the signed calldata. Poll the
@@ -133,7 +147,7 @@ submission.
   against the latest block. A call that would revert is refused with
   `400 relay_simulation_failed`; `error.details.revert` names the
   revert.
-- When the body carries a `sessionId`, the EIP-3009 `nonce` must be
+- The EIP-3009 `nonce` must be
   `checkoutPaymentNonce(sessionId)` from `@strimz/shared-crypto`,
   otherwise the request is refused with `400 auth_nonce_mismatch`.
   Every authorization for one session shares that nonce, so the token
@@ -142,8 +156,8 @@ submission.
   `409 session_already_submitted`.
 - A payment or enrolment below 1.00 is refused with `400 amount_below_minimum`
   before it is simulated.
-- When the body carries a `sessionId`, the `token` must be the token of the
-  session currency, otherwise `400 token_mismatch`.
+- The `token` must be the token of the session currency, otherwise
+  `400 token_mismatch`.
 - An enrolment is refused with `400 insufficient_balance` when the payer holds less
   than the signed `amount` of `token`, trial plans included.
 - Each of `POST /v1/relay/payments` and `POST /v1/relay/subscriptions` accepts 60
@@ -189,8 +203,7 @@ the session or plan in the path decide what is relayed and for whom,
 and the minimum amount, the limits and the daily budget bound what it
 can cost.
 
-The `relay` namespace does need a secret key. The hosted checkout
-reaches it through a same-origin BFF route
-(`/api/checkout/sessions/:id/submit`) that proxies the call with a
-server-only Strimz key. The secret never leaves the server; the
-browser only ever talks to the BFF.
+The `relay` namespace does need a secret key, and it relays only for the
+merchant that owns the key. The hosted checkout does not use it: the payer's
+browser calls the public checkout relay routes above directly, so no Strimz key
+is held by the hosted checkout.

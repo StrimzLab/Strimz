@@ -144,11 +144,13 @@ describe('subscription trials', () => {
         { interval: 7 * DAY },
         { token: `0x${'9'.repeat(40)}` },
         { endAt: String(nowSeconds() + 400 * DAY) },
-        { merchantId: '2' },
       ]) {
         const res = await enrol(k.secretKey, plan.id, over)
         expect(res.statusCode, JSON.stringify(over)).toBe(400)
       }
+      const foreignMerchant = await enrol(k.secretKey, plan.id, { merchantId: '2' })
+      expect(foreignMerchant.statusCode).toBe(403)
+      expect(JSON.parse(foreignMerchant.body).error.code).toBe('merchant_mismatch')
       expect(relayJobs()).toHaveLength(0)
     })
 
@@ -161,11 +163,12 @@ describe('subscription trials', () => {
       expect(relayJobs()).toHaveLength(0)
     })
 
-    it('leaves enrolments without a plan id to the merchant', async () => {
+    it('refuses an enrolment without a plan id', async () => {
       const { k } = await setup(null)
       const res = await enrol(k.secretKey, 'unused', { subscriptionInternalId: undefined })
-      expect(res.statusCode).toBe(201)
-      expect(relayJobs()).toHaveLength(1)
+      expect(res.statusCode).toBe(400)
+      expect(JSON.parse(res.body).error.code).toBe('invalid_request')
+      expect(relayJobs()).toHaveLength(0)
     })
   })
 })

@@ -7,9 +7,13 @@ import type { TokenMetadata } from '@strimz/shared-types'
 import { checkoutPaymentNonce } from '@strimz/shared-crypto/checkout'
 import { stringToHex } from 'viem'
 
-import { inProgressSubmission } from '@/lib/checkout-submission'
+import {
+  checkoutSubmissionUrl,
+  relayErrorMessage,
+  submitCheckoutRelay,
+  type RelaySubmissionView,
+} from '@/lib/checkout-submission'
 import { env } from '@/lib/env'
-import type { RelaySubmissionView } from '@/lib/strimz-bff'
 
 /**
  * One-shot payment flow on the hosted checkout.
@@ -173,7 +177,6 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
       setState((prev) => ({ ...prev, phase: 'submitting' }))
 
       const submission = await postSubmit(sessionId, {
-        kind: 'payment',
         merchantId: merchantId.toString(),
         token: tokenAddress,
         auth: {
@@ -243,7 +246,6 @@ function splitSignature(sigHex: `0x${string}`): { r: `0x${string}`; s: `0x${stri
 }
 
 interface SubmitBody {
-  kind: 'payment'
   merchantId: string
   token: `0x${string}`
   auth: {
@@ -258,19 +260,8 @@ interface SubmitBody {
   intentSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
 }
 
-async function postSubmit(sessionId: string, body: SubmitBody): Promise<RelaySubmissionView> {
-  const res = await fetch(`/api/checkout/sessions/${encodeURIComponent(sessionId)}/submit`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({ message: `submit failed (${res.status})` }))
-    const live = res.status === 409 ? inProgressSubmission(detail) : null
-    if (live) return live
-    throw new Error(detail.message ?? `submit failed (${res.status})`)
-  }
-  return (await res.json()) as RelaySubmissionView
+function postSubmit(sessionId: string, body: SubmitBody): Promise<RelaySubmissionView> {
+  return submitCheckoutRelay({ kind: 'sessions', id: sessionId }, body)
 }
 
 async function pollUntilTerminal(
@@ -281,7 +272,7 @@ async function pollUntilTerminal(
   const start = Date.now()
   while (Date.now() - start < POLL_TIMEOUT_MS) {
     const res = await fetch(
-      `/api/checkout/sessions/${encodeURIComponent(sessionId)}/submissions/${encodeURIComponent(idempotencyKey)}`,
+      checkoutSubmissionUrl({ kind: 'sessions', id: sessionId }, idempotencyKey),
       { cache: 'no-store' },
     )
     if (res.ok) {
@@ -310,11 +301,7 @@ function isFatalPollStatus(status: number): boolean {
 async function pollErrorMessage(res: Response): Promise<string> {
   const fallback = `submission status check failed (${res.status})`
   try {
-    const body = (await res.json()) as {
-      message?: string
-      detail?: { message?: string; error?: { message?: string } }
-    }
-    return body.detail?.error?.message ?? body.detail?.message ?? body.message ?? fallback
+    return relayErrorMessage(await res.json(), fallback)
   } catch {
     return fallback
   }

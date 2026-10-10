@@ -179,6 +179,7 @@ describe('RelayController', () => {
         ref: keccak256(toHex('r')),
         authSignature: AUTH_SIG,
         intentSignature: INTENT_SIG,
+        sessionId: 'ses_abc',
       }
       expect(submitPaymentInputSchema.parse(withoutKey).idempotencyKey).toBeUndefined()
     })

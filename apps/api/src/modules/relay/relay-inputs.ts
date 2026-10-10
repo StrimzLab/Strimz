@@ -3,7 +3,7 @@ import type { PayWithAuthorizationInput, PermitAndCreateSubscriptionInput } from
 
 export function paymentRelayInput(
   body: PaymentRelayBody,
-  target: { merchantInternalId: string; sessionId?: string },
+  target: { merchantInternalId: string; sessionId: string },
 ): PayWithAuthorizationInput {
   return {
     idempotencyKey: body.idempotencyKey,
@@ -34,7 +34,7 @@ export function paymentRelayInput(
 
 export function enrolmentRelayInput(
   body: EnrolmentRelayBody,
-  target: { merchantInternalId: string; subscriptionInternalId?: string },
+  target: { merchantInternalId: string; subscriptionInternalId: string },
 ): PermitAndCreateSubscriptionInput {
   return {
     idempotencyKey: body.idempotencyKey,

@@ -76,13 +76,6 @@ describe('RelayEnrolmentGate', () => {
       })
       expect(enrolmentTerms.verify).not.toHaveBeenCalled()
     })
-
-    it('checks nothing without a plan id', async () => {
-      await gate.assertPlanTerms('merchant_abc', enrolment({ subscriptionInternalId: undefined }))
-
-      expect(subscriptions.activeForPayer).not.toHaveBeenCalled()
-      expect(enrolmentTerms.verify).not.toHaveBeenCalled()
-    })
   })
 
   describe('assertFunded', () => {

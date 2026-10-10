@@ -53,7 +53,7 @@ export interface PayWithAuthorizationInput {
   intentSignature: VRSSignature
   // Optional diagnostics for the operator dashboard. Not used on-chain.
   merchantInternalId: string
-  sessionId?: string
+  sessionId: string
 }
 
 /**
@@ -73,7 +73,7 @@ export interface PermitAndCreateSubscriptionInput {
   /** SubscriptionIntent sig — contract verifies. Binds every plan param. */
   intentSignature: VRSSignature
   merchantInternalId: string
-  subscriptionInternalId?: string
+  subscriptionInternalId: string
 }
 
 /**

@@ -31,6 +31,8 @@ const bigintStringSchema = z
   .regex(/^[0-9]+$/u, 'must be a non-negative decimal integer string')
   .transform((s) => BigInt(s))
 
+export const relayMerchantIdSchema = bigintStringSchema
+
 const vrsSignatureSchema = z.object({
   v: z
     .number()
@@ -61,7 +63,7 @@ const payAuthorizationSchema = z.object({
 export const submitPaymentInputSchema = z.object({
   idempotencyKey: idempotencyKeySchema.optional(),
   /** On-chain merchant id from the StrimzRegistry (uint96). */
-  merchantId: bigintStringSchema,
+  merchantId: relayMerchantIdSchema,
   token: addressSchema,
   auth: payAuthorizationSchema,
   /** Off-chain reference (bytes32) — typically `keccak256(sessionId)`. */
@@ -71,7 +73,7 @@ export const submitPaymentInputSchema = z.object({
   /** PayIntent sig — contract verifies. Binds routing fields. */
   intentSignature: vrsSignatureSchema,
   /** Diagnostic only — surfaces in operator dashboards. */
-  sessionId: z.string().min(1).max(80).optional(),
+  sessionId: z.string().min(1).max(80),
 })
 
 export class SubmitPaymentDto extends createZodDto(submitPaymentInputSchema) {}
@@ -92,7 +94,7 @@ const permitDataSchema = z.object({
 
 export const submitSubscriptionInputSchema = z.object({
   idempotencyKey: idempotencyKeySchema.optional(),
-  merchantId: bigintStringSchema,
+  merchantId: relayMerchantIdSchema,
   token: addressSchema,
   amount: bigintStringSchema,
   /** Seconds between charges (uint32). */
@@ -106,7 +108,7 @@ export const submitSubscriptionInputSchema = z.object({
   permitSignature: vrsSignatureSchema,
   /** SubscriptionIntent sig — contract verifies. Binds plan params. */
   intentSignature: vrsSignatureSchema,
-  subscriptionInternalId: z.string().min(1).max(80).optional(),
+  subscriptionInternalId: z.string().min(1).max(80),
 })
 
 export class SubmitSubscriptionDto extends createZodDto(submitSubscriptionInputSchema) {}

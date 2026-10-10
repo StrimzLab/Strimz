@@ -25,6 +25,7 @@ import {
   type SubmissionQuery,
 } from './relay.dto.js'
 import { enrolmentRelayInput, paymentRelayInput } from './relay-inputs.js'
+import { RelayMerchantGuard } from './relay-merchant.guard.js'
 import { RelayService } from './relay.service.js'
 import type { RelaySubmissionView } from './relay.types.js'
 
@@ -71,6 +72,7 @@ export class RelayController {
       'deprecated and ignored.',
   })
   @RequireScopes('relay_write')
+  @UseGuards(RelayMerchantGuard)
   @RateLimit({ max: 60, windowMs: 60_000, keyBy: 'actor', label: 'relay.payments' })
   @Post('/payments')
   submitPayment(
@@ -91,6 +93,7 @@ export class RelayController {
       '`idempotencyKey` is deprecated and ignored.',
   })
   @RequireScopes('relay_write')
+  @UseGuards(RelayMerchantGuard)
   @RateLimit({ max: 60, windowMs: 60_000, keyBy: 'actor', label: 'relay.subscriptions' })
   @Post('/subscriptions')
   submitSubscription(

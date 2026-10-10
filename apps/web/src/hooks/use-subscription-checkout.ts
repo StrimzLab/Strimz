@@ -5,10 +5,14 @@ import { useAccount, useChainId, useSignTypedData } from 'wagmi'
 import { buildPermitTypedData, buildSubscriptionIntentTypedData } from '@strimz/sdk/eip712'
 import type { TokenMetadata } from '@strimz/shared-types'
 
-import { inProgressSubmission } from '@/lib/checkout-submission'
+import {
+  checkoutSubmissionUrl,
+  relayErrorMessage,
+  submitCheckoutRelay,
+  type RelaySubmissionView,
+} from '@/lib/checkout-submission'
 import { env } from '@/lib/env'
 import { strimzBrowserClient } from '@/lib/strimz-browser'
-import type { RelaySubmissionView } from '@/lib/strimz-bff'
 
 /**
  * Subscription enrolment flow on the hosted checkout.
@@ -191,7 +195,6 @@ export function useSubscriptionCheckout(
       // payer — otherwise a second wallet on the same plan collides with the
       // first. BullMQ job ids can't contain ':', so join with '-'.
       const submission = await postSubmit(sessionId, {
-        kind: 'subscription',
         merchantId: merchantId.toString(),
         token: tokenAddress,
         amount: amount.toString(),
@@ -267,7 +270,6 @@ function splitSignature(sigHex: `0x${string}`): {
 }
 
 interface SubmitBody {
-  kind: 'subscription'
   merchantId: string
   token: `0x${string}`
   amount: string
@@ -279,19 +281,8 @@ interface SubmitBody {
   intentSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
 }
 
-async function postSubmit(sessionId: string, body: SubmitBody): Promise<RelaySubmissionView> {
-  const res = await fetch(`/api/checkout/sessions/${encodeURIComponent(sessionId)}/submit`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({ message: `submit failed (${res.status})` }))
-    const live = res.status === 409 ? inProgressSubmission(detail) : null
-    if (live) return live
-    throw new Error(detail.message ?? `submit failed (${res.status})`)
-  }
-  return (await res.json()) as RelaySubmissionView
+function postSubmit(sessionId: string, body: SubmitBody): Promise<RelaySubmissionView> {
+  return submitCheckoutRelay({ kind: 'plans', id: sessionId }, body)
 }
 
 async function pollUntilTerminal(
@@ -302,7 +293,7 @@ async function pollUntilTerminal(
   const start = Date.now()
   while (Date.now() - start < POLL_TIMEOUT_MS) {
     const res = await fetch(
-      `/api/checkout/sessions/${encodeURIComponent(sessionId)}/submissions/${encodeURIComponent(idempotencyKey)}`,
+      checkoutSubmissionUrl({ kind: 'plans', id: sessionId }, idempotencyKey),
       { cache: 'no-store' },
     )
     if (res.ok) {
@@ -331,11 +322,7 @@ function isFatalPollStatus(status: number): boolean {
 async function pollErrorMessage(res: Response): Promise<string> {
   const fallback = `submission status check failed (${res.status})`
   try {
-    const body = (await res.json()) as {
-      message?: string
-      detail?: { message?: string; error?: { message?: string } }
-    }
-    return body.detail?.error?.message ?? body.detail?.message ?? body.message ?? fallback
+    return relayErrorMessage(await res.json(), fallback)
   } catch {
     return fallback
   }

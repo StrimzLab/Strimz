@@ -14,6 +14,7 @@ import type { QueueService } from '../../../../src/infra/queue/queue.service.js'
 import type { PrismaService } from '../../../../src/infra/prisma/prisma.service.js'
 import type { TypedConfigService } from '../../../../src/config/index.js'
 import type { RelayJob } from '@strimz/queue-contracts'
+import { checkoutPaymentNonce } from '@strimz/shared-crypto/checkout'
 import type {
   PayWithAuthorizationInput,
   PermitAndCreateSubscriptionInput,
@@ -78,6 +79,7 @@ function makeCfg(): TypedConfigService {
     env: {
       STRIMZ_PAYMENTS_ADDRESS: PAYMENTS_ADDR,
       STRIMZ_SUBSCRIPTIONS_ADDRESS: SUBS_ADDR,
+      ARC_USDC_ADDRESS: TOKEN_ADDR,
     },
   } as unknown as TypedConfigService
 }
@@ -91,7 +93,16 @@ function makeCfg(): TypedConfigService {
 function makeFakePrisma(): PrismaService {
   return {
     db: {
-      paymentSession: { findUnique: () => Promise.resolve(null) },
+      paymentSession: {
+        findUnique: () =>
+          Promise.resolve({
+            status: 'awaiting_payment',
+            amount: '100000000',
+            currency: 'USDC',
+            expiresAt: null,
+            merchant: { onchainMerchantId: 1 },
+          }),
+      },
       subscription: { findFirst: () => Promise.resolve(null) },
     },
   } as unknown as PrismaService
@@ -124,6 +135,7 @@ function makeBudget(): RelayBudgetService {
 }
 
 const MERCHANT_INTERNAL_ID = 'merchant_1'
+const SESSION_ID = 'ses_1'
 
 function payInput(over: Partial<PayWithAuthorizationInput> = {}): PayWithAuthorizationInput {
   return {
@@ -135,12 +147,13 @@ function payInput(over: Partial<PayWithAuthorizationInput> = {}): PayWithAuthori
       amount: 100_000_000n,
       validAfter: 0n,
       validBefore: 1_800_000_000n,
-      nonce: keccak256(toHex('nonce-1')),
+      nonce: checkoutPaymentNonce(SESSION_ID),
     },
     ref: keccak256(toHex('session-1')),
     authSignature: { v: 27, r: padHex('0xab', { size: 32 }), s: padHex('0xcd', { size: 32 }) },
     intentSignature: { v: 27, r: padHex('0x1a', { size: 32 }), s: padHex('0x1b', { size: 32 }) },
     merchantInternalId: MERCHANT_INTERNAL_ID,
+    sessionId: SESSION_ID,
     ...over,
   }
 }
@@ -164,6 +177,7 @@ function subsInput(
     permitSignature: { v: 28, r: padHex('0xde', { size: 32 }), s: padHex('0xef', { size: 32 }) },
     intentSignature: { v: 28, r: padHex('0x2a', { size: 32 }), s: padHex('0x2b', { size: 32 }) },
     merchantInternalId: MERCHANT_INTERNAL_ID,
+    subscriptionInternalId: 'plan_1',
     ...over,
   }
 }

@@ -19,7 +19,6 @@ export class RelayEnrolmentGate {
   ): Promise<void> {
     // Block a wallet that already subscribes to this plan before spending gas.
     // subscriptionInternalId is the DB planId being enrolled into.
-    if (!input.subscriptionInternalId) return
     const existing = await this.subscriptions.activeForPayer(
       input.subscriptionInternalId,
       input.permitData.owner,
