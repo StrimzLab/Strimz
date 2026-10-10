@@ -1,5 +1,5 @@
 import { NotFoundException } from '@nestjs/common'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { TokensService } from '../../../../src/modules/tokens/tokens.service.js'
 import {
@@ -12,6 +12,7 @@ import type { TypedConfigService } from '../../../../src/config/index.js'
 const WHITELIST = '0x0000000000000000000000000000000000005555' as const
 const TOKEN = '0x3600000000000000000000000000000000000000' as const
 const OWNER = '0x4444444444444444444444444444444444444444' as const
+const CACHED_TOKEN = '0x360000000000000000000000000000000000abcd' as const
 
 type ReadContractArgs = {
   address: `0x${string}`
@@ -147,6 +148,80 @@ describe('TokensService', () => {
       const chain = makeChain({})
       const svc = new TokensService(chain, makeCfg(undefined))
       await expect(svc.getMetadata(TOKEN)).rejects.toThrow(/TOKEN_WHITELIST_ADDRESS/)
+    })
+  })
+
+  describe('getMetadata cache', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    function countingChain(whitelisted: boolean): { chain: ChainService; reads: () => number } {
+      let count = 0
+      const chain = makeChain({
+        [`${WHITELIST.toLowerCase()}:isWhitelisted`]: () => {
+          count += 1
+          return whitelisted
+        },
+        [`${WHITELIST.toLowerCase()}:getCapabilities`]: () => {
+          count += 1
+          return CAP_TRANSFER_AUTH_3009
+        },
+        [`${CACHED_TOKEN}:name`]: () => {
+          count += 1
+          return 'USD Coin'
+        },
+        [`${CACHED_TOKEN}:symbol`]: () => {
+          count += 1
+          return 'USDC'
+        },
+        [`${CACHED_TOKEN}:decimals`]: () => {
+          count += 1
+          return 6
+        },
+        [`${CACHED_TOKEN}:eip712Domain`]: () => {
+          count += 1
+          return ['0x0f', 'USD Coin', '2', 5042002n, CACHED_TOKEN, '0x' + '0'.repeat(64), []]
+        },
+      })
+      return { chain, reads: () => count }
+    }
+
+    it('serves a whitelisted token from memory for 10 minutes, whatever the address case', async () => {
+      vi.useFakeTimers()
+      const { chain, reads } = countingChain(true)
+      const svc = new TokensService(chain, makeCfg(WHITELIST))
+
+      const first = await svc.getMetadata(CACHED_TOKEN)
+      const afterFirst = reads()
+      vi.advanceTimersByTime(10 * 60 * 1000 - 1)
+      const second = await svc.getMetadata('0x360000000000000000000000000000000000ABCD')
+
+      expect(afterFirst).toBe(6)
+      expect(reads()).toBe(afterFirst)
+      expect(second).toEqual(first)
+    })
+
+    it('reads the chain again once 10 minutes have passed', async () => {
+      vi.useFakeTimers()
+      const { chain, reads } = countingChain(true)
+      const svc = new TokensService(chain, makeCfg(WHITELIST))
+
+      await svc.getMetadata(CACHED_TOKEN)
+      vi.advanceTimersByTime(10 * 60 * 1000)
+      await svc.getMetadata(CACHED_TOKEN)
+
+      expect(reads()).toBe(12)
+    })
+
+    it('does not cache a token that is not whitelisted', async () => {
+      const { chain, reads } = countingChain(false)
+      const svc = new TokensService(chain, makeCfg(WHITELIST))
+
+      await expect(svc.getMetadata(CACHED_TOKEN)).rejects.toThrow(NotFoundException)
+      await expect(svc.getMetadata(CACHED_TOKEN)).rejects.toThrow(NotFoundException)
+
+      expect(reads()).toBe(2)
     })
   })
 
