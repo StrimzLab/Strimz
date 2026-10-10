@@ -1,6 +1,6 @@
 import { env } from '@/lib/env'
 import { type AccessTokenProvider, defaultAccessTokenProvider } from '@/lib/merchant-api/auth-token'
-import { buildApiError, type ApiErrorBody, AuthenticationError } from '@/lib/merchant-api/errors'
+import { apiErrorFromResponse, AuthenticationError } from '@/lib/merchant-api/errors'
 import type { CreateBroadcastInput, Mode, PaymentCurrency } from '@strimz/shared-types'
 
 import type {
@@ -228,13 +228,8 @@ export class AdminApiClient {
 
     if (response.status === 204) return undefined as T
 
+    if (!response.ok) throw await apiErrorFromResponse(response)
     const isJson = response.headers.get('content-type')?.includes('application/json')
-    if (!response.ok) {
-      const body: ApiErrorBody = isJson
-        ? await response.json().catch(() => ({ code: 'unknown_error', message: 'failed' }))
-        : { code: 'unknown_error', message: 'failed' }
-      throw buildApiError(response.status, body, response.headers)
-    }
     if (!isJson) throw new Error('expected JSON response')
     return (await response.json()) as T
   }
