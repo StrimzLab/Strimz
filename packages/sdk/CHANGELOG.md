@@ -1,5 +1,12 @@
 # @strimz/sdk
 
+## 0.9.1
+
+### Patch Changes
+
+- Updated dependencies [0453728]
+  - @strimz/shared-types@0.11.0
+
 ## 0.9.0
 
 ### Minor Changes
