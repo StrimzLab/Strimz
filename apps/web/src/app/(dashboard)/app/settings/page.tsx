@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@strimz/ui'
 import type { Merchant, PaymentCurrency, UpdateMerchantInput } from '@strimz/shared-types'
+import { effectiveFeeBps } from '@strimz/shared-config'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { ImageUpload } from '@/components/dashboard/image-upload'
@@ -315,8 +316,12 @@ function PayoutSection({ merchant }: { merchant: Merchant }) {
             <span>Current tier</span>
             <Badge className="capitalize">{merchant.tier}</Badge>
           </div>
+          <div className="mt-2 flex items-center justify-between">
+            <span>Tier fee</span>
+            <span className="text-muted-foreground">{tierFeeLabel(merchant.tier)}</span>
+          </div>
           <p className="text-muted-foreground mt-2 text-xs">
-            Tier upgrades happen automatically based on rolling 30-day volume.
+            Strimz sets your tier. Contact Strimz support to change it.
           </p>
         </div>
       </SettingsCard>
@@ -385,6 +390,12 @@ function TeamSection() {
   )
 }
 
+function tierFeeLabel(tier: Merchant['tier']): string {
+  const feeBps = effectiveFeeBps(tier, 'one_shot')
+  if (feeBps === null) return 'Custom rate agreed with Strimz'
+  return `${(feeBps / 100).toFixed(2)}% per transaction`
+}
+
 function BillingSection({ merchant }: { merchant: Merchant }) {
   return (
     <>
@@ -396,9 +407,7 @@ function BillingSection({ merchant }: { merchant: Merchant }) {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-medium capitalize">{merchant.tier}</div>
-              <div className="text-muted-foreground text-xs">
-                {merchant.tier === 'free' ? '0.5% per transaction' : 'Negotiated rate'}
-              </div>
+              <div className="text-muted-foreground text-xs">{tierFeeLabel(merchant.tier)}</div>
             </div>
             <Badge variant="outline" className="border-accent/40 bg-accent/10 text-accent">
               Current

@@ -87,7 +87,6 @@ describe('api key route access declarations', () => {
       .map((r) => r.route)
       .sort()
     expect(sessionOnly).toEqual([
-      'MerchantsController.changeTier',
       'MerchantsController.onboard',
       'MerchantsController.update',
       'NotificationsController.list',

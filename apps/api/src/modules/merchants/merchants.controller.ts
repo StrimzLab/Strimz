@@ -9,7 +9,7 @@ import {
 } from '../../common/decorators/current-merchant.decorator.js'
 import { MerchantsService } from './merchants.service.js'
 import { MerchantChainService } from './merchant-chain.service.js'
-import { ChangeTierDto, OnboardDto, UpdateMerchantDto } from './merchants.dto.js'
+import { OnboardDto, UpdateMerchantDto } from './merchants.dto.js'
 
 @ApiTags('merchants')
 @ApiBearerAuth()
@@ -43,13 +43,6 @@ export class MerchantsController {
   })
   onboard(@CurrentMerchant() ctx: CurrentMerchantPayload, @Body() dto: OnboardDto) {
     return this.merchants.onboard(ctx.merchantId, dto)
-  }
-
-  @SessionOnly()
-  @Post('/me/tier')
-  @ApiOperation({ summary: 'Change merchant pricing tier.' })
-  changeTier(@CurrentMerchant() ctx: CurrentMerchantPayload, @Body() dto: ChangeTierDto) {
-    return this.merchants.changeTier(ctx.merchantId, dto)
   }
 
   @RequireScopes('merchants_read')

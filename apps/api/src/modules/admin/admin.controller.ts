@@ -128,7 +128,10 @@ export class AdminController {
 
   @RequireAdminRoles('super_admin', 'admin')
   @Patch('/merchants/:id/tier')
-  @ApiOperation({ summary: 'Change a merchant tier (free / growth / scale / enterprise).' })
+  @ApiOperation({
+    summary:
+      'Change a merchant tier (free / growth / business / enterprise). The on-chain registry must already charge the tier fee.',
+  })
   setMerchantTier(
     @CurrentAdmin() ctx: CurrentAdminPayload,
     @Param('id') id: string,

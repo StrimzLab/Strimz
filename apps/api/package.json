@@ -18,6 +18,7 @@
     "seed:test-merchant": "node --env-file=.env scripts/seed-test-merchant.mjs",
     "e2e:checkout-payment": "node --env-file=.env scripts/e2e-checkout-payment.mjs",
     "e2e:checkout-subscription": "node --env-file=.env scripts/e2e-checkout-subscription.mjs",
+    "audit:merchant-tiers": "node scripts/audit-merchant-tiers.mjs",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {

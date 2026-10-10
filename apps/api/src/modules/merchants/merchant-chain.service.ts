@@ -1,4 +1,9 @@
-import { Injectable, Logger, PreconditionFailedException } from '@nestjs/common'
+import {
+  Injectable,
+  Logger,
+  PreconditionFailedException,
+  ServiceUnavailableException,
+} from '@nestjs/common'
 import type { Hex } from 'viem'
 
 import { TypedConfigService } from '../../config/index.js'
@@ -177,6 +182,31 @@ export class MerchantChainService {
       return null
     }
   }
+
+  async readRegistryFee(onchainMerchantId: bigint): Promise<RegistryFee> {
+    try {
+      const record = await this.chain.client.readContract({
+        address: this.registryAddress,
+        abi: registryReadAbi,
+        functionName: 'getMerchant',
+        args: [onchainMerchantId],
+      })
+      return { feeBps: record.feeBps, maxFeeBps: record.maxFeeBps }
+    } catch (err) {
+      this.log.warn(
+        `registry fee read failed for merchant ${onchainMerchantId}: ${(err as Error).message}`,
+      )
+      throw new ServiceUnavailableException({
+        code: 'chain_unavailable',
+        message: 'the registry could not be read; nothing was changed, try again',
+      })
+    }
+  }
+}
+
+export interface RegistryFee {
+  feeBps: number
+  maxFeeBps: number
 }
 
 export interface OnchainMerchantState {

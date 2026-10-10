@@ -50,7 +50,7 @@ Save and Strimz reveals the plaintext key exactly once. Copy it directly into yo
 
 Scopes are the finest-grained knob Strimz offers. A key with `sessions_write` can create a payment session; a key without it cannot. Always mint the least-privileged key for the job — if a server only needs to record payments, don't hand it `subscriptions_write`.
 
-The dashboard's Privy path bypasses scope checks entirely. Scopes only apply to API keys, which is why a merchant browsing the dashboard can hit every endpoint even if their seed key doesn't carry every scope. A few routes, such as changing your payout address or tier, accept only the dashboard; see [dashboard-only routes](/docs/authentication#dashboard-only-routes).
+The dashboard's Privy path bypasses scope checks entirely. Scopes only apply to API keys, which is why a merchant browsing the dashboard can hit every endpoint even if their seed key doesn't carry every scope. A few routes, such as changing your payout address, accept only the dashboard; see [dashboard-only routes](/docs/authentication#dashboard-only-routes).
 
 ### Keys minted by other keys
 

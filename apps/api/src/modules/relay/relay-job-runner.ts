@@ -112,7 +112,6 @@ export class RelayJobRunner {
     const merchant = await this.prisma.db.merchant.findUnique({
       where: { id: merchantId },
       select: {
-        tier: true,
         walletAddress: true,
         payoutAddress: true,
         onboardingCompleted: true,

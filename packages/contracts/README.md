@@ -440,6 +440,63 @@ git add deployments/<chainId>.json
 git commit -m "chore(contracts): record Arc Testnet deployment"
 ```
 
+## Operator runbook
+
+These steps use the cold admin key, `STRIMZ_DEPLOYER_PRIVATE_KEY`, which holds
+`ADMIN_ROLE` on `StrimzRegistry`. The API relayer key never holds that role. Load the
+env first and set `RPC` to the network you are changing (`$ARC_MAINNET_RPC_URL` for
+mainnet):
+
+```sh
+cd packages/contracts
+set -a && source .env && set +a
+RPC=$ARC_TESTNET_RPC_URL
+```
+
+### Grant operator roles
+
+`./script/grant-operator-roles.sh` grants `MERCHANT_REGISTRAR_ROLE` on the Registry to
+the API relayer and `CHARGER_ROLE` on Subscriptions to the scheduler signer. It checks
+`hasRole` before every grant, so a re-run is safe. Set `MAINNET=1` for mainnet.
+
+### Change a merchant's fee tier
+
+The admin page sets a merchant's tier, but the Registry decides the fee every payment
+pays. The API accepts a tier only when the Registry already charges that tier's fee:
+Free 150 bps, Growth 80 bps, Business 50 bps (`packages/shared-config/src/tiers.ts`).
+Enterprise accepts any fee. A merchant that is not registered on-chain can only be set
+to Free. Every merchant registers at 150 bps with a ceiling (`maxFeeBps`) of 150 bps.
+
+1. Find the merchant's on-chain id. The admin merchant page shows it, and a refused tier
+   change returns it as `onchainMerchantId` with `requiredFeeBps` and `maxFeeBps`.
+2. Read the current fee and ceiling:
+
+   ```sh
+   cast call "$STRIMZ_REGISTRY_ADDRESS" \
+     "getMerchant(uint256)((address,uint16,bool,address,uint256,address,address,uint64,uint16))" \
+     <onchain-id> --rpc-url "$RPC"
+   ```
+
+   The second field is `feeBps` and the last is `maxFeeBps`. The new fee must be at or
+   below `maxFeeBps`, or `setFeeBps` reverts with `Registry__FeeExceedsMax`. A merchant
+   whose ceiling is below the tier's fee cannot take that tier (issue #146).
+
+3. Send the fee change. `cast send` waits for the receipt; check that it reports
+   `status 1 (success)` and record the transaction hash.
+
+   ```sh
+   cast send "$STRIMZ_REGISTRY_ADDRESS" "setFeeBps(uint256,uint16)" <onchain-id> <fee-bps> \
+     --private-key "$STRIMZ_DEPLOYER_PRIVATE_KEY" --rpc-url "$RPC"
+   ```
+
+4. Read `getMerchant` again and confirm the new `feeBps`.
+5. Set the tier in the admin page (Admin, Merchants, the merchant, Tier). The audit entry
+   `merchant.tier_changed` records the on-chain id and fee the API read. The indexer
+   also records the fee change as `merchant.fee_bps_changed_onchain`.
+
+To move a merchant back to Free, send `setFeeBps(<onchain-id>, 150)` first, then set
+the tier.
+
 ## Reading the deployment log
 
 `deployments/<chainId>.json` is a top-level JSON array. One element
