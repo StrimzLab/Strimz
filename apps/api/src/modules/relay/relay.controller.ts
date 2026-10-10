@@ -1,6 +1,5 @@
 import {
   Body,
-  ConflictException,
   Controller,
   Get,
   NotFoundException,
@@ -15,17 +14,17 @@ import {
   CurrentMerchant,
   type CurrentMerchantPayload,
 } from '../../common/decorators/current-merchant.decorator.js'
+import { RateLimit } from '../../common/decorators/rate-limit.decorator.js'
 import { ApiKeyGuard } from '../../common/guards/api-key.guard.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
-import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
-import { EnrolmentTermsService } from '../subscription-plans/enrolment-terms.service.js'
 import {
   submissionQuerySchema,
   SubmitPaymentDto,
   SubmitSubscriptionDto,
   type SubmissionQuery,
 } from './relay.dto.js'
+import { enrolmentRelayInput, paymentRelayInput } from './relay-inputs.js'
 import { RelayService } from './relay.service.js'
 import type { RelaySubmissionView } from './relay.types.js'
 
@@ -61,11 +60,7 @@ import type { RelaySubmissionView } from './relay.types.js'
 @UseGuards(ApiKeyGuard)
 @Controller('/v1/relay')
 export class RelayController {
-  constructor(
-    private readonly relay: RelayService,
-    private readonly subscriptions: SubscriptionsService,
-    private readonly enrolmentTerms: EnrolmentTermsService,
-  ) {}
+  constructor(private readonly relay: RelayService) {}
 
   @ApiOperation({
     summary: 'Submit a payer-signed one-shot payment (EIP-3009)',
@@ -76,36 +71,15 @@ export class RelayController {
       'deprecated and ignored.',
   })
   @RequireScopes('relay_write')
+  @RateLimit({ max: 60, windowMs: 60_000, keyBy: 'actor', label: 'relay.payments' })
   @Post('/payments')
   submitPayment(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
     @Body() body: SubmitPaymentDto,
   ): Promise<RelaySubmissionView> {
-    return this.relay.submitPayWithAuthorization({
-      idempotencyKey: body.idempotencyKey,
-      merchantId: body.merchantId,
-      token: body.token as `0x${string}`,
-      auth: {
-        from: body.auth.from as `0x${string}`,
-        amount: body.auth.amount,
-        validAfter: body.auth.validAfter,
-        validBefore: body.auth.validBefore,
-        nonce: body.auth.nonce as `0x${string}`,
-      },
-      ref: body.ref as `0x${string}`,
-      authSignature: {
-        v: body.authSignature.v,
-        r: body.authSignature.r as `0x${string}`,
-        s: body.authSignature.s as `0x${string}`,
-      },
-      intentSignature: {
-        v: body.intentSignature.v,
-        r: body.intentSignature.r as `0x${string}`,
-        s: body.intentSignature.s as `0x${string}`,
-      },
-      merchantInternalId: ctx.merchantId,
-      sessionId: body.sessionId,
-    })
+    return this.relay.submitPayWithAuthorization(
+      paymentRelayInput(body, { merchantInternalId: ctx.merchantId, sessionId: body.sessionId }),
+    )
   }
 
   @ApiOperation({
@@ -117,63 +91,18 @@ export class RelayController {
       '`idempotencyKey` is deprecated and ignored.',
   })
   @RequireScopes('relay_write')
+  @RateLimit({ max: 60, windowMs: 60_000, keyBy: 'actor', label: 'relay.subscriptions' })
   @Post('/subscriptions')
-  async submitSubscription(
+  submitSubscription(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
     @Body() body: SubmitSubscriptionDto,
   ): Promise<RelaySubmissionView> {
-    // Block a wallet that already subscribes to this plan before spending gas.
-    // subscriptionInternalId is the DB planId being enrolled into.
-    if (body.subscriptionInternalId) {
-      const existing = await this.subscriptions.activeForPayer(
-        body.subscriptionInternalId,
-        body.permitData.owner,
-      )
-      if (existing.active) {
-        throw new ConflictException({
-          code: 'subscription_exists',
-          message: 'this wallet already has an active subscription to this plan',
-          subscriptionId: existing.subscriptionId,
-        })
-      }
-      await this.enrolmentTerms.verify(ctx.merchantId, {
-        planId: body.subscriptionInternalId,
-        payer: body.permitData.owner,
-        merchantId: body.merchantId,
-        token: body.token,
-        amount: body.amount,
-        interval: body.interval,
-        startAt: body.startAt,
-        endAt: body.endAt,
-      })
-    }
-
-    return this.relay.submitPermitAndCreateSubscription({
-      idempotencyKey: body.idempotencyKey,
-      merchantId: body.merchantId,
-      token: body.token as `0x${string}`,
-      amount: body.amount,
-      interval: body.interval,
-      startAt: body.startAt,
-      endAt: body.endAt,
-      permitData: {
-        owner: body.permitData.owner as `0x${string}`,
-        value: body.permitData.value,
-        deadline: body.permitData.deadline,
-      },
-      permitSignature: {
-        v: body.permitSignature.v,
-        r: body.permitSignature.r as `0x${string}`,
-        s: body.permitSignature.s as `0x${string}`,
-      },
-      intentSignature: {
-        v: body.intentSignature.v,
-        r: body.intentSignature.r as `0x${string}`,
-        s: body.intentSignature.s as `0x${string}`,
-      },
-      merchantInternalId: ctx.merchantId,
-      subscriptionInternalId: body.subscriptionInternalId,
-    })
+    return this.relay.submitPermitAndCreateSubscription(
+      enrolmentRelayInput(body, {
+        merchantInternalId: ctx.merchantId,
+        subscriptionInternalId: body.subscriptionInternalId,
+      }),
+    )
   }
 
   @ApiOperation({

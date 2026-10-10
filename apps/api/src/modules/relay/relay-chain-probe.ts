@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common'
-import { TransactionReceiptNotFoundError, type Hex } from 'viem'
+import { erc20Abi, TransactionReceiptNotFoundError, type Hex } from 'viem'
 
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { KMS_SIGNER } from '../../infra/kms/kms.tokens.js'
@@ -37,6 +37,15 @@ export class RelayChainProbe {
         throw err
       })
     return receipt ? receipt.status : null
+  }
+
+  balanceOf(token: Hex, owner: Hex): Promise<bigint> {
+    return this.chain.client.readContract({
+      address: token,
+      abi: erc20Abi,
+      functionName: 'balanceOf',
+      args: [owner],
+    })
   }
 
   async latestBlockTimestamp(): Promise<bigint> {

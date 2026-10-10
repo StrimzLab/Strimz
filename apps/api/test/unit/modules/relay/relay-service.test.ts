@@ -8,6 +8,8 @@ import {
 import { RelayService } from '../../../../src/modules/relay/relay.service.js'
 import type { RelayAttemptPointers } from '../../../../src/modules/relay/relay-attempts.js'
 import type { RelayChainProbe } from '../../../../src/modules/relay/relay-chain-probe.js'
+import type { RelayBudgetService } from '../../../../src/modules/relay/relay-budget.service.js'
+import type { RelayEnrolmentGate } from '../../../../src/modules/relay/relay-enrolment-gate.js'
 import type { QueueService } from '../../../../src/infra/queue/queue.service.js'
 import type { PrismaService } from '../../../../src/infra/prisma/prisma.service.js'
 import type { TypedConfigService } from '../../../../src/config/index.js'
@@ -110,6 +112,17 @@ function makeFakePointers(): RelayAttemptPointers {
   } as unknown as RelayAttemptPointers
 }
 
+function makeEnrolmentGate(): RelayEnrolmentGate {
+  return {
+    assertPlanTerms: () => Promise.resolve(),
+    assertFunded: () => Promise.resolve(),
+  } as unknown as RelayEnrolmentGate
+}
+
+function makeBudget(): RelayBudgetService {
+  return { consume: () => Promise.resolve() } as unknown as RelayBudgetService
+}
+
 const MERCHANT_INTERNAL_ID = 'merchant_1'
 
 function payInput(over: Partial<PayWithAuthorizationInput> = {}): PayWithAuthorizationInput {
@@ -168,6 +181,8 @@ describe('RelayService', () => {
       makeCfg(),
       makeFakeProbe(),
       makeFakePointers(),
+      makeEnrolmentGate(),
+      makeBudget(),
     )
   })
 
@@ -237,6 +252,8 @@ describe('RelayService', () => {
         cfgEmpty,
         makeFakeProbe(),
         makeFakePointers(),
+        makeEnrolmentGate(),
+        makeBudget(),
       )
       await expect(svcNoAddr.submitPayWithAuthorization(payInput())).rejects.toThrow(
         /STRIMZ_PAYMENTS_ADDRESS/,

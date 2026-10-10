@@ -3,17 +3,22 @@ import type { Job } from 'bullmq'
 import { decodeFunctionData, encodeFunctionData, keccak256, padHex, type Hex } from 'viem'
 import { relayJobSchema, type RelayJob } from '@strimz/queue-contracts'
 import { checkoutPaymentNonce } from '@strimz/shared-crypto/checkout'
+import type { PaymentCurrency } from '@strimz/shared-types'
 
+import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QUEUE_NAMES, QueueService } from '../../infra/queue/queue.service.js'
+import { tokenAddressForCurrency } from '../payment-sessions/token-resolver.js'
 import { payWithAuthorizationAbi, permitAndCreateSubscriptionAbi } from './abi.js'
 import {
   paymentAttemptScope,
   RelayAttemptPointers,
   subscriptionAttemptScope,
 } from './relay-attempts.js'
+import { RelayBudgetService } from './relay-budget.service.js'
 import { RelayChainProbe } from './relay-chain-probe.js'
+import { RelayEnrolmentGate } from './relay-enrolment-gate.js'
 import type { RelayJobResult } from './relay.processor.js'
 import type {
   PayWithAuthorizationInput,
@@ -36,6 +41,10 @@ const GAS_LIMITS = {
 } as const
 
 type RelayCallReason = 'payWithAuthorization' | 'permitAndCreateSubscription'
+
+type RelayCallJob = Exclude<RelayJob, { reason: 'registerMerchant' }> & {
+  merchantInternalId: string
+}
 
 const RELAY_KEY_PREFIX: Record<RelayCallReason, string> = {
   payWithAuthorization: 'relay-pay-',
@@ -72,9 +81,11 @@ export class RelayService {
   constructor(
     private readonly queue: QueueService,
     private readonly prisma: PrismaService,
-    cfg: TypedConfigService,
+    private readonly cfg: TypedConfigService,
     private readonly probe: RelayChainProbe,
     private readonly attempts: RelayAttemptPointers,
+    private readonly enrolmentGate: RelayEnrolmentGate,
+    private readonly budget: RelayBudgetService,
   ) {
     this.paymentsAddress = cfg.env.STRIMZ_PAYMENTS_ADDRESS as `0x${string}` | undefined
     this.subscriptionsAddress = cfg.env.STRIMZ_SUBSCRIPTIONS_ADDRESS as `0x${string}` | undefined
@@ -128,8 +139,14 @@ export class RelayService {
     }
     const replay = await this.existingView(key)
     if (replay) return replay
+    assertMinimumAmount(input.auth.amount)
     if (input.sessionId) {
-      await this.assertSessionPayable(input.sessionId, input.merchantId, input.auth.amount)
+      await this.assertSessionPayable(
+        input.sessionId,
+        input.merchantId,
+        input.auth.amount,
+        input.token,
+      )
       assertSessionNonce(input.sessionId, input.auth.nonce)
     }
 
@@ -183,6 +200,7 @@ export class RelayService {
       ],
     })
     const key = relayKeyFor('permitAndCreateSubscription', callData)
+    await this.enrolmentGate.assertPlanTerms(input.merchantInternalId, input)
 
     // Durable double-enrolment guard. Same shape as the payment-side
     // safety net: a refresh past BullMQ's 1h retention would otherwise
@@ -199,6 +217,8 @@ export class RelayService {
     }
     const replay = await this.existingView(key)
     if (replay) return replay
+    assertMinimumAmount(input.amount)
+    await this.enrolmentGate.assertFunded(input)
 
     await this.probe.simulate({ to: this.subscriptionsAddress, data: callData })
     return this.enqueue(
@@ -274,10 +294,14 @@ export class RelayService {
     throw attemptInProgress(await this.viewFromJob(job))
   }
 
-  private async enqueue(job: RelayJob, attemptScope: string | null): Promise<RelaySubmissionView> {
+  private async enqueue(
+    job: RelayCallJob,
+    attemptScope: string | null,
+  ): Promise<RelaySubmissionView> {
     const data = relayJobSchema.parse(job)
     const queue = this.queue.queue(QUEUE_NAMES.relaySubmission)
     if (attemptScope) await this.claimAttempt(attemptScope, data.idempotencyKey)
+    await this.budget.consume(job.merchantInternalId)
     // Using the idempotency key as the BullMQ job id makes
     // resubmission a no-op: BullMQ rejects duplicate ids with a
     // documented `Job <id> already exists` shape. We catch that and
@@ -329,12 +353,14 @@ export class RelayService {
     sessionId: string,
     onchainMerchantId: bigint,
     signedAmount: bigint,
+    token: Hex,
   ): Promise<void> {
     const session = await this.prisma.db.paymentSession.findUnique({
       where: { id: sessionId },
       select: {
         status: true,
         amount: true,
+        currency: true,
         expiresAt: true,
         merchant: { select: { onchainMerchantId: true } },
       },
@@ -370,6 +396,16 @@ export class RelayService {
       throw new BadRequestException({
         code: 'invalid_request',
         message: 'signed amount does not match the session amount',
+      })
+    }
+    const sessionToken = tokenAddressForCurrency(this.cfg, session.currency as PaymentCurrency)
+    if (sessionToken === null) {
+      throw new Error(`no token address is configured for ${session.currency}`)
+    }
+    if (sessionToken !== token.toLowerCase()) {
+      throw new BadRequestException({
+        code: 'token_mismatch',
+        message: `token does not match the session currency ${session.currency}`,
       })
     }
   }

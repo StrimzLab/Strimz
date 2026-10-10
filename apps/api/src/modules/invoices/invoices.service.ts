@@ -3,6 +3,7 @@ import type { CreateInvoiceParsed, Invoice, Mode } from '@strimz/shared-types'
 import { effectiveFeeBps } from '@strimz/shared-config'
 import type { Prisma } from '@strimz/db'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
 import { TypedConfigService } from '../../config/index.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
@@ -37,6 +38,7 @@ export class InvoicesService {
       .reduce((acc, li) => acc + BigInt(li.unitAmount) * BigInt(li.quantity), 0n)
       .toString()
     const total = subtotal // No taxes / discounts in M1.
+    assertMinimumAmount(total)
     const dueAt = new Date(Date.now() + input.dueInDays * 86_400_000)
 
     const merchant = await this.prisma.db.merchant.findUniqueOrThrow({ where: { id: merchantId } })

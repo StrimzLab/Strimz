@@ -49,7 +49,7 @@ export class RateLimitInterceptor implements NestInterceptor, OnModuleDestroy {
     ])
     if (!opts) return next.handle()
 
-    const req = context.switchToHttp().getRequest<FastifyRequest & { user?: unknown }>()
+    const req = context.switchToHttp().getRequest<FastifyRequest>()
     const routeKey = `${req.method}:${req.routeOptions?.url ?? req.url}`
     const bucketKey = `${routeKey}:${this.subjectKey(req, opts.keyBy ?? 'ip')}`
 
@@ -82,11 +82,10 @@ export class RateLimitInterceptor implements NestInterceptor, OnModuleDestroy {
     return next.handle()
   }
 
-  private subjectKey(req: FastifyRequest & { user?: unknown }, keyBy: 'ip' | 'actor'): string {
+  private subjectKey(req: FastifyRequest, keyBy: 'ip' | 'actor'): string {
     if (keyBy === 'actor') {
-      const user = req.user as { merchantId?: string; adminId?: string } | undefined
-      if (user?.merchantId) return `m:${user.merchantId}`
-      if (user?.adminId) return `a:${user.adminId}`
+      if (req.merchant?.merchantId) return `m:${req.merchant.merchantId}`
+      if (req.admin?.adminId) return `a:${req.admin.adminId}`
     }
     return `ip:${req.ip ?? 'unknown'}`
   }

@@ -63,6 +63,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   process.env.STRIMZ_SUBSCRIPTIONS_ADDRESS = '0x0000000000000000000000000000000000000a03'
   process.env.STRIMZ_TOKEN_WHITELIST_ADDRESS = '0x0000000000000000000000000000000000000a04'
   process.env.ARC_USDC_ADDRESS = '0x3600000000000000000000000000000000000000'
+  process.env.OPS_ALERT_EMAIL = 'ops@strimz.test'
 
   // eslint-disable-next-line no-console
   console.log(`[e2e] postgres ready at ${url}`)

@@ -73,6 +73,7 @@ model Merchant {
   storefront           Storefront?
   invoices             Invoice[]
   auditLogs            AuditLog[]
+  relayDailyUsage      RelayDailyUsage[]
 
   @@index([status])
   @@index([tier])
