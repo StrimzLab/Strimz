@@ -35,10 +35,10 @@ immutable contracts use it too, because their dependency pointers
 | `StrimzAgentEscrow`   | UUPS           | `strimz.storage.StrimzAgentEscrow`   |
 
 **Upgrade authorization.** Where it exists, `_authorizeUpgrade` is
-gated by `UPGRADER_ROLE`. In production the role is held by an
-OpenZeppelin `TimelockController` (48-hour delay on mainnet)
-controlled by a Safe multi-sig. On testnet a single deployer holds
-it for development velocity.
+gated by `UPGRADER_ROLE`. After deploy, `script/HandoffAdmin.s.sol`
+gives it to an OpenZeppelin `TimelockController` (48-hour delay on
+mainnet) whose only proposer is a Safe multisig. See
+[Admin roles](#admin-roles).
 
 **Validated upgrades.** Deploy scripts and the upgrade test go through `openzeppelin-foundry-upgrades`'s `Upgrades.deployUUPSProxy` and `Upgrades.upgradeProxy`. These shell out to the OpenZeppelin upgrades-core CLI (Node) to verify storage-layout compatibility before any deployment or upgrade transaction is broadcast. The validator refuses to ship a V2 whose storage layout would collide with V1.
 
@@ -47,7 +47,9 @@ FeeCollector, and TokenWhitelist references from their own
 namespaced storage rather than from immutables. The
 `setRegistry`, `setFeeCollector`, and `setTokenWhitelist` admin
 endpoints let those references rotate without touching the
-value-moving logic.
+value-moving logic. They need `DEFAULT_ADMIN_ROLE`, which the
+timelock holds after the handoff, and run only while the contract is
+paused.
 
 ## Layout
 
@@ -55,7 +57,7 @@ value-moving logic.
 src/
 ├── access/
 │   ├── StrimzAccessControl.sol    Role constants + OZ AccessControlUpgradeable base
-│   └── Pausable.sol               Global kill switch (ADMIN_ROLE)
+│   └── Pausable.sol               Kill switch (PAUSER_ROLE pauses, ADMIN_ROLE unpauses)
 ├── tokens/
 │   └── TokenWhitelist.sol         USDC / EURC allowlist
 ├── fees/
@@ -104,7 +106,7 @@ deployments/
 
 - **Enums begin with `None`.** `ChargeOutcome` and `JobStatus` reserve index 0 for `None`, so the default value of an uninitialised storage slot is never a valid state. Reading an unset slot as `Charged` or `Proposed` would be a silent value-leak vulnerability.
 - **Contract-level charge idempotency.** Every subscription charge carries a unique `chargeAttemptId` (bytes32). The contract rejects reuse. Double-charging is structurally impossible even if the off-chain scheduler crashes mid-batch.
-- **Owner-pausable kill switch.** Every value-moving function respects `Pausable`. `ADMIN_ROLE` can halt all transfers in a single call.
+- **Pausable kill switch.** Every value-moving function respects `Pausable`. `PAUSER_ROLE` (the Safe, the timelock and an optional guardian key) can halt all transfers in a single call. Only `ADMIN_ROLE` unpauses.
 - **Reentrancy guards** on every value-moving function (`pay`, `withdraw`, `batchCharge`, `fundJob`, `approveAndRelease`, `cancelJob`).
 - **Storage-safety validation** at deploy and upgrade time. `Upgrades.deployUUPSProxy` and `Upgrades.upgradeProxy` will fail loudly before any chain transaction if the new bytecode is incompatible.
 - **No `tx.origin`. No `delegatecall` outside OZ-vetted UUPS plumbing. No assembly outside the ERC-7201 storage-slot helper.**
@@ -119,6 +121,38 @@ deployments/
 6. Append a record to `deployments/<chainId>.json`.
 
 `script/DeployCore.s.sol` does steps 1 to 6 atomically. `script/DeployAgent.s.sol` does the same for the agent layer.
+
+The deployer holds every role until `script/HandoffAdmin.s.sol` runs. Run it once the
+deploy is verified and smoke-tested, before any merchant registers (step 8 below).
+
+## Admin roles
+
+No single key controls the contracts after the handoff.
+
+| Role                      | Contracts                                                | Holder                     |
+| ------------------------- | -------------------------------------------------------- | -------------------------- |
+| `DEFAULT_ADMIN_ROLE`      | all seven                                                | Timelock                   |
+| `UPGRADER_ROLE`           | Registry, Whitelist, FeeCollector, AgentRegistry, Escrow | Timelock                   |
+| `TOKEN_MANAGER_ROLE`      | TokenWhitelist                                           | Timelock                   |
+| `ADMIN_ROLE`              | Registry, Payments, Subscriptions, Escrow                | Safe and Timelock          |
+| `PAUSER_ROLE`             | Payments, Subscriptions, Escrow                          | Safe, Timelock, guardian   |
+| `TREASURY_ROLE`           | FeeCollector                                             | Safe                       |
+| `DISPUTE_RESOLVER_ROLE`   | Escrow                                                   | Safe                       |
+| `AGENT_ADMIN_ROLE`        | AgentRegistry                                            | Safe                       |
+| `MERCHANT_REGISTRAR_ROLE` | Registry                                                 | API relayer                |
+| `CHARGER_ROLE`            | Subscriptions                                            | Scheduler                  |
+| `FEE_ACCRUER_ROLE`        | FeeCollector                                             | Payments and Subscriptions |
+| any role                  | any                                                      | Deployer: none (renounced) |
+
+- **Slow, through the timelock:** upgrades, dependency rotation, the token whitelist and
+  granting any role. The Safe proposes; anyone can execute once the delay has passed.
+  A rotation is one batch `[pause, setX, unpause]`, so it lands atomically.
+- **Fast, through the Safe:** pause, unpause, `setFeeBps` (bounded by each merchant's
+  `maxFeeBps`), `setActive`, `adminCancel*`, fee withdrawals, dispute resolution, agent
+  reputation, and revoking or rotating the two service keys. `ADMIN_ROLE` is the role
+  admin of `MERCHANT_REGISTRAR_ROLE` and `CHARGER_ROLE`.
+- **Service keys:** the relayer and the scheduler hold one role each and must be
+  different keys. The scheduler does not start when its address equals `RELAYER_ADDRESS`.
 
 ## Live deployment (Arc Testnet)
 
@@ -431,7 +465,51 @@ any mismatch. Re-run it cheaply to spot-check after every contract
 upgrade or to catch a regression in the signing helpers before
 pointing real money at the system.
 
-### 8. Commit the audit trail
+### 8. Hand off admin roles
+
+Run step 7 first: the smoke test signs with the deployer key, which holds no role after
+the handoff.
+
+You need a Safe on the target network with a threshold of at least 2, the API relayer
+address, the scheduler address and, optionally, a guardian address you keep offline.
+All of them, and the deployer, must be different addresses.
+
+```sh
+cat >> .env <<EOF
+STRIMZ_AGENT_REGISTRY_ADDRESS=$(jq -r '[.[] | select(.label=="agent")] | last | .contracts[] | select(.name=="StrimzAgentRegistry") | .proxy' deployments/5042002.json)
+STRIMZ_AGENT_ESCROW_ADDRESS=$(jq -r '[.[] | select(.label=="agent")] | last | .contracts[] | select(.name=="StrimzAgentEscrow") | .proxy' deployments/5042002.json)
+STRIMZ_SAFE_ADDRESS=0x...
+STRIMZ_GUARDIAN_ADDRESS=0x...
+STRIMZ_RELAYER_ADDRESS=0x...
+STRIMZ_SCHEDULER_ADDRESS=0x...
+TIMELOCK_MIN_DELAY=300
+EOF
+set -a && source .env && set +a
+
+forge script script/HandoffAdmin.s.sol --rpc-url arc_testnet --broadcast -vvv
+```
+
+`TIMELOCK_MIN_DELAY` is in seconds and has no default: `300` on testnet, `172800`
+(48 hours) on mainnet. Leave `STRIMZ_GUARDIAN_ADDRESS` unset to run without a guardian.
+
+The script refuses to run when the Safe has no code or a threshold below 2, when two of
+the addresses are the same, when the delay is 0, when the deployer is not
+`DEFAULT_ADMIN_ROLE` on every contract, or when the Registry has not made `ADMIN_ROLE`
+the role admin of `MERCHANT_REGISTRAR_ROLE` (`initializeRoleAdmins()`, which
+`DeployCore` calls). It then deploys the `TimelockController`, grants the
+[role table](#admin-roles), renounces every deployer role, checks the result with
+`hasRole` and reverts on any difference. A `handoff` entry with the timelock address is
+appended to `deployments/<chainId>.json`.
+
+Before running `Verify.s.sol` again, set `STRIMZ_ADMIN_ADDRESS` to the timelock
+address. To confirm the deployer holds nothing, this must print `false`:
+
+```sh
+cast call "$STRIMZ_REGISTRY_ADDRESS" "hasRole(bytes32,address)(bool)" 0x00 \
+  "$(cast wallet address --private-key "$STRIMZ_DEPLOYER_PRIVATE_KEY")" --rpc-url "$ARC_TESTNET_RPC_URL"
+```
+
+### 9. Commit the audit trail
 
 The JSON deployment log is the canonical record of what's where:
 
@@ -442,9 +520,9 @@ git commit -m "chore(contracts): record Arc Testnet deployment"
 
 ## Operator runbook
 
-These steps use the cold admin key, `STRIMZ_DEPLOYER_PRIVATE_KEY`, which holds
-`ADMIN_ROLE` on `StrimzRegistry`. The API relayer key never holds that role. Load the
-env first and set `RPC` to the network you are changing (`$ARC_MAINNET_RPC_URL` for
+After the handoff, fast changes are Safe transactions that two signers approve, and slow
+changes are timelock operations the Safe proposes. The deployer key holds no role. Load
+the env first and set `RPC` to the network you are changing (`$ARC_MAINNET_RPC_URL` for
 mainnet):
 
 ```sh
@@ -453,11 +531,27 @@ set -a && source .env && set +a
 RPC=$ARC_TESTNET_RPC_URL
 ```
 
-### Grant operator roles
+### Rotate a service key
 
-`./script/grant-operator-roles.sh` grants `MERCHANT_REGISTRAR_ROLE` on the Registry to
-the API relayer and `CHARGER_ROLE` on Subscriptions to the scheduler signer. It checks
-`hasRole` before every grant, so a re-run is safe. Set `MAINNET=1` for mainnet.
+The handoff grants `MERCHANT_REGISTRAR_ROLE` on the Registry to the API relayer and
+`CHARGER_ROLE` on Subscriptions to the scheduler. To replace a leaked or retired key,
+send two Safe transactions, with no delay:
+
+- `revokeRole(bytes32,address)` with the role and the old address;
+- `grantRole(bytes32,address)` with the role and the new address.
+
+The role ids are `cast keccak "STRIMZ_MERCHANT_REGISTRAR_ROLE"` (target
+`$STRIMZ_REGISTRY_ADDRESS`) and `cast keccak "STRIMZ_CHARGER_ROLE"` (target
+`$STRIMZ_SUBSCRIPTIONS_ADDRESS`). Update the service's env with the new key, and keep
+the relayer and the scheduler on different keys.
+
+### Upgrade, rotate a dependency or change the token whitelist
+
+These need the timelock. The Safe calls `schedule` (or `scheduleBatch`) on the timelock
+with the target calls, a salt and a delay of at least `getMinDelay()`. The operation
+emits `CallScheduled`. Once the delay has passed, anyone calls `execute` (or
+`executeBatch`) with the same arguments. The Safe can `cancel` before then. A dependency
+rotation on Payments or Subscriptions is one batch: `pause()`, the setter, `unpause()`.
 
 ### Change a merchant's fee tier
 
@@ -481,13 +575,10 @@ to Free. Every merchant registers at 150 bps with a ceiling (`maxFeeBps`) of 150
    below `maxFeeBps`, or `setFeeBps` reverts with `Registry__FeeExceedsMax`. A merchant
    whose ceiling is below the tier's fee cannot take that tier (issue #146).
 
-3. Send the fee change. `cast send` waits for the receipt; check that it reports
-   `status 1 (success)` and record the transaction hash.
-
-   ```sh
-   cast send "$STRIMZ_REGISTRY_ADDRESS" "setFeeBps(uint256,uint16)" <onchain-id> <fee-bps> \
-     --private-key "$STRIMZ_DEPLOYER_PRIVATE_KEY" --rpc-url "$RPC"
-   ```
+3. Send the fee change as a Safe transaction: target `$STRIMZ_REGISTRY_ADDRESS`,
+   method `setFeeBps(uint256,uint16)`, arguments `<onchain-id>` and `<fee-bps>`. Two
+   signers approve it and one executes it. Record the transaction hash and check that
+   the receipt reports success.
 
 4. Read `getMerchant` again and confirm the new `feeBps`.
 5. Set the tier in the admin page (Admin, Merchants, the merchant, Tier). The audit entry
@@ -552,6 +643,11 @@ Copy `.env.example` to `.env`:
 | `ARC_USDC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                              |
 | `ARC_EURC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                              |
 | `STRIMZ_TOKEN_WHITELIST_ADDRESS` | Whitelist proxy address. Required by `DeployAgent`.                            |
+| `STRIMZ_SAFE_ADDRESS`            | Safe that receives the fast admin roles. Required by `HandoffAdmin`.           |
+| `STRIMZ_GUARDIAN_ADDRESS`        | Optional pause-only key. Read by `HandoffAdmin`.                               |
+| `STRIMZ_RELAYER_ADDRESS`         | API relayer. Receives `MERCHANT_REGISTRAR_ROLE` in `HandoffAdmin`.             |
+| `STRIMZ_SCHEDULER_ADDRESS`       | Scheduler signer. Receives `CHARGER_ROLE` in `HandoffAdmin`.                   |
+| `TIMELOCK_MIN_DELAY`             | Timelock delay in seconds. Required by `HandoffAdmin`.                         |
 
 ## Audit posture
 

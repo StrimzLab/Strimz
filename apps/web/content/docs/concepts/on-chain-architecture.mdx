@@ -36,6 +36,23 @@ hold policy: which merchants exist, what the fee schedule looks like,
 which tokens we accept. Policy changes often. Value-moving code
 should not.
 
+## Who controls the contracts
+
+No single key controls the suite. Admin powers are split three ways.
+
+| Path         | Held by                                                                                         | What it can do                                                                                                                                                                            |
+| ------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Slow         | An OpenZeppelin `TimelockController` (48-hour delay on mainnet). Only the Strimz Safe proposes. | Upgrade a contract, rotate a dependency pointer, change the token whitelist, grant any role.                                                                                              |
+| Fast         | The Strimz Safe multisig. Two of three signers approve every transaction.                       | Pause and unpause, set a merchant's fee within that merchant's own ceiling, switch a merchant off, withdraw fees, resolve escrow disputes, adjust agent reputation, revoke a service key. |
+| Service keys | The API relayer and the scheduler, each with its own key.                                       | The relayer registers merchants. The scheduler charges subscriptions that are due.                                                                                                        |
+
+A separate guardian key can pause the value-moving contracts and do
+nothing else. Every timelock operation emits `CallScheduled` when it is
+proposed, so anyone watching the timelock sees an upgrade or a pointer
+rotation before it can run. The key that deploys the contracts gives
+up every role in the same handoff that grants the table above. On Arc
+testnet the split takes effect with the next contract redeploy.
+
 ## The two payment paths
 
 Each value-moving contract exposes a classic entrypoint and a meta-tx
@@ -88,7 +105,7 @@ Foundry Upgrades plugin.
 `StrimzPayments` and `StrimzSubscriptions` use the same namespace
 pattern even though they aren't upgradeable. The reason is mundane:
 their dependency pointers (Registry address, FeeCollector address)
-can still be rotated by `ADMIN_ROLE` after deploy, so the storage
+can still be rotated through the timelock after deploy, so the storage
 discipline buys us a clean migration path on the fields that do
 change.
 
