@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useAccount, useChainId, useSignTypedData } from 'wagmi'
+import { getAccount } from '@wagmi/core'
+import { useAccount, useConfig, useSignTypedData, useSwitchChain } from 'wagmi'
 import { buildPermitTypedData, buildSubscriptionIntentTypedData } from '@strimz/sdk/eip712'
 import type { TokenMetadata } from '@strimz/shared-types'
 
@@ -11,6 +12,7 @@ import {
   submitCheckoutRelay,
   type RelaySubmissionView,
 } from '@/lib/checkout-submission'
+import { prepareArcSigning } from '@/lib/arc-network'
 import { env } from '@/lib/env'
 import { strimzBrowserClient } from '@/lib/strimz-browser'
 
@@ -103,7 +105,8 @@ export function useSubscriptionCheckout(
   const permitValidForSeconds = inputs.permitValidForSeconds ?? 24 * 60 * 60
 
   const { address } = useAccount()
-  const chainId = useChainId()
+  const config = useConfig()
+  const { switchChainAsync } = useSwitchChain()
   const { signTypedDataAsync } = useSignTypedData()
 
   const [state, setState] = useState<SubscriptionCheckoutState>({
@@ -142,6 +145,13 @@ export function useSubscriptionCheckout(
     setState({ phase: 'signing', error: null, txHash: null, submission: null })
 
     try {
+      const chainId = await prepareArcSigning(
+        {
+          chainId: () => Promise.resolve(getAccount(config).chainId),
+          switchChain: (id) => switchChainAsync({ chainId: id }),
+        },
+        env.arcEnvironment,
+      )
       const tokenAddress = tokenMeta.address as `0x${string}`
       const signedStartAt = resolveStartAt ? await resolveStartAt() : startAt
 
@@ -230,7 +240,8 @@ export function useSubscriptionCheckout(
     }
   }, [
     address,
-    chainId,
+    config,
+    switchChainAsync,
     sessionId,
     merchantId,
     tokenMeta,
