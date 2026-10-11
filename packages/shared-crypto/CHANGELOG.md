@@ -1,5 +1,12 @@
 # @strimz/shared-crypto
 
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [0efff34]
+  - @strimz/shared-config@0.2.0
+
 ## 0.2.0
 
 ### Minor Changes
