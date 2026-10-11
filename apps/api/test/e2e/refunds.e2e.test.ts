@@ -107,7 +107,7 @@ describe('refunds e2e', () => {
     expect(await t.prisma.db.refund.count({ where: { transactionId: tx.id } })).toBe(1)
   })
 
-  it('creates no refund row when the currency has no token address configured', async () => {
+  it('signs an EURC refund with the shared-config address when ARC_EURC_ADDRESS is unset', async () => {
     const m = await seedMerchant(t.prisma.db)
     const tx = await seedTransaction(t.prisma.db, m.id, { currency: 'EURC' })
     const k = await seedApiKey(t.prisma.db, m.id)
@@ -118,10 +118,11 @@ describe('refunds e2e', () => {
       headers: { authorization: `Bearer ${k.secretKey}` },
       payload: { transactionId: tx.id, amount: '10000000', reason: 'customer_request' },
     })
-    expect(res.statusCode).toBe(400)
-    expect(res.body).toContain('ARC_EURC_ADDRESS')
-    expect(await t.prisma.db.refund.count({ where: { transactionId: tx.id } })).toBe(0)
-    expect(await t.prisma.db.webhookEvent.count()).toBe(0)
+    expect(res.statusCode).toBe(201)
+    expect(JSON.parse(res.body).signingInstructions.token).toBe(
+      '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a',
+    )
+    expect(await t.prisma.db.refund.count({ where: { transactionId: tx.id } })).toBe(1)
   })
 
   it('records tx hash on signature submission', async () => {

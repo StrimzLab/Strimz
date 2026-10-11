@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger, type OnModuleInit } from '@nestjs/common'
 import { createPublicClient, http, type PublicClient } from 'viem'
-import { arcMainnet, arcTestnet } from '@strimz/shared-config'
+import { assertArcChainId, getArcChain } from '@strimz/shared-config'
 import { TypedConfigService } from '../../config/index.js'
 
 /**
@@ -9,17 +9,26 @@ import { TypedConfigService } from '../../config/index.js'
  * service wallet.
  */
 @Injectable()
-export class ChainService {
+export class ChainService implements OnModuleInit {
   public readonly client: PublicClient
   public readonly environment: 'testnet' | 'mainnet'
+  private readonly production: boolean
+  private readonly log = new Logger(ChainService.name)
 
   constructor(cfg: TypedConfigService) {
     this.environment = cfg.env.ARC_ENVIRONMENT
-    const chain = this.environment === 'mainnet' ? arcMainnet : arcTestnet
+    this.production = cfg.env.NODE_ENV === 'production'
     this.client = createPublicClient({
-      chain,
+      chain: getArcChain(this.environment),
       transport: http(cfg.env.ARC_RPC_URL),
     })
+  }
+
+  async onModuleInit(): Promise<void> {
+    if (!this.production) return
+    const rpcChainId = await this.client.getChainId()
+    assertArcChainId(this.environment, rpcChainId)
+    this.log.log(`ARC_RPC_URL serves chain id ${rpcChainId} (${this.environment})`)
   }
 
   getBlockNumber(): Promise<bigint> {
