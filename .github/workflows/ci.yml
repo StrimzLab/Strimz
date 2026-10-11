@@ -114,6 +114,19 @@ jobs:
         with:
           version: stable
 
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+
+      - name: Install contracts tooling
+        working-directory: .
+        run: pnpm install --frozen-lockfile --filter @strimz/contracts
+
       # `forge fmt --check` deliberately not run — see foundry.toml [fmt]
       # comment. The build + test pair is the load-bearing CI signal.
       - name: Build
