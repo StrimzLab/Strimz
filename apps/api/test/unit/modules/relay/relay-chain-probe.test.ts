@@ -9,11 +9,11 @@ import {
   RpcRequestError,
   type Hex,
 } from 'viem'
+import type { KmsSigner } from '@strimz/signer'
 
 import { RelayChainProbe } from '../../../../src/modules/relay/relay-chain-probe.js'
 import { relayRevertAbi } from '../../../../src/modules/relay/relay-revert.js'
 import type { ChainService } from '../../../../src/infra/chain/chain.service.js'
-import type { KmsSigner } from '../../../../src/infra/kms/kms.types.js'
 
 const RELAYER = '0x9999999999999999999999999999999999999999'
 const TARGET = '0x1111111111111111111111111111111111111111'

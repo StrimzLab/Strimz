@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common'
 import { UnrecoverableError } from 'bullmq'
 import {
+  isAddressEqual,
   keccak256,
   TransactionNotFoundError,
   TransactionReceiptNotFoundError,
@@ -8,12 +9,11 @@ import {
   type TransactionReceipt,
 } from 'viem'
 import { relayJobSchema, type RelayJob } from '@strimz/queue-contracts'
+import { toKmsAccount, type KmsSigner } from '@strimz/signer'
 
 import { TypedConfigService } from '../../config/index.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { KMS_SIGNER } from '../../infra/kms/kms.tokens.js'
-import type { KmsSigner } from '../../infra/kms/kms.types.js'
-import { toKmsAccount } from '../../infra/kms/kms-account.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import {
   decodeMerchantRegisteredId,
@@ -189,6 +189,15 @@ export class RelayJobRunner {
       const settled = await this.settledReceipt(data.broadcast.txHash)
       if (settled) return this.requireSuccess(settled)
 
+      const sender = data.broadcast.from
+      if (!sender || !isAddressEqual(sender, this.signer.address)) {
+        throw new RelayPermanentError(
+          `relay_signer_changed: tx ${data.broadcast.txHash} with nonce ${data.broadcast.nonce} ` +
+            `was recorded for ${sender ?? 'an unrecorded sender'}, not the current relayer ` +
+            `${this.signer.address}; review it before resubmitting`,
+        )
+      }
+
       const recordedNonce = BigInt(data.broadcast.nonce)
       const confirmed = BigInt(
         await this.chain.client.getTransactionCount({
@@ -225,7 +234,10 @@ export class RelayJobRunner {
     })
     const txHash = keccak256(serialized)
 
-    await job.updateData({ ...data, broadcast: { txHash, nonce: nonce.toString() } })
+    await job.updateData({
+      ...data,
+      broadcast: { txHash, nonce: nonce.toString(), from: this.signer.address },
+    })
     await onRecorded?.(txHash)
 
     await this.chain.client.sendRawTransaction({ serializedTransaction: serialized })

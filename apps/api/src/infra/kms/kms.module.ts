@@ -1,9 +1,8 @@
 import { Global, Logger, Module, type FactoryProvider } from '@nestjs/common'
+import { AwsKmsSigner, SoftwareSigner, type KmsSigner } from '@strimz/signer'
 
-import { TypedConfigService } from '../../config/index.js'
-import { SoftwareKmsProvider } from './software-kms.provider.js'
+import { TypedConfigService, type Env } from '../../config/index.js'
 import { KMS_SIGNER } from './kms.tokens.js'
-import type { KmsSigner } from './kms.types.js'
 
 /**
  * Provider factory for the KMS layer.
@@ -25,33 +24,56 @@ import type { KmsSigner } from './kms.types.js'
 const kmsSignerProvider: FactoryProvider<KmsSigner> = {
   provide: KMS_SIGNER,
   inject: [TypedConfigService],
-  useFactory: (cfg: TypedConfigService): KmsSigner => {
+  useFactory: async (cfg: TypedConfigService): Promise<KmsSigner> => {
     const log = new Logger('KmsModule')
     const provider = cfg.env.KMS_PROVIDER
 
+    if (provider === 'aws-kms') {
+      const keyId = requireSetting(cfg.env, 'KMS_AWS_KEY_ID')
+      const signer = await AwsKmsSigner.connect({
+        keyId,
+        expectedAddress: requireSetting(cfg.env, 'KMS_SIGNER_ADDRESS') as `0x${string}`,
+        region: requireSetting(cfg.env, 'AWS_REGION'),
+      })
+      log.log(`KMS: signing with AWS KMS key ${keyId} as ${signer.address}`)
+      return signer
+    }
+
     if (provider === 'software') {
-      const keyFromEnv = cfg.env.KMS_SOFTWARE_PRIVATE_KEY as `0x${string}` | undefined
-      if (cfg.env.NODE_ENV === 'production' && !keyFromEnv) {
-        throw new Error(
-          'KMS: refusing to auto-generate an ephemeral key in production. ' +
-            "Set KMS_SOFTWARE_PRIVATE_KEY explicitly via your hosting provider's " +
-            'encrypted secrets store, or configure a hardware-backed provider.',
-        )
-      }
       if (cfg.env.NODE_ENV === 'production') {
-        log.warn(
-          'KMS: running software signer in production. Key lives in process memory. ' +
-            'Graduate to a hardware-backed provider (GCP Cloud KMS, Vault Transit) ' +
-            'when funded or when monthly merchant volume exceeds ~$50k.',
+        throw new Error(
+          'KMS: KMS_PROVIDER=software keeps the relayer key in process memory and is refused ' +
+            'in production. Set KMS_PROVIDER=aws-kms (see docs/runbooks/kms-signers.md).',
         )
       }
-      return new SoftwareKmsProvider(keyFromEnv)
+      const signer = new SoftwareSigner(
+        cfg.env.KMS_SOFTWARE_PRIVATE_KEY as `0x${string}` | undefined,
+      )
+      if (signer.ephemeral) {
+        log.warn(
+          `software KMS: generated ephemeral key for ${signer.address}. ` +
+            `Fund this address from the Arc faucet, or set KMS_SOFTWARE_PRIVATE_KEY ` +
+            `to pin it across restarts.`,
+        )
+      } else {
+        log.log(`software KMS: using configured key for ${signer.address}`)
+      }
+      return signer
     }
 
     // Exhaustiveness check — Zod has already validated the enum, but a
     // future value added without a handler here must fail loudly.
     throw new Error(`unsupported KMS_PROVIDER: ${String(provider)}`)
   },
+}
+
+function requireSetting(
+  env: Env,
+  key: 'KMS_AWS_KEY_ID' | 'KMS_SIGNER_ADDRESS' | 'AWS_REGION',
+): string {
+  const value = env[key]
+  if (!value) throw new Error(`KMS: ${key} is required when KMS_PROVIDER=aws-kms`)
+  return value
 }
 
 @Global()

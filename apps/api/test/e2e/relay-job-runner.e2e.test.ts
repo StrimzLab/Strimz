@@ -17,7 +17,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant } from '../helpers/fixtures.js'
 import { must } from '../helpers/must.js'
-import { SoftwareKmsProvider } from '../../src/infra/kms/software-kms.provider.js'
+import { SoftwareSigner } from '@strimz/signer'
 import { registerMerchantAbi } from '../../src/modules/merchants/registry.abi.js'
 import { RelayBudgetService } from '../../src/modules/relay/relay-budget.service.js'
 import { RelayJobRunner, type RelayJobHandle } from '../../src/modules/relay/relay-job-runner.js'
@@ -157,6 +157,7 @@ describe('relay job runner', () => {
   let chain: FakeChain
   let nonces: FakeNonces
   let runner: RelayJobRunner
+  let signer: SoftwareSigner
 
   beforeAll(async () => {
     t = await createTestApp()
@@ -168,6 +169,7 @@ describe('relay job runner', () => {
     await truncateAll(t.prisma.db)
     chain = new FakeChain()
     nonces = new FakeNonces()
+    signer = new SoftwareSigner()
     runner = new RelayJobRunner(
       chain as unknown as ChainService,
       nonces as unknown as NonceManager,
@@ -175,7 +177,7 @@ describe('relay job runner', () => {
         compute: () => Promise.resolve({ maxFeePerGas: 30n, maxPriorityFeePerGas: 1n }),
       } as unknown as GasPricingService,
       t.prisma,
-      new SoftwareKmsProvider(),
+      signer,
       { env: { STRIMZ_REGISTRY_ADDRESS: REGISTRY } } as unknown as TypedConfigService,
       t.app.get(RelayBudgetService),
     )
@@ -200,7 +202,11 @@ describe('relay job runner', () => {
 
     expect(chain.sent).toHaveLength(1)
     expect(result).toMatchObject({ txHash: must(chain.sent[0]).hash })
-    expect(job.data.broadcast).toEqual({ txHash: must(chain.sent[0]).hash, nonce: '0' })
+    expect(job.data.broadcast).toEqual({
+      txHash: must(chain.sent[0]).hash,
+      nonce: '0',
+      from: signer.address,
+    })
     const row = await t.prisma.db.merchant.findUniqueOrThrow({ where: { id: m.id } })
     expect(row.onchainMerchantId).toBe(41)
     expect(row.onchainRegistrationTxHash).toBe(must(chain.sent[0]).hash)
