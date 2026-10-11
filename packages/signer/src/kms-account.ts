@@ -4,6 +4,7 @@ import {
   keccak256,
   serializeTransaction,
   type Hex,
+  type LocalAccount,
   type SerializeTransactionFn,
   type Signature,
   type SignableMessage,
@@ -13,7 +14,7 @@ import {
 } from 'viem'
 import { toAccount } from 'viem/accounts'
 
-import type { KmsSigner } from './kms.types.js'
+import type { KmsSigner } from './kms-signer.js'
 
 /**
  * Wrap a `KmsSigner` in a viem account.
@@ -30,7 +31,7 @@ import type { KmsSigner } from './kms.types.js'
  * cannot tell whether the key lives in process memory, a cloud KMS, or
  * anywhere else.
  */
-export function toKmsAccount(signer: KmsSigner) {
+export function toKmsAccount(signer: KmsSigner): LocalAccount {
   return toAccount({
     address: signer.address,
 

@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+const unsetWhenEmpty = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema.optional())
+
 /**
  * Strict Zod schema for the API's runtime environment.
  * Loaded once at boot, validated, and exposed via TypedConfigService.
@@ -98,16 +101,20 @@ export const envSchema = z.object({
   // provider's encrypted secrets vault). Future hardware-backed
   // providers (GCP Cloud KMS, Vault Transit) drop in against the same
   // env enum without touching call sites.
-  KMS_PROVIDER: z.enum(['software']).default('software'),
+  KMS_PROVIDER: z.enum(['software', 'aws-kms']).default('software'),
   // 0x-prefixed 32-byte hex private key for the software signer. In dev
   // and CI this can be omitted — a fresh ephemeral key is generated at
   // boot and the derived address is logged. In production this MUST be
   // set explicitly; the module factory refuses to auto-generate keys
   // when NODE_ENV=production.
-  KMS_SOFTWARE_PRIVATE_KEY: z
-    .string()
-    .regex(/^0x[0-9a-fA-F]{64}$/u, 'must be a 0x-prefixed 32-byte hex string')
-    .optional(),
+  KMS_SOFTWARE_PRIVATE_KEY: unsetWhenEmpty(
+    z.string().regex(/^0x[0-9a-fA-F]{64}$/u, 'must be a 0x-prefixed 32-byte hex string'),
+  ),
+  KMS_AWS_KEY_ID: unsetWhenEmpty(z.string()),
+  KMS_SIGNER_ADDRESS: unsetWhenEmpty(
+    z.string().regex(/^0x[0-9a-fA-F]{40}$/u, 'must be a 0x-prefixed 20-byte hex address'),
+  ),
+  AWS_REGION: unsetWhenEmpty(z.string()),
 
   // ----- Hosted checkout origin (for embed postMessage allow-list) -----
   CHECKOUT_ORIGIN: z.string().url().default('http://localhost:3000'),
@@ -121,8 +128,28 @@ export const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>
 
+const signerSchema = envSchema.superRefine((env, ctx) => {
+  if (env.KMS_PROVIDER !== 'aws-kms') return
+  for (const key of ['KMS_AWS_KEY_ID', 'KMS_SIGNER_ADDRESS', 'AWS_REGION'] as const) {
+    if (!env[key]) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: 'required when KMS_PROVIDER=aws-kms',
+      })
+    }
+  }
+  if (env.KMS_SOFTWARE_PRIVATE_KEY) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['KMS_SOFTWARE_PRIVATE_KEY'],
+      message: 'must be unset when KMS_PROVIDER=aws-kms; remove the plaintext key',
+    })
+  }
+})
+
 export function validateEnv(raw: Record<string, unknown>): Env {
-  const parsed = envSchema.safeParse(raw)
+  const parsed = signerSchema.safeParse(raw)
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((i) => `  • ${i.path.join('.')}: ${i.message}`)

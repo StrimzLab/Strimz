@@ -35,6 +35,7 @@
     "@strimz/db": "workspace:*",
     "@strimz/email-templates": "workspace:*",
     "@strimz/queue-contracts": "workspace:*",
+    "@strimz/signer": "workspace:*",
     "@strimz/sdk": "workspace:*",
     "@strimz/shared-config": "workspace:*",
     "@strimz/shared-crypto": "workspace:*",

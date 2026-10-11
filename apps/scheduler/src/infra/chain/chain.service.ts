@@ -1,17 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Inject, Injectable, Logger } from '@nestjs/common'
 import {
   createPublicClient,
   createWalletClient,
   http,
   type Address,
   type Hash,
+  type LocalAccount,
   type PublicClient,
   type WalletClient,
 } from 'viem'
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts'
 import { arcMainnet, arcTestnet, getCctpContracts } from '@strimz/shared-config'
+import { toKmsAccount, type KmsSigner } from '@strimz/signer'
 import { TypedConfigService } from '../../config/index.js'
 import { StrimzSubscriptionsAbi, StrimzAgentEscrowAbi, MessageTransmitterAbi } from './abis.js'
+import { SCHEDULER_SIGNER } from './scheduler-signer.js'
 
 /**
  * Chain access for the scheduler.
@@ -39,26 +41,25 @@ export class ChainService {
   // local signing + eth_sendRawTransaction only when it sees a
   // LocalAccount object. A bare address string sends viem down the
   // wallet_sendTransaction path, which RPC nodes don't implement.
-  public readonly account: PrivateKeyAccount
+  public readonly account: LocalAccount
   public readonly subscriptionsAddress: Address
   public readonly agentEscrowAddress: Address
   public readonly messageTransmitterAddress: Address
   private readonly log = new Logger(ChainService.name)
 
-  constructor(cfg: TypedConfigService) {
+  constructor(cfg: TypedConfigService, @Inject(SCHEDULER_SIGNER) signer: KmsSigner) {
     const chain = cfg.env.ARC_ENVIRONMENT === 'mainnet' ? arcMainnet : arcTestnet
     const transport = http(cfg.env.ARC_RPC_URL)
 
     this.publicClient = createPublicClient({ chain, transport }) as PublicClient
-    const account = privateKeyToAccount(cfg.env.SCHEDULER_PRIVATE_KEY as `0x${string}`)
-    this.account = account
-    this.walletClient = createWalletClient({ account, chain, transport })
+    this.account = toKmsAccount(signer)
+    this.walletClient = createWalletClient({ account: this.account, chain, transport })
 
     this.subscriptionsAddress = cfg.env.SUBSCRIPTIONS_ADDRESS as Address
     this.agentEscrowAddress = cfg.env.AGENT_ESCROW_ADDRESS as Address
     this.messageTransmitterAddress = getCctpContracts(cfg.env.ARC_ENVIRONMENT)
       .messageTransmitterV2 as Address
-    this.log.log(`scheduler signing as ${account.address}`)
+    this.log.log(`scheduler signing as ${this.account.address}`)
   }
 
   // ----- Subscription writes -----

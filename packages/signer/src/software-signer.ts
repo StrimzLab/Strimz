@@ -1,8 +1,7 @@
-import { Logger } from '@nestjs/common'
 import { signatureToHex, type Hex } from 'viem'
 import { generatePrivateKey, privateKeyToAddress, sign } from 'viem/accounts'
 
-import type { KmsSigner } from './kms.types.js'
+import type { KmsSigner } from './kms-signer.js'
 
 /**
  * Software signer — secp256k1 private key held in process memory,
@@ -25,25 +24,17 @@ import type { KmsSigner } from './kms.types.js'
  * deliberately narrow so a replacement provider is one class file and
  * an env-var change — no call sites move.
  */
-export class SoftwareKmsProvider implements KmsSigner {
+export class SoftwareSigner implements KmsSigner {
   public readonly address: `0x${string}`
 
-  private readonly log = new Logger(SoftwareKmsProvider.name)
+  public readonly ephemeral: boolean
+
   private readonly privateKey: `0x${string}`
 
   constructor(privateKeyHex?: `0x${string}`) {
     this.privateKey = privateKeyHex ?? generatePrivateKey()
     this.address = privateKeyToAddress(this.privateKey)
-
-    if (!privateKeyHex) {
-      this.log.warn(
-        `software KMS: generated ephemeral key for ${this.address}. ` +
-          `Fund this address from the Arc faucet, or set KMS_SOFTWARE_PRIVATE_KEY ` +
-          `to pin it across restarts.`,
-      )
-    } else {
-      this.log.log(`software KMS: using configured key for ${this.address}`)
-    }
+    this.ephemeral = !privateKeyHex
   }
 
   async signDigest(digest: Hex): Promise<Hex> {

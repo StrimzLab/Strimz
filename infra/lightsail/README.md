@@ -69,8 +69,10 @@ The first build takes ~5 minutes (Node install + Prisma generate + Go build). Su
 - `TURNSTILE_SECRET_KEY` — from Cloudflare (contact form bot check; signup runs Privy's own CAPTCHA). The API does not start with `NODE_ENV=production` without it.
 - `STRIMZ_WEBHOOK_SIGNING_SECRET` + `WEBHOOK_SECRET_ENCRYPTION_KEY` — any 32-byte hex; both services need the **same** values
 - `RESEND_API_KEY`, `RESEND_FROM_EMAIL` — from resend.com
-- `KMS_SOFTWARE_PRIVATE_KEY` — the private key of your relayer EOA (fund from Circle's Arc testnet faucet)
-- `SCHEDULER_PRIVATE_KEY` — the scheduler's own key, never the relayer's. The scheduler does not start when this key's address equals `RELAYER_ADDRESS`. Fund it from the faucet too; it needs `CHARGER_ROLE` on Subscriptions (see `packages/contracts/README.md`, Admin roles)
+- Signing keys — the relayer and the scheduler sign with AWS KMS keys; neither service starts with a plaintext key under `NODE_ENV=production`. Create the keys and the IAM user with [docs/runbooks/kms-signers.md](../../docs/runbooks/kms-signers.md), then set:
+  - `KMS_PROVIDER=aws-kms`, `KMS_AWS_KEY_ID`, `KMS_SIGNER_ADDRESS` — the relayer key. Its address needs `MERCHANT_REGISTRAR_ROLE` on the Registry and USDC for gas.
+  - `SCHEDULER_SIGNER_PROVIDER=aws-kms`, `SCHEDULER_KMS_KEY_ID`, `SCHEDULER_SIGNER_ADDRESS` — the scheduler's own key, never the relayer's. The scheduler does not start when its address equals `RELAYER_ADDRESS`. It needs `CHARGER_ROLE` on Subscriptions (see `packages/contracts/README.md`, Admin roles) and USDC for gas.
+  - `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` — the IAM user's access key. It signs only from the Lightsail static IP.
 
 Placeholders you'll want to point at your real hostname:
 

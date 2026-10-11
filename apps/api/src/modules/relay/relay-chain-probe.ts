@@ -1,9 +1,9 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common'
 import { erc20Abi, TransactionReceiptNotFoundError, type Hex } from 'viem'
+import type { KmsSigner } from '@strimz/signer'
 
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { KMS_SIGNER } from '../../infra/kms/kms.tokens.js'
-import type { KmsSigner } from '../../infra/kms/kms.types.js'
 import { revertReasonOf } from './relay-revert.js'
 
 export type RelayReceiptStatus = 'success' | 'reverted'
