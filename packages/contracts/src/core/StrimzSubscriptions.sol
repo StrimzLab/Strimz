@@ -91,7 +91,9 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         __Pausable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
+        _grantRole(PAUSER_ROLE, admin);
         _grantRole(CHARGER_ROLE, admin);
+        _setRoleAdmin(CHARGER_ROLE, ADMIN_ROLE);
 
         Storage storage $ = _s();
         $.registry = registry_;
@@ -109,19 +111,19 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
     /// @dev Rotation only while paused — a compromised admin cannot
     ///      hot-swap dependencies against a live subscription flow.
 
-    function setRegistry(IStrimzRegistry v) external onlyRole(ADMIN_ROLE) whenPaused {
+    function setRegistry(IStrimzRegistry v) external onlyRole(DEFAULT_ADMIN_ROLE) whenPaused {
         if (address(v) == address(0)) revert Subscriptions__ZeroAddress();
         _s().registry = v;
         emit DependencyUpdated("registry", address(v));
     }
 
-    function setFeeCollector(IFeeCollector v) external onlyRole(ADMIN_ROLE) whenPaused {
+    function setFeeCollector(IFeeCollector v) external onlyRole(DEFAULT_ADMIN_ROLE) whenPaused {
         if (address(v) == address(0)) revert Subscriptions__ZeroAddress();
         _s().feeCollector = v;
         emit DependencyUpdated("feeCollector", address(v));
     }
 
-    function setTokenWhitelist(ITokenWhitelist v) external onlyRole(ADMIN_ROLE) whenPaused {
+    function setTokenWhitelist(ITokenWhitelist v) external onlyRole(DEFAULT_ADMIN_ROLE) whenPaused {
         if (address(v) == address(0)) revert Subscriptions__ZeroAddress();
         _s().tokenWhitelist = v;
         emit DependencyUpdated("tokenWhitelist", address(v));
