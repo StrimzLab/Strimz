@@ -10,13 +10,15 @@ import {
 import { Reflector } from '@nestjs/core'
 import type { FastifyRequest } from 'fastify'
 import { hashApiKey } from '@strimz/shared-crypto'
-import { modeFromKey } from '@strimz/shared-config'
+import { arcModeFor, modeFromKey } from '@strimz/shared-config'
 
+import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { PrivyService } from '../../infra/privy/privy.service.js'
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js'
 import { assertApiKeyRouteAccess } from './api-key-route-access.js'
 import { assertSecretKeyKind } from './api-key-kind.js'
+import { assertDeploymentMode } from './deployment-mode.js'
 
 /**
  * Unified merchant auth guard.
@@ -52,6 +54,7 @@ export class MerchantAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly prisma: PrismaService,
     @Inject(PrivyService) private readonly privy: PrivyService,
+    private readonly chain: ChainService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -96,6 +99,7 @@ export class MerchantAuthGuard implements CanActivate {
         message: 'invalid api key prefix',
       })
     }
+    assertDeploymentMode(this.chain.environment, mode)
 
     const hash = await hashApiKey(token)
     const apiKey = await this.prisma.db.merchantApiKey.findUnique({
@@ -155,8 +159,7 @@ export class MerchantAuthGuard implements CanActivate {
     // Dashboard traffic ships an `x-strimz-mode` header carrying the
     // merchant's current toggle selection. Missing / malformed values
     // fall back to test — the safer default that runs on Arc testnet.
-    const headerMode = String(req.headers['x-strimz-mode'] ?? '').toLowerCase()
-    const mode: 'test' | 'live' = headerMode === 'live' ? 'live' : 'test'
+    const mode = arcModeFor(this.chain.environment)
 
     req.merchant = {
       merchantId: merchant.id,

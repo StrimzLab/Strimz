@@ -263,6 +263,7 @@ describe('api key scope enforcement e2e', () => {
     })
 
     it('still mints a test key for a merchant that is not eligible', async () => {
+      t.chain.environment = 'testnet'
       const m = await seedMerchant(t.prisma.db, {
         onboardingCompleted: false,
         twoFactorEnabled: false,

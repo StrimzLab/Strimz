@@ -9,10 +9,12 @@ import { Reflector } from '@nestjs/core'
 import type { FastifyRequest } from 'fastify'
 import { hashApiKey } from '@strimz/shared-crypto'
 import { modeFromKey } from '@strimz/shared-config'
+import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js'
 import { assertApiKeyRouteAccess } from './api-key-route-access.js'
 import { assertSecretKeyKind } from './api-key-kind.js'
+import { assertDeploymentMode } from './deployment-mode.js'
 
 /**
  * Authenticates SDK callers via secret API key.
@@ -27,6 +29,7 @@ export class ApiKeyGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly prisma: PrismaService,
+    private readonly chain: ChainService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -54,6 +57,7 @@ export class ApiKeyGuard implements CanActivate {
         message: 'invalid api key prefix',
       })
     }
+    assertDeploymentMode(this.chain.environment, mode)
 
     const hash = await hashApiKey(token)
     const apiKey = await this.prisma.db.merchantApiKey.findUnique({

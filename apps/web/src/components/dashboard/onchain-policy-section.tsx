@@ -9,6 +9,9 @@ import { encodeFunctionData, isAddress } from 'viem'
 import { arcEnvironmentForChainId, arcExplorerTxUrl } from '@strimz/shared-config'
 import { Button, Card, CardContent, FieldLabel, Input, Label } from '@strimz/ui'
 
+import { prepareArcSigning } from '@/lib/arc-network'
+import { env } from '@/lib/env'
+import { privySwitchableWallet } from '@/lib/privy-arc'
 import { registryWriteAbi } from '@/lib/registry-write-abi'
 import { useMerchantOnchainState } from '@/hooks/api/use-merchant'
 import { merchantKeys } from '@/hooks/api/query-keys'
@@ -377,6 +380,7 @@ function useRegistryTx(state: OnchainState) {
     }
     setBusy(true)
     try {
+      await prepareArcSigning(privySwitchableWallet(embedded), env.arcEnvironment)
       const data = encodeFunctionData({
         abi: registryWriteAbi,
         functionName: fn,

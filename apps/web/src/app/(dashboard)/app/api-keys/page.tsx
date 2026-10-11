@@ -29,10 +29,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '@strimz/ui'
 import {
   apiKeyScopeSchema,
@@ -282,25 +278,18 @@ export default function ApiKeysPage() {
 }
 
 function NewKeyDialog() {
-  const activeMode = useDashboardMode()
-  const seedMode: 'test' | 'live' = activeMode === 'live' ? 'test' : activeMode
+  const mode = useDashboardMode()
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState('')
   const [kind, setKind] = React.useState<ApiKeyKind>('secret')
-  const [mode, setMode] = React.useState<'test' | 'live'>(seedMode)
   const [scopes, setScopes] = React.useState<ApiKeyScope[]>([...ALL_SCOPES])
   const [secret, setSecret] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    if (!open) setMode(seedMode)
-  }, [seedMode, open])
 
   const createMutation = useCreateApiKey()
 
   const reset = () => {
     setName('')
     setKind('secret')
-    setMode(seedMode)
     setScopes([...ALL_SCOPES])
     setSecret(null)
   }
@@ -383,28 +372,14 @@ function NewKeyDialog() {
                 <FieldLabel htmlFor="key-mode" required>
                   Mode
                 </FieldLabel>
-                <TooltipProvider delayDuration={100}>
-                  <Select value={mode} onValueChange={(v) => setMode(v as 'test' | 'live')}>
-                    <SelectTrigger id="key-mode">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="test">Test</SelectItem>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex w-full">
-                            <SelectItem value="live" disabled>
-                              Live
-                            </SelectItem>
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="max-w-[220px] text-xs">
-                          Mainnet coming soon. Live mode unlocks when Arc Mainnet launches.
-                        </TooltipContent>
-                      </Tooltip>
-                    </SelectContent>
-                  </Select>
-                </TooltipProvider>
+                <Select value={mode} disabled>
+                  <SelectTrigger id="key-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={mode}>{mode === 'live' ? 'Live' : 'Test'}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid gap-1.5">
                 <FieldLabel htmlFor="key-preset" required>

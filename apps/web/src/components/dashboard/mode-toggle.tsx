@@ -1,10 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Info } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@strimz/ui'
+import { cn } from '@strimz/ui'
 
-import { getDashboardMode, setDashboardMode, type DashboardMode } from '@/lib/dashboard-mode'
+import { useDashboardMode } from '@/lib/dashboard-mode'
 
 /**
  * Stripe-style Test / Live toggle. Persists to localStorage so the
@@ -16,58 +14,16 @@ import { getDashboardMode, setDashboardMode, type DashboardMode } from '@/lib/da
  * When mainnet ships, drop the `disabled` flag on the Live button.
  */
 export function ModeToggle() {
-  const [mode, setMode] = useState<DashboardMode>('test')
-
-  useEffect(() => {
-    setMode(getDashboardMode())
-  }, [])
-
-  const switchTo = (next: DashboardMode) => {
-    if (next === mode) return
-    setDashboardMode(next)
-    window.location.reload()
-  }
-
+  const mode = useDashboardMode()
   return (
-    <TooltipProvider delayDuration={100}>
-      <div
-        className="hover:shadow-sub-icon border-border/60 bg-card inline-flex h-9 items-center rounded-md border p-0.5 text-xs font-medium"
-        role="group"
-        aria-label="Dashboard mode"
-      >
-        <button
-          type="button"
-          onClick={() => switchTo('test')}
-          className={cn(
-            'h-full rounded-[5px] px-2 transition-colors sm:px-2.5',
-            mode === 'test'
-              ? 'bg-accent/12 text-accent'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          Test
-        </button>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              disabled
-              aria-disabled="true"
-              className={cn(
-                'text-muted-foreground inline-flex h-full items-center gap-1 rounded-[5px] px-2 sm:px-2.5',
-                'cursor-not-allowed opacity-70',
-              )}
-            >
-              Live
-              <Info className="hidden size-3 sm:block" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="max-w-[220px] text-xs">
-            Mainnet coming soon. Live mode unlocks when Arc Mainnet launches.
-          </TooltipContent>
-        </Tooltip>
-      </div>
-    </TooltipProvider>
+    <span
+      className={cn(
+        'border-border/60 bg-card inline-flex h-9 items-center rounded-md border px-2.5 text-xs font-medium',
+        mode === 'live' ? 'text-foreground' : 'text-accent',
+      )}
+      aria-label={`Dashboard mode: ${mode === 'live' ? 'Live' : 'Test'}`}
+    >
+      {mode === 'live' ? 'Live' : 'Test'}
+    </span>
   )
 }

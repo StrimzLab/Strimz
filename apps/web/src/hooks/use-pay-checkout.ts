@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useAccount, useChainId, useSignTypedData } from 'wagmi'
+import { getAccount } from '@wagmi/core'
+import { useAccount, useConfig, useSignTypedData, useSwitchChain } from 'wagmi'
 import { buildPayIntentTypedData, buildReceiveWithAuthorizationTypedData } from '@strimz/sdk/eip712'
 import type { TokenMetadata } from '@strimz/shared-types'
 import { checkoutPaymentNonce } from '@strimz/shared-crypto/checkout'
@@ -13,6 +14,7 @@ import {
   submitCheckoutRelay,
   type RelaySubmissionView,
 } from '@/lib/checkout-submission'
+import { prepareArcSigning } from '@/lib/arc-network'
 import { env } from '@/lib/env'
 
 /**
@@ -81,7 +83,8 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
   const validForSeconds = inputs.validForSeconds ?? 5 * 60
 
   const { address } = useAccount()
-  const chainId = useChainId()
+  const config = useConfig()
+  const { switchChainAsync } = useSwitchChain()
   const { signTypedDataAsync } = useSignTypedData()
 
   const [state, setState] = useState<PayCheckoutState>({
@@ -122,6 +125,13 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
     setState({ phase: 'signing', error: null, txHash: null, submission: null })
 
     try {
+      const chainId = await prepareArcSigning(
+        {
+          chainId: () => Promise.resolve(getAccount(config).chainId),
+          switchChain: (id) => switchChainAsync({ chainId: id }),
+        },
+        env.arcEnvironment,
+      )
       const now = Math.floor(Date.now() / 1000)
       const validAfter = BigInt(Math.max(0, now - 60)) // 60s clock-skew tolerance
       const validBefore = BigInt(now + validForSeconds)
@@ -211,7 +221,8 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
     }
   }, [
     address,
-    chainId,
+    config,
+    switchChainAsync,
     sessionId,
     merchantId,
     tokenMeta,

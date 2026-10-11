@@ -30,8 +30,10 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { useMerchantBalance } from '@/hooks/api/use-merchant'
 import { useWithdrawGasQuote } from '@/hooks/use-withdraw-gas-quote'
+import { prepareArcSigning } from '@/lib/arc-network'
 import { env } from '@/lib/env'
 import { formatTokenAmount } from '@/lib/format'
+import { privySwitchableWallet } from '@/lib/privy-arc'
 import { checkWithdrawAmount, maxWithdrawable, type WithdrawCheck } from '@/lib/withdraw-gas'
 
 /**
@@ -148,7 +150,7 @@ export default function WithdrawPage() {
     try {
       // Make sure the wallet is on the right chain before signing.
       // Privy handles the switch prompt if needed.
-      await embeddedWallet.switchChain(chain.id)
+      await prepareArcSigning(privySwitchableWallet(embeddedWallet), env.arcEnvironment)
 
       const fresh = await gasQuery.refetch()
       if (!fresh.data) {
