@@ -28,6 +28,7 @@ key support uses to find your request in the logs.
 | `permission_denied`     | 403  | Token is valid but lacks the required scope, or the route accepts only a dashboard session         |
 | `live_mode_ineligible`  | 403  | A live key was requested but the account fails a live-mode check; `details.reasons` lists which    |
 | `live_mode_unavailable` | 403  | A live key was requested while live mode is closed, before Strimz runs on Arc mainnet              |
+| `mode_unavailable`      | 403  | The key's mode is not this deployment's: test keys on the live API, or live keys on the sandbox    |
 | `merchant_not_synced`   | 401  | Privy session is valid but no Merchant row. Call `POST /v1/auth/sync` first.                       |
 | `secret_key_in_browser` | none | Thrown by `@strimz/sdk` when `StrimzClient` is constructed in a browser. No request is sent.       |
 | `not_found`             | 404  | Resource doesn't exist or isn't visible to your token                                              |
@@ -133,6 +134,19 @@ Returned when creating or rotating a live key. Each reason's `code` is one of `e
 
 Live keys cannot be created or rotated until Strimz runs on Arc mainnet. Use test-mode keys until then.
 
+### `mode_unavailable`
+
+```json
+{
+  "error": {
+    "code": "mode_unavailable",
+    "message": "test keys are not accepted here; this Strimz deployment runs on Arc mainnet in live mode"
+  }
+}
+```
+
+Each deployment runs in one mode: the sandbox on Arc testnet in test mode, the live API on Arc mainnet in live mode. Send test keys to the sandbox and live keys to the live API.
+
 ### `invalid_request`
 
 ```json
@@ -186,6 +200,7 @@ Wait 30 seconds, then retry. The `@strimz/sdk` does this automatically.
 - **`permission_denied`.** No. Your scope needs to change, or the route needs a dashboard session.
 - **`live_mode_ineligible`.** No. Complete the steps in `details.reasons` first.
 - **`live_mode_unavailable`.** No. Live mode is not open yet.
+- **`mode_unavailable`.** No. Send the key to the deployment that matches its mode.
 - **`invalid_request`.** No. Your payload needs to change.
 - **`session_invalid_state`.** No. The resource's state needs to change first.
 

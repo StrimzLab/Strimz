@@ -152,7 +152,11 @@ right step. There is no manual review queue on the basic plan.
 
 The API checks the same list when a live key is created or rotated. If a check fails, it returns `403` with code `live_mode_ineligible` and the same `reasons` in `error.details.reasons`, and no key is written. Existing live keys keep working if a check later fails; the list is checked again on the next create or rotate.
 
-Until Strimz runs on Arc mainnet, live mode is closed: creating or rotating a live key returns `403` with code `live_mode_unavailable`, whatever your eligibility.
+Each Strimz deployment runs in one mode. The sandbox runs on Arc testnet and accepts test keys only. The live deployment runs on Arc mainnet and accepts live keys only.
+
+- On the sandbox, creating or rotating a live key returns `403` with code `live_mode_unavailable`, whatever your eligibility.
+- On the live deployment, creating or rotating a test key returns `403` with code `mode_unavailable`.
+- On either deployment, a request made with a key of the other mode returns `403` with code `mode_unavailable`. Use the sandbox's keys against the sandbox and live keys against the live API.
 
 ## Rotating a key
 
