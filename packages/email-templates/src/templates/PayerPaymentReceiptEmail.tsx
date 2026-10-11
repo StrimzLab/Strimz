@@ -80,7 +80,7 @@ PayerPaymentReceiptEmail.PreviewProps = {
   paidAtDisplay: 'July 9, 2026 at 8:04 AM UTC',
   network: 'Arc Testnet',
   explorerTxUrl:
-    'https://testnet.arcscan.app/tx/0x4d328b9b2590614e51c9401a06b3b643e401965972a2494ce593edf71b251907',
+    'https://explorer.testnet.arc.io/tx/0x4d328b9b2590614e51c9401a06b3b643e401965972a2494ce593edf71b251907',
 } as PayerPaymentReceiptEmailProps
 
 export default PayerPaymentReceiptEmail

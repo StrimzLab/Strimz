@@ -42,7 +42,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { print } from './print.mjs'
 
 const API_BASE = process.env.API_BASE_URL ?? 'http://localhost:4000'
-const RPC_URL = process.env.ARC_RPC_URL ?? 'https://rpc.testnet.arc.network'
+const RPC_URL = process.env.ARC_RPC_URL ?? 'https://rpc.testnet.arc.io'
 const USDC = (process.env.ARC_USDC_ADDRESS ?? '0x3600000000000000000000000000000000000000').toLowerCase()
 const PAYMENTS = (process.env.STRIMZ_PAYMENTS_ADDRESS ?? '').toLowerCase()
 const LIVE_KEY = process.env.STRIMZ_LIVE_API_KEY ?? process.argv[2]

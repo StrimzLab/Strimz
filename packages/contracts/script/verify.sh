@@ -32,11 +32,11 @@ set -euo pipefail
 if [ "${MAINNET:-0}" = "1" ]; then
     RPC=${ARC_MAINNET_RPC_URL:?ARC_MAINNET_RPC_URL not set}
     VERIFIER=${ARC_MAINNET_VERIFIER_URL:?ARC_MAINNET_VERIFIER_URL not set}
-    EXPLORER=https://arcscan.app
+    EXPLORER=https://explorer.arc.io
 else
     RPC=${ARC_TESTNET_RPC_URL:?ARC_TESTNET_RPC_URL not set}
     VERIFIER=${ARC_TESTNET_VERIFIER_URL:?ARC_TESTNET_VERIFIER_URL not set}
-    EXPLORER=https://testnet.arcscan.app
+    EXPLORER=https://explorer.testnet.arc.io
 fi
 API_KEY=${BLOCKSCOUT_API_KEY:?BLOCKSCOUT_API_KEY not set in .env}
 
