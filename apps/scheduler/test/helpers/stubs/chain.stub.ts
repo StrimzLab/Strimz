@@ -26,6 +26,10 @@ export class StubChainService implements Methods<ChainService> {
   public chargeDueDefault = true
   public failNext = false
 
+  onModuleInit(): Promise<void> {
+    return Promise.resolve()
+  }
+
   reset() {
     this.calls.length = 0
     this.attemptUsedAnswers.clear()
