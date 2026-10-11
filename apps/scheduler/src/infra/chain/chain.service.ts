@@ -1,15 +1,18 @@
 import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common'
 import {
+  createNonceManager,
   createPublicClient,
   createWalletClient,
   http,
   type Address,
+  type Chain,
   type Hash,
   type LocalAccount,
   type PublicClient,
   type WalletClient,
 } from 'viem'
 import { assertArcChainId, getArcChain, getCctpContracts } from '@strimz/shared-config'
+import { jsonRpc } from 'viem/nonce'
 import { toKmsAccount, type KmsSigner } from '@strimz/signer'
 import { TypedConfigService } from '../../config/index.js'
 import { StrimzSubscriptionsAbi, StrimzAgentEscrowAbi, MessageTransmitterAbi } from './abis.js'
@@ -46,6 +49,7 @@ export class ChainService implements OnModuleInit {
   public readonly agentEscrowAddress: Address
   public readonly messageTransmitterAddress: Address
   private readonly environment: 'testnet' | 'mainnet'
+  private readonly chain: Chain
   private readonly production: boolean
   private readonly log = new Logger(ChainService.name)
 
@@ -53,10 +57,14 @@ export class ChainService implements OnModuleInit {
     this.environment = cfg.env.ARC_ENVIRONMENT
     this.production = cfg.env.NODE_ENV === 'production'
     const chain = getArcChain(this.environment)
+    this.chain = chain
     const transport = http(cfg.env.ARC_RPC_URL)
 
     this.publicClient = createPublicClient({ chain, transport }) as PublicClient
-    this.account = toKmsAccount(signer)
+    this.account = {
+      ...toKmsAccount(signer),
+      nonceManager: createNonceManager({ source: jsonRpc() }),
+    }
     this.walletClient = createWalletClient({ account: this.account, chain, transport })
 
     this.subscriptionsAddress = cfg.env.SUBSCRIPTIONS_ADDRESS as Address
@@ -83,7 +91,7 @@ export class ChainService implements OnModuleInit {
       abi: StrimzSubscriptionsAbi,
       functionName: 'cancel',
       args: [subscriptionId],
-      chain: null,
+      chain: this.chain,
     })
   }
 
@@ -108,7 +116,7 @@ export class ChainService implements OnModuleInit {
       abi: StrimzSubscriptionsAbi,
       functionName: 'batchCharge',
       args: [subscriptionIds, chargeAttemptIds],
-      chain: null,
+      chain: this.chain,
     })
     return txHash
   }
@@ -152,7 +160,7 @@ export class ChainService implements OnModuleInit {
       abi: StrimzAgentEscrowAbi,
       functionName: 'createJob',
       args: [input.vendor, input.assessor, input.token, input.amount, input.description],
-      chain: null,
+      chain: this.chain,
     })
   }
 
@@ -163,7 +171,7 @@ export class ChainService implements OnModuleInit {
       abi: StrimzAgentEscrowAbi,
       functionName: 'approveAndRelease',
       args: [jobId],
-      chain: null,
+      chain: this.chain,
     })
   }
 
@@ -174,7 +182,7 @@ export class ChainService implements OnModuleInit {
       abi: StrimzAgentEscrowAbi,
       functionName: 'dispute',
       args: [jobId, reason],
-      chain: null,
+      chain: this.chain,
     })
   }
 
@@ -185,7 +193,7 @@ export class ChainService implements OnModuleInit {
       abi: StrimzAgentEscrowAbi,
       functionName: 'cancelJob',
       args: [jobId, reason],
-      chain: null,
+      chain: this.chain,
     })
   }
 
@@ -211,7 +219,7 @@ export class ChainService implements OnModuleInit {
       abi: MessageTransmitterAbi,
       functionName: 'receiveMessage',
       args: [input.messageHex, input.attestationHex],
-      chain: null,
+      chain: this.chain,
     })
   }
 }
