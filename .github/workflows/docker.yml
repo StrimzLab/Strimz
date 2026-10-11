@@ -10,12 +10,22 @@ on:
     branches: [main]
     paths:
       - 'apps/*/Dockerfile'
+      - 'apps/*/tsconfig.build.json'
+      - 'apps/*/nest-cli.json'
+      - 'Dockerfile.lightsail'
+      - 'infra/lightsail/**'
+      - 'scripts/docker-smoke.sh'
       - 'docker-compose.yml'
       - '.github/workflows/docker.yml'
   pull_request:
     branches: [main]
     paths:
       - 'apps/*/Dockerfile'
+      - 'apps/*/tsconfig.build.json'
+      - 'apps/*/nest-cli.json'
+      - 'Dockerfile.lightsail'
+      - 'infra/lightsail/**'
+      - 'scripts/docker-smoke.sh'
       - 'docker-compose.yml'
       - '.github/workflows/docker.yml'
 
@@ -38,15 +48,23 @@ jobs:
           - app: api
             context: .
             dockerfile: apps/api/Dockerfile
+            smoke: true
           - app: scheduler
             context: .
             dockerfile: apps/scheduler/Dockerfile
+            smoke: true
           - app: agent
             context: .
             dockerfile: apps/agent/Dockerfile
+            smoke: true
           - app: indexer
             context: ./apps/indexer
             dockerfile: ./apps/indexer/Dockerfile
+            smoke: false
+          - app: lightsail
+            context: .
+            dockerfile: Dockerfile.lightsail
+            smoke: lightsail
     steps:
       - uses: actions/checkout@v4
 
@@ -58,7 +76,18 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: false
-          load: false
+          load: ${{ matrix.smoke != false }}
           tags: strimz-${{ matrix.app }}:ci
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,scope=${{ matrix.app }},mode=max
+
+      - name: Smoke (starts and reaches env validation)
+        if: ${{ matrix.smoke == true }}
+        run: scripts/docker-smoke.sh strimz-${{ matrix.app }}:ci
+
+      - name: Smoke each service in the Lightsail image
+        if: ${{ matrix.smoke == 'lightsail' }}
+        run: |
+          for app in api scheduler agent; do
+            SMOKE_WORKDIR=/repo/apps/$app scripts/docker-smoke.sh strimz-lightsail:ci
+          done
