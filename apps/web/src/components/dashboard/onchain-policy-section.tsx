@@ -6,6 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Clock3, ExternalLink, Loader2, ShieldAlert, X } from 'lucide-react'
 import { encodeFunctionData, isAddress } from 'viem'
+import { arcEnvironmentForChainId, arcExplorerTxUrl } from '@strimz/shared-config'
 import { Button, Card, CardContent, FieldLabel, Input, Label } from '@strimz/ui'
 
 import { registryWriteAbi } from '@/lib/registry-write-abi'
@@ -421,8 +422,7 @@ function useRegistryTx(state: OnchainState) {
 }
 
 function explorerUrl(chainId: number, hash: string): string {
-  const base = chainId === 5042002 ? 'https://testnet.arcscan.app/tx/' : 'https://arcscan.app/tx/'
-  return base + hash
+  return arcExplorerTxUrl(arcEnvironmentForChainId(chainId), hash)
 }
 
 function formatDuration(sec: number): string {

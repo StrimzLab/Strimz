@@ -50,7 +50,8 @@ if [ "$SKIP_BUILD" = "true" ]; then
   echo -e "\n${BLUE}[5/5] Build (skipped in --fast mode)${NC}"
 else
   echo -e "\n${BLUE}[5/5] Production build...${NC}"
-  pnpm exec turbo run build "$TS_ONLY"
+  NEXT_PUBLIC_ARC_ENVIRONMENT="${NEXT_PUBLIC_ARC_ENVIRONMENT:-testnet}" \
+    pnpm exec turbo run build "$TS_ONLY"
   (cd packages/contracts && forge build --sizes)
 fi
 

@@ -22,7 +22,7 @@ import {
   parseUnits,
   toHex,
 } from 'viem'
-import { arcTestnet } from '@strimz/shared-config'
+import { arcExplorerTxUrl, getArcChain } from '@strimz/shared-config'
 import { Badge, Button, Card, CardContent, FieldLabel, Input, Label } from '@strimz/ui'
 import type { MerchantBalanceView } from '@strimz/shared-types'
 
@@ -33,11 +33,6 @@ import { useWithdrawGasQuote } from '@/hooks/use-withdraw-gas-quote'
 import { env } from '@/lib/env'
 import { formatTokenAmount } from '@/lib/format'
 import { checkWithdrawAmount, maxWithdrawable, type WithdrawCheck } from '@/lib/withdraw-gas'
-
-const EXPLORER_BY_ENV = {
-  testnet: 'https://testnet.arcscan.app/tx/',
-  mainnet: 'https://arcscan.app/tx/',
-} as const
 
 /**
  * Withdraw page.
@@ -71,8 +66,7 @@ export default function WithdrawPage() {
 
   const balance = balanceQuery.data
   const selectedBalance = balance?.balances.find((b) => b.currency === currency)
-  const chain = arcTestnet
-  const explorerBase = EXPLORER_BY_ENV[env.arcEnvironment]
+  const chain = getArcChain(env.arcEnvironment)
 
   const embeddedWallet = useMemo(() => {
     // The dashboard uses Privy's embedded wallet as the payout wallet
@@ -401,7 +395,7 @@ export default function WithdrawPage() {
                   <div className="border-border/60 bg-accent/5 mt-5 rounded-md border p-3 text-xs">
                     <p className="font-poppins text-foreground font-medium">Transfer signed</p>
                     <a
-                      href={`${explorerBase}${lastTx}`}
+                      href={arcExplorerTxUrl(env.arcEnvironment, lastTx)}
                       target="_blank"
                       rel="noreferrer"
                       className="font-poppins text-accent mt-1 inline-flex items-center gap-1 break-all hover:underline"

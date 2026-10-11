@@ -1,3 +1,5 @@
+import { resolveArcEnvironment } from './arc-network'
+
 /**
  * Public client environment. Anything `NEXT_PUBLIC_` is inlined into
  * the browser bundle at build time, so values are not secrets. Never
@@ -10,7 +12,10 @@ export const env = {
   privyAppId: process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? '',
   turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? '',
   reownProjectId: process.env.NEXT_PUBLIC_REOWN_PROJECT_ID ?? '',
-  arcEnvironment: (process.env.NEXT_PUBLIC_ARC_ENVIRONMENT ?? 'testnet') as 'testnet' | 'mainnet',
+  arcEnvironment: resolveArcEnvironment(
+    process.env.NEXT_PUBLIC_ARC_ENVIRONMENT,
+    process.env.NODE_ENV,
+  ),
   arcRpcUrl: process.env.NEXT_PUBLIC_ARC_RPC_URL ?? '',
   // On-chain contract addresses the checkout reads. These appear in
   // the typed-data payload the payer signs, so they're public.
