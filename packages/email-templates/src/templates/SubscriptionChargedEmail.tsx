@@ -90,7 +90,7 @@ SubscriptionChargedEmail.PreviewProps = {
   periodLabel: 'Jun 8 – Jul 8, 2026',
   nextChargeAt: 'Jul 8, 2026',
   explorerTxUrl:
-    'https://testnet.arcscan.app/tx/0x4d328b9b2590614e51c9401a06b3b643e401965972a2494ce593edf71b251907',
+    'https://explorer.testnet.arc.io/tx/0x4d328b9b2590614e51c9401a06b3b643e401965972a2494ce593edf71b251907',
   dashboardUrl: `${STRIMZ_ORIGIN}/app/subscriptions`,
 } as SubscriptionChargedEmailProps
 

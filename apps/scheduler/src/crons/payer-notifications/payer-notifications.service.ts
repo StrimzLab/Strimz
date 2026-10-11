@@ -8,6 +8,7 @@ import {
   renderToHtml,
 } from '@strimz/email-templates'
 import { formatUnits } from 'viem'
+import { getArcExplorerUrl } from '@strimz/shared-config'
 
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
@@ -340,10 +341,7 @@ export class PayerNotificationsService {
   private networkContext(): { network: 'Arc Testnet' | 'Arc Mainnet'; explorerBase: string } {
     const network: 'Arc Testnet' | 'Arc Mainnet' =
       this.cfg.env.ARC_ENVIRONMENT === 'mainnet' ? 'Arc Mainnet' : 'Arc Testnet'
-    const explorerBase =
-      this.cfg.env.ARC_ENVIRONMENT === 'mainnet'
-        ? 'https://arcscan.app'
-        : 'https://testnet.arcscan.app'
+    const explorerBase = getArcExplorerUrl(this.cfg.env.ARC_ENVIRONMENT)
     return { network, explorerBase }
   }
 

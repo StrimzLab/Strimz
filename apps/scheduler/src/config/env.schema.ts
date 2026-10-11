@@ -17,7 +17,7 @@ export const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
 
-  ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).default('testnet'),
+  ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).optional(),
   ARC_RPC_URL: z.string().url(),
 
   /**
@@ -125,19 +125,23 @@ export const envSchema = z.object({
   DAILY_EMAIL_BUDGET: z.coerce.number().int().positive().default(90),
 })
 
-export type Env = z.infer<typeof envSchema>
+type ParsedEnv = z.infer<typeof envSchema>
 
-function issue(ctx: z.RefinementCtx, path: keyof Env, message: string) {
+function issue(ctx: z.RefinementCtx, path: keyof ParsedEnv, message: string) {
   ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message })
 }
 
-function schedulerSignerAddress(env: Env): string | undefined {
+function schedulerSignerAddress(env: ParsedEnv): string | undefined {
   if (env.SCHEDULER_SIGNER_PROVIDER === 'aws-kms') return env.SCHEDULER_SIGNER_ADDRESS
   if (!env.SCHEDULER_PRIVATE_KEY) return undefined
   return privateKeyToAccount(env.SCHEDULER_PRIVATE_KEY as `0x${string}`).address
 }
 
 const separatedSignersSchema = envSchema.superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' && !env.ARC_ENVIRONMENT) {
+    issue(ctx, 'ARC_ENVIRONMENT', 'required when NODE_ENV=production')
+  }
+
   if (env.SCHEDULER_SIGNER_PROVIDER === 'software') {
     if (env.NODE_ENV === 'production') {
       issue(
@@ -176,8 +180,15 @@ const separatedSignersSchema = envSchema.superRefine((env, ctx) => {
  * `validate` is the function `@nestjs/config` calls; it must throw when
  * validation fails. Returns the parsed object so `.get` reads typed values.
  */
+const validatedEnvSchema = separatedSignersSchema.transform((env) => ({
+  ...env,
+  ARC_ENVIRONMENT: env.ARC_ENVIRONMENT ?? 'testnet',
+}))
+
+export type Env = z.output<typeof validatedEnvSchema>
+
 export function validateEnv(raw: Record<string, unknown>): Env {
-  const parsed = separatedSignersSchema.safeParse(raw)
+  const parsed = validatedEnvSchema.safeParse(raw)
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((i) => `  • ${i.path.join('.')}: ${i.message}`)

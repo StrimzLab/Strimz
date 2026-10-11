@@ -156,20 +156,20 @@ No single key controls the contracts after the handoff.
 
 ## Live deployment (Arc Testnet)
 
-Chain id `5042002`. Explorer: <https://testnet.arcscan.app>.
+Chain id `5042002`. Explorer: <https://explorer.testnet.arc.io>.
 Source for upgradeable contracts is verified at the **implementation**
 address; the proxy renders it automatically once Blockscout indexes
 the impl. The two immutable contracts have `proxy == implementation`.
 
-| Contract            | Address (proxy)                                                                                 | Implementation                                                                                   |
-| ------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| StrimzRegistry      | [`0x272c…0e77`](https://testnet.arcscan.app/address/0x272c7218ccceebd62a04e284091e0bc702b60e77) | [`0x1d75…696d`](https://testnet.arcscan.app/address/0x1d7542507aa51fe37d4bd0455742632d76b7696d)  |
-| TokenWhitelist      | [`0x8ae2…e0f5`](https://testnet.arcscan.app/address/0x8ae2bae922b7e16a8a55dc1b583960d4c651e0f5) | [`0x274b…a8b3`](https://testnet.arcscan.app/address/0x274b5b124a55ddbd2b6e0055ff9684abaf38a8b3)  |
-| FeeCollector        | [`0x76c0…eb77`](https://testnet.arcscan.app/address/0x76c01321be97b25cc6a302457e61d148761beb77) | [`0x1616…2f1e`](https://testnet.arcscan.app/address/0x1616e3b0734af6e07661082be1eca2585b1d2f1e)  |
-| StrimzPayments      | [`0x3f99…9ca9`](https://testnet.arcscan.app/address/0x3f99a85c6b806ae55027d94bcf5165dc6e0d9ca9) | same as proxy (immutable)                                                                        |
-| StrimzSubscriptions | [`0xe5ff…1524`](https://testnet.arcscan.app/address/0xe5ff3431aa8cbb3345a8cd08f8f369f685821524) | same as proxy (immutable)                                                                        |
-| StrimzAgentRegistry | [`0xf6b9…3be2`](https://testnet.arcscan.app/address/0xf6b929ee0609885af1610921f79b8349dc0e3be2) | [`0x6b01…b087c`](https://testnet.arcscan.app/address/0x6b0165f95943186fe456e41c344b15317fab087c) |
-| StrimzAgentEscrow   | [`0xbe9d…ab78`](https://testnet.arcscan.app/address/0xbe9d797bb1cbce2ed1358af7e105d9c231daab78) | [`0xa47c…4923`](https://testnet.arcscan.app/address/0xa47c43b9be423e1e296ba6fc8caef804fcaa4923)  |
+| Contract            | Address (proxy)                                                                                     | Implementation                                                                                       |
+| ------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| StrimzRegistry      | [`0x272c…0e77`](https://explorer.testnet.arc.io/address/0x272c7218ccceebd62a04e284091e0bc702b60e77) | [`0x1d75…696d`](https://explorer.testnet.arc.io/address/0x1d7542507aa51fe37d4bd0455742632d76b7696d)  |
+| TokenWhitelist      | [`0x8ae2…e0f5`](https://explorer.testnet.arc.io/address/0x8ae2bae922b7e16a8a55dc1b583960d4c651e0f5) | [`0x274b…a8b3`](https://explorer.testnet.arc.io/address/0x274b5b124a55ddbd2b6e0055ff9684abaf38a8b3)  |
+| FeeCollector        | [`0x76c0…eb77`](https://explorer.testnet.arc.io/address/0x76c01321be97b25cc6a302457e61d148761beb77) | [`0x1616…2f1e`](https://explorer.testnet.arc.io/address/0x1616e3b0734af6e07661082be1eca2585b1d2f1e)  |
+| StrimzPayments      | [`0x3f99…9ca9`](https://explorer.testnet.arc.io/address/0x3f99a85c6b806ae55027d94bcf5165dc6e0d9ca9) | same as proxy (immutable)                                                                            |
+| StrimzSubscriptions | [`0xe5ff…1524`](https://explorer.testnet.arc.io/address/0xe5ff3431aa8cbb3345a8cd08f8f369f685821524) | same as proxy (immutable)                                                                            |
+| StrimzAgentRegistry | [`0xf6b9…3be2`](https://explorer.testnet.arc.io/address/0xf6b929ee0609885af1610921f79b8349dc0e3be2) | [`0x6b01…b087c`](https://explorer.testnet.arc.io/address/0x6b0165f95943186fe456e41c344b15317fab087c) |
+| StrimzAgentEscrow   | [`0xbe9d…ab78`](https://explorer.testnet.arc.io/address/0xbe9d797bb1cbce2ed1358af7e105d9c231daab78) | [`0xa47c…4923`](https://explorer.testnet.arc.io/address/0xa47c43b9be423e1e296ba6fc8caef804fcaa4923)  |
 
 When sending txs (or pasting addresses into the SDK / API), always
 use the **proxy** column. The implementation column is only for
@@ -195,7 +195,7 @@ cp .env.example .env
 Edit `.env`:
 
 ```sh
-ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.network
+ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.io
 STRIMZ_DEPLOYER_PRIVATE_KEY=0x<your-funded-testnet-deployer-key>
 ARC_USDC_ADDRESS=0x3600000000000000000000000000000000000000
 ARC_EURC_ADDRESS=0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a
@@ -224,7 +224,7 @@ Sanity check:
 
 ```sh
 echo "$ARC_TESTNET_RPC_URL"
-# → https://rpc.testnet.arc.network
+# → https://rpc.testnet.arc.io
 ```
 
 ### 3. Deploy the core
@@ -634,12 +634,12 @@ Copy `.env.example` to `.env`:
 
 | Var                              | Purpose                                                                        |
 | -------------------------------- | ------------------------------------------------------------------------------ |
-| `ARC_TESTNET_RPC_URL`            | RPC for testnet deploys (`https://rpc.testnet.arc.network`)                    |
+| `ARC_TESTNET_RPC_URL`            | RPC for testnet deploys (`https://rpc.testnet.arc.io`)                         |
 | `ARC_MAINNET_RPC_URL`            | RPC for mainnet deploys                                                        |
 | `STRIMZ_DEPLOYER_PRIVATE_KEY`    | Funded deployer. Never commit. Get testnet gas at `https://faucet.circle.com`. |
-| `BLOCKSCOUT_API_KEY`             | Bearer token for `script/verify.sh`. Get one at `testnet.arcscan.app`.         |
-| `ARC_TESTNET_VERIFIER_URL`       | Blockscout v2 base URL — `https://testnet.arcscan.app/api/`                    |
-| `ARC_MAINNET_VERIFIER_URL`       | Mainnet equivalent — `https://arcscan.app/api/`                                |
+| `BLOCKSCOUT_API_KEY`             | Bearer token for `script/verify.sh`. Get one at `explorer.testnet.arc.io`.     |
+| `ARC_TESTNET_VERIFIER_URL`       | Blockscout v2 base URL — `https://explorer.testnet.arc.io/api/`                |
+| `ARC_MAINNET_VERIFIER_URL`       | Mainnet equivalent — `https://explorer.arc.io/api/`                            |
 | `ARC_USDC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                              |
 | `ARC_EURC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                              |
 | `STRIMZ_TOKEN_WHITELIST_ADDRESS` | Whitelist proxy address. Required by `DeployAgent`.                            |

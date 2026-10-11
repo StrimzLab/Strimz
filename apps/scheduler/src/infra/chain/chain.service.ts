@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common'
+import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common'
 import {
   createPublicClient,
   createWalletClient,
@@ -9,7 +9,7 @@ import {
   type PublicClient,
   type WalletClient,
 } from 'viem'
-import { arcMainnet, arcTestnet, getCctpContracts } from '@strimz/shared-config'
+import { assertArcChainId, getArcChain, getCctpContracts } from '@strimz/shared-config'
 import { toKmsAccount, type KmsSigner } from '@strimz/signer'
 import { TypedConfigService } from '../../config/index.js'
 import { StrimzSubscriptionsAbi, StrimzAgentEscrowAbi, MessageTransmitterAbi } from './abis.js'
@@ -34,7 +34,7 @@ import { SCHEDULER_SIGNER } from './scheduler-signer.js'
  * pin queue concurrency.
  */
 @Injectable()
-export class ChainService {
+export class ChainService implements OnModuleInit {
   public readonly publicClient: PublicClient
   public readonly walletClient: WalletClient
   // PrivateKeyAccount (not just `{ address }`): viem dispatches to
@@ -45,10 +45,14 @@ export class ChainService {
   public readonly subscriptionsAddress: Address
   public readonly agentEscrowAddress: Address
   public readonly messageTransmitterAddress: Address
+  private readonly environment: 'testnet' | 'mainnet'
+  private readonly production: boolean
   private readonly log = new Logger(ChainService.name)
 
   constructor(cfg: TypedConfigService, @Inject(SCHEDULER_SIGNER) signer: KmsSigner) {
-    const chain = cfg.env.ARC_ENVIRONMENT === 'mainnet' ? arcMainnet : arcTestnet
+    this.environment = cfg.env.ARC_ENVIRONMENT
+    this.production = cfg.env.NODE_ENV === 'production'
+    const chain = getArcChain(this.environment)
     const transport = http(cfg.env.ARC_RPC_URL)
 
     this.publicClient = createPublicClient({ chain, transport }) as PublicClient
@@ -60,6 +64,13 @@ export class ChainService {
     this.messageTransmitterAddress = getCctpContracts(cfg.env.ARC_ENVIRONMENT)
       .messageTransmitterV2 as Address
     this.log.log(`scheduler signing as ${this.account.address}`)
+  }
+
+  async onModuleInit(): Promise<void> {
+    if (!this.production) return
+    const rpcChainId = await this.publicClient.getChainId()
+    assertArcChainId(this.environment, rpcChainId)
+    this.log.log(`ARC_RPC_URL serves chain id ${rpcChainId} (${this.environment})`)
   }
 
   // ----- Subscription writes -----

@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PrivyProvider } from '@privy-io/react-auth'
 import { StrimzProvider } from '@strimz/sdk-react'
-import { arcTestnet } from '@strimz/shared-config'
+import { getArcChain } from '@strimz/shared-config'
 import { useResolvedTheme } from '@strimz/ui'
 import { env } from '@/lib/env'
 import { privyAppearanceTheme } from '@/lib/theme'
@@ -64,8 +64,8 @@ export function Providers({ children }: { children: ReactNode }) {
         },
         loginMethods: ['email', 'wallet', 'google'],
         embeddedWallets: { createOnLogin: 'users-without-wallets' },
-        defaultChain: arcTestnet,
-        supportedChains: [arcTestnet],
+        defaultChain: getArcChain(env.arcEnvironment),
+        supportedChains: [getArcChain(env.arcEnvironment)],
       }}
     >
       <SessionCacheGuard cache={queryClient} />

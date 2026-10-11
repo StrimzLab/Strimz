@@ -5,6 +5,7 @@ import { use } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Check, Copy, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
+import { getArcExplorerUrl } from '@strimz/shared-config'
 import { Badge, Button, Card, CardContent } from '@strimz/ui'
 import type { AgentJob, AgentJobStatus } from '@strimz/shared-types'
 
@@ -18,11 +19,6 @@ import {
   type PendingConfirm,
 } from '@/components/dashboard/confirm-action-dialog'
 import { useAgentJob, useApproveAgentJob } from '@/hooks/api'
-
-const EXPLORER_BY_ENV = {
-  testnet: 'https://testnet.arcscan.app/tx/',
-  mainnet: 'https://arcscan.app/tx/',
-} as const
 
 const STATUS_TONE: Record<AgentJobStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> =
   {
@@ -72,7 +68,7 @@ export default function AgentJobDetailPage({ params }: { params: Promise<{ id: s
   }
 
   const canApprove = job.status === 'proposed' || job.status === 'delivered'
-  const explorerBase = EXPLORER_BY_ENV[env.arcEnvironment]
+  const explorerBase = `${getArcExplorerUrl(env.arcEnvironment)}/tx/`
 
   return (
     <div className="space-y-6">

@@ -48,6 +48,8 @@ jobs:
       # `turbo run build` honours `^build` so every workspace that
       # imports @strimz/db gets a fresh Prisma client first.
       - name: Build (turbo, TS only)
+        env:
+          NEXT_PUBLIC_ARC_ENVIRONMENT: testnet
         run: pnpm exec turbo run build --filter=!@strimz/contracts
 
       - name: Format check

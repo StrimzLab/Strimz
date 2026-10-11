@@ -1,3 +1,4 @@
+import { getTokenAddress } from '@strimz/shared-config'
 import { z } from 'zod'
 
 const unsetWhenEmpty = <T extends z.ZodTypeAny>(schema: T) =>
@@ -76,7 +77,7 @@ export const envSchema = z.object({
   ),
 
   // ----- Chain -----
-  ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).default('testnet'),
+  ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).optional(),
   ARC_RPC_URL: z.string().url(),
   STRIMZ_REGISTRY_ADDRESS: z.string().optional(),
   STRIMZ_PAYMENTS_ADDRESS: z.string().optional(),
@@ -126,9 +127,35 @@ export const envSchema = z.object({
   CORS_ORIGIN: z.string().default('*'),
 })
 
-export type Env = z.infer<typeof envSchema>
+const TOKEN_ADDRESS_SETTINGS = [
+  ['ARC_USDC_ADDRESS', 'USDC'],
+  ['ARC_EURC_ADDRESS', 'EURC'],
+] as const
 
-const signerSchema = envSchema.superRefine((env, ctx) => {
+const networkSchema = envSchema.superRefine((env, ctx) => {
+  if (env.NODE_ENV !== 'production') return
+  if (!env.ARC_ENVIRONMENT) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['ARC_ENVIRONMENT'],
+      message: 'required when NODE_ENV=production',
+    })
+    return
+  }
+  for (const [key, symbol] of TOKEN_ADDRESS_SETTINGS) {
+    const configured = env[key]
+    const canonical = getTokenAddress(env.ARC_ENVIRONMENT, symbol)
+    if (configured && configured.toLowerCase() !== canonical.toLowerCase()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: `must be ${canonical} on ${env.ARC_ENVIRONMENT}, or unset`,
+      })
+    }
+  }
+})
+
+const signerSchema = networkSchema.superRefine((env, ctx) => {
   if (env.KMS_PROVIDER !== 'aws-kms') return
   for (const key of ['KMS_AWS_KEY_ID', 'KMS_SIGNER_ADDRESS', 'AWS_REGION'] as const) {
     if (!env[key]) {
@@ -148,8 +175,20 @@ const signerSchema = envSchema.superRefine((env, ctx) => {
   }
 })
 
+const validatedEnvSchema = signerSchema.transform((env) => {
+  const arcEnvironment = env.ARC_ENVIRONMENT ?? 'testnet'
+  return {
+    ...env,
+    ARC_ENVIRONMENT: arcEnvironment,
+    ARC_USDC_ADDRESS: env.ARC_USDC_ADDRESS ?? getTokenAddress(arcEnvironment, 'USDC'),
+    ARC_EURC_ADDRESS: env.ARC_EURC_ADDRESS ?? getTokenAddress(arcEnvironment, 'EURC'),
+  }
+})
+
+export type Env = z.output<typeof validatedEnvSchema>
+
 export function validateEnv(raw: Record<string, unknown>): Env {
-  const parsed = signerSchema.safeParse(raw)
+  const parsed = validatedEnvSchema.safeParse(raw)
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((i) => `  • ${i.path.join('.')}: ${i.message}`)

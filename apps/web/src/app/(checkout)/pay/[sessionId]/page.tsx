@@ -6,6 +6,7 @@ import { useAccount, useDisconnect } from 'wagmi'
 import { useAppKit } from '@reown/appkit/react'
 import { useRefreshWhile } from '@/hooks/use-refresh-while'
 import { ArrowRight, CheckCircle2, ExternalLink, Loader2, ShieldCheck, Wallet } from 'lucide-react'
+import { arcExplorerTxUrl } from '@strimz/shared-config'
 import { Badge, FieldLabel, Input } from '@strimz/ui'
 import type { MerchantPublicBrand, PaymentSession, TokenMetadata } from '@strimz/shared-types'
 
@@ -507,8 +508,7 @@ function CompletionPanel({
  * having to thread environment into a util.
  */
 function explorerTxUrl(hash: string, arcEnv: 'testnet' | 'mainnet'): string {
-  const base = arcEnv === 'mainnet' ? 'https://arcscan.app' : 'https://testnet.arcscan.app'
-  return `${base}/tx/${hash}`
+  return arcExplorerTxUrl(arcEnv, hash)
 }
 
 function ErrorBanner({ message, retry }: { message: string; retry?: () => Promise<void> }) {

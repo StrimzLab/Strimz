@@ -10,6 +10,7 @@ function env(overrides: Record<string, string | undefined>): Record<string, stri
   return {
     DATABASE_URL: 'postgres://strimz:strimz@localhost:5432/strimz',
     REDIS_URL: 'redis://localhost:6379',
+    ARC_ENVIRONMENT: 'testnet',
     ARC_RPC_URL: 'http://localhost:8545',
     SUBSCRIPTIONS_ADDRESS: '0x0000000000000000000000000000000000000001',
     AGENT_ESCROW_ADDRESS: '0x0000000000000000000000000000000000000002',
