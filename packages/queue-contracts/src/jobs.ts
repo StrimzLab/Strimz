@@ -108,6 +108,7 @@ const calldataSchema = hexMatching(/^0x([0-9a-fA-F]{2})*$/, 'expected hex callda
 export const relayBroadcastSchema = z.object({
   txHash: txHashSchema,
   nonce: z.string().regex(/^\d+$/),
+  from: addressSchema.optional(),
 })
 export type RelayBroadcast = z.infer<typeof relayBroadcastSchema>
 
