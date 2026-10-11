@@ -1,6 +1,9 @@
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 
+const unsetWhenEmpty = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema.optional())
+
 /**
  * Strict env validation. Anything missing or malformed throws at boot — we
  * never run in a half-configured state because that's how service-wallet
@@ -21,9 +24,15 @@ export const envSchema = z.object({
    * Service-wallet private key. The ONLY process that holds one. Must be a
    * 0x-prefixed 32-byte hex string. Loaded from a secret manager in prod.
    */
-  SCHEDULER_PRIVATE_KEY: z
-    .string()
-    .regex(/^0x[0-9a-fA-F]{64}$/, 'must be a 0x-prefixed 32-byte hex private key'),
+  SCHEDULER_PRIVATE_KEY: unsetWhenEmpty(
+    z.string().regex(/^0x[0-9a-fA-F]{64}$/, 'must be a 0x-prefixed 32-byte hex private key'),
+  ),
+  SCHEDULER_SIGNER_PROVIDER: z.enum(['software', 'aws-kms']).default('software'),
+  SCHEDULER_KMS_KEY_ID: unsetWhenEmpty(z.string()),
+  SCHEDULER_SIGNER_ADDRESS: unsetWhenEmpty(
+    z.string().regex(/^0x[0-9a-fA-F]{40}$/u, 'must be a 0x-prefixed 20-byte hex address'),
+  ),
+  AWS_REGION: unsetWhenEmpty(z.string()),
 
   SUBSCRIPTIONS_ADDRESS: z
     .string()
@@ -118,15 +127,48 @@ export const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>
 
+function issue(ctx: z.RefinementCtx, path: keyof Env, message: string) {
+  ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message })
+}
+
+function schedulerSignerAddress(env: Env): string | undefined {
+  if (env.SCHEDULER_SIGNER_PROVIDER === 'aws-kms') return env.SCHEDULER_SIGNER_ADDRESS
+  if (!env.SCHEDULER_PRIVATE_KEY) return undefined
+  return privateKeyToAccount(env.SCHEDULER_PRIVATE_KEY as `0x${string}`).address
+}
+
 const separatedSignersSchema = envSchema.superRefine((env, ctx) => {
-  const schedulerAddress = privateKeyToAccount(env.SCHEDULER_PRIVATE_KEY as `0x${string}`).address
-  if (schedulerAddress.toLowerCase() === env.RELAYER_ADDRESS.toLowerCase()) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['RELAYER_ADDRESS'],
-      message:
-        'must not be the address of SCHEDULER_PRIVATE_KEY; the scheduler and the API relayer need separate keys',
-    })
+  if (env.SCHEDULER_SIGNER_PROVIDER === 'software') {
+    if (env.NODE_ENV === 'production') {
+      issue(
+        ctx,
+        'SCHEDULER_SIGNER_PROVIDER',
+        'software keeps the scheduler key in process memory and is refused in production; set aws-kms',
+      )
+    }
+    if (!env.SCHEDULER_PRIVATE_KEY) {
+      issue(ctx, 'SCHEDULER_PRIVATE_KEY', 'required when SCHEDULER_SIGNER_PROVIDER=software')
+    }
+  } else {
+    for (const key of ['SCHEDULER_KMS_KEY_ID', 'SCHEDULER_SIGNER_ADDRESS', 'AWS_REGION'] as const) {
+      if (!env[key]) issue(ctx, key, 'required when SCHEDULER_SIGNER_PROVIDER=aws-kms')
+    }
+    if (env.SCHEDULER_PRIVATE_KEY) {
+      issue(
+        ctx,
+        'SCHEDULER_PRIVATE_KEY',
+        'must be unset when SCHEDULER_SIGNER_PROVIDER=aws-kms; remove the plaintext key',
+      )
+    }
+  }
+
+  const schedulerAddress = schedulerSignerAddress(env)
+  if (schedulerAddress?.toLowerCase() === env.RELAYER_ADDRESS.toLowerCase()) {
+    issue(
+      ctx,
+      'RELAYER_ADDRESS',
+      "must not be the scheduler's signing address; the scheduler and the API relayer need separate keys",
+    )
   }
 })
 
