@@ -33,10 +33,6 @@ import {
   Input,
   FieldLabel,
   Label,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '@strimz/ui'
 import {
   webhookEventNameSchema,
@@ -450,20 +446,14 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'da
 }
 
 function NewEndpointDialog() {
-  const activeMode = useDashboardMode()
+  const mode = useDashboardMode()
   // Live mode is disabled until Arc Mainnet ships, so we clamp the
   // initial value even when the global toggle somehow reports 'live'.
-  const seedMode: 'test' | 'live' = activeMode === 'live' ? 'test' : activeMode
   const [open, setOpen] = React.useState(false)
   const [url, setUrl] = React.useState('')
   const [description, setDescription] = React.useState('')
-  const [mode, setMode] = React.useState<'test' | 'live'>(seedMode)
   const [events, setEvents] = React.useState<WebhookEventName[]>([])
   const [signingSecret, setSigningSecret] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    if (!open) setMode(seedMode)
-  }, [seedMode, open])
 
   const createMutation = useCreateWebhookEndpoint()
 
@@ -472,7 +462,6 @@ function NewEndpointDialog() {
     setDescription('')
     setEvents([])
     setSigningSecret(null)
-    setMode(seedMode)
   }
 
   const closeDialog = () => {
@@ -547,44 +536,12 @@ function NewEndpointDialog() {
                 onChange={(e) => setDescription(e.target.value)}
               />
             </div>
-            <TooltipProvider delayDuration={100}>
-              <div className="flex items-center gap-2 text-xs">
-                <Label>Mode:</Label>
-                {(['test', 'live'] as const).map((m) => {
-                  const disabled = m === 'live'
-                  const button = (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => !disabled && setMode(m)}
-                      disabled={disabled}
-                      aria-disabled={disabled}
-                      className={[
-                        'h-7 rounded-md border px-2 capitalize transition-colors',
-                        disabled
-                          ? 'border-border/60 text-muted-foreground cursor-not-allowed opacity-70'
-                          : mode === m
-                            ? 'border-accent bg-accent/10 text-accent'
-                            : 'border-border/60 hover:bg-muted',
-                      ].join(' ')}
-                    >
-                      {m}
-                    </button>
-                  )
-                  if (!disabled) return button
-                  return (
-                    <Tooltip key={m}>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex">{button}</span>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-[220px] text-xs">
-                        Mainnet coming soon. Live mode unlocks when Arc Mainnet launches.
-                      </TooltipContent>
-                    </Tooltip>
-                  )
-                })}
-              </div>
-            </TooltipProvider>
+            <div className="flex items-center gap-2 text-xs">
+              <Label>Mode:</Label>
+              <span className="border-accent bg-accent/10 text-accent inline-flex h-7 items-center rounded-md border px-2 capitalize">
+                {mode}
+              </span>
+            </div>
             <div className="grid gap-1.5">
               <Label>Events ({events.length} selected)</Label>
               <div className="border-border/60 grid max-h-48 grid-cols-2 gap-1 overflow-y-auto rounded-md border p-2 text-xs">
