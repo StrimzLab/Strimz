@@ -15,11 +15,13 @@ COPY apps/api/ ./apps/api/
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 RUN pnpm --filter "@strimz/api..." build
+RUN pnpm --filter @strimz/api deploy --prod --legacy /out
 
 FROM node:22-alpine
 WORKDIR /app
+COPY --from=build /out/package.json ./package.json
+COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /repo/apps/api/dist ./dist
-COPY --from=build /repo/apps/api/node_modules ./node_modules
 ENV NODE_ENV=production
 EXPOSE 4000
 USER node
