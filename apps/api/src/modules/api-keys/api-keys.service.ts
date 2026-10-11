@@ -8,6 +8,7 @@ import type {
   Mode,
 } from '@strimz/shared-types'
 import type { CurrentMerchantPayload } from '../../common/decorators/current-merchant.decorator.js'
+import { assertDeploymentMode } from '../../common/guards/deployment-mode.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { MerchantsService } from '../merchants/merchants.service.js'
@@ -34,6 +35,7 @@ export class ApiKeysService {
       assertScopesHeld(caller.apiKeyScopes, input.scopes)
     }
     if (input.mode === 'live') await this.assertLiveKeyMintable(merchantId)
+    else assertDeploymentMode(this.chain.environment, input.mode)
     const generated = await generateApiKey(input.kind, input.mode)
     const row = await this.prisma.db.merchantApiKey.create({
       data: {
@@ -104,6 +106,7 @@ export class ApiKeysService {
     if (!source) throw new NotFoundException({ code: 'not_found', message: 'api key not found' })
     if (caller.apiKeyScopes) assertScopesHeld(caller.apiKeyScopes, source.scopes)
     if (source.mode === 'live') await this.assertLiveKeyMintable(merchantId)
+    else assertDeploymentMode(this.chain.environment, source.mode)
     const generated = await generateApiKey(source.kind, source.mode)
     const [, newRow] = await this.prisma.db.$transaction([
       this.prisma.db.merchantApiKey.update({

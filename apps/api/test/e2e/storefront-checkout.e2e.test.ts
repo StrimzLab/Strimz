@@ -92,7 +92,7 @@ describe('storefront checkout e2e', () => {
 
   it('leaves unlimited stock untouched on reserve and release', async () => {
     const m = await seedMerchant(t.prisma.db, { onboardingCompleted: true, onchainMerchantId: 1 })
-    const k = await seedApiKey(t.prisma.db, m.id, { mode: 'live' })
+    const k = await seedApiKey(t.prisma.db, m.id)
     const sf = await seedStorefront(t.prisma.db, m.id, 'shop')
     const product = await seedStorefrontProduct(t.prisma.db, sf.id, { stock: null })
 

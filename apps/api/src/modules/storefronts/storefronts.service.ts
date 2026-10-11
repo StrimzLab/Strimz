@@ -12,6 +12,8 @@ import type {
   StorefrontCheckoutResponse,
   StorefrontProduct,
 } from '@strimz/shared-types'
+import { arcModeFor } from '@strimz/shared-config'
+import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
 import { TypedConfigService } from '../../config/index.js'
@@ -25,6 +27,7 @@ export class StorefrontsService {
     private readonly prisma: PrismaService,
     private readonly paymentSessions: PaymentSessionsService,
     private readonly cfg: TypedConfigService,
+    private readonly chain: ChainService,
   ) {}
 
   async retrieve(merchantId: string): Promise<Storefront | null> {
@@ -265,7 +268,7 @@ export class StorefrontsService {
       return this.paymentSessions.insert(
         tx,
         sf.merchantId,
-        'live',
+        arcModeFor(this.chain.environment),
         {
           currency: product.currency as 'USDC' | 'EURC',
           amount: product.price,
