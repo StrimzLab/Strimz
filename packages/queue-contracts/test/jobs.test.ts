@@ -99,6 +99,18 @@ describe('relay submission jobs', () => {
     expect(relayJobSchema.parse(withBroadcast).broadcast?.nonce).toBe('12')
   })
 
+  it('keeps the sender of a recorded broadcast and rejects a malformed one', () => {
+    const base = relayJobFixtures.payWithAuthorization
+    const txHash = `0x${'d'.repeat(64)}`
+    const from = '0x00000000000000000000000000000000000001d0'
+    expect(
+      relayJobSchema.parse({ ...base, broadcast: { txHash, nonce: '3', from } }).broadcast?.from,
+    ).toBe(from)
+    expect(
+      relayJobSchema.safeParse({ ...base, broadcast: { txHash, nonce: '3', from: '0x1' } }).success,
+    ).toBe(false)
+  })
+
   it('rejects a registerMerchant job without the merchant id', () => {
     const { merchantInternalId: _omitted, ...rest } = relayJobFixtures.registerMerchant
     expect(relayJobSchema.safeParse(rest).success).toBe(false)
