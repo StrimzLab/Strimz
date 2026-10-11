@@ -1,3 +1,4 @@
+import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 
 /**
@@ -117,12 +118,24 @@ export const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>
 
+const separatedSignersSchema = envSchema.superRefine((env, ctx) => {
+  const schedulerAddress = privateKeyToAccount(env.SCHEDULER_PRIVATE_KEY as `0x${string}`).address
+  if (schedulerAddress.toLowerCase() === env.RELAYER_ADDRESS.toLowerCase()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['RELAYER_ADDRESS'],
+      message:
+        'must not be the address of SCHEDULER_PRIVATE_KEY; the scheduler and the API relayer need separate keys',
+    })
+  }
+})
+
 /**
  * `validate` is the function `@nestjs/config` calls; it must throw when
  * validation fails. Returns the parsed object so `.get` reads typed values.
  */
 export function validateEnv(raw: Record<string, unknown>): Env {
-  const parsed = envSchema.safeParse(raw)
+  const parsed = separatedSignersSchema.safeParse(raw)
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((i) => `  • ${i.path.join('.')}: ${i.message}`)

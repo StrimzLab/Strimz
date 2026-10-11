@@ -70,7 +70,7 @@ The first build takes ~5 minutes (Node install + Prisma generate + Go build). Su
 - `STRIMZ_WEBHOOK_SIGNING_SECRET` + `WEBHOOK_SECRET_ENCRYPTION_KEY` — any 32-byte hex; both services need the **same** values
 - `RESEND_API_KEY`, `RESEND_FROM_EMAIL` — from resend.com
 - `KMS_SOFTWARE_PRIVATE_KEY` — the private key of your relayer EOA (fund from Circle's Arc testnet faucet)
-- `SCHEDULER_PRIVATE_KEY` — usually the same private key as the relayer in the demo setup
+- `SCHEDULER_PRIVATE_KEY` — the scheduler's own key, never the relayer's. The scheduler does not start when this key's address equals `RELAYER_ADDRESS`. Fund it from the faucet too; it needs `CHARGER_ROLE` on Subscriptions (see `packages/contracts/README.md`, Admin roles)
 
 Placeholders you'll want to point at your real hostname:
 

@@ -31,4 +31,6 @@ abstract contract StrimzAccessControl is AccessControlUpgradeable {
 
     /// @notice Can adjust agent reputation scores on the AgentRegistry.
     bytes32 public constant AGENT_ADMIN_ROLE = keccak256("STRIMZ_AGENT_ADMIN_ROLE");
+
+    bytes32 public constant PAUSER_ROLE = keccak256("STRIMZ_PAUSER_ROLE");
 }
