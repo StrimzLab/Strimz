@@ -39,7 +39,7 @@ contract DeployAgent is Script {
         entries[1] = DeploymentLog.Entry(
             "StrimzAgentEscrow", agentEscrow, Upgrades.getImplementationAddress(agentEscrow)
         );
-        DeploymentLog.append("agent", entries);
+        DeploymentLog.append("agent", admin, entries);
 
         console2.log("Agent deployment recorded in deployments/<chainId>.jsonl");
     }

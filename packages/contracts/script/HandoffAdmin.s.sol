@@ -38,6 +38,6 @@ contract HandoffAdmin is Script {
         console2.log("Safe:", h.safe);
         console2.log("Guardian:", h.guardian);
 
-        DeploymentLog.appendSingle("handoff", "TimelockController", address(timelock), address(timelock));
+        DeploymentLog.appendSingle("handoff", h.deployer, "TimelockController", address(timelock), address(timelock));
     }
 }
