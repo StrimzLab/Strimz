@@ -13,6 +13,30 @@ interface IUSDC {
     function RECEIVE_WITH_AUTHORIZATION_TYPEHASH() external view returns (bytes32);
 }
 
+interface IPayIntentDigest {
+    function payIntentDigest(
+        uint256 merchantId,
+        address token,
+        uint256 amount,
+        bytes32 nonce,
+        uint256 validBefore,
+        bytes32 ref
+    ) external view returns (bytes32);
+}
+
+interface ISubscriptionIntentDigest {
+    function subscriptionIntentDigest(
+        uint256 merchantId,
+        address token,
+        uint256 amount,
+        uint32 interval,
+        uint64 startAt,
+        uint64 endAt,
+        uint256 permitDeadline,
+        bytes32 nonce
+    ) external view returns (bytes32);
+}
+
 /// @title Digests
 /// @notice EIP-712 signing helpers for the e2e shell driver. The payer's
 ///         private key is read from `STRIMZ_PAYER_PRIVATE_KEY` at runtime
@@ -69,6 +93,32 @@ contract Digests is Script {
             keccak256(abi.encode(PERMIT_TYPEHASH, payer, spender, value, nonce, deadline));
         bytes32 digest =
             keccak256(abi.encodePacked("\x19\x01", usdc.DOMAIN_SEPARATOR(), structHash));
+        _emitSig(digest);
+    }
+
+    function signPayIntent(uint256 merchantId, uint256 amount, bytes32 nonce, uint256 validBefore, bytes32 ref)
+        external
+        view
+    {
+        bytes32 digest = IPayIntentDigest(vm.envAddress("STRIMZ_PAYMENTS_ADDRESS")).payIntentDigest(
+            merchantId, vm.envAddress("ARC_USDC_ADDRESS"), amount, nonce, validBefore, ref
+        );
+        _emitSig(digest);
+    }
+
+    function signSubscriptionIntent(
+        uint256 merchantId,
+        uint256 amount,
+        uint32 interval,
+        uint64 startAt,
+        uint64 endAt,
+        uint256 permitDeadline,
+        bytes32 nonce
+    ) external view {
+        bytes32 digest = ISubscriptionIntentDigest(vm.envAddress("STRIMZ_SUBSCRIPTIONS_ADDRESS"))
+            .subscriptionIntentDigest(
+                merchantId, vm.envAddress("ARC_USDC_ADDRESS"), amount, interval, startAt, endAt, permitDeadline, nonce
+            );
         _emitSig(digest);
     }
 
