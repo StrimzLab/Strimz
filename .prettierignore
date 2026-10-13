@@ -10,6 +10,8 @@ generated
 # Foundry
 packages/contracts/out
 packages/contracts/cache
+packages/contracts/out-fork
+packages/contracts/cache-fork
 packages/contracts/lib
 packages/contracts/broadcast
 
