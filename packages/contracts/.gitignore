@@ -21,3 +21,4 @@ gas-report.json
 .turbo
 out-fork/
 cache-fork/
+deployments/31337.json
