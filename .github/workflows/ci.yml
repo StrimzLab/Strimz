@@ -110,9 +110,11 @@ jobs:
           # Foundry deps live as git submodules under packages/contracts/lib.
           submodules: recursive
 
-      - uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: stable
+      - name: Install Arc Foundry (pinned)
+        working-directory: .
+        run: |
+          scripts/install-arc-foundry.sh "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - uses: pnpm/action-setup@v4
         with:
@@ -130,12 +132,18 @@ jobs:
       # `forge fmt --check` deliberately not run — see foundry.toml [fmt]
       # comment. The build + test pair is the load-bearing CI signal.
       - name: Build
-        run: forge build --sizes
+        run: arc-forge build --sizes
 
       - name: Test
-        run: forge test -vvv
+        run: arc-forge test --network arc -vvv
         env:
           FOUNDRY_PROFILE: default
+
+      - name: Fork tests (Arc testnet)
+        run: arc-forge test --network arc -vvv
+        env:
+          FOUNDRY_PROFILE: fork
+          ARC_TESTNET_RPC_URL: https://rpc.testnet.arc.io
 
   e2e:
     name: e2e (api · scheduler · agent · indexer)

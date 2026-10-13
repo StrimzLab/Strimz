@@ -113,7 +113,7 @@ deployments/
 
 ## Deployment flow
 
-1. Build the project with full storage layouts (`forge build`).
+1. Build the project with full storage layouts (`arc-forge build`).
 2. The plugin validates each implementation against its predecessor (if any) before deploying.
 3. Deploy each ERC-1967 proxy, calling `initialize(...)` via the proxy's constructor in one transaction (atomic, with no front-running window).
 4. Wire roles between proxies (e.g. grant `FEE_ACCRUER_ROLE` on `FeeCollector` to `Payments` and `Subscriptions`).
@@ -177,6 +177,36 @@ viewing verified source on Arcscan.
 
 Native USDC on Arc lives at `0x3600000000000000000000000000000000000000`.
 
+## Toolchain: Arc Foundry
+
+Contracts are built, tested and deployed with [Arc Foundry](https://github.com/circlefin/arc-foundry),
+Circle's fork of Foundry that runs Arc's protocol rules: USDC as native gas with an
+18-decimal native view and a 6-decimal ERC-20 view, the runtime USDC blocklist, and
+Arc's value-transfer rules. Upstream Foundry runs Ethereum rules and can pass tests
+that fail on Arc.
+
+- **Version:** v0.8.0-2, pinned in `scripts/install-arc-foundry.sh`, which CI also uses.
+  To upgrade, change the version and the three SHA-256 values there.
+- **Install:** `scripts/install-arc-foundry.sh` (default `~/.local/bin`). It verifies
+  the archive checksum and installs `arc-forge`, `arc-cast` and `arc-anvil` next to
+  any upstream Foundry. Intel Macs build from source.
+- **Arc rules are opt-in:** pass `--network arc` to `arc-forge test`, `arc-forge script`
+  and `arc-anvil`. Without it Arc's native-coin precompile is not emulated.
+
+```sh
+arc-forge clean && arc-forge build
+arc-forge test --network arc                                         # unit, fuzz, invariant, upgrade tests
+FOUNDRY_PROFILE=fork ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.io \
+  arc-forge test --network arc                                       # test-fork/: real Arc USDC on a testnet fork
+```
+
+The `fork` profile compiles `test-fork/` into its own `out-fork/` and `cache-fork/`, so its
+build info never mixes with the main suite's; the OpenZeppelin upgrade validator rejects
+mixed build info. `test-fork/` covers an EIP-3009 payment in real Arc USDC, the
+native/ERC-20 balance identity, and the seeded blocklisted address
+(`0x7099…79C8` on testnet): a payment to a blocklisted payout reverts with
+`Blocked address`, and a blocklisted payout fails only its own row in `batchCharge`.
+
 ## Deploying to Arc
 
 These steps take you from a clean checkout to a verified deployment
@@ -230,12 +260,12 @@ echo "$ARC_TESTNET_RPC_URL"
 ### 3. Deploy the core
 
 ```sh
-forge clean && forge build
-forge script script/DeployCore.s.sol \
+arc-forge clean && arc-forge build
+arc-forge script script/DeployCore.s.sol --network arc \
   --rpc-url arc_testnet --broadcast -vvv
 ```
 
-> `forge clean && forge build` is needed before any deploy because
+> `arc-forge clean && arc-forge build` is needed before any deploy because
 > the OpenZeppelin upgrades safety validator rejects build-info from
 > a partial compilation. Skip it and the script reverts mid-flight.
 
@@ -295,7 +325,7 @@ set -a && source .env && set +a
 escrow's allowlist dependency:
 
 ```sh
-forge script script/DeployAgent.s.sol \
+arc-forge script script/DeployAgent.s.sol --network arc \
   --rpc-url arc_testnet --broadcast -vvv
 ```
 
@@ -309,7 +339,7 @@ Read-only check that asserts the deployed contracts are wired
 correctly. Costs nothing, fails loud on mismatches:
 
 ```sh
-forge script script/Verify.s.sol --rpc-url arc_testnet -vvv
+arc-forge script script/Verify.s.sol --network arc --rpc-url arc_testnet -vvv
 ```
 
 The script asserts that admin roles, fee-accruer wiring, dependency
@@ -318,6 +348,21 @@ whitelist entries all match the expected post-deploy state. It
 reverts loud with a specific message if anything is wrong.
 
 ### 6b. Source verification (Arcscan / Blockscout)
+
+Arc's deploy tutorial verifies with `arc-forge verify-contract` and Foundry's Blockscout
+verifier, one contract at a time, using the deploy's compiler settings:
+
+```sh
+arc-forge verify-contract <ADDRESS> src/core/StrimzRegistry.sol:StrimzRegistry \
+  --chain-id 5042002 \
+  --verifier blockscout \
+  --verifier-url https://explorer.testnet.arc.io/api/
+```
+
+Add `--constructor-args $(arc-cast abi-encode "constructor(...)" ...)` for contracts with
+constructor arguments. Mainnet uses `--chain-id 5042` and
+`https://explorer.arc.io/api/`. #142 decides whether `script/verify.sh` below stays or
+moves onto this command.
 
 ```sh
 ./script/verify.sh                 # verify everything in the log
@@ -486,7 +531,7 @@ TIMELOCK_MIN_DELAY=300
 EOF
 set -a && source .env && set +a
 
-forge script script/HandoffAdmin.s.sol --rpc-url arc_testnet --broadcast -vvv
+arc-forge script script/HandoffAdmin.s.sol --network arc --rpc-url arc_testnet --broadcast -vvv
 ```
 
 `TIMELOCK_MIN_DELAY` is in seconds and has no default: `300` on testnet, `172800`
@@ -616,17 +661,18 @@ are the same address — there is no proxy, only the direct deploy.
 
 ## Scripts
 
-| Command                                                | Description                                                               |
-| ------------------------------------------------------ | ------------------------------------------------------------------------- |
-| `pnpm --filter @strimz/contracts build`                | `forge build`                                                             |
-| `pnpm --filter @strimz/contracts test`                 | Clean + build + `forge test -vv` (clean is required for the OZ validator) |
-| `pnpm --filter @strimz/contracts test:gas`             | `forge test --gas-report`                                                 |
-| `pnpm --filter @strimz/contracts coverage`             | `forge coverage --report lcov`                                            |
-| `pnpm --filter @strimz/contracts format`               | `forge fmt`                                                               |
-| `pnpm --filter @strimz/contracts snapshot`             | `forge snapshot`                                                          |
-| `pnpm --filter @strimz/contracts forge:install`        | Install / refresh all submodules                                          |
-| `pnpm --filter @strimz/contracts deploy:testnet`       | Deploy core proxies to Arc testnet                                        |
-| `pnpm --filter @strimz/contracts deploy:agent:testnet` | Deploy agent proxies to Arc testnet                                       |
+| Command                                                | Description                                                                                 |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `pnpm --filter @strimz/contracts build`                | `arc-forge build`                                                                           |
+| `pnpm --filter @strimz/contracts test`                 | Clean + build + `arc-forge test --network arc -vv` (clean is required for the OZ validator) |
+| `pnpm --filter @strimz/contracts test:fork`            | `test-fork/` against an Arc testnet fork (needs `ARC_TESTNET_RPC_URL`)                      |
+| `pnpm --filter @strimz/contracts test:gas`             | `arc-forge test --network arc --gas-report`                                                 |
+| `pnpm --filter @strimz/contracts coverage`             | `arc-forge coverage --network arc --report lcov`                                            |
+| `pnpm --filter @strimz/contracts format`               | `arc-forge fmt`                                                                             |
+| `pnpm --filter @strimz/contracts snapshot`             | `arc-forge snapshot --network arc`                                                          |
+| `pnpm --filter @strimz/contracts forge:install`        | Install / refresh all submodules                                                            |
+| `pnpm --filter @strimz/contracts deploy:testnet`       | Deploy core proxies to Arc testnet                                                          |
+| `pnpm --filter @strimz/contracts deploy:agent:testnet` | Deploy agent proxies to Arc testnet                                                         |
 
 ## Environment
 
@@ -661,5 +707,5 @@ Copy `.env.example` to `.env`:
 
 - `ffi = true` and `ast = true` are required by `openzeppelin-foundry-upgrades`. It shells out to a Node validator and parses the AST for storage layouts.
 - `extra_output = ["storageLayout"]` and `build_info = true` ensure the validator has the data it needs.
-- The `test` script does `forge clean && forge build` before `forge test` because the OZ validator rejects partial build-info; incremental compiles produce partial output.
+- The `test` script does `arc-forge clean && arc-forge build` before `arc-forge test` because the OZ validator rejects partial build-info; incremental compiles produce partial output.
 - `via_ir = true` is enabled for the better optimiser; this slows compile time but is worthwhile for hot-path contracts.
