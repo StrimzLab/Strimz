@@ -1,5 +1,11 @@
 # @strimz/shared-config
 
+## 0.3.0
+
+### Minor Changes
+
+- 6ea1791: New `arcModeFor(env)`: maps an Arc environment to the mode a deployment on it runs in (`testnet` → `test`, `mainnet` → `live`). Throws on an unknown environment.
+
 ## 0.2.0
 
 ### Minor Changes
