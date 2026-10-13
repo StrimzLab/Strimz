@@ -213,6 +213,23 @@ These steps take you from a clean checkout to a verified deployment
 on Arc Testnet. Mainnet is identical except for the `.env` values and
 the `--rpc-url` flag.
 
+For a redeploy of a live environment, follow
+[`docs/runbooks/testnet-redeploy.md`](../../docs/runbooks/testnet-redeploy.md). It adds
+pausing the old contracts, resetting data that points at them, and pointing the services
+at the new addresses.
+
+**Rehearse first.** `./script/rehearse.sh` runs steps 3 to 8 against a local
+`arc-anvil` fork of Arc testnet (chain id 31337) and spends nothing:
+
+- deploy core and agent, and `Verify` (`deployed`);
+- the five `e2e.sh` flows;
+- a 2-of-3 Safe through the Safe factory already on Arc testnet;
+- `HandoffAdmin`, and `Verify` (`handed-off`).
+
+It needs `ARC_TESTNET_RPC_URL`. Its log goes to the ignored `deployments/31337.json`. A
+deploy script only writes `deployments/<chainId>.json` when it broadcasts; dry runs print
+the entry instead.
+
 ### 1. One-time setup
 
 Copy the env template and fill it in:
@@ -339,13 +356,23 @@ Read-only check that asserts the deployed contracts are wired
 correctly. Costs nothing, fails loud on mismatches:
 
 ```sh
-arc-forge script script/Verify.s.sol --network arc --rpc-url arc_testnet -vvv
+STRIMZ_VERIFY_PHASE=deployed STRIMZ_ADMIN_ADDRESS=<deployer> \
+  arc-forge script script/Verify.s.sol --network arc --rpc-url arc_testnet -vvv
 ```
 
 The script asserts that admin roles, fee-accruer wiring, dependency
 pointers, UUPS implementations, and (when seeded) the USDC + EURC
 whitelist entries all match the expected post-deploy state. It
 reverts loud with a specific message if anything is wrong.
+
+- `STRIMZ_VERIFY_PHASE` is required: `deployed` (before the handoff) or `handed-off`.
+- Both phases cover the agent contracts (`STRIMZ_AGENT_REGISTRY_ADDRESS`,
+  `STRIMZ_AGENT_ESCROW_ADDRESS`), the escrow's whitelist pointer, and the permit and
+  EIP-3009 capability flags of USDC and EURC.
+- After step 8, run it with `STRIMZ_VERIFY_PHASE=handed-off`, `STRIMZ_TIMELOCK_ADDRESS`
+  and `STRIMZ_DEPLOYER_ADDRESS`. It checks the timelock's delay, proposer (the Safe) and
+  open execution. It also checks the whole role table from `AdminHandoff`, including
+  that the deployer holds no role.
 
 ### 6b. Source verification (Arcscan / Blockscout)
 
@@ -425,6 +452,12 @@ transaction can be built (USDC's `transferFrom` invokes the first two
 precompiles per call). `cast send` bypasses the local sim entirely
 and submits straight to the RPC, where the precompiles are real.
 This is the same approach Arc's own deploy tutorial uses.
+
+Arc Foundry's `--network arc` now simulates those precompiles, so a forge script would
+also work. The shell driver stays because it exercises the same RPC path the API uses.
+It signs the EIP-3009 authorization, the PayIntent, the permit and the
+SubscriptionIntent through `script/Digests.s.sol`, which reads each intent digest from
+the deployed contract.
 
 `script/Digests.s.sol` handles the EIP-712 work in Solidity (where
 typed-data hashing is trivial). It reads the payer key from
@@ -678,22 +711,25 @@ are the same address — there is no proxy, only the direct deploy.
 
 Copy `.env.example` to `.env`:
 
-| Var                              | Purpose                                                                        |
-| -------------------------------- | ------------------------------------------------------------------------------ |
-| `ARC_TESTNET_RPC_URL`            | RPC for testnet deploys (`https://rpc.testnet.arc.io`)                         |
-| `ARC_MAINNET_RPC_URL`            | RPC for mainnet deploys                                                        |
-| `STRIMZ_DEPLOYER_PRIVATE_KEY`    | Funded deployer. Never commit. Get testnet gas at `https://faucet.circle.com`. |
-| `BLOCKSCOUT_API_KEY`             | Bearer token for `script/verify.sh`. Get one at `explorer.testnet.arc.io`.     |
-| `ARC_TESTNET_VERIFIER_URL`       | Blockscout v2 base URL — `https://explorer.testnet.arc.io/api/`                |
-| `ARC_MAINNET_VERIFIER_URL`       | Mainnet equivalent — `https://explorer.arc.io/api/`                            |
-| `ARC_USDC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                              |
-| `ARC_EURC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                              |
-| `STRIMZ_TOKEN_WHITELIST_ADDRESS` | Whitelist proxy address. Required by `DeployAgent`.                            |
-| `STRIMZ_SAFE_ADDRESS`            | Safe that receives the fast admin roles. Required by `HandoffAdmin`.           |
-| `STRIMZ_GUARDIAN_ADDRESS`        | Optional pause-only key. Read by `HandoffAdmin`.                               |
-| `STRIMZ_RELAYER_ADDRESS`         | API relayer. Receives `MERCHANT_REGISTRAR_ROLE` in `HandoffAdmin`.             |
-| `STRIMZ_SCHEDULER_ADDRESS`       | Scheduler signer. Receives `CHARGER_ROLE` in `HandoffAdmin`.                   |
-| `TIMELOCK_MIN_DELAY`             | Timelock delay in seconds. Required by `HandoffAdmin`.                         |
+| Var                              | Purpose                                                                                   |
+| -------------------------------- | ----------------------------------------------------------------------------------------- |
+| `ARC_TESTNET_RPC_URL`            | RPC for testnet deploys (`https://rpc.testnet.arc.io`)                                    |
+| `ARC_MAINNET_RPC_URL`            | RPC for mainnet deploys                                                                   |
+| `STRIMZ_DEPLOYER_PRIVATE_KEY`    | Funded deployer. Never commit. Get testnet gas at `https://faucet.circle.com`.            |
+| `BLOCKSCOUT_API_KEY`             | Bearer token for `script/verify.sh`. Get one at `explorer.testnet.arc.io`.                |
+| `ARC_TESTNET_VERIFIER_URL`       | Blockscout v2 base URL — `https://explorer.testnet.arc.io/api/`                           |
+| `ARC_MAINNET_VERIFIER_URL`       | Mainnet equivalent — `https://explorer.arc.io/api/`                                       |
+| `ARC_USDC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                                         |
+| `ARC_EURC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                                         |
+| `STRIMZ_TOKEN_WHITELIST_ADDRESS` | Whitelist proxy address. Required by `DeployAgent`.                                       |
+| `STRIMZ_SAFE_ADDRESS`            | Safe that receives the fast admin roles. Required by `HandoffAdmin`.                      |
+| `STRIMZ_GUARDIAN_ADDRESS`        | Optional pause-only key. Read by `HandoffAdmin`.                                          |
+| `STRIMZ_RELAYER_ADDRESS`         | API relayer. Receives `MERCHANT_REGISTRAR_ROLE` in `HandoffAdmin`.                        |
+| `STRIMZ_SCHEDULER_ADDRESS`       | Scheduler signer. Receives `CHARGER_ROLE` in `HandoffAdmin`.                              |
+| `TIMELOCK_MIN_DELAY`             | Timelock delay in seconds. Required by `HandoffAdmin`.                                    |
+| `STRIMZ_VERIFY_PHASE`            | `deployed` or `handed-off`. Required by `Verify.s.sol`.                                   |
+| `STRIMZ_TIMELOCK_ADDRESS`        | TimelockController from the handoff. Read by `Verify.s.sol` (`handed-off`).               |
+| `STRIMZ_DEPLOYER_ADDRESS`        | Deployer that must hold no role after the handoff. Read by `Verify.s.sol` (`handed-off`). |
 
 ## Audit posture
 
