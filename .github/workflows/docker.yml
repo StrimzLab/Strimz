@@ -10,6 +10,8 @@ on:
     branches: [main]
     paths:
       - 'apps/*/Dockerfile'
+      - 'infra/arc-anvil/**'
+      - 'scripts/install-arc-foundry.sh'
       - 'apps/*/tsconfig.build.json'
       - 'apps/*/nest-cli.json'
       - 'Dockerfile.lightsail'
@@ -21,6 +23,8 @@ on:
     branches: [main]
     paths:
       - 'apps/*/Dockerfile'
+      - 'infra/arc-anvil/**'
+      - 'scripts/install-arc-foundry.sh'
       - 'apps/*/tsconfig.build.json'
       - 'apps/*/nest-cli.json'
       - 'Dockerfile.lightsail'
@@ -65,6 +69,10 @@ jobs:
             context: .
             dockerfile: Dockerfile.lightsail
             smoke: lightsail
+          - app: arc-anvil
+            context: .
+            dockerfile: infra/arc-anvil/Dockerfile
+            smoke: arc-anvil
     steps:
       - uses: actions/checkout@v4
 
@@ -84,6 +92,18 @@ jobs:
       - name: Smoke (starts and reaches env validation)
         if: ${{ matrix.smoke == true }}
         run: scripts/docker-smoke.sh strimz-${{ matrix.app }}:ci
+
+      - name: Smoke the Arc local chain
+        if: ${{ matrix.smoke == 'arc-anvil' }}
+        run: |
+          docker run -d --name arc-anvil strimz-arc-anvil:ci
+          trap 'docker rm -f arc-anvil >/dev/null' EXIT
+          for _ in $(seq 1 30); do
+            docker exec arc-anvil arc-cast block-number --rpc-url http://localhost:8545 >/dev/null 2>&1 && break
+            sleep 1
+          done
+          test "$(docker exec arc-anvil arc-cast chain-id --rpc-url http://localhost:8545)" = "5042002"
+          test "$(docker exec arc-anvil arc-cast call 0x3600000000000000000000000000000000000000 'decimals()(uint8)' --rpc-url http://localhost:8545)" = "6"
 
       - name: Smoke each service in the Lightsail image
         if: ${{ matrix.smoke == 'lightsail' }}

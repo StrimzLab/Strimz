@@ -20,6 +20,8 @@ packages/db/generated
 packages/contracts/lib
 packages/contracts/out
 packages/contracts/cache
+packages/contracts/out-fork
+packages/contracts/cache-fork
 packages/contracts/broadcast
 
 apps/indexer/bin

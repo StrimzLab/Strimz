@@ -19,3 +19,5 @@ gas-report.json
 
 # Turbo
 .turbo
+out-fork/
+cache-fork/
