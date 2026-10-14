@@ -141,6 +141,7 @@ No single key controls the contracts after the handoff.
 | `AGENT_ADMIN_ROLE`        | AgentRegistry                                            | Safe                       |
 | `MERCHANT_REGISTRAR_ROLE` | Registry                                                 | API relayer                |
 | `CHARGER_ROLE`            | Subscriptions                                            | Scheduler                  |
+| `FEE_MANAGER_ROLE`        | Registry (`setFeeBps`, within each merchant's ceiling)   | Scheduler                  |
 | `FEE_ACCRUER_ROLE`        | FeeCollector                                             | Payments and Subscriptions |
 | any role                  | any                                                      | Deployer: none (renounced) |
 
@@ -150,9 +151,10 @@ No single key controls the contracts after the handoff.
 - **Fast, through the Safe:** pause, unpause, `setFeeBps` (bounded by each merchant's
   `maxFeeBps`), `setActive`, `adminCancel*`, fee withdrawals, dispute resolution, agent
   reputation, and revoking or rotating the two service keys. `ADMIN_ROLE` is the role
-  admin of `MERCHANT_REGISTRAR_ROLE` and `CHARGER_ROLE`.
-- **Service keys:** the relayer and the scheduler hold one role each and must be
-  different keys. The scheduler does not start when its address equals `RELAYER_ADDRESS`.
+  admin of `MERCHANT_REGISTRAR_ROLE`, `CHARGER_ROLE` and `FEE_MANAGER_ROLE`.
+- **Service keys:** the relayer holds `MERCHANT_REGISTRAR_ROLE`; the scheduler holds
+  `CHARGER_ROLE` and `FEE_MANAGER_ROLE`, which moves merchants between plans by calling
+  `setFeeBps` within each merchant's ceiling. They must be different keys. The scheduler does not start when its address equals `RELAYER_ADDRESS`.
 
 ## Live deployment (Arc Testnet)
 
@@ -725,7 +727,7 @@ Copy `.env.example` to `.env`:
 | `STRIMZ_SAFE_ADDRESS`            | Safe that receives the fast admin roles. Required by `HandoffAdmin`.                      |
 | `STRIMZ_GUARDIAN_ADDRESS`        | Optional pause-only key. Read by `HandoffAdmin`.                                          |
 | `STRIMZ_RELAYER_ADDRESS`         | API relayer. Receives `MERCHANT_REGISTRAR_ROLE` in `HandoffAdmin`.                        |
-| `STRIMZ_SCHEDULER_ADDRESS`       | Scheduler signer. Receives `CHARGER_ROLE` in `HandoffAdmin`.                              |
+| `STRIMZ_SCHEDULER_ADDRESS`       | Scheduler signer. Receives `CHARGER_ROLE` and `FEE_MANAGER_ROLE` in `HandoffAdmin`.       |
 | `TIMELOCK_MIN_DELAY`             | Timelock delay in seconds. Required by `HandoffAdmin`.                                    |
 | `STRIMZ_VERIFY_PHASE`            | `deployed` or `handed-off`. Required by `Verify.s.sol`.                                   |
 | `STRIMZ_TIMELOCK_ADDRESS`        | TimelockController from the handoff. Read by `Verify.s.sol` (`handed-off`).               |
