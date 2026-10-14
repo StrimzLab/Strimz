@@ -35,8 +35,8 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_registerAssignsIncrementingId() public {
         vm.startPrank(admin);
-        uint256 id1 = registry.registerMerchant(merchant, merchantPayout, 150, 0);
-        uint256 id2 = registry.registerMerchant(merchant, merchantPayout, 150, 0);
+        uint256 id1 = registry.registerMerchant(merchant, merchantPayout, 150, 150, 0);
+        uint256 id2 = registry.registerMerchant(merchant, merchantPayout, 150, 150, 0);
         vm.stopPrank();
         assertEq(id1, 1, "first id starts at 1");
         assertEq(id2, 2);
@@ -44,7 +44,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_registerCapturesFeeAsMaxCeiling() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 150, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 150, 150, 0);
         IStrimzRegistry.Merchant memory m = registry.getMerchant(id);
         assertEq(m.feeBps, 150);
         assertEq(m.maxFeeBps, 150, "registration fee becomes the ceiling");
@@ -53,29 +53,29 @@ contract StrimzRegistryTest is StrimzTestBase {
     function test_registerRejectsFeeAboveMax() public {
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(IStrimzRegistry.Registry__FeeTooHigh.selector, 600));
-        registry.registerMerchant(merchant, merchantPayout, 600, 0);
+        registry.registerMerchant(merchant, merchantPayout, 600, 600, 0);
     }
 
     function test_registerRejectsZeroAddressParties() public {
         vm.startPrank(admin);
         vm.expectRevert(IStrimzRegistry.Registry__ZeroAddress.selector);
-        registry.registerMerchant(address(0), merchantPayout, 100, 0);
+        registry.registerMerchant(address(0), merchantPayout, 100, 100, 0);
         vm.expectRevert(IStrimzRegistry.Registry__ZeroAddress.selector);
-        registry.registerMerchant(merchant, address(0), 100, 0);
+        registry.registerMerchant(merchant, address(0), 100, 100, 0);
         vm.stopPrank();
     }
 
     function test_registerRejectsUnknownParent() public {
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(IStrimzRegistry.Registry__UnknownParentMerchant.selector, 42));
-        registry.registerMerchant(merchant, merchantPayout, 100, 42);
+        registry.registerMerchant(merchant, merchantPayout, 100, 100, 42);
     }
 
     // ---------- Fee changes ----------
 
     function test_adminCanLowerFeeWithinCeiling() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 200, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 200, 200, 0);
         vm.prank(admin);
         registry.setFeeBps(id, 50);
         assertEq(registry.getMerchant(id).feeBps, 50);
@@ -85,7 +85,7 @@ contract StrimzRegistryTest is StrimzTestBase {
     // A compromised admin therefore cannot silently hike fees platform-wide.
     function test_adminCannotRaiseAboveMerchantCeiling() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         vm.prank(admin);
         vm.expectRevert(
             abi.encodeWithSelector(IStrimzRegistry.Registry__FeeExceedsMax.selector, 200, 100)
@@ -97,39 +97,10 @@ contract StrimzRegistryTest is StrimzTestBase {
     // somehow gets misconfigured.
     function test_setFeeBpsAbsoluteCeilingHolds() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 500, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 500, 500, 0);
         vm.prank(admin);
         vm.expectRevert(abi.encodeWithSelector(IStrimzRegistry.Registry__FeeTooHigh.selector, 501));
         registry.setFeeBps(id, 501);
-    }
-
-    // Merchant can lower their own ceiling as defence against
-    // compromised admin.
-    function test_merchantCanLowerMaxFeeBps() public {
-        vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 200, 0);
-        vm.prank(merchant);
-        registry.setMaxFeeBps(id, 100);
-        IStrimzRegistry.Merchant memory m = registry.getMerchant(id);
-        assertEq(m.maxFeeBps, 100);
-        // Current fee > new max snaps down.
-        assertEq(m.feeBps, 100, "current fee snapped to new ceiling");
-    }
-
-    function test_merchantCannotRaiseMaxFeeBps() public {
-        vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
-        vm.prank(merchant);
-        vm.expectRevert(IStrimzRegistry.Registry__MaxFeeCanOnlyLower.selector);
-        registry.setMaxFeeBps(id, 200);
-    }
-
-    function test_nonOwnerCannotChangeMaxFeeBps() public {
-        vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 200, 0);
-        vm.prank(payer);
-        vm.expectRevert(IStrimzRegistry.Registry__NotMerchantOwner.selector);
-        registry.setMaxFeeBps(id, 100);
     }
 
     // ---------- Payout rotation (time-delayed) ----------
@@ -138,7 +109,7 @@ contract StrimzRegistryTest is StrimzTestBase {
     // Old address keeps receiving until commit.
     function test_setPayoutAddressOnlyMarksPending() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         address newPayout = makeAddr("newPayout");
 
         vm.prank(merchant);
@@ -152,7 +123,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_commitBeforeDelayReverts() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         vm.prank(merchant);
         registry.setPayoutAddress(id, makeAddr("newPayout"));
 
@@ -162,7 +133,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_commitAfterDelayLandsNewAddress() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         address newPayout = makeAddr("newPayout");
         vm.prank(merchant);
         registry.setPayoutAddress(id, newPayout);
@@ -181,7 +152,7 @@ contract StrimzRegistryTest is StrimzTestBase {
     // was made by an attacker who briefly held the key.
     function test_ownerCanCancelPendingPayoutChange() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         address hostile = makeAddr("hostilePayout");
         vm.prank(merchant);
         registry.setPayoutAddress(id, hostile);
@@ -199,7 +170,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_nonOwnerCannotInitiatePayoutChange() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         vm.prank(payer);
         vm.expectRevert(IStrimzRegistry.Registry__NotMerchantOwner.selector);
         registry.setPayoutAddress(id, makeAddr("attackerPayout"));
@@ -207,7 +178,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_payoutRotationRejectsZeroAddress() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         vm.prank(merchant);
         vm.expectRevert(IStrimzRegistry.Registry__ZeroAddress.selector);
         registry.setPayoutAddress(id, address(0));
@@ -215,7 +186,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_payoutRotationRejectsSameAddress() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         vm.prank(merchant);
         vm.expectRevert(IStrimzRegistry.Registry__SamePayoutAddress.selector);
         registry.setPayoutAddress(id, merchantPayout);
@@ -225,7 +196,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_ownershipNominationDoesNotChangeOwner() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         address next = makeAddr("nextOwner");
 
         vm.prank(merchant);
@@ -238,7 +209,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_onlyNomineeCanAccept() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         address next = makeAddr("nextOwner");
         address random = makeAddr("random");
 
@@ -258,7 +229,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_currentOwnerCanCancelPendingNomination() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         vm.prank(merchant);
         registry.transferMerchantOwnership(id, makeAddr("nextOwner"));
         vm.prank(merchant);
@@ -268,7 +239,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_secondNominationOverwritesFirst() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         address first = makeAddr("first");
         address second = makeAddr("second");
         vm.startPrank(merchant);
@@ -288,7 +259,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_ownershipTransferRejectsZero() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         vm.prank(merchant);
         vm.expectRevert(IStrimzRegistry.Registry__ZeroAddress.selector);
         registry.transferMerchantOwnership(id, address(0));
@@ -296,7 +267,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_ownershipTransferRejectsSameOwner() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         vm.prank(merchant);
         vm.expectRevert(IStrimzRegistry.Registry__SameOwner.selector);
         registry.transferMerchantOwnership(id, merchant);
@@ -306,7 +277,7 @@ contract StrimzRegistryTest is StrimzTestBase {
 
     function test_requireActiveMerchantRevertsWhenInactive() public {
         vm.prank(admin);
-        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        uint256 id = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         vm.prank(admin);
         registry.setActive(id, false);
         vm.expectRevert(abi.encodeWithSelector(IStrimzRegistry.Registry__MerchantInactive.selector, id));

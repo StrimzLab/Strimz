@@ -37,7 +37,6 @@ interface IStrimzRegistry {
     );
     event MerchantPayoutChangeCancelled(uint256 indexed merchantId);
     event MerchantFeeBpsUpdated(uint256 indexed merchantId, uint16 newFeeBps);
-    event MerchantMaxFeeBpsLowered(uint256 indexed merchantId, uint16 newMaxFeeBps);
     event MerchantActiveSet(uint256 indexed merchantId, bool active);
     event MerchantOwnershipTransferInitiated(
         uint256 indexed merchantId, address indexed currentOwner, address indexed pendingOwner
@@ -56,7 +55,6 @@ interface IStrimzRegistry {
     error Registry__NoPendingTransfer();
     error Registry__FeeTooHigh(uint16 feeBps);
     error Registry__FeeExceedsMax(uint16 requested, uint16 max);
-    error Registry__MaxFeeCanOnlyLower();
     error Registry__MerchantInactive(uint256 merchantId);
     error Registry__UnknownParentMerchant(uint256 parentMerchantId);
     error Registry__SameOwner();
@@ -81,6 +79,7 @@ interface IStrimzRegistry {
         address owner,
         address payoutAddress,
         uint16 feeBps,
+        uint16 maxFeeBps,
         uint256 parentMerchantId
     ) external returns (uint256 merchantId);
 
@@ -89,11 +88,6 @@ interface IStrimzRegistry {
     ///         registration. Prevents a compromised admin from hiking
     ///         fees platform-wide.
     function setFeeBps(uint256 merchantId, uint16 newFeeBps) external;
-
-    /// @notice Merchant owner lowers their own max-fee ceiling. Cannot
-    ///         raise — that would defeat the ceiling's purpose. To lift
-    ///         the ceiling a merchant re-registers under new terms.
-    function setMaxFeeBps(uint256 merchantId, uint16 newMaxFeeBps) external;
 
     function setActive(uint256 merchantId, bool active) external;
 

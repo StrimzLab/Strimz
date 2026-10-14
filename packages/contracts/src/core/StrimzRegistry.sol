@@ -46,6 +46,7 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(UPGRADER_ROLE, admin);
         _grantRole(MERCHANT_REGISTRAR_ROLE, admin);
+        _setRoleAdmin(FEE_MANAGER_ROLE, ADMIN_ROLE);
         _s().nextMerchantId = 1;
     }
 
@@ -90,10 +91,12 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
         address owner,
         address payoutAddress,
         uint16 feeBps,
+        uint16 maxFeeBps,
         uint256 parentMerchantId
     ) external override onlyRole(MERCHANT_REGISTRAR_ROLE) returns (uint256 merchantId) {
         if (owner == address(0) || payoutAddress == address(0)) revert Registry__ZeroAddress();
-        if (feeBps > MAX_FEE_BPS) revert Registry__FeeTooHigh(feeBps);
+        if (maxFeeBps > MAX_FEE_BPS) revert Registry__FeeTooHigh(maxFeeBps);
+        if (feeBps > maxFeeBps) revert Registry__FeeExceedsMax(feeBps, maxFeeBps);
 
         Storage storage $ = _s();
         if (parentMerchantId != 0) {
@@ -115,34 +118,24 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
             pendingOwner: address(0),
             pendingPayoutAddress: address(0),
             payoutChangeCommitAt: 0,
-            maxFeeBps: feeBps
+            maxFeeBps: maxFeeBps
         });
 
-        emit MerchantRegistered(merchantId, owner, payoutAddress, feeBps, feeBps, parentMerchantId);
+        emit MerchantRegistered(merchantId, owner, payoutAddress, feeBps, maxFeeBps, parentMerchantId);
     }
 
     // ---------- Fee ----------
 
     /// @inheritdoc IStrimzRegistry
-    function setFeeBps(uint256 merchantId, uint16 newFeeBps) external override onlyRole(ADMIN_ROLE) {
+    function setFeeBps(uint256 merchantId, uint16 newFeeBps) external override {
+        if (!hasRole(ADMIN_ROLE, msg.sender) && !hasRole(FEE_MANAGER_ROLE, msg.sender)) {
+            revert AccessControlUnauthorizedAccount(msg.sender, FEE_MANAGER_ROLE);
+        }
         if (newFeeBps > MAX_FEE_BPS) revert Registry__FeeTooHigh(newFeeBps);
         Merchant storage m = _load(merchantId);
         if (newFeeBps > m.maxFeeBps) revert Registry__FeeExceedsMax(newFeeBps, m.maxFeeBps);
         m.feeBps = newFeeBps;
         emit MerchantFeeBpsUpdated(merchantId, newFeeBps);
-    }
-
-    /// @inheritdoc IStrimzRegistry
-    function setMaxFeeBps(uint256 merchantId, uint16 newMaxFeeBps) external override {
-        Merchant storage m = _load(merchantId);
-        if (msg.sender != m.owner) revert Registry__NotMerchantOwner();
-        if (newMaxFeeBps >= m.maxFeeBps) revert Registry__MaxFeeCanOnlyLower();
-        m.maxFeeBps = newMaxFeeBps;
-        if (m.feeBps > newMaxFeeBps) {
-            m.feeBps = newMaxFeeBps;
-            emit MerchantFeeBpsUpdated(merchantId, newMaxFeeBps);
-        }
-        emit MerchantMaxFeeBpsLowered(merchantId, newMaxFeeBps);
     }
 
     // ---------- Active flag ----------
