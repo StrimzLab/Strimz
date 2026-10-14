@@ -52,7 +52,7 @@ contract StrimzSubscriptionsTest is StrimzTestBase {
             StrimzAccessControl(address(feeCollector)).FEE_ACCRUER_ROLE(),
             address(subs)
         );
-        merchantId = registry.registerMerchant(merchant, merchantPayout, 100, 0);
+        merchantId = registry.registerMerchant(merchant, merchantPayout, 100, 100, 0);
         vm.stopPrank();
 
         _fund(payer, 10_000_000_000);
@@ -134,7 +134,7 @@ contract StrimzSubscriptionsTest is StrimzTestBase {
         uint256 subA = _createSub(50_000_000);
 
         vm.prank(admin);
-        uint256 merchantB = registry.registerMerchant(makeAddr("mB"), makeAddr("payB"), 100, 0);
+        uint256 merchantB = registry.registerMerchant(makeAddr("mB"), makeAddr("payB"), 100, 100, 0);
         address payerB = makeAddr("payerB");
         _fund(payerB, 10_000_000_000);
         vm.prank(payerB);

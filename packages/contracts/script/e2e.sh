@@ -203,8 +203,8 @@ echo "  expected merchantId: $MERCHANT_ID"
 
 send_as "$STRIMZ_DEPLOYER_PRIVATE_KEY" \
     "$STRIMZ_REGISTRY_ADDRESS" \
-    "registerMerchant(address,address,uint16,uint256)" \
-    "$MERCHANT" "$STRIMZ_MERCHANT_PAYOUT_ADDRESS" "$FEE_BPS" 0
+    "registerMerchant(address,address,uint16,uint16,uint256)" \
+    "$MERCHANT" "$STRIMZ_MERCHANT_PAYOUT_ADDRESS" "$FEE_BPS" "$FEE_BPS" 0
 
 M=$("$CAST" call "$STRIMZ_REGISTRY_ADDRESS" \
     "getMerchant(uint256)((address,uint16,bool,address,uint256,address,address,uint64,uint16))" "$MERCHANT_ID" \

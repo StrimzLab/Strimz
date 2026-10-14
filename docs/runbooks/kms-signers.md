@@ -8,10 +8,10 @@ never leave KMS. The server holds an access key for an IAM user that can only as
 two keys to sign, and only from the Lightsail static IP. With `NODE_ENV=production`
 neither service starts with a plaintext key.
 
-| Service   | Key alias                          | Contract role             |
-| --------- | ---------------------------------- | ------------------------- |
-| API       | `alias/strimz-<network>-relayer`   | `MERCHANT_REGISTRAR_ROLE` |
-| Scheduler | `alias/strimz-<network>-scheduler` | `CHARGER_ROLE`            |
+| Service   | Key alias                          | Contract role                      |
+| --------- | ---------------------------------- | ---------------------------------- |
+| API       | `alias/strimz-<network>-relayer`   | `MERCHANT_REGISTRAR_ROLE`          |
+| Scheduler | `alias/strimz-<network>-scheduler` | `CHARGER_ROLE`, `FEE_MANAGER_ROLE` |
 
 `<network>` is `testnet` or `mainnet`. Each network has its own two keys and its own
 IAM user. The commands below use the AWS CLI and Foundry's `cast`.

@@ -44,6 +44,7 @@ library AdminHandoff {
     bytes32 internal constant AGENT_ADMIN_ROLE = keccak256("STRIMZ_AGENT_ADMIN_ROLE");
     bytes32 internal constant PAUSER_ROLE = keccak256("STRIMZ_PAUSER_ROLE");
     bytes32 internal constant DISPUTE_RESOLVER_ROLE = keccak256("STRIMZ_DISPUTE_RESOLVER_ROLE");
+    bytes32 internal constant FEE_MANAGER_ROLE = keccak256("STRIMZ_FEE_MANAGER_ROLE");
 
     uint256 internal constant MIN_SAFE_THRESHOLD = 2;
 
@@ -116,7 +117,7 @@ library AdminHandoff {
         pure
         returns (Grant[] memory table)
     {
-        table = new Grant[](h.guardian == address(0) ? 34 : 37);
+        table = new Grant[](h.guardian == address(0) ? 35 : 38);
         uint256 n;
 
         address[7] memory all = _targets(c);
@@ -149,6 +150,7 @@ library AdminHandoff {
         n = _push(table, n, c.agentRegistry, AGENT_ADMIN_ROLE, h.safe);
         n = _push(table, n, c.registry, MERCHANT_REGISTRAR_ROLE, h.relayer);
         n = _push(table, n, c.subscriptions, CHARGER_ROLE, h.scheduler);
+        n = _push(table, n, c.registry, FEE_MANAGER_ROLE, h.scheduler);
         n = _push(table, n, c.feeCollector, FEE_ACCRUER_ROLE, c.payments);
         n = _push(table, n, c.feeCollector, FEE_ACCRUER_ROLE, c.subscriptions);
 
@@ -157,7 +159,7 @@ library AdminHandoff {
 
     function renounceAll(Contracts memory c, address deployer) internal {
         address[7] memory targets = _targets(c);
-        bytes32[11] memory roles = _roles();
+        bytes32[12] memory roles = _roles();
         for (uint256 i; i < targets.length; ++i) {
             IAccessControl target = IAccessControl(targets[i]);
             for (uint256 j = 1; j < roles.length; ++j) {
@@ -169,7 +171,7 @@ library AdminHandoff {
 
     function verify(Contracts memory c, Holders memory h, address timelock, Grant[] memory table) internal view {
         address[7] memory targets = _targets(c);
-        bytes32[11] memory roles = _roles();
+        bytes32[12] memory roles = _roles();
         address[8] memory accounts =
             [timelock, h.safe, h.guardian, h.relayer, h.scheduler, h.deployer, c.payments, c.subscriptions];
 
@@ -195,13 +197,16 @@ library AdminHandoff {
         if (IAccessControl(c.subscriptions).getRoleAdmin(CHARGER_ROLE) != ADMIN_ROLE) {
             revert AdminHandoff__ServiceRoleAdminNotSet(c.subscriptions);
         }
+        if (IAccessControl(c.registry).getRoleAdmin(FEE_MANAGER_ROLE) != ADMIN_ROLE) {
+            revert AdminHandoff__ServiceRoleAdminNotSet(c.registry);
+        }
     }
 
     function _targets(Contracts memory c) private pure returns (address[7] memory) {
         return [c.registry, c.tokenWhitelist, c.feeCollector, c.payments, c.subscriptions, c.agentRegistry, c.agentEscrow];
     }
 
-    function _roles() private pure returns (bytes32[11] memory) {
+    function _roles() private pure returns (bytes32[12] memory) {
         return [
             DEFAULT_ADMIN_ROLE,
             ADMIN_ROLE,
@@ -213,7 +218,8 @@ library AdminHandoff {
             TREASURY_ROLE,
             AGENT_ADMIN_ROLE,
             PAUSER_ROLE,
-            DISPUTE_RESOLVER_ROLE
+            DISPUTE_RESOLVER_ROLE,
+            FEE_MANAGER_ROLE
         ];
     }
 

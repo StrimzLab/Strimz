@@ -24,7 +24,7 @@ contract ContractPermissionGapsTest is StrimzTestBase {
         agents = _deployAgentRegistry(admin);
 
         vm.prank(admin);
-        merchantId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, 0);
+        merchantId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, FEE_BPS, 0);
     }
 
     function test_ownershipAcceptanceCannotSkipTheDelay() public {

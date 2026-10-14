@@ -33,8 +33,8 @@ contract ArcUsdcPaymentForkTest is ArcForkBase {
         whitelist.add(address(ARC_USDC));
         whitelist.setCapabilities(address(ARC_USDC), whitelist.CAP_TRANSFER_AUTH_3009());
         feeCollector.grantRole(accruerRole, address(payments));
-        merchantId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, 0);
-        blockedMerchantId = registry.registerMerchant(vendor, ARC_TESTNET_BLOCKLISTED, FEE_BPS, 0);
+        merchantId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, FEE_BPS, 0);
+        blockedMerchantId = registry.registerMerchant(vendor, ARC_TESTNET_BLOCKLISTED, FEE_BPS, FEE_BPS, 0);
         vm.stopPrank();
 
         vm.deal(payer, 100 ether);

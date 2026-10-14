@@ -33,4 +33,6 @@ abstract contract StrimzAccessControl is AccessControlUpgradeable {
     bytes32 public constant AGENT_ADMIN_ROLE = keccak256("STRIMZ_AGENT_ADMIN_ROLE");
 
     bytes32 public constant PAUSER_ROLE = keccak256("STRIMZ_PAUSER_ROLE");
+
+    bytes32 public constant FEE_MANAGER_ROLE = keccak256("STRIMZ_FEE_MANAGER_ROLE");
 }

@@ -79,8 +79,8 @@ STRIMZ_DEPLOYER_ADDRESS=$(arc-cast wallet address --private-key "$STRIMZ_DEPLOYE
   arc-forge script script/Verify.s.sol --network arc --rpc-url arc_testnet
 ```
 
-The deployer holds no role afterwards. The relayer and scheduler KMS addresses hold
-`MERCHANT_REGISTRAR_ROLE` and `CHARGER_ROLE`.
+The deployer holds no role afterwards. The relayer's KMS address holds
+`MERCHANT_REGISTRAR_ROLE`; the scheduler's holds `CHARGER_ROLE` and `FEE_MANAGER_ROLE`.
 
 ## 5. Publish the source
 
