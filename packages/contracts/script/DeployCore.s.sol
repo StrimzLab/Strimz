@@ -89,7 +89,7 @@ contract DeployCore is Script {
             DeploymentLog.Entry("FeeCollector", feeCollector, Upgrades.getImplementationAddress(feeCollector));
         entries[3] = DeploymentLog.Entry("StrimzPayments", address(payments), address(payments));
         entries[4] = DeploymentLog.Entry("StrimzSubscriptions", address(subs), address(subs));
-        DeploymentLog.append("core", entries);
+        DeploymentLog.append("core", admin, entries);
 
         console2.log("Core deployment recorded in deployments/<chainId>.jsonl");
     }
