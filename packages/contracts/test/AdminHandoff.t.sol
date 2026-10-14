@@ -158,6 +158,19 @@ contract AdminHandoffTest is StrimzTestBase {
         }
     }
 
+    function test_schedulerManagesFeesAfterHandoff() public {
+        _handoff();
+        bytes32 feeManagerRole = keccak256("STRIMZ_FEE_MANAGER_ROLE");
+        assertTrue(_has(address(registry), feeManagerRole, scheduler), "scheduler fee manager");
+        assertFalse(_has(address(registry), feeManagerRole, relayer), "relayer fee manager");
+        assertFalse(_has(address(registry), feeManagerRole, address(safe)), "safe fee manager");
+        assertEq(
+            registry.getRoleAdmin(feeManagerRole),
+            keccak256("STRIMZ_ADMIN_ROLE"),
+            "fee manager administered by ADMIN_ROLE"
+        );
+    }
+
     function test_roleTableAfterHandoff() public {
         _handoff();
         address t = address(timelock);
@@ -226,7 +239,7 @@ contract AdminHandoffTest is StrimzTestBase {
     function test_safeActsWithoutDelay() public {
         _handoff();
         vm.prank(relayer);
-        uint256 merchantId = registry.registerMerchant(merchant, merchantPayout, 150, 0);
+        uint256 merchantId = registry.registerMerchant(merchant, merchantPayout, 150, 150, 0);
         vm.prank(vendor);
         agents.registerAgent(vendor, bytes32(uint256(1)), "agent", "1.0.0");
 

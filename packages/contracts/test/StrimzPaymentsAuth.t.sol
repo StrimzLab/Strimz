@@ -61,7 +61,7 @@ contract StrimzPaymentsAuthTest is StrimzTestBase {
         whitelist.add(address(usdc));
         whitelist.setCapabilities(address(usdc), cap);
         feeCollector.grantRole(accruerRole, address(payments));
-        merchantId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, 0);
+        merchantId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, FEE_BPS, 0);
         vm.stopPrank();
 
         _fund(payer, 1_000_000_000);
@@ -150,8 +150,7 @@ contract StrimzPaymentsAuthTest is StrimzTestBase {
     function test_intent_hijackedMerchantId_reverts() public {
         // Register a second merchant that the attacker controls.
         vm.prank(admin);
-        uint256 attackerMerchant = registry.registerMerchant(
-            makeAddr("attackerOwner"), makeAddr("attackerPayout"), FEE_BPS, 0
+        uint256 attackerMerchant = registry.registerMerchant(makeAddr("attackerOwner"), makeAddr("attackerPayout"), FEE_BPS, FEE_BPS, 0
         );
 
         IStrimzPayments.PayAuthorization memory auth = _defaultAuth(AMOUNT, keccak256("n-hijack"));

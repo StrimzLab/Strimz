@@ -56,7 +56,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         whitelist.add(address(usdc));
         whitelist.setCapabilities(address(usdc), cap);
         feeCollector.grantRole(accruerRole, address(subs));
-        merchantId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, 0);
+        merchantId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, FEE_BPS, 0);
         vm.stopPrank();
 
         _fund(payer, 10_000_000_000);
@@ -210,8 +210,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
     // attacker's plan.
     function test_intent_hijackedMerchantId_reverts() public {
         vm.prank(admin);
-        uint256 attackerMerchant = registry.registerMerchant(
-            makeAddr("attackerOwner"), makeAddr("attackerPayout"), FEE_BPS, 0
+        uint256 attackerMerchant = registry.registerMerchant(makeAddr("attackerOwner"), makeAddr("attackerPayout"), FEE_BPS, FEE_BPS, 0
         );
 
         uint256 deadline = block.timestamp + 24 hours;

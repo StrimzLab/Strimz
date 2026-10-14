@@ -31,8 +31,8 @@ contract ArcUsdcSubscriptionsForkTest is ArcForkBase {
         vm.startPrank(admin);
         whitelist.add(address(ARC_USDC));
         feeCollector.grantRole(StrimzAccessControl(address(feeCollector)).FEE_ACCRUER_ROLE(), address(subs));
-        merchantId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, 0);
-        blockedMerchantId = registry.registerMerchant(vendor, ARC_TESTNET_BLOCKLISTED, FEE_BPS, 0);
+        merchantId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, FEE_BPS, 0);
+        blockedMerchantId = registry.registerMerchant(vendor, ARC_TESTNET_BLOCKLISTED, FEE_BPS, FEE_BPS, 0);
         vm.stopPrank();
 
         vm.deal(payer, 100 ether);

@@ -42,7 +42,7 @@ contract SubscriptionIntentNonceTest is StrimzTestBase {
         whitelist.add(address(usdc));
         whitelist.setCapabilities(address(usdc), cap);
         feeCollector.grantRole(accruerRole, address(subs));
-        merchantId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, 0);
+        merchantId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, FEE_BPS, 0);
         vm.stopPrank();
 
         _fund(payer, 10_000_000_000);
