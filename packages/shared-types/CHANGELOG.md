@@ -1,5 +1,16 @@
 # @strimz/shared-types
 
+## 0.12.0
+
+### Minor Changes
+
+- 518b06c: `merchantTierSchema` accepts `free`, `starter`, `growth` and `enterprise`. The old `business` value is gone, and `growth` now means the 40 bps plan.
+
+### Patch Changes
+
+- Updated dependencies [518b06c]
+  - @strimz/shared-config@0.4.0
+
 ## 0.11.2
 
 ### Patch Changes
