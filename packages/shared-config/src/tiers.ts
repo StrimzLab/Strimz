@@ -6,84 +6,106 @@
  * payment is recurring (i.e. originated from a SubscriptionPlan).
  */
 
-export type MerchantTier = 'free' | 'growth' | 'business' | 'enterprise'
+import { PAYMENT_TOKENS, TOKENS, type PaymentToken } from './tokens.js'
 
-export interface TierDefinition {
+export type MerchantTier = 'free' | 'starter' | 'growth' | 'enterprise'
+
+export type VolumePlan = Exclude<MerchantTier, 'enterprise'>
+
+export type PlanFeature = 'storefront' | 'anomaly_alerts' | 'yield_recommendations'
+
+export interface PlanDefinition {
   id: MerchantTier
   name: string
-  /** Monthly fee in USD cents (0 for free, null for custom enterprise). */
-  monthlyFeeUsdCents: number | null
-  /** Per-transaction fee on one-shot payments, in basis points. */
-  oneShotFeeBps: number | null
-  /** Per-transaction premium added on subscription payments, in basis points. */
-  subscriptionPremiumBps: number | null
-  /** Monthly transaction volume cap in USD cents. `null` for unlimited. */
-  monthlyVolumeCapUsdCents: number | null
-  /** Whether the "Powered by Strimz" badge can be removed from checkout. */
-  whiteLabelEligible: boolean
-  /** Whether the tier includes priority support. */
+  feeBps: number | null
+  entersAtVolume: number | null
+  features: readonly PlanFeature[]
   prioritySupport: boolean
 }
 
-export const TIERS: Record<MerchantTier, TierDefinition> = {
+const PAID_FEATURES: readonly PlanFeature[] = [
+  'storefront',
+  'anomaly_alerts',
+  'yield_recommendations',
+]
+
+export const PLANS: Record<MerchantTier, PlanDefinition> = {
   free: {
     id: 'free',
     name: 'Free',
-    monthlyFeeUsdCents: 0,
-    oneShotFeeBps: 150, // 1.5%
-    subscriptionPremiumBps: 20, // +0.2% on recurring => 1.7% effective
-    monthlyVolumeCapUsdCents: 1_000_000, // $10,000
-    whiteLabelEligible: false,
+    feeBps: 0,
+    entersAtVolume: 0,
+    features: [],
     prioritySupport: false,
+  },
+  starter: {
+    id: 'starter',
+    name: 'Starter',
+    feeBps: 50,
+    entersAtVolume: 1_000,
+    features: PAID_FEATURES,
+    prioritySupport: true,
   },
   growth: {
     id: 'growth',
     name: 'Growth',
-    monthlyFeeUsdCents: 4_900, // $49
-    oneShotFeeBps: 80, // 0.8%
-    subscriptionPremiumBps: 20, // 1.0% effective
-    monthlyVolumeCapUsdCents: 10_000_000, // $100,000
-    whiteLabelEligible: true,
-    prioritySupport: false,
-  },
-  business: {
-    id: 'business',
-    name: 'Business',
-    monthlyFeeUsdCents: 19_900, // $199
-    oneShotFeeBps: 50, // 0.5%
-    subscriptionPremiumBps: 20, // 0.7% effective
-    monthlyVolumeCapUsdCents: 100_000_000, // $1,000,000
-    whiteLabelEligible: true,
+    feeBps: 40,
+    entersAtVolume: 50_000,
+    features: PAID_FEATURES,
     prioritySupport: true,
   },
   enterprise: {
     id: 'enterprise',
     name: 'Enterprise',
-    monthlyFeeUsdCents: null,
-    oneShotFeeBps: null,
-    subscriptionPremiumBps: null,
-    monthlyVolumeCapUsdCents: null,
-    whiteLabelEligible: true,
+    feeBps: null,
+    entersAtVolume: null,
+    features: PAID_FEATURES,
     prioritySupport: true,
   },
 }
 
 export const DEFAULT_TIER: MerchantTier = 'free'
 
-export function getTier(id: MerchantTier): TierDefinition {
-  return TIERS[id]
+const PLAN_ORDER: readonly MerchantTier[] = ['free', 'starter', 'growth', 'enterprise']
+
+const VOLUME_PLANS: readonly VolumePlan[] = ['free', 'starter', 'growth']
+
+export const PLAN_FEE_CEILING_BPS: number = Math.max(
+  ...VOLUME_PLANS.map((plan) => PLANS[plan].feeBps ?? 0),
+)
+
+export function planFeeBps(plan: MerchantTier): number | null {
+  return PLANS[plan].feeBps
 }
 
-/**
- * Effective fee in bps for a given tier and payment kind.
- * Returns `null` for the enterprise tier (custom-priced).
- */
-export function effectiveFeeBps(
-  tier: MerchantTier,
-  kind: 'one_shot' | 'subscription',
-): number | null {
-  const def = TIERS[tier]
-  if (def.oneShotFeeBps === null) return null
-  if (kind === 'one_shot') return def.oneShotFeeBps
-  return def.oneShotFeeBps + (def.subscriptionPremiumBps ?? 0)
+export function planIncludes(plan: MerchantTier, feature: PlanFeature): boolean {
+  return PLANS[plan].features.includes(feature)
+}
+
+export function plansWith(feature: PlanFeature): MerchantTier[] {
+  return PLAN_ORDER.filter((plan) => planIncludes(plan, feature))
+}
+
+export function lowestPlanWith(feature: PlanFeature): MerchantTier {
+  const plan = PLAN_ORDER.find((candidate) => planIncludes(candidate, feature))
+  if (!plan) throw new Error(`no plan includes ${feature}`)
+  return plan
+}
+
+export type PaymentVolumes = Readonly<Record<PaymentToken, bigint>>
+
+function thresholdInBaseUnits(plan: VolumePlan, token: PaymentToken): bigint {
+  const wholeUnits = PLANS[plan].entersAtVolume
+  if (wholeUnits === null) throw new Error(`${plan} has no volume threshold`)
+  return BigInt(wholeUnits) * 10n ** BigInt(TOKENS[token].decimals)
+}
+
+export function planForVolume(volumes: PaymentVolumes): VolumePlan {
+  let reached: VolumePlan = 'free'
+  for (const plan of VOLUME_PLANS) {
+    if (PAYMENT_TOKENS.some((token) => volumes[token] >= thresholdInBaseUnits(plan, token))) {
+      reached = plan
+    }
+  }
+  return reached
 }

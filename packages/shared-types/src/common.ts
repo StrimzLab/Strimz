@@ -98,7 +98,7 @@ export const tokenSymbolSchema = z.enum(['USDC', 'EURC', 'USYC'])
 export type TokenSymbol = z.infer<typeof tokenSymbolSchema>
 
 /** Merchant tier enum. */
-export const merchantTierSchema = z.enum(['free', 'growth', 'business', 'enterprise'])
+export const merchantTierSchema = z.enum(['free', 'starter', 'growth', 'enterprise'])
 export type MerchantTier = z.infer<typeof merchantTierSchema>
 
 /** Arc environment enum. */
