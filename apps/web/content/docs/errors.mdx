@@ -29,6 +29,7 @@ key support uses to find your request in the logs.
 | `live_mode_ineligible`  | 403  | A live key was requested but the account fails a live-mode check; `details.reasons` lists which    |
 | `live_mode_unavailable` | 403  | A live key was requested while live mode is closed, before Strimz runs on Arc mainnet              |
 | `mode_unavailable`      | 403  | The key's mode is not this deployment's: test keys on the live API, or live keys on the sandbox    |
+| `plan_required`         | 403  | The feature needs a higher plan; `details.requiredPlan` names it                                   |
 | `merchant_not_synced`   | 401  | Privy session is valid but no Merchant row. Call `POST /v1/auth/sync` first.                       |
 | `secret_key_in_browser` | none | Thrown by `@strimz/sdk` when `StrimzClient` is constructed in a browser. No request is sent.       |
 | `not_found`             | 404  | Resource doesn't exist or isn't visible to your token                                              |
@@ -146,6 +147,20 @@ Live keys cannot be created or rotated until Strimz runs on Arc mainnet. Use tes
 ```
 
 Each deployment runs in one mode: the sandbox on Arc testnet in test mode, the live API on Arc mainnet in live mode. Send test keys to the sandbox and live keys to the live API.
+
+### `plan_required`
+
+```json
+{
+  "error": {
+    "code": "plan_required",
+    "message": "the storefront builder needs the Starter plan, which starts automatically once 1,000 USDC or EURC has been processed",
+    "details": { "feature": "storefront", "plan": "free", "requiredPlan": "starter" }
+  }
+}
+```
+
+The storefront builder, anomaly alerts and yield recommendations start on the Starter plan. Every merchant starts on Free. A merchant moves to Starter automatically once its all-time volume reaches 1,000 in USDC or in EURC; the two currencies are counted separately. `details.feature` is one of `storefront`, `anomaly_alerts` or `yield_recommendations`.
 
 ### `invalid_request`
 

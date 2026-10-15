@@ -633,16 +633,18 @@ emits `CallScheduled`. Once the delay has passed, anyone calls `execute` (or
 `executeBatch`) with the same arguments. The Safe can `cancel` before then. A dependency
 rotation on Payments or Subscriptions is one batch: `pause()`, the setter, `unpause()`.
 
-### Change a merchant's fee tier
+### Change a merchant's fee
 
-The admin page sets a merchant's tier, but the Registry decides the fee every payment
-pays. The API accepts a tier only when the Registry already charges that tier's fee:
-Free 150 bps, Growth 80 bps, Business 50 bps (`packages/shared-config/src/tiers.ts`).
-Enterprise accepts any fee. A merchant that is not registered on-chain can only be set
-to Free. Every merchant registers at 150 bps with a ceiling (`maxFeeBps`) of 150 bps.
+The Registry decides the fee every payment pays. The plans are in
+`packages/shared-config/src/tiers.ts`: Free 0 bps, Starter 50 bps, Growth 40 bps, and
+Enterprise by contract. Every merchant registers at its plan fee with a ceiling
+(`maxFeeBps`) of 50 bps, the highest plan fee. No role can set a fee above the ceiling,
+and nothing lowers it.
 
-1. Find the merchant's on-chain id. The admin merchant page shows it, and a refused tier
-   change returns it as `onchainMerchantId` with `requiredFeeBps` and `maxFeeBps`.
+Free, Starter and Growth follow the merchant's all-time volume and are not set by hand.
+The admin page only moves a merchant to Enterprise, for a signed contract:
+
+1. Find the merchant's on-chain id on the admin merchant page.
 2. Read the current fee and ceiling:
 
    ```sh
@@ -651,9 +653,8 @@ to Free. Every merchant registers at 150 bps with a ceiling (`maxFeeBps`) of 150
      <onchain-id> --rpc-url "$RPC"
    ```
 
-   The second field is `feeBps` and the last is `maxFeeBps`. The new fee must be at or
-   below `maxFeeBps`, or `setFeeBps` reverts with `Registry__FeeExceedsMax`. A merchant
-   whose ceiling is below the tier's fee cannot take that tier (issue #146).
+   The second field is `feeBps` and the last is `maxFeeBps`. The contract fee must be at
+   or below `maxFeeBps`, or `setFeeBps` reverts with `Registry__FeeExceedsMax`.
 
 3. Send the fee change as a Safe transaction: target `$STRIMZ_REGISTRY_ADDRESS`,
    method `setFeeBps(uint256,uint16)`, arguments `<onchain-id>` and `<fee-bps>`. Two
@@ -661,12 +662,11 @@ to Free. Every merchant registers at 150 bps with a ceiling (`maxFeeBps`) of 150
    the receipt reports success.
 
 4. Read `getMerchant` again and confirm the new `feeBps`.
-5. Set the tier in the admin page (Admin, Merchants, the merchant, Tier). The audit entry
-   `merchant.tier_changed` records the on-chain id and fee the API read. The indexer
+5. On the admin page, open the merchant and choose Move to Enterprise. The audit entry
+   `merchant.tier_changed` records the on-chain id and the fee the API read. The indexer
    also records the fee change as `merchant.fee_bps_changed_onchain`.
 
-To move a merchant back to Free, send `setFeeBps(<onchain-id>, 150)` first, then set
-the tier.
+An Enterprise merchant's sessions and invoices show the fee the Registry holds.
 
 ## Reading the deployment log
 

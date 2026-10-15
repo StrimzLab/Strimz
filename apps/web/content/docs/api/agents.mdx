@@ -38,6 +38,8 @@ PATCH /v1/agents/config
 
 Partial update. Only the keys you send are applied.
 
+Anomaly alerts and yield recommendations start on the Starter plan. On Free, changing `cashflow.anomalySensitivity` or turning on `cashflow.autoConvertToYield` answers `403 plan_required`, and the agent skips both checks. The cash-flow digest works on every plan.
+
 ## Activity log
 
 ```http
