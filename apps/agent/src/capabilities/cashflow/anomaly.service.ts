@@ -7,6 +7,7 @@ import { TypedConfigService } from '../../config/index.js'
 import { meanAndStddev, sameHourBaseline, utcHourFloor } from './hourly-baseline.js'
 import { paymentCurrencies, type PaymentCurrency } from '@strimz/shared-types'
 import { formatAmount } from '../../common/money/currency-amounts.js'
+import { plansWith } from '@strimz/shared-config'
 
 /**
  * Hourly tick. For each merchant with `cashflow` enabled, computes:
@@ -43,7 +44,10 @@ export class CashflowAnomalyService {
     const hourStart = new Date(hourEnd.getTime() - 60 * 60 * 1_000)
 
     const merchants = await this.prisma.db.agentMerchantConfig.findMany({
-      where: { enabledCapabilities: { has: 'cashflow' } },
+      where: {
+        enabledCapabilities: { has: 'cashflow' },
+        merchant: { tier: { in: plansWith('anomaly_alerts') } },
+      },
       include: { merchant: true },
     })
 

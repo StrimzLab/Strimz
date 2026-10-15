@@ -41,8 +41,7 @@ export interface RegisteredMerchantRow {
   tierFeeBps: number | null
   onchainFeeBps: number
   maxFeeBps: number
-  tiersAcceptedByAdminRoute: MerchantTier[]
-  flags: Array<'fee_mismatch' | 'fee_below_tier' | 'ceiling_below_default'>
+  flags: Array<'fee_mismatch' | 'fee_below_tier' | 'ceiling_below_plan_ceiling'>
 }
 
 export interface MerchantTierAudit {

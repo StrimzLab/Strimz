@@ -4,6 +4,7 @@ import { EmailService } from '../../infra/email/email.service.js'
 import { ActivityLogService } from '../../infra/activity-log/activity-log.service.js'
 import { escapeHtml } from '../../common/escape-html.js'
 import { formatAmount } from '../../common/money/currency-amounts.js'
+import { plansWith } from '@strimz/shared-config'
 
 /**
  * Computes whether a merchant has cumulative net revenue above their
@@ -36,6 +37,7 @@ export class CashflowYieldService {
       where: {
         enabledCapabilities: { has: 'cashflow' },
         cashflowAutoConvertToYield: true,
+        merchant: { tier: { in: plansWith('yield_recommendations') } },
       },
       include: { merchant: true },
     })

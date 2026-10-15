@@ -10,7 +10,7 @@ import type { CurrencyAmounts, Merchant, Mode, PaymentCurrency } from '@strimz/s
 
 export type AdminRole = 'super_admin' | 'admin' | 'read_only'
 export type AdminUserStatus = 'active' | 'suspended'
-export type MerchantTier = 'free' | 'growth' | 'business' | 'enterprise'
+export type MerchantTier = 'free' | 'starter' | 'growth' | 'enterprise'
 export type MerchantStatus = 'active' | 'suspended' | 'closed'
 
 export interface AdminProfile {
@@ -164,7 +164,7 @@ export interface SetMerchantStatusInput {
 }
 
 export interface SetMerchantTierInput {
-  tier: MerchantTier
+  tier: 'enterprise'
 }
 
 export interface InviteAdminInput {

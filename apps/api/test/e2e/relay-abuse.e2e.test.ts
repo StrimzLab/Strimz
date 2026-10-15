@@ -519,7 +519,11 @@ describe('relay abuse e2e', () => {
     })
 
     it('refuses a storefront product below 1.00', async () => {
-      const m = await seedMerchant(t.prisma.db, { onboardingCompleted: true, onchainMerchantId: 1 })
+      const m = await seedMerchant(t.prisma.db, {
+        tier: 'starter',
+        onboardingCompleted: true,
+        onchainMerchantId: 1,
+      })
       await seedStorefront(t.prisma.db, m.id, `floor-shop-${ipCounter}`)
 
       const res = await post('/v1/storefront/products', m.privyAccessToken, {

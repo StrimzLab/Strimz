@@ -18,8 +18,8 @@ const STATUS_TINT: Record<MerchantStatus, string> = {
 
 const TIER_TINT: Record<MerchantTier, string> = {
   free: 'border-border/60',
-  growth: 'border-sky-400/40 bg-sky-50 text-sky-700',
-  business: 'border-violet-400/40 bg-violet-50 text-violet-700',
+  starter: 'border-sky-400/40 bg-sky-50 text-sky-700',
+  growth: 'border-violet-400/40 bg-violet-50 text-violet-700',
   enterprise: 'border-accent/40 bg-accent/10 text-accent',
 }
 

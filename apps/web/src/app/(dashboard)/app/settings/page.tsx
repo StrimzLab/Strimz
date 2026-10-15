@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from '@strimz/ui'
 import type { Merchant, PaymentCurrency, UpdateMerchantInput } from '@strimz/shared-types'
-import { effectiveFeeBps } from '@strimz/shared-config'
+import { planFeeBps } from '@strimz/shared-config'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { ImageUpload } from '@/components/dashboard/image-upload'
@@ -391,7 +391,7 @@ function TeamSection() {
 }
 
 function tierFeeLabel(tier: Merchant['tier']): string {
-  const feeBps = effectiveFeeBps(tier, 'one_shot')
+  const feeBps = planFeeBps(tier)
   if (feeBps === null) return 'Custom rate agreed with Strimz'
   return `${(feeBps / 100).toFixed(2)}% per transaction`
 }

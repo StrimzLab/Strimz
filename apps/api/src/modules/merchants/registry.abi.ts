@@ -12,6 +12,7 @@ export const registerMerchantAbi = [
       { name: 'owner', type: 'address' },
       { name: 'payoutAddress', type: 'address' },
       { name: 'feeBps', type: 'uint16' },
+      { name: 'maxFeeBps', type: 'uint16' },
       { name: 'parentMerchantId', type: 'uint256' },
     ],
     outputs: [{ name: 'merchantId', type: 'uint256' }],

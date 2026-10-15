@@ -3,6 +3,7 @@ import {
   approveAgentJobConfirm,
   cancelPaymentSessionConfirm,
   cancelSubscriptionConfirm,
+  moveToEnterpriseConfirm,
   removeAdminConfirm,
   revokeApiKeyConfirm,
   suspendAdminConfirm,
@@ -46,6 +47,14 @@ describe('destructive action confirmations', () => {
     expect(copy.title).toBe('Suspend Acme?')
     expect(copy.description).toContain('API keys')
     expect(copy.description).toContain('reactivate')
+  })
+
+  it('moving a merchant to Enterprise says the registry fee applies and it is not undone here', () => {
+    const copy = moveToEnterpriseConfirm({ businessName: 'Acme' })
+    expect(copy.title).toBe('Move Acme to Enterprise?')
+    expect(copy.description).toContain('setFeeBps')
+    expect(copy.description).toContain('cannot be undone')
+    expect(copy.confirmLabel).toBe('Move to Enterprise')
   })
 
   it('suspending and removing an admin say what the admin loses', () => {

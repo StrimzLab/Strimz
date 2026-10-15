@@ -115,7 +115,7 @@ describe('agent keeps USDC and EURC apart', () => {
   })
 
   it('anomaly baseline of one currency is not lifted by the other', async () => {
-    const m = await seedMerchant(t.prisma.db)
+    const m = await seedMerchant(t.prisma.db, { tier: 'starter' })
     await seedAgentConfig(t.prisma.db, m.id, { enabledCapabilities: ['cashflow'] })
     const hourStart = Date.UTC(2026, 8, 15, 9)
     for (let d = 1; d <= 10; d++) {
@@ -133,7 +133,7 @@ describe('agent keeps USDC and EURC apart', () => {
   })
 
   it('yield compares only USDC with the USD reserve', async () => {
-    const m = await seedMerchant(t.prisma.db)
+    const m = await seedMerchant(t.prisma.db, { tier: 'starter' })
     await seedAgentConfig(t.prisma.db, m.id, {
       enabledCapabilities: ['cashflow'],
       cashflowAutoConvertToYield: true,

@@ -1,23 +1,12 @@
 #!/usr/bin/env node
 import { pathToFileURL } from 'node:url'
 import { createPublicClient, http, isAddress, parseAbi } from 'viem'
-import { DEFAULT_TIER, TIERS, effectiveFeeBps } from '@strimz/shared-config'
+import { DEFAULT_TIER, PLAN_FEE_CEILING_BPS, planFeeBps } from '@strimz/shared-config'
 import { print } from './print.mjs'
-
-const STANDARD_TIERS = Object.keys(TIERS).filter(
-  (tier) => effectiveFeeBps(tier, 'one_shot') !== null,
-)
-const CUSTOM_TIERS = Object.keys(TIERS).filter((tier) => effectiveFeeBps(tier, 'one_shot') === null)
 
 const registryAbi = parseAbi([
   'function getMerchant(uint256 merchantId) view returns ((address owner, uint16 feeBps, bool active, address payoutAddress, uint256 parentMerchantId, address pendingOwner, address pendingPayoutAddress, uint64 payoutChangeCommitAt, uint16 maxFeeBps))',
 ])
-
-function defaultFeeBps() {
-  const feeBps = effectiveFeeBps(DEFAULT_TIER, 'one_shot')
-  if (feeBps === null) throw new Error(`default tier ${DEFAULT_TIER} has no fixed one-shot fee`)
-  return feeBps
-}
 
 function latestTierChanges(tierChanges) {
   const latest = new Map()
@@ -57,14 +46,11 @@ function nonFreeRow(merchant, lastChange) {
 }
 
 function registeredRow(merchant, record) {
-  const tierFeeBps = effectiveFeeBps(merchant.tier, 'one_shot')
+  const tierFeeBps = planFeeBps(merchant.tier)
   const flags = []
   if (tierFeeBps !== null && record.feeBps !== tierFeeBps) flags.push('fee_mismatch')
   if (tierFeeBps !== null && record.feeBps < tierFeeBps) flags.push('fee_below_tier')
-  if (record.maxFeeBps < defaultFeeBps()) flags.push('ceiling_below_default')
-  const accepted = STANDARD_TIERS.filter(
-    (tier) => effectiveFeeBps(tier, 'one_shot') === record.feeBps,
-  )
+  if (record.maxFeeBps < PLAN_FEE_CEILING_BPS) flags.push('ceiling_below_plan_ceiling')
   return {
     merchantId: merchant.id,
     onchainMerchantId: String(merchant.onchainMerchantId),
@@ -72,7 +58,6 @@ function registeredRow(merchant, record) {
     tierFeeBps,
     onchainFeeBps: record.feeBps,
     maxFeeBps: record.maxFeeBps,
-    tiersAcceptedByAdminRoute: [...accepted, ...CUSTOM_TIERS],
     flags,
   }
 }

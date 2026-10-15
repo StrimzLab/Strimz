@@ -130,7 +130,7 @@ export class AdminController {
   @Patch('/merchants/:id/tier')
   @ApiOperation({
     summary:
-      'Change a merchant tier (free / growth / business / enterprise). The on-chain registry must already charge the tier fee.',
+      'Move a merchant to Enterprise. Free, Starter and Growth follow processed volume. The merchant must be registered on-chain, with its contract fee set in the registry.',
   })
   setMerchantTier(
     @CurrentAdmin() ctx: CurrentAdminPayload,

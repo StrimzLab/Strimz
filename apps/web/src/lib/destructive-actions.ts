@@ -46,6 +46,14 @@ export function suspendMerchantConfirm(merchant: { businessName: string }) {
   } satisfies ConfirmCopy
 }
 
+export function moveToEnterpriseConfirm(merchant: { businessName: string }) {
+  return {
+    title: `Move ${merchant.businessName} to Enterprise?`,
+    description: `They are charged the fee the registry holds from now on, so send setFeeBps with the contract fee first. Their plan stops following volume. This cannot be undone here.`,
+    confirmLabel: 'Move to Enterprise',
+  } satisfies ConfirmCopy
+}
+
 export function suspendAdminConfirm(admin: { email: string }) {
   return {
     title: 'Suspend this admin?',

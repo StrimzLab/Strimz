@@ -1,9 +1,11 @@
 import {
+  ConflictException,
   Injectable,
   Logger,
   PreconditionFailedException,
   ServiceUnavailableException,
 } from '@nestjs/common'
+import { planFeeBps, type MerchantTier } from '@strimz/shared-config'
 import type { Hex } from 'viem'
 
 import { TypedConfigService } from '../../config/index.js'
@@ -181,6 +183,21 @@ export class MerchantChainService {
       this.log.warn(`getOnchainState read failed: ${message}`)
       return null
     }
+  }
+
+  async feeBpsFor(merchant: {
+    tier: MerchantTier
+    onchainMerchantId: number | null
+  }): Promise<number> {
+    const feeBps = planFeeBps(merchant.tier)
+    if (feeBps !== null) return feeBps
+    if (merchant.onchainMerchantId === null) {
+      throw new ConflictException({
+        code: 'merchant_not_registered',
+        message: `the ${merchant.tier} fee is held on-chain and the merchant is not registered yet`,
+      })
+    }
+    return (await this.readRegistryFee(BigInt(merchant.onchainMerchantId))).feeBps
   }
 
   async readRegistryFee(onchainMerchantId: bigint): Promise<RegistryFee> {

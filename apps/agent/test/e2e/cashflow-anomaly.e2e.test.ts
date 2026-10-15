@@ -19,7 +19,7 @@ describe('cashflow anomaly e2e', () => {
   })
 
   it('skips when fewer than 7 prior data points exist', async () => {
-    const merchant = await seedMerchant(t.prisma.db)
+    const merchant = await seedMerchant(t.prisma.db, { tier: 'starter' })
     await seedAgentConfig(t.prisma.db, merchant.id, { enabledCapabilities: ['cashflow'] })
     await seedTransaction(t.prisma.db, merchant.id, { blockTimestamp: new Date() })
 
@@ -29,7 +29,10 @@ describe('cashflow anomaly e2e', () => {
   })
 
   it('flags an hour with revenue many σ below the 30-day mean for that hour', async () => {
-    const merchant = await seedMerchant(t.prisma.db, { businessName: 'Anomaly Co' })
+    const merchant = await seedMerchant(t.prisma.db, {
+      businessName: 'Anomaly Co',
+      tier: 'starter',
+    })
     await seedAgentConfig(t.prisma.db, merchant.id, {
       enabledCapabilities: ['cashflow'],
       cashflowAnomalySensitivity: 'medium',
@@ -63,7 +66,7 @@ describe('cashflow anomaly e2e', () => {
   })
 
   it('does NOT flag a revenue surge', async () => {
-    const merchant = await seedMerchant(t.prisma.db)
+    const merchant = await seedMerchant(t.prisma.db, { tier: 'starter' })
     await seedAgentConfig(t.prisma.db, merchant.id, { enabledCapabilities: ['cashflow'] })
 
     const baselineHour = new Date()
@@ -96,7 +99,7 @@ describe('cashflow anomaly e2e', () => {
     new Date(hourStart.getTime() - days * 86_400_000 + minutes * 60_000)
 
   it('keeps the hour under test out of its own baseline', async () => {
-    const merchant = await seedMerchant(t.prisma.db)
+    const merchant = await seedMerchant(t.prisma.db, { tier: 'starter' })
     await seedAgentConfig(t.prisma.db, merchant.id, {
       enabledCapabilities: ['cashflow'],
       cashflowAnomalySensitivity: 'low',
@@ -117,7 +120,7 @@ describe('cashflow anomaly e2e', () => {
   })
 
   it('counts hours with no revenue as zero in the baseline', async () => {
-    const merchant = await seedMerchant(t.prisma.db)
+    const merchant = await seedMerchant(t.prisma.db, { tier: 'starter' })
     await seedAgentConfig(t.prisma.db, merchant.id, {
       enabledCapabilities: ['cashflow'],
       cashflowAnomalySensitivity: 'medium',
@@ -135,7 +138,7 @@ describe('cashflow anomaly e2e', () => {
   })
 
   it('flags an hour once when the tick runs twice', async () => {
-    const merchant = await seedMerchant(t.prisma.db)
+    const merchant = await seedMerchant(t.prisma.db, { tier: 'starter' })
     await seedAgentConfig(t.prisma.db, merchant.id, { enabledCapabilities: ['cashflow'] })
     for (let i = 1; i <= 10; i++) {
       await seedTransaction(t.prisma.db, merchant.id, {

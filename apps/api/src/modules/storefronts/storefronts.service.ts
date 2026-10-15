@@ -16,6 +16,7 @@ import { arcModeFor } from '@strimz/shared-config'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
+import { requirePlanFeature } from '../../common/plans/plan-access.js'
 import { TypedConfigService } from '../../config/index.js'
 import { PaymentSessionsService } from '../payment-sessions/payment-sessions.service.js'
 
@@ -36,6 +37,7 @@ export class StorefrontsService {
   }
 
   async upsert(merchantId: string, input: CreateStorefrontParsed): Promise<Storefront> {
+    await requirePlanFeature(this.prisma, merchantId, 'storefront')
     const existing = await this.prisma.db.storefront.findFirst({
       where: { slug: input.slug, NOT: { merchantId } },
     })
@@ -71,6 +73,7 @@ export class StorefrontsService {
   }
 
   async setStatus(merchantId: string, status: 'published' | 'archived'): Promise<Storefront> {
+    if (status === 'published') await requirePlanFeature(this.prisma, merchantId, 'storefront')
     const existing = await this.prisma.db.storefront.findUnique({ where: { merchantId } })
     if (!existing) {
       throw new NotFoundException({ code: 'not_found', message: 'storefront not yet created' })
@@ -105,6 +108,7 @@ export class StorefrontsService {
     merchantId: string,
     input: CreateStorefrontProductParsed,
   ): Promise<StorefrontProduct> {
+    await requirePlanFeature(this.prisma, merchantId, 'storefront')
     assertMinimumAmount(input.price)
     const sf = await this.prisma.db.storefront.findUnique({ where: { merchantId } })
     if (!sf) {

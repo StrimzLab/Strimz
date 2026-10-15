@@ -4,7 +4,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { effectiveFeeBps } from '@strimz/shared-config'
 import type {
   CreatePaymentSessionParsed,
   Mode,
@@ -62,7 +61,7 @@ export class PaymentSessionsService {
   ): Promise<PaymentSession> {
     assertMinimumAmount(input.amount)
     const merchant = await db.merchant.findUniqueOrThrow({ where: { id: merchantId } })
-    const feeBps = effectiveFeeBps(merchant.tier as never, 'one_shot') ?? 150
+    const feeBps = await this.merchantChain.feeBpsFor(merchant)
     const amount = BigInt(input.amount)
     const feeAmount = (amount * BigInt(feeBps)) / 10_000n
     const netAmount = amount - feeAmount

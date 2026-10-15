@@ -131,14 +131,22 @@ describe('storefront checkout e2e', () => {
       })
 
     it('rejects a subscription product without a plan', async () => {
-      const m = await seedMerchant(t.prisma.db, { onboardingCompleted: true, onchainMerchantId: 1 })
+      const m = await seedMerchant(t.prisma.db, {
+        tier: 'starter',
+        onboardingCompleted: true,
+        onchainMerchantId: 1,
+      })
       await seedStorefront(t.prisma.db, m.id, 'shop')
       const res = await createProduct(m.privyAccessToken, {})
       expect(res.statusCode).toBe(400)
     })
 
     it("rejects another merchant's plan", async () => {
-      const m = await seedMerchant(t.prisma.db, { onboardingCompleted: true, onchainMerchantId: 1 })
+      const m = await seedMerchant(t.prisma.db, {
+        tier: 'starter',
+        onboardingCompleted: true,
+        onchainMerchantId: 1,
+      })
       const other = await seedMerchant(t.prisma.db)
       await seedStorefront(t.prisma.db, m.id, 'shop')
       const plan = await seedPlan(t.prisma.db, other.id)
@@ -148,7 +156,11 @@ describe('storefront checkout e2e', () => {
     })
 
     it('rejects a plan whose price differs from the product', async () => {
-      const m = await seedMerchant(t.prisma.db, { onboardingCompleted: true, onchainMerchantId: 1 })
+      const m = await seedMerchant(t.prisma.db, {
+        tier: 'starter',
+        onboardingCompleted: true,
+        onchainMerchantId: 1,
+      })
       await seedStorefront(t.prisma.db, m.id, 'shop')
       const plan = await seedPlan(t.prisma.db, m.id, { amount: '30000000' })
       const res = await createProduct(m.privyAccessToken, { planId: plan.id })
@@ -156,7 +168,11 @@ describe('storefront checkout e2e', () => {
     })
 
     it('rejects a plan on a one-time product', async () => {
-      const m = await seedMerchant(t.prisma.db, { onboardingCompleted: true, onchainMerchantId: 1 })
+      const m = await seedMerchant(t.prisma.db, {
+        tier: 'starter',
+        onboardingCompleted: true,
+        onchainMerchantId: 1,
+      })
       await seedStorefront(t.prisma.db, m.id, 'shop')
       const plan = await seedPlan(t.prisma.db, m.id)
       const res = await createProduct(m.privyAccessToken, {
@@ -169,7 +185,11 @@ describe('storefront checkout e2e', () => {
     })
 
     it('links a matching plan and checks out to the subscription page', async () => {
-      const m = await seedMerchant(t.prisma.db, { onboardingCompleted: true, onchainMerchantId: 1 })
+      const m = await seedMerchant(t.prisma.db, {
+        tier: 'starter',
+        onboardingCompleted: true,
+        onchainMerchantId: 1,
+      })
       await seedStorefront(t.prisma.db, m.id, 'shop')
       const plan = await seedPlan(t.prisma.db, m.id)
       const res = await createProduct(m.privyAccessToken, { planId: plan.id })

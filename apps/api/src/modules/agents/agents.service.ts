@@ -15,6 +15,7 @@ import {
 import { AGENT_DEFAULTS } from '@strimz/shared-config'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QueueService } from '../../infra/queue/queue.service.js'
+import { assertPlanIncludes } from '../../common/plans/plan-access.js'
 import { mergeAgentConfig } from './agent-config-merge.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -48,9 +49,8 @@ export class AgentsService {
       })
       await tx.$queryRaw`SELECT id FROM "AgentMerchantConfig" WHERE "merchantId" = ${merchantId} FOR UPDATE`
       const stored = await tx.agentMerchantConfig.findUniqueOrThrow({ where: { merchantId } })
-      const merged = agentMerchantConfigSchema.safeParse(
-        mergeAgentConfig(serialiseConfig(stored), input),
-      )
+      const current = serialiseConfig(stored)
+      const merged = agentMerchantConfigSchema.safeParse(mergeAgentConfig(current, input))
       if (!merged.success) {
         this.log.error(
           `stored agent config for merchant ${merchantId} fails the schema: ${merged.error.message}`,
@@ -61,6 +61,16 @@ export class AgentsService {
         })
       }
       const config = merged.data
+      const { tier } = await tx.merchant.findUniqueOrThrow({
+        where: { id: merchantId },
+        select: { tier: true },
+      })
+      if (config.cashflow.autoConvertToYield && !current.cashflow.autoConvertToYield) {
+        assertPlanIncludes(tier, 'yield_recommendations')
+      }
+      if (config.cashflow.anomalySensitivity !== current.cashflow.anomalySensitivity) {
+        assertPlanIncludes(tier, 'anomaly_alerts')
+      }
       const updated = await tx.agentMerchantConfig.update({
         where: { merchantId },
         data: {

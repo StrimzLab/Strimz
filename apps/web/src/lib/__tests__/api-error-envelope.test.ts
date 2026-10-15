@@ -64,7 +64,7 @@ describe('API error envelope', () => {
   it('admin client carries the code, message, details and request id of a tier refusal', async () => {
     stubFetch(409, FEE_MISMATCH)
     const error = await adminClient()
-      .setMerchantTier('mer_1', { tier: 'growth' })
+      .setMerchantTier('mer_1', { tier: 'enterprise' })
       .catch((e: unknown) => e)
     expect(error).toBeInstanceOf(StrimzApiError)
     expect(error).toMatchObject({

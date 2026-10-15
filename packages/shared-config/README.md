@@ -25,10 +25,11 @@ pnpm add @strimz/shared-config
 ## Quick start
 
 ```ts
-import { arcTestnet, getTokenAddress, effectiveFeeBps } from '@strimz/shared-config'
+import { arcTestnet, getTokenAddress, planFeeBps, planForVolume } from '@strimz/shared-config'
 
 const usdcOnTestnet = getTokenAddress('testnet', 'USDC')
-const recurringFeeBps = effectiveFeeBps('growth', 'subscription') // 100 bps
+const starterFeeBps = planFeeBps('starter') // 50 bps
+const plan = planForVolume({ USDC: 1_000_000_000n, EURC: 0n }) // 'starter'
 ```
 
 ## Modules
@@ -39,7 +40,7 @@ Every group is also available as a subpath import for tree-shaking.
 | -------------------------------- | ------------------------------------------------------------------------------------- |
 | `@strimz/shared-config/chains`   | `arcTestnet`, `arcMainnet`, `getArcChain`, `isArcChain`, chain id constants           |
 | `@strimz/shared-config/tokens`   | `TOKENS`, `TOKEN_ADDRESSES`, `getTokenAddress`, `isPaymentToken`, `PaymentToken` type |
-| `@strimz/shared-config/tiers`    | `TIERS`, `effectiveFeeBps`, `getTier`, `MerchantTier` type                            |
+| `@strimz/shared-config/tiers`    | `PLANS`, `planFeeBps`, `planForVolume`, `planIncludes`, `MerchantTier` type           |
 | `@strimz/shared-config/webhooks` | `WEBHOOK_EVENTS`, retry schedule, signature header constants                          |
 | `@strimz/shared-config/api-keys` | `API_KEY_PREFIXES`, `prefixFor`, `modeFromKey`, `kindFromKey`                         |
 | `@strimz/shared-config/agents`   | `AGENT_CAPABILITIES`, `AGENT_DEFAULTS`, capability metadata                           |
