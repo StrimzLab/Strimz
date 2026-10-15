@@ -1,5 +1,6 @@
 import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common'
 import { SchedulerRegistry } from '@nestjs/schedule'
+import { AGENT_CAPABILITIES } from '@strimz/shared-config'
 import { TypedConfigService } from '../../config/index.js'
 import { scheduleCron } from '../../common/cron/schedule-cron.js'
 import { CommerceService } from './commerce.service.js'
@@ -14,6 +15,10 @@ export class CommerceCron implements OnApplicationBootstrap {
   ) {}
 
   onApplicationBootstrap(): void {
+    if (!AGENT_CAPABILITIES.commerce.available) {
+      this.log.log('commerce is not available; the monthly summary is not scheduled')
+      return
+    }
     scheduleCron(
       this.scheduler,
       'commerce-monthly',

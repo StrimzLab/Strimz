@@ -39,10 +39,13 @@ describe('cron schedules', () => {
     ['cashflow-digest', configured.CASHFLOW_DIGEST_CRON],
     ['cashflow-anomaly', configured.CASHFLOW_ANOMALY_CRON],
     ['cashflow-yield', configured.CASHFLOW_YIELD_CRON],
-    ['commerce-monthly', configured.COMMERCE_MONTHLY_CRON],
     ['pricing-monthly', configured.PRICING_MONTHLY_CRON],
   ])('schedules %s from the validated config', (name, expected) => {
     const job = app.get(SchedulerRegistry).getCronJob(name)
     expect(job.cronTime.source).toBe(expected)
+  })
+
+  it('does not schedule the commerce summary while agent escrow is unavailable', () => {
+    expect(() => app.get(SchedulerRegistry).getCronJob('commerce-monthly')).toThrow()
   })
 })
