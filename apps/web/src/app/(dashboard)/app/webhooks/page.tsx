@@ -35,7 +35,6 @@ import {
   Label,
 } from '@strimz/ui'
 import {
-  webhookEventNameSchema,
   type WebhookDelivery,
   type WebhookDeliveryStatus,
   type WebhookEndpoint,
@@ -45,6 +44,7 @@ import {
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { downloadCsv } from '@/lib/csv-export'
+import { selectableWebhookEvents } from '@/lib/webhook-events'
 import { useDashboardMode } from '@/lib/dashboard-mode'
 import { relativeTime } from '@/lib/format'
 import {
@@ -57,7 +57,7 @@ import {
   useWebhookEndpoints,
 } from '@/hooks/api'
 
-const ALL_EVENT_TYPES: readonly WebhookEventName[] = webhookEventNameSchema.options
+const ALL_EVENT_TYPES: readonly WebhookEventName[] = selectableWebhookEvents
 
 const DELIVERY_TONE: Record<
   WebhookDeliveryStatus,

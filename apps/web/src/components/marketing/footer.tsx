@@ -41,7 +41,7 @@ export function MarketingFooter() {
             <Logo variant="white" className="lg:w-[126.98px]" />
             <p className="font-poppins text-ink-muted mt-5 text-sm">
               Stablecoin billing for businesses. One API for one-time payments, subscriptions, and
-              agent-driven escrow. Settled in USDC on Arc.
+              invoices. Settled in USDC on Arc.
             </p>
             <div className="mt-6 flex items-center gap-4">
               <Link
