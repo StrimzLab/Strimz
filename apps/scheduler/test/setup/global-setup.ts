@@ -67,11 +67,13 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     '0x0000000000000000000000000000000000000000000000000000000000000001'
   process.env.SUBSCRIPTIONS_ADDRESS = '0x0000000000000000000000000000000000000001'
   process.env.AGENT_ESCROW_ADDRESS = '0x0000000000000000000000000000000000000002'
+  process.env.REGISTRY_ADDRESS = '0x0000000000000000000000000000000000000003'
   process.env.STRIMZ_WEBHOOK_SIGNING_SECRET = 'test-webhook-secret-at-least-32-chars-long'
   process.env.WEBHOOK_DELIVERY_TIMEOUT_MS = '5000'
   process.env.WEBHOOK_MAX_ATTEMPTS = '3'
   process.env.SUBSCRIPTION_SWEEPER_CRON = '0 0 0 1 1 *' // 1 Jan 00:00 — never during tests
   process.env.INVOICE_OVERDUE_CRON = '0 0 0 1 1 *'
+  process.env.PLAN_UPGRADE_CRON = '0 0 0 1 1 *'
   process.env.SUBSCRIPTION_SWEEP_LIMIT = '100'
   process.env.SUBSCRIPTION_BATCH_SIZE = '20'
   process.env.RESEND_FROM_EMAIL = 'noreply@strimz.test'

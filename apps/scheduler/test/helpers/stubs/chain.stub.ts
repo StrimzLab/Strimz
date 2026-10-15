@@ -25,6 +25,9 @@ export class StubChainService implements Methods<ChainService> {
   public chargeDueAnswers = new Map<bigint, boolean>()
   public chargeDueDefault = true
   public failNext = false
+  public registryFees = new Map<bigint, number>()
+  public registryFeeDefault = 0
+  public feeWriteFailures = new Set<bigint>()
 
   onModuleInit(): Promise<void> {
     return Promise.resolve()
@@ -37,6 +40,9 @@ export class StubChainService implements Methods<ChainService> {
     this.chargeDueAnswers.clear()
     this.chargeDueDefault = true
     this.failNext = false
+    this.registryFees.clear()
+    this.registryFeeDefault = 0
+    this.feeWriteFailures.clear()
   }
 
   private record(fn: string, args: unknown[]): `0x${string}` {
@@ -77,6 +83,18 @@ export class StubChainService implements Methods<ChainService> {
     attestationHex: `0x${string}`
   }): Promise<`0x${string}`> {
     return Promise.resolve(this.record('receiveCctpMessage', [input]))
+  }
+
+  readMerchantFeeBps(onchainMerchantId: bigint): Promise<number> {
+    return Promise.resolve(this.registryFees.get(onchainMerchantId) ?? this.registryFeeDefault)
+  }
+  setMerchantFeeBps(onchainMerchantId: bigint, feeBps: number): Promise<`0x${string}`> {
+    if (this.feeWriteFailures.has(onchainMerchantId)) {
+      return Promise.reject(new Error(`stub chain: setFeeBps(${onchainMerchantId}) reverted`))
+    }
+    const hash = this.record('setMerchantFeeBps', [onchainMerchantId, feeBps])
+    this.registryFees.set(onchainMerchantId, feeBps)
+    return Promise.resolve(hash)
   }
 
   callsFor(fn: string) {

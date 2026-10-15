@@ -12,6 +12,7 @@ vi.hoisted(() => {
     ARC_RPC_URL: process.env.ARC_RPC_URL ?? 'http://localhost:8545',
     SUBSCRIPTIONS_ADDRESS: '0x0000000000000000000000000000000000000001',
     AGENT_ESCROW_ADDRESS: '0x0000000000000000000000000000000000000002',
+    REGISTRY_ADDRESS: '0x0000000000000000000000000000000000000003',
     STRIMZ_WEBHOOK_SIGNING_SECRET: 'test-webhook-secret-at-least-32-chars-long',
     WEBHOOK_SECRET_ENCRYPTION_KEY: 'ab'.repeat(32),
     RELAYER_ADDRESS: '0x000000000000000000000000000000000000dEaD',
@@ -31,6 +32,7 @@ const productionEnv = {
   ARC_RPC_URL: 'http://localhost:8545',
   SUBSCRIPTIONS_ADDRESS: '0x0000000000000000000000000000000000000001',
   AGENT_ESCROW_ADDRESS: '0x0000000000000000000000000000000000000002',
+  REGISTRY_ADDRESS: '0x0000000000000000000000000000000000000003',
   STRIMZ_WEBHOOK_SIGNING_SECRET: 'test-webhook-secret-at-least-32-chars-long',
   WEBHOOK_SECRET_ENCRYPTION_KEY: 'ab'.repeat(32),
   RELAYER_ADDRESS: '0x000000000000000000000000000000000000dEaD',
@@ -52,6 +54,7 @@ function chainService(env: Record<string, unknown>, rpcChainId: number) {
       ARC_RPC_URL: 'http://localhost:8545',
       SUBSCRIPTIONS_ADDRESS: '0x0000000000000000000000000000000000000001',
       AGENT_ESCROW_ADDRESS: '0x0000000000000000000000000000000000000002',
+      REGISTRY_ADDRESS: '0x0000000000000000000000000000000000000003',
       ...env,
     },
   } as unknown as TypedConfigService
@@ -63,6 +66,13 @@ function chainService(env: Record<string, unknown>, rpcChainId: number) {
 describe('scheduler Arc network settings', () => {
   it('refuses an unset ARC_ENVIRONMENT in production', () => {
     expect(() => validateEnv(productionEnv)).toThrow(/ARC_ENVIRONMENT/u)
+  })
+
+  it('refuses to start without the registry address the plan upgrade writes to', () => {
+    const { REGISTRY_ADDRESS: _omitted, ...withoutRegistry } = productionEnv
+    expect(() => validateEnv({ ...withoutRegistry, ARC_ENVIRONMENT: 'testnet' })).toThrow(
+      /REGISTRY_ADDRESS/u,
+    )
   })
 
   it('starts in production with ARC_ENVIRONMENT set', () => {
