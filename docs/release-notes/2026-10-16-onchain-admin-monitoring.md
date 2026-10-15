@@ -35,8 +35,6 @@ page is #260.
     relayer and the scheduler are labelled), and an Arcscan link.
   - **Stamping:** alerts are stamped only after the send. A failed send leaves them
     pending.
-- **CI:** the Go job checks out submodules, so the role-name test can read
-  OpenZeppelin's `TimelockController.sol`.
 - **Docs:**
   - the indexer README event tables, the self-hosting indexer and scheduler pages, the
     env examples and the redeploy runbook list the new settings;
@@ -60,9 +58,9 @@ page is #260.
   - Config tests: did not compile (no new fields).
   - Four processor e2e tests: did not compile.
   - `contract-alerts.e2e.test.ts`: the service did not exist.
-- **The role-name test reads the role constants from `StrimzAccessControl.sol`,
-  `StrimzAgentEscrow.sol` and OpenZeppelin's `TimelockController.sol`** and checks all 14
-  names.
+- **The role-name test reads the 11 role constants from `StrimzAccessControl.sol` and
+  `StrimzAgentEscrow.sol`** and checks each name; the timelock's three roles and
+  `DEFAULT_ADMIN_ROLE` are checked directly. The test needs no git submodule.
 - **Migration:** applied on Postgres 16 after every earlier migration;
   `prisma migrate diff` against the schema reports no difference.
 - **Results:**

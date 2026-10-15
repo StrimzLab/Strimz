@@ -90,11 +90,10 @@ func TestDecode_MaterialisesEveryAdminEvent(t *testing.T) {
 
 var roleConstant = regexp.MustCompile(`bytes32 public constant (\w+) = keccak256\("([^"]+)"\)`)
 
-func TestRoleName_MatchesEveryRoleConstantInTheContracts(t *testing.T) {
+func TestRoleName_MatchesEveryStrimzRoleConstant(t *testing.T) {
 	sources := []string{
 		"../../../../packages/contracts/src/access/StrimzAccessControl.sol",
 		"../../../../packages/contracts/src/agent/StrimzAgentEscrow.sol",
-		"../../../../packages/contracts/lib/openzeppelin-contracts/contracts/governance/TimelockController.sol",
 	}
 	found := 0
 	for _, path := range sources {
@@ -106,8 +105,14 @@ func TestRoleName_MatchesEveryRoleConstantInTheContracts(t *testing.T) {
 			assert.Equal(t, m[1], RoleName(hash), "%s in %s", m[1], path)
 		}
 	}
-	assert.Equal(t, 14, found, "role constants found in the contract sources")
+	assert.Equal(t, 11, found, "role constants found in the Strimz contract sources")
+}
+
+func TestRoleName_NamesTheDefaultAdminAndTimelockRoles(t *testing.T) {
 	assert.Equal(t, "DEFAULT_ADMIN_ROLE", RoleName(common.Hash{}))
+	for _, role := range []string{"PROPOSER_ROLE", "EXECUTOR_ROLE", "CANCELLER_ROLE"} {
+		assert.Equal(t, role, RoleName(crypto.Keccak256Hash([]byte(role))))
+	}
 }
 
 func TestRoleName_KeepsAnUnknownRoleAsItsHash(t *testing.T) {
