@@ -14,6 +14,7 @@ import { SubscriptionSweeperModule } from './crons/subscription-sweeper/subscrip
 import { SubscriptionLapsedModule } from './crons/subscription-lapsed/subscription-lapsed.module.js'
 import { InvoiceOverdueModule } from './crons/invoice-overdue/invoice-overdue.module.js'
 import { PlanUpgradeModule } from './crons/plan-upgrade/plan-upgrade.module.js'
+import { ContractAlertModule } from './crons/contract-alerts/contract-alerts.module.js'
 import { GasBalanceMonitorModule } from './crons/gas-balance-monitor/gas-balance-monitor.module.js'
 import { MerchantNotificationsModule } from './crons/merchant-notifications/merchant-notifications.module.js'
 import { PayerNotificationsModule } from './crons/payer-notifications/payer-notifications.module.js'
@@ -44,6 +45,7 @@ import { AdminModule } from './common/admin/admin.module.js'
     SubscriptionLapsedModule,
     InvoiceOverdueModule,
     PlanUpgradeModule,
+    ContractAlertModule,
     GasBalanceMonitorModule,
     MerchantNotificationsModule,
     PayerNotificationsModule,

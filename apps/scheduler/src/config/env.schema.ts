@@ -60,6 +60,7 @@ export const envSchema = z.object({
   SUBSCRIPTION_SWEEPER_CRON: z.string().default('0 */15 * * * *'),
   INVOICE_OVERDUE_CRON: z.string().default('0 0 * * * *'),
   PLAN_UPGRADE_CRON: z.string().default('0 */5 * * * *'),
+  CONTRACT_ALERT_CRON: z.string().default('0 * * * * *'),
   SUBSCRIPTION_SWEEP_LIMIT: z.coerce.number().int().min(1).max(10_000).default(100),
   SUBSCRIPTION_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(20),
 
