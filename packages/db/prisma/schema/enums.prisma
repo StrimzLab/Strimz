@@ -36,8 +36,8 @@ enum MerchantStatus {
 
 enum MerchantTier {
   free
+  starter
   growth
-  business
   enterprise
 }
 
