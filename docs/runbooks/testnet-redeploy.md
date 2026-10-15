@@ -39,7 +39,8 @@ It forks Arc testnet locally with `arc-anvil` (chain id 31337). On the fork it:
 - deploys core and agent and runs `Verify` (`deployed`);
 - runs the five `e2e.sh` flows;
 - creates a 2-of-3 Safe and hands off admin;
-- runs `Verify` (`handed-off`).
+- pauses the agent escrow as the Safe (#145);
+- runs `Verify` (`handed-off`), which requires the escrow paused.
 
 It spends nothing, and its log goes to the ignored `deployments/31337.json`. Do not go on
 unless it ends with `Rehearsal passed`.
@@ -69,10 +70,17 @@ STRIMZ_VERIFY_PHASE=deployed STRIMZ_ADMIN_ADDRESS=$(arc-cast wallet address --pr
 
 Keep the transaction hashes `e2e.sh` prints for the release note follow-up.
 
-## 4. Hand off admin
+## 4. Hand off admin, then pause the agent escrow
 
 ```sh
 arc-forge script script/HandoffAdmin.s.sol --network arc --rpc-url arc_testnet --broadcast -vvv
+```
+
+Agent escrow is hidden for launch (#145). Pause the new `StrimzAgentEscrow` as a Safe
+transaction: target `$STRIMZ_AGENT_ESCROW_ADDRESS`, method `pause()`, no arguments. Two
+signers approve it and one executes it. Then verify; `Verify` refuses an unpaused escrow:
+
+```sh
 STRIMZ_VERIFY_PHASE=handed-off \
 STRIMZ_TIMELOCK_ADDRESS=<TimelockController from deployments/5042002.json> \
 STRIMZ_DEPLOYER_ADDRESS=$(arc-cast wallet address --private-key "$STRIMZ_DEPLOYER_PRIVATE_KEY") \
@@ -90,10 +98,11 @@ The deployer holds no role afterwards. The relayer's KMS address holds
 
 ## 6. Pause the old contracts
 
-The old Payments and Subscriptions are immutable. Pause them with the key of
+The old Payments and Subscriptions are immutable. Pause them, and the old agent escrow, with the key of
 `0xd9dBe0daa503Caa6e061f1902a7AF22af096E645`, which holds `STRIMZ_ADMIN_ROLE` on both
 (checked on 2026-10-13, and a simulated `pause()` from it succeeds), so no payer can reach
-unfixed code.
+unfixed code. For the old agent escrow (`0x3e34…9b1e`), a simulated `pause()` from that key
+succeeds and one from any other address reverts (checked on 2026-10-15).
 
 The `deployer` field of the older entries in `deployments/5042002.json` shows
 `0x1804…1f38`, Foundry's default script sender, not the key that broadcast. This PR
@@ -102,6 +111,7 @@ fixes the log to record the real deployer.
 ```sh
 arc-cast send 0x2dfa72f9564bdfeb1b32e77c2fdf7040c69bdc7b "pause()" --private-key "$OLD_DEPLOYER_KEY" --rpc-url arc_testnet
 arc-cast send 0xed374f8b4d22361d2487404de34224f74f85fb4c "pause()" --private-key "$OLD_DEPLOYER_KEY" --rpc-url arc_testnet
+arc-cast send 0x3e3407650c22cd982d36c429d262403106f49b1e "pause()" --private-key "$OLD_DEPLOYER_KEY" --rpc-url arc_testnet
 arc-cast call 0x2dfa72f9564bdfeb1b32e77c2fdf7040c69bdc7b "paused()(bool)" --rpc-url arc_testnet
 ```
 

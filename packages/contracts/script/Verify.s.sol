@@ -150,6 +150,9 @@ contract Verify is Script {
 
         AdminHandoff.verify(c, h, timelock, AdminHandoff.roleTable(c, h, timelock));
         console2.log("[ok] post-handoff role table; deployer holds no role");
+
+        require(StrimzAgentEscrow(c.agentEscrow).paused(), "AgentEscrow is not paused; the Safe pauses it until escrow ships");
+        console2.log("[ok] AgentEscrow paused");
     }
 
     function _requireBothCapabilities(string memory label, address whitelist, address token) internal view {
