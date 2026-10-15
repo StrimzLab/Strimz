@@ -43,6 +43,14 @@ type ContractOperationInput struct {
 	Contract string
 	Action   string
 	Metadata map[string]any
+	Alert    bool
+}
+
+type AgentRegistryInput struct {
+	Log      OnchainLogRef
+	Agent    string
+	Action   string
+	Metadata map[string]any
 }
 
 func (s *Store) LogMerchantGovernance(ctx context.Context, in MerchantGovernanceInput) error {
@@ -72,11 +80,36 @@ func (s *Store) LogMerchantGovernance(ctx context.Context, in MerchantGovernance
 }
 
 func (s *Store) LogContractOperation(ctx context.Context, in ContractOperationInput) error {
-	return s.insertOnchainAudit(ctx, in.Log.auditID(), nil, auditEntry{
+	auditID := in.Log.auditID()
+	if err := s.insertOnchainAudit(ctx, auditID, nil, auditEntry{
 		Category:   "admin",
 		Action:     in.Action,
 		TargetType: "Contract",
 		TargetID:   in.Contract,
+		Metadata:   in.Log.metadata(in.Metadata),
+	}); err != nil {
+		return err
+	}
+	if !in.Alert {
+		return nil
+	}
+	_, err := s.db().Exec(ctx, `
+		INSERT INTO "ContractAlert" (id, "auditLogId", "chainId", "createdAt")
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT ("auditLogId") DO NOTHING
+	`, "alert:"+auditID, auditID, in.Log.ChainID)
+	if err != nil {
+		return fmt.Errorf("insert %s contract alert: %w", in.Action, err)
+	}
+	return nil
+}
+
+func (s *Store) LogAgentRegistryEvent(ctx context.Context, in AgentRegistryInput) error {
+	return s.insertOnchainAudit(ctx, in.Log.auditID(), nil, auditEntry{
+		Category:   "agent",
+		Action:     in.Action,
+		TargetType: "Agent",
+		TargetID:   in.Agent,
 		Metadata:   in.Log.metadata(in.Metadata),
 	})
 }

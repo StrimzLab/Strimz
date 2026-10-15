@@ -52,6 +52,8 @@ type Config struct {
 	AgentEscrowAddress    string `envconfig:"AGENT_ESCROW_ADDRESS"   required:"true"`
 	FeeCollectorAddress   string `envconfig:"FEE_COLLECTOR_ADDRESS"  required:"true"`
 	TokenWhitelistAddress string `envconfig:"TOKEN_WHITELIST_ADDRESS" required:"true"`
+	AgentRegistryAddress  string `envconfig:"AGENT_REGISTRY_ADDRESS"  required:"true"`
+	TimelockAddress       string `envconfig:"TIMELOCK_ADDRESS"        required:"true"`
 	// Optional: stablecoin addresses to scan for refund-completion Transfers.
 	StablecoinAddresses []string `envconfig:"STABLECOIN_ADDRESSES" default:""`
 	Stablecoins         []Stablecoin
@@ -98,6 +100,8 @@ func Validate(c *Config) (*Config, error) {
 		"AGENT_ESCROW_ADDRESS":    c.AgentEscrowAddress,
 		"FEE_COLLECTOR_ADDRESS":   c.FeeCollectorAddress,
 		"TOKEN_WHITELIST_ADDRESS": c.TokenWhitelistAddress,
+		"AGENT_REGISTRY_ADDRESS":  c.AgentRegistryAddress,
+		"TIMELOCK_ADDRESS":        c.TimelockAddress,
 	}
 	for name, v := range addrs {
 		if !isEvmAddress(v) {
@@ -110,6 +114,19 @@ func Validate(c *Config) (*Config, error) {
 	}
 	c.Stablecoins = stablecoins
 	return c, nil
+}
+
+func (c *Config) ContractNames() map[string]string {
+	return map[string]string{
+		strings.ToLower(c.RegistryAddress):       "StrimzRegistry",
+		strings.ToLower(c.PaymentsAddress):       "StrimzPayments",
+		strings.ToLower(c.SubscriptionsAddress):  "StrimzSubscriptions",
+		strings.ToLower(c.AgentEscrowAddress):    "StrimzAgentEscrow",
+		strings.ToLower(c.FeeCollectorAddress):   "FeeCollector",
+		strings.ToLower(c.TokenWhitelistAddress): "TokenWhitelist",
+		strings.ToLower(c.AgentRegistryAddress):  "StrimzAgentRegistry",
+		strings.ToLower(c.TimelockAddress):       "TimelockController",
+	}
 }
 
 func parseStablecoins(entries []string) ([]Stablecoin, error) {

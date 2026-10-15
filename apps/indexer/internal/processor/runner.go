@@ -104,7 +104,10 @@ func NewRunner(ctx context.Context, cfg *config.Config) (*Runner, error) {
 		common.HexToAddress(cfg.AgentEscrowAddress),
 		common.HexToAddress(cfg.FeeCollectorAddress),
 	}
-	contractAddrs := append(append([]common.Address{}, legacyCursorAddrs...), common.HexToAddress(cfg.TokenWhitelistAddress))
+	contractAddrs := append(append([]common.Address{}, legacyCursorAddrs...),
+		common.HexToAddress(cfg.TokenWhitelistAddress),
+		common.HexToAddress(cfg.AgentRegistryAddress),
+		common.HexToAddress(cfg.TimelockAddress))
 	stables := make([]common.Address, 0, len(cfg.Stablecoins))
 	tokenMap := make(map[string]string, len(cfg.Stablecoins))
 	for _, coin := range cfg.Stablecoins {
@@ -117,7 +120,7 @@ func NewRunner(ctx context.Context, cfg *config.Config) (*Runner, error) {
 		chain:               cli,
 		store:               st,
 		registry:            registry,
-		projector:           NewProjector(st, registry, string(cfg.Environment), cfg.ChainID, tokenMap),
+		projector:           NewProjector(st, registry, string(cfg.Environment), cfg.ChainID, tokenMap).WithContractNames(cfg.ContractNames()),
 		log:                 slog.Default().With("component", "processor"),
 		chainID:             cfg.ChainID,
 		contractAddrs:       contractAddrs,

@@ -74,13 +74,35 @@ new address, for log-based alerting on an unexpected change
 Each event writes one `AuditLog` row with category `admin`, a null `merchantId`,
 `targetType` `Contract` and `targetId` the emitting contract's lowercase address.
 
-| Source                                    | `action`                                                        | Extra `metadata`                                     |
-| ----------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------- |
-| `Paused` / `Unpaused`                     | `contract.paused` / `contract.unpaused`                         | `account`                                            |
-| `DependencyUpdated`                       | `contract.dependency_updated`                                   | `name`, `newAddress`                                 |
-| `FeeWithdrawn`                            | `fees.withdrawn`                                                | `token`, `to`, `amount` (base units, decimal string) |
-| `TokenAdded` / `TokenRemoved` (whitelist) | `token_whitelist.token_added` / `token_whitelist.token_removed` | `token`                                              |
-| `TokenCapabilitiesSet` (whitelist)        | `token_whitelist.capabilities_set`                              | `token`, `capabilities`                              |
+| Source                                      | `action`                                                        | Extra `metadata`                                                                            |
+| ------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `Paused` / `Unpaused`                       | `contract.paused` / `contract.unpaused`                         | `account`                                                                                   |
+| `DependencyUpdated`                         | `contract.dependency_updated`                                   | `name`, `newAddress`                                                                        |
+| `FeeWithdrawn`                              | `fees.withdrawn`                                                | `token`, `to`, `amount` (base units, decimal string)                                        |
+| `TokenAdded` / `TokenRemoved` (whitelist)   | `token_whitelist.token_added` / `token_whitelist.token_removed` | `token`                                                                                     |
+| `TokenCapabilitiesSet` (whitelist)          | `token_whitelist.capabilities_set`                              | `token`, `capabilities`                                                                     |
+| `RoleGranted` / `RoleRevoked`               | `contract.role_granted` / `contract.role_revoked`               | `role`, `roleName`, `account`, `sender`                                                     |
+| `RoleAdminChanged`                          | `contract.role_admin_changed`                                   | `role`, `previousAdminRole`, `newAdminRole` and their names                                 |
+| `Upgraded`                                  | `contract.upgraded`                                             | `implementation`                                                                            |
+| `CallScheduled` / `CallExecuted` (timelock) | `timelock.call_scheduled` / `timelock.call_executed`            | `operationId`, `index`, `target`, `value`, `data`; `predecessor` and `delay` when scheduled |
+| `Cancelled` (timelock)                      | `timelock.cancelled`                                            | `operationId`                                                                               |
+| `MinDelayChange` (timelock)                 | `timelock.min_delay_changed`                                    | `oldDuration`, `newDuration` (seconds)                                                      |
+
+Every row also carries `contractName`. Pauses, role changes, upgrades and timelock events
+also write a pending `ContractAlert` row in the same savepoint. The scheduler emails pending
+alerts to `STRIMZ_ADMIN_ALERT_EMAIL` once a minute, all in one email, and stamps them.
+
+### Agent registry
+
+Each event writes one `AuditLog` row with category `agent`, `targetType` `Agent` and
+`targetId` the agent address. No alert.
+
+| Source                                | `action`                                | Extra `metadata`                                    |
+| ------------------------------------- | --------------------------------------- | --------------------------------------------------- |
+| `AgentRegistered`                     | `agent.registered`                      | `controller`, `credentialDigest`, `name`, `version` |
+| `AgentCredentialRotated`              | `agent.credential_rotated`              | `newCredentialDigest`                               |
+| `AgentReputationAdjusted`             | `agent.reputation_adjusted`             | `delta`, `newScore`                                 |
+| `AgentDeactivated` / `AgentActivated` | `agent.deactivated` / `agent.activated` |                                                     |
 
 A `TokenAdded` for a token that is not in `STABLECOIN_ADDRESSES` also logs an `error`
 line: that token's payments park until the config lists it.
@@ -90,9 +112,6 @@ id `onchain:<chainId>:<txHash>:<logIndex>` and is inserted with
 `ON CONFLICT (id) DO NOTHING`, so replaying a range does not write it twice. The other
 audit rows (`fees.accrued`, `merchant.fee_bps_changed_onchain`, agent job events) still
 use random ids.
-
-Role, upgrade and agent registry events (`RoleGranted`, `RoleRevoked`, `RoleAdminChanged`,
-`Upgraded`, the `StrimzAgentRegistry` events) are not indexed; see #211.
 
 ### Refunds (via ERC-20 Transfer)
 

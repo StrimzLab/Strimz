@@ -28,6 +28,8 @@ func validConfig() *Config {
 		AgentEscrowAddress:    fakeAddr,
 		FeeCollectorAddress:   fakeAddr,
 		TokenWhitelistAddress: fakeAddr,
+		AgentRegistryAddress:  fakeAddr,
+		TimelockAddress:       fakeAddr,
 		StablecoinAddresses:   []string{"USDC:" + fakeAddr},
 	}
 }
@@ -116,4 +118,40 @@ func TestValidate_RejectsStablecoinEntriesThatAreNotSymbolAddressPairs(t *testin
 			assert.Contains(t, err.Error(), "STABLECOIN_ADDRESSES")
 		})
 	}
+}
+
+func TestValidate_RequiresTheAgentRegistryAndTimelockAddresses(t *testing.T) {
+	for name, clear := range map[string]func(*Config){
+		"AGENT_REGISTRY_ADDRESS": func(c *Config) { c.AgentRegistryAddress = "" },
+		"TIMELOCK_ADDRESS":       func(c *Config) { c.TimelockAddress = "" },
+	} {
+		c := validConfig()
+		clear(c)
+		_, err := Validate(c)
+		require.Error(t, err, name)
+		assert.Contains(t, err.Error(), name)
+	}
+}
+
+func TestContractNames_NamesEveryWatchedAddress(t *testing.T) {
+	c := validConfig()
+	c.RegistryAddress = "0x00000000000000000000000000000000000000A1"
+	c.PaymentsAddress = "0x00000000000000000000000000000000000000a2"
+	c.SubscriptionsAddress = "0x00000000000000000000000000000000000000a3"
+	c.AgentEscrowAddress = "0x00000000000000000000000000000000000000a4"
+	c.FeeCollectorAddress = "0x00000000000000000000000000000000000000a5"
+	c.TokenWhitelistAddress = "0x00000000000000000000000000000000000000a6"
+	c.AgentRegistryAddress = "0x00000000000000000000000000000000000000a7"
+	c.TimelockAddress = "0x00000000000000000000000000000000000000a8"
+
+	assert.Equal(t, map[string]string{
+		"0x00000000000000000000000000000000000000a1": "StrimzRegistry",
+		"0x00000000000000000000000000000000000000a2": "StrimzPayments",
+		"0x00000000000000000000000000000000000000a3": "StrimzSubscriptions",
+		"0x00000000000000000000000000000000000000a4": "StrimzAgentEscrow",
+		"0x00000000000000000000000000000000000000a5": "FeeCollector",
+		"0x00000000000000000000000000000000000000a6": "TokenWhitelist",
+		"0x00000000000000000000000000000000000000a7": "StrimzAgentRegistry",
+		"0x00000000000000000000000000000000000000a8": "TimelockController",
+	}, c.ContractNames())
 }

@@ -79,6 +79,8 @@ jobs:
         working-directory: apps/indexer
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - uses: actions/setup-go@v5
         with:

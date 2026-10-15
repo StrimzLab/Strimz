@@ -81,6 +81,22 @@ const (
 
 	// ERC-20 (used only for refund-completion detection)
 	EventERC20Transfer EventName = "Transfer"
+
+	EventRoleGranted      EventName = "RoleGranted"
+	EventRoleRevoked      EventName = "RoleRevoked"
+	EventRoleAdminChanged EventName = "RoleAdminChanged"
+	EventUpgraded         EventName = "Upgraded"
+
+	EventCallScheduled  EventName = "CallScheduled"
+	EventCallExecuted   EventName = "CallExecuted"
+	EventCancelled      EventName = "Cancelled"
+	EventMinDelayChange EventName = "MinDelayChange"
+
+	EventAgentRegistered         EventName = "AgentRegistered"
+	EventAgentCredentialRotated  EventName = "AgentCredentialRotated"
+	EventAgentReputationAdjusted EventName = "AgentReputationAdjusted"
+	EventAgentDeactivated        EventName = "AgentDeactivated"
+	EventAgentActivated          EventName = "AgentActivated"
 )
 
 // SubscribedEvents is the exhaustive set the projector handles. Anything not
@@ -101,6 +117,10 @@ var SubscribedEvents = []EventName{
 	EventPaused, EventUnpaused, EventDependencyUpdated, EventFeeWithdrawn,
 	EventTokenAdded, EventTokenRemoved, EventTokenCapabilitiesSet,
 	EventERC20Transfer,
+	EventRoleGranted, EventRoleRevoked, EventRoleAdminChanged, EventUpgraded,
+	EventCallScheduled, EventCallExecuted, EventCancelled, EventMinDelayChange,
+	EventAgentRegistered, EventAgentCredentialRotated, EventAgentReputationAdjusted,
+	EventAgentDeactivated, EventAgentActivated,
 }
 
 var subscribed = func() map[EventName]bool {
@@ -311,6 +331,72 @@ type MerchantPayoutChangeCancelled struct {
 type MerchantMaxFeeBpsLowered struct {
 	MerchantID   *big.Int
 	NewMaxFeeBps uint16
+}
+
+type RoleChanged struct {
+	Role    [32]byte
+	Account common.Address
+	Sender  common.Address
+}
+
+type RoleAdminChanged struct {
+	Role              [32]byte
+	PreviousAdminRole [32]byte
+	NewAdminRole      [32]byte
+}
+
+type Upgraded struct {
+	Implementation common.Address
+}
+
+type CallScheduled struct {
+	ID          [32]byte
+	Index       *big.Int
+	Target      common.Address
+	Value       *big.Int
+	Data        []byte
+	Predecessor [32]byte
+	Delay       *big.Int
+}
+
+type CallExecuted struct {
+	ID     [32]byte
+	Index  *big.Int
+	Target common.Address
+	Value  *big.Int
+	Data   []byte
+}
+
+type Cancelled struct {
+	ID [32]byte
+}
+
+type MinDelayChange struct {
+	OldDuration *big.Int
+	NewDuration *big.Int
+}
+
+type AgentRegistered struct {
+	Agent            common.Address
+	Controller       common.Address
+	CredentialDigest [32]byte
+	Name             string
+	Version          string
+}
+
+type AgentCredentialRotated struct {
+	Agent               common.Address
+	NewCredentialDigest [32]byte
+}
+
+type AgentReputationAdjusted struct {
+	Agent    common.Address
+	Delta    *big.Int
+	NewScore *big.Int
+}
+
+type AgentStatusChanged struct {
+	Agent common.Address
 }
 
 type Paused struct {
@@ -612,6 +698,13 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 		x, ok := get(k).(string)
 		if !ok {
 			return "", fmt.Errorf("%s.%s missing or wrong type", name, k)
+		}
+		return x, nil
+	}
+	byteSlice := func(k string) ([]byte, error) {
+		x, ok := get(k).([]byte)
+		if !ok {
+			return nil, fmt.Errorf("%s.%s missing or wrong type", name, k)
 		}
 		return x, nil
 	}
@@ -951,6 +1044,105 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 			return nil, err
 		}
 		return &ERC20Transfer{From: from, To: to, Value: value}, nil
+
+	case EventRoleGranted, EventRoleRevoked:
+		role, e1 := b32("role")
+		account, e2 := addr("account")
+		sender, e3 := addr("sender")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &RoleChanged{Role: role, Account: account, Sender: sender}, nil
+
+	case EventRoleAdminChanged:
+		role, e1 := b32("role")
+		previous, e2 := b32("previousAdminRole")
+		next, e3 := b32("newAdminRole")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &RoleAdminChanged{Role: role, PreviousAdminRole: previous, NewAdminRole: next}, nil
+
+	case EventUpgraded:
+		implementation, err := addr("implementation")
+		if err != nil {
+			return nil, err
+		}
+		return &Upgraded{Implementation: implementation}, nil
+
+	case EventCallScheduled:
+		id, e1 := b32("id")
+		index, e2 := bigint("index")
+		target, e3 := addr("target")
+		value, e4 := bigint("value")
+		data, e5 := byteSlice("data")
+		predecessor, e6 := b32("predecessor")
+		delay, e7 := bigint("delay")
+		if err := firstErr(e1, e2, e3, e4, e5, e6, e7); err != nil {
+			return nil, err
+		}
+		return &CallScheduled{ID: id, Index: index, Target: target, Value: value, Data: data, Predecessor: predecessor, Delay: delay}, nil
+
+	case EventCallExecuted:
+		id, e1 := b32("id")
+		index, e2 := bigint("index")
+		target, e3 := addr("target")
+		value, e4 := bigint("value")
+		data, e5 := byteSlice("data")
+		if err := firstErr(e1, e2, e3, e4, e5); err != nil {
+			return nil, err
+		}
+		return &CallExecuted{ID: id, Index: index, Target: target, Value: value, Data: data}, nil
+
+	case EventCancelled:
+		id, err := b32("id")
+		if err != nil {
+			return nil, err
+		}
+		return &Cancelled{ID: id}, nil
+
+	case EventMinDelayChange:
+		oldDuration, e1 := bigint("oldDuration")
+		newDuration, e2 := bigint("newDuration")
+		if err := firstErr(e1, e2); err != nil {
+			return nil, err
+		}
+		return &MinDelayChange{OldDuration: oldDuration, NewDuration: newDuration}, nil
+
+	case EventAgentRegistered:
+		agent, e1 := addr("agent")
+		controller, e2 := addr("controller")
+		digest, e3 := b32("credentialDigest")
+		agentName, e4 := str("name")
+		version, e5 := str("version")
+		if err := firstErr(e1, e2, e3, e4, e5); err != nil {
+			return nil, err
+		}
+		return &AgentRegistered{Agent: agent, Controller: controller, CredentialDigest: digest, Name: agentName, Version: version}, nil
+
+	case EventAgentCredentialRotated:
+		agent, e1 := addr("agent")
+		digest, e2 := b32("newCredentialDigest")
+		if err := firstErr(e1, e2); err != nil {
+			return nil, err
+		}
+		return &AgentCredentialRotated{Agent: agent, NewCredentialDigest: digest}, nil
+
+	case EventAgentReputationAdjusted:
+		agent, e1 := addr("agent")
+		delta, e2 := bigint("delta")
+		score, e3 := bigint("newScore")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &AgentReputationAdjusted{Agent: agent, Delta: delta, NewScore: score}, nil
+
+	case EventAgentDeactivated, EventAgentActivated:
+		agent, err := addr("agent")
+		if err != nil {
+			return nil, err
+		}
+		return &AgentStatusChanged{Agent: agent}, nil
 
 	default:
 		return nil, fmt.Errorf("no materialiser for event %q", name)
