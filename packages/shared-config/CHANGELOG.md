@@ -1,5 +1,11 @@
 # @strimz/shared-config
 
+## 0.6.0
+
+### Minor Changes
+
+- 2744d9f: Agent capability descriptors carry `available`. Agentic B2B commerce (`commerce`, agent escrow) is `available: false` for launch; every other capability is `true`.
+
 ## 0.5.0
 
 ### Minor Changes
