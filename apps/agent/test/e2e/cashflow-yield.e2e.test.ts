@@ -19,7 +19,7 @@ describe('cashflow yield recommendation e2e', () => {
   })
 
   it('emails when running net balance exceeds the configured reserve', async () => {
-    const merchant = await seedMerchant(t.prisma.db)
+    const merchant = await seedMerchant(t.prisma.db, { tier: 'starter' })
     await seedAgentConfig(t.prisma.db, merchant.id, {
       enabledCapabilities: ['cashflow'],
       cashflowAutoConvertToYield: true,
@@ -48,7 +48,7 @@ describe('cashflow yield recommendation e2e', () => {
   })
 
   it('skips when balance is below reserve', async () => {
-    const merchant = await seedMerchant(t.prisma.db)
+    const merchant = await seedMerchant(t.prisma.db, { tier: 'starter' })
     await seedAgentConfig(t.prisma.db, merchant.id, {
       enabledCapabilities: ['cashflow'],
       cashflowAutoConvertToYield: true,
@@ -62,7 +62,7 @@ describe('cashflow yield recommendation e2e', () => {
   })
 
   it('skips merchants with autoConvertToYield=false even with surplus', async () => {
-    const merchant = await seedMerchant(t.prisma.db)
+    const merchant = await seedMerchant(t.prisma.db, { tier: 'starter' })
     await seedAgentConfig(t.prisma.db, merchant.id, {
       enabledCapabilities: ['cashflow'],
       cashflowAutoConvertToYield: false,
@@ -75,7 +75,7 @@ describe('cashflow yield recommendation e2e', () => {
   })
 
   it('is idempotent within 23h', async () => {
-    const merchant = await seedMerchant(t.prisma.db)
+    const merchant = await seedMerchant(t.prisma.db, { tier: 'starter' })
     await seedAgentConfig(t.prisma.db, merchant.id, {
       enabledCapabilities: ['cashflow'],
       cashflowAutoConvertToYield: true,

@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@strimz/db'
+import type { MerchantTier, PrismaClient } from '@strimz/db'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -13,6 +13,7 @@ export function seedMerchant(
     email: string
     businessName: string
     payoutAddress: string
+    tier: MerchantTier
   }> = {},
 ): Promise<any> {
   const id = overrides.id ?? nextId('m')
@@ -24,6 +25,7 @@ export function seedMerchant(
       businessName: overrides.businessName ?? `Acme ${id}`,
       payoutAddress: overrides.payoutAddress ?? '0x000000000000000000000000000000000000beef',
       emailVerified: true,
+      tier: overrides.tier ?? 'free',
     },
   })
 }
