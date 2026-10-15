@@ -61,6 +61,8 @@ Rows written before 2026-10 carry `revenue`, `fees`, `net` and `totalSpendCents`
 
 ## Jobs
 
+Agent escrow (the `commerce` capability) is coming soon and not available at launch. `POST /v1/agents/jobs` and `POST /v1/agents/jobs/{id}/approve` answer `403 capability_unavailable`, and so does turning on `commerce` through `PATCH /v1/agents/config`. The list and retrieve endpoints still answer.
+
 ```http
 POST /v1/agents/jobs
 {
@@ -87,5 +89,7 @@ POST /v1/agents/jobs/{id}/approve
 | `agent.job_proposed`    | A job needs human approval                |
 | `agent.job_completed`   | A job's escrow was released to the vendor |
 | `agent.job_disputed`    | A job was disputed                        |
+
+The three `agent.job_*` events are not sent while agent escrow is unavailable, and the dashboard does not offer them.
 
 See [The AutoPay Agent](/docs/guides/agent) for the capability-by-capability breakdown.
