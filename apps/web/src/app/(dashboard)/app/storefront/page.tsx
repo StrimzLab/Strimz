@@ -33,7 +33,10 @@ import type {
   SubscriptionPlan,
 } from '@strimz/shared-types'
 
+import { planIncludes } from '@strimz/shared-config'
+
 import { ImageUpload } from '@/components/dashboard/image-upload'
+import { PlanLockedNotice } from '@/components/dashboard/plan-locked-notice'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { formatTokenAmount } from '@/lib/format'
@@ -41,6 +44,7 @@ import { buildProductInput } from '@/lib/storefront-product-input'
 import {
   useAddStorefrontProduct,
   useArchiveStorefront,
+  useMerchantMe,
   useArchiveStorefrontProduct,
   usePublishStorefront,
   useStorefront,
@@ -52,6 +56,8 @@ import {
 export default function StorefrontPage() {
   const storefrontQuery = useStorefront()
   const storefront = storefrontQuery.data ?? null
+  const merchantQuery = useMerchantMe()
+  const merchant = merchantQuery.data
 
   return (
     <div className="space-y-6">
@@ -74,8 +80,19 @@ export default function StorefrontPage() {
         }
       />
 
-      {storefrontQuery.isLoading ? (
+      {storefrontQuery.isLoading || merchantQuery.isLoading ? (
         <div className="border-border/60 bg-muted/30 h-32 animate-pulse rounded-xl border" />
+      ) : !merchant ? (
+        <Card className="border-border/60">
+          <CardContent className="flex items-center justify-between p-4 text-xs">
+            <span>Couldn’t load your plan.</span>
+            <Button variant="outline" size="sm" onClick={() => merchantQuery.refetch()}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      ) : !planIncludes(merchant.tier, 'storefront') ? (
+        <PlanLockedNotice feature="storefront" />
       ) : !storefront ? (
         <NoStorefront />
       ) : (
