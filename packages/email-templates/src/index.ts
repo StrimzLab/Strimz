@@ -11,6 +11,7 @@ export { renderToHtml } from './render.js'
 // Templates
 export { PaymentReceivedEmail } from './templates/PaymentReceivedEmail.js'
 export { GasBalanceAlertEmail } from './templates/GasBalanceAlertEmail.js'
+export { ContractAlertEmail, type ContractAlertEvent } from './templates/ContractAlertEmail.js'
 export { WelcomeEmail } from './templates/WelcomeEmail.js'
 export { PlanUpgradedEmail } from './templates/PlanUpgradedEmail.js'
 export { SubscriptionStartedEmail } from './templates/SubscriptionStartedEmail.js'

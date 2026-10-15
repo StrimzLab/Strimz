@@ -85,6 +85,8 @@ func setRunnerEnv(t *testing.T, primary string, fallbacks ...string) {
 		"AGENT_ESCROW_ADDRESS":    escrowAddr.Hex(),
 		"FEE_COLLECTOR_ADDRESS":   feesAddr.Hex(),
 		"TOKEN_WHITELIST_ADDRESS": whitelistAddr.Hex(),
+		"AGENT_REGISTRY_ADDRESS":  agentRegistryAddr.Hex(),
+		"TIMELOCK_ADDRESS":        timelockAddr.Hex(),
 		"STABLECOIN_ADDRESSES":    "USDC:" + usdcAddr.Hex(),
 	}
 	for k, v := range env {

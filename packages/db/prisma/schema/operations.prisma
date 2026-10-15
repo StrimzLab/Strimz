@@ -33,10 +33,23 @@ model AuditLog {
   createdAt     DateTime            @default(now())
 
   merchant      Merchant?           @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  contractAlert ContractAlert?
 
   @@index([merchantId, createdAt])
   @@index([category, createdAt])
   @@index([targetType, targetId])
+}
+
+model ContractAlert {
+  id         String    @id @default(cuid())
+  auditLogId String    @unique
+  chainId    Int
+  createdAt  DateTime  @default(now())
+  alertedAt  DateTime?
+
+  auditLog   AuditLog  @relation(fields: [auditLogId], references: [id], onDelete: Cascade)
+
+  @@index([alertedAt, createdAt])
 }
 
 model IndexerDeadLetter {

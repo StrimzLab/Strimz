@@ -74,6 +74,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   process.env.SUBSCRIPTION_SWEEPER_CRON = '0 0 0 1 1 *' // 1 Jan 00:00 — never during tests
   process.env.INVOICE_OVERDUE_CRON = '0 0 0 1 1 *'
   process.env.PLAN_UPGRADE_CRON = '0 0 0 1 1 *'
+  process.env.CONTRACT_ALERT_CRON = '0 0 0 1 1 *'
   process.env.SUBSCRIPTION_SWEEP_LIMIT = '100'
   process.env.SUBSCRIPTION_BATCH_SIZE = '20'
   process.env.RESEND_FROM_EMAIL = 'noreply@strimz.test'

@@ -26,6 +26,8 @@ type Projector struct {
 	tokens   map[string]string // lowercase token addr → symbol (USDC/EURC)
 	log      *slog.Logger
 	chainID  int64
+
+	contractNames map[string]string
 }
 
 // NewProjector returns a ready-to-use projector. `mode` is fixed by the
@@ -47,6 +49,15 @@ func NewProjector(s *store.Store, registry *indabi.Registry, env string, chainID
 		tokens:   normalised,
 		log:      slog.Default().With("component", "projector"),
 	}
+}
+
+func (p *Projector) WithContractNames(names map[string]string) *Projector {
+	c := *p
+	c.contractNames = make(map[string]string, len(names))
+	for addr, name := range names {
+		c.contractNames[strings.ToLower(addr)] = name
+	}
+	return &c
 }
 
 // WithStore returns a shallow copy of the projector whose writes go
@@ -412,11 +423,104 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 
 	case indabi.EventPaused:
 		ev := payload.(*indabi.Paused)
-		err = p.logContractOperation(ctx, lg, "contract.paused", map[string]any{"account": lowerHex(ev.Account)})
+		err = p.logAdminEvent(ctx, lg, "contract.paused", map[string]any{"account": lowerHex(ev.Account)})
 
 	case indabi.EventUnpaused:
 		ev := payload.(*indabi.Unpaused)
-		err = p.logContractOperation(ctx, lg, "contract.unpaused", map[string]any{"account": lowerHex(ev.Account)})
+		err = p.logAdminEvent(ctx, lg, "contract.unpaused", map[string]any{"account": lowerHex(ev.Account)})
+
+	case indabi.EventRoleGranted, indabi.EventRoleRevoked:
+		ev := payload.(*indabi.RoleChanged)
+		action := "contract.role_granted"
+		if name == indabi.EventRoleRevoked {
+			action = "contract.role_revoked"
+		}
+		role := common.Hash(ev.Role)
+		err = p.logAdminEvent(ctx, lg, action, map[string]any{
+			"role":     role.Hex(),
+			"roleName": indabi.RoleName(role),
+			"account":  lowerHex(ev.Account),
+			"sender":   lowerHex(ev.Sender),
+		})
+
+	case indabi.EventRoleAdminChanged:
+		ev := payload.(*indabi.RoleAdminChanged)
+		role, previous, next := common.Hash(ev.Role), common.Hash(ev.PreviousAdminRole), common.Hash(ev.NewAdminRole)
+		err = p.logAdminEvent(ctx, lg, "contract.role_admin_changed", map[string]any{
+			"role":                  role.Hex(),
+			"roleName":              indabi.RoleName(role),
+			"previousAdminRole":     previous.Hex(),
+			"previousAdminRoleName": indabi.RoleName(previous),
+			"newAdminRole":          next.Hex(),
+			"newAdminRoleName":      indabi.RoleName(next),
+		})
+
+	case indabi.EventUpgraded:
+		ev := payload.(*indabi.Upgraded)
+		err = p.logAdminEvent(ctx, lg, "contract.upgraded", map[string]any{"implementation": lowerHex(ev.Implementation)})
+
+	case indabi.EventCallScheduled:
+		ev := payload.(*indabi.CallScheduled)
+		err = p.logAdminEvent(ctx, lg, "timelock.call_scheduled", map[string]any{
+			"operationId": common.Hash(ev.ID).Hex(),
+			"index":       ev.Index.String(),
+			"target":      lowerHex(ev.Target),
+			"value":       ev.Value.String(),
+			"data":        "0x" + hex.EncodeToString(ev.Data),
+			"predecessor": common.Hash(ev.Predecessor).Hex(),
+			"delay":       ev.Delay.String(),
+		})
+
+	case indabi.EventCallExecuted:
+		ev := payload.(*indabi.CallExecuted)
+		err = p.logAdminEvent(ctx, lg, "timelock.call_executed", map[string]any{
+			"operationId": common.Hash(ev.ID).Hex(),
+			"index":       ev.Index.String(),
+			"target":      lowerHex(ev.Target),
+			"value":       ev.Value.String(),
+			"data":        "0x" + hex.EncodeToString(ev.Data),
+		})
+
+	case indabi.EventCancelled:
+		ev := payload.(*indabi.Cancelled)
+		err = p.logAdminEvent(ctx, lg, "timelock.cancelled", map[string]any{"operationId": common.Hash(ev.ID).Hex()})
+
+	case indabi.EventMinDelayChange:
+		ev := payload.(*indabi.MinDelayChange)
+		err = p.logAdminEvent(ctx, lg, "timelock.min_delay_changed", map[string]any{
+			"oldDuration": ev.OldDuration.String(),
+			"newDuration": ev.NewDuration.String(),
+		})
+
+	case indabi.EventAgentRegistered:
+		ev := payload.(*indabi.AgentRegistered)
+		err = p.logAgentRegistry(ctx, lg, ev.Agent, "agent.registered", map[string]any{
+			"controller":       lowerHex(ev.Controller),
+			"credentialDigest": common.Hash(ev.CredentialDigest).Hex(),
+			"name":             ev.Name,
+			"version":          ev.Version,
+		})
+
+	case indabi.EventAgentCredentialRotated:
+		ev := payload.(*indabi.AgentCredentialRotated)
+		err = p.logAgentRegistry(ctx, lg, ev.Agent, "agent.credential_rotated", map[string]any{
+			"newCredentialDigest": common.Hash(ev.NewCredentialDigest).Hex(),
+		})
+
+	case indabi.EventAgentReputationAdjusted:
+		ev := payload.(*indabi.AgentReputationAdjusted)
+		err = p.logAgentRegistry(ctx, lg, ev.Agent, "agent.reputation_adjusted", map[string]any{
+			"delta":    ev.Delta.String(),
+			"newScore": ev.NewScore.String(),
+		})
+
+	case indabi.EventAgentDeactivated:
+		ev := payload.(*indabi.AgentStatusChanged)
+		err = p.logAgentRegistry(ctx, lg, ev.Agent, "agent.deactivated", map[string]any{})
+
+	case indabi.EventAgentActivated:
+		ev := payload.(*indabi.AgentStatusChanged)
+		err = p.logAgentRegistry(ctx, lg, ev.Agent, "agent.activated", map[string]any{})
 
 	case indabi.EventDependencyUpdated:
 		ev := payload.(*indabi.DependencyUpdated)
@@ -487,8 +591,34 @@ func (p *Projector) logContractOperation(ctx context.Context, lg types.Log, acti
 		Log:      p.logRef(lg),
 		Contract: lowerHex(lg.Address),
 		Action:   action,
-		Metadata: metadata,
+		Metadata: p.withContractName(lg, metadata),
 	})
+}
+
+func (p *Projector) logAdminEvent(ctx context.Context, lg types.Log, action string, metadata map[string]any) error {
+	return p.store.LogContractOperation(ctx, store.ContractOperationInput{
+		Log:      p.logRef(lg),
+		Contract: lowerHex(lg.Address),
+		Action:   action,
+		Metadata: p.withContractName(lg, metadata),
+		Alert:    true,
+	})
+}
+
+func (p *Projector) logAgentRegistry(ctx context.Context, lg types.Log, agent common.Address, action string, metadata map[string]any) error {
+	return p.store.LogAgentRegistryEvent(ctx, store.AgentRegistryInput{
+		Log:      p.logRef(lg),
+		Agent:    lowerHex(agent),
+		Action:   action,
+		Metadata: p.withContractName(lg, metadata),
+	})
+}
+
+func (p *Projector) withContractName(lg types.Log, metadata map[string]any) map[string]any {
+	if name, ok := p.contractNames[lowerHex(lg.Address)]; ok {
+		metadata["contractName"] = name
+	}
+	return metadata
 }
 
 func lowerHex(a common.Address) string {

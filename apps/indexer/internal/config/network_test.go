@@ -29,6 +29,8 @@ func setNetworkEnv(t *testing.T, overrides map[string]string, unset ...string) {
 		"AGENT_ESCROW_ADDRESS":    fakeAddr,
 		"FEE_COLLECTOR_ADDRESS":   fakeAddr,
 		"TOKEN_WHITELIST_ADDRESS": fakeAddr,
+		"AGENT_REGISTRY_ADDRESS":  fakeAddr,
+		"TIMELOCK_ADDRESS":        fakeAddr,
 		"STABLECOIN_ADDRESSES":    "USDC:" + fakeAddr,
 	}
 	for k, v := range overrides {
@@ -91,6 +93,15 @@ func TestLoad_RequiresConfirmations(t *testing.T) {
 	_, err := Load()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "CONFIRMATIONS")
+}
+
+func TestLoad_RequiresTheAgentRegistryAndTimelockAddresses(t *testing.T) {
+	for _, name := range []string{"AGENT_REGISTRY_ADDRESS", "TIMELOCK_ADDRESS"} {
+		setNetworkEnv(t, nil, name)
+		_, err := Load()
+		require.Error(t, err, name)
+		assert.Contains(t, err.Error(), name)
+	}
 }
 
 func TestLoad_RequiresTokenWhitelistAddress(t *testing.T) {
