@@ -15,7 +15,12 @@ import { assertArcChainId, getArcChain, getCctpContracts } from '@strimz/shared-
 import { jsonRpc } from 'viem/nonce'
 import { toKmsAccount, type KmsSigner } from '@strimz/signer'
 import { TypedConfigService } from '../../config/index.js'
-import { StrimzSubscriptionsAbi, StrimzAgentEscrowAbi, MessageTransmitterAbi } from './abis.js'
+import {
+  MessageTransmitterAbi,
+  StrimzAgentEscrowAbi,
+  StrimzRegistryAbi,
+  StrimzSubscriptionsAbi,
+} from './abis.js'
 import { SCHEDULER_SIGNER } from './scheduler-signer.js'
 
 /**
@@ -47,6 +52,7 @@ export class ChainService implements OnModuleInit {
   public readonly account: LocalAccount
   public readonly subscriptionsAddress: Address
   public readonly agentEscrowAddress: Address
+  public readonly registryAddress: Address
   public readonly messageTransmitterAddress: Address
   private readonly environment: 'testnet' | 'mainnet'
   private readonly chain: Chain
@@ -69,6 +75,7 @@ export class ChainService implements OnModuleInit {
 
     this.subscriptionsAddress = cfg.env.SUBSCRIPTIONS_ADDRESS as Address
     this.agentEscrowAddress = cfg.env.AGENT_ESCROW_ADDRESS as Address
+    this.registryAddress = cfg.env.REGISTRY_ADDRESS as Address
     this.messageTransmitterAddress = getCctpContracts(cfg.env.ARC_ENVIRONMENT)
       .messageTransmitterV2 as Address
     this.log.log(`scheduler signing as ${this.account.address}`)
@@ -143,6 +150,34 @@ export class ChainService implements OnModuleInit {
     const now = BigInt(Math.floor(Date.now() / 1000))
     if (sub.endAt !== 0n && now >= sub.endAt) return false
     return now >= sub.nextChargeAt
+  }
+
+  // ----- Registry -----
+
+  async setMerchantFeeBps(onchainMerchantId: bigint, feeBps: number): Promise<Hash> {
+    const hash = await this.walletClient.writeContract({
+      account: this.account,
+      address: this.registryAddress,
+      abi: StrimzRegistryAbi,
+      functionName: 'setFeeBps',
+      args: [onchainMerchantId, feeBps],
+      chain: this.chain,
+    })
+    const receipt = await this.publicClient.waitForTransactionReceipt({ hash })
+    if (receipt.status !== 'success') {
+      throw new Error(`setFeeBps(${onchainMerchantId}, ${feeBps}) reverted in ${hash}`)
+    }
+    return hash
+  }
+
+  async readMerchantFeeBps(onchainMerchantId: bigint): Promise<number> {
+    const record = await this.publicClient.readContract({
+      address: this.registryAddress,
+      abi: StrimzRegistryAbi,
+      functionName: 'getMerchant',
+      args: [onchainMerchantId],
+    })
+    return record.feeBps
   }
 
   // ----- Agent escrow writes -----

@@ -1,4 +1,12 @@
-import type { PrismaClient } from '@strimz/db'
+import { randomBytes } from 'node:crypto'
+import type {
+  MerchantTier,
+  Mode,
+  PaymentCurrency,
+  PrismaClient,
+  TransactionKind,
+  TransactionStatus,
+} from '@strimz/db'
 import { generateApiKey, randomBase64Url, sha256Hex } from '@strimz/shared-crypto'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -10,6 +18,7 @@ export function seedMerchant(
     email: string
     payoutAddress: string
     onchainMerchantId: number | null
+    tier: MerchantTier
   }> = {},
 ): Promise<any> {
   const id = overrides.id ?? `m_${Math.random().toString(36).slice(2, 10)}`
@@ -21,6 +30,39 @@ export function seedMerchant(
       payoutAddress: overrides.payoutAddress ?? '0x000000000000000000000000000000000000beef',
       onchainMerchantId: overrides.onchainMerchantId ?? null,
       emailVerified: true,
+      tier: overrides.tier ?? 'free',
+    },
+  })
+}
+
+export function seedTransaction(
+  prisma: PrismaClient,
+  merchantId: string,
+  overrides: Partial<{
+    kind: TransactionKind
+    status: TransactionStatus
+    amount: string
+    currency: PaymentCurrency
+    mode: Mode
+  }> = {},
+): Promise<any> {
+  const amount = overrides.amount ?? '1000000'
+  return prisma.transaction.create({
+    data: {
+      merchantId,
+      kind: overrides.kind ?? 'one_shot',
+      status: overrides.status ?? 'confirmed',
+      amount,
+      feeAmount: '0',
+      netAmount: amount,
+      currency: overrides.currency ?? 'USDC',
+      payerAddress: '0x000000000000000000000000000000000000cafe',
+      merchantAddress: '0x000000000000000000000000000000000000beef',
+      onchainTxHash: `0x${randomBytes(32).toString('hex')}`,
+      blockNumber: 1n,
+      blockTimestamp: new Date(),
+      logIndex: 0,
+      mode: overrides.mode ?? 'test',
     },
   })
 }

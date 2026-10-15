@@ -8,6 +8,7 @@ import {
   planFeeBps,
   planForVolume,
   planIncludes,
+  planUpgradeFor,
   plansWith,
   type MerchantTier,
 } from '../src/index.js'
@@ -91,5 +92,24 @@ describe('planForVolume', () => {
 
   it('stays Growth above 1,000,000 until an Enterprise contract', () => {
     expect(planForVolume(volumes(5_000_000n, 0n))).toBe('growth')
+  })
+})
+
+describe('planUpgradeFor', () => {
+  it('names the higher plan the volume earns', () => {
+    expect(planUpgradeFor('free', volumes(1_000n, 0n))).toBe('starter')
+    expect(planUpgradeFor('free', volumes(0n, 50_000n))).toBe('growth')
+    expect(planUpgradeFor('starter', volumes(50_000n, 0n))).toBe('growth')
+  })
+
+  it('returns null when the volume earns the current plan or a lower one', () => {
+    expect(planUpgradeFor('free', volumes(600n, 600n))).toBeNull()
+    expect(planUpgradeFor('starter', volumes(1_000n, 0n))).toBeNull()
+    expect(planUpgradeFor('starter', volumes(0n, 0n))).toBeNull()
+    expect(planUpgradeFor('growth', volumes(5_000_000n, 0n))).toBeNull()
+  })
+
+  it('never moves an Enterprise merchant', () => {
+    expect(planUpgradeFor('enterprise', volumes(5_000_000n, 0n))).toBeNull()
   })
 })

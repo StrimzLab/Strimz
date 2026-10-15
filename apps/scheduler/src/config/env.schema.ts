@@ -40,6 +40,9 @@ export const envSchema = z.object({
   AGENT_ESCROW_ADDRESS: z
     .string()
     .regex(/^0x[0-9a-fA-F]{40}$/, 'must be a 0x-prefixed 20-byte hex address'),
+  REGISTRY_ADDRESS: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{40}$/, 'must be a 0x-prefixed 20-byte hex address'),
 
   STRIMZ_WEBHOOK_SIGNING_SECRET: z.string().min(32),
   /**
@@ -56,6 +59,7 @@ export const envSchema = z.object({
 
   SUBSCRIPTION_SWEEPER_CRON: z.string().default('0 */15 * * * *'),
   INVOICE_OVERDUE_CRON: z.string().default('0 0 * * * *'),
+  PLAN_UPGRADE_CRON: z.string().default('0 */5 * * * *'),
   SUBSCRIPTION_SWEEP_LIMIT: z.coerce.number().int().min(1).max(10_000).default(100),
   SUBSCRIPTION_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(20),
 
