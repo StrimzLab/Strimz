@@ -109,3 +109,9 @@ export function planForVolume(volumes: PaymentVolumes): VolumePlan {
   }
   return reached
 }
+
+export function planUpgradeFor(current: MerchantTier, volumes: PaymentVolumes): VolumePlan | null {
+  if (current === 'enterprise') return null
+  const earned = planForVolume(volumes)
+  return PLAN_ORDER.indexOf(earned) > PLAN_ORDER.indexOf(current) ? earned : null
+}
