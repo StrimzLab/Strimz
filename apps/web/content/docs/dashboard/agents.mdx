@@ -19,21 +19,21 @@ Three tabs at the top:
 
 One card per capability. Each card shows a summary, an enable switch, and (when enabled) a **Configure** button that opens a settings dialog.
 
-| Capability                | What it does                                                                           |
-| ------------------------- | -------------------------------------------------------------------------------------- |
-| **Identity**              | On-chain agent registration. Managed by Strimz; required for every other capability.   |
-| **Recovery**              | Emails customers on failed subscription charges per the strategy you set.              |
-| **Cashflow digest**       | Daily summary email of yesterday's revenue, plus optional anomaly alerts and yield.    |
-| **Commerce**              | Agent-driven escrow jobs with a vendor allowlist and human-approval threshold.         |
-| **Pricing intelligence**  | Monthly MRR, churn, and 90-day forecast email.                                         |
-| **CCTP routing**          | Cross-chain settlement so payers can pay from any chain. Coming with Whisk.            |
+| Capability               | What it does                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------ |
+| **Identity**             | On-chain agent registration. Managed by Strimz; required for every other capability. |
+| **Recovery**             | Emails customers on failed subscription charges per the strategy you set.            |
+| **Cashflow digest**      | Daily summary email of yesterday's revenue, plus optional anomaly alerts and yield.  |
+| **Commerce**             | Agent-driven escrow jobs with a vendor allowlist and human-approval threshold.       |
+| **Pricing intelligence** | Monthly MRR, churn, and 90-day forecast email.                                       |
+| **CCTP routing**         | Cross-chain settlement so payers can pay from any chain. Coming with Whisk.          |
 
 ### Configure dialogs
 
 Clicking **Configure** opens a per-capability dialog:
 
 - **Recovery** — grace period (24 / 48 / 72 h), retry strategy (`once` / `twice` / `until_grace_ends`), and a custom email template.
-- **Cashflow** — digest on/off, anomaly sensitivity (low / medium / high), auto-convert-to-yield switch, and the minimum liquid reserve floor in USD.
+- **Cashflow** — digest on/off, anomaly sensitivity (low / medium / high), auto-convert-to-yield switch, and the minimum liquid reserve floor in USD. Anomaly alerts and yield recommendations start on the Starter plan; on Free the dialog shows the digest switch and when the rest unlocks.
 - **Commerce** — approval threshold in USD, monthly spend cap in USD (optional), and an EVM-address allowlist for approved vendors (one per line).
 
 The nested settings only take effect when the capability is enabled — flipping the switch off doesn't erase them, so re-enabling later restores your config.

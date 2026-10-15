@@ -100,10 +100,11 @@ export default function ContactPage() {
           <aside className="space-y-4">
             <div className="shadow-sub-card border-border bg-card rounded-[16px] border p-5">
               <h4 className="font-sora text-foreground text-base font-[700]">
-                Need a Slack channel?
+                Priority email support
               </h4>
               <p className="font-poppins text-muted-foreground mt-2 text-sm">
-                Dedicated Slack and a solutions engineer come with the Growth and Enterprise plans.
+                Starter, Growth and Enterprise merchants get priority email support. Every plan can
+                reach us through this form.
               </p>
               <a
                 href="/pricing"
