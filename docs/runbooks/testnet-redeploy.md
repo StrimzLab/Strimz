@@ -169,7 +169,8 @@ Lightsail `.env` (`infra/lightsail/env.example` lists every name):
   `STRIMZ_SUBSCRIPTIONS_ADDRESS` (API);
 - `SUBSCRIPTIONS_ADDRESS`, `AGENT_ESCROW_ADDRESS`, `REGISTRY_ADDRESS` (scheduler);
 - `REGISTRY_ADDRESS`, `PAYMENTS_ADDRESS`, `SUBSCRIPTIONS_ADDRESS`,
-  `AGENT_ESCROW_ADDRESS`, `FEE_COLLECTOR_ADDRESS`, `TOKEN_WHITELIST_ADDRESS`, and
+  `AGENT_ESCROW_ADDRESS`, `FEE_COLLECTOR_ADDRESS`, `TOKEN_WHITELIST_ADDRESS`,
+  `AGENT_REGISTRY_ADDRESS`, `TIMELOCK_ADDRESS` (the TimelockController from step 4), and
   `START_BLOCK` = the block from step 2 (indexer);
 - the KMS settings from `docs/runbooks/kms-signers.md` section 5.
 
