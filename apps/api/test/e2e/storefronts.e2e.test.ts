@@ -17,7 +17,7 @@ describe('storefronts e2e', () => {
   })
 
   it('upsert + publish + public read by slug', async () => {
-    const m = await seedMerchant(t.prisma.db)
+    const m = await seedMerchant(t.prisma.db, { tier: 'starter' })
 
     const upsert = await t.inject({
       method: 'POST',
@@ -53,8 +53,8 @@ describe('storefronts e2e', () => {
   })
 
   it('rejects a slug that another merchant owns', async () => {
-    const m1 = await seedMerchant(t.prisma.db)
-    const m2 = await seedMerchant(t.prisma.db)
+    const m1 = await seedMerchant(t.prisma.db, { tier: 'starter' })
+    const m2 = await seedMerchant(t.prisma.db, { tier: 'starter' })
     const baseSf = {
       description: null,
       logoUrl: null,
@@ -78,7 +78,7 @@ describe('storefronts e2e', () => {
   })
 
   it('CRUD products on the merchant storefront', async () => {
-    const m = await seedMerchant(t.prisma.db)
+    const m = await seedMerchant(t.prisma.db, { tier: 'starter' })
     await t.inject({
       method: 'POST',
       url: '/v1/storefront',

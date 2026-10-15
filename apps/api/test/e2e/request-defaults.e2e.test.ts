@@ -84,7 +84,7 @@ describe('request bodies that omit a defaulted field get the schema default', ()
   })
 
   it('storefront without socialLinks and product without sortOrder store their defaults', async () => {
-    const m = await seedMerchant(t.prisma.db)
+    const m = await seedMerchant(t.prisma.db, { tier: 'starter' })
     const auth = { authorization: `Bearer ${m.privyAccessToken}` }
     const storefront = await t.inject({
       method: 'POST',

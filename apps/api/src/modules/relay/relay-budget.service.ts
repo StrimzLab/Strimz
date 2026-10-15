@@ -7,8 +7,8 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js'
 
 export const RELAY_DAILY_QUOTA: Readonly<Record<MerchantTier, number>> = {
   free: 500,
-  growth: 5_000,
-  business: 50_000,
+  starter: 5_000,
+  growth: 50_000,
   enterprise: 50_000,
 }
 

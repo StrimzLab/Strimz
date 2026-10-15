@@ -377,7 +377,7 @@ describe('api key scope enforcement e2e', () => {
     })
 
     it('storefronts_write creates and storefronts_read reads the storefront', async () => {
-      const m = await seedMerchant(t.prisma.db)
+      const m = await seedMerchant(t.prisma.db, { tier: 'starter' })
       const writer = await seedApiKey(t.prisma.db, m.id, { scopes: ['storefronts_write'] })
       const reader = await seedApiKey(t.prisma.db, m.id, { scopes: ['storefronts_read'] })
       const created = await t.inject({

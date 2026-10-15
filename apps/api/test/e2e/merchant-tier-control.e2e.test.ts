@@ -87,7 +87,7 @@ describe('merchant tier control', () => {
         method: 'POST',
         url: '/v1/merchants/me/tier',
         headers: { authorization: `Bearer ${m.privyAccessToken}` },
-        payload: { tier: 'business' },
+        payload: { tier: 'growth' },
       })
       expect(res.statusCode).toBe(404)
       expect(await tierOf(m.id)).toBe('free')
@@ -105,76 +105,56 @@ describe('merchant tier control', () => {
     })
   })
 
-  describe('an admin tier change follows the on-chain fee', () => {
-    it('refuses a tier whose fee differs from the registry fee and keeps the old tier', async () => {
-      await seedAdmin()
-      const m = await seedMerchant(t.prisma.db, {
-        onboardingCompleted: true,
-        walletAddress: WALLET,
-        onchainMerchantId: 7,
-      })
-      registry.set(7n, { feeBps: 150, maxFeeBps: 150 })
+  describe('an admin sets Enterprise only', () => {
+    it.each(['free', 'starter', 'growth'])(
+      'refuses to set %s by hand because it follows volume',
+      async (tier) => {
+        await seedAdmin()
+        const m = await seedMerchant(t.prisma.db, {
+          onboardingCompleted: true,
+          walletAddress: WALLET,
+          onchainMerchantId: 7,
+        })
+        registry.set(7n, { feeBps: 0, maxFeeBps: 50 })
 
-      const res = await adminSetTier(m.id, 'business')
+        const res = await adminSetTier(m.id, tier)
 
-      expect(res.statusCode).toBe(409)
-      const error = errorOf(res.body)
-      expect(error.code).toBe('onchain_fee_mismatch')
-      expect(error.details).toMatchObject({
-        onchainMerchantId: '7',
-        onchainFeeBps: 150,
-        requiredFeeBps: 50,
-        maxFeeBps: 150,
-      })
-      expect(await tierOf(m.id)).toBe('free')
-    })
+        expect(res.statusCode).toBe(400)
+        expect(errorOf(res.body).code).toBe('invalid_request')
+        expect(await tierOf(m.id)).toBe('free')
+      },
+    )
 
-    it('refuses a tier above the merchant ceiling and says so', async () => {
-      await seedAdmin()
-      const m = await seedMerchant(t.prisma.db, {
-        onboardingCompleted: true,
-        walletAddress: WALLET,
-        onchainMerchantId: 8,
-      })
-      await t.prisma.db.merchant.update({ where: { id: m.id }, data: { tier: 'business' } })
-      registry.set(8n, { feeBps: 50, maxFeeBps: 50 })
-
-      const res = await adminSetTier(m.id, 'free')
-
-      expect(res.statusCode).toBe(409)
-      expect(errorOf(res.body).code).toBe('onchain_fee_above_ceiling')
-      expect(await tierOf(m.id)).toBe('business')
-    })
-
-    it('applies a tier once the registry already charges its fee and audits the fee read', async () => {
+    it('moves a registered merchant to Enterprise and audits the registry fee', async () => {
       const admin = await seedAdmin()
       const m = await seedMerchant(t.prisma.db, {
+        tier: 'growth',
         onboardingCompleted: true,
         walletAddress: WALLET,
         onchainMerchantId: 9,
       })
-      registry.set(9n, { feeBps: 50, maxFeeBps: 150 })
+      registry.set(9n, { feeBps: 25, maxFeeBps: 50 })
 
-      const res = await adminSetTier(m.id, 'business')
+      const res = await adminSetTier(m.id, 'enterprise')
 
       expect(res.statusCode).toBe(200)
-      expect(await tierOf(m.id)).toBe('business')
+      expect(await tierOf(m.id)).toBe('enterprise')
       const audit = await t.prisma.db.auditLog.findFirstOrThrow({
         where: { actorId: admin.id, action: 'merchant.tier_changed', targetId: m.id },
       })
       expect(audit.metadata).toMatchObject({
-        previous: 'free',
-        next: 'business',
+        previous: 'growth',
+        next: 'enterprise',
         onchainMerchantId: '9',
-        onchainFeeBps: 50,
+        onchainFeeBps: 25,
       })
     })
 
-    it('refuses a paid tier for a merchant that is not registered on-chain', async () => {
+    it('refuses Enterprise for a merchant that is not registered on-chain', async () => {
       await seedAdmin()
       const m = await seedMerchant(t.prisma.db, { onboardingCompleted: true })
 
-      const res = await adminSetTier(m.id, 'growth')
+      const res = await adminSetTier(m.id, 'enterprise')
 
       expect(res.statusCode).toBe(409)
       expect(errorOf(res.body).code).toBe('merchant_not_registered')
@@ -190,7 +170,7 @@ describe('merchant tier control', () => {
       })
       registryDown = true
 
-      const res = await adminSetTier(m.id, 'growth')
+      const res = await adminSetTier(m.id, 'enterprise')
 
       expect(res.statusCode).toBe(503)
       expect(errorOf(res.body).code).toBe('chain_unavailable')

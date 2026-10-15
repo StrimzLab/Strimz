@@ -26,7 +26,6 @@ import type {
   PaymentCurrency,
 } from '@strimz/shared-types'
 import { paymentCurrencySchema } from '@strimz/shared-types'
-import { effectiveFeeBps } from '@strimz/shared-config'
 
 import { TypedConfigService } from '../../config/index.js'
 import { EmailService } from '../../infra/email/email.service.js'
@@ -322,8 +321,8 @@ export class AdminService {
       metadata: {
         previous: merchant.tier,
         next: tier,
-        onchainMerchantId: onchain?.onchainMerchantId ?? null,
-        onchainFeeBps: onchain?.onchainFeeBps ?? null,
+        onchainMerchantId: onchain.onchainMerchantId,
+        onchainFeeBps: onchain.onchainFeeBps,
       },
     })
 
@@ -333,39 +332,16 @@ export class AdminService {
   private async verifyOnchainFeeForTier(
     onchainMerchantId: number | null,
     tier: MerchantTier,
-  ): Promise<{ onchainMerchantId: string; onchainFeeBps: number } | null> {
+  ): Promise<{ onchainMerchantId: string; onchainFeeBps: number }> {
     if (onchainMerchantId === null) {
-      if (tier === 'free') return null
       throw new ConflictException({
         code: 'merchant_not_registered',
-        message:
-          'the merchant is not registered on-chain yet; only the free tier can be set before registration',
+        message: `the merchant is not registered on-chain yet; ${tier} needs its contract fee set in the registry first`,
       })
     }
 
-    const { feeBps, maxFeeBps } = await this.merchantChain.readRegistryFee(
-      BigInt(onchainMerchantId),
-    )
-    const onchain = { onchainMerchantId: String(onchainMerchantId), onchainFeeBps: feeBps }
-    const requiredFeeBps = effectiveFeeBps(tier, 'one_shot')
-    if (requiredFeeBps === null) return onchain
-
-    const details = { ...onchain, requiredFeeBps, maxFeeBps }
-    if (requiredFeeBps > maxFeeBps) {
-      throw new ConflictException({
-        code: 'onchain_fee_above_ceiling',
-        message: `the ${tier} fee of ${requiredFeeBps} bps is above the merchant's on-chain ceiling of ${maxFeeBps} bps`,
-        details,
-      })
-    }
-    if (feeBps !== requiredFeeBps) {
-      throw new ConflictException({
-        code: 'onchain_fee_mismatch',
-        message: `the registry charges ${feeBps} bps but the ${tier} tier needs ${requiredFeeBps} bps; send setFeeBps(${onchainMerchantId}, ${requiredFeeBps}) with the admin key first`,
-        details,
-      })
-    }
-    return onchain
+    const { feeBps } = await this.merchantChain.readRegistryFee(BigInt(onchainMerchantId))
+    return { onchainMerchantId: String(onchainMerchantId), onchainFeeBps: feeBps }
   }
 
   // ------------------------------------------------------------------

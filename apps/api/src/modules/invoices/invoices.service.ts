@@ -1,6 +1,5 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import type { CreateInvoiceParsed, Invoice, Mode } from '@strimz/shared-types'
-import { effectiveFeeBps } from '@strimz/shared-config'
 import type { Prisma } from '@strimz/db'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
@@ -42,7 +41,7 @@ export class InvoicesService {
     const dueAt = new Date(Date.now() + input.dueInDays * 86_400_000)
 
     const merchant = await this.prisma.db.merchant.findUniqueOrThrow({ where: { id: merchantId } })
-    const feeBps = effectiveFeeBps(merchant.tier as never, 'one_shot') ?? 150
+    const feeBps = await this.merchantChain.feeBpsFor(merchant)
     const feeAmount = (BigInt(total) * BigInt(feeBps)) / 10_000n
     const netAmount = BigInt(total) - feeAmount
 

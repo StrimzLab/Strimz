@@ -8,7 +8,7 @@ export const setMerchantStatusInputSchema = z.object({
 export class SetMerchantStatusDto extends createZodDto(setMerchantStatusInputSchema) {}
 
 export const setMerchantTierInputSchema = z.object({
-  tier: z.enum(['free', 'growth', 'business', 'enterprise']),
+  tier: z.enum(['enterprise']),
 })
 export class SetMerchantTierDto extends createZodDto(setMerchantTierInputSchema) {}
 

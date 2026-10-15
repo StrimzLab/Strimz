@@ -1,5 +1,6 @@
 import { generateApiKey } from '@strimz/shared-crypto'
 import type {
+  MerchantTier,
   PaymentSessionStatus,
   PrismaClient,
   SubscriptionInterval,
@@ -29,6 +30,7 @@ export async function seedMerchant(
     mfa: boolean
     onchainMerchantId: number
     walletAddress: string
+    tier: MerchantTier
   }> = {},
 ): Promise<SeededMerchant> {
   const email =
@@ -45,6 +47,7 @@ export async function seedMerchant(
       payoutAddress: overrides.payoutAddress ?? '0x000000000000000000000000000000000000beef',
       onchainMerchantId: overrides.onchainMerchantId ?? null,
       walletAddress: overrides.walletAddress ?? null,
+      tier: overrides.tier ?? 'free',
     },
   })
   return {

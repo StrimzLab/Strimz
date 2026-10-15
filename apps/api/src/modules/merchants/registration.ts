@@ -5,7 +5,7 @@ import {
   type Hex,
   type TransactionReceipt,
 } from 'viem'
-import { DEFAULT_TIER, effectiveFeeBps } from '@strimz/shared-config'
+import { PLAN_FEE_CEILING_BPS, planFeeBps, type MerchantTier } from '@strimz/shared-config'
 
 import { registerMerchantAbi } from './registry.abi.js'
 
@@ -32,19 +32,25 @@ export function registrationGaps(m: RegistrationCandidate): string[] {
   return gaps
 }
 
-function defaultRegistrationFeeBps(): number {
-  const feeBps = effectiveFeeBps(DEFAULT_TIER, 'one_shot')
+function registrationFeeBps(tier: MerchantTier): number {
+  const feeBps = planFeeBps(tier)
   if (feeBps === null) {
-    throw new Error(`default tier ${DEFAULT_TIER} has no fixed one-shot fee`)
+    throw new Error(`the ${tier} plan has no fixed fee to register with`)
   }
   return feeBps
 }
 
-export function registerMerchantCallData(m: RegistrationCandidate): Hex {
+export function registerMerchantCallData(m: RegistrationCandidate & { tier: MerchantTier }): Hex {
   return encodeFunctionData({
     abi: registerMerchantAbi,
     functionName: 'registerMerchant',
-    args: [m.walletAddress as Hex, m.payoutAddress as Hex, defaultRegistrationFeeBps(), NO_PARENT],
+    args: [
+      m.walletAddress as Hex,
+      m.payoutAddress as Hex,
+      registrationFeeBps(m.tier),
+      PLAN_FEE_CEILING_BPS,
+      NO_PARENT,
+    ],
   })
 }
 

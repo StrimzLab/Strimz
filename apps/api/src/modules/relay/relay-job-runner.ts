@@ -117,6 +117,7 @@ export class RelayJobRunner {
         onboardingCompleted: true,
         onchainMerchantId: true,
         onchainRegistrationTxHash: true,
+        tier: true,
       },
     })
     if (!merchant) {
