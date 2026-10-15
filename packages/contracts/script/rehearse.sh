@@ -105,6 +105,13 @@ export TIMELOCK_MIN_DELAY="$TIMELOCK_DELAY"
 "$FORGE" script script/HandoffAdmin.s.sol --network arc --rpc-url "$LOCAL" --broadcast > /dev/null
 TIMELOCK=$(jq -r '[.[] | select(.label == "handoff")][-1].contracts[0].proxy' "$LOG")
 
+step "Safe pauses the agent escrow"
+"$CAST" rpc anvil_impersonateAccount "$SAFE" --rpc-url "$LOCAL" > /dev/null
+"$CAST" rpc anvil_setBalance "$SAFE" 0x8ac7230489e80000 --rpc-url "$LOCAL" > /dev/null
+"$CAST" send "$STRIMZ_AGENT_ESCROW_ADDRESS" "pause()" --from "$SAFE" --unlocked --rpc-url "$LOCAL" > /dev/null
+"$CAST" rpc anvil_stopImpersonatingAccount "$SAFE" --rpc-url "$LOCAL" > /dev/null
+[ "$("$CAST" call "$STRIMZ_AGENT_ESCROW_ADDRESS" "paused()(bool)" --rpc-url "$LOCAL")" = "true" ]
+
 step "Verify (handed-off)"
 STRIMZ_VERIFY_PHASE=handed-off STRIMZ_TIMELOCK_ADDRESS="$TIMELOCK" STRIMZ_DEPLOYER_ADDRESS="$DEPLOYER" \
   "$FORGE" script script/Verify.s.sol --network arc --rpc-url "$LOCAL"

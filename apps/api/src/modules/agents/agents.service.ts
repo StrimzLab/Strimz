@@ -17,6 +17,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QueueService } from '../../infra/queue/queue.service.js'
 import { assertPlanIncludes } from '../../common/plans/plan-access.js'
 import { mergeAgentConfig } from './agent-config-merge.js'
+import { assertNewCapabilitiesAvailable } from './capability-availability.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -50,6 +51,7 @@ export class AgentsService {
       await tx.$queryRaw`SELECT id FROM "AgentMerchantConfig" WHERE "merchantId" = ${merchantId} FOR UPDATE`
       const stored = await tx.agentMerchantConfig.findUniqueOrThrow({ where: { merchantId } })
       const current = serialiseConfig(stored)
+      assertNewCapabilitiesAvailable(current.enabledCapabilities, input.enabledCapabilities)
       const merged = agentMerchantConfigSchema.safeParse(mergeAgentConfig(current, input))
       if (!merged.success) {
         this.log.error(
