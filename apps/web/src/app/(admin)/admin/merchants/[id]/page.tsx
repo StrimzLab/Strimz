@@ -4,17 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { ArrowLeft, Ban, RotateCcw } from 'lucide-react'
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@strimz/ui'
+import { Badge, Button, Card, CardContent } from '@strimz/ui'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import type { Mode } from '@strimz/shared-types'
@@ -22,9 +12,8 @@ import { SegmentedToggle } from '@/components/shared/segmented-toggle'
 import { relativeTime, shortAddress } from '@/lib/format'
 import { formatCurrencyAmounts } from '@/lib/currency-totals'
 import { MODE_OPTIONS } from '@/lib/admin-volume'
-import type { MerchantTier } from '@/lib/admin-api'
 import { tierRefusal } from '@/lib/admin-api/tier-refusal'
-import { suspendMerchantConfirm } from '@/lib/destructive-actions'
+import { moveToEnterpriseConfirm, suspendMerchantConfirm } from '@/lib/destructive-actions'
 import {
   ConfirmActionDialog,
   type PendingConfirm,
@@ -35,8 +24,6 @@ import {
   useSetMerchantTier,
   useSuspendMerchant,
 } from '@/hooks/admin'
-
-const TIERS: MerchantTier[] = ['free', 'growth', 'business', 'enterprise']
 
 export default function AdminMerchantDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -213,33 +200,35 @@ export default function AdminMerchantDetailPage() {
             </div>
 
             <div className="border-border/60 rounded-md border p-3">
-              <div className="text-sm font-medium">Tier</div>
+              <div className="text-sm font-medium">Plan</div>
               <p className="text-muted-foreground mt-1 text-xs">
-                The tier must match the fee the on-chain registry charges this merchant. Free,
-                Growth and Business need their exact fee; Enterprise accepts any fee. To change the
-                fee, the Strimz Safe sends setFeeBps (two signers approve it), waits for the
-                receipt, then an admin sets the tier here. An unregistered merchant can only be set
-                to Free. A mismatch is refused with the fee the registry needs.
+                Free, Starter and Growth follow the volume this merchant has processed, and move up
+                automatically. Enterprise is set here once a contract is signed. First the Strimz
+                Safe sends setFeeBps with the contract fee and waits for the receipt. A merchant
+                that is not registered on-chain cannot move to Enterprise.
               </p>
-              <div className="mt-3">
-                <Select
-                  value={merchant.tier}
-                  onValueChange={(v) =>
-                    tierMutation.mutate({ id: merchant.id, input: { tier: v as MerchantTier } })
-                  }
-                  disabled={tierMutation.isPending}
-                >
-                  <SelectTrigger className="capitalize">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TIERS.map((t) => (
-                      <SelectItem key={t} value={t} className="capitalize">
-                        {t}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <Badge variant="outline" className="capitalize">
+                  {merchant.tier}
+                </Badge>
+                {merchant.tier === 'enterprise' ? null : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setPendingConfirm({
+                        copy: moveToEnterpriseConfirm({
+                          businessName: merchant.businessName ?? merchant.email,
+                        }),
+                        run: () =>
+                          tierMutation.mutate({ id: merchant.id, input: { tier: 'enterprise' } }),
+                      })
+                    }
+                    disabled={tierMutation.isPending}
+                  >
+                    {tierMutation.isPending ? 'Moving…' : 'Move to Enterprise'}
+                  </Button>
+                )}
               </div>
               {refusal ? (
                 <div
