@@ -1,5 +1,11 @@
 # @strimz/shared-config
 
+## 0.5.0
+
+### Minor Changes
+
+- 9696813: New `planUpgradeFor(current, volumes)`: the higher plan a merchant's all-time volume earns, or `null`. It never returns a lower plan and never moves an Enterprise merchant.
+
 ## 0.4.0
 
 ### Minor Changes
