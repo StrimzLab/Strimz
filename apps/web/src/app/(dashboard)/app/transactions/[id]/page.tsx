@@ -116,7 +116,12 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
             <div className="font-medium">Linked to</div>
             {tx.sessionId ? (
               <Row label="Payment session">
-                <CopyValue value={tx.sessionId} />
+                <Link
+                  href={`/app/payment-sessions/${tx.sessionId}`}
+                  className="text-accent font-mono text-xs hover:underline"
+                >
+                  {tx.sessionId.slice(0, 14)}…
+                </Link>
               </Row>
             ) : null}
             {tx.subscriptionId ? (
