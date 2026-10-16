@@ -1,7 +1,22 @@
 import { checkoutResultMessageSchema, type CheckoutResultMessage } from '@strimz/shared-types'
 
+export const DEFAULT_CHECKOUT_ORIGIN = 'https://www.strimz.finance'
+
 export function checkoutOriginOf(checkoutOrigin: string): string {
-  return new URL(checkoutOrigin).origin
+  let url: URL
+  try {
+    url = new URL(checkoutOrigin)
+  } catch {
+    throw new Error(
+      `checkoutOrigin must be an origin like ${DEFAULT_CHECKOUT_ORIGIN}, got "${checkoutOrigin}".`,
+    )
+  }
+  if (url.pathname !== '/' || url.search || url.hash) {
+    throw new Error(
+      `checkoutOrigin must be an origin with no path, query or hash, like ${DEFAULT_CHECKOUT_ORIGIN}. Got "${checkoutOrigin}".`,
+    )
+  }
+  return url.origin
 }
 
 export function readCheckoutResult(
