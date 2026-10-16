@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Loader2, ShoppingBag } from 'lucide-react'
-import { Button, Input, Label } from '@strimz/ui'
+import { Button, FieldLabel, Input } from '@strimz/ui'
 import type { StorefrontCheckoutResponse } from '@strimz/shared-types'
 import { env } from '@/lib/env'
 
@@ -68,9 +68,9 @@ export function BuyButton({ slug, productId, currency, priceLabel, productType }
   return (
     <div className="space-y-3">
       <div>
-        <Label htmlFor="buy-email" className="text-muted-foreground text-xs">
-          Email (optional. For your receipt)
-        </Label>
+        <FieldLabel htmlFor="buy-email" required={false} className="text-muted-foreground text-xs">
+          Email for your receipt
+        </FieldLabel>
         <Input
           id="buy-email"
           type="email"

@@ -412,9 +412,9 @@ function NewKeyDialog() {
             <DialogHygieneNote />
 
             <div className="grid gap-1.5">
-              <Label>
+              <FieldLabel required>
                 Scopes ({scopes.length} of {ALL_SCOPES.length})
-              </Label>
+              </FieldLabel>
               <div className="border-border/60 grid max-h-40 grid-cols-2 gap-1 overflow-y-auto rounded-md border p-2 text-xs">
                 {ALL_SCOPES.map((s) => (
                   <label

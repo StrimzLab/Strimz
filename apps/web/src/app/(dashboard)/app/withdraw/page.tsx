@@ -23,7 +23,7 @@ import {
   toHex,
 } from 'viem'
 import { arcExplorerTxUrl, getArcChain } from '@strimz/shared-config'
-import { Badge, Button, Card, CardContent, FieldLabel, Input, Label } from '@strimz/ui'
+import { Badge, Button, Card, CardContent, FieldLabel, Input } from '@strimz/ui'
 import type { MerchantBalanceView } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
@@ -272,7 +272,9 @@ export default function WithdrawPage() {
 
                 <form onSubmit={handleWithdraw} className="mt-5 space-y-4">
                   <div>
-                    <Label className="font-poppins mb-2 block text-sm">Currency</Label>
+                    <FieldLabel required className="font-poppins mb-2 text-sm">
+                      Currency
+                    </FieldLabel>
                     <div className="grid grid-cols-2 gap-2">
                       {balance.balances.map((b) => (
                         <button

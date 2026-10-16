@@ -9,7 +9,7 @@ import {
   Card,
   CardContent,
   Input,
-  Label,
+  FieldLabel,
   RadioGroup,
   RadioGroupItem,
 } from '@strimz/ui'
@@ -96,7 +96,9 @@ export default function AdminBroadcastsPage() {
           <CardContent className="p-6">
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <Label className="font-poppins mb-2 block text-sm">Audience</Label>
+                <FieldLabel required className="font-poppins mb-2 text-sm">
+                  Audience
+                </FieldLabel>
                 <RadioGroup
                   value={audience}
                   onValueChange={(v) => setAudience(v as BroadcastAudience)}
@@ -126,7 +128,9 @@ export default function AdminBroadcastsPage() {
 
               {audience === 'merchant' && (
                 <div>
-                  <Label className="font-poppins mb-2 block text-sm">Merchant</Label>
+                  <FieldLabel required className="font-poppins mb-2 text-sm">
+                    Merchant
+                  </FieldLabel>
                   <div className="relative">
                     <Search className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
                     <Input
@@ -175,9 +179,9 @@ export default function AdminBroadcastsPage() {
               )}
 
               <div>
-                <Label htmlFor="title" className="font-poppins mb-2 block text-sm">
+                <FieldLabel htmlFor="title" required className="font-poppins mb-2 text-sm">
                   Subject
-                </Label>
+                </FieldLabel>
                 <Input
                   id="title"
                   value={title}
@@ -192,7 +196,9 @@ export default function AdminBroadcastsPage() {
               </div>
 
               <div>
-                <Label className="font-poppins mb-2 block text-sm">Message</Label>
+                <FieldLabel required className="font-poppins mb-2 text-sm">
+                  Message
+                </FieldLabel>
                 <RichTextEditor
                   value={bodyHtml}
                   onChange={setBodyHtml}

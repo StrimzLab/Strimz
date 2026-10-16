@@ -157,9 +157,15 @@ export default function NewInvoicePage() {
               </div>
 
               <div className="border-border/60 text-muted-foreground hidden grid-cols-[minmax(0,4fr)_80px_120px_120px_40px] gap-2 border-b px-2 pb-2 text-[10px] uppercase tracking-wider sm:grid">
-                <span>Description</span>
-                <span className="text-right">Qty</span>
-                <span className="text-right">Unit ({currency})</span>
+                <FieldLabel required className="text-[10px] uppercase tracking-wider">
+                  Description
+                </FieldLabel>
+                <FieldLabel required className="justify-end text-[10px] uppercase tracking-wider">
+                  Qty
+                </FieldLabel>
+                <FieldLabel required className="justify-end text-[10px] uppercase tracking-wider">
+                  Unit ({currency})
+                </FieldLabel>
                 <span className="text-right">Amount</span>
                 <span />
               </div>
@@ -174,20 +180,39 @@ export default function NewInvoicePage() {
                       key={idx}
                       className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,4fr)_80px_120px_120px_40px] sm:items-center"
                     >
+                      <FieldLabel
+                        htmlFor={`iv-line-${idx}-description`}
+                        required
+                        className="sm:hidden"
+                      >
+                        Description
+                      </FieldLabel>
                       <Input
+                        id={`iv-line-${idx}-description`}
+                        aria-label={`Line ${idx + 1} description`}
                         value={li.description}
                         onChange={(e) => updateLine(idx, { description: e.target.value })}
                         placeholder="Annual licence renewal"
                         className="h-9"
                       />
+                      <FieldLabel htmlFor={`iv-line-${idx}-qty`} required className="sm:hidden">
+                        Qty
+                      </FieldLabel>
                       <Input
+                        id={`iv-line-${idx}-qty`}
+                        aria-label={`Line ${idx + 1} quantity`}
                         type="number"
                         min={1}
                         value={li.quantity}
                         onChange={(e) => updateLine(idx, { quantity: e.target.value })}
                         className="h-9 text-right"
                       />
+                      <FieldLabel htmlFor={`iv-line-${idx}-unit`} required className="sm:hidden">
+                        Unit ({currency})
+                      </FieldLabel>
                       <Input
+                        id={`iv-line-${idx}-unit`}
+                        aria-label={`Line ${idx + 1} unit price in ${currency}`}
                         type="number"
                         step="0.01"
                         min={0}

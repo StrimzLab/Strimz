@@ -543,7 +543,7 @@ function NewEndpointDialog() {
               </span>
             </div>
             <div className="grid gap-1.5">
-              <Label>Events ({events.length} selected)</Label>
+              <FieldLabel required>Events ({events.length} selected)</FieldLabel>
               <div className="border-border/60 grid max-h-48 grid-cols-2 gap-1 overflow-y-auto rounded-md border p-2 text-xs">
                 {ALL_EVENT_TYPES.map((e) => (
                   <label
