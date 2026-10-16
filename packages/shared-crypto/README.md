@@ -1,6 +1,6 @@
 # @strimz/shared-crypto
 
-> Web Crypto primitives for Strimz. HMAC webhook signing, API key generation, AES-256-GCM envelope encryption, and constant-time comparison. Runs anywhere Web Crypto runs.
+> Crypto primitives for Strimz. HMAC webhook signing, API key generation, AES-256-GCM envelope encryption, constant-time comparison, and the checkout payment nonce. Runs anywhere Web Crypto runs.
 
 [![npm version](https://img.shields.io/npm/v/@strimz/shared-crypto.svg?color=02C76A)](https://www.npmjs.com/package/@strimz/shared-crypto)
 [![npm downloads](https://img.shields.io/npm/dm/@strimz/shared-crypto.svg)](https://www.npmjs.com/package/@strimz/shared-crypto)
@@ -8,11 +8,14 @@
 [![types](https://img.shields.io/npm/types/@strimz/shared-crypto.svg)](https://www.npmjs.com/package/@strimz/shared-crypto)
 [![License: MIT](https://img.shields.io/badge/License-MIT-02C76A.svg)](./LICENSE)
 
-Every primitive is built on the Web Crypto API
-(`globalThis.crypto.subtle`), so the same code runs unchanged in
-Node 22, Vercel Edge, Cloudflare Workers, Deno, Bun, and any modern
-browser. There is no `node:crypto`, no Buffer, no platform-specific
-shim.
+The hashing, HMAC, random and AES primitives are built on the Web
+Crypto API (`globalThis.crypto.subtle`), so the same code runs
+unchanged in Node 22, Vercel Edge, Cloudflare Workers, Deno, Bun, and
+any modern browser. There is no `node:crypto`, no Buffer, no
+platform-specific shim. `checkoutPaymentNonce` uses `viem`'s
+`keccak256` instead.
+
+Runtime dependencies: `viem` and `@strimz/shared-config`.
 
 ## Install
 
@@ -33,10 +36,10 @@ Every group is also available as a subpath import.
 | `/hmac`        | `hmacSha256`, `hmacSha256Hex`                                                                           |
 | `/random`      | `randomBytes`, `randomHex`, `randomBase64Url`, `uuid`                                                   |
 | `/timing-safe` | `timingSafeEqualBytes`, `timingSafeEqualString`                                                         |
-| `/webhook`     | `signWebhookPayload`, `verifyWebhookSignature` (timestamp + HMAC scheme)                                |
+| `/webhook`     | `signWebhookPayload`, `verifyWebhookSignature`, `WEBHOOK_SIGNATURE_VERSION` (timestamp + HMAC scheme)   |
 | `/api-key`     | `generateApiKey`, `hashApiKey`, `redactApiKey`                                                          |
 | `/aes-gcm`     | `encryptAesGcm`, `decryptAesGcm`, `generateAesGcmKey` (envelope encryption for webhook secrets at rest) |
-| `/checkout`    | `checkoutPaymentNonce` (the EIP-3009 nonce the hosted checkout signs for a payment session)             |
+| `/checkout`    | `checkoutPaymentNonce`, `CHECKOUT_PAYMENT_NONCE_DOMAIN` (the EIP-3009 nonce for a payment session)      |
 
 The package root re-exports every subpath.
 
@@ -102,16 +105,17 @@ small secrets where the key is held outside the data store.
 ## Design notes
 
 - **No secrets are logged.** `redactApiKey` exists specifically so any diagnostic that must include a key logs only the safe prefix and the last four characters.
-- **No Node `Buffer` or `node:crypto`.** Every primitive uses `globalThis.crypto.subtle` and `Uint8Array`.
+- **No Node `Buffer` or `node:crypto`.** The primitives use `globalThis.crypto.subtle` and `Uint8Array`; the checkout nonce uses `viem`.
+- **One nonce per session.** `checkoutPaymentNonce(sessionId)` is `keccak256(abi.encode(CHECKOUT_PAYMENT_NONCE_DOMAIN, sessionId))`, so every authorization for a session shares it and the token accepts at most one.
 - **Constant-time compare on signatures.** Signature verification never short-circuits on the first mismatched byte.
 - **Policy lives elsewhere.** Tolerance windows, key prefixes, and tier thresholds come from `@strimz/shared-config`; this package consumes them.
 
 ## Links
 
-- [Documentation](https://strimz.finance/docs)
-- [Repository](https://github.com/StrimzLab/Strimz/tree/main/packages/shared-crypto)
+- [Documentation](https://www.strimz.finance/docs)
+- [Repository](https://github.com/StrimzLab/strimz/tree/main/packages/shared-crypto)
 - [Changelog](./CHANGELOG.md)
-- [Issues](https://github.com/StrimzLab/Strimz/issues)
+- [Issues](https://github.com/StrimzLab/strimz/issues)
 
 ## License
 

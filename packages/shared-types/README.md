@@ -69,19 +69,21 @@ Every group is also available as a subpath import for tree-shaking.
 | `/subscriptions`    | Plans, active subscriptions, per-period charges (with `chargeAttemptId`)                                |
 | `/refunds`          | Merchant-initiated refund entity + signature flow                                                       |
 | `/webhooks`         | Endpoints, deliveries, replay                                                                           |
-| `/compliance`       | Sanctions screening log                                                                                 |
+| `/compliance`       | Screening log schema (wallet screening isn't part of checkout today)                                    |
 | `/agents`           | Identity, merchant config, activity log, ERC-8183 jobs                                                  |
 | `/storefronts`      | Storefront + product                                                                                    |
 | `/invoices`         | Invoice + line items                                                                                    |
 | `/events`           | Discriminated `StrimzWebhookEvent` union covering every webhook payload shape                           |
+| `/analytics`        | Stats queries and responses: summary, volume, MRR, LTV, forecast                                        |
 
-The package root re-exports every subpath.
+The package root re-exports every subpath, plus the token, contact
+and notification schemas, which have no subpath of their own.
 
 ## Runtime support
 
-Pure TypeScript with `zod` as the only runtime dependency. Works in
-Node 22+, every modern browser, Vercel Edge, Cloudflare Workers,
-Deno, and Bun.
+Pure TypeScript. Runtime dependencies are `zod` and
+`@strimz/shared-config` (which brings in `viem`). Works in Node 22+,
+every modern browser, Vercel Edge, Cloudflare Workers, Deno, and Bun.
 
 ## Design notes
 
@@ -92,10 +94,10 @@ Deno, and Bun.
 
 ## Links
 
-- [Documentation](https://strimz.finance/docs)
-- [Repository](https://github.com/StrimzLab/Strimz/tree/main/packages/shared-types)
+- [Documentation](https://www.strimz.finance/docs)
+- [Repository](https://github.com/StrimzLab/strimz/tree/main/packages/shared-types)
 - [Changelog](./CHANGELOG.md)
-- [Issues](https://github.com/StrimzLab/Strimz/issues)
+- [Issues](https://github.com/StrimzLab/strimz/issues)
 
 ## License
 
