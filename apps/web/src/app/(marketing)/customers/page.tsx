@@ -5,7 +5,7 @@ import { OG_IMAGE } from '@/lib/seo'
 export const metadata: Metadata = {
   title: 'Customers',
   description:
-    'Companies running Strimz in production: SaaS subscriptions, AI products, marketplaces, and creator platforms billing in stablecoins on Arc.',
+    'Built for SaaS, AI products, marketplaces, and creator platforms that want to bill in stablecoins on Arc.',
   openGraph: {
     title: 'Customers · Strimz',
     description:
@@ -16,56 +16,42 @@ export const metadata: Metadata = {
   alternates: { canonical: '/customers' },
 }
 
-const HERO_STATS = [
-  { value: '$48M', label: 'Volume processed' },
-  { value: '12,400', label: 'Transactions' },
-  { value: '~13s', label: 'Median settlement' },
-  { value: '99.97%', label: 'Webhook success' },
-] as const
+interface Testimonial {
+  quote: string
+  name: string | null
+  role: string | null
+  company: string | null
+  sector: string
+}
 
-const STORIES = [
+const TESTIMONIALS: readonly Testimonial[] = [
   {
-    name: 'Mercato',
-    metric: '+2.4%',
-    metricLabel: 'net margin uplift',
     quote:
-      'We replaced our card-rails billing setup and a manual reconciliation script with Strimz in three days. Our net margin on subscription revenue went up 240 basis points.',
-    person: 'CFO',
-    company: 'Mercato',
-    sector: 'B2B SaaS',
+      "Our subscribers pay in USDC now, and the money lands in our own wallet the moment it settles. There's no payout schedule to wait on. Setting up the first plan was quicker than I expected.",
+    name: null,
+    role: null,
+    company: null,
+    sector: 'SaaS',
   },
   {
-    name: 'Aperture',
-    metric: '4 hours',
-    metricLabel: 'outage avoided',
     quote:
-      'The AutoPay Agent flagged a billing anomaly two hours before our on-call would have noticed. It saved us a four-hour outage and a very bad Monday.',
-    person: 'Eng lead',
-    company: 'Aperture',
+      'Customers sign once and the monthly charge just happens. When a charge fails we get a webhook and they get an email asking them to top up. I stopped chasing people by hand.',
+    name: null,
+    role: null,
+    company: null,
+    sector: 'Subscriptions',
+  },
+  {
+    quote:
+      'The webhooks are signed, so our order system trusts them without us polling anything. And our customers never have to buy gas to pay us, which used to be the first question they asked.',
+    name: null,
+    role: null,
+    company: null,
     sector: 'Marketplace',
   },
-  {
-    name: 'Hexcell',
-    metric: '1 weekend',
-    metricLabel: 'to launch',
-    quote:
-      "We shipped USDC subscriptions over a weekend. Customers love not paying gas. That isn't really possible if you're on USDC on Ethereum mainnet.",
-    person: 'Founder',
-    company: 'Hexcell',
-    sector: 'Web3 tooling',
-  },
-] as const
+]
 
-const LOGOS = [
-  'Mercato',
-  'Aperture',
-  'Hexcell',
-  'Northstar',
-  'Pulsefin',
-  'Stacked',
-  'Bridgehead',
-  'Onyx',
-] as const
+const NAMED_TESTIMONIALS = TESTIMONIALS.filter((t) => t.name && t.role && t.company)
 
 export default function CustomersPage() {
   return (
@@ -82,81 +68,42 @@ export default function CustomersPage() {
             Customers
           </span>
           <h1 className="font-sora text-foreground mt-5 max-w-3xl text-[40px] font-[700] leading-[48px] md:text-[56px] md:leading-[60px]">
-            Teams already running stablecoin billing on Strimz.
+            Built for teams who bill online.
           </h1>
           <p className="font-poppins text-muted-foreground mt-5 max-w-2xl text-base font-[400] leading-[28px]">
-            Builders pick Strimz when their billing is too complex for a spreadsheet, too early for
-            a full-time finance engineer, and too important to hand off to someone else.
+            Strimz is for teams whose billing is too complex for a spreadsheet, too early for a
+            full-time finance engineer, and too important to hand off to someone else.
           </p>
-
-          <div className="border-border mt-12 grid grid-cols-2 gap-6 border-t pt-10 lg:grid-cols-4">
-            {HERO_STATS.map((s) => (
-              <div key={s.label}>
-                <div className="font-sora text-foreground text-[28px] font-[700] md:text-[32px]">
-                  {s.value}
-                </div>
-                <div className="font-poppins text-muted-foreground mt-1 text-xs uppercase tracking-widest">
-                  {s.label}
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
-      {/* Logo strip */}
-      <section className="bg-muted py-12">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <p className="font-poppins text-muted-foreground text-center text-[11px] font-[500] uppercase tracking-[0.22em]">
-            Some of the teams using Strimz today
-          </p>
-          <div className="mt-8 grid grid-cols-2 items-center gap-x-8 gap-y-6 sm:grid-cols-4 lg:grid-cols-8">
-            {LOGOS.map((n) => (
-              <div
-                key={n}
-                className="font-sora text-muted-foreground/70 hover:text-foreground flex items-center justify-center text-base font-[600] tracking-tight transition-colors"
-              >
-                {n}
-              </div>
-            ))}
+      {NAMED_TESTIMONIALS.length > 0 && (
+        <section className="bg-background py-20">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <h2 className="font-sora text-foreground text-center text-[32px] font-[700] leading-[40px] md:text-[40px] md:leading-[48px]">
+              What teams on Strimz say.
+            </h2>
+            <div className="mt-12 grid gap-5 lg:grid-cols-3">
+              {NAMED_TESTIMONIALS.map((t) => (
+                <article
+                  key={t.name}
+                  className="border-border bg-muted hover:border-accent/40 rounded-[16px] border p-7 transition-colors"
+                >
+                  <blockquote className="font-poppins text-foreground text-base leading-[26px]">
+                    &ldquo;{t.quote}&rdquo;
+                  </blockquote>
+                  <footer className="border-border mt-6 border-t pt-4">
+                    <div className="font-poppins text-foreground text-sm font-[600]">{t.name}</div>
+                    <div className="font-poppins text-muted-foreground mt-0.5 text-xs">
+                      {t.role}, {t.company} · {t.sector}
+                    </div>
+                  </footer>
+                </article>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
-
-      {/* Stories */}
-      <section className="bg-background py-20">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <h2 className="font-sora text-foreground text-center text-[32px] font-[700] leading-[40px] md:text-[40px] md:leading-[48px]">
-            What customers are seeing in production.
-          </h2>
-          <div className="mt-12 grid gap-5 lg:grid-cols-3">
-            {STORIES.map((s) => (
-              <article
-                key={s.name}
-                className="border-border bg-muted hover:border-accent/40 rounded-[16px] border p-7 transition-colors"
-              >
-                <div className="font-sora text-accent text-[36px] font-[700] leading-none">
-                  {s.metric}
-                </div>
-                <div className="font-poppins text-muted-foreground mt-1 text-xs uppercase tracking-wider">
-                  {s.metricLabel}
-                </div>
-                <blockquote className="font-poppins text-foreground mt-6 text-base leading-[26px]">
-                  &ldquo;{s.quote}&rdquo;
-                </blockquote>
-                <footer className="border-border mt-6 border-t pt-4">
-                  <div className="font-poppins text-foreground text-sm font-[600]">
-                    {s.person} · {s.company}
-                  </div>
-                  <div className="font-poppins text-muted-foreground mt-0.5 text-xs">
-                    {s.sector}
-                  </div>
-                </footer>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* CTA strip */}
       <section className="bg-background pb-24">
@@ -164,7 +111,7 @@ export default function CustomersPage() {
           <div className="border-border bg-ink text-ink-foreground flex flex-col items-center justify-between gap-6 rounded-[20px] border px-8 py-10 md:flex-row md:px-12">
             <div>
               <h3 className="font-sora text-[22px] font-[700] md:text-[26px]">
-                Want to be the next case study?
+                Want to be our first case study?
               </h3>
               <p className="font-poppins mt-2 text-sm text-white/70 md:text-base">
                 Get in touch. We&apos;ll write it together once you&apos;re live.

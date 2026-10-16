@@ -35,8 +35,8 @@ export default function AcceptableUsePage() {
       <h2 id="principles">Principles</h2>
       <p>
         Strimz exists to make legitimate stablecoin commerce easier. We operate in a permissionless
-        on-chain environment, but the Service we provide. The API, dashboard, hosted checkout,
-        webhook delivery, and the AutoPay Agent. Is not. The activities listed below are prohibited
+        on-chain environment, but the Service we provide (the API, dashboard, hosted checkout,
+        webhook delivery, and the AutoPay Agent) is not. The activities listed below are prohibited
         from running on Strimz infrastructure.
       </p>
       <p>
@@ -97,15 +97,13 @@ export default function AcceptableUsePage() {
       </ul>
       <p>
         If you operate in one of these sectors, contact{' '}
-        <a href="mailto:compliance@strimz.finance">compliance@strimz.finance</a> before launching.
+        <a href="mailto:support@strimz.finance">support@strimz.finance</a> before launching.
       </p>
 
       <h2 id="screening">Compliance screening</h2>
       <p>
-        When the compliance integration is enabled, every payer wallet is screened against TRM Labs
-        / Elliptic at checkout time. Wallets above the configured risk threshold are rejected and
-        you are notified via your AutoPay Agent activity log. The compliance integration is not
-        enabled today.
+        Wallet screening is not part of checkout today. When it is added, payer wallets will be
+        screened against a sanctions provider before payment, and we will update this policy first.
       </p>
       <p>
         Strimz reserves the right to enable mandatory screening for any merchant we have reasonable
@@ -116,8 +114,8 @@ export default function AcceptableUsePage() {
       <h2 id="misuse">Reporting misuse</h2>
       <p>
         Suspected misuse can be reported to{' '}
-        <a href="mailto:abuse@strimz.finance">abuse@strimz.finance</a>. Include the storefront URL,
-        transaction hash, or merchant ID where relevant. We acknowledge every report within
+        <a href="mailto:support@strimz.finance">support@strimz.finance</a>. Include the storefront
+        URL, transaction hash, or merchant ID where relevant. We acknowledge every report within
         twenty-four (24) business hours and investigate independently.
       </p>
 

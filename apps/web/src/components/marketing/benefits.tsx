@@ -10,12 +10,12 @@ const BLOCKS = [
   {
     chip: 'Subscriptions',
     title: 'Recurring revenue, on stablecoins.',
-    body: 'Your customer signs once. After that, the scheduler runs every period and pulls the next charge. Each attempt has a deterministic ID, so a flaky scheduler can’t double-charge anyone.',
+    body: 'Your customer signs once. After that, the scheduler runs every period and pulls the next charge. The contract refuses a second charge for a period that is already paid, so a flaky scheduler can’t double-charge anyone.',
     bullets: [
-      'Batch charges so gas stays cheap at scale',
-      'Pick your grace window: 24, 48, or 72 hours',
-      'The AutoPay Agent emails customers on failed charges',
-      'Customers can cancel in their wallet; we project the change on-chain',
+      'Failed charges retry automatically for 48 hours after the period ends',
+      'Optional recovery emails from the AutoPay Agent when a charge fails',
+      'Customers can cancel from their own wallet; the dashboard updates from chain',
+      'Strimz pays the gas for every charge',
     ],
     href: '/docs/api/subscriptions',
     cta: 'Subscriptions API',
@@ -38,7 +38,7 @@ const BLOCKS = [
   {
     chip: 'Analytics',
     title: 'Forecasts, not just dashboards.',
-    body: 'Conversion, churn, MRR, LTV, and a 90-day forecast. Every metric runs as SQL against your own Postgres. The AutoPay Agent uses the same queries to put together its monthly summary.',
+    body: 'Conversion, churn, MRR, LTV, and a 90-day forecast. Every metric is computed from the payments indexed from Arc. The AutoPay Agent uses the same queries to put together its monthly summary.',
     bullets: [
       'Daily conversion rate per session created',
       '12-month trailing churn',
@@ -154,7 +154,7 @@ function MockShell({ children, label }: { children: React.ReactNode; label?: str
               <code className="text-muted-foreground font-mono text-[11px]">{label}</code>
             </span>
             <span className="font-poppins bg-accent/10 text-accent rounded-full px-2 py-0.5 text-[10px] font-[500]">
-              200 OK · 84ms
+              200 OK
             </span>
           </div>
         ) : null}
@@ -175,9 +175,11 @@ const SUBSCRIPTION_REQUEST = `{
 
 const SUBSCRIPTION_RESPONSE = `// 201 Created
 {
-  "id": "plan_pro_monthly",
-  "checkoutUrl": "https://strimz.finance/sub/plan_pro_monthly",
-  "activeSubscribers": 0,
+  "id": "cmq4wck6a0002je6lfmb5bgjp",
+  "name": "Pro",
+  "interval": "monthly",
+  "trialPeriodDays": 14,
+  "status": "active",
   "createdAt": "2026-05-01T12:00:00Z"
 }`
 

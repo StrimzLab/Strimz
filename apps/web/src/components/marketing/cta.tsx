@@ -35,8 +35,8 @@ export function ClosingCta() {
           variants={fadeUp}
           className="font-poppins max-w-[522px] text-balance text-center text-base font-[400] leading-[28px] text-white"
         >
-          The free plan includes every feature. Live mode unlocks after identity verification, which
-          usually takes under five minutes.
+          Start free with payments, subscriptions, refunds, invoices and webhooks. Live mode opens
+          when Strimz launches on Arc mainnet.
         </motion.p>
         <motion.div
           variants={fadeUp}

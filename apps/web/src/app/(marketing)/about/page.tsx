@@ -41,9 +41,9 @@ const PRINCIPLES = [
 ] as const
 
 const NUMBERS = [
-  { value: '~13s', label: 'Median settlement' },
-  { value: '6', label: 'Chains we accept payments from' },
-  { value: '99.97%', label: 'Webhook success' },
+  { value: 'Arc', label: 'Network payments settle on' },
+  { value: '2', label: 'Stablecoins: USDC and EURC' },
+  { value: '0', label: 'Gas your customers pay' },
   { value: '0', label: 'Funds we hold for you' },
 ] as const
 
@@ -146,11 +146,11 @@ export default function AboutPage() {
       <section className="bg-background py-20">
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
           <h3 className="font-sora text-foreground text-[24px] font-[700] md:text-[28px]">
-            A small team, across London and Lagos.
+            Want to try Strimz with your business?
           </h3>
           <p className="font-poppins text-muted-foreground mt-3 text-base">
-            We&apos;re hiring engineers who have built billing systems before, and security people
-            who like breaking them. If that sounds like you, please reach out.
+            Start on the free plan, or tell us what you&apos;re building and we&apos;ll help you set
+            it up.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link

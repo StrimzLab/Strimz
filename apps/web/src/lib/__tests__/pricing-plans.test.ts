@@ -32,7 +32,7 @@ describe('pricing plans', () => {
       'First $1,000 processed',
       'From $1,000 processed',
       'From $50,000 processed',
-      'Above $1M, by contract',
+      'By contract',
     ])
   })
 
@@ -83,7 +83,7 @@ describe('dashboard plan notices', () => {
   it.each<[MerchantTier, string | null]>([
     ['free', 'Moves to Starter (0.5%) automatically at $1,000 processed.'],
     ['starter', 'Moves to Growth (0.4%) automatically at $50,000 processed.'],
-    ['growth', 'Processing over $1M? Talk to us about Enterprise pricing.'],
+    ['growth', 'Need a custom rate? Talk to us about Enterprise pricing.'],
     ['enterprise', null],
   ])('tells a %s merchant what comes next', (tier, notice) => {
     expect(nextPlanNotice(tier)).toBe(notice)
@@ -99,4 +99,16 @@ describe('pricing surfaces use the plan module', () => {
       expect(source).not.toMatch(/Talk to sales|\/signup|Contact sales/u)
     },
   )
+})
+
+describe('pricing thresholds follow the plan config', () => {
+  it('derives the comparison row from PLANS', () => {
+    const row = PLAN_COMPARISON.find((r) => r.label === 'Starts at all-time volume')
+    expect(row?.values).toEqual(['Sign-up', '$1,000', '$50,000', 'By contract'])
+  })
+
+  it('names no Enterprise volume the config does not have', () => {
+    const enterprise = PRICING_PLANS.find((p) => p.tier === 'enterprise')
+    expect(enterprise?.threshold).toBe('By contract')
+  })
 })

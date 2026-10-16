@@ -9,21 +9,21 @@ const STEPS = [
     icon: Wallet,
     label: '01 · Sign',
     title: 'Customer signs once',
-    body: 'Your customer connects a wallet (Privy or Reown both work) and signs one transaction. That signature lets you charge them on the schedule you set.',
+    body: 'Your customer connects a wallet and signs once. That signature lets you charge them on the schedule you set.',
     accent: 'bg-accent/10 text-accent',
   },
   {
     icon: Boxes,
     label: '02 · Charge',
     title: 'Contract pulls USDC',
-    body: 'When a charge is due, our scheduler calls the contract. Each attempt has a unique ID derived from the subscription and period, so retries can never double-charge.',
+    body: 'When a charge is due, our scheduler calls the contract. The contract refuses a second charge for a period that is already paid, so retries can never double-charge.',
     accent: 'bg-step-blue/10 text-step-blue',
   },
   {
     icon: Database,
     label: '03 · Index',
     title: 'Indexer projects',
-    body: 'A Go process watches Arc and writes every event into your Postgres. If our database ever drifts, you can rebuild it from chain history. The contract is the source of truth.',
+    body: 'A Go process watches Arc and writes every event into our database. If it ever drifts, it can be rebuilt from chain history. The contract is the source of truth.',
     accent: 'bg-step-purple/10 text-step-purple',
   },
   {
@@ -61,8 +61,7 @@ export function HowItWorks() {
           className="font-sora text-foreground mt-5 text-[32px] font-[700] leading-[1.06] tracking-[-0.02em] md:text-[44px] lg:text-[48px]"
         >
           From signature to webhook
-          <br className="hidden sm:inline" /> in about{' '}
-          <span className="text-accent">20 seconds</span>.
+          <br className="hidden sm:inline" /> in <span className="text-accent">seconds</span>.
         </motion.h2>
         <motion.p
           variants={fadeUp}

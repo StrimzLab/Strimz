@@ -47,7 +47,7 @@ export function PricingTeaser() {
           >
             {t.featured && (
               <span className="font-poppins bg-accent mb-3 self-start rounded-full px-2.5 py-0.5 text-[11px] font-[600] text-white">
-                Most popular
+                Recommended
               </span>
             )}
             <div className="font-poppins text-muted-foreground text-[13px] font-[500]">

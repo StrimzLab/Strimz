@@ -50,6 +50,12 @@ export function planFeeLabel(tier: MerchantTier): string {
   return bps === null ? 'Custom rate agreed with Strimz' : `${feePercent(bps)} per transaction`
 }
 
+function startsAt(tier: MerchantTier): string {
+  const volume = PLANS[tier].entersAtVolume
+  if (volume === null) return 'By contract'
+  return volume === 0 ? 'Sign-up' : dollars(volume)
+}
+
 function price(tier: MerchantTier): string {
   const bps = planFeeBps(tier)
   return bps === null ? 'Custom' : feePercent(bps)
@@ -66,8 +72,8 @@ export const PRICING_PLANS: readonly PricingPlan[] = [
     features: [
       'One-time payments and subscriptions',
       'Refunds, invoices, and webhooks',
-      'Automated billing recovery emails',
-      'Daily cashflow digest',
+      'Billing recovery emails (opt-in)',
+      'Daily cashflow digest (opt-in)',
     ],
     excluded: [
       'Storefront builder',
@@ -105,7 +111,7 @@ export const PRICING_PLANS: readonly PricingPlan[] = [
     tier: 'enterprise',
     name: PLANS.enterprise.name,
     price: price('enterprise'),
-    threshold: 'Above $1M, by contract',
+    threshold: 'By contract',
     cta: { href: '/contact', label: 'Contact us' },
     featured: false,
     features: ['Everything in Growth', 'Custom pricing by contract'],
@@ -119,9 +125,9 @@ function byPlan(include: (tier: MerchantTier) => boolean): boolean[] {
 
 export const PLAN_COMPARISON: readonly PlanComparisonRow[] = [
   { label: 'Per-transaction fee', values: ORDER.map(price) },
-  { label: 'Starts at all-time volume', values: ['Sign-up', '$1,000', '$50,000', 'Contract'] },
+  { label: 'Starts at all-time volume', values: ORDER.map(startsAt) },
   { label: 'Payments, refunds, invoices and webhooks', values: byPlan(() => true) },
-  { label: 'Recovery emails and cashflow digest', values: byPlan(() => true) },
+  { label: 'Recovery emails and cashflow digest (opt-in)', values: byPlan(() => true) },
   {
     label: 'Storefront builder',
     values: byPlan((tier) => planIncludes(tier, 'storefront')),
@@ -152,6 +158,6 @@ export function nextPlanNotice(tier: MerchantTier): string | null {
     const next = tier === 'free' ? 'starter' : 'growth'
     return `Moves to ${PLANS[next].name} (${price(next)}) automatically at ${dollars(entersAt(next))} processed.`
   }
-  if (tier === 'growth') return 'Processing over $1M? Talk to us about Enterprise pricing.'
+  if (tier === 'growth') return 'Need a custom rate? Talk to us about Enterprise pricing.'
   return null
 }
