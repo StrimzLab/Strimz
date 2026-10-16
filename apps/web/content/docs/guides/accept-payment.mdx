@@ -51,13 +51,13 @@ export function CheckoutButton({ orderId }: { orderId: string }) {
 ```
 
 That's the entire client side. The customer lands on
-`strimz.finance/pay/<sessionId>`, picks a wallet (Reown handles the
-picker for every major one), and signs two typed-data messages: the token authorization and the Strimz `PayIntent`.
+`https://www.strimz.finance/pay/<sessionId>`, picks a wallet (Reown handles the
+picker for every major one), and approves two signature prompts: an
+EIP-3009 `ReceiveWithAuthorization` for the token, and the Strimz `PayIntent`.
 
-The signature is an EIP-3009 `ReceiveWithAuthorization`. Strimz's
-relayer turns it into the on-chain `payWithAuthorization` call, pays
-the gas itself, and settles the transfer. The customer never sees a
-second prompt or pays gas. The fee split (platform fee to
+Neither prompt is a transaction. Strimz's relayer turns the two
+signatures into the on-chain `payWithAuthorization` call, pays the gas
+itself, and settles the transfer. The customer never pays gas. The fee split (platform fee to
 FeeCollector, net to your payout) lands atomically in the same
 transaction.
 
@@ -92,12 +92,12 @@ app.post('/webhooks/strimz', express.raw({ type: 'application/json' }), async (r
 
   switch (type) {
     case 'payment.completed': {
-      const orderId = data.metadata?.orderId
-      if (orderId) await fulfillOrder(orderId, data.id, data.amount)
+      const orderId = data.session.metadata?.orderId
+      if (orderId) await fulfillOrder(orderId, data.session.id, data.session.amount)
       break
     }
     case 'payment.failed':
-      await markOrderFailed(data.metadata?.orderId)
+      await markOrderFailed(data.session.metadata?.orderId)
       break
   }
   res.status(200).end()
@@ -106,10 +106,10 @@ app.post('/webhooks/strimz', express.raw({ type: 'application/json' }), async (r
 
 ## Edge cases to know about
 
-- **Session expiry**: 24 hours by default. If the customer doesn't pay in time, the session goes to `cancelled` and you'll receive `payment.failed`. Create a new session.
-- **Customer changes their mind mid-checkout**: they hit the back button, you see no webhook. Don't fulfill until you receive `payment.completed`. The session sits in `pending` until expiry.
-- **Customer pays the same session twice**: impossible. Each session is one on-chain `pay()` call and the contract enforces the `ref` is single-use.
-- **Network reorg**: the indexer waits 5 confirmations before flipping `confirmed`. You won't get a flapping "confirmed to pending to confirmed" sequence.
+- **Session expiry**: 30 minutes by default (set `expiresInMinutes`, up to one day). If the customer doesn't pay in time, the session goes to `expired` and you'll receive `payment.failed`. Create a new session.
+- **Customer changes their mind mid-checkout**: they hit the back button, you see no webhook. Don't fulfill until you receive `payment.completed`. The session stays `created` or `awaiting_payment` until it expires.
+- **Customer pays the same session twice**: the token authorization's nonce is derived from the session id, so the token contract rejects a second authorization for the same session.
+- **Finality**: Arc has deterministic finality. The indexer stays `CONFIRMATIONS` blocks behind the chain head (required; `1` is recommended), so a `confirmed` session doesn't flip back.
 
 ## What just happened on-chain
 

@@ -3,7 +3,7 @@ title: Resources
 description: The objects you'll interact with. What they mean, when they exist, what their lifecycles look like.
 ---
 
-Strimz exposes a small number of resources. Most have a lifecycle (`pending` → `confirmed` → `refunded`) that's worth knowing before you start wiring webhooks.
+Strimz exposes a small number of resources. Most have a lifecycle of statuses that's worth knowing before you start wiring webhooks.
 
 ## Merchant
 
@@ -21,26 +21,27 @@ Anyone who has paid you. Strimz creates a `Customer` row automatically the first
 A one-shot checkout. You create one with an amount, currency, and (optional) description. Strimz returns a `checkoutUrl`. The customer pays. The session goes through:
 
 ```
-created  →  pending  →  confirmed  →  (optional) refunded
+created  →  awaiting_payment  →  submitted  →  confirmed
+                    ↘  expired           ↘  failed
 ```
 
-Sessions expire after 24 hours by default. An expired session goes to `cancelled` and can no longer be paid.
+A session can also be `cancelled`. Sessions expire after 30 minutes by default; set `expiresInMinutes` (up to 1440) to change that. A session still `created` or `awaiting_payment` at its expiry moves to `expired`, fires `payment.failed`, and can no longer be paid. Refunds are tracked on the transaction, not as a session status.
 
 ## Subscription + SubscriptionPlan
 
 A `SubscriptionPlan` is the _template_ (name, amount, interval, intervalCount). A `Subscription` is the _instance_: a specific customer subscribed to a specific plan.
 
 ```
-active  →  at_risk  →  lapsed
-            ↓
-         cancelled
+trialing  →  active  →  at_risk  →  lapsed
+                 ↓          ↓
+             cancelled   cancelled
 ```
 
-A failed charge moves a sub from `active` to `at_risk`. The agent emails the customer per your configured strategy. After the grace window (24/48/72h, your choice), the sub flips to `lapsed` and stops attempting charges. The customer can also cancel directly from their wallet. The indexer projects `SubscriptionCancelled` and Strimz marks the row.
+A failed charge moves a sub from `active` to `at_risk`, and the scheduler retries on a backoff. If the recovery agent is on, it emails the customer per your strategy. If no charge succeeds within 48 hours of the period end, the sub flips to `lapsed` and stops attempting charges. See [Subscription lifecycle](/docs/subscriptions/lifecycle). The customer can also cancel directly from their wallet. The indexer projects `SubscriptionCancelled` and Strimz marks the row.
 
 ## SubscriptionCharge
 
-One charge attempt. Created by the scheduler when a sub is due. Idempotency is guaranteed by `chargeAttemptId`, a deterministic `keccak256(subscriptionId, periodEndAt)`.
+One charge attempt. The scheduler sends the charge when a sub is due, and the indexer writes the row from the contract's event. Idempotency comes from `chargeAttemptId = keccak256(abi.encodePacked(onchainSubId, currentPeriodEndAt, attempt))`; the contract skips a reused id with outcome `duplicate`.
 
 ```
 pending  →  succeeded  ↦  Transaction(kind=subscription_charge)
@@ -70,20 +71,24 @@ awaiting_signature  →  submitted  →  completed
 
 You create the refund. Strimz validates the amount against
 `Transaction.amount` so cumulative refunds cannot exceed the
-original. The response carries wallet-signing instructions. You
-broadcast the ERC-20 Transfer. The indexer sees the on-chain
-transfer and flips the row to `completed`.
+original. On the dashboard, your Strimz wallet then signs and sends
+the ERC-20 transfer. The indexer sees the on-chain transfer and
+flips the row to `completed`.
+
+Not yet: `strimz.refunds.create` in the SDK throws instead of
+returning the refund to sign. Tracked in
+[#294](https://github.com/StrimzLab/strimz/issues/294).
 
 ## Invoice
 
-A hosted, branded payment page with line items and a backing `PaymentSession`. Useful for B2B billing where the buyer wants to see the breakdown before paying.
+A bill with a number, line items and a due date, backed by a `PaymentSession`. Sending it emails the buyer the breakdown and a link to that session's hosted checkout. There is no separate hosted invoice page; a PDF is available from the dashboard.
 
 ```
 draft  →  sent  →  paid
-              ↘   overdue  →  void
+            ↘   overdue
 ```
 
-Invoices that pass their `dueAt` without a successful charge flip to `overdue` (daily cron) and fire `invoice.overdue`.
+Any unpaid invoice can be moved to `void`. A `sent` invoice that passes its `dueAt` unpaid flips to `overdue` (hourly cron) and fires `invoice.overdue`. An overdue invoice can still be paid.
 
 ## WebhookEndpoint + WebhookDelivery
 

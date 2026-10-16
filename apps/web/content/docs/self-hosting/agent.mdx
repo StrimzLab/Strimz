@@ -3,7 +3,7 @@ title: Self-hosting the agent
 description: The AutoPay Agent process.
 ---
 
-The agent is a Nest cron app + BullMQ worker. It runs scheduled jobs (recovery emails, cashflow digests, anomaly detection, monthly reports) and consumes the routing queue for CCTP V2 bridging.
+The agent is a Nest cron app + BullMQ worker. It runs scheduled jobs (recovery emails, cashflow digests, anomaly detection, monthly reports). It also has a worker for the CCTP V2 routing queue, but cross-chain payments aren't live, so nothing feeds that queue today.
 
 ## Build
 
@@ -37,8 +37,8 @@ ANOMALY_THRESHOLD_MEDIUM=2.0
 ANOMALY_THRESHOLD_HIGH=1.0
 
 # CCTP V2 attestation API
-CIRCLE_ATTESTATION_BASE_URL=https://iris-api.circle.com  # or sandbox for testnet
-CIRCLE_API_KEY=                                          # optional; for higher rate limits
+CIRCLE_ATTESTATION_BASE_URL=https://iris-api-sandbox.circle.com
+CIRCLE_API_KEY=
 
 # Email
 RESEND_API_KEY=...
@@ -55,7 +55,7 @@ RESEND_FROM_EMAIL=noreply@your-domain.com
 | `cashflow.yield`       | daily 9:30am UTC    | Recommendation only. No signing. |
 | `commerce`             | first of each month | Per-month dedup                  |
 | `pricing_intelligence` | first of each month | Per-month dedup                  |
-| `routing`              | queue-driven        | CCTP V2 attestation polling      |
+| `routing`              | queue-driven        | Not live. Nothing enqueues jobs. |
 
 The agent reads `AgentMerchantConfig` on every tick, so config changes in the dashboard take effect on the next firing.
 
@@ -67,10 +67,6 @@ logic inside each capability stops the visible side effects from
 duplicating (the same email won't be sent twice inside the dedup
 window), but you're burning compute for nothing.
 
-If you need horizontal scale for the routing worker (high CCTP
-volume), run one cron instance and several `routing-only` workers
-configured through `BullMQ.concurrency`.
-
 ## Observability
 
 - `/healthz` (process is up), `/readyz` (Postgres and Redis answer; `503` otherwise)
@@ -80,7 +76,6 @@ configured through `BullMQ.concurrency`.
 ## Failure modes
 
 - **Resend API outage.** Emails fail. The agent retries on the next tick. No state is lost.
-- **Circle attestation outage.** Routing jobs back up in the queue. The agent re-polls until Circle responds.
 - **Postgres outage.** Capabilities skip. The next tick retries.
 
 ## Source

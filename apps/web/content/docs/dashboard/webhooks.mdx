@@ -3,7 +3,7 @@ title: Webhooks page
 description: Register endpoints, watch deliveries, replay failed ones.
 ---
 
-The Webhooks page is where you point Strimz at *your* server. Instead of your app polling us for state changes, we POST a signed JSON envelope to a URL you own the moment something happens — a payment confirms, a subscription charges, an invoice gets paid.
+The Webhooks page is where you point Strimz at _your_ server. Instead of your app polling us for state changes, we POST a signed JSON envelope to a URL you own the moment something happens: a payment confirms, a subscription charges, an invoice gets paid.
 
 If you're new to webhooks in general, start with the [webhook signing reference](/docs/webhooks). This page just covers what the dashboard surface does.
 
@@ -49,7 +49,7 @@ Rotate replaces the signing secret. The old one stops working the moment the cal
 
 ### Disable vs delete
 
-Disable pauses delivery — nothing gets sent, but the endpoint config stays. Re-enable restores it. Strimz also auto-disables an endpoint after too many consecutive permanent failures; when this happens you get an email so you can fix your receiver and re-enable.
+Disable pauses delivery. Nothing gets sent, but the endpoint config stays. Re-enable restores it. Strimz also auto-disables an endpoint after 5 permanent failures within 24 hours; when this happens you get an email so you can fix your receiver and re-enable.
 
 There's no delete action today — disable is the escape hatch.
 
@@ -69,7 +69,7 @@ Every attempted delivery lands in this table, most recent first. Columns:
 
 Rows in `permanently_failed` or `retrying` get a **Replay** button. Clicking it resets the delivery to `pending` and re-enqueues it from attempt 1. Use this after you've fixed a bug in your receiver and want to catch up on missed events.
 
-Delivery IDs are stable — replaying doesn't create a new row, it reuses the same one and increments the attempt count.
+Delivery IDs are stable: replaying doesn't create a new row. It reuses the same one and resets the attempt count to 1.
 
 ### Delivery detail
 
@@ -85,19 +85,19 @@ This is the page you open when a merchant tells you "the webhook never arrived" 
 
 ## Retry behaviour
 
-Failed deliveries retry with exponential backoff up to a configurable ceiling (`WEBHOOK_MAX_ATTEMPTS`, default 5). After the ceiling:
+Failed deliveries retry after 1 minute, 5 minutes, 30 minutes and 2 hours, for 5 attempts in total (`WEBHOOK_MAX_ATTEMPTS`, default 5). After the last attempt:
 
 - The delivery moves to `permanently_failed`
 - You get an email
-- If enough of them stack up in a short window, Strimz auto-disables the endpoint to stop wasting retry budget
+- After 5 permanent failures within 24 hours, Strimz auto-disables the endpoint
 
-None of this is silent — every step writes to the deliveries table and the merchant audit log.
+None of this is silent: every attempt is written to the deliveries table.
 
 ## Common workflows
 
 **I'm setting up a new receiver.** Register the endpoint, copy the secret, verify signatures on your side using the reference implementation in [`@strimz/sdk`](/docs/sdks). Trigger a test payment. Watch the delivery show up in the table within seconds.
 
-**A delivery failed and I don't know why.** Open the delivery detail page. Check the response code and the response body. If your server returned 4xx you probably broke signature verification. If 5xx, your handler threw. If duration is timing out, your handler is too slow — you have five seconds before we treat it as a failure.
+**A delivery failed and I don't know why.** Open the delivery detail page. Check the response code and the response body. If your server returned 4xx you probably broke signature verification. If 5xx, your handler threw. If duration is timing out, your handler is too slow: you have 10 seconds before we treat it as a failure.
 
 **I fixed my receiver, now what about the events I missed?** Filter the deliveries table for `permanently_failed`, replay each one. Or if the volume is huge, use the API's `POST /v1/webhook-deliveries/:id/replay` endpoint from a script.
 

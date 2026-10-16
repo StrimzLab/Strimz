@@ -5,7 +5,7 @@ description: Every endpoint Strimz exposes, generated from the OpenAPI spec.
 
 # API Reference
 
-The full OpenAPI 3.1 spec is served by the API at [`/openapi.json`](https://api.strimz.finance/openapi.json), with an interactive Scalar UI at [`/docs`](https://api.strimz.finance/docs) on the API host itself.
+The full OpenAPI spec is served by the API at [`/openapi.json`](https://api.strimz.finance/openapi.json), with an interactive Scalar UI at [`/docs`](https://api.strimz.finance/docs) on the API host itself.
 
 For static reference, the resources are:
 
@@ -36,16 +36,19 @@ amount and is refused the same way when someone tries to pay it.
 - `POST /v1/payment-sessions` , create a one-shot checkout session
 - `GET  /v1/payment-sessions/:id` , fetch
 - `GET  /v1/payment-sessions` , list
+- `POST /v1/payment-sessions/:id/{cancel,expire}` , close an open session
 
 ### Subscriptions
 
 - `GET  /v1/subscriptions/:id`
 - `GET  /v1/subscriptions` (filterable by status, planId)
-- `POST /v1/subscriptions/:id/cancel` , marks DB cancelled, enqueues on-chain cancel
+- `POST /v1/subscriptions/:id/cancel` , marks the subscription cancelled in Strimz and queues the on-chain cancel
+
+Not yet: the queued on-chain cancel reverts, so the subscription stays active on-chain. Tracked in [#293](https://github.com/StrimzLab/strimz/issues/293).
 
 ### Refunds
 
-- `POST /v1/refunds` , returns wallet-signing instructions
+- `POST /v1/refunds` , returns `{ refund, signingInstructions }`
 - `POST /v1/refunds/:id/signature` , record the on-chain tx hash
 - `GET  /v1/refunds`, `GET /v1/refunds/:id`
 
@@ -54,6 +57,7 @@ amount and is refused the same way when someone tries to pay it.
 - `POST /v1/webhook-endpoints` , register an endpoint, returns the signing secret **once**
 - `POST /v1/webhook-endpoints/:id/{enable,disable,rotate-secret}`
 - `GET  /v1/webhook-deliveries` , every attempt, every response code
+- `POST /v1/webhook-deliveries/:id/replay` , send a delivery again
 
 ### Invoices
 
@@ -182,8 +186,8 @@ checkout routes:
 | Tier       | Submissions a day |
 | ---------- | ----------------- |
 | Free       | 500               |
-| Growth     | 5,000             |
-| Business   | 50,000            |
+| Starter    | 5,000             |
+| Growth     | 50,000            |
 | Enterprise | 50,000            |
 
 A submission counts when it is queued. Sending the identical signed payload again,

@@ -92,4 +92,6 @@ POST /v1/agents/jobs/{id}/approve
 
 The three `agent.job_*` events are not sent while agent escrow is unavailable, and the dashboard does not offer them.
 
+Not yet: `agent.action_executed` is listed as an event type but is never sent. Tracked in [#295](https://github.com/StrimzLab/strimz/issues/295).
+
 See [The AutoPay Agent](/docs/guides/agent) for the capability-by-capability breakdown.

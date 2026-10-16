@@ -32,16 +32,13 @@ A few things are easier said than done.
 Operational burden. Six processes, each needing observability,
 alerting, key rotation, and a fallback RPC endpoint.
 
-Reorg edge cases. We've fixed several; you'd inherit any new ones if
-Arc ever has them.
-
 Relayer key custody. The relayer's signing key is the most sensitive
 secret in the system. Self-hosting means owning that risk yourself,
 including the choice of KMS backend.
 
-Compliance ops. TRM Labs or Elliptic accounts, sanctions screening,
-security disclosures, vendor reviews. None of that goes away if you
-self-host.
+Compliance ops. Security disclosures, vendor reviews and whatever
+your jurisdiction asks of a payments operator. None of that goes away
+if you self-host.
 
 The hosted product handles all of the above. Self-hosting makes
 sense once you're confident you need that level of control.
@@ -57,7 +54,7 @@ See [How Strimz fits together](/docs/concepts/overview) for the diagram. The six
 | `apps/indexer`       | Render, fly.io, or k8s                     | Internal. Needs RPC and database access.                                     |
 | `apps/scheduler`     | Render, fly.io, or k8s                     | Runs cron jobs and webhook delivery. Warms the webhook secret cache on boot. |
 | `apps/agent`         | Render, fly.io, or k8s                     | Internal. Sends emails.                                                      |
-| `packages/contracts` | Foundry, deployed to Arc                   | Audited and immutable on-chain.                                              |
+| `packages/contracts` | Foundry, deployed to Arc                   | On-chain. Admin roles can pause and reconfigure.                             |
 
 ## Getting started
 
@@ -72,7 +69,7 @@ Each process has its own README with deploy steps:
 - [Indexer setup](/docs/self-hosting/indexer). Postgres connection, RPC URL, contract addresses, confirmation depth.
 - [Scheduler setup](/docs/self-hosting/scheduler). Cron jobs, the webhook delivery queue, secret-cache warmup, retry tuning.
 - Relayer (lives inside `apps/api`). KMS provider options (software-backed by default, hardware-backed when you're ready), nonce manager, gas pricing, idempotency keys. The full list is in `apps/api/.env.example`.
-- [Agent setup](/docs/self-hosting/agent). Capability config, cron schedules, the Circle attestation API.
+- [Agent setup](/docs/self-hosting/agent). Capability config and cron schedules.
 
 The contracts in `packages/contracts` deploy via the standard
 `forge script` flow. Drop the resulting addresses into your env.

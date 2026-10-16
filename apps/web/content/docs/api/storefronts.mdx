@@ -1,6 +1,6 @@
 ---
 title: Storefronts
-description: Hosted, branded landing pages.
+description: A hosted page that lists your products.
 ---
 
 ## Storefront
@@ -19,7 +19,7 @@ POST /v1/storefront
 }
 ```
 
-Slugs are unique per merchant per environment. The same slug cannot be reused after deletion within 30 days.
+Each merchant has one storefront. A slug that another merchant already uses returns an error.
 
 ```http
 GET   /v1/storefront
@@ -42,17 +42,20 @@ POST /v1/storefront/products
 }
 ```
 
-For subscription products:
+For subscription products, create the [subscription plan](/docs/api/subscriptions) first and pass its id:
 
 ```json
 {
   "type": "subscription",
+  "planId": "cmq4wjr3m0008je6l5t0w2yhb",
+  "price": "20000000",
+  "currency": "USDC",
   "interval": "monthly",
   "intervalCount": 1
 }
 ```
 
-A backing `SubscriptionPlan` is created automatically.
+No plan is created for you. The plan must be active, and the product's `price`, `currency`, `interval` and `intervalCount` must match it, or the request returns `400 invalid_request`. A `one_time` product can't carry a `planId`.
 
 ```http
 GET  /v1/storefront/products
@@ -72,4 +75,4 @@ Returns the storefront + products with `isActive=true`. Your customers go direct
 
 ## Custom domains
 
-Not supported yet. Storefronts live under `strimz.finance/store/<slug>`.
+Not supported yet. Storefronts live under `https://www.strimz.finance/store/<slug>`.

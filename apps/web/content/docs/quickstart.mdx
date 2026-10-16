@@ -42,9 +42,8 @@ export STRIMZ_KEY=sk_test_xxxxxxxxxxxxxxxxxxxx
 ```
 
 <Callout title="Test mode is fully isolated" type="info">
-  Test-mode keys can never charge a live customer. Live-mode keys can never accidentally settle in
-  the test environment. Different on-chain deployments, different RPCs, different DBs. See
-  [Modes](/docs/modes).
+  Test-mode keys can never charge a live customer. Each Strimz deployment runs in one mode, on its
+  own chain and contracts, and refuses keys of the other mode. See [Modes](/docs/modes).
 </Callout>
 
 </Step>
@@ -137,7 +136,7 @@ on-chain.
 Open the printed `checkoutUrl` in a browser, connect any test-mode wallet
 that has Arc-testnet USDC, and complete the payment. Now refresh the
 **Payment sessions** page in your dashboard. You'll see the new session,
-and within a few seconds its status moves from `pending` to `confirmed`.
+and within a few seconds its status moves from `created` to `confirmed`.
 
 <Callout title="Where do I get test USDC?" type="info">
   Visit [Circle's faucet](https://faucet.circle.com) and choose **Arc testnet**. You'll need an
@@ -186,10 +185,10 @@ app.post('/webhooks/strimz', express.raw({ type: 'application/json' }), async (r
   const event = JSON.parse(payload)
   switch (event.type) {
     case 'payment.completed':
-      console.log('payment confirmed:', event.data.id, event.data.amount)
+      console.log('payment confirmed:', event.data.session.id, event.data.session.amount)
       break
     case 'payment.failed':
-      console.error('payment failed:', event.data.id)
+      console.error('payment failed:', event.data.session.id)
       break
   }
   res.status(200).end()

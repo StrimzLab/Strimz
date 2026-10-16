@@ -1,114 +1,112 @@
 ---
 title: How charges fire
-description: The scheduler runs a cron that picks due subscriptions, locks them, and calls batchCharge on chain. Multi-instance safe; idempotent at the contract level; reclaims its own stale locks.
+description: The scheduler's sweeper picks due subscriptions, locks them, and a worker calls batchCharge on chain for each one. Safe with several replicas, idempotent at the contract, and it reclaims stale locks.
 ---
 
-The scheduler has a cron called the subscription sweeper. It runs every minute by default (configurable). Each tick, the sweeper queries Postgres for subscriptions whose `nextChargeAt` is in the past, locks them atomically, and enqueues a `batchCharge` job for each.
-
-This is the recurring-billing engine. The design is non-obvious in a couple of places, and the rest of this page names each part.
-
-<Callout type="warn" title="Missed periods are charged on recovery">
-  Until the updated subscriptions contract is deployed, a subscription that falls more than one
-  period behind is charged once for each missed period when it recovers, one charge per sweep.
-</Callout>
+The scheduler has a cron called the subscription sweeper. It runs every 15 minutes by default (`SUBSCRIPTION_SWEEPER_CRON`). Each run it finds subscriptions that are due, locks them, and enqueues one charge job per subscription.
 
 ## The sweep query
 
-The SQL the sweeper runs:
+The sweeper locks its rows in a single statement:
 
 ```sql
-SELECT id FROM "Subscription"
-WHERE status IN ('active', 'at_risk')
-  AND "nextChargeAt" <= NOW()
-  AND (
-    "chargeLock" = false
-    OR "chargeLockAcquiredAt" < NOW() - INTERVAL '1 second' * $1
-  )
-ORDER BY "nextChargeAt" ASC
-LIMIT $2
-FOR UPDATE SKIP LOCKED
+UPDATE "Subscription"
+   SET "chargeLock" = true,
+       "chargeLockAcquiredAt" = NOW()
+ WHERE id IN (
+   SELECT id FROM "Subscription"
+    WHERE (
+            "chargeLock" = false
+         OR "chargeLockAcquiredAt" < NOW() - INTERVAL '1 second' * $3
+          )
+      AND "nextChargeAt" IS NOT NULL
+      AND "nextChargeAt" <= $1
+      AND ("nextRetryAt" IS NULL OR "nextRetryAt" <= $1)
+      AND status IN ('trialing', 'active', 'at_risk')
+      AND "onchainSubscriptionId" IS NOT NULL
+    ORDER BY "nextChargeAt" ASC
+    LIMIT $2
+    FOR UPDATE SKIP LOCKED
+ )
+ RETURNING id
 ```
 
-A few things are doing real work here.
+What each part does:
 
-`FOR UPDATE SKIP LOCKED` is the part that lets us run multiple scheduler replicas safely. Postgres acquires row-level locks on the rows returned; if another replica is mid-sweep on the same row, this `SELECT` skips it. Two replicas running side-by-side will never charge the same subscription twice in the same tick. Postgres handles the coordination.
+- `FOR UPDATE SKIP LOCKED` lets several scheduler replicas run side by side. A row another replica is working on is skipped, so two replicas never pick up the same subscription in the same run.
+- The `chargeLock` clause is the stale-lock reclaim from [Safety nets](/docs/concepts/safety-nets#stale-charge-lock-reclaim). `$3` is 600 seconds and is fixed in code. A lock older than ten minutes is treated as abandoned.
+- `nextRetryAt` holds back a subscription that failed recently until its next retry time. See [Recovery](/docs/subscriptions/recovery).
+- `trialing` is included so the first charge after a trial is picked up.
+- `onchainSubscriptionId IS NOT NULL` skips rows the indexer has not linked to the contract yet.
+- `LIMIT $2` caps each run. The default is 100, set with `SUBSCRIPTION_SWEEP_LIMIT`.
 
-`chargeLock = false OR chargeLockAcquiredAt < NOW() - INTERVAL...` is the TTL reclaim from [Safety nets](/docs/concepts/safety-nets#stale-charge-lock-reclaim). Default `$1` is 600 seconds. Any subscription whose lock is older than ten minutes is considered abandoned and gets reclaimed.
+## One job per subscription
 
-`LIMIT $2` caps per-tick batch size. Default is 100; configurable via `SUBSCRIPTION_SWEEP_LIMIT`. Tuning is a load-shape decision: bigger batches mean spikier relayer gas use; smaller batches with faster cron cadence smooths the load. For most setups, the default is fine.
+Each locked row becomes one job on the `strimz.subscription.due` queue, and each job charges one subscription. A bad subscription cannot hold up the others.
 
-Once the sweeper has its rows, it sets `chargeLock = true` and `chargeLockAcquiredAt = NOW()` on each, then drops them into a BullMQ queue. The actual `batchCharge` call happens in the worker, not in the cron handler. Separating "find work" from "do work" lets each scale independently.
+The worker:
+
+1. Releases the lock and stops if the subscription is `cancelled` or `lapsed`, or has no on-chain id.
+2. Asks the contract whether the charge is due. If not, it releases the lock and stops.
+3. Picks the first unused charge attempt id for this period (see below). If all 8 are used, it releases the lock and stops.
+4. Calls `batchCharge([subscriptionId], [chargeAttemptId])`.
+5. Releases the lock, whether the broadcast succeeded or failed.
+
+The worker only broadcasts the transaction. The result is projected by the indexer.
 
 ## The on-chain call
-
-Each worker batch calls:
 
 ```solidity
 function batchCharge(
   uint256[] calldata subscriptionIds,
   bytes32[] calldata chargeAttemptIds
-) external onlyRole(CHARGER_ROLE);
+) external returns (ChargeOutcome[] memory outcomes);
 ```
 
-`chargeAttemptId` is a `keccak256` over `(subscriptionId, periodStartAt, periodEndAt, attemptNumber)`. It's deterministic. Recomputing it for the same period gives the same value. The contract uses this as an idempotency key:
+Only the `CHARGER_ROLE` can call it. The scheduler holds that role.
 
-```solidity
-mapping(bytes32 => bool) public chargeAttempted;
+The charge attempt id is:
 
-function _attempt(uint256 subId, bytes32 attemptId) internal {
-  require(!chargeAttempted[attemptId], 'duplicate');
-  chargeAttempted[attemptId] = true;
-  _doCharge(subId);
-}
+```
+keccak256(abi.encodePacked(uint256 onchainSubId, uint64 currentPeriodEndAt, uint32 attempt))
 ```
 
-A second call with the same `chargeAttemptId` reverts with `duplicate`. This protects us against the bad case where the scheduler crashes after writing the lock + the queue job but before committing the resulting `SubscriptionCharge` row. When the next replica tries to charge again, the contract refuses.
+`attempt` runs from 0 to 7. The id is deterministic, so replaying the same attempt gives the same id. The contract records used ids. A second call with a used id does not revert: the contract emits `SubscriptionChargeSkipped` with outcome `Duplicate` and moves on. The contract marks an id used only when it attempts the transfer, so on `Charged` or `TransferFailed`. Skips before that point, such as `InsufficientFunds`, leave the id unused, and the next retry sends the same id again. After a `TransferFailed`, the next retry uses the next attempt number.
 
-The worker handles the revert gracefully: a `duplicate` revert means the charge actually went through on a previous attempt. The worker logs it, releases the lock, and moves on.
+No failure reverts the call. Each subscription gets an outcome:
 
-## Why batched
+| Outcome             | Meaning                                    |
+| ------------------- | ------------------------------------------ |
+| `Charged`           | The payer was charged                      |
+| `Duplicate`         | This attempt id was already used           |
+| `Unknown`           | No subscription with this id               |
+| `Cancelled`         | The subscription is cancelled              |
+| `NotDue`            | `nextChargeAt` is still in the future      |
+| `Ended`             | The subscription is past its end time      |
+| `RevokedApproval`   | The allowance is too low                   |
+| `InsufficientFunds` | The balance is too low                     |
+| `MerchantInactive`  | The merchant is not active in the registry |
+| `TransferFailed`    | The token transfer failed                  |
 
-We could call `chargeOne(...)` once per subscription. We don't, because gas. Calling `batchCharge` with 20 subscriptions costs about 30% more gas than a single `chargeOne` call. The marginal cost of adding a subscription to a batch is much lower than calling a fresh transaction.
-
-For a merchant with a thousand active subscribers cycling at the same time, the difference is meaningful:
-
-- 1000 separate calls × ~50,000 gas each ≈ 0.5 USDC total
-- 50 batches of 20 × ~65,000 gas each ≈ 0.16 USDC total
-
-The savings scale with subscriber count. For a merchant with ten subscribers it doesn't matter; for one with 10,000 it matters a lot.
-
-The default batch size is 20, configurable via `SUBSCRIPTION_BATCH_SIZE`. Bigger batches help with gas but increase the blast radius if any one subscription in the batch is bad. We mitigate by retrying failed subscriptions individually (one-batch-of-one) on the next sweep tick.
+If a subscription is more than one period behind, the contract charges one period and moves `nextChargeAt` past the missed ones. It does not charge for each missed period.
 
 ## What the indexer projects
 
-After the on-chain call, the indexer watches for two possible events: `SubscriptionCharged` (success) and `SubscriptionChargeSkipped` (the charge would've reverted, the contract no-opped instead of failing).
+The indexer writes the `SubscriptionCharge` rows. There is no separate API route for listing charges; they arrive in the `subscription.charged` and `subscription.charge_failed` webhook payloads.
 
-A `SubscriptionCharged` insert is straightforward. The indexer writes a `SubscriptionCharge` row with `status: 'succeeded'` and `outcome: 'charged'`, advances `Subscription.nextChargeAt` by the plan's interval, and clears `chargeLock`. The subscription stays `active`.
+On `SubscriptionCharged`, the indexer writes a charge row with `status: 'succeeded'` and a transaction row, moves the period forward, resets the retry counter, sets `trialing` or `at_risk` subscriptions to `active`, and fires `subscription.charged`.
 
-A `SubscriptionChargeSkipped` is more interesting. The indexer writes a `SubscriptionCharge` row with `status: 'failed'` and the `outcome` from the contract event (`insufficient_funds`, `revoked_approval`, etc.). It tries to downgrade the subscription to `at_risk` ,  but with the safety check from [Safety nets](/docs/concepts/safety-nets#the-race-condition-projector-fix) that refuses to downgrade if a successful charge already exists for the same period. This handles the race where a success and a skip both land for the same `(periodStartAt, periodEndAt)`.
-
-If the subscription does downgrade to `at_risk`, the scheduler enqueues the retry schedule (24h, 72h, 7d). That's [Recovery](/docs/subscriptions/recovery).
+On `SubscriptionChargeSkipped`, the indexer writes a charge row with `status: 'failed'` and the outcome. Only payment failures (`insufficient_funds`, `revoked_approval`, `merchant_inactive`, `transfer_failed`) fire `subscription.charge_failed` and move an `active` or `at_risk` subscription to `at_risk`. The [race-condition guard](/docs/concepts/safety-nets#the-race-condition-projector-fix) keeps a subscription that already paid this period from being downgraded. Other outcomes such as `not_due` and `duplicate` are recorded and nothing else happens. In the API, `skipped` is the fallback for an outcome the contract adds later.
 
 ## When charges don't fire
 
-A few reasons the scheduler might not charge a subscription that you'd expect it to:
+- `nextChargeAt` is in the future. This is the normal case.
+- `nextRetryAt` is in the future after a recent failure.
+- The subscription is `cancelled` or `lapsed`.
+- The indexer has not linked the row to its on-chain id yet.
 
-The subscription's `nextChargeAt` is in the future. (This is the normal case.)
+Archiving a plan does not stop charges for existing subscribers.
 
-The subscription is `paused` or `cancelled` or `lapsed`. The sweeper filters those out via the `status IN ('active', 'at_risk')` clause.
+The scheduler does not check its gas balance before charging. A separate cron checks the relayer and scheduler balances every 15 minutes and emails an operator when one drops below `GAS_BALANCE_THRESHOLD_USDC`. See [Self-hosting the scheduler](/docs/self-hosting/scheduler).
 
-The plan was archived after the subscriber signed up. Archived plans don't refuse charges on existing subscribers (we honour the original consent), so this isn't actually a reason. Existing subscribers keep cycling on archived plans.
-
-The relayer's gas balance is below threshold. The scheduler's gas-balance check runs before each batch; if the relayer doesn't have enough USDC to broadcast, the sweeper logs a warning, skips the tick, and the [gas-balance monitor](/docs/operations/monitoring#gas-balance) emails an operator to top up.
-
-## Manual recharge
-
-Sometimes you want to fire a charge attempt right now. Usually after telling a customer to top up their wallet and not wanting to wait for the next sweep cycle.
-
-```ts
-await strimz.subscriptions.chargeNow({ id: 'sub_…' })
-```
-
-This sets `nextChargeAt` to a few seconds out and lets the next sweep tick pick it up. It's a hint, not a direct invocation; the scheduler still does the work. If the subscription isn't due (already charged this cycle), the call is a no-op.
-
-You almost never need to call this in production. The scheduler runs every minute; waiting for the next tick is fine. The endpoint exists for ops and for unblocking specific support cases.
+There is no call to trigger a charge on demand. The next sweep picks up anything due.

@@ -26,17 +26,21 @@ Returns:
 
 ```json
 {
-  "id": "sess_cmh3lmkw50000xv8d",
-  "merchantId": "m_xyz",
+  "id": "cmq4wck6a0002je6lfmb5bgjp",
+  "merchantId": "cmq4w9t1x0000je6l3k2d8hzn",
   "amount": "50000000",
   "currency": "USDC",
-  "status": "pending",
-  "checkoutUrl": "https://strimz.finance/pay/sess_cmh3lmkw50000xv8d",
-  "expiresAt": "2026-04-30T18:00:00Z",
+  "status": "created",
+  "checkoutUrl": "https://www.strimz.finance/pay/cmq4wck6a0002je6lfmb5bgjp",
+  "expiresAt": "2026-04-29T18:30:00Z",
   "createdAt": "2026-04-29T18:00:00Z",
   "metadata": { "orderId": "abc-123" }
 }
 ```
+
+The response carries more fields than shown here, such as `feeAmount`, `netAmount` and `payerWalletAddress`.
+
+Optional inputs: `customer` (`walletAddress`, `email`, `externalRef`), `expiresInMinutes` (default 30, max 1440) and `metadata`.
 
 ## Retrieve
 
@@ -50,7 +54,7 @@ GET /v1/payment-sessions/{id}
 GET /v1/payment-sessions?limit=50&status=confirmed&cursor=...
 ```
 
-Filters: `status`, `customerId`, `createdAfter`, `createdBefore`.
+The only filter is `status`.
 
 ## Cancel
 
@@ -58,22 +62,23 @@ Filters: `status`, `customerId`, `createdAfter`, `createdBefore`.
 POST /v1/payment-sessions/{id}/cancel
 ```
 
-Cancels a `pending` session. Already-confirmed sessions can't be cancelled. Refund the payment instead.
+Cancels an open session (`created` or `awaiting_payment`). Any other status returns `403 session_invalid_state`. A confirmed payment can't be cancelled; refund it instead.
+
+`POST /v1/payment-sessions/{id}/expire` works the same way and moves the session to `expired`.
 
 ## Status lifecycle
 
-```
-created  →  pending  →  confirmed  →  refunded
-                    ↘
-                     cancelled / expired
-```
+Statuses: `created`, `awaiting_payment`, `submitted`, `confirmed`, `failed`, `expired`, `cancelled`.
 
-Sessions expire 24 hours after creation by default. `expiresAt` is set when you create the session.
+A new session is `created`. When the relayer broadcasts the payment it becomes `submitted`, and the indexer moves it to `confirmed`. An open session (`created` or `awaiting_payment`) can be cancelled or can expire.
+
+Sessions expire 30 minutes after creation by default. Set `expiresInMinutes` to change it. When `expiresAt` passes, the scheduler moves an open session to `expired`.
 
 ## Webhook events
 
-| Event               | Fires when                           |
-| ------------------- | ------------------------------------ |
-| `payment.created`   | The session row was created          |
-| `payment.completed` | The on-chain transaction confirmed   |
-| `payment.failed`    | The session expired or was cancelled |
+| Event               | Fires when                         |
+| ------------------- | ---------------------------------- |
+| `payment.completed` | The on-chain transaction confirmed |
+| `payment.failed`    | The scheduler expired the session  |
+
+Not yet: `payment.created` is listed as an event type but is never sent. Tracked in [#295](https://github.com/StrimzLab/strimz/issues/295).

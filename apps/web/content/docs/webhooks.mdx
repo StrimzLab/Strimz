@@ -23,37 +23,45 @@ The reference implementation lives in [`@strimz/sdk` → `verifyWebhookSignature
 
 ## Headers
 
-| Header                 | Description                                           |
-| ---------------------- | ----------------------------------------------------- |
-| `Strimz-Signature`     | `t=<unix>,v1=<hex>`                                   |
-| `Strimz-Event-Id`      | `evt_…` ,  globally unique                             |
-| `Strimz-Event-Type`    | dotted name, e.g. `payment.completed`                 |
-| `X-Strimz-Delivery-Id` | `whdl_…` ,  idempotency key for at-least-once delivery |
+| Header                 | Description                                       |
+| ---------------------- | ------------------------------------------------- |
+| `Strimz-Signature`     | `t=<unix>,v1=<hex>`                               |
+| `Strimz-Event-Id`      | `evt_…`, globally unique                          |
+| `Strimz-Event-Type`    | dotted name, e.g. `payment.completed`             |
+| `X-Strimz-Delivery-Id` | `whdl_…`, the same on every retry of one delivery |
 
 ## Events
 
-| Event                                                  | Fired when                                                           |
-| ------------------------------------------------------ | -------------------------------------------------------------------- |
-| `payment.created`                                      | A `PaymentSession` is created                                        |
-| `payment.completed`                                    | An on-chain payment is confirmed for a session                       |
-| `payment.failed`                                       | A session expires or fails                                           |
-| `subscription.created`                                 | A subscription lands on-chain                                        |
-| `subscription.charged`                                 | A periodic charge succeeded                                          |
-| `subscription.charge_failed`                           | A charge attempt failed (insufficient funds, revoked approval, etc.) |
-| `subscription.cancelled`                               | The merchant or customer cancelled                                   |
-| `subscription.lapsed`                                  | Grace period exceeded. Customer didn't pay                          |
-| `refund.created`                                       | Refund intent created                                                |
-| `refund.completed`                                     | Refund tx confirmed on-chain                                         |
-| `invoice.created` / `invoice.paid` / `invoice.overdue` | Invoice lifecycle                                                    |
-| `agent.action_executed` / `agent.job_*`                | AutoPay Agent activity                                               |
+| Event                        | Fired when                                                                 | `data`                                  |
+| ---------------------------- | -------------------------------------------------------------------------- | --------------------------------------- |
+| `payment.completed`          | An on-chain payment is confirmed for a session                             | `{ session, transaction }`              |
+| `payment.failed`             | A session expires unpaid                                                   | `{ session, reason }`                   |
+| `subscription.created`       | The indexer sees a new subscription on chain                               | the subscription                        |
+| `subscription.charged`       | A periodic charge succeeded                                                | `{ subscription, charge, transaction }` |
+| `subscription.charge_failed` | A charge failed for a payment reason (insufficient funds, allowance, etc.) | `{ subscription, charge }`              |
+| `subscription.cancelled`     | You cancelled through the API or dashboard                                 | the subscription                        |
+| `subscription.lapsed`        | The 48-hour grace window ran out without a successful charge               | the subscription                        |
+| `refund.created`             | A refund is created                                                        | the refund                              |
+| `refund.completed`           | The refund transaction confirmed on chain                                  | `{ refund, transaction }`               |
+| `invoice.created`            | An invoice is created                                                      | the invoice                             |
+| `invoice.paid`               | An invoice's payment confirmed                                             | `{ invoice, transaction }`              |
+| `invoice.overdue`            | An hourly cron finds the invoice past its due date                         | the invoice                             |
+
+A cancel the payer makes from their own wallet updates the subscription but does not fire `subscription.cancelled`.
+
+Not yet: `payment.created`, `subscription.recovery_attempt`, `subscription.recovery_outcome`, `refund.failed` and `agent.action_executed` can be selected on an endpoint but are never sent. Tracked in [#295](https://github.com/StrimzLab/strimz/issues/295).
+
+The `agent.job_*` and `compliance.*` event types belong to features that are coming. They are not sent today.
 
 ## Retry policy
 
-Strimz retries with exponential backoff (1m → 5m → 30m → 2h → 12h, 5 attempts). After max attempts:
+A delivery that times out (10 seconds) or gets a non-2xx response is retried. There are 5 attempts in total, with waits of 1 minute, 5 minutes, 30 minutes and 2 hours between them, about 2 hours 36 minutes from first to last. After the last attempt:
 
 - The delivery is marked `permanently_failed`
 - The merchant is emailed
-- 5+ permanent failures within 24h on the same endpoint → endpoint auto-disabled
+- 5 permanent failures within 24 hours on the same endpoint auto-disable it
+
+Replaying a delivery from the dashboard or API resets it to attempt 1 and starts the schedule again.
 
 ## Durability behind the scenes
 
@@ -70,13 +78,14 @@ into the cache on its next boot and webhook delivery resumes with no
 action on your side.
 
 Every attempt is persisted to the `WebhookDelivery` table. You get
-the response code, the response body (truncated to 4 KB), the attempt
+the response code, the response body (truncated to 4,000 characters), the attempt
 number, the next-attempt time, and the last error, all visible in
-your dashboard. Every attempt also carries a unique
-`X-Strimz-Delivery-Id` header so your endpoint can deduplicate on it.
+your dashboard. Every attempt carries an
+`X-Strimz-Delivery-Id` header that stays the same across retries of one
+delivery, so your endpoint can deduplicate on it.
 
-If your endpoint goes dark for a while (five minutes, an hour, half a
-day) the retry schedule covers it. If you're down for the entire
-twelve-and-a-half-hour window, the delivery lands as
+If your endpoint goes dark for a short while (a few minutes, an hour)
+the retry schedule covers it. If you're down for the whole window of
+about two and a half hours, the delivery lands as
 `permanently_failed`, and you can replay it from the dashboard once
 you're back up.

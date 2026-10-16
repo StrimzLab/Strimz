@@ -32,26 +32,25 @@ Read paths:
 
 ```http
 GET  /v1/subscriptions/{id}
-GET  /v1/subscriptions?status=active&planId=plan_xxx
+GET  /v1/subscriptions?status=active&planId=cmq4wjr3m0008je6l5t0w2yhb
 POST /v1/subscriptions/{id}/cancel    { "reason": "merchant initiated" }
 ```
+
+Cancel marks the subscription `cancelled` in Strimz right away and queues the on-chain cancel.
+
+Not yet: that on-chain cancel call reverts, so the subscription stays active on-chain. Tracked in [#293](https://github.com/StrimzLab/strimz/issues/293).
 
 ## Status enum
 
 ```
-trialing  active  at_risk  paused  cancelled  lapsed  completed
+trialing  active  at_risk  cancelled  lapsed
 ```
 
-Only `cancelled` and `lapsed` are terminal; `at_risk` is recoverable if the customer tops up their wallet.
+Only `cancelled` and `lapsed` are terminal; `at_risk` is recoverable if the customer tops up their wallet. The schema also lists `paused`, but there are no pause or resume routes and nothing sets it today.
 
 ## Charges
 
-```http
-GET  /v1/subscription-charges/{id}
-GET  /v1/subscription-charges?subscriptionId=sub_xxx
-```
-
-Charges are auto-created by the scheduler when a charge is attempted on-chain.
+Charges are written by the indexer from on-chain events. There are no charge routes in the API. Follow charges through the `subscription.charged` and `subscription.charge_failed` webhooks, or in the dashboard.
 
 ## Webhook events
 

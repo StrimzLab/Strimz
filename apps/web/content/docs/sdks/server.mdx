@@ -87,7 +87,7 @@ strimz.storefronts
 strimz.agents
 ```
 
-Each follows the same `(create | retrieve | list | update | …)` shape. Returns are typed:
+Each follows the same `create | retrieve | list` shape, plus actions such as `cancel` or `revoke`. There are no generic `update` methods; `agents.updateConfig`, `customers.upsert` and `storefronts.upsert` change existing records. Returns are typed:
 
 ```ts
 const session = await strimz.paymentSessions.create({
@@ -112,31 +112,22 @@ do {
 } while (cursor)
 ```
 
-There's also a `listAll` async generator if you'd rather not manage the cursor:
-
-```ts
-for await (const sub of strimz.subscriptions.listAll({ status: 'active' })) {
-  /* ... */
-}
-```
-
 ## Errors
 
-Every error is a typed subclass of `StrimzError`. Catch the base class and `instanceof`-narrow as needed:
+Every error is a `StrimzError` or a subclass of it. Catch the base class and `instanceof`-narrow as needed. A `400`, such as `invalid_request`, is a plain `StrimzError`, so check `code`:
 
 ```ts
 import {
   StrimzError,
   StrimzAuthenticationError,
-  StrimzValidationError,
   StrimzRateLimitError,
   StrimzNotFoundError,
 } from '@strimz/sdk'
 
 try {
-  await strimz.refunds.create({ ... })
+  await strimz.paymentSessions.create({ ... })
 } catch (e) {
-  if (e instanceof StrimzValidationError) {
+  if (e instanceof StrimzError && e.code === 'invalid_request') {
     console.error('field', e.param, 'failed', e.message)
   } else if (e instanceof StrimzRateLimitError) {
     await sleep(e.retryAfterMs)
@@ -180,6 +171,8 @@ await strimz.paymentSessions.create(input, { idempotencyKey: 'order-' + orderId 
 ```
 
 See [Idempotency](/docs/concepts/idempotency).
+
+Not yet: the API doesn't dedupe requests on the idempotency key. Tracked in [#292](https://github.com/StrimzLab/strimz/issues/292).
 
 ## Compatibility
 

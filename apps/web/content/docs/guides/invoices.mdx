@@ -1,13 +1,13 @@
 ---
 title: Send an invoice
-description: Hosted, branded, paid in USDC.
+description: Line items, an emailed Pay link, paid through hosted checkout.
 ---
 
 A Strimz invoice is a payment session with line items, a customer
-email, and a due date. Strimz renders it as a hosted page, emails a
-copy with a Pay button, and backs the whole thing with a normal
-`PaymentSession`. Your existing webhooks fire exactly as they do
-for any other session.
+email, and a due date. Strimz emails the customer the line items with a
+Pay button that opens the hosted checkout, and backs the whole thing
+with a normal `PaymentSession`. Your existing webhooks fire exactly as
+they do for any other session.
 
 ## Create
 
@@ -23,12 +23,9 @@ const invoice = await strimz.invoices.create({
   note: 'Net 14',
   dueInDays: 14,
 })
-
-console.log(invoice.number) // 2026-0001
-console.log(invoice.sessionId) // backing PaymentSession.id
 ```
 
-The `number` is a per-merchant sequence (`<year>-<NNNN>`). The `sessionId` is a real `PaymentSession`. The customer pays it like any other one-shot session, except the hosted checkout has a "Download PDF" button and the line-item breakdown.
+The `number` is a per-merchant sequence (`<year>-<NNNN>`, for example `2026-0001`). The `sessionId` is a real `PaymentSession`, and the customer pays it like any other one-shot session. There is no public invoice page or PDF link; you can download a PDF from the invoice in your dashboard.
 
 ## Send
 
@@ -36,18 +33,18 @@ The `number` is a per-merchant sequence (`<year>-<NNNN>`). The `sessionId` is a 
 await strimz.invoices.send(invoice.id)
 ```
 
-This emails the customer at `customerEmail`. The email is templated with your business name and brand color (from your storefront, if configured); it links to the hosted checkout page.
+This emails the customer at `customerEmail` with the invoice number, note, line items and total, and a Pay button that links to the hosted checkout page.
 
 If `customerEmail` is null, `send()` returns a 403. Invoices without an email can be paid via direct link, but Strimz won't deliver them for you.
 
 ## Lifecycle
 
 ```
-draft  →  sent  →  paid          (customer paid before due)
-              ↘   overdue  →  void  (you voided after dueAt)
+draft  →  sent  →  paid
+              ↘   overdue
 ```
 
-A daily cron flips invoices past `dueAt` (status `draft` or `sent`) to `overdue` and fires `invoice.overdue`. Use this webhook to chase the customer (or it gets routed to the AutoPay Agent's recovery capability if enabled).
+An hourly scheduler job flips `sent` invoices past `dueAt` to `overdue` and fires `invoice.overdue`. Use this webhook to chase the customer. The AutoPay Agent doesn't follow up on overdue invoices. Any invoice that isn't paid can be voided.
 
 ## Void
 

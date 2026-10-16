@@ -3,7 +3,7 @@ title: Build a storefront
 description: A hosted, branded landing page where your products live.
 ---
 
-A Strimz storefront is a no-code landing page at `strimz.finance/store/<your-slug>` that lists products you've added. Each product becomes a one-shot or subscription checkout. Useful when you need to take payments but don't want to build a full e-commerce stack.
+A Strimz storefront is a no-code landing page at `https://www.strimz.finance/store/<your-slug>` that lists products you've added. Each product becomes a one-shot or subscription checkout. Useful when you need to take payments but don't want to build a full e-commerce stack. Storefronts start on the Starter plan.
 
 ## Create
 
@@ -18,30 +18,38 @@ await strimz.storefronts.upsert({
 })
 ```
 
-Slugs are unique per environment. `acme` in test mode and `acme` in live mode are different storefronts.
+Each merchant has one storefront, and slugs are unique across Strimz. A slug another merchant already uses is refused.
 
 ## Add products
 
 ```ts
-await strimz.storefronts.products.create({
+await strimz.storefronts.createProduct({
   name: 'Pro Widget',
   description: 'Our flagship widget.',
   price: '50000000',
   currency: 'USDC',
-  type: 'one_time', // 'one_time' | 'subscription'
+  type: 'one_time',
 })
 
-await strimz.storefronts.products.create({
+const plan = await strimz.subscriptionPlans.create({
+  name: 'Pro',
+  amount: '20000000',
+  currency: 'USDC',
+  interval: 'monthly',
+})
+
+await strimz.storefronts.createProduct({
   name: 'Pro Subscription',
-  price: '20000000',
+  price: plan.amount,
   currency: 'USDC',
   type: 'subscription',
+  planId: plan.id,
   interval: 'monthly',
   intervalCount: 1,
 })
 ```
 
-For subscription products, the `interval` and `intervalCount` create a backing `SubscriptionPlan` automatically. The product detail page links to that plan's checkout URL.
+A subscription product needs an existing, active plan. No plan is created for you. The product's `price`, `currency`, `interval` and `intervalCount` must match the plan, or the call fails with `400 invalid_request`. The product page links to that plan's checkout.
 
 ## Publish
 
@@ -49,7 +57,7 @@ For subscription products, the `interval` and `intervalCount` create a backing `
 await strimz.storefronts.publish()
 ```
 
-Until published, your storefront returns 404 publicly. Drafts are visible to you in the dashboard. Once published, `strimz.finance/store/<your-slug>` is live and SEO-indexable.
+Until published, your storefront returns 404 publicly. Drafts are visible to you in the dashboard. Once published, `https://www.strimz.finance/store/<your-slug>` is live and SEO-indexable.
 
 ## Customising the look
 
@@ -58,4 +66,4 @@ renders the page itself, so any improvement that ships on the
 hosted side (better mobile layouts, faster image optimisation, dark
 mode) lands on your storefront automatically.
 
-Custom domains (`shop.your-site.com` instead of `strimz.finance/store/your-slug`) are not supported yet.
+Custom domains (`shop.your-site.com` instead of `www.strimz.finance/store/your-slug`) are not supported yet.

@@ -36,7 +36,7 @@ const session = await strimz.paymentSessions.create({
 })
 
 console.log(session.checkoutUrl)
-// → https://strimz.finance/pay/cmh3lmkw50000xv8dabcdefgh
+// → https://www.strimz.finance/pay/cmq4wck6a0002je6lfmb5bgjp
 ```
 
 Open `session.checkoutUrl`, connect a wallet, and finish the payment.
@@ -45,7 +45,7 @@ The customer signs two typed-data messages. The first is an EIP-3009
 `ReceiveWithAuthorization` that the token verifies. The second is a
 Strimz `PayIntent` that binds the payment to your specific merchant
 id. Two prompts, one on-chain transaction.
-Strimz's relayer turns that signature into the on-chain transaction
+Strimz's relayer turns those signatures into the on-chain transaction
 and pays the gas. The customer never sees a separate approval prompt
 and never has gas in their wallet. The
 [meta-tx flow page](/docs/concepts/meta-tx-flow) covers the security
@@ -91,5 +91,5 @@ app.post('/webhooks/strimz', express.raw({ type: 'application/json' }), async (r
 - [Subscriptions](/docs/api-reference#subscriptions). Recurring revenue with a single payer signature.
 - [Refunds](/docs/api-reference#refunds). Server-side intent, wallet-signed transfer.
 - [Webhooks](/docs/webhooks). The full event list and retry behaviour.
-- [Meta-tx flow](/docs/concepts/meta-tx-flow). The security model behind the single-signature checkout.
+- [Meta-tx flow](/docs/concepts/meta-tx-flow). The security model behind the gasless, signature-based checkout.
 - [On-chain architecture](/docs/concepts/on-chain-architecture). Which contracts are immutable, which are upgradeable, and the reasoning.

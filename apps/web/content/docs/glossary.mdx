@@ -15,18 +15,19 @@ on a stablecoin chain.
 
 ## Charge attempt ID
 
-A 32-byte deterministic identifier passed to the contract's `batchCharge` so retries are safe. Computed as `keccak256(subscriptionId, periodEndAt)`. The contract's `usedAttempts` mapping rejects duplicates.
+A 32-byte deterministic identifier passed to the contract's `batchCharge` so retries are safe. Computed as `keccak256(abi.encodePacked(onchainSubId, currentPeriodEndAt, attempt))`, with `attempt` from 0 to 7. The contract's `usedAttempts` mapping skips a reused id with outcome `Duplicate` instead of charging again.
 
 ## Confirmations
 
-The number of blocks the indexer waits behind the chain head before projecting an event. Default 5. Higher = more reorg-safe, lower = faster updates.
+The number of blocks the indexer waits behind the chain head before projecting an event, set with `CONFIRMATIONS`. It is required and has no default. Arc has deterministic sub-second finality, so there are no reorgs to guard against; 1 is the recommended value.
 
 ## EIP-2612
 
 The "permit" standard. The payer signs a structured message that
 grants a contract an ERC-20 allowance. USDC and EURC both implement
-it natively. Strimz uses it for the single-signature subscription
-enrolment call (`permitAndCreateSubscription`). The
+it natively. Strimz uses it in the subscription enrolment call
+(`permitAndCreateSubscription`), alongside a second signed
+`SubscriptionIntent`. The
 [meta-tx flow page](/docs/concepts/meta-tx-flow) walks through the
 full sequence.
 
@@ -57,30 +58,33 @@ previous layout. Strimz's upgradeable contracts use it, which makes
 
 ## Idempotency key
 
-A string the client picks per write that the API uses to dedupe
-retries. Sent in the `Idempotency-Key` header on every `POST`. The
-second call with the same key returns the first call's response
-verbatim and does not create a duplicate resource. The SDK adds one
-for you on every request.
+A string the client picks per write, meant to let the API dedupe
+retries. The SDK sends one in the `X-Strimz-Idempotency-Key` header on
+every mutating call. Not yet: the API ignores the header and does not
+deduplicate. Tracked in
+[#292](https://github.com/StrimzLab/strimz/issues/292).
 
 ## Indexer cursor
 
-The bookmark that tracks "what block has the indexer projected up to". One row per `(network, contractAddress)` in the `IndexerCursor` table. Truncating it = re-process from genesis.
+The bookmark that tracks "what block has the indexer projected up to". One row per `(chainId, contractAddress)` in the `IndexerCursor` table. Truncating it makes the indexer re-process from `START_BLOCK`, the block the contracts were deployed at.
 
 ## KMS-backed signer
 
 The pattern Strimz uses to sign relayer transactions on Arc. The
-signing key is held by a Key Management System (software-backed in
-development, hardware-backed in production) and never appears in an
-environment variable or on disk. The relayer asks the KMS for a
-signature; the KMS returns one. The relay section of the API
+relayer asks a signer provider for a signature instead of holding the
+key itself. `KMS_PROVIDER` picks the provider. The default,
+`software`, reads the key from `KMS_SOFTWARE_PRIVATE_KEY` in the
+environment and is meant for development. `aws-kms` keeps the key in
+AWS KMS, so it never appears in an environment variable or on disk. The relay section of the API
 reference covers the operator-side configuration.
 
 ## Live mode and test mode
 
-Two fully separate environments. Different on-chain deployments,
-different databases, different API keys. A resource created in one
-mode cannot be read or modified from the other.
+Two separate modes with their own API keys. Each Strimz deployment
+runs in one mode with its own contracts: test mode on Arc testnet,
+live mode on Arc mainnet. Every resource also carries a `mode`, and a
+resource created in one mode cannot be read or modified from the
+other. Live keys can't be created until Strimz runs on Arc mainnet.
 
 ## Meta-tx
 
@@ -109,7 +113,7 @@ signing via `tokens.permitNonce(token, owner)`.
 ## Pull-based subscription
 
 The customer signs once, granting the contract a multi-period
-allowance. The merchant's scheduler then "pulls" payment each period.
+allowance. The Strimz scheduler then "pulls" payment each period.
 The opposite is push-based, where the customer initiates each charge
 themselves.
 
@@ -146,9 +150,9 @@ why the line falls where it does.
 
 ## Webhook delivery
 
-One attempt to POST a specific event to a specific endpoint.
-Persisted in the `WebhookDelivery` table, so you can see every
-attempt's response code and body in your dashboard.
+One event sent to one endpoint, with up to 5 attempts. Persisted in
+the `WebhookDelivery` table, so you can see the latest attempt's
+response code and body in your dashboard.
 
 ## Webhook signing secret
 

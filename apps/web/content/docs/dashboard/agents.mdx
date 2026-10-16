@@ -31,7 +31,7 @@ One card per capability. Each card shows a summary, an enable switch, and (when 
 
 Clicking **Configure** opens a per-capability dialog:
 
-- **Recovery** — grace period (24 / 48 / 72 h), retry strategy (`once` / `twice` / `until_grace_ends`), and a custom email template.
+- **Recovery**: email strategy (`once` / `twice` / `until_grace_ends`), a grace period (24 / 48 / 72 h), and a custom email template. `once` emails when the subscription goes at risk, `twice` adds a second email 24 hours later, and `until_grace_ends` adds a third at 72 hours, which a subscription only reaches if it has not lapsed by then. The grace period is saved but changes nothing today: the subscription's own grace window is fixed at 48 hours, and Strimz does not use this value.
 - **Cashflow** — digest on/off, anomaly sensitivity (low / medium / high), auto-convert-to-yield switch, and the minimum liquid reserve floor in USD. Anomaly alerts and yield recommendations start on the Starter plan; on Free the dialog shows the digest switch and when the rest unlocks.
 
 The nested settings only take effect when the capability is enabled — flipping the switch off doesn't erase them, so re-enabling later restores your config.
@@ -49,6 +49,6 @@ Use this tab to prove to yourself the agent is doing what you asked and not doin
 
 ## Common workflows
 
-**I want failed-charge emails to go out automatically.** Turn on **Recovery**, click Configure, pick a grace period, save. Fire a test subscription and force a failure to see the email.
+**I want failed-charge emails to go out automatically.** Turn on **Recovery**, click Configure, pick a strategy, save. Emails go only to customers whose email Strimz has on file. Fire a test subscription and force a failure to see the email.
 
 **I don't want the agent doing anything I haven't seen.** Turn everything off. Activity tab will show every proposed action; you can enable pieces one at a time as you get comfortable.

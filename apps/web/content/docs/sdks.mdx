@@ -19,13 +19,11 @@ import { StrimzClient } from '@strimz/sdk'
 const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_KEY! })
 
 const session = await strimz.paymentSessions.create({ amount: '50000000', currency: 'USDC' })
-const sub = await strimz.subscriptions.retrieve('sub_xyz')
-const refund = await strimz.refunds.create({
-  transactionId: 'tx_xyz',
-  amount: '50000000',
-  reason: 'customer_request',
-})
+const sub = await strimz.subscriptions.retrieve('cmq4wpz2k000cje6l8e3v7nbd')
+const page = await strimz.transactions.list({ limit: 25 })
 ```
+
+Not yet: `strimz.refunds.create` throws on the API's response today; see [Process a refund](/docs/guides/refunds). Tracked in [#294](https://github.com/StrimzLab/strimz/issues/294).
 
 Resources:
 

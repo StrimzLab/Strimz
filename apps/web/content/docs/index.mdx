@@ -5,8 +5,8 @@ description: B2B subscription billing on stablecoins. Settled in USDC on Arc.
 
 Strimz is a billing layer for businesses that accept stablecoin
 payments. One API covers one-time charges, recurring subscriptions,
-refunds, and cross-chain settlement. Everything settles
-in USDC on Arc, where USDC is also the gas token, so customers never
+and refunds. Everything settles
+on Arc, where USDC is also the gas token, so customers never
 have to top up a wallet to send a payment.
 
 Method names follow the verb-noun shape you'd expect:
@@ -42,7 +42,7 @@ bank that decides a week later to reverse the transaction.
   <Card
     title="Test vs Live mode"
     href="/docs/modes"
-    description="Two completely separate environments with different chains, DBs, keys, and webhook endpoints."
+    description="Two modes with different chains, keys, and webhook endpoints. Live mode waits for Arc mainnet."
   />
   <Card
     title="Modes of failure"
@@ -62,7 +62,7 @@ bank that decides a week later to reverse the transaction.
   <Card
     title="Build a subscription"
     href="/docs/guides/subscriptions"
-    description="Recurring revenue with one customer signature. Atomic batch charging, configurable grace, on-chain idempotency."
+    description="Recurring revenue with one customer signature. The scheduler charges each period, and the contract refuses a double charge."
   />
   <Card
     title="Process a refund"
@@ -75,9 +75,9 @@ bank that decides a week later to reverse the transaction.
     description="HMAC-SHA256 with replay protection. Six lines of code on your end."
   />
   <Card
-    title="Cross-chain (roadmap)"
+    title="Cross-chain (coming)"
     href="/docs/guides/cross-chain"
-    description="CCTP V2 routing from Ethereum, Base, Polygon, Solana into Arc. Schema and scheduler are in place; checkout UI ships in a later release."
+    description="Paying from other chains is coming. Today customers pay on Arc."
   />
   <Card
     title="The AutoPay Agent"
@@ -92,7 +92,7 @@ bank that decides a week later to reverse the transaction.
   <Card
     title="API reference"
     href="/docs/api/overview"
-    description="Every endpoint, every parameter. OpenAPI 3.1 schema available at `/openapi.json`."
+    description="Every endpoint, every parameter. The OpenAPI schema is served at `/openapi.json`."
   />
   <Card
     title="Server SDK"
@@ -143,10 +143,6 @@ A short tour of what you get out of the box.
     description="Wallet-signing instructions returned in the create response. Indexer closes the loop."
   />
   <Card
-    title="Cross-chain"
-    description="CCTP V2 attestation plus scheduler-side message replay on Arc. Your customer pays from any USDC chain."
-  />
-  <Card
     title="Analytics"
     description="MRR, churn, conversion, LTV, 90-day forecast. SQL-backed against your own Postgres."
   />
@@ -156,7 +152,7 @@ A short tour of what you get out of the box.
     description="Hosted merchant dashboard and a no-code storefront builder so you can sell without an e-commerce stack."
   />
   <Card
-    title="OpenAPI 3.1"
+    title="OpenAPI"
     description="Machine-readable schema. Generate clients in any language: Postman, Insomnia, or your own codegen."
   />
 </Cards>
@@ -173,6 +169,5 @@ Docs PRs go through the same review as code PRs.
 
 <Callout title="Need help fast?" type="info">
   Email **support@strimz.finance**. Starter, Growth and Enterprise merchants get priority email
-  support. For security disclosures use **security@strimz.finance** (PGP key on the security
-  page).
+  support. Send security disclosures to the same address.
 </Callout>

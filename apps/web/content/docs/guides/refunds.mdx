@@ -21,33 +21,49 @@ between you and the customer, with no intermediary in between.
 
 ## Issue a refund
 
-```ts
-const refund = await strimz.refunds.create({
-  transactionId: 'tx_xyz',
-  amount: '50000000', // 50 USDC, 6 decimals. Partial refunds are fine.
-  reason: 'customer_request', // 'customer_request' | 'product_issue' | 'duplicate_charge' | 'fraudulent' | 'other'
-  note: 'Customer asked nicely',
-})
+Create the refund with `POST /v1/refunds`. `amount` is in the token's smallest unit (6 decimals for USDC), and partial refunds are fine. `reason` is one of `customer_request`, `product_issue`, `duplicate_charge`, `fraudulent` or `other`.
 
-console.log(refund.signingInstructions)
-// {
-//   token:  '0x...USDC',
-//   to:     '0x...payerAddress',
-//   amount: '50000000',
-//   note:   'Refund for transaction tx_xyz',
-// }
+```bash
+curl https://api.strimz.finance/v1/refunds \
+  -H "Authorization: Bearer sk_test_xxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transactionId": "cmq4wf2b80004je6l7xq1c9ad",
+    "amount": "50000000",
+    "reason": "customer_request",
+    "note": "Customer asked nicely"
+  }'
 ```
+
+The API returns the refund and the signing instructions together:
+
+```json
+{
+  "refund": {
+    "id": "cmq4wh9de0006je6l2n5v0kqt",
+    "transactionId": "cmq4wf2b80004je6l7xq1c9ad",
+    "amount": "50000000",
+    "status": "awaiting_signature"
+  },
+  "signingInstructions": {
+    "token": "0x...USDC",
+    "to": "0x...payerAddress",
+    "amount": "50000000",
+    "note": "Customer asked nicely"
+  }
+}
+```
+
+Not yet: `strimz.refunds.create` in the SDK throws on this response, so call the API directly for now. Tracked in [#294](https://github.com/StrimzLab/strimz/issues/294).
 
 The `signingInstructions` object tells the merchant's wallet what to sign:
 
 ```ts
-// Using viem from the merchant dashboard
-import { createWalletClient, http, parseUnits } from 'viem'
-import { erc20Abi } from 'viem'
+import { createWalletClient, http, erc20Abi } from 'viem'
 
 const wallet = createWalletClient({
   account: merchantAddress,
-  chain: arcMainnet,
+  chain: arcTestnet,
   transport: http(),
 })
 
@@ -64,47 +80,23 @@ const txHash = await wallet.writeContract({
 Once the merchant has the tx hash, post it back to Strimz:
 
 ```ts
-await strimz.refunds.submitSignature(refund.id, { refundTxHash: txHash })
+await strimz.refunds.submitSignature({ id: refund.id, refundTxHash: txHash })
 ```
 
-This flips the refund from `awaiting_signature` to `submitted`. The indexer is watching for ERC-20 `Transfer` events with this tx hash; when one lands, it flips the refund to `completed` and fires `refund.completed`.
+This flips the refund from `awaiting_signature` to `submitted`. The indexer watches for the transfer with this tx hash; when it lands, it flips the refund to `completed` and fires `refund.completed`.
+
+You can submit only once, while the refund is `awaiting_signature`. A second call returns `403 session_invalid_state`.
 
 ## Cumulative caps
 
-Strimz won't let you refund more than the original transaction:
+Strimz won't let you refund more than the original transaction. On a 100 USDC transaction, a 60 USDC refund succeeds, and a second refund of 50 USDC returns `400 invalid_request` because 60 + 50 > 100.
 
-```ts
-// Original transaction: 100 USDC
-
-await strimz.refunds.create({
-  transactionId: 'tx_x',
-  amount: '60000000',
-  reason: 'customer_request',
-})
-// ok: 60 of 100 refunded
-
-await strimz.refunds.create({
-  transactionId: 'tx_x',
-  amount: '50000000',
-  reason: 'customer_request',
-})
-// 400 invalid_request: 60 + 50 > 100
-```
-
-The cap is computed across refunds with status `submitted` or `completed`. An `awaiting_signature` refund that the merchant abandons doesn't lock funds. You can void it (delete the row) and re-create.
+The cap counts every refund in `pending`, `awaiting_signature`, `submitted` or `completed`. An unsigned `awaiting_signature` refund still holds its share, and there is no way to void or delete it today.
 
 ## What if the indexer never sees the on-chain transfer?
 
-This happens if the merchant submitted the wrong tx hash. The refund stays in `submitted` indefinitely. To fix:
-
-```ts
-await strimz.refunds.submitSignature(refund.id, { refundTxHash: correctTxHash })
-```
-
-Re-submitting overwrites idempotently. The indexer's matcher then finds the right Transfer and completes the refund.
-
-If the merchant submitted a real hash but the on-chain transfer was for the wrong amount, the refund row records the original intent amount and the on-chain transfer's amount separately. The dashboard surfaces the discrepancy so finance can reconcile.
+This happens if the merchant submitted the wrong tx hash. The refund stays in `submitted`, and the API won't accept a second hash. Contact [support@strimz.finance](mailto:support@strimz.finance) with the refund id.
 
 ## What if the customer's address is invalid?
 
-You can't get this far. Strimz validates `Refund.payerAddress` is a valid 20-byte EVM address at create time, and the original transaction's payer address is recorded on-chain. Strimz uses that recorded address rather than anything you pass in. The only way `to` could be wrong is if the customer's wallet itself is wrong, which Strimz can't prevent.
+You can't get this far. The refund goes to the payer address recorded on the original transaction, not to anything you pass in. The only way `to` could be wrong is if the customer's wallet itself is wrong, which Strimz can't prevent.

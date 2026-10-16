@@ -54,7 +54,7 @@ Now your server can look up the subscription id from the authenticated user.
 
 ```ts title="app/api/account/cancel-subscription/route.ts"
 import { StrimzClient } from '@strimz/sdk'
-import { getCurrentUser } from '@/lib/auth'   // your existing auth
+import { getCurrentUser } from '@/lib/auth' // your existing auth
 
 const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_API_KEY! })
 
@@ -70,20 +70,17 @@ export async function POST(req: Request) {
     return Response.json({ error: 'no_active_subscription' }, { status: 404 })
   }
 
-  // 3. Read the cancel mode from the body. Default is at-period-end.
-  const { immediate = false } = await req.json().catch(() => ({}))
-
-  // 4. Call Strimz.
+  // 3. Call Strimz.
   try {
     const subscription = await strimz.subscriptions.cancel({
       id: user.strimzSubscriptionId,
-      immediate,
+      reason: 'customer self-serve',
     })
 
     return Response.json({
       success: true,
       cancelledAt: subscription.cancelledAt,
-      accessUntil: immediate ? new Date().toISOString() : subscription.currentPeriodEndAt,
+      accessUntil: subscription.currentPeriodEndAt,
     })
   } catch (err) {
     // already-cancelled, etc.
@@ -105,16 +102,12 @@ export function CancelSubscriptionButton({ accessUntil }: { accessUntil: string 
   const [isPending, setIsPending] = useState(false)
   const router = useRouter()
 
-  const cancel = async (immediate: boolean) => {
+  const cancel = async () => {
     setIsPending(true)
-    const res = await fetch('/api/account/cancel-subscription', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ immediate }),
-    })
+    const res = await fetch('/api/account/cancel-subscription', { method: 'POST' })
 
     if (res.ok) {
-      router.refresh()   // re-fetch billing state
+      router.refresh() // re-fetch billing state
     } else {
       alert('Something went wrong. Please contact support.')
     }
@@ -123,21 +116,17 @@ export function CancelSubscriptionButton({ accessUntil }: { accessUntil: string 
   }
 
   if (!confirming) {
-    return (
-      <button onClick={() => setConfirming(true)}>
-        Cancel subscription
-      </button>
-    )
+    return <button onClick={() => setConfirming(true)}>Cancel subscription</button>
   }
 
   return (
     <div className="confirm">
-      <p>Are you sure? Your access will end {new Date(accessUntil).toLocaleDateString()}.</p>
-      <button onClick={() => cancel(false)} disabled={isPending}>
-        Yes, cancel at period end
-      </button>
-      <button onClick={() => cancel(true)} disabled={isPending}>
-        Cancel immediately (no refund)
+      <p>
+        Are you sure? You won't be charged again. Your access ends{' '}
+        {new Date(accessUntil).toLocaleDateString()}.
+      </p>
+      <button onClick={cancel} disabled={isPending}>
+        Yes, cancel
       </button>
       <button onClick={() => setConfirming(false)} disabled={isPending}>
         Never mind
@@ -160,7 +149,9 @@ export default async function BillingPage() {
   return (
     <div>
       <h1>Billing</h1>
-      <p>Plan: <strong>Pro</strong> · {subscription.amount} {subscription.currency} / month</p>
+      <p>
+        Plan: <strong>Pro</strong> · {subscription.amount} {subscription.currency} / month
+      </p>
       <p>Next charge: {new Date(subscription.nextChargeAt).toLocaleDateString()}</p>
       <CancelSubscriptionButton accessUntil={subscription.currentPeriodEndAt} />
     </div>
@@ -168,11 +159,13 @@ export default async function BillingPage() {
 }
 ```
 
-That's the whole flow.
+That's the whole flow. Strimz stops charging as soon as the cancel call returns. Keeping access until `currentPeriodEndAt` is your product's choice, since the customer already paid for that period.
+
+Not yet: the API also queues an on-chain cancel, and that currently reverts, so the contract still lists the subscription as live. Strimz does not charge it. Tracked in [#293](https://github.com/StrimzLab/strimz/issues/293).
 
 ## When the cancellation lands
 
-Your webhook handler will see `subscription.cancelled` shortly after the API call. The handler updates your local state with the cancellation details. You already have them from the API call's response, so the webhook is mostly redundant here. But it's the source of truth, so don't skip it.
+`subscription.cancelled` fires during the cancel call, with `data.status: 'cancelled'`. You already have the details from the API response, but update from the webhook too so every path ends in the same state.
 
 ```ts
 case 'subscription.cancelled': {
@@ -188,19 +181,9 @@ case 'subscription.cancelled': {
 }
 ```
 
-For at-period-end cancellations, you'll also see `subscription.lapsed` later when the period actually ends. At that point you revoke access:
+No later event fires when the period ends. Revoke access when `accessUntil` passes, from your own job or on the next request.
 
-```ts
-case 'subscription.lapsed': {
-  await db.user.update({
-    where: { strimzSubscriptionId: event.data.id },
-    data: { planTier: 'free', accessUntil: new Date() },
-  })
-  break
-}
-```
-
-For immediate cancellations, you handle this in the cancel route. Set `accessUntil: new Date()` right there. No waiting for the webhook.
+A customer can also cancel from their wallet by calling `cancel()` on the subscriptions contract. Strimz marks the subscription `cancelled`, but no webhook fires for that path today, so check `subscriptions.retrieve` if your records and Strimz disagree.
 
 ## Why this pattern
 
