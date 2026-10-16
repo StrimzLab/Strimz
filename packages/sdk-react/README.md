@@ -45,10 +45,7 @@ import { StrimzProvider, StrimzPayButton } from '@strimz/sdk-react'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <StrimzProvider
-      publishableKey={process.env.NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY!}
-      checkoutOrigin="https://www.strimz.finance"
-    >
+    <StrimzProvider publishableKey={process.env.NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY!}>
       {children}
     </StrimzProvider>
   )
@@ -81,12 +78,10 @@ descendants. It throws on first render if you pass a secret key.
 | ---------------- | ---------------------------- | ------------------------------------------- |
 | `publishableKey` | required                     | `pk_test_…` or `pk_live_…`                  |
 | `apiBaseUrl`     | `https://api.strimz.finance` | Override for staging                        |
-| `checkoutOrigin` | `https://strimz.finance`     | Origin of the hosted checkout, with no path |
+| `checkoutOrigin` | `https://www.strimz.finance` | Origin of the hosted checkout, with no path |
 
-Set `checkoutOrigin="https://www.strimz.finance"`. Not yet: the default
-`https://strimz.finance` redirects to `www`, so checkout results from
-the popup or embed are dropped. Tracked in
-[#291](https://github.com/StrimzLab/strimz/issues/291).
+`checkoutOrigin` must be an origin only. A trailing `/` is fine; a path,
+query or hash throws on first render.
 
 ### `<StrimzPayButton />`
 
