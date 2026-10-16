@@ -29,10 +29,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from '@strimz/ui'
 import {
   apiKeyScopeSchema,
@@ -45,7 +41,18 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { useDashboardMode } from '@/lib/dashboard-mode'
 import { relativeTime } from '@/lib/format'
-import { useApiKeys, useCreateApiKey, useRevokeApiKey, useRotateApiKey } from '@/hooks/api'
+import { revokeApiKeyConfirm } from '@/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@/components/dashboard/confirm-action-dialog'
+import {
+  serverRowsOf,
+  useApiKeyPages,
+  useCreateApiKey,
+  useRevokeApiKey,
+  useRotateApiKey,
+} from '@/hooks/api'
 
 const ALL_SCOPES: readonly ApiKeyScope[] = apiKeyScopeSchema.options
 
@@ -64,9 +71,11 @@ export default function ApiKeysPage() {
     [filter],
   )
 
-  const { data, isLoading, isError, error, refetch } = useApiKeys(params, {
-    select: (page) => ({ rows: page.data }),
+  const keysQuery = useApiKeyPages(params, {
+    select: (loaded) => ({ rows: loaded.rows }),
   })
+  const { data, isLoading, isError, error, refetch } = keysQuery
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   const revokeMutation = useRevokeApiKey()
   const rotateMutation = useRotateApiKey()
@@ -189,7 +198,12 @@ export default function ApiKeysPage() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-rose-600 focus:text-rose-600"
-                      onClick={() => revokeMutation.mutate(key.id)}
+                      onClick={() =>
+                        setPendingConfirm({
+                          copy: revokeApiKeyConfirm(key),
+                          run: () => revokeMutation.mutate(key.id),
+                        })
+                      }
                       disabled={revokeMutation.isPending}
                     >
                       <Ban className="mr-2 size-4" /> Revoke
@@ -227,7 +241,7 @@ export default function ApiKeysPage() {
               className={[
                 'h-7 rounded-md border px-2 capitalize transition-colors',
                 filter === v
-                  ? 'border-[#02C76A] bg-[#02C76A]/10 text-[#02C76A]'
+                  ? 'border-accent bg-accent/10 text-accent'
                   : 'border-border/60 hover:bg-muted',
               ].join(' ')}
             >
@@ -237,7 +251,7 @@ export default function ApiKeysPage() {
         </div>
       </div>
 
-      {isError ? (
+      {isError && !data ? (
         <ErrorBanner message={error?.message ?? 'Failed to load API keys'} onRetry={refetch} />
       ) : (
         <DataTable
@@ -247,6 +261,7 @@ export default function ApiKeysPage() {
           searchPlaceholder="Search by name, prefix…"
           emptyTitle="No API keys"
           emptyDescription="Issue your first key to start integrating."
+          serverRows={serverRowsOf(keysQuery)}
         />
       )}
 
@@ -256,30 +271,25 @@ export default function ApiKeysPage() {
           if (!open) setRotatedSecret(null)
         }}
       />
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
   )
 }
 
 function NewKeyDialog() {
-  const activeMode = useDashboardMode()
-  const seedMode: 'test' | 'live' = activeMode === 'live' ? 'test' : activeMode
+  const mode = useDashboardMode()
   const [open, setOpen] = React.useState(false)
   const [name, setName] = React.useState('')
   const [kind, setKind] = React.useState<ApiKeyKind>('secret')
-  const [mode, setMode] = React.useState<'test' | 'live'>(seedMode)
   const [scopes, setScopes] = React.useState<ApiKeyScope[]>([...ALL_SCOPES])
   const [secret, setSecret] = React.useState<string | null>(null)
-
-  React.useEffect(() => {
-    if (!open) setMode(seedMode)
-  }, [seedMode, open])
 
   const createMutation = useCreateApiKey()
 
   const reset = () => {
     setName('')
     setKind('secret')
-    setMode(seedMode)
     setScopes([...ALL_SCOPES])
     setSecret(null)
   }
@@ -362,28 +372,14 @@ function NewKeyDialog() {
                 <FieldLabel htmlFor="key-mode" required>
                   Mode
                 </FieldLabel>
-                <TooltipProvider delayDuration={100}>
-                  <Select value={mode} onValueChange={(v) => setMode(v as 'test' | 'live')}>
-                    <SelectTrigger id="key-mode">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="test">Test</SelectItem>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex w-full">
-                            <SelectItem value="live" disabled>
-                              Live
-                            </SelectItem>
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="max-w-[220px] text-xs">
-                          Mainnet coming soon. Live mode unlocks when Arc Mainnet launches.
-                        </TooltipContent>
-                      </Tooltip>
-                    </SelectContent>
-                  </Select>
-                </TooltipProvider>
+                <Select value={mode} disabled>
+                  <SelectTrigger id="key-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={mode}>{mode === 'live' ? 'Live' : 'Test'}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid gap-1.5">
                 <FieldLabel htmlFor="key-preset" required>

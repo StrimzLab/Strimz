@@ -13,20 +13,28 @@ import {
   ShieldAlert,
   Wallet as WalletIcon,
 } from 'lucide-react'
-import { encodeFunctionData, erc20Abi, getAddress, isAddress, parseUnits } from 'viem'
-import { arcTestnet } from '@strimz/shared-config'
+import {
+  encodeFunctionData,
+  erc20Abi,
+  formatUnits,
+  getAddress,
+  isAddress,
+  parseUnits,
+  toHex,
+} from 'viem'
+import { arcExplorerTxUrl, getArcChain } from '@strimz/shared-config'
 import { Badge, Button, Card, CardContent, FieldLabel, Input, Label } from '@strimz/ui'
 import type { MerchantBalanceView } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { useMerchantBalance } from '@/hooks/api/use-merchant'
+import { useWithdrawGasQuote } from '@/hooks/use-withdraw-gas-quote'
+import { prepareArcSigning } from '@/lib/arc-network'
 import { env } from '@/lib/env'
-
-const EXPLORER_BY_ENV = {
-  testnet: 'https://testnet.arcscan.app/tx/',
-  mainnet: 'https://arcscan.app/tx/',
-} as const
+import { formatTokenAmount } from '@/lib/format'
+import { privySwitchableWallet } from '@/lib/privy-arc'
+import { checkWithdrawAmount, maxWithdrawable, type WithdrawCheck } from '@/lib/withdraw-gas'
 
 /**
  * Withdraw page.
@@ -60,8 +68,7 @@ export default function WithdrawPage() {
 
   const balance = balanceQuery.data
   const selectedBalance = balance?.balances.find((b) => b.currency === currency)
-  const chain = arcTestnet
-  const explorerBase = EXPLORER_BY_ENV[env.arcEnvironment]
+  const chain = getArcChain(env.arcEnvironment)
 
   const embeddedWallet = useMemo(() => {
     // The dashboard uses Privy's embedded wallet as the payout wallet
@@ -71,18 +78,63 @@ export default function WithdrawPage() {
   }, [wallets])
 
   const destinationOk = destination.trim() !== '' && isAddress(destination.trim())
-  const amountOk = useMemo(() => {
-    if (!amount || !selectedBalance) return false
+  const destinationAddress = destinationOk ? getAddress(destination.trim()) : null
+  const usdcBalance = BigInt(balance?.balances.find((b) => b.currency === 'USDC')?.raw ?? '0')
+  const signingWallet = balance?.canSignFromDashboard ? embeddedWallet : null
+
+  const gasQuery = useWithdrawGasQuote({
+    wallet: signingWallet,
+    chainId: chain.id,
+    token:
+      selectedBalance && isAddress(selectedBalance.contractAddress)
+        ? selectedBalance.contractAddress
+        : undefined,
+    destination: destinationAddress,
+  })
+  const gasReserve = gasQuery.data?.reserve ?? null
+
+  const wanted = useMemo(() => {
+    if (!amount || !selectedBalance) return null
     try {
-      const wanted = parseUnits(amount, selectedBalance.decimals)
-      if (wanted <= 0n) return false
-      return wanted <= BigInt(selectedBalance.raw)
+      return parseUnits(amount, selectedBalance.decimals)
     } catch {
-      return false
+      return null
     }
   }, [amount, selectedBalance])
+
+  const amountCheck: WithdrawCheck | null =
+    wanted === null
+      ? amount
+        ? { ok: false, reason: 'exceeds_balance' }
+        : null
+      : selectedBalance && gasReserve !== null
+        ? checkWithdrawAmount({
+            currency,
+            amount: wanted,
+            balance: BigInt(selectedBalance.raw),
+            usdcBalance,
+            reserve: gasReserve,
+          })
+        : null
+  const amountOk = amountCheck?.ok === true
+
+  function fillMax() {
+    if (!selectedBalance || gasReserve === null) return
+    const max = maxWithdrawable({
+      currency,
+      balance: BigInt(selectedBalance.raw),
+      usdcBalance,
+      reserve: gasReserve,
+    })
+    setAmount(formatUnits(max, selectedBalance.decimals))
+  }
+
   const canSubmit =
-    balance?.canSignFromDashboard && !!embeddedWallet && destinationOk && amountOk && !submitting
+    balance?.canSignFromDashboard &&
+    Boolean(embeddedWallet) &&
+    destinationOk &&
+    amountOk &&
+    !submitting
 
   async function copyAddress(value: string) {
     await navigator.clipboard.writeText(value)
@@ -91,18 +143,38 @@ export default function WithdrawPage() {
 
   async function handleWithdraw(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!canSubmit || !embeddedWallet || !selectedBalance) return
+    if (!canSubmit || !embeddedWallet || !selectedBalance || !destinationAddress || wanted === null)
+      return
     setSubmitting(true)
     setLastTx(null)
     try {
       // Make sure the wallet is on the right chain before signing.
       // Privy handles the switch prompt if needed.
-      await embeddedWallet.switchChain(chain.id)
+      await prepareArcSigning(privySwitchableWallet(embeddedWallet), env.arcEnvironment)
+
+      const fresh = await gasQuery.refetch()
+      if (!fresh.data) {
+        throw new Error(
+          `Couldn't estimate the network fee: ${fresh.error?.message ?? 'no estimate returned'}`,
+        )
+      }
+      const freshCheck = checkWithdrawAmount({
+        currency,
+        amount: wanted,
+        balance: BigInt(selectedBalance.raw),
+        usdcBalance,
+        reserve: fresh.data.reserve,
+      })
+      if (!freshCheck.ok) {
+        throw new Error(
+          withdrawProblem(freshCheck.reason, currency, fresh.data.reserve, usdcBalance),
+        )
+      }
 
       const data = encodeFunctionData({
         abi: erc20Abi,
         functionName: 'transfer',
-        args: [getAddress(destination.trim()), parseUnits(amount, selectedBalance.decimals)],
+        args: [destinationAddress, wanted],
       })
 
       const provider = await embeddedWallet.getEthereumProvider()
@@ -114,6 +186,9 @@ export default function WithdrawPage() {
             to: selectedBalance.contractAddress,
             data,
             value: '0x0',
+            gas: toHex(fresh.data.quote.gas),
+            maxFeePerGas: toHex(fresh.data.quote.maxFeePerGas),
+            maxPriorityFeePerGas: toHex(fresh.data.quote.maxPriorityFeePerGas),
           },
         ],
       })
@@ -153,9 +228,9 @@ export default function WithdrawPage() {
             <BalanceCard balance={balance} onCopy={copyAddress} />
           ) : (
             <Card className="border-border/60 border-dashed">
-              <CardContent className="p-6 text-sm text-[#58556A]">
+              <CardContent className="text-muted-foreground p-6 text-sm">
                 Set a payout address on the{' '}
-                <Link href="/app/settings" className="text-[#02C76A] underline">
+                <Link href="/app/settings" className="text-accent underline">
                   Settings page
                 </Link>{' '}
                 before you can withdraw.
@@ -167,25 +242,25 @@ export default function WithdrawPage() {
             <Card className="border-border/60">
               <CardContent className="p-6">
                 <h3 className="font-sora inline-flex items-center gap-2 text-base font-[600]">
-                  <ArrowUpFromLine className="size-4 text-[#02C76A]" />
+                  <ArrowUpFromLine className="text-accent size-4" />
                   Send funds
                 </h3>
                 {balance.canSignFromDashboard ? (
-                  <p className="font-poppins mt-1 text-xs text-[#58556A]">
+                  <p className="font-poppins text-muted-foreground mt-1 text-xs">
                     You&apos;re paying yourself. Sign the transfer with your Strimz-embedded wallet.
                     No external wallet needed.
                   </p>
                 ) : (
-                  <div className="border-border/60 mt-4 flex items-start gap-2 rounded-md border bg-[#F9FAFB] p-3 text-xs text-[#58556A]">
+                  <div className="border-border/60 bg-muted text-muted-foreground mt-4 flex items-start gap-2 rounded-md border p-3 text-xs">
                     <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
                     <div>
-                      <p className="font-medium text-[#050020]">
+                      <p className="text-foreground font-medium">
                         Your payout goes to an external wallet.
                       </p>
                       <p className="mt-1">
                         You can&apos;t send from this dashboard. Sign in with the wallet that
                         controls{' '}
-                        <code className="text-[#050020]">
+                        <code className="text-foreground">
                           {balance.payoutAddress.slice(0, 6)}…{balance.payoutAddress.slice(-4)}
                         </code>{' '}
                         and transfer from there. Or point your payout to a different address on the
@@ -205,13 +280,13 @@ export default function WithdrawPage() {
                           type="button"
                           onClick={() => setCurrency(b.currency)}
                           className={`border-border/60 flex items-center gap-2 rounded-md border p-3 text-left transition-colors ${
-                            currency === b.currency ? 'border-[#02C76A]/60 bg-[#02C76A]/5' : ''
+                            currency === b.currency ? 'border-accent/60 bg-accent/5' : ''
                           }`}
                         >
                           <TokenLogo symbol={b.currency} size={20} />
                           <div className="flex-1">
                             <div className="font-poppins text-sm font-medium">{b.currency}</div>
-                            <div className="font-poppins text-[10px] text-[#58556A]">
+                            <div className="font-poppins text-muted-foreground text-[10px]">
                               Available {b.formatted}
                             </div>
                           </div>
@@ -262,27 +337,43 @@ export default function WithdrawPage() {
                       {selectedBalance && (
                         <button
                           type="button"
-                          onClick={() => setAmount(selectedBalance.formatted)}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-[#02C76A]/10 px-2 py-1 text-[10px] font-semibold text-[#02C76A]"
+                          onClick={fillMax}
+                          disabled={gasReserve === null}
+                          title={
+                            gasReserve === null
+                              ? 'Enter a destination so the network fee can be estimated'
+                              : undefined
+                          }
+                          className="bg-accent/10 text-accent absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-[10px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           MAX
                         </button>
                       )}
                     </div>
                     {selectedBalance && (
-                      <p className="font-poppins mt-1 text-[10px] text-[#58556A]">
+                      <p className="font-poppins text-muted-foreground mt-1 text-[10px]">
                         Balance: {selectedBalance.formatted} {selectedBalance.currency}
                       </p>
                     )}
-                    {amount && !amountOk && (
+                    {balance.canSignFromDashboard && (
+                      <NetworkFeeNote
+                        destinationOk={destinationOk}
+                        loading={gasQuery.isFetching && gasReserve === null}
+                        error={gasQuery.isError ? gasQuery.error.message : null}
+                        reserve={gasReserve}
+                        currency={currency}
+                        usdcBalance={usdcBalance}
+                      />
+                    )}
+                    {amountCheck && !amountCheck.ok && (
                       <p className="font-poppins mt-1 text-xs text-rose-600">
-                        Enter an amount within your available balance.
+                        {withdrawProblem(amountCheck.reason, currency, gasReserve, usdcBalance)}
                       </p>
                     )}
                   </div>
 
                   <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-1 text-[10px] text-[#58556A]">
+                    <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
                       <Info className="size-3" />
                       Settles in ~13s on {chain.name}
                     </div>
@@ -303,13 +394,13 @@ export default function WithdrawPage() {
                 </form>
 
                 {lastTx && (
-                  <div className="border-border/60 mt-5 rounded-md border bg-[#02C76A]/5 p-3 text-xs">
-                    <p className="font-poppins font-medium text-[#050020]">Transfer signed</p>
+                  <div className="border-border/60 bg-accent/5 mt-5 rounded-md border p-3 text-xs">
+                    <p className="font-poppins text-foreground font-medium">Transfer signed</p>
                     <a
-                      href={`${explorerBase}${lastTx}`}
+                      href={arcExplorerTxUrl(env.arcEnvironment, lastTx)}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-poppins mt-1 inline-flex items-center gap-1 break-all text-[#02C76A] hover:underline"
+                      className="font-poppins text-accent mt-1 inline-flex items-center gap-1 break-all hover:underline"
                     >
                       {lastTx}
                       <ExternalLink className="size-3 shrink-0" />
@@ -325,7 +416,7 @@ export default function WithdrawPage() {
           <Card className="border-border/60">
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <WalletIcon className="size-4 text-[#58556A]" />
+                <WalletIcon className="text-muted-foreground size-4" />
                 <h3 className="font-poppins text-sm font-medium">Non-custodial</h3>
               </div>
               <p className="font-poppins text-muted-foreground mt-2 text-xs leading-5">
@@ -334,11 +425,11 @@ export default function WithdrawPage() {
                 payout from us.
               </p>
               <div className="border-border/60 mt-3 border-t pt-3">
-                <p className="font-poppins text-[10px] uppercase tracking-wider text-[#58556A]">
+                <p className="font-poppins text-muted-foreground text-[10px] uppercase tracking-wider">
                   Settlement chain
                 </p>
                 <div className="mt-1 flex items-center gap-2">
-                  <span className="size-1.5 rounded-full bg-[#02C76A]" />
+                  <span className="bg-accent size-1.5 rounded-full" />
                   <span className="font-poppins text-sm">{chain.name}</span>
                   <Badge variant="outline" className="ml-auto text-[10px] capitalize">
                     {env.arcEnvironment}
@@ -350,6 +441,67 @@ export default function WithdrawPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+function withdrawProblem(
+  reason: Exclude<WithdrawCheck, { ok: true }>['reason'],
+  currency: 'USDC' | 'EURC',
+  reserve: bigint | null,
+  usdcBalance: bigint,
+): string {
+  if (reason === 'not_positive') return 'Enter an amount above zero.'
+  if (reason === 'exceeds_balance') return 'Enter an amount within your available balance.'
+  const fee = reserve === null ? 'the network fee' : formatTokenAmount(reserve.toString(), 'USDC')
+  if (currency === 'USDC') {
+    return `Leave up to ${fee} in USDC for the network fee. MAX does this for you.`
+  }
+  return `Gas on Arc is paid in USDC. You need up to ${fee} for this transfer and have ${formatTokenAmount(usdcBalance.toString(), 'USDC')}. Add USDC to this wallet first.`
+}
+
+function NetworkFeeNote({
+  destinationOk,
+  loading,
+  error,
+  reserve,
+  currency,
+  usdcBalance,
+}: {
+  destinationOk: boolean
+  loading: boolean
+  error: string | null
+  reserve: bigint | null
+  currency: 'USDC' | 'EURC'
+  usdcBalance: bigint
+}) {
+  if (error) {
+    return (
+      <p className="font-poppins mt-1 text-xs text-rose-600">
+        Couldn&apos;t estimate the network fee: {error}
+      </p>
+    )
+  }
+  if (!destinationOk) {
+    return (
+      <p className="font-poppins text-muted-foreground mt-1 text-[10px]">
+        Enter a destination to estimate the network fee.
+      </p>
+    )
+  }
+  if (loading || reserve === null) {
+    return (
+      <p className="font-poppins text-muted-foreground mt-1 text-[10px]">
+        Estimating the network fee…
+      </p>
+    )
+  }
+  const fee = formatTokenAmount(reserve.toString(), 'USDC')
+  return (
+    <p className="font-poppins text-muted-foreground mt-1 text-[10px]">
+      {currency === 'USDC'
+        ? `Up to ${fee} is held back for the network fee, which Arc charges in USDC.`
+        : `Arc charges the network fee in USDC: up to ${fee} comes from your USDC balance (${formatTokenAmount(usdcBalance.toString(), 'USDC')}).`}
+    </p>
   )
 }
 
@@ -379,11 +531,11 @@ function BalanceCard({
       <CardContent className="p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="font-poppins text-[10px] uppercase tracking-wider text-[#58556A]">
+            <p className="font-poppins text-muted-foreground text-[10px] uppercase tracking-wider">
               Payout address
             </p>
             <div className="mt-1 flex items-center gap-2">
-              <code className="font-mono text-sm text-[#050020]">
+              <code className="text-foreground font-mono text-sm">
                 {balance.payoutAddress?.slice(0, 8)}…{balance.payoutAddress?.slice(-6)}
               </code>
               <button
@@ -397,7 +549,7 @@ function BalanceCard({
             </div>
           </div>
           {balance.canSignFromDashboard ? (
-            <Badge className="bg-[#02C76A]/10 text-[#02C76A] hover:bg-[#02C76A]/10">Managed</Badge>
+            <Badge className="bg-accent/10 text-accent hover:bg-accent/10">Managed</Badge>
           ) : (
             <Badge variant="outline">External</Badge>
           )}
@@ -410,8 +562,8 @@ function BalanceCard({
                 <TokenLogo symbol={b.currency} size={20} />
                 <span className="font-poppins text-sm font-medium">{b.currency}</span>
               </div>
-              <p className="font-sora mt-2 text-2xl font-[600] text-[#050020]">{b.formatted}</p>
-              <p className="font-poppins text-[10px] text-[#58556A]">on-chain balance</p>
+              <p className="font-sora text-foreground mt-2 text-2xl font-[600]">{b.formatted}</p>
+              <p className="font-poppins text-muted-foreground text-[10px]">on-chain balance</p>
             </div>
           ))}
         </div>

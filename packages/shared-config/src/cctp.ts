@@ -8,7 +8,7 @@
  */
 
 import type { Address } from 'viem'
-import type { ArcEnvironment } from './chains.js'
+import { parseArcEnvironment, type ArcEnvironment } from './chains.js'
 
 export interface CCTPContractSet {
   tokenMessengerV2: Address
@@ -30,10 +30,10 @@ export const CCTP_CONTRACTS: Record<ArcEnvironment, CCTPContractSet> = {
   mainnet: {
     // Pending Circle's mainnet publication of CCTP V2 addresses for Arc.
     // Testnet values are mirrored as a placeholder so type signatures stay non-null.
-    tokenMessengerV2: '0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA',
-    messageTransmitterV2: '0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275',
-    gatewayWallet: '0x0077777d7EBA4688BDeF3E311b846F25870A19B9',
-    gatewayMinter: '0x0022222ABE238Cc2C7Bb1f21003F0a260052475B',
+    tokenMessengerV2: '0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d',
+    messageTransmitterV2: '0x81D40F21F12A8F0E3252Bccb954D722d4c464B64',
+    gatewayWallet: '0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE',
+    gatewayMinter: '0x2222222d7164433c4C09B0b0D809a9b52C04C205',
     domainId: 26,
   },
 }
@@ -64,5 +64,5 @@ export const CCTP_SUPPORTED_SOURCE_CHAINS: readonly CCTPSourceChain[] = [
 ] as const
 
 export function getCctpContracts(env: ArcEnvironment): CCTPContractSet {
-  return CCTP_CONTRACTS[env]
+  return CCTP_CONTRACTS[parseArcEnvironment(env)]
 }

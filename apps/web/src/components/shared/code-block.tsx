@@ -1,6 +1,7 @@
 'use client'
 
 import { Highlight, type PrismTheme } from 'prism-react-renderer'
+import { useResolvedTheme } from '@strimz/ui'
 
 /**
  * Strimz-tuned light theme. Used on white/F9FAFB backgrounds (Benefits
@@ -75,7 +76,8 @@ export function CodeBlock({
   tone?: 'light' | 'dark'
   className?: string
 }) {
-  const theme = tone === 'dark' ? darkTheme : lightTheme
+  const resolved = useResolvedTheme()
+  const theme = tone === 'dark' || resolved === 'dark' ? darkTheme : lightTheme
   return (
     <Highlight code={code.trim()} language={language} theme={theme}>
       {({ tokens, getLineProps, getTokenProps }) => (

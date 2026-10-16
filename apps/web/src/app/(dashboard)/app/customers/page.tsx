@@ -28,7 +28,8 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable } from '@/components/dashboard/data-table'
 import { downloadCsv } from '@/lib/csv-export'
 import { relativeTime, shortAddress } from '@/lib/format'
-import { useCustomers } from '@/hooks/api'
+import { serverRowsOf, useCustomerPages, useStatsSummary } from '@/hooks/api'
+import { customerCards, summaryValue } from '@/lib/stats-summary'
 
 interface EmailHistoryEntry {
   email: string
@@ -46,12 +47,12 @@ function readEmailHistory(customer: Customer): EmailHistoryEntry[] {
   if (!Array.isArray(raw)) return []
   const entries = raw.filter(
     (entry): entry is EmailHistoryEntry =>
-      !!entry &&
+      Boolean(entry) &&
       typeof entry === 'object' &&
       typeof (entry as EmailHistoryEntry).email === 'string' &&
       typeof (entry as EmailHistoryEntry).seenAt === 'string',
   )
-  return [...entries].sort((a, b) => +new Date(b.seenAt) - +new Date(a.seenAt))
+  return [...entries].sort((a, b) => new Date(b.seenAt).getTime() - new Date(a.seenAt).getTime())
 }
 
 /**
@@ -74,15 +75,24 @@ function readEmailHistory(customer: Customer): EmailHistoryEntry[] {
 interface CustomersView {
   rows: Customer[]
   count: number
+  hasMore: boolean
 }
 
 export default function CustomersPage() {
   const [historyCustomer, setHistoryCustomer] = React.useState<Customer | null>(null)
 
-  const { data, isLoading, isError, error, refetch } = useCustomers(
+  const customersQuery = useCustomerPages(
     { limit: 100 },
-    { select: (page): CustomersView => ({ rows: page.data, count: page.data.length }) },
+    {
+      select: (loaded): CustomersView => ({
+        rows: loaded.rows,
+        count: loaded.rows.length,
+        hasMore: loaded.hasMore,
+      }),
+    },
   )
+  const { data, isLoading, isError, error, refetch } = customersQuery
+  const summaryQuery = useStatsSummary({ select: (summary) => customerCards(summary.customers) })
 
   const columns = React.useMemo<ColumnDef<Customer>[]>(
     () => [
@@ -108,7 +118,7 @@ export default function CustomersPage() {
                         <button
                           type="button"
                           onClick={() => setHistoryCustomer(row.original)}
-                          className="inline-flex items-center rounded-full border border-[#02C76A]/30 bg-[#02C76A]/10 px-1.5 text-[10px] font-medium text-[#02C76A] hover:bg-[#02C76A]/15"
+                          className="border-accent/30 bg-accent/10 text-accent hover:bg-accent/15 inline-flex items-center rounded-full border px-1.5 text-[10px] font-medium"
                         >
                           +{extraCount} more
                         </button>
@@ -163,6 +173,7 @@ export default function CustomersPage() {
         enableSorting: false,
         cell: ({ row }) => {
           const history = readEmailHistory(row.original)
+          const { email } = row.original
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -181,12 +192,10 @@ export default function CustomersPage() {
                 >
                   <Copy className="mr-2 size-4" /> Copy wallet
                 </DropdownMenuItem>
-                {row.original.email ? (
+                {email ? (
                   <DropdownMenuItem
                     onClick={() =>
-                      navigator.clipboard
-                        .writeText(row.original.email!)
-                        .then(() => toast.success('Email copied'))
+                      navigator.clipboard.writeText(email).then(() => toast.success('Email copied'))
                     }
                   >
                     <Mail className="mr-2 size-4" /> Copy email
@@ -240,10 +249,10 @@ export default function CustomersPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Stat label="Total customers" value={data ? data.count.toLocaleString() : '—'} />
+        <Stat label="Total customers" value={summaryValue(summaryQuery, (c) => c.total)} />
       </div>
 
-      {isError ? (
+      {isError && !data ? (
         <ErrorBanner message={error?.message ?? 'Failed to load customers'} onRetry={refetch} />
       ) : (
         <DataTable
@@ -253,6 +262,7 @@ export default function CustomersPage() {
           searchPlaceholder="Search by name, email, wallet…"
           emptyTitle="No customers yet"
           emptyDescription="Once a wallet pays you, they show up here automatically."
+          serverRows={serverRowsOf(customersQuery)}
         />
       )}
 
@@ -271,7 +281,7 @@ function EmailHistoryDialog({
   const history = React.useMemo(() => (customer ? readEmailHistory(customer) : []), [customer])
 
   return (
-    <Dialog open={!!customer} onOpenChange={(open) => (!open ? onClose() : undefined)}>
+    <Dialog open={Boolean(customer)} onOpenChange={(open) => (!open ? onClose() : undefined)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Email history</DialogTitle>
@@ -301,7 +311,7 @@ function EmailHistoryDialog({
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-medium">{entry.email}</span>
                         {idx === 0 ? (
-                          <span className="inline-flex items-center rounded-full border border-[#02C76A]/30 bg-[#02C76A]/10 px-1.5 text-[10px] font-medium text-[#02C76A]">
+                          <span className="border-accent/30 bg-accent/10 text-accent inline-flex items-center rounded-full border px-1.5 text-[10px] font-medium">
                             current
                           </span>
                         ) : null}

@@ -34,7 +34,7 @@ const FEATURES = [
 export function Features() {
   return (
     <>
-      <section className="w-full bg-[#050020] px-4 py-12 md:px-0 md:py-20">
+      <section className="bg-ink w-full px-4 py-12 md:px-0 md:py-20">
         <motion.div
           {...inViewOnce}
           variants={stagger(0.06, 0.1)}
@@ -55,7 +55,7 @@ export function Features() {
               <h3 className="font-sora mt-6 text-[24px] font-[600] leading-[32px] text-white">
                 {f.title}
               </h3>
-              <p className="font-poppins mt-2 text-base font-[400] leading-[28px] text-[#BCBAC4]">
+              <p className="font-poppins text-muted-foreground mt-2 text-base font-[400] leading-[28px]">
                 {f.body}
               </p>
             </motion.div>

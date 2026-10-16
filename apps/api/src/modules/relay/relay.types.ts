@@ -1,4 +1,4 @@
-import type { Hex } from 'viem'
+import type { RelayReason } from '@strimz/queue-contracts'
 
 /**
  * EIP-3009 ReceiveWithAuthorization fields the payer signs off-chain.
@@ -41,7 +41,7 @@ export interface VRSSignature {
  * existing submission rather than creating a second one.
  */
 export interface PayWithAuthorizationInput {
-  idempotencyKey: string
+  idempotencyKey?: string
   merchantId: bigint
   token: `0x${string}`
   auth: PayAuthorization
@@ -52,15 +52,15 @@ export interface PayWithAuthorizationInput {
    *  amount, nonce, validBefore, ref. */
   intentSignature: VRSSignature
   // Optional diagnostics for the operator dashboard. Not used on-chain.
-  merchantInternalId?: string
-  sessionId?: string
+  merchantInternalId: string
+  sessionId: string
 }
 
 /**
  * Caller-facing inputs for the EIP-2612 subscription enrolment path.
  */
 export interface PermitAndCreateSubscriptionInput {
-  idempotencyKey: string
+  idempotencyKey?: string
   merchantId: bigint
   token: `0x${string}`
   amount: bigint
@@ -72,8 +72,8 @@ export interface PermitAndCreateSubscriptionInput {
   permitSignature: VRSSignature
   /** SubscriptionIntent sig — contract verifies. Binds every plan param. */
   intentSignature: VRSSignature
-  merchantInternalId?: string
-  subscriptionInternalId?: string
+  merchantInternalId: string
+  subscriptionInternalId: string
 }
 
 /**
@@ -104,25 +104,13 @@ export interface RelaySubmissionView {
   idempotencyKey: string
   status: RelaySubmissionStatus
   txHash: `0x${string}` | null
-  reason: 'payWithAuthorization' | 'permitAndCreateSubscription'
+  reason: RelayReason
   errorReason: string | null
   attemptCount: number
   enqueuedAt: string
 }
 
-/**
- * Internal job payload. Lives in BullMQ; small and self-contained so
- * the worker can hydrate everything it needs from the queue without
- * a second DB read.
- */
-export interface RelayJobData {
-  idempotencyKey: string
-  reason: 'payWithAuthorization' | 'permitAndCreateSubscription'
-  toAddress: `0x${string}`
-  callData: Hex
-  gasLimit: string // serialised bigint
-  // Diagnostics for operator surfaces — not used by the worker logic.
-  merchantInternalId?: string
+export interface RelaySubmissionScope {
+  merchantInternalId: string
   sessionId?: string
-  subscriptionInternalId?: string
 }

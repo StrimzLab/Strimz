@@ -1,4 +1,5 @@
 import { UnauthorizedException } from '@nestjs/common'
+import { must } from '../must.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -17,7 +18,7 @@ export class StubPrivyService {
     return `test|${opts.did}|${opts.email}|${opts.mfa ? 'mfa' : ''}`
   }
 
-  async verifyAccessToken(token: string): Promise<{
+  verifyAccessToken(token: string): Promise<{
     userId: string
     sessionId: string
     appId: string
@@ -26,34 +27,36 @@ export class StubPrivyService {
     expiration: number
   }> {
     if (!token.startsWith('test|')) {
-      throw new UnauthorizedException({
-        code: 'authentication_error',
-        message: 'invalid or expired session',
-      })
+      return Promise.reject(
+        new UnauthorizedException({
+          code: 'authentication_error',
+          message: 'invalid or expired session',
+        }),
+      )
     }
     const [, did] = token.split('|')
-    return {
+    return Promise.resolve({
       userId: did ?? 'did:privy:test',
       sessionId: 'sess_test',
       appId: 'test-app-id',
       issuer: 'privy.io',
       issuedAt: Math.floor(Date.now() / 1000),
       expiration: Math.floor(Date.now() / 1000) + 3600,
-    }
+    })
   }
 
-  async getUser(privyUserId: string): Promise<any> {
+  getUser(privyUserId: string): Promise<any> {
     // We can't reverse the email/mfa from the DID alone, so callers that need
     // that info must call `verifyAccessToken` first and pass the token through
     // to a paired call. For tests we encode it on the synthetic DID:
     //   `did:privy:<email>:<mfa>`
     const decoded = decodeDid(privyUserId)
-    return {
+    return Promise.resolve({
       id: privyUserId,
       email: decoded.email ? { address: decoded.email } : undefined,
       linkedAccounts: decoded.email ? [{ type: 'email', address: decoded.email }] : [],
       mfaMethods: decoded.mfa ? [{ type: 'totp' }] : [],
-    }
+    })
   }
 
   primaryEmail(user: any): string | null {
@@ -78,5 +81,5 @@ export function makePrivyDid(email: string, mfa = false): string {
 function decodeDid(did: string): { email?: string; mfa?: boolean } {
   const m = did.match(/^did:privy:e2e:([^:]+):([01])$/)
   if (!m) return {}
-  return { email: decodeURIComponent(m[1]!), mfa: m[2] === '1' }
+  return { email: decodeURIComponent(must(m[1])), mfa: m[2] === '1' }
 }

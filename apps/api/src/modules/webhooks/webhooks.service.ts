@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { encryptAesGcm, randomBase64Url, sha256Hex } from '@strimz/shared-crypto'
 import type {
-  CreateWebhookEndpointInput,
+  CreateWebhookEndpointParsed,
   CreateWebhookEndpointOutput,
   WebhookEndpoint,
   WebhookDelivery,
@@ -9,11 +9,11 @@ import type {
 } from '@strimz/shared-types'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
-import { QueueService, QUEUE_NAMES } from '../../infra/queue/queue.service.js'
+import { QueueService } from '../../infra/queue/queue.service.js'
 import { RedisService } from '../../infra/redis/redis.service.js'
 import { isPrivateOrLoopback } from './ssrf-guard.js'
 
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
  * Cache key under which the plaintext signing secret is stored for the
@@ -70,7 +70,7 @@ export class WebhooksService {
 
   async createEndpoint(
     merchantId: string,
-    input: CreateWebhookEndpointInput,
+    input: CreateWebhookEndpointParsed,
   ): Promise<CreateWebhookEndpointOutput> {
     await assertSafeUrl(input.url)
     const secret = `whsec_${randomBase64Url(32)}`
@@ -230,7 +230,7 @@ export class WebhooksService {
       },
     })
 
-    await this.queue.queue(QUEUE_NAMES.webhookDelivery).add('deliver', {
+    await this.queue.addWebhookDelivery({
       deliveryId: reset.deliveryId,
       endpointId: endpoint.id,
       url: endpoint.url,

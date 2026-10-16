@@ -15,7 +15,14 @@ export class TransactionsService {
   async list(
     merchantId: string,
     mode: Mode,
-    params: { limit?: number; cursor?: string | null; kind?: string; status?: string },
+    params: {
+      limit?: number
+      cursor?: string | null
+      kind?: string
+      status?: string
+      sessionId?: string
+      subscriptionId?: string
+    },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.transaction.findMany({
@@ -24,6 +31,8 @@ export class TransactionsService {
         mode,
         kind: (params.kind as never) ?? undefined,
         status: (params.status as never) ?? undefined,
+        sessionId: params.sessionId,
+        subscriptionId: params.subscriptionId,
       },
       orderBy: { blockTimestamp: 'desc' },
       take: limit + 1,

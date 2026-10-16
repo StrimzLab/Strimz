@@ -1,12 +1,19 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
+import { use, useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useAppKit } from '@reown/appkit/react'
+import { useRefreshWhile } from '@/hooks/use-refresh-while'
+import { trialCopy } from '@/lib/subscription-trial'
 import { Loader2, Repeat, ShieldCheck, Wallet } from 'lucide-react'
 import { Badge, FieldLabel, Input } from '@strimz/ui'
-import type { MerchantPublicBrand, SubscriptionPlan, TokenMetadata } from '@strimz/shared-types'
+import type {
+  MerchantPublicBrand,
+  SubscriptionEnrolmentTerms,
+  SubscriptionPlan,
+  TokenMetadata,
+} from '@strimz/shared-types'
 
 import { CheckoutShell, StepIndicator } from '@/components/checkout/checkout-shell'
 import { WalletPickerGuard } from '@/components/checkout/wallet-picker-guard'
@@ -40,6 +47,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
   const [tokenMeta, setTokenMeta] = useState<TokenMetadata | null>(null)
   const [brand, setBrand] = useState<MerchantPublicBrand | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [terms, setTerms] = useState<SubscriptionEnrolmentTerms | null>(null)
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState<string | null>(null)
   const [attaching, setAttaching] = useState(false)
@@ -97,7 +105,40 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
     }
   }, [planId, address])
 
+  useEffect(() => {
+    if (!address) {
+      setTerms(null)
+      return
+    }
+    let cancelled = false
+    void strimzBrowserClient()
+      .checkout.planTerms(planId, address)
+      .then((t) => {
+        if (!cancelled) setTerms(t)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setLoadError((err as Error).message)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [planId, address])
+
+  const resolveStartAt = useCallback(async () => {
+    if (!address) throw new Error('wallet not connected')
+    const fresh = await strimzBrowserClient().checkout.planTerms(planId, address)
+    setTerms(fresh)
+    return BigInt(fresh.startAt)
+  }, [planId, address])
+
   const chainMerchantId = plan?.chainMerchantId ?? null
+  useRefreshWhile(
+    plan !== null && chainMerchantId === null && loadError === null,
+    MERCHANT_READY_POLL_MS,
+    () => strimzBrowserClient().checkout.plan(planId),
+    setPlan,
+    (err) => setLoadError(err.message),
+  )
   const amountBaseUnits = plan ? BigInt(plan.amount) : 0n
   const amountDisplay = formatAmount(amountBaseUnits, tokenMeta?.decimals ?? 6)
   const intervalSeconds = plan?.intervalSeconds ?? 0
@@ -109,7 +150,10 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
     tokenMeta: tokenMeta ?? PLACEHOLDER_TOKEN,
     amount: amountBaseUnits,
     intervalSeconds: intervalSeconds || 1, // hook validates > 0; 1 keeps it from throwing while loading
+    resolveStartAt,
   })
+  const symbol = tokenMeta?.symbol ?? 'USDC'
+  const copy = terms ? trialCopy(terms, `${amountDisplay} ${symbol}`, intervalLabel) : null
 
   const phase = derivePhase({
     hookPhase: subscribe.phase,
@@ -120,6 +164,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
     intervalSeconds,
     loadError,
     alreadySubscribed: existingSub?.active ?? false,
+    termsReady: terms !== null,
   })
 
   return (
@@ -139,11 +184,11 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
       <div className="space-y-6">
         <div>
           <Badge variant="outline" className="mb-3 gap-1.5">
-            <ShieldCheck className="size-3 text-[#02C76A]" />
+            <ShieldCheck className="text-accent size-3" />
             Secured by Strimz
           </Badge>
           <h2 className="font-poppins flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <Repeat className="size-5 text-[#02C76A]" />
+            <Repeat className="text-accent size-5" />
             {phase === 'confirmed'
               ? 'Subscription active'
               : phase === 'already_subscribed'
@@ -218,6 +263,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
                 </p>
               )}
             </div>
+            {copy && <p className="text-foreground text-sm">{copy.notice}</p>}
             <SubmitButton
               type="button"
               onClick={() =>
@@ -237,7 +283,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
               ) : (
                 <TokenLogo symbol={tokenMeta?.symbol ?? 'USDC'} size={18} />
               )}
-              Subscribe. {amountDisplay} {tokenMeta?.symbol ?? 'USDC'}/{intervalLabel}
+              {copy?.button ?? `Subscribe. ${amountDisplay} ${symbol}/${intervalLabel}`}
             </SubmitButton>
           </>
         )}
@@ -245,7 +291,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
         {phase === 'already_subscribed' && (
           <>
             {address && <ConnectedRow address={address} onChange={disconnect} />}
-            <div className="rounded-xl border border-[#02C76A]/30 bg-[#02C76A]/5 p-5 text-sm">
+            <div className="border-accent/30 bg-accent/5 rounded-xl border p-5 text-sm">
               <p className="text-foreground font-medium">
                 This wallet is already subscribed to this plan
               </p>
@@ -264,7 +310,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
         )}
 
         {phase === 'confirmed' && (
-          <div className="rounded-xl border border-[#02C76A]/30 bg-[#02C76A]/5 p-5 text-center text-sm">
+          <div className="border-accent/30 bg-accent/5 rounded-xl border p-5 text-center text-sm">
             <p className="text-foreground font-medium">Subscription active</p>
             {subscribe.txHash && (
               <p className="text-muted-foreground mt-1 break-all font-mono text-xs">
@@ -272,8 +318,8 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
               </p>
             )}
             <p className="text-muted-foreground mt-2 text-xs">
-              Your first charge has been recorded on-chain. Strimz will charge automatically each
-              period. Cancel anytime.
+              {copy?.confirmed ??
+                'Your first charge has been recorded on-chain. Strimz will charge automatically each period. Cancel anytime.'}
             </p>
           </div>
         )}
@@ -359,6 +405,7 @@ function derivePhase(args: {
   intervalSeconds: number
   loadError: string | null
   alreadySubscribed: boolean
+  termsReady: boolean
 }): VisiblePhase {
   const {
     hookPhase,
@@ -369,6 +416,7 @@ function derivePhase(args: {
     intervalSeconds,
     loadError,
     alreadySubscribed,
+    termsReady,
   } = args
   if (loadError) return 'load_error'
   if (!plan || !tokenMeta || intervalSeconds <= 0) return 'loading'
@@ -381,6 +429,7 @@ function derivePhase(args: {
   if (hookPhase === 'polling') return 'polling'
   if (!isConnected) return 'connect'
   if (alreadySubscribed) return 'already_subscribed'
+  if (!termsReady) return 'loading'
   return 'ready'
 }
 
@@ -454,7 +503,7 @@ function BusyState({ phase }: { phase: 'loading' | 'signing' | 'submitting' | 'p
           : 'Confirming on-chain…'
   return (
     <div className="bg-muted/30 flex items-center gap-3 rounded-md px-3 py-3 text-sm">
-      <Loader2 className="size-4 animate-spin text-[#02C76A]" />
+      <Loader2 className="text-accent size-4 animate-spin" />
       <span>{label}</span>
     </div>
   )
@@ -480,21 +529,23 @@ function ErrorBanner({ message, retry }: { message: string; retry?: () => Promis
 function ConnectedRow({ address, onChange }: { address: string; onChange: () => void }) {
   const short = `${address.slice(0, 6)}…${address.slice(-4)}`
   return (
-    <div className="font-poppins flex items-center justify-between rounded-md border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-xs">
+    <div className="font-poppins border-border bg-muted flex items-center justify-between rounded-md border px-3 py-2 text-xs">
       <span className="flex items-center gap-2">
-        <Wallet className="size-3.5 text-[#02C76A]" />
+        <Wallet className="text-accent size-3.5" />
         <span className="font-mono">{short}</span>
       </span>
       <button
         type="button"
         onClick={onChange}
-        className="font-[500] text-[#58556A] hover:text-[#050020]"
+        className="text-muted-foreground hover:text-foreground font-[500]"
       >
         Change
       </button>
     </div>
   )
 }
+
+const MERCHANT_READY_POLL_MS = 3_000
 
 const PLACEHOLDER_TOKEN: TokenMetadata = {
   address: '0x0000000000000000000000000000000000000000',

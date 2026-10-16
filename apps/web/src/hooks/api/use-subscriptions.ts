@@ -10,8 +10,10 @@ import type { CancelSubscriptionInput, Subscription } from '@strimz/shared-types
 
 import type { ListSubscriptionsParams } from '@/lib/merchant-api/resources/subscriptions'
 import type { Page } from '@/lib/merchant-api'
+import type { LoadedRows } from '@/lib/cursor-pages'
 
 import { useMerchantApi } from './merchant-api-context'
+import { useCursorList } from './use-cursor-list'
 import { useMutationWithToast } from './use-mutation-with-toast'
 import { subscriptionKeys } from './query-keys'
 
@@ -77,4 +79,16 @@ export function useCancelSubscription() {
           : 'Subscription will end at period end',
     },
   })
+}
+
+export function useSubscriptionPages<TView>(
+  params: Omit<ListSubscriptionsParams, 'cursor'>,
+  options: { select: (loaded: LoadedRows<Subscription>) => TView },
+) {
+  const api = useMerchantApi()
+  return useCursorList(
+    subscriptionKeys.pages(params),
+    (cursor, signal) => api.subscriptions.list({ ...params, cursor }, { signal }),
+    options,
+  )
 }

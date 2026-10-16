@@ -33,6 +33,8 @@ import { StrimzAgentEscrow } from "../src/agent/StrimzAgentEscrow.sol";
 import { IStrimzAgentEscrow } from "../src/interfaces/IStrimzAgentEscrow.sol";
 
 contract StrimzAgentEscrowTest is StrimzTestBase {
+    bytes32 internal constant REF_HASH = "hash";
+
     TokenWhitelist internal whitelist;
     StrimzAgentEscrow internal escrow;
     address internal arbitrator;
@@ -144,7 +146,7 @@ contract StrimzAgentEscrowTest is StrimzTestBase {
     function test_resolveDisputeSplitsBetweenParties() public {
         uint256 jobId = _createInProgress();
         vm.prank(vendor);
-        escrow.submitDeliverable(jobId, bytes32("hash"));
+        escrow.submitDeliverable(jobId, REF_HASH);
         vm.prank(payer);
         escrow.dispute(jobId, "quality issue");
 
@@ -175,7 +177,7 @@ contract StrimzAgentEscrowTest is StrimzTestBase {
     function test_resolveDisputeRejectsSumMismatch() public {
         uint256 jobId = _createInProgress();
         vm.prank(vendor);
-        escrow.submitDeliverable(jobId, bytes32("hash"));
+        escrow.submitDeliverable(jobId, REF_HASH);
         vm.prank(payer);
         escrow.dispute(jobId, "reason");
 
@@ -204,7 +206,7 @@ contract StrimzAgentEscrowTest is StrimzTestBase {
     function test_resolveDisputeRequiresRole() public {
         uint256 jobId = _createInProgress();
         vm.prank(vendor);
-        escrow.submitDeliverable(jobId, bytes32("hash"));
+        escrow.submitDeliverable(jobId, REF_HASH);
         vm.prank(payer);
         escrow.dispute(jobId, "reason");
 
@@ -254,7 +256,7 @@ contract StrimzAgentEscrowTest is StrimzTestBase {
     function test_vendorReclaimsDeliveredAfterApprovalTimeout() public {
         uint256 jobId = _createInProgress();
         vm.prank(vendor);
-        escrow.submitDeliverable(jobId, bytes32("hash"));
+        escrow.submitDeliverable(jobId, REF_HASH);
 
         vm.warp(block.timestamp + escrow.APPROVAL_TIMEOUT() + 1);
         // Client has no standing here.

@@ -156,7 +156,7 @@ export default function NewInvoicePage() {
                 </Button>
               </div>
 
-              <div className="border-border/60 hidden grid-cols-[minmax(0,4fr)_80px_120px_120px_40px] gap-2 border-b px-2 pb-2 text-[10px] uppercase tracking-wider text-[#8B8896] sm:grid">
+              <div className="border-border/60 text-muted-foreground hidden grid-cols-[minmax(0,4fr)_80px_120px_120px_40px] gap-2 border-b px-2 pb-2 text-[10px] uppercase tracking-wider sm:grid">
                 <span>Description</span>
                 <span className="text-right">Qty</span>
                 <span className="text-right">Unit ({currency})</span>

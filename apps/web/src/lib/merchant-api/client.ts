@@ -1,7 +1,7 @@
 import { env } from '@/lib/env'
 import { getDashboardMode, type DashboardMode } from '@/lib/dashboard-mode'
 import { type AccessTokenProvider, defaultAccessTokenProvider } from './auth-token'
-import { buildApiError, type ApiErrorBody, AuthenticationError } from './errors'
+import { apiErrorFromResponse, AuthenticationError } from './errors'
 
 /**
  * Thin typed fetch wrapper for the merchant dashboard.
@@ -143,18 +143,7 @@ export class MerchantApiClient {
 
     const isJson = response.headers.get('content-type')?.includes('application/json')
 
-    if (!response.ok) {
-      const body: ApiErrorBody = isJson
-        ? await response.json().catch(() => ({
-            code: 'unknown_error',
-            message: `request failed with status ${response.status}`,
-          }))
-        : {
-            code: 'unknown_error',
-            message: `request failed with status ${response.status}`,
-          }
-      throw buildApiError(response.status, body, response.headers)
-    }
+    if (!response.ok) throw await apiErrorFromResponse(response)
 
     if (!isJson) {
       // Defensive: we only call JSON endpoints. A non-JSON 2xx means

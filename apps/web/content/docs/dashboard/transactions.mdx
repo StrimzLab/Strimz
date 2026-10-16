@@ -1,0 +1,34 @@
+---
+title: Transactions page
+description: Every on-chain payment, subscription charge and refund for your account.
+---
+
+Transactions are what actually happened on-chain. A payment session, an invoice, a storefront purchase or a subscription charge becomes a transaction once its payment confirms. Refunds appear here too.
+
+## The layout
+
+The table lists transactions in this mode, most recent first. Columns:
+
+- **ID**: opens the transaction's page
+- **Kind**: Payment, Subscription charge, Invoice payment, Storefront purchase or Refund
+- **Amount** and **Net**: in the transaction's own currency. Net is what reached your payout address after the Strimz fee.
+- **Payer**: the wallet that paid
+- **Status**: `confirmed`, `pending` or `failed`
+- **When**: the block time
+
+Filter by kind and status above the table. **Export CSV** downloads the rows you've loaded, with amounts in base units (6 decimals).
+
+## A transaction's page
+
+Each transaction shows:
+
+- **Amounts:** the amount, the Strimz fee and the net amount;
+- **Wallets:** the payer and the payout address it went to;
+- **Chain:** the block, plus a link to the transaction on Arcscan;
+- **Links:** the payment session, subscription, customer or refund it belongs to.
+
+Confirmed payments have a **Refund** button. It opens the refund dialog with this transaction already filled in. See [Refunds](/docs/dashboard/refunds).
+
+## From the API
+
+`GET /v1/transactions` takes the same filters, plus `sessionId` and `subscriptionId` to list the transactions of one payment session or one subscription. See the [API reference](/docs/api-reference).

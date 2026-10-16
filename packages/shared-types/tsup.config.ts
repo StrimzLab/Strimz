@@ -17,6 +17,7 @@ export default defineConfig({
     'src/storefronts.ts',
     'src/invoices.ts',
     'src/events.ts',
+    'src/analytics.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,

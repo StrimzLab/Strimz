@@ -10,10 +10,12 @@ import type { CreateInvoiceInput, Invoice } from '@strimz/shared-types'
 
 import type { ListInvoicesParams } from '@/lib/merchant-api/resources/invoices'
 import type { Page } from '@/lib/merchant-api'
+import type { LoadedRows } from '@/lib/cursor-pages'
 
 import { useMerchantApi } from './merchant-api-context'
+import { useCursorList } from './use-cursor-list'
 import { useMutationWithToast } from './use-mutation-with-toast'
-import { invoiceKeys } from './query-keys'
+import { analyticsKeys, invoiceKeys } from './query-keys'
 
 type ListOptions<TData = Page<Invoice>> = Omit<
   UseQueryOptions<Page<Invoice>, Error, TData, ReturnType<typeof invoiceKeys.list>>,
@@ -59,6 +61,7 @@ export function useCreateInvoice() {
     onSuccess: (created) => {
       qc.setQueryData(invoiceKeys.detail(created.id), created)
       qc.invalidateQueries({ queryKey: invoiceKeys.lists() })
+      qc.invalidateQueries({ queryKey: analyticsKeys.all })
     },
     messages: {
       loading: 'Creating invoice…',
@@ -75,6 +78,7 @@ export function useSendInvoice() {
     onSuccess: (updated) => {
       qc.setQueryData(invoiceKeys.detail(updated.id), updated)
       qc.invalidateQueries({ queryKey: invoiceKeys.lists() })
+      qc.invalidateQueries({ queryKey: analyticsKeys.all })
     },
     messages: {
       loading: 'Sending invoice…',
@@ -91,10 +95,23 @@ export function useVoidInvoice() {
     onSuccess: (updated) => {
       qc.setQueryData(invoiceKeys.detail(updated.id), updated)
       qc.invalidateQueries({ queryKey: invoiceKeys.lists() })
+      qc.invalidateQueries({ queryKey: analyticsKeys.all })
     },
     messages: {
       loading: 'Voiding invoice…',
       success: (inv) => `Invoice ${inv.number} voided`,
     },
   })
+}
+
+export function useInvoicePages<TView>(
+  params: Omit<ListInvoicesParams, 'cursor'>,
+  options: { select: (loaded: LoadedRows<Invoice>) => TView },
+) {
+  const api = useMerchantApi()
+  return useCursorList(
+    invoiceKeys.pages(params),
+    (cursor, signal) => api.invoices.list({ ...params, cursor }, { signal }),
+    options,
+  )
 }

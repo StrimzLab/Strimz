@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@strimz/db'
+import type { MerchantTier, PrismaClient } from '@strimz/db'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -6,13 +6,14 @@ let counter = 0
 const nextId = (prefix: string): string =>
   `${prefix}_${(counter++).toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 
-export async function seedMerchant(
+export function seedMerchant(
   prisma: PrismaClient,
   overrides: Partial<{
     id: string
     email: string
     businessName: string
     payoutAddress: string
+    tier: MerchantTier
   }> = {},
 ): Promise<any> {
   const id = overrides.id ?? nextId('m')
@@ -24,11 +25,12 @@ export async function seedMerchant(
       businessName: overrides.businessName ?? `Acme ${id}`,
       payoutAddress: overrides.payoutAddress ?? '0x000000000000000000000000000000000000beef',
       emailVerified: true,
+      tier: overrides.tier ?? 'free',
     },
   })
 }
 
-export async function seedAgentConfig(
+export function seedAgentConfig(
   prisma: PrismaClient,
   merchantId: string,
   overrides: Partial<{
@@ -104,7 +106,7 @@ export async function seedSubscription(
   })
 }
 
-export async function seedTransaction(
+export function seedTransaction(
   prisma: PrismaClient,
   merchantId: string,
   overrides: Partial<{
@@ -115,6 +117,8 @@ export async function seedTransaction(
     blockTimestamp: Date
     kind: 'one_shot' | 'subscription_charge' | 'refund'
     status: 'pending' | 'confirmed' | 'failed'
+    currency: 'USDC' | 'EURC'
+    mode: 'live' | 'test'
   }> = {},
 ): Promise<any> {
   return prisma.transaction.create({
@@ -124,7 +128,7 @@ export async function seedTransaction(
       amount: overrides.amount ?? '100000000',
       netAmount: overrides.netAmount ?? '98500000',
       feeAmount: overrides.feeAmount ?? '1500000',
-      currency: 'USDC',
+      currency: overrides.currency ?? 'USDC',
       payerAddress: '0x' + 'b'.repeat(40),
       merchantAddress: '0x' + 'd'.repeat(40),
       onchainTxHash: '0x' + Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64),
@@ -132,13 +136,13 @@ export async function seedTransaction(
       blockTimestamp: overrides.blockTimestamp ?? new Date(),
       logIndex: 0,
       status: (overrides.status ?? 'confirmed') as never,
-      mode: 'live',
+      mode: overrides.mode ?? 'live',
       customerId: overrides.customerId ?? null,
     },
   })
 }
 
-export async function seedAgentJob(
+export function seedAgentJob(
   prisma: PrismaClient,
   merchantId: string,
   overrides: Partial<{

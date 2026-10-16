@@ -49,7 +49,7 @@ export async function generateApiKey(kind: ApiKeyKind, mode: ApiKeyMode): Promis
   }
 }
 
-export async function hashApiKey(secret: string): Promise<string> {
+export function hashApiKey(secret: string): Promise<string> {
   return sha256Hex(secret)
 }
 

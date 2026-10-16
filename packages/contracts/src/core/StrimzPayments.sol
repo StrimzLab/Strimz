@@ -68,6 +68,7 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, EIP
         __Pausable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
+        _grantRole(PAUSER_ROLE, admin);
 
         Storage storage $ = _s();
         $.registry = registry_;
@@ -88,19 +89,19 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, EIP
     ///      malicious registry / fee collector in the middle of a block.
     ///      Legitimate operator flow: pause → rotate → unpause.
 
-    function setRegistry(IStrimzRegistry v) external onlyRole(ADMIN_ROLE) whenPaused {
+    function setRegistry(IStrimzRegistry v) external onlyRole(DEFAULT_ADMIN_ROLE) whenPaused {
         if (address(v) == address(0)) revert Payments__InvalidAmount();
         _s().registry = v;
         emit DependencyUpdated("registry", address(v));
     }
 
-    function setFeeCollector(IFeeCollector v) external onlyRole(ADMIN_ROLE) whenPaused {
+    function setFeeCollector(IFeeCollector v) external onlyRole(DEFAULT_ADMIN_ROLE) whenPaused {
         if (address(v) == address(0)) revert Payments__InvalidAmount();
         _s().feeCollector = v;
         emit DependencyUpdated("feeCollector", address(v));
     }
 
-    function setTokenWhitelist(ITokenWhitelist v) external onlyRole(ADMIN_ROLE) whenPaused {
+    function setTokenWhitelist(ITokenWhitelist v) external onlyRole(DEFAULT_ADMIN_ROLE) whenPaused {
         if (address(v) == address(0)) revert Payments__InvalidAmount();
         _s().tokenWhitelist = v;
         emit DependencyUpdated("tokenWhitelist", address(v));

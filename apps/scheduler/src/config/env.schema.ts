@@ -1,4 +1,8 @@
+import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
+
+const unsetWhenEmpty = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema.optional())
 
 /**
  * Strict env validation. Anything missing or malformed throws at boot — we
@@ -13,21 +17,30 @@ export const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
 
-  ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).default('testnet'),
+  ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).optional(),
   ARC_RPC_URL: z.string().url(),
 
   /**
    * Service-wallet private key. The ONLY process that holds one. Must be a
    * 0x-prefixed 32-byte hex string. Loaded from a secret manager in prod.
    */
-  SCHEDULER_PRIVATE_KEY: z
-    .string()
-    .regex(/^0x[0-9a-fA-F]{64}$/, 'must be a 0x-prefixed 32-byte hex private key'),
+  SCHEDULER_PRIVATE_KEY: unsetWhenEmpty(
+    z.string().regex(/^0x[0-9a-fA-F]{64}$/, 'must be a 0x-prefixed 32-byte hex private key'),
+  ),
+  SCHEDULER_SIGNER_PROVIDER: z.enum(['software', 'aws-kms']).default('software'),
+  SCHEDULER_KMS_KEY_ID: unsetWhenEmpty(z.string()),
+  SCHEDULER_SIGNER_ADDRESS: unsetWhenEmpty(
+    z.string().regex(/^0x[0-9a-fA-F]{40}$/u, 'must be a 0x-prefixed 20-byte hex address'),
+  ),
+  AWS_REGION: unsetWhenEmpty(z.string()),
 
   SUBSCRIPTIONS_ADDRESS: z
     .string()
     .regex(/^0x[0-9a-fA-F]{40}$/, 'must be a 0x-prefixed 20-byte hex address'),
   AGENT_ESCROW_ADDRESS: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{40}$/, 'must be a 0x-prefixed 20-byte hex address'),
+  REGISTRY_ADDRESS: z
     .string()
     .regex(/^0x[0-9a-fA-F]{40}$/, 'must be a 0x-prefixed 20-byte hex address'),
 
@@ -46,6 +59,8 @@ export const envSchema = z.object({
 
   SUBSCRIPTION_SWEEPER_CRON: z.string().default('0 */15 * * * *'),
   INVOICE_OVERDUE_CRON: z.string().default('0 0 * * * *'),
+  PLAN_UPGRADE_CRON: z.string().default('0 */5 * * * *'),
+  CONTRACT_ALERT_CRON: z.string().default('0 * * * * *'),
   SUBSCRIPTION_SWEEP_LIMIT: z.coerce.number().int().min(1).max(10_000).default(100),
   SUBSCRIPTION_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(20),
 
@@ -115,14 +130,70 @@ export const envSchema = z.object({
   DAILY_EMAIL_BUDGET: z.coerce.number().int().positive().default(90),
 })
 
-export type Env = z.infer<typeof envSchema>
+type ParsedEnv = z.infer<typeof envSchema>
+
+function issue(ctx: z.RefinementCtx, path: keyof ParsedEnv, message: string) {
+  ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message })
+}
+
+function schedulerSignerAddress(env: ParsedEnv): string | undefined {
+  if (env.SCHEDULER_SIGNER_PROVIDER === 'aws-kms') return env.SCHEDULER_SIGNER_ADDRESS
+  if (!env.SCHEDULER_PRIVATE_KEY) return undefined
+  return privateKeyToAccount(env.SCHEDULER_PRIVATE_KEY as `0x${string}`).address
+}
+
+const separatedSignersSchema = envSchema.superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' && !env.ARC_ENVIRONMENT) {
+    issue(ctx, 'ARC_ENVIRONMENT', 'required when NODE_ENV=production')
+  }
+
+  if (env.SCHEDULER_SIGNER_PROVIDER === 'software') {
+    if (env.NODE_ENV === 'production') {
+      issue(
+        ctx,
+        'SCHEDULER_SIGNER_PROVIDER',
+        'software keeps the scheduler key in process memory and is refused in production; set aws-kms',
+      )
+    }
+    if (!env.SCHEDULER_PRIVATE_KEY) {
+      issue(ctx, 'SCHEDULER_PRIVATE_KEY', 'required when SCHEDULER_SIGNER_PROVIDER=software')
+    }
+  } else {
+    for (const key of ['SCHEDULER_KMS_KEY_ID', 'SCHEDULER_SIGNER_ADDRESS', 'AWS_REGION'] as const) {
+      if (!env[key]) issue(ctx, key, 'required when SCHEDULER_SIGNER_PROVIDER=aws-kms')
+    }
+    if (env.SCHEDULER_PRIVATE_KEY) {
+      issue(
+        ctx,
+        'SCHEDULER_PRIVATE_KEY',
+        'must be unset when SCHEDULER_SIGNER_PROVIDER=aws-kms; remove the plaintext key',
+      )
+    }
+  }
+
+  const schedulerAddress = schedulerSignerAddress(env)
+  if (schedulerAddress?.toLowerCase() === env.RELAYER_ADDRESS.toLowerCase()) {
+    issue(
+      ctx,
+      'RELAYER_ADDRESS',
+      "must not be the scheduler's signing address; the scheduler and the API relayer need separate keys",
+    )
+  }
+})
 
 /**
  * `validate` is the function `@nestjs/config` calls; it must throw when
  * validation fails. Returns the parsed object so `.get` reads typed values.
  */
+const validatedEnvSchema = separatedSignersSchema.transform((env) => ({
+  ...env,
+  ARC_ENVIRONMENT: env.ARC_ENVIRONMENT ?? 'testnet',
+}))
+
+export type Env = z.output<typeof validatedEnvSchema>
+
 export function validateEnv(raw: Record<string, unknown>): Env {
-  const parsed = envSchema.safeParse(raw)
+  const parsed = validatedEnvSchema.safeParse(raw)
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((i) => `  • ${i.path.join('.')}: ${i.message}`)

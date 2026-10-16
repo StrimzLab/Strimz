@@ -14,6 +14,7 @@ through its KMS provider and broadcasts.
 | Subscription lapsed    | Cron                                         | Flip `at_risk → lapsed` once `currentPeriodEndAt + gracePeriodHours` has elapsed, fire `subscription.lapsed` webhook                                                                                                                                                                                                                                         |
 | Agent escrow ops       | `strimz.agent.action` queue                  | Subscription cancel + full job lifecycle (create / release / dispute / cancel)                                                                                                                                                                                                                                                                               |
 | Invoice overdue        | Cron                                         | Flip past-due `Invoice` rows to `overdue`, fire `invoice.overdue` webhook                                                                                                                                                                                                                                                                                    |
+| Plan upgrade           | Cron (every 5 min)                           | Sums each registered merchant's all-time confirmed volume per currency in the deployment's mode. When it earns a higher plan, sends `setFeeBps` from the scheduler key (`FEE_MANAGER_ROLE`), waits for the receipt, then moves `Merchant.tier`, writes a `merchant.plan_upgraded` audit entry and emails the merchant. Only moves up.                        |
 | Merchant notifications | Cron                                         | Polls four `*NotifiedAt IS NULL` lanes — `Merchant.welcomeNotifiedAt`, `PaymentSession`, `Subscription`, `SubscriptionCharge` — renders the matching React Email template, sends via Resend, stamps the column. One-shot per row.                                                                                                                            |
 | Gas balance monitor    | Cron                                         | Reads the relayer + scheduler USDC balances on Arc. Edge-triggered alert to `STRIMZ_ADMIN_ALERT_EMAIL` on the transition below `GAS_BALANCE_THRESHOLD_USDC`. 24h Redis dedup flag prevents repeat alerts; the flag self-clears once balance recovers.                                                                                                        |
 
@@ -37,6 +38,7 @@ src/
     subscription-sweeper     SELECT … FOR UPDATE SKIP LOCKED; multi-instance safe
     subscription-lapsed      flip at_risk → lapsed after grace; fire subscription.lapsed
     invoice-overdue          flip + fire invoice.overdue webhook
+    plan-upgrade             fee change on-chain, then tier + audit + email; up only
     merchant-notifications   four-lane email cron; one-shot stamps on the source row
     gas-balance-monitor      relayer + scheduler USDC watchdog; edge-triggered alerts
 ```

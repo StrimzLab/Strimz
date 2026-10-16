@@ -1,7 +1,6 @@
 import { Injectable, ForbiddenException, Logger } from '@nestjs/common'
 import { Prisma } from '@strimz/db'
 import { PrivyService } from '../../infra/privy/privy.service.js'
-import { TurnstileService } from '../../infra/turnstile/turnstile.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import type { Merchant } from '@strimz/shared-types'
 import { serialiseMerchant } from '../merchants/merchants.serialiser.js'
@@ -18,29 +17,8 @@ export class AuthService {
 
   constructor(
     private readonly privy: PrivyService,
-    private readonly turnstile: TurnstileService,
     private readonly prisma: PrismaService,
   ) {}
-
-  /**
-   * Pre-signup bot-protection check. The dashboard renders Cloudflare
-   * Turnstile on the signup page and posts the resulting token here before
-   * opening the Privy widget. Failing this aborts the flow before any
-   * Privy session is created.
-   */
-  async verifyTurnstile(token: string, remoteIp?: string): Promise<{ ok: boolean }> {
-    // Pin the expected action to the surface the signup widget renders
-    // with (`action: 'signup'`). A token minted on a different surface
-    // and replayed here will be rejected even if structurally valid.
-    const ok = await this.turnstile.verify(token, remoteIp, 'signup')
-    if (!ok) {
-      throw new ForbiddenException({
-        code: 'permission_denied',
-        message: 'bot-protection check failed',
-      })
-    }
-    return { ok: true }
-  }
 
   /**
    * Idempotent: verifies the Privy access token, upserts the Merchant row,

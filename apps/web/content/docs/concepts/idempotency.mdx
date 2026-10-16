@@ -30,6 +30,18 @@ When the API enqueues a job onto BullMQ (webhook delivery, subscription charge, 
 
 The scheduler then processes each job exactly once. If the job fails partway through, BullMQ marks it failed and the worker can retry. The partial work it did is itself idempotent (see below).
 
+### Relay submissions
+
+Payer-signed submissions to `/v1/relay/payments` and
+`/v1/relay/subscriptions` do not use a key you choose. Strimz derives
+the job ID from the signed calldata and returns it as `idempotencyKey`.
+Resending the same signed payload returns the same submission, and a
+newly signed retry is a new submission. A retry for a payment session
+cannot become a second charge: every authorization for the session uses
+the same EIP-3009 nonce, which the token accepts once per payer wallet,
+and Strimz refuses a new attempt while an earlier one can still land.
+See the relay section of the [API reference](/docs/api-reference).
+
 ## On-chain
 
 This is the layer where stablecoins genuinely pull their weight. The

@@ -11,7 +11,7 @@ on a stablecoin chain.
 
 **Secret key.** Full permissions, server-side only. Prefixed `sk_test_` or `sk_live_`.
 
-**Publishable key.** Read access plus the ability to create a payment session. Safe to ship in a browser. Prefixed `pk_test_` or `pk_live_`.
+**Publishable key.** Marks browser calls as test or live mode and grants no access. The public checkout and token routes do not check it, and every other route rejects it. It cannot create a payment session. Safe to ship in a browser. Prefixed `pk_test_` or `pk_live_`.
 
 ## Charge attempt ID
 

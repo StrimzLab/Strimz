@@ -1,13 +1,20 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useAccount, useChainId, useSignTypedData } from 'wagmi'
+import { getAccount } from '@wagmi/core'
+import { useAccount, useConfig, useSignTypedData, useSwitchChain } from 'wagmi'
 import { buildPermitTypedData, buildSubscriptionIntentTypedData } from '@strimz/sdk/eip712'
 import type { TokenMetadata } from '@strimz/shared-types'
 
+import {
+  checkoutSubmissionUrl,
+  relayErrorMessage,
+  submitCheckoutRelay,
+  type RelaySubmissionView,
+} from '@/lib/checkout-submission'
+import { prepareArcSigning } from '@/lib/arc-network'
 import { env } from '@/lib/env'
 import { strimzBrowserClient } from '@/lib/strimz-browser'
-import type { RelaySubmissionView } from '@/lib/strimz-bff'
 
 /**
  * Subscription enrolment flow on the hosted checkout.
@@ -42,6 +49,7 @@ export interface SubscriptionCheckoutInputs {
   intervalSeconds: number
   /** Unix seconds of the first charge; 0 = "now". */
   startAt?: bigint
+  resolveStartAt?: () => Promise<bigint>
   /** Unix seconds after which the schedule stops; 0 = open-ended. */
   endAt?: bigint
   /** Allowance value to grant via permit. Defaults to type(uint256).max,
@@ -92,11 +100,13 @@ export function useSubscriptionCheckout(
     startAt = 0n,
     endAt = 0n,
   } = inputs
+  const resolveStartAt = inputs.resolveStartAt
   const permitValue = inputs.permitValue ?? UINT256_MAX
   const permitValidForSeconds = inputs.permitValidForSeconds ?? 24 * 60 * 60
 
   const { address } = useAccount()
-  const chainId = useChainId()
+  const config = useConfig()
+  const { switchChainAsync } = useSwitchChain()
   const { signTypedDataAsync } = useSignTypedData()
 
   const [state, setState] = useState<SubscriptionCheckoutState>({
@@ -135,7 +145,15 @@ export function useSubscriptionCheckout(
     setState({ phase: 'signing', error: null, txHash: null, submission: null })
 
     try {
+      const chainId = await prepareArcSigning(
+        {
+          chainId: () => Promise.resolve(getAccount(config).chainId),
+          switchChain: (id) => switchChainAsync({ chainId: id }),
+        },
+        env.arcEnvironment,
+      )
       const tokenAddress = tokenMeta.address as `0x${string}`
+      const signedStartAt = resolveStartAt ? await resolveStartAt() : startAt
 
       // Read the payer's current permit nonce immediately before
       // signing. The token contract rejects stale nonces, so racing
@@ -172,7 +190,7 @@ export function useSubscriptionCheckout(
         token: tokenAddress,
         amount,
         interval: intervalSeconds,
-        startAt,
+        startAt: signedStartAt,
         endAt,
         permitDeadline: deadline,
       })
@@ -186,16 +204,12 @@ export function useSubscriptionCheckout(
       // sessionId here is the shared planId, so scope the relay dedupe key by
       // payer — otherwise a second wallet on the same plan collides with the
       // first. BullMQ job ids can't contain ':', so join with '-'.
-      const idempotencyKey = `${sessionId}-${address.toLowerCase()}`
-
       const submission = await postSubmit(sessionId, {
-        kind: 'subscription',
-        idempotencyKey,
         merchantId: merchantId.toString(),
         token: tokenAddress,
         amount: amount.toString(),
         interval: intervalSeconds,
-        startAt: startAt.toString(),
+        startAt: signedStartAt.toString(),
         endAt: endAt.toString(),
         permitData: {
           owner: address,
@@ -206,8 +220,13 @@ export function useSubscriptionCheckout(
         intentSignature: { v: intentSig.v, r: intentSig.r, s: intentSig.s },
       })
 
+      const settled = mapTerminalPhase(submission.status)
+      if (settled) {
+        setState({ phase: settled, error: null, txHash: submission.txHash, submission })
+        return
+      }
       setState({ phase: 'polling', error: null, txHash: null, submission })
-      await pollUntilTerminal(sessionId, idempotencyKey, (next) => {
+      await pollUntilTerminal(sessionId, submission.idempotencyKey, (next) => {
         setState((prev) => ({ ...prev, submission: next, txHash: next.txHash }))
         return mapTerminalPhase(next.status)
       }).then((terminal) => {
@@ -221,13 +240,15 @@ export function useSubscriptionCheckout(
     }
   }, [
     address,
-    chainId,
+    config,
+    switchChainAsync,
     sessionId,
     merchantId,
     tokenMeta,
     amount,
     intervalSeconds,
     startAt,
+    resolveStartAt,
     endAt,
     permitValue,
     permitValidForSeconds,
@@ -260,8 +281,6 @@ function splitSignature(sigHex: `0x${string}`): {
 }
 
 interface SubmitBody {
-  kind: 'subscription'
-  idempotencyKey: string
   merchantId: string
   token: `0x${string}`
   amount: string
@@ -273,17 +292,8 @@ interface SubmitBody {
   intentSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
 }
 
-async function postSubmit(sessionId: string, body: SubmitBody): Promise<RelaySubmissionView> {
-  const res = await fetch(`/api/checkout/sessions/${encodeURIComponent(sessionId)}/submit`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) {
-    const detail = await res.json().catch(() => ({ message: `submit failed (${res.status})` }))
-    throw new Error(detail.message ?? `submit failed (${res.status})`)
-  }
-  return (await res.json()) as RelaySubmissionView
+function postSubmit(sessionId: string, body: SubmitBody): Promise<RelaySubmissionView> {
+  return submitCheckoutRelay({ kind: 'plans', id: sessionId }, body)
 }
 
 async function pollUntilTerminal(
@@ -294,7 +304,7 @@ async function pollUntilTerminal(
   const start = Date.now()
   while (Date.now() - start < POLL_TIMEOUT_MS) {
     const res = await fetch(
-      `/api/checkout/sessions/${encodeURIComponent(sessionId)}/submissions/${encodeURIComponent(idempotencyKey)}`,
+      checkoutSubmissionUrl({ kind: 'plans', id: sessionId }, idempotencyKey),
       { cache: 'no-store' },
     )
     if (res.ok) {
@@ -323,11 +333,7 @@ function isFatalPollStatus(status: number): boolean {
 async function pollErrorMessage(res: Response): Promise<string> {
   const fallback = `submission status check failed (${res.status})`
   try {
-    const body = (await res.json()) as {
-      message?: string
-      detail?: { message?: string; error?: { message?: string } }
-    }
-    return body.detail?.error?.message ?? body.detail?.message ?? body.message ?? fallback
+    return relayErrorMessage(await res.json(), fallback)
   } catch {
     return fallback
   }

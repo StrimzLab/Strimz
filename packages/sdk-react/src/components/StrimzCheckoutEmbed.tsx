@@ -3,6 +3,8 @@
 import * as React from 'react'
 import { useStrimzContext } from '../provider.js'
 
+export type StrimzCheckoutTheme = 'light' | 'dark'
+
 export interface StrimzCheckoutEmbedProps {
   /** Strimz session id created via `@strimz/sdk` on your backend. */
   sessionId: string
@@ -18,6 +20,7 @@ export interface StrimzCheckoutEmbedProps {
   style?: React.CSSProperties
   /** Iframe height. Default 600. */
   height?: number | string
+  theme?: StrimzCheckoutTheme
 }
 
 /**
@@ -35,6 +38,7 @@ export function StrimzCheckoutEmbed({
   className,
   style,
   height = 600,
+  theme,
 }: StrimzCheckoutEmbedProps) {
   const { checkoutOrigin } = useStrimzContext()
   // `checkoutOrigin` may carry a path (e.g. https://strimz.finance/pay); a
@@ -72,7 +76,8 @@ export function StrimzCheckoutEmbed({
   }, [expectedOrigin])
 
   // Payment sessions are hosted at /pay/{id}.
-  const src = `${checkoutOrigin}/pay/${encodeURIComponent(sessionId)}?embed=1`
+  const themeQuery = theme ? `&theme=${theme}` : ''
+  const src = `${checkoutOrigin}/pay/${encodeURIComponent(sessionId)}?embed=1${themeQuery}`
 
   return (
     <div className={className} style={{ width: '100%', ...(style ?? {}) }}>

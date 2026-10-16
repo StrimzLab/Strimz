@@ -5,8 +5,8 @@ import type { Address } from 'viem'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { TOKEN_ADDRESSES } from '@strimz/shared-config'
-import { QUEUE_NAMES } from '../../infra/queue/queue-names.js'
-import { agentActionJobSchema, type AgentActionJob } from '../../infra/queue/job-payloads.js'
+import { QUEUE_NAMES } from '@strimz/queue-contracts'
+import { agentActionJobSchema, type AgentActionJob } from '@strimz/queue-contracts'
 import { TypedConfigService } from '../../config/index.js'
 
 /**
@@ -28,7 +28,11 @@ export class AgentActionWorker extends WorkerHost {
   }
 
   async process(job: Job<AgentActionJob>): Promise<{ txHash: string }> {
-    const data = agentActionJobSchema.parse(job.data)
+    const result = await this.dispatch(agentActionJobSchema.parse(job.data))
+    return result
+  }
+
+  private dispatch(data: AgentActionJob): Promise<{ txHash: string }> {
     switch (data.type) {
       case 'subscription.cancel-onchain':
         return this.cancelSubscription(data)

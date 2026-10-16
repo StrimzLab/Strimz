@@ -15,10 +15,12 @@ import type {
 
 import type { ListRefundsParams } from '@/lib/merchant-api/resources/refunds'
 import type { Page } from '@/lib/merchant-api'
+import type { LoadedRows } from '@/lib/cursor-pages'
 
 import { useMerchantApi } from './merchant-api-context'
+import { useCursorList } from './use-cursor-list'
 import { useMutationWithToast } from './use-mutation-with-toast'
-import { paymentSessionKeys, refundKeys, transactionKeys } from './query-keys'
+import { analyticsKeys, paymentSessionKeys, refundKeys, transactionKeys } from './query-keys'
 
 type ListOptions<TData = Page<Refund>> = Omit<
   UseQueryOptions<Page<Refund>, Error, TData, ReturnType<typeof refundKeys.list>>,
@@ -74,6 +76,7 @@ export function useCreateRefund() {
       const created = out.refund
       qc.setQueryData(refundKeys.detail(created.id), created)
       qc.invalidateQueries({ queryKey: refundKeys.lists() })
+      qc.invalidateQueries({ queryKey: analyticsKeys.all })
       qc.invalidateQueries({ queryKey: transactionKeys.detail(created.transactionId) })
       qc.invalidateQueries({ queryKey: transactionKeys.lists() })
       qc.invalidateQueries({ queryKey: paymentSessionKeys.lists() })
@@ -98,8 +101,21 @@ export function useSubmitRefundSignature() {
     onSuccess: (updated) => {
       qc.setQueryData(refundKeys.detail(updated.id), updated)
       qc.invalidateQueries({ queryKey: refundKeys.lists() })
+      qc.invalidateQueries({ queryKey: analyticsKeys.all })
       qc.invalidateQueries({ queryKey: transactionKeys.detail(updated.transactionId) })
       qc.invalidateQueries({ queryKey: transactionKeys.lists() })
     },
   })
+}
+
+export function useRefundPages<TView>(
+  params: Omit<ListRefundsParams, 'cursor'>,
+  options: { select: (loaded: LoadedRows<Refund>) => TView },
+) {
+  const api = useMerchantApi()
+  return useCursorList(
+    refundKeys.pages(params),
+    (cursor, signal) => api.refunds.list({ ...params, cursor }, { signal }),
+    options,
+  )
 }

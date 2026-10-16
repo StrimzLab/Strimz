@@ -40,7 +40,7 @@ export const AlertDialogContent = React.forwardRef<
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-1/2 top-1/2 z-[80] grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[14px] border border-[#E5E7EB] bg-white p-6 shadow-[0_25px_50px_-12px_rgba(5,0,32,0.25)]',
+        'border-border bg-card fixed left-1/2 top-1/2 z-[80] grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[14px] border p-6 shadow-[0_25px_50px_-12px_rgba(5,0,32,0.25)]',
         'transition-[opacity,transform] duration-200',
         'data-[state=closed]:scale-95 data-[state=open]:scale-100 data-[state=closed]:opacity-0 data-[state=open]:opacity-100',
         className,
@@ -76,7 +76,7 @@ export const AlertDialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Title
     ref={ref}
-    className={cn('font-sora text-lg font-[700] text-[#050020]', className)}
+    className={cn('font-sora text-foreground text-lg font-[700]', className)}
     {...props}
   />
 ))
@@ -88,7 +88,7 @@ export const AlertDialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AlertDialogPrimitive.Description
     ref={ref}
-    className={cn('font-poppins text-sm text-[#58556A]', className)}
+    className={cn('font-poppins text-muted-foreground text-sm', className)}
     {...props}
   />
 ))

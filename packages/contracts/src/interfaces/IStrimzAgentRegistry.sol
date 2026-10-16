@@ -30,6 +30,7 @@ interface IStrimzAgentRegistry {
     error AgentRegistry__NotController();
     error AgentRegistry__NotAgent();
     error AgentRegistry__ZeroAddress();
+    error AgentRegistry__Suspended(address agent);
 
     function registerAgent(address agent, bytes32 credentialDigest, string calldata name, string calldata version)
         external;
@@ -38,6 +39,11 @@ interface IStrimzAgentRegistry {
     function adjustReputation(address agent, int256 delta) external;
     function deactivate(address agent) external;
 
+    /// @notice Restore a deactivated agent. Same standing as `deactivate`:
+    ///         the agent's controller, or AGENT_ADMIN_ROLE.
+    function activate(address agent) external;
+
     function getAgent(address agent) external view returns (Agent memory);
     function isActive(address agent) external view returns (bool);
+    function isSuspended(address agent) external view returns (bool);
 }

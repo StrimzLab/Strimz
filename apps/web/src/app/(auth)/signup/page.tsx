@@ -1,198 +1,45 @@
 'use client'
 
+import { Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { usePrivy } from '@privy-io/react-auth'
-import { toast } from 'sonner'
-import { ArrowRight } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
 import { AuthCard } from '@/components/auth/auth-card'
-import { SubmitButton } from '@/components/auth/submit-button'
+import {
+  PrivyContinueButton,
+  UnconfiguredContinueButton,
+} from '@/components/auth/privy-continue-button'
+import { safeNextPath, withNext } from '@/lib/auth-redirect'
 import { env } from '@/lib/env'
 
-interface TurnstileApi {
-  render: (
-    el: HTMLElement,
-    opts: {
-      sitekey: string
-      action?: string
-      theme?: 'light' | 'dark' | 'auto'
-      callback: (token: string) => void
-      'error-callback'?: (errorCode: string) => void
-      'expired-callback'?: () => void
-      'timeout-callback'?: () => void
-    },
-  ) => string
-  reset: (id?: string) => void
-  remove?: (id: string) => void
-}
-
-function getTurnstile(): TurnstileApi | undefined {
-  return (window as unknown as { turnstile?: TurnstileApi }).turnstile
-}
-
 export default function SignupPage() {
-  const router = useRouter()
-  const privy = usePrivyOrNull()
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
-  const [verifying, setVerifying] = useState(false)
+  return (
+    <Suspense>
+      <Signup />
+    </Suspense>
+  )
+}
 
-  useEffect(() => {
-    if (!env.turnstileSiteKey) return
-    const container = document.getElementById('strimz-turnstile')
-    if (!container) return
-
-    let widgetId: string | undefined
-    let pollTimer = 0
-    let cancelled = false
-
-    // Render (or re-render) the widget into a clean container. Called on
-    // every mount — the earlier version only rendered inside the script's
-    // one-time `onload`, so navigating back to /signup (script already
-    // loaded) left the container empty and blocked "create account".
-    const renderWidget = () => {
-      const turnstile = getTurnstile()
-      if (cancelled || !turnstile || !container) return
-      container.innerHTML = ''
-      widgetId = turnstile.render(container, {
-        sitekey: env.turnstileSiteKey,
-        // `action` lets Cloudflare differentiate signup-page tokens and
-        // lets the api-side validator confirm the surface the token came from.
-        action: 'signup',
-        theme: 'light',
-        callback: (token) => setTurnstileToken(token),
-        // Token expired before submit — clear it so the user gets a fresh
-        // challenge instead of a stale token the api would reject.
-        'expired-callback': () => {
-          setTurnstileToken(null)
-          toast.info('Bot-protection check expired. Please try again.')
-        },
-        'error-callback': (code) => {
-          setTurnstileToken(null)
-          // eslint-disable-next-line no-console
-          console.warn('[turnstile] error', code)
-          toast.error('Bot-protection check failed. Please refresh and try again.')
-        },
-        'timeout-callback': () => {
-          setTurnstileToken(null)
-          toast.info('Verification timed out. Please try again.')
-        },
-      })
-    }
-
-    if (getTurnstile()) {
-      // Script already loaded on an earlier visit — render immediately.
-      renderWidget()
-    } else if (!document.querySelector('script[data-strimz-turnstile]')) {
-      // First load: inject the script once, render when it's ready.
-      const s = document.createElement('script')
-      s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
-      s.async = true
-      s.defer = true
-      s.dataset.strimzTurnstile = 'true'
-      s.onload = renderWidget
-      document.head.appendChild(s)
-    } else {
-      // Script tag is present but the API hasn't finished loading — poll.
-      pollTimer = window.setInterval(() => {
-        if (getTurnstile()) {
-          window.clearInterval(pollTimer)
-          renderWidget()
-        }
-      }, 120)
-    }
-
-    return () => {
-      cancelled = true
-      if (pollTimer) window.clearInterval(pollTimer)
-      const turnstile = getTurnstile()
-      if (widgetId && turnstile?.remove) turnstile.remove(widgetId)
-      else container.innerHTML = ''
-    }
-  }, [])
-
-  async function handleStart() {
-    if (env.turnstileSiteKey && !turnstileToken) {
-      toast.error('Please complete the bot-protection check')
-      return
-    }
-    setVerifying(true)
-    try {
-      if (env.turnstileSiteKey && turnstileToken) {
-        // Verify against the local Next.js route handler at
-        // `/api/auth/turnstile/verify`, not apps/api. The verify is just
-        // a thin Cloudflare Siteverify proxy that doesn't need the
-        // database or merchant context. Keeping it in apps/web means
-        // signup works without apps/api having to be deployed yet, and
-        // sidesteps the cross-origin call.
-        let ok = false
-        try {
-          const r = await fetch('/api/auth/turnstile/verify', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ token: turnstileToken, action: 'signup' }),
-          })
-          ok = r.ok
-        } catch (err) {
-          // Network / CORS / offline. Surface this rather than silently
-          // killing the flow. The previous implementation had no catch
-          // here and a failed fetch left the user staring at a dead
-          // Continue button with no feedback.
-          // eslint-disable-next-line no-console
-          console.error('[turnstile] verify call failed:', err)
-          toast.error('Could not reach bot-protection service. Please try again.')
-          getTurnstile()?.reset()
-          setTurnstileToken(null)
-          return
-        }
-        if (!ok) {
-          toast.error('Bot-protection check failed. Please try again.')
-          getTurnstile()?.reset()
-          setTurnstileToken(null)
-          return
-        }
-      }
-      if (!privy) {
-        toast.error('Authentication not configured. Set NEXT_PUBLIC_PRIVY_APP_ID.')
-        return
-      }
-      await privy.login()
-      // Route group `(auth)` is stripped from the URL, so the callback
-      // page lives at `/callback` not `/auth/callback`.
-      router.push('/callback')
-    } catch (err) {
-      // Final safety net so any unexpected error (Privy widget,
-      // navigation, etc.) surfaces a toast instead of vanishing.
-      // eslint-disable-next-line no-console
-      console.error('[signup] unexpected error:', err)
-      toast.error('Something went wrong. Please try again.')
-    } finally {
-      setVerifying(false)
-    }
-  }
+function Signup() {
+  const next = safeNextPath(useSearchParams().get('next'))
 
   return (
     <AuthCard
       title="Create your Strimz account"
       description="Sign up with email, your wallet, or Google. It takes about two minutes."
     >
-      {env.turnstileSiteKey ? (
-        <div id="strimz-turnstile" className="mb-5 flex justify-center" />
-      ) : null}
+      {env.privyAppId ? <PrivyContinueButton next={next} /> : <UnconfiguredContinueButton />}
 
-      <SubmitButton isLoading={verifying} onClick={handleStart} type="button">
-        Continue
-        <ArrowRight className="size-4" />
-      </SubmitButton>
-
-      <p className="font-poppins mt-6 text-center text-sm text-[#58556A]">
+      <p className="font-poppins text-muted-foreground mt-6 text-center text-sm">
         Already have an account?{' '}
-        <Link href="/login" className="font-[500] text-[#050020] hover:underline">
+        <Link
+          href={withNext('/login', next)}
+          className="text-foreground font-[500] hover:underline"
+        >
           Log in
         </Link>
       </p>
 
-      <p className="font-poppins mt-6 text-center text-xs text-[#58556A]">
+      <p className="font-poppins text-muted-foreground mt-6 text-center text-xs">
         By continuing you agree to our{' '}
         <Link
           href="/legal/terms"
@@ -215,12 +62,4 @@ export default function SignupPage() {
       </p>
     </AuthCard>
   )
-}
-
-function usePrivyOrNull() {
-  try {
-    return usePrivy()
-  } catch {
-    return null
-  }
 }

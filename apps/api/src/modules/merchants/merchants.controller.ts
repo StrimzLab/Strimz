@@ -1,13 +1,15 @@
 import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
+import { SessionOnly } from '../../common/decorators/session-only.decorator.js'
+import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
 } from '../../common/decorators/current-merchant.decorator.js'
 import { MerchantsService } from './merchants.service.js'
 import { MerchantChainService } from './merchant-chain.service.js'
-import { ChangeTierDto, OnboardDto, UpdateMerchantDto } from './merchants.dto.js'
+import { OnboardDto, UpdateMerchantDto } from './merchants.dto.js'
 
 @ApiTags('merchants')
 @ApiBearerAuth()
@@ -19,18 +21,21 @@ export class MerchantsController {
     private readonly merchantChain: MerchantChainService,
   ) {}
 
+  @RequireScopes('merchants_read')
   @Get('/me')
   @ApiOperation({ summary: 'Read the current merchant profile.' })
   me(@CurrentMerchant() ctx: CurrentMerchantPayload) {
     return this.merchants.findById(ctx.merchantId)
   }
 
+  @SessionOnly()
   @Patch('/me')
   @ApiOperation({ summary: 'Update merchant profile fields.' })
   update(@CurrentMerchant() ctx: CurrentMerchantPayload, @Body() dto: UpdateMerchantDto) {
     return this.merchants.update(ctx.merchantId, dto)
   }
 
+  @SessionOnly()
   @Post('/me/onboard')
   @ApiOperation({
     summary:
@@ -40,12 +45,7 @@ export class MerchantsController {
     return this.merchants.onboard(ctx.merchantId, dto)
   }
 
-  @Post('/me/tier')
-  @ApiOperation({ summary: 'Change merchant pricing tier.' })
-  changeTier(@CurrentMerchant() ctx: CurrentMerchantPayload, @Body() dto: ChangeTierDto) {
-    return this.merchants.changeTier(ctx.merchantId, dto)
-  }
-
+  @RequireScopes('merchants_read')
   @Get('/me/live-mode-eligibility')
   @ApiOperation({
     summary:
@@ -55,6 +55,7 @@ export class MerchantsController {
     return this.merchants.liveModeEligibility(ctx.merchantId)
   }
 
+  @RequireScopes('merchants_read')
   @Get('/me/chain-status')
   @ApiOperation({
     summary:
@@ -73,15 +74,17 @@ export class MerchantsController {
     }
   }
 
+  @RequireScopes('merchants_read')
   @Get('/me/onchain-state')
   @ApiOperation({
     summary:
       "Live on-chain merchant record from the Registry. Backs the Settings page's payout-rotation and ownership-transfer flows.",
   })
-  async onchainState(@CurrentMerchant() ctx: CurrentMerchantPayload) {
+  onchainState(@CurrentMerchant() ctx: CurrentMerchantPayload) {
     return this.merchantChain.getOnchainState(ctx.merchantId)
   }
 
+  @RequireScopes('merchants_read')
   @Get('/me/balance')
   @ApiOperation({
     summary:

@@ -1,12 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
-import { effectiveFeeBps } from '@strimz/shared-config'
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common'
 import type {
-  CreatePaymentSessionInput,
+  CreatePaymentSessionParsed,
   Mode,
   PaymentCurrency,
   PaymentSession,
 } from '@strimz/shared-types'
+import type { PaymentSessionStatus, Prisma } from '@strimz/db'
 import { TypedConfigService } from '../../config/index.js'
+import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { tokenAddressForCurrency } from './token-resolver.js'
@@ -19,6 +25,8 @@ import { tokenAddressForCurrency } from './token-resolver.js'
  */
 const WITH_MERCHANT = { include: { merchant: { select: { onchainMerchantId: true } } } } as const
 
+const OPEN_SESSION_STATUSES: PaymentSessionStatus[] = ['created', 'awaiting_payment']
+
 @Injectable()
 export class PaymentSessionsService {
   constructor(
@@ -30,22 +38,37 @@ export class PaymentSessionsService {
   async create(
     merchantId: string,
     mode: 'test' | 'live',
-    input: CreatePaymentSessionInput,
+    input: CreatePaymentSessionParsed,
   ): Promise<PaymentSession> {
-    const merchant = await this.prisma.db.merchant.findUniqueOrThrow({ where: { id: merchantId } })
+    await this.prepareMerchant(merchantId)
+    return this.insert(this.prisma.db, merchantId, mode, input)
+  }
+
+  async prepareMerchant(merchantId: string): Promise<void> {
     // Lazy on-chain merchant registration. The hosted checkout needs a
     // chain merchant id to render the pay button regardless of mode,
     // so we always ensure the merchant is on the Registry. Idempotent —
     // subsequent calls return the cached id in O(1).
-    await this.merchantChain.ensureRegistered(merchantId)
-    const feeBps = effectiveFeeBps(merchant.tier as never, 'one_shot') ?? 150
+    await this.merchantChain.requestRegistration(merchantId)
+  }
+
+  async insert(
+    db: Prisma.TransactionClient,
+    merchantId: string,
+    mode: 'test' | 'live',
+    input: CreatePaymentSessionParsed,
+    link: { storefrontProductId: string } | null = null,
+  ): Promise<PaymentSession> {
+    assertMinimumAmount(input.amount)
+    const merchant = await db.merchant.findUniqueOrThrow({ where: { id: merchantId } })
+    const feeBps = await this.merchantChain.feeBpsFor(merchant)
     const amount = BigInt(input.amount)
     const feeAmount = (amount * BigInt(feeBps)) / 10_000n
     const netAmount = amount - feeAmount
-    const expiresAt = new Date(Date.now() + (input.expiresInMinutes ?? 30) * 60_000)
+    const expiresAt = new Date(Date.now() + input.expiresInMinutes * 60_000)
 
     const customer = input.customer?.walletAddress
-      ? await this.prisma.db.customer.upsert({
+      ? await db.customer.upsert({
           where: {
             merchantId_walletAddress: { merchantId, walletAddress: input.customer.walletAddress },
           },
@@ -63,10 +86,11 @@ export class PaymentSessionsService {
         })
       : null
 
-    const row = await this.prisma.db.paymentSession.create({
+    const row = await db.paymentSession.create({
       data: {
         merchantId,
         customerId: customer?.id ?? null,
+        storefrontProductId: link?.storefrontProductId ?? null,
         amount: input.amount,
         currency: input.currency,
         feeAmount: feeAmount.toString(),
@@ -82,7 +106,7 @@ export class PaymentSessionsService {
     })
 
     // Patch the checkout URL now that we have the id.
-    const finalRow = await this.prisma.db.paymentSession.update({
+    const finalRow = await db.paymentSession.update({
       where: { id: row.id },
       data: { checkoutUrl: `${this.cfg.env.CHECKOUT_ORIGIN.replace(/\/$/, '')}/pay/${row.id}` },
       ...WITH_MERCHANT,
@@ -119,31 +143,79 @@ export class PaymentSessionsService {
     return { ...s, feeAmount: '0', netAmount: s.amount, metadata: {} }
   }
 
-  async linkCustomer(sessionId: string, customerId: string): Promise<void> {
-    await this.prisma.db.paymentSession.update({
-      where: { id: sessionId },
+  async bindCustomer(
+    db: Prisma.TransactionClient,
+    sessionId: string,
+    customerId: string,
+  ): Promise<void> {
+    const now = new Date()
+    const { count } = await db.paymentSession.updateMany({
+      where: {
+        id: sessionId,
+        status: { in: OPEN_SESSION_STATUSES },
+        expiresAt: { gt: now },
+        OR: [{ customerId: null }, { customerId }],
+      },
       data: { customerId },
     })
+    if (count === 1) return
+
+    const row = await db.paymentSession.findUnique({
+      where: { id: sessionId },
+      select: { status: true, expiresAt: true },
+    })
+    if (!row) throw new NotFoundException({ code: 'not_found', message: 'session not found' })
+    if (!OPEN_SESSION_STATUSES.includes(row.status) || row.expiresAt <= now) {
+      throw new ConflictException({
+        code: 'session_not_open',
+        message: 'this checkout session is no longer open',
+      })
+    }
+    throw new ConflictException({
+      code: 'payer_already_bound',
+      message: 'this checkout session is linked to another wallet',
+    })
   }
 
-  async cancel(merchantId: string, mode: Mode, id: string): Promise<PaymentSession> {
-    await this.retrieve(merchantId, mode, id)
-    const updated = await this.prisma.db.paymentSession.update({
-      where: { id },
-      data: { status: 'cancelled' },
-      ...WITH_MERCHANT,
-    })
-    return this.serialise(updated)
+  cancel(merchantId: string, mode: Mode, id: string): Promise<PaymentSession> {
+    return this.close(merchantId, mode, id, 'cancelled')
   }
 
-  async expire(merchantId: string, mode: Mode, id: string): Promise<PaymentSession> {
-    await this.retrieve(merchantId, mode, id)
-    const updated = await this.prisma.db.paymentSession.update({
-      where: { id },
-      data: { status: 'expired' },
-      ...WITH_MERCHANT,
+  expire(merchantId: string, mode: Mode, id: string): Promise<PaymentSession> {
+    return this.close(merchantId, mode, id, 'expired')
+  }
+
+  private async close(
+    merchantId: string,
+    mode: Mode,
+    id: string,
+    to: 'cancelled' | 'expired',
+  ): Promise<PaymentSession> {
+    const { count, row } = await this.prisma.db.$transaction(async (tx) => {
+      const { count } = await tx.paymentSession.updateMany({
+        where: { id, merchantId, mode, status: { in: OPEN_SESSION_STATUSES } },
+        data: { status: to },
+      })
+      const row = await tx.paymentSession.findFirst({
+        where: { id, merchantId, mode },
+        ...WITH_MERCHANT,
+      })
+      if (count === 1 && row?.storefrontProductId) {
+        await tx.storefrontProduct.updateMany({
+          where: { id: row.storefrontProductId, stock: { not: null } },
+          data: { stock: { increment: 1 } },
+        })
+      }
+      return { count, row }
     })
-    return this.serialise(updated)
+    if (!row) throw new NotFoundException({ code: 'not_found', message: 'session not found' })
+    if (count === 0) {
+      throw new ForbiddenException({
+        code: 'session_invalid_state',
+        message: `cannot mark a session in status ${row.status} as ${to}`,
+      })
+    }
+    return this.serialise(row)
   }
 
   async list(

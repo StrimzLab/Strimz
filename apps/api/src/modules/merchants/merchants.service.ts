@@ -1,14 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { erc20Abi, formatUnits, getAddress } from 'viem'
-import type {
-  Merchant,
-  MerchantBalanceView,
-  UpdateMerchantInput,
-  ChangeTierInput,
-} from '@strimz/shared-types'
+import type { Merchant, MerchantBalanceView, UpdateMerchantParsed } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { TypedConfigService } from '../../config/index.js'
+import { MerchantChainService } from './merchant-chain.service.js'
 import { serialiseMerchant } from './merchants.serialiser.js'
 import type { OnboardInput } from './merchants.dto.js'
 
@@ -18,6 +14,7 @@ export class MerchantsService {
     private readonly prisma: PrismaService,
     private readonly chain: ChainService,
     private readonly cfg: TypedConfigService,
+    private readonly merchantChain: MerchantChainService,
   ) {}
 
   /**
@@ -91,8 +88,9 @@ export class MerchantsService {
     return {
       payoutAddress: owner,
       walletAddress: merchant.walletAddress,
-      canSignFromDashboard:
-        !!merchant.walletAddress && getAddress(merchant.walletAddress) === owner,
+      canSignFromDashboard: merchant.walletAddress
+        ? getAddress(merchant.walletAddress) === owner
+        : false,
       balances,
     }
   }
@@ -105,7 +103,7 @@ export class MerchantsService {
     return serialiseMerchant(m)
   }
 
-  async update(id: string, input: UpdateMerchantInput): Promise<Merchant> {
+  async update(id: string, input: UpdateMerchantParsed): Promise<Merchant> {
     let metadata: unknown = input.metadata
     if (input.emailPrefs) {
       const existing = await this.prisma.db.merchant.findUniqueOrThrow({
@@ -156,6 +154,7 @@ export class MerchantsService {
         onboardingCompleted: true,
       },
     })
+    await this.merchantChain.startRegistrationIfEligible(id)
     return serialiseMerchant(updated)
   }
 
@@ -178,14 +177,6 @@ export class MerchantsService {
       logoUrl: row.logoUrl ?? null,
       walletAddress: row.walletAddress ?? null,
     }
-  }
-
-  async changeTier(id: string, input: ChangeTierInput): Promise<Merchant> {
-    const updated = await this.prisma.db.merchant.update({
-      where: { id },
-      data: { tier: input.tier },
-    })
-    return serialiseMerchant(updated)
   }
 
   /**

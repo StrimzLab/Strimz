@@ -32,11 +32,11 @@ set -euo pipefail
 if [ "${MAINNET:-0}" = "1" ]; then
     RPC=${ARC_MAINNET_RPC_URL:?ARC_MAINNET_RPC_URL not set}
     VERIFIER=${ARC_MAINNET_VERIFIER_URL:?ARC_MAINNET_VERIFIER_URL not set}
-    EXPLORER=https://arcscan.app
+    EXPLORER=https://explorer.arc.io
 else
     RPC=${ARC_TESTNET_RPC_URL:?ARC_TESTNET_RPC_URL not set}
     VERIFIER=${ARC_TESTNET_VERIFIER_URL:?ARC_TESTNET_VERIFIER_URL not set}
-    EXPLORER=https://testnet.arcscan.app
+    EXPLORER=https://explorer.testnet.arc.io
 fi
 API_KEY=${BLOCKSCOUT_API_KEY:?BLOCKSCOUT_API_KEY not set in .env}
 
@@ -44,7 +44,7 @@ API_KEY=${BLOCKSCOUT_API_KEY:?BLOCKSCOUT_API_KEY not set in .env}
 VERIFIER=${VERIFIER%/}
 API_BASE=${VERIFIER%/api}   # https://testnet.arcscan.app
 
-CHAIN_ID=${CHAIN_ID:-$(cast chain-id --rpc-url "$RPC")}
+CHAIN_ID=${CHAIN_ID:-$("${CAST:-arc-cast}" chain-id --rpc-url "$RPC")}
 LOG="deployments/${CHAIN_ID}.json"
 LABEL_FILTER=${1:-}
 
@@ -76,8 +76,8 @@ verify_one() {
 
     # Generate the minimal standard JSON input for just this contract.
     tmp_input=$(mktemp -t strimz-verify.XXXXXX.json)
-    if ! forge inspect "$fq" standardJson > "$tmp_input" 2>/dev/null; then
-        echo "  FAIL: forge inspect $fq standardJson"
+    if ! "${FORGE:-arc-forge}" inspect "$fq" standardJson > "$tmp_input" 2>/dev/null; then
+        echo "  FAIL: ${FORGE:-arc-forge} inspect $fq standardJson"
         rm -f "$tmp_input"
         return 1
     fi

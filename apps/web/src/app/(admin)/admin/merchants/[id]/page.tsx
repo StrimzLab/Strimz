@@ -4,21 +4,20 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { ArrowLeft, Ban, RotateCcw } from 'lucide-react'
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@strimz/ui'
+import { Badge, Button, Card, CardContent } from '@strimz/ui'
 
 import { PageHeader } from '@/components/dashboard/page-header'
-import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
-import type { MerchantTier } from '@/lib/admin-api'
+import type { Mode } from '@strimz/shared-types'
+import { SegmentedToggle } from '@/components/shared/segmented-toggle'
+import { relativeTime, shortAddress } from '@/lib/format'
+import { formatCurrencyAmounts } from '@/lib/currency-totals'
+import { MODE_OPTIONS } from '@/lib/admin-volume'
+import { tierRefusal } from '@/lib/admin-api/tier-refusal'
+import { moveToEnterpriseConfirm, suspendMerchantConfirm } from '@/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@/components/dashboard/confirm-action-dialog'
 import {
   useAdminMerchantDetail,
   useReactivateMerchant,
@@ -26,15 +25,16 @@ import {
   useSuspendMerchant,
 } from '@/hooks/admin'
 
-const TIERS: MerchantTier[] = ['free', 'growth', 'business', 'enterprise']
-
 export default function AdminMerchantDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { data: merchant, isLoading, isError, error, refetch } = useAdminMerchantDetail(id)
+  const [mode, setMode] = React.useState<Mode>('live')
+  const { data: merchant, isLoading, isError, error, refetch } = useAdminMerchantDetail(id, mode)
 
   const suspendMutation = useSuspendMerchant()
   const reactivateMutation = useReactivateMerchant()
   const tierMutation = useSetMerchantTier()
+  const refusal = tierRefusal(tierMutation.error)
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   if (isLoading) {
     return <div className="bg-muted/30 mt-6 h-32 animate-pulse rounded-xl" />
@@ -82,15 +82,19 @@ export default function AdminMerchantDetailPage() {
         />
       </div>
 
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-muted-foreground text-xs">
+          Figures below are for {merchant.stats.mode} mode.
+        </span>
+        <SegmentedToggle label="Mode" options={MODE_OPTIONS} value={mode} onChange={setMode} />
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Lifetime volume"
-          value={formatTokenAmount(merchant.stats.lifetimeVolumeUsdc, 'USDC')}
+          value={formatCurrencyAmounts(merchant.stats.lifetimeVolume)}
         />
-        <Stat
-          label="30-day volume"
-          value={formatTokenAmount(merchant.stats.last30dVolumeUsdc, 'USDC')}
-        />
+        <Stat label="30-day volume" value={formatCurrencyAmounts(merchant.stats.last30dVolume)} />
         <Stat
           label="Confirmed payments"
           value={merchant.stats.confirmedPayments.toLocaleString()}
@@ -125,7 +129,7 @@ export default function AdminMerchantDetailPage() {
                 href={merchant.websiteUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="text-xs text-[#02C76A] hover:underline"
+                className="text-accent text-xs hover:underline"
               >
                 {merchant.websiteUrl}
               </a>
@@ -179,7 +183,14 @@ export default function AdminMerchantDetailPage() {
                     size="sm"
                     variant="outline"
                     className="border-rose-500/40 text-rose-600 hover:bg-rose-500/10"
-                    onClick={() => suspendMutation.mutate(merchant.id)}
+                    onClick={() =>
+                      setPendingConfirm({
+                        copy: suspendMerchantConfirm({
+                          businessName: merchant.businessName ?? merchant.email,
+                        }),
+                        run: () => suspendMutation.mutate(merchant.id),
+                      })
+                    }
                     disabled={suspendMutation.isPending}
                   >
                     <Ban className="mr-1.5 size-3" /> Suspend
@@ -189,35 +200,50 @@ export default function AdminMerchantDetailPage() {
             </div>
 
             <div className="border-border/60 rounded-md border p-3">
-              <div className="text-sm font-medium">Tier</div>
+              <div className="text-sm font-medium">Plan</div>
               <p className="text-muted-foreground mt-1 text-xs">
-                Changes apply to new payments immediately. Existing payments keep their original
-                fee.
+                Free, Starter and Growth follow the volume this merchant has processed, and move up
+                automatically. Enterprise is set here once a contract is signed. First the Strimz
+                Safe sends setFeeBps with the contract fee and waits for the receipt. A merchant
+                that is not registered on-chain cannot move to Enterprise.
               </p>
-              <div className="mt-3">
-                <Select
-                  value={merchant.tier}
-                  onValueChange={(v) =>
-                    tierMutation.mutate({ id: merchant.id, input: { tier: v as MerchantTier } })
-                  }
-                  disabled={tierMutation.isPending}
-                >
-                  <SelectTrigger className="capitalize">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TIERS.map((t) => (
-                      <SelectItem key={t} value={t} className="capitalize">
-                        {t}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <Badge variant="outline" className="capitalize">
+                  {merchant.tier}
+                </Badge>
+                {merchant.tier === 'enterprise' ? null : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setPendingConfirm({
+                        copy: moveToEnterpriseConfirm({
+                          businessName: merchant.businessName ?? merchant.email,
+                        }),
+                        run: () =>
+                          tierMutation.mutate({ id: merchant.id, input: { tier: 'enterprise' } }),
+                      })
+                    }
+                    disabled={tierMutation.isPending}
+                  >
+                    {tierMutation.isPending ? 'Moving…' : 'Move to Enterprise'}
+                  </Button>
+                )}
               </div>
+              {refusal ? (
+                <div
+                  role="alert"
+                  className="border-destructive/30 bg-destructive/5 mt-3 rounded-md border px-3 py-2 text-xs"
+                >
+                  <p className="text-destructive">{refusal.message}</p>
+                </div>
+              ) : null}
             </div>
           </div>
         </CardContent>
       </Card>
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
   )
 }

@@ -36,42 +36,48 @@ export class AdminController {
   async runRecovery() {
     this.refuseInProduction()
     this.log.log('admin: manual recovery tick')
-    return this.recovery.tick()
+    const result = await this.recovery.tick()
+    return result
   }
 
   @Post('/run/cashflow-digest')
   async runCashflowDigest() {
     this.refuseInProduction()
     this.log.log('admin: manual cashflow digest')
-    return this.digest.tick()
+    const result = await this.digest.tick()
+    return result
   }
 
   @Post('/run/cashflow-anomaly')
   async runCashflowAnomaly() {
     this.refuseInProduction()
     this.log.log('admin: manual cashflow anomaly')
-    return this.anomaly.tick()
+    const result = await this.anomaly.tick()
+    return result
   }
 
   @Post('/run/cashflow-yield')
   async runCashflowYield() {
     this.refuseInProduction()
     this.log.log('admin: manual cashflow yield')
-    return this.yieldRec.tick()
+    const result = await this.yieldRec.tick()
+    return result
   }
 
   @Post('/run/commerce-monthly')
   async runCommerce() {
     this.refuseInProduction()
     this.log.log('admin: manual commerce monthly')
-    return this.commerce.tick()
+    const result = await this.commerce.tick()
+    return result
   }
 
   @Post('/run/pricing-monthly')
   async runPricing() {
     this.refuseInProduction()
     this.log.log('admin: manual pricing monthly')
-    return this.pricing.tick()
+    const result = await this.pricing.tick()
+    return result
   }
 
   private refuseInProduction(): void {

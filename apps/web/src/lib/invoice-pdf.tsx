@@ -119,14 +119,15 @@ export function InvoicePdfDocument({ invoice, merchant }: Props) {
   const subtotalNum = tokenAmountToNumber(invoice.subtotal)
   const totalNum = tokenAmountToNumber(invoice.total)
 
+  const draftTone = { bg: '#F3F4F6', fg: '#374151' }
   const statusColor: Record<string, { bg: string; fg: string }> = {
     paid: { bg: '#DCFCE7', fg: '#166534' },
     sent: { bg: '#DBEAFE', fg: '#1E40AF' },
-    draft: { bg: '#F3F4F6', fg: '#374151' },
+    draft: draftTone,
     overdue: { bg: '#FEE2E2', fg: '#991B1B' },
     void: { bg: '#F3F4F6', fg: '#6B7280' },
   }
-  const tone = statusColor[invoice.status] ?? statusColor.draft!
+  const tone = statusColor[invoice.status] ?? draftTone
 
   return (
     <Document>

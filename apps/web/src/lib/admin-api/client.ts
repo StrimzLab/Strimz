@@ -1,6 +1,7 @@
 import { env } from '@/lib/env'
 import { type AccessTokenProvider, defaultAccessTokenProvider } from '@/lib/merchant-api/auth-token'
-import { buildApiError, type ApiErrorBody, AuthenticationError } from '@/lib/merchant-api/errors'
+import { apiErrorFromResponse, AuthenticationError } from '@/lib/merchant-api/errors'
+import type { CreateBroadcastInput, Mode, PaymentCurrency } from '@strimz/shared-types'
 
 import type {
   AdminMerchantDetail,
@@ -10,7 +11,6 @@ import type {
   Broadcast,
   BroadcastAudience,
   BroadcastListResponse,
-  CreateBroadcastInput,
   HealthResponse,
   InviteAdminInput,
   PlatformOverview,
@@ -61,8 +61,8 @@ export class AdminApiClient {
 
   // ----- Reads (direct to /v1/admin/*) -----
   me = (options?: RequestOptions) => this.directGet<AdminProfile>('/v1/admin/me', options)
-  overview = (options?: RequestOptions) =>
-    this.directGet<PlatformOverview>('/v1/admin/overview', options)
+  overview = (mode: Mode, options?: RequestOptions) =>
+    this.directGet<PlatformOverview>('/v1/admin/overview', { ...options, query: { mode } })
   listMerchants = (
     params: {
       status?: string
@@ -83,19 +83,28 @@ export class AdminApiClient {
         cursor: params.cursor ?? undefined,
       },
     })
-  getMerchant = (id: string, options?: RequestOptions) =>
-    this.directGet<AdminMerchantDetail>(`/v1/admin/merchants/${encodeURIComponent(id)}`, options)
-  volumeSeries = (range: { from?: string; to?: string } = {}, options?: RequestOptions) =>
-    this.directGet<VolumeSeriesResponse>('/v1/admin/analytics/volume', { ...options, query: range })
+  getMerchant = (id: string, mode: Mode, options?: RequestOptions) =>
+    this.directGet<AdminMerchantDetail>(`/v1/admin/merchants/${encodeURIComponent(id)}`, {
+      ...options,
+      query: { mode },
+    })
+  volumeSeries = (params: { from?: string; to?: string; mode: Mode }, options?: RequestOptions) =>
+    this.directGet<VolumeSeriesResponse>('/v1/admin/analytics/volume', {
+      ...options,
+      query: params,
+    })
   signupSeries = (range: { from?: string; to?: string } = {}, options?: RequestOptions) =>
     this.directGet<SignupSeriesResponse>('/v1/admin/analytics/signups', {
       ...options,
       query: range,
     })
-  topMerchants = (limit = 10, options?: RequestOptions) =>
+  topMerchants = (
+    params: { currency: PaymentCurrency; mode: Mode; limit: number },
+    options?: RequestOptions,
+  ) =>
     this.directGet<TopMerchantsResponse>('/v1/admin/analytics/top-merchants', {
       ...options,
-      query: { limit },
+      query: params,
     })
   health = (options?: RequestOptions) => this.directGet<HealthResponse>('/v1/admin/health', options)
   listAdmins = (options?: RequestOptions) =>
@@ -123,6 +132,10 @@ export class AdminApiClient {
     this.bffPatch<AdminListItem>(`/api/admin/admins/${encodeURIComponent(id)}/status`, input)
   removeAdmin = (id: string) =>
     this.bffDelete<AdminListItem>(`/api/admin/admins/${encodeURIComponent(id)}`)
+  resendAdminInvite = (id: string) =>
+    this.bff<AdminListItem>(`/api/admin/admins/${encodeURIComponent(id)}/invite`, {})
+  acceptAdminInvite = (token: string) =>
+    this.bff<AdminProfile>('/api/admin/invites/accept', { token })
 
   // ----- Broadcasts -----
   listBroadcasts = (
@@ -143,19 +156,19 @@ export class AdminApiClient {
 
   // ------------------------------------------------------------------
 
-  private async directGet<T>(path: string, options?: RequestOptions): Promise<T> {
+  private directGet<T>(path: string, options?: RequestOptions): Promise<T> {
     return this.request<T>('GET', this.apiBaseUrl + path, options, /* useBearer */ true)
   }
 
   // The BFF forward reads the Authorization header and re-forwards it
   // upstream, so writes must carry the Privy token just like reads.
-  private async bff<T>(path: string, body: unknown): Promise<T> {
+  private bff<T>(path: string, body: unknown): Promise<T> {
     return this.request<T>('POST', this.bffBaseUrl + path, { body }, true)
   }
-  private async bffPatch<T>(path: string, body: unknown): Promise<T> {
+  private bffPatch<T>(path: string, body: unknown): Promise<T> {
     return this.request<T>('PATCH', this.bffBaseUrl + path, { body }, true)
   }
-  private async bffDelete<T>(path: string): Promise<T> {
+  private bffDelete<T>(path: string): Promise<T> {
     return this.request<T>('DELETE', this.bffBaseUrl + path, undefined, true)
   }
 
@@ -215,13 +228,8 @@ export class AdminApiClient {
 
     if (response.status === 204) return undefined as T
 
+    if (!response.ok) throw await apiErrorFromResponse(response)
     const isJson = response.headers.get('content-type')?.includes('application/json')
-    if (!response.ok) {
-      const body: ApiErrorBody = isJson
-        ? await response.json().catch(() => ({ code: 'unknown_error', message: 'failed' }))
-        : { code: 'unknown_error', message: 'failed' }
-      throw buildApiError(response.status, body, response.headers)
-    }
     if (!isJson) throw new Error('expected JSON response')
     return (await response.json()) as T
   }

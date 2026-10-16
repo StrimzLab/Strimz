@@ -20,7 +20,19 @@ import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
-import { useCancelSubscription, useSubscriptions } from '@/hooks/api'
+import type { LoadedRows } from '@/lib/cursor-pages'
+import { cancelSubscriptionConfirm } from '@/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@/components/dashboard/confirm-action-dialog'
+import {
+  serverRowsOf,
+  useCancelSubscription,
+  useStatsSummary,
+  useSubscriptionPages,
+} from '@/hooks/api'
+import { SUBSCRIPTION_CARD_STATUSES, subscriptionCards, summaryValue } from '@/lib/stats-summary'
 
 const STATUS_TONE: Record<
   SubscriptionStatus,
@@ -51,22 +63,11 @@ const FILTERS: ReadonlyArray<SubscriptionStatus | 'all'> = [
  */
 interface SubscriptionsView {
   rows: Subscription[]
-  counts: Record<SubscriptionStatus, number>
+  hasMore: boolean
 }
 
-const EMPTY_COUNTS: Record<SubscriptionStatus, number> = {
-  active: 0,
-  trialing: 0,
-  at_risk: 0,
-  paused: 0,
-  cancelled: 0,
-  lapsed: 0,
-}
-
-function projectSubscriptions(page: { data: Subscription[] }): SubscriptionsView {
-  const counts = { ...EMPTY_COUNTS }
-  for (const row of page.data) counts[row.status] = (counts[row.status] ?? 0) + 1
-  return { rows: page.data, counts }
+function projectSubscriptions(loaded: LoadedRows<Subscription>): SubscriptionsView {
+  return { rows: loaded.rows, hasMore: loaded.hasMore }
 }
 
 export default function SubscriptionsPage() {
@@ -76,9 +77,14 @@ export default function SubscriptionsPage() {
     () => ({ status: statusFilter === 'all' ? undefined : statusFilter, limit: 100 }),
     [statusFilter],
   )
-  const { data, isLoading, isError, error, refetch } = useSubscriptions(subscriptionsParams, {
+  const subscriptionsQuery = useSubscriptionPages(subscriptionsParams, {
     select: projectSubscriptions,
   })
+  const { data, isLoading, isError, error, refetch } = subscriptionsQuery
+  const summaryQuery = useStatsSummary({
+    select: (summary) => subscriptionCards(summary.subscriptions),
+  })
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   const cancelMutation = useCancelSubscription()
 
@@ -179,10 +185,15 @@ export default function SubscriptionsPage() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-rose-600 focus:text-rose-600"
-                      onClick={() => cancelMutation.mutate({ id: sub.id })}
+                      onClick={() =>
+                        setPendingConfirm({
+                          copy: cancelSubscriptionConfirm(sub),
+                          run: () => cancelMutation.mutate({ id: sub.id }),
+                        })
+                      }
                       disabled={cancelMutation.isPending}
                     >
-                      <Ban className="mr-2 size-4" /> Cancel at period end
+                      <Ban className="mr-2 size-4" /> Cancel subscription
                     </DropdownMenuItem>
                   </>
                 ) : null}
@@ -231,7 +242,7 @@ export default function SubscriptionsPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {(['active', 'at_risk', 'trialing', 'lapsed'] as const).map((s) => (
+        {SUBSCRIPTION_CARD_STATUSES.map((s) => (
           <div
             key={s}
             className="shadow-sub-card border-border/60 bg-background rounded-xl border p-4"
@@ -239,7 +250,7 @@ export default function SubscriptionsPage() {
             <div className="text-muted-foreground text-xs capitalize">{s.replace(/_/g, ' ')}</div>
             <div className="mt-1 flex items-baseline gap-2">
               <span className="font-sora text-2xl font-semibold">
-                {data ? data.counts[s] : '—'}
+                {summaryValue(summaryQuery, (cards) => cards[s])}
               </span>
               <span className="text-muted-foreground text-xs">subscriptions</span>
             </div>
@@ -247,7 +258,7 @@ export default function SubscriptionsPage() {
         ))}
       </div>
 
-      {isError ? (
+      {isError && !data ? (
         <ErrorBanner message={error?.message ?? 'Failed to load subscriptions'} onRetry={refetch} />
       ) : (
         <DataTable
@@ -257,6 +268,7 @@ export default function SubscriptionsPage() {
           searchPlaceholder="Search by subscriber wallet, plan…"
           emptyTitle="No subscriptions"
           emptyDescription="Send customers your hosted plan URL to start subscribing."
+          serverRows={serverRowsOf(subscriptionsQuery)}
           toolbar={
             <div className="flex flex-wrap items-center gap-1">
               {FILTERS.map((s) => (
@@ -266,7 +278,7 @@ export default function SubscriptionsPage() {
                   className={[
                     'h-8 rounded-md border px-2.5 text-xs font-medium transition-colors',
                     statusFilter === s
-                      ? 'border-[#02C76A] bg-[#02C76A]/10 text-[#02C76A]'
+                      ? 'border-accent bg-accent/10 text-accent'
                       : 'border-border/60 hover:bg-muted',
                   ].join(' ')}
                 >
@@ -277,6 +289,8 @@ export default function SubscriptionsPage() {
           }
         />
       )}
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
   )
 }

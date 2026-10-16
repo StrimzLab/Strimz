@@ -21,6 +21,11 @@ import {
 import { PageHeader } from '@/components/dashboard/page-header'
 import { StatusPill } from '@/components/dashboard/data-table'
 import { relativeTime } from '@/lib/format'
+import { revokeApiKeyConfirm } from '@/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@/components/dashboard/confirm-action-dialog'
 import { useApiKey, useRevokeApiKey, useRotateApiKey } from '@/hooks/api'
 
 export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -29,6 +34,7 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
   const revoke = useRevokeApiKey()
   const rotate = useRotateApiKey()
   const [rotatedSecret, setRotatedSecret] = React.useState<string | null>(null)
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   if (isLoading) {
     return (
@@ -83,7 +89,12 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
                 variant="outline"
                 size="sm"
                 className="text-rose-600"
-                onClick={() => revoke.mutate(key.id)}
+                onClick={() =>
+                  setPendingConfirm({
+                    copy: revokeApiKeyConfirm(key),
+                    run: () => revoke.mutate(key.id),
+                  })
+                }
                 disabled={revoke.isPending}
               >
                 <Ban className="mr-1.5 size-4" /> Revoke
@@ -204,6 +215,8 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
   )
 }
