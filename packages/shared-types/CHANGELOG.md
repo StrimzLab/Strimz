@@ -1,5 +1,12 @@
 # @strimz/shared-types
 
+## 0.12.3
+
+### Patch Changes
+
+- Updated dependencies [efdb861]
+  - @strimz/shared-config@0.7.0
+
 ## 0.12.2
 
 ### Patch Changes

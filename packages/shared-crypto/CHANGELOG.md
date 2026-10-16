@@ -1,5 +1,12 @@
 # @strimz/shared-crypto
 
+## 0.2.6
+
+### Patch Changes
+
+- Updated dependencies [efdb861]
+  - @strimz/shared-config@0.7.0
+
 ## 0.2.5
 
 ### Patch Changes
