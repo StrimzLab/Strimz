@@ -16,7 +16,7 @@ describe('signup bot check', () => {
   })
 
   it('opens Privy without a separate verify call', () => {
-    expect(signup).toMatch(/privy\.login\(\)/u)
+    expect(signup).toMatch(/<PrivyContinueButton/u)
     expect(signup).not.toMatch(/fetch\(/u)
   })
 

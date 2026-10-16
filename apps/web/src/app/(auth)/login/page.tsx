@@ -1,51 +1,42 @@
 'use client'
 
+import { Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { usePrivy } from '@privy-io/react-auth'
-import { toast } from 'sonner'
-import { ArrowRight } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
 import { AuthCard } from '@/components/auth/auth-card'
-import { SubmitButton } from '@/components/auth/submit-button'
+import {
+  PrivyContinueButton,
+  UnconfiguredContinueButton,
+} from '@/components/auth/privy-continue-button'
+import { safeNextPath, withNext } from '@/lib/auth-redirect'
+import { env } from '@/lib/env'
 
 export default function LoginPage() {
-  const router = useRouter()
-  const privy = usePrivyOrNull()
+  return (
+    <Suspense>
+      <Login />
+    </Suspense>
+  )
+}
 
-  async function handleLogin() {
-    if (!privy) {
-      toast.error('Authentication not configured. Set NEXT_PUBLIC_PRIVY_APP_ID.')
-      return
-    }
-    await privy.login()
-    // The (auth) route group's parentheses are stripped from the URL, so
-    // the callback page lives at `/callback`, not `/auth/callback`.
-    router.push('/callback')
-  }
+function Login() {
+  const next = safeNextPath(useSearchParams().get('next'))
 
   return (
     <AuthCard
       title="Welcome back"
       description="Sign in with the same email, wallet, or social account you used last time."
     >
-      <SubmitButton type="button" onClick={handleLogin}>
-        Continue
-        <ArrowRight className="size-4" />
-      </SubmitButton>
+      {env.privyAppId ? <PrivyContinueButton next={next} /> : <UnconfiguredContinueButton />}
       <p className="font-poppins text-muted-foreground mt-6 text-center text-sm">
         New to Strimz?{' '}
-        <Link href="/signup" className="text-foreground font-[500] hover:underline">
+        <Link
+          href={withNext('/signup', next)}
+          className="text-foreground font-[500] hover:underline"
+        >
           Create an account
         </Link>
       </p>
     </AuthCard>
   )
-}
-
-function usePrivyOrNull() {
-  try {
-    return usePrivy()
-  } catch {
-    return null
-  }
 }
