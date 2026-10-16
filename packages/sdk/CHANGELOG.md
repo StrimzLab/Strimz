@@ -1,5 +1,11 @@
 # @strimz/sdk
 
+## 0.10.0
+
+### Minor Changes
+
+- 94cfbb0: `transactions.list` accepts `sessionId` and `subscriptionId` to list the transactions of one payment session or one subscription.
+
 ## 0.9.6
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 # @strimz/sdk-react
 
+## 0.2.7
+
+### Patch Changes
+
+- Updated dependencies [94cfbb0]
+  - @strimz/sdk@0.10.0
+
 ## 0.2.6
 
 ### Patch Changes
