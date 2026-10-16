@@ -35,7 +35,7 @@ export default function PrivacyPage() {
     >
       <h2 id="overview">Overview</h2>
       <p>
-        Strimz Labs Ltd. ("Strimz", "we") collects only the data needed to operate the Service ,
+        Strimz Labs Ltd. ("Strimz", "we") collects only the data needed to operate the Service:
         authenticate you, settle payments, and send you receipts and product communications. We do
         not sell personal data and we do not run third-party advertising on our surfaces.
       </p>
@@ -88,8 +88,8 @@ export default function PrivacyPage() {
           payment rails.
         </li>
         <li>
-          Government-ID images for the Free / Starter tiers (live-mode unlocks via self-attested KYB
-          + 2FA).
+          Government-ID images. We do not collect them on any plan (live mode unlocks via a
+          self-attested business form and 2FA).
         </li>
       </ul>
 
@@ -122,8 +122,9 @@ export default function PrivacyPage() {
           <strong>Render</strong> + <strong>Vercel</strong>. Application hosting.
         </li>
         <li>
-          <strong>Circle</strong>. CCTP V2 attestation API for cross-chain routing (only the
-          source-chain transaction hash is shared, no personal data).
+          <strong>Circle</strong>. CCTP V2 attestation API, only once cross-chain payments launch
+          (only the source-chain transaction hash is shared, no personal data). It is not used
+          today.
         </li>
         <li>
           <strong>TRM Labs / Elliptic</strong>. Wallet sanctions screening when the compliance
@@ -154,7 +155,7 @@ export default function PrivacyPage() {
       </ul>
       <p>
         Exercise any of these by emailing{' '}
-        <a href="mailto:privacy@strimz.finance">privacy@strimz.finance</a>. We respond to all
+        <a href="mailto:support@strimz.finance">support@strimz.finance</a>. We respond to all
         requests within thirty (30) days.
       </p>
 
@@ -176,14 +177,14 @@ export default function PrivacyPage() {
         partitioning. API keys and webhook signing secrets are stored only as SHA-256 hashes;
         secrets are returned exactly once at creation time and cannot be recovered. We follow a
         responsible disclosure policy at{' '}
-        <a href="mailto:security@strimz.finance">security@strimz.finance</a>.
+        <a href="mailto:support@strimz.finance">support@strimz.finance</a>.
       </p>
 
       <h2 id="contact">Contact</h2>
       <p>
         Strimz Labs Ltd., 20 Chancery Lane, London EC4A 1LF, United Kingdom.
         <br />
-        <a href="mailto:privacy@strimz.finance">privacy@strimz.finance</a> for any privacy-related
+        <a href="mailto:support@strimz.finance">support@strimz.finance</a> for any privacy-related
         question.
       </p>
     </LegalDoc>

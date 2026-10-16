@@ -1,106 +1,65 @@
 ---
 title: Cancellation
-description: Two cancellation modes. At_period_end and immediate. Which one to use, and how to handle the refund-for-unused-time question.
+description: Cancelling is immediate. How the API cancel works, how a payer cancels from their wallet, and how to handle refunds for unused time.
 ---
 
-Cancellation comes in two shapes. The right one depends on whether the customer has already paid for the current cycle.
+A cancel stops charging right away. There is no "cancel at period end" mode. A subscription can be cancelled two ways: by you through the API or dashboard, or by the payer from their own wallet.
 
-At-period-end is the default and the friendlier option. The customer paid for the cycle they're in; they get the cycle. Renewals stop after that. This is what most B2B SaaS does when a customer cancels in the middle of a month.
+Strimz never cancels on its own. A subscription that runs out of retries moves to `lapsed`, which is a separate status.
 
-Immediate is for when the customer wants out *now*. Maybe their company is dissolving; maybe they accidentally subscribed and want it reversed. The subscription dies on the call; whatever they paid for that they didn't use is gone unless you separately refund them.
-
-Both are explicit choices from your side. Strimz doesn't auto-cancel anything (except `lapsed`, which comes from recovery failure, not your action). The customer can't self-cancel through Strimz. They go through your support flow and you make the API call.
-
-## At period end
+## Cancelling from the API
 
 ```ts
 await strimz.subscriptions.cancel({
-  id: 'sub_…',
+  id: 'cmq4wck6a0002je6lfmb5bgjp',
+  reason: 'customer request',
 })
 ```
 
-What happens:
+`reason` is optional and stored on the subscription for your own audit.
 
-1. `cancelledAt` is stamped to the current time.
-2. The subscription status stays `active`.
-3. `nextChargeAt` stays where it was; the upcoming charge does *not* fire.
-4. At the next sweep tick after `currentPeriodEndAt`, status flips to `cancelled`.
+What happens during the call:
 
-The dashboard surfaces this as "Cancels in N days" while the row is still active. The customer keeps service through the end of the cycle they already paid for.
+1. The row's status becomes `cancelled` and `cancelledAt` is set.
+2. `subscription.cancelled` fires with `data.status: 'cancelled'`.
+3. The scheduler stops picking the subscription up, so no more charges are taken.
 
-`subscription.cancelled` fires at the moment you call the API. The webhook payload's `data.status` will be `active` and `cancelledAt` will be set. That's the signal that this is a scheduled cancellation, not an immediate one.
+Cancelling a subscription that is already `cancelled` or `lapsed` returns an error.
 
-You'll see a second event later. Typically a `subscription.lapsed` or a service-stop trigger from your own product. When the period actually ends. Whether you want to react to the cancellation-scheduled event or the cancellation-effective event is up to your business logic. Most merchants react to the scheduled one (start the "win back" email sequence, show a "your subscription is ending" banner) and use the period-end transition just to revoke product access.
+The API also queues an on-chain `cancel()` so the contract's state matches. Not yet: that on-chain cancel currently reverts, so the contract still shows the subscription as live, although Strimz no longer charges it. Tracked in [#293](https://github.com/StrimzLab/strimz/issues/293).
 
-## Immediate
+## Cancelling from the payer's wallet
 
-```ts
-await strimz.subscriptions.cancel({
-  id: 'sub_…',
-  immediate: true,
-})
-```
+The contract's `cancel(uint256 subscriptionId)` can be called by the payer or by the merchant's registry owner. A payer can call it from any wallet tool that can send a contract call. The indexer sees the `SubscriptionCancelled` event and marks the row `cancelled`.
 
-The subscription flips to `cancelled` right now. The next charge would have fired in N days; it doesn't. The customer's access stops based on your service logic. Strimz doesn't enforce a service window, it just stops charging.
+Strimz has no hosted cancel page for payers, and an on-chain cancel does not fire a `subscription.cancelled` webhook today. If you need to react to it, poll `subscriptions.retrieve` or `subscriptions.list`.
 
-You'll see one `subscription.cancelled` webhook with `data.status: 'cancelled'`. That's it.
+## Building a cancel button for your customers
 
-If you want to refund the unused portion of the current cycle, you do that separately via the refunds API. There's no auto-proration. The pattern looks like:
-
-```ts
-// Figure out the unused fraction.
-const totalCycleDays = 30 // or compute from interval
-const unusedDays = Math.max(0, daysBetween(now, subscription.currentPeriodEndAt))
-const ratio = unusedDays / totalCycleDays
-
-// Calculate the refund amount in 6-decimal raw.
-const refundAmount = (BigInt(subscription.amount) * BigInt(Math.floor(ratio * 1_000_000))) / 1_000_000n
-
-await strimz.refunds.create({
-  transactionId: lastChargeTransactionId,
-  amount: refundAmount.toString(),
-  reason: 'customer_request',
-  note: 'Prorated cancellation refund',
-})
-```
-
-Whether to prorate is a business decision. Some products refund unused time, some don't. Strimz exposes the primitives; you decide the policy.
-
-## Why we don't have auto-prorate
-
-We've thought about it. The reason we haven't built it is that proration is rarely as simple as "fraction of cycle remaining." Different products handle:
-
-- Discounted plans (do you refund the discounted amount or the list price?)
-- Volume tiers (the customer's been using more than the base tier all month; does that matter?)
-- Bundled add-ons (does the refund apply to the base or include add-ons?)
-- Tax (Strimz doesn't collect tax; do you?)
-
-Every B2B SaaS we've talked to has a slightly different answer. Building "the right" auto-prorate into Strimz would mean either picking one answer and being wrong for half our merchants, or building a configurable mini-language for proration that nobody would actually configure. So we expose the primitives and let you compose the policy that's right for your business.
-
-## On-chain side
-
-The on-chain `cancel(uint256 subscriptionId)` call sets the subscription's contract state to `Cancelled`. Future `batchCharge` calls referencing that id are no-ops at the contract level.
-
-A subtle point about EIP-2612 allowances: cancellation does *not* revoke the payer's `USDC.approve` allowance. The allowance is still technically valid; it's just that the contract refuses to use it. If a payer wants to revoke the allowance for extra peace of mind, they can call `USDC.approve(strimzSubscriptions, 0)` directly from their wallet. The contract would then fail any future `transferFrom` regardless of state.
-
-In practice, the contract-level cancellation is the binding control. The allowance hanging around is harmless because the contract refuses to act on it.
-
-## Customer-initiated cancellation
-
-There's no Strimz-hosted "Cancel my subscription" page that the payer can navigate to. Subscriptions are cancelled through the merchant.
-
-If you want to give your customers a self-service cancel button. The right move for most B2B SaaS. The pattern is:
+Most products give customers a cancel button in their own app:
 
 1. Build the page in your app.
-2. Authenticate the customer however you usually do (their existing session in your product).
-3. From your server, call `strimz.subscriptions.cancel({ id })`. Use your secret key.
+2. Authenticate the customer the way you already do.
+3. From your server, call `strimz.subscriptions.cancel({ id, reason })` with your secret key.
 
-The Strimz API key stays server-side. The customer's authentication is yours to verify. You wire the business rules (do they get the rest of the cycle? do they get a refund?) and Strimz just does what you tell it.
+The secret key stays on your server. See [Self-serve cancel](/docs/recipes/self-serve-cancel) for a full example.
 
-We don't build a payer-facing cancel UI because subscription cancellation almost always involves business logic that's specific to the merchant. Proration policy, win-back flow, end-of-life confirmation, data export, account closure. Building a one-size-fits-all cancellation flow would be wrong for everyone. The primitive is what you need; the policy is yours.
+## Refunding unused time
 
-## When the merchant cancels for the customer
+Cancelling does not refund anything. If you want to give back the unused part of the current period, issue a refund against the last charge's transaction. There is no automatic proration, because the right amount depends on your pricing, discounts and tax rules.
 
-Sometimes you cancel on the customer's behalf. They emailed support, they want out, you're handling it. The API call is the same; the difference is just who initiated it. The `cancellationReason` field on the subscription is for your own audit (the customer's actual reason); it's not surfaced in any user-facing place by default.
+A simple prorated amount:
 
-If you cancel because you're suspending the customer's account (fraud, non-payment of a separate invoice, etc.), pass `immediate: true`. They probably don't get the rest of the cycle in that scenario, and you don't want auto-renew firing.
+```ts
+const periodMs = Date.parse(sub.currentPeriodEndAt) - Date.parse(sub.currentPeriodStartAt)
+const unusedMs = Math.max(0, Date.parse(sub.currentPeriodEndAt) - Date.now())
+const refundAmount = (BigInt(sub.amount) * BigInt(unusedMs)) / BigInt(periodMs)
+```
+
+Then issue the refund from the dashboard's [Refunds page](/docs/dashboard/refunds), where your Strimz wallet signs the transfer.
+
+Not yet: `strimz.refunds.create` in the SDK throws instead of returning the refund to sign. Tracked in [#294](https://github.com/StrimzLab/strimz/issues/294).
+
+## Allowances
+
+Cancelling does not revoke the payer's token allowance to the subscriptions contract. The contract refuses to charge a cancelled subscription, so the leftover allowance cannot be used for it. A payer who wants to remove it can call `approve(strimzSubscriptions, 0)` on the token from their wallet.

@@ -2,8 +2,6 @@
  * Strimz pricing tiers.
  *
  * Fees are expressed in basis points (bps): 100 bps = 1%.
- * The subscription premium is added to the per-transaction rate when the
- * payment is recurring (i.e. originated from a SubscriptionPlan).
  */
 
 import { PAYMENT_TOKENS, TOKENS, type PaymentToken } from './tokens.js'

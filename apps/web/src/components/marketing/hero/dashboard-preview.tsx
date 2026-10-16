@@ -23,9 +23,9 @@ import { cn } from '@strimz/ui'
  */
 const SCENE_DURATIONS = [7000, 6000, 7000] as const
 const URLS = [
-  'app.strimz.finance/app/subscriptions',
-  'app.strimz.finance/app/payment-sessions',
-  'app.strimz.finance/app/subscriptions',
+  'strimz.finance/app/subscriptions',
+  'strimz.finance/app/payment-sessions',
+  'strimz.finance/app/subscriptions',
 ] as const
 
 export function DashboardPreview() {
@@ -203,7 +203,7 @@ function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
                 animate={{ opacity: 1, y: 0 }}
                 className="font-poppins text-muted-foreground mt-3 text-[10px] sm:text-[11px]"
               >
-                Customer signed <span className="text-foreground font-[600]">once on April 2</span>
+                Customer signed <span className="text-foreground font-[600]">once on Nov 2</span>
                 {' · '}charged <span className="text-accent font-[600]">7 times</span>
               </motion.p>
             ) : null}
@@ -346,7 +346,7 @@ function OneShotScene({ reducedMotion }: { reducedMotion: boolean }) {
                     Settled in
                   </span>
                   <span className="text-accent font-mono text-[10px] font-[600] sm:text-[11px]">
-                    ~13 seconds
+                    seconds
                   </span>
                 </motion.div>
               ) : null}
@@ -564,7 +564,7 @@ function RecoveryScene({ reducedMotion }: { reducedMotion: boolean }) {
               <TimelineRow
                 show={step >= 6}
                 icon={<Check className="size-3" strokeWidth={3} />}
-                time="13:52"
+                time="14:05"
                 label="Retry succeeded"
                 tone="success"
               />
@@ -630,8 +630,8 @@ function TimelineRow({
 
 function FloatingChips({ sceneIndex }: { sceneIndex: number }) {
   const top = [
-    { event: 'subscription.charged', latency: '· 84ms' },
-    { event: 'payment.completed', latency: '· 12s after submit' },
+    { event: 'subscription.charged', latency: '· signed' },
+    { event: 'payment.completed', latency: '· settled' },
     { event: 'subscription.charged', latency: '· recovered' },
   ] as const
   const bottom = [

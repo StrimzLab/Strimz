@@ -3,7 +3,7 @@ title: API overview
 description: Authentication, errors, pagination, idempotency. The basics every Strimz API call shares.
 ---
 
-The Strimz API is a single host (`https://api.strimz.finance`) serving JSON over HTTPS. Every endpoint is documented in [OpenAPI 3.1](https://api.strimz.finance/openapi.json) and rendered by [Scalar](https://api.strimz.finance/docs) for an interactive "try it" experience.
+The Strimz API is a single host (`https://api.strimz.finance`) serving JSON over HTTPS. Every endpoint is documented in [OpenAPI](https://api.strimz.finance/openapi.json) and rendered by [Scalar](https://api.strimz.finance/docs) for an interactive "try it" experience.
 
 ## Base URL
 
@@ -11,8 +11,10 @@ The Strimz API is a single host (`https://api.strimz.finance`) serving JSON over
 https://api.strimz.finance
 ```
 
-Test and live mode share the same host. The `sk_test_` or `sk_live_`
-prefix on your key decides which mode the request lands in.
+Each Strimz deployment runs in one mode. The sandbox runs on Arc
+testnet and accepts `sk_test_` keys only; the live deployment runs on
+Arc mainnet and accepts `sk_live_` keys only. A key of the other mode
+returns `403 mode_unavailable`. See [Authentication](/docs/authentication).
 
 ## Authentication
 
@@ -33,7 +35,7 @@ Every error returns a JSON envelope:
     "message": "amount must be a positive integer string",
     "param": "amount",
     "details": { "issues": [...] },
-    "requestId": "req_abc123"
+    "requestId": "req-4f2"
   }
 }
 ```
@@ -58,17 +60,13 @@ Pass `?cursor=<nextCursor>` on the next call. `limit` defaults to 25, max 100.
 
 ## Idempotency
 
-`POST` endpoints accept an `Idempotency-Key` header. See [Idempotency](/docs/concepts/idempotency).
+The SDK sends an `X-Strimz-Idempotency-Key` header on `POST` and `PATCH` requests. See [Idempotency](/docs/concepts/idempotency).
 
-## Versioning
-
-Strimz uses **date-based API versions**. The current version is `2026-04-27` (set in your `Strimz-Version` header on every request, or pinned in your dashboard).
-
-Breaking changes only ship in a new dated version. Old versions remain available for at least 12 months after a successor lands.
+Not yet: the API doesn't dedupe requests on that key. Tracked in [#292](https://github.com/StrimzLab/strimz/issues/292).
 
 ## Rate limits
 
-The API enforces a 600 req/min global rate limit per IP at the edge. Exceeding it returns `429` with a `Retry-After` header.
+The API allows 600 requests per minute per IP across all routes. Some routes have a tighter limit of their own. Exceeding a limit returns `429`.
 
 ## Resources
 
@@ -78,7 +76,7 @@ Every resource has its own page in the sidebar. The most-used ones:
 - **[Subscriptions](/docs/api/subscriptions).** Recurring revenue.
 - **[Refunds](/docs/api/refunds).** Server-intent plus wallet-signed transfers.
 - **[Webhooks](/docs/api/webhooks).** Register endpoints, replay deliveries.
-- **[Invoices](/docs/api/invoices).** Hosted, branded payment pages.
+- **[Invoices](/docs/api/invoices).** Invoices with line items, paid through checkout.
 
 ## Try it
 

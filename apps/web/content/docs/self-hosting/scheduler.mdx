@@ -4,14 +4,17 @@ description: Cron jobs and the webhook delivery queue.
 ---
 
 The scheduler is a Nest, Fastify, and BullMQ app. It owns the cron
-jobs (subscription sweeper, invoice-overdue marker,
-subscription-lapsed transitions, plan upgrades) and the webhook delivery queue. At
-boot it also warms the webhook-secret cache so the API can verify
-outgoing signatures without a Postgres round-trip.
+jobs (subscription sweeper, session expiry, invoice-overdue marker,
+subscription-lapsed transitions, plan upgrades, contract alerts, gas
+balance and notification emails) and the webhook delivery queue. At
+boot it also warms the webhook-secret cache the delivery worker reads
+from.
 
-The relayer's signing key does not live in the scheduler. It lives
-in `apps/api`, where it is accessed through a KMS provider. The
-scheduler enqueues work and the API signs and broadcasts.
+The scheduler signs its own transactions with its own key, separate
+from the API relayer's key. Set `SCHEDULER_SIGNER_PROVIDER` to
+`aws-kms` (required in production) or `software` with
+`SCHEDULER_PRIVATE_KEY` for local work. The scheduler refuses to boot
+if its signing address equals `RELAYER_ADDRESS`.
 
 ## Build
 
@@ -23,48 +26,68 @@ pnpm start:prod
 
 ## Configuration
 
+Required:
+
 ```
 NODE_ENV=production
-PORT=4200
 DATABASE_URL=postgresql://...
 REDIS_URL=redis://...
 
 ARC_ENVIRONMENT=mainnet
 ARC_RPC_URL=https://your-arc-rpc.com
-REGISTRY_ADDRESS=0x...               # the plan upgrade sets fees here
 
-STRIMZ_API_URL=http://api:4000      # the relayer endpoint the scheduler calls
-STRIMZ_API_INTERNAL_TOKEN=...       # shared secret for internal API calls
+SUBSCRIPTIONS_ADDRESS=0x...
+AGENT_ESCROW_ADDRESS=0x...
+REGISTRY_ADDRESS=0x...
+RELAYER_ADDRESS=0x...
 
-STRIMZ_WEBHOOK_SIGNING_SECRET=...   # 32+ chars
+SCHEDULER_SIGNER_PROVIDER=aws-kms
+SCHEDULER_KMS_KEY_ID=...
+SCHEDULER_SIGNER_ADDRESS=0x...
+AWS_REGION=us-east-1
+
+STRIMZ_WEBHOOK_SIGNING_SECRET=...
+WEBHOOK_SECRET_ENCRYPTION_KEY=...
+STRIMZ_ADMIN_ALERT_EMAIL=ops@your-domain.com
+```
+
+`STRIMZ_WEBHOOK_SIGNING_SECRET` is at least 32 characters.
+`WEBHOOK_SECRET_ENCRYPTION_KEY` is 64 hex characters and must match the
+API's value exactly. `ARC_ENVIRONMENT` is required when
+`NODE_ENV=production`.
+
+Optional, with their defaults:
+
+```
+PORT=4200
+ARC_USDC_ADDRESS=0x3600000000000000000000000000000000000000
 WEBHOOK_DELIVERY_TIMEOUT_MS=10000
 WEBHOOK_MAX_ATTEMPTS=5
 
 SUBSCRIPTION_SWEEPER_CRON=0 */15 * * * *
 INVOICE_OVERDUE_CRON=0 0 * * * *
 PLAN_UPGRADE_CRON=0 */5 * * * *
-CONTRACT_ALERT_CRON=0 * * * * *     # emails on-chain admin events to STRIMZ_ADMIN_ALERT_EMAIL
-SUBSCRIPTION_LAPSED_CRON=0 0 * * * *
+CONTRACT_ALERT_CRON=0 * * * * *
+GAS_BALANCE_CRON=0 */15 * * * *
+MERCHANT_NOTIFICATION_CRON=*/30 * * * * *
 
 RESEND_API_KEY=...
-RESEND_FROM_EMAIL=noreply@your-domain.com
+RESEND_FROM_EMAIL=Strimz <noreply@mail.strimz.finance>
+RESEND_REPLY_TO=support@strimz.finance
 ```
 
-## Talking to the relayer
+## On-chain calls
 
-On every tick that needs a transaction broadcast (subscription charge batches, on-chain cancels, agent job operations, CCTP settlements), the scheduler posts an internal request to `apps/api`. The API loads its KMS-backed key, signs, broadcasts, and writes the resulting `TxRequest` row. The scheduler never sees the key material.
+The scheduler signs these itself:
 
-Operations the relayer signs on behalf of the scheduler:
+| Operation             | Contract / Function                                                  |
+| --------------------- | -------------------------------------------------------------------- |
+| Charge a subscription | `StrimzSubscriptions.batchCharge(ids[], attemptIds[])`, one per call |
+| Cancel a subscription | `StrimzSubscriptions.cancel(subId)`                                  |
+| Set a merchant's fee  | `StrimzRegistry.setFeeBps(...)` (plan upgrades)                      |
+| Agent escrow jobs     | `StrimzAgentEscrow` create, release, dispute, cancel (not live yet)  |
 
-| Operation             | Contract / Function                                    |
-| --------------------- | ------------------------------------------------------ |
-| Cancel a subscription | `StrimzSubscriptions.cancel(subId)`                    |
-| Charge subscriptions  | `StrimzSubscriptions.batchCharge(ids[], attemptIds[])` |
-| Create an agent job   | `StrimzAgentEscrow.createJob(...)`                     |
-| Release a job         | `StrimzAgentEscrow.approveAndRelease(jobId)`           |
-| Dispute a job         | `StrimzAgentEscrow.dispute(jobId, reason)`             |
-| Cancel a job          | `StrimzAgentEscrow.cancelJob(jobId, reason)`           |
-| Settle CCTP routing   | `MessageTransmitter.receiveMessage(...)`               |
+Not yet: the on-chain subscription cancel reverts today. Tracked in [#293](https://github.com/StrimzLab/strimz/issues/293).
 
 ## Multi-instance safety
 
@@ -80,16 +103,14 @@ horizontally. Throughput grows roughly linearly with replicas.
 
 ## Observability
 
-- `/healthz`, `/readyz`
-- BullMQ dashboard at `/admin/queues` (gated by an admin password)
-- Prometheus metrics for job counts, latency, failure rates
+- `/healthz` and `/readyz`
+- Ops alerts (low gas balance, contract admin events) go to `STRIMZ_ADMIN_ALERT_EMAIL`
 
 ## Failure modes
 
-- **API outage.** The scheduler's call to the relayer fails; BullMQ retries with exponential backoff. No transaction is broadcast until the API is back.
 - **DB outage.** Workers fail their current job. BullMQ retries. The job stays in the queue.
 - **Redis outage.** The scheduler can't pick up new jobs. Existing in-flight work completes.
-- **API broadcasts but the scheduler crashes before recording.** The on-chain side succeeded. The indexer projects the resulting event. The DB row catches up on the next sweep.
+- **The scheduler broadcasts but crashes before recording.** The on-chain side succeeded. The indexer projects the resulting event, and the contract's charge-attempt id stops the same charge landing twice.
 
 ## Source
 

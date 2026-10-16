@@ -20,12 +20,12 @@ Returns:
 ```json
 {
   "endpoint": {
-    "id": "ep_xyz",
+    "id": "cmq4wsb5n000dje6l4y8k2rzc",
     "url": "https://your-site.com/webhooks/strimz",
     "events": ["payment.completed", "subscription.charged"],
     "mode": "live",
     "status": "active",
-    "signingSecretPrefix": "whsec_abcd",
+    "signingSecretPrefix": "whsec_abcdef",
     ...
   },
   "signingSecret": "whsec_xxxxxxxxxxxxxxxxxxxx"
@@ -47,7 +47,7 @@ POST /v1/webhook-endpoints/{id}/rotate-secret
 
 ```http
 GET /v1/webhook-deliveries/{id}
-GET /v1/webhook-deliveries?endpointId=ep_xyz&status=permanently_failed
+GET /v1/webhook-deliveries?endpointId=cmq4wsb5n000dje6l4y8k2rzc&status=permanently_failed
 ```
 
 ```http

@@ -7,15 +7,15 @@ import { fadeUp, inViewOnce, stagger } from '@/lib/motion'
 const FAQS = [
   {
     q: 'What does Strimz actually do?',
-    a: 'Strimz lets your business take payments in stablecoins. You can charge a customer once, or set up a subscription that charges them every period. You get paid in USDC; we handle the on-chain side, refunds, webhooks, dashboards, and everything in between.',
+    a: 'Strimz lets your business take payments in stablecoins. You can charge a customer once, or set up a subscription that charges them every period. You get paid in USDC or EURC; we handle the on-chain side, refunds, webhooks, dashboards, and everything in between.',
   },
   {
     q: 'Do my customers need to understand crypto?',
-    a: "Not really. The checkout works with email, social login, or an existing wallet. If they don't have one, we create a wallet for them in the background. They approve the payment once and never have to think about it again.",
+    a: "A little. Today they pay from a wallet that holds USDC or EURC on Arc. They don't need gas: they approve the payment with a signature in their wallet and Strimz submits it for them.",
   },
   {
     q: 'Do I need to hold any crypto myself to use Strimz?',
-    a: "Only the USDC you receive from your customers. Strimz takes care of gas through Arc (where USDC is the gas token), so you don't have to top up ETH or anything else.",
+    a: "Only a little USDC. Strimz pays the gas for your customers' payments and subscription charges. On Arc, USDC is the gas token, so refunds and withdrawals you send from your own wallet cost a small amount of USDC, and nothing else.",
   },
   {
     q: 'Is Strimz custodial? Do you hold my money?',
@@ -23,7 +23,7 @@ const FAQS = [
   },
   {
     q: 'How does pricing work?',
-    a: 'You pay a small percentage of each transaction. The more volume you do, the lower your rate. The fee is taken on-chain in the same transaction, so what you see is what lands in your wallet. There are no platform fees on top.',
+    a: 'You pay a small percentage of each transaction: 0% on your first $1,000, then 0.5%, dropping to 0.4% from $50,000. The fee is taken on-chain in the same transaction, so what you see is what lands in your wallet. There are no platform fees on top.',
   },
   {
     q: 'Can Strimz handle subscriptions, or only one-off payments?',
@@ -31,7 +31,7 @@ const FAQS = [
   },
   {
     q: 'What happens if a subscription charge fails?',
-    a: 'The subscription moves into an at-risk state and the AutoPay Agent emails the customer asking them to top up. You can pick the recovery strategy and grace window. If the grace window passes without a successful charge, the subscription lapses and we let you know.',
+    a: 'The subscription moves into an at-risk state and Strimz retries the charge. If you turn on recovery emails, the AutoPay Agent also asks the customer to top up. If the charge still fails 48 hours after the period ends, the subscription lapses and we let you know.',
   },
   {
     q: 'Can I refund a customer?',
@@ -39,11 +39,11 @@ const FAQS = [
   },
   {
     q: 'What if my customer wants to pay from a different chain?',
-    a: 'Cross-chain via Circle CCTP V2 is on the roadmap. The schema and scheduler already understand a source chain, but the checkout UI ships in a later release. For now, customers pay on Arc directly.',
+    a: 'Paying from other chains is coming. Today customers pay on Arc directly.',
   },
   {
     q: 'Where can I find the technical details?',
-    a: 'All the technical details. APIs, SDKs, webhook signatures, contract architecture, error codes. Live in the docs at /docs. They cover everything from a 5-minute quickstart to self-hosting.',
+    a: 'In the docs at strimz.finance/docs: the API, SDKs, webhook signatures, contract architecture and error codes, from a 5-minute quickstart to self-hosting.',
   },
 ] as const
 

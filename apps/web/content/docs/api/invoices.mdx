@@ -1,6 +1,6 @@
 ---
 title: Invoices
-description: Hosted, branded payment pages with line items.
+description: Invoices with line items, paid through hosted checkout.
 ---
 
 ## Create
@@ -24,13 +24,13 @@ Returns:
 
 ```json
 {
-  "id": "inv_xyz",
+  "id": "cmq4wmx7q000aje6l9h4r1spe",
   "number": "2026-0001",
   "subtotal": "70000000",
   "total": "70000000",
   "currency": "USDC",
   "status": "draft",
-  "sessionId": "sess_xyz",
+  "sessionId": "cmq4wmx9t000bje6l0d6g3kfu",
   "dueAt": "2026-05-13T...",
   "lineItems": [...],
   ...
@@ -43,7 +43,7 @@ Returns:
 POST /v1/invoices/{id}/send
 ```
 
-Emails the customer. Requires `customerEmail` to be set; returns 403 otherwise.
+Emails the customer a link to the hosted checkout for the backing session. Requires `customerEmail` to be set; returns 403 otherwise. A voided invoice can't be sent.
 
 ## Void
 
@@ -68,13 +68,14 @@ draft  →  sent  →  paid
                overdue  →  void
 ```
 
-Daily cron flips invoices past `dueAt` to `overdue` and fires `invoice.overdue`.
+An hourly scheduler job flips `sent` invoices past `dueAt` to `overdue` and fires `invoice.overdue`. Any invoice that isn't paid can be voided.
 
 ## Webhook events
 
-| Event             | Fires when                      |
-| ----------------- | ------------------------------- |
-| `invoice.created` | A new invoice was created       |
-| `invoice.sent`    | The invoice email was delivered |
-| `invoice.paid`    | The backing session confirmed   |
-| `invoice.overdue` | dueAt passed without payment    |
+| Event             | Fires when                    |
+| ----------------- | ----------------------------- |
+| `invoice.created` | A new invoice was created     |
+| `invoice.paid`    | The backing session confirmed |
+| `invoice.overdue` | dueAt passed without payment  |
+
+Sending an invoice doesn't fire a webhook.

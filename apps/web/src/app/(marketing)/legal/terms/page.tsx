@@ -71,8 +71,8 @@ export default function TermsPage() {
       <p>
         Live mode unlocks once you have completed: (a) email verification through Privy; (b)
         two-factor authentication enrolment; and (c) the business onboarding form (legal name,
-        sector, country, payout address). You are responsible for keeping this information accurate
-        and up to date.
+        sector, country, payout address). Live mode is available once Strimz launches on Arc
+        mainnet. You are responsible for keeping this information accurate and up to date.
       </p>
 
       <h2 id="fees">4. Fees</h2>
@@ -97,8 +97,8 @@ export default function TermsPage() {
           subject to chain-level availability.
         </li>
         <li>
-          Smart contracts may contain bugs. While the Strimz contracts are audited and open source,
-          we do not warrant that the contracts are free of all defects.
+          Smart contracts may contain bugs. The Strimz contracts are open source, but we do not
+          warrant that the contracts are free of all defects.
         </li>
       </ul>
 

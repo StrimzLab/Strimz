@@ -58,7 +58,7 @@ export default function PricingPage() {
             >
               {t.featured ? (
                 <span className="font-poppins bg-accent mb-3 self-start rounded-full px-2.5 py-0.5 text-[11px] font-[600] text-white">
-                  Most popular
+                  Recommended
                 </span>
               ) : null}
               <div className="font-poppins text-muted-foreground text-[13px] font-[500]">
@@ -141,7 +141,7 @@ export default function PricingPage() {
         {/* Closing band */}
         <div className="border-border bg-muted mt-16 rounded-[16px] border p-8 text-center">
           <h3 className="font-sora text-foreground text-[20px] font-[700] md:text-[24px]">
-            Processing over $1M?
+            Need a custom rate?
           </h3>
           <p className="font-poppins text-muted-foreground mx-auto mt-2 max-w-xl text-sm">
             Enterprise pricing is set by contract. Tell us about your volume and we will come back

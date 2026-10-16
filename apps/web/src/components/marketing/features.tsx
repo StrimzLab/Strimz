@@ -12,17 +12,17 @@ const FEATURES = [
   {
     icon: art1,
     title: 'Retries that can’t double-charge',
-    body: 'Every charge attempt has a unique ID built from the subscription and period. Retry the same call a hundred times and only one charge lands. The contract enforces it, not the database.',
+    body: 'The contract tracks when each subscription is next due. Once a period is paid, a second charge for it is refused, however many times it is retried. The contract enforces it, not the database.',
   },
   {
     icon: art2,
     title: 'Subscriptions that don’t expire',
-    body: 'Your customer signs one transaction. We charge them every period after that. Daily, weekly, monthly, yearly. Without asking again. There’s no card to expire and no payment method to update.',
+    body: 'Your customer signs one transaction. We charge them every period after that. Daily, weekly, monthly, quarterly, yearly. Without asking again. There’s no card to expire and no payment method to update.',
   },
   {
     icon: art3,
     title: 'Settlement in seconds',
-    body: 'Payments confirm in about 13 seconds and the USDC lands in your payout wallet right away. No three-day hold. No chargeback window. The on-chain hash is your receipt.',
+    body: 'Arc finalises payments in seconds and the USDC or EURC lands in your payout wallet right away. No three-day hold. No chargeback window. The on-chain hash is your receipt.',
   },
 ] as const
 

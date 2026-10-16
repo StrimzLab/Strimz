@@ -20,8 +20,8 @@ const ROUTES = [
   {
     icon: Mail,
     label: 'Sales',
-    addr: 'sales@strimz.finance',
-    body: 'Pricing, plan upgrades, custom contracts. We reply within one business day.',
+    addr: 'support@strimz.finance',
+    body: 'Pricing, plan upgrades, custom contracts. Put "Sales" in the subject.',
   },
   {
     icon: MessageCircle,
@@ -32,8 +32,8 @@ const ROUTES = [
   {
     icon: ShieldAlert,
     label: 'Security',
-    addr: 'security@strimz.finance',
-    body: 'Responsible disclosure. PGP key is on the security page.',
+    addr: 'support@strimz.finance',
+    body: 'Responsible disclosure. Put "Security" in the subject and we will reply privately.',
   },
 ] as const
 

@@ -36,7 +36,7 @@ breaks and you need to pick the right log file.
         │           ▼
         │    ┌──────────────┐
         └────│    agent     │  Background AI worker
-             │ (Nest+cron)  │  Read-only · emails · CCTP routing
+             │ (Nest+cron)  │  Read-only · emails · digests
              └──────────────┘
 ```
 
@@ -70,7 +70,7 @@ never signs anything.
   <Card
     title="apps/agent"
     href="/docs/self-hosting/agent"
-    description="The AutoPay Agent. Hourly + daily crons. Recovery emails, cashflow digests, anomaly detection, CCTP routing. Holds no key."
+    description="The AutoPay Agent. Hourly + daily crons. Recovery emails, cashflow digests, anomaly detection. Cross-chain routing is coming; payers pay on Arc only today. Holds no key."
   />
   <Card
     title="apps/web"
@@ -113,24 +113,22 @@ never signs anything.
 Each process owns a well-defined slice of behaviour. Knowing which
 slice covers the symptom is usually enough to pick the right log.
 
-| Symptom                                 | Process to check                         |
-| --------------------------------------- | ---------------------------------------- |
-| API returning 5xx                       | `apps/api` logs                          |
-| Subscriptions not charging on schedule  | `apps/scheduler` (sweeper tick + worker) |
-| Webhooks failing or stuck retrying      | `apps/scheduler` (delivery worker)       |
-| New on-chain payment not in dashboard   | `apps/indexer` (cursor caught up?)       |
-| Merchant not getting daily digest       | `apps/agent` (cashflow cron logs)        |
-| CCTP bridge stuck in `bridge_initiated` | `apps/agent` (Circle attestation poller) |
+| Symptom                                | Process to check                         |
+| -------------------------------------- | ---------------------------------------- |
+| API returning 5xx                      | `apps/api` logs                          |
+| Subscriptions not charging on schedule | `apps/scheduler` (sweeper tick + worker) |
+| Webhooks failing or stuck retrying     | `apps/scheduler` (delivery worker)       |
+| New on-chain payment not in dashboard  | `apps/indexer` (cursor caught up?)       |
+| Merchant not getting daily digest      | `apps/agent` (cashflow cron logs)        |
 
 ## What you don't need to think about
 
 <Callout title="Built-in guarantees" type="info">
-  - **On-chain idempotency.** The contract's `usedAttempts[id]` mapping makes every charge attempt
-  safe to retry without duplication. - **Webhook delivery retries.** The scheduler retries on a
-  backoff schedule of 1m, 5m, 30m, 2h, and 12h. If all five attempts fail, you get an email and the
-  endpoint can auto-disable. - **Reorg protection.** The indexer waits `CONFIRMATIONS` blocks
-  (default 5) before projecting an event. Arc's finality makes short reorgs unlikely; the margin is
-  there anyway.
+
+- **On-chain idempotency.** The contract's `usedAttempts[id]` mapping makes a charge attempt safe to replay: a reused id is skipped with outcome `Duplicate`, never charged twice.
+- **Webhook delivery retries.** The scheduler makes 5 attempts, waiting 1m, 5m, 30m and 2h between them. If all five fail, you get an email, and 5 permanent failures in 24 hours auto-disable the endpoint.
+- **Finality.** Arc has deterministic sub-second finality, so there are no reorgs to wait out. The indexer's `CONFIRMATIONS` setting is required, and 1 is the recommended value.
+
 </Callout>
 
 ## Want to dig deeper?

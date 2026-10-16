@@ -3,32 +3,35 @@ title: Test mode vs live mode
 description: How Strimz separates test traffic from real traffic, end to end.
 ---
 
-Test and live mode are separated at every layer. Different
-smart-contract deployments, different RPC URLs, different Postgres
-tables, different webhook endpoints, different signing secrets. A
+Test and live mode are separated per deployment. Each Strimz
+deployment runs in one mode: the sandbox runs on Arc testnet and
+accepts test keys only, and the live deployment runs on Arc mainnet and
+accepts live keys only. Each has its own contracts, RPC, scheduler and
+agent. Within the database, every resource carries a `mode` column. A
 test-mode call cannot settle a real payment, and there is no "promote
-to live" step that migrates test data over. The separation is
-deliberate.
+to live" step that migrates test data over.
+
+Live mode opens when Strimz runs on Arc mainnet. Until then, live keys
+can't be created.
 
 ## Why the separation is so strict
 
 Plenty of billing incidents trace back to one mistake: someone
-thought they were hitting test, but they were hitting prod. Strimz
-removes that class of mistake. The `sk_test_` prefix routes your
-request to a different chain, database, scheduler, and agent. When
-you're ready for production, you swap `sk_test_` for `sk_live_` and
-the rest of your code stays as-is.
+thought they were hitting test, but they were hitting prod. A key of
+the wrong mode is refused with `403 mode_unavailable`, so a test key
+can't touch live data. When you're ready for production, you swap
+`sk_test_` for `sk_live_` and the rest of your code stays as-is.
 
 ## What's different between modes
 
-|                   | Test mode                                                                   | Live mode                     |
-| ----------------- | --------------------------------------------------------------------------- | ----------------------------- |
-| Chain             | Arc Testnet (chain ID 5042002)                                              | Arc Mainnet                   |
-| RPC URL           | `https://rpc.arc-testnet.example.com`                                       | `https://rpc.arc.example.com` |
-| USDC              | Arc Testnet USDC (faucet at [faucet.circle.com](https://faucet.circle.com)) | Arc Mainnet USDC              |
-| Webhook endpoints | Different list per mode                                                     | Different list per mode       |
-| API keys          | `sk_test_*`, `pk_test_*`                                                    | `sk_live_*`, `pk_live_*`      |
-| Dashboard view    | Mode toggle in topbar                                                       | Mode toggle in topbar         |
+|                   | Test mode                                                                   | Live mode                    |
+| ----------------- | --------------------------------------------------------------------------- | ---------------------------- |
+| Chain             | Arc Testnet (chain ID 5042002)                                              | Arc Mainnet (chain ID 5042)  |
+| RPC URL           | `https://rpc.testnet.arc.io`                                                | `https://rpc.mainnet.arc.io` |
+| USDC              | Arc Testnet USDC (faucet at [faucet.circle.com](https://faucet.circle.com)) | Arc Mainnet USDC             |
+| Webhook endpoints | Different list per mode                                                     | Different list per mode      |
+| API keys          | `sk_test_*`, `pk_test_*`                                                    | `sk_live_*`, `pk_live_*`     |
+| Dashboard view    | Mode toggle in topbar                                                       | Mode toggle in topbar        |
 
 Every resource (`Subscription`, `Transaction`, `WebhookDelivery`, and so
 on) carries a `mode` column. The dashboard uses it to filter what you
@@ -55,7 +58,7 @@ Webhook endpoints are scoped to a single mode at creation. An endpoint with `mod
 
 ## Identity
 
-Your merchant identity (business name, payout address, KYB info) is
+Your merchant identity (business name, payout address, onboarding details) is
 shared across modes on purpose. There is no second onboarding to
 finish before going live. The transactional resources (sessions,
 subscriptions, refunds, deliveries, invoices) stay mode-segregated.

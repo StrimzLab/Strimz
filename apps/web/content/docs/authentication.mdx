@@ -44,10 +44,8 @@ Keys come in two kinds and two modes:
 | Publishable | Test | `pk_test_` | browser, test environment     |
 | Publishable | Live | `pk_live_` | browser, production           |
 
-**Secret keys must never reach the browser.** If GitGuardian or our
-own scanner spots one in a public source, Strimz rotates it
-automatically. You get an email and the old key starts returning
-`401`s.
+**Secret keys must never reach the browser.** If one leaks, revoke
+it and create a new one.
 
 **Publishable keys** are safe in the browser because they grant no
 access. `StrimzBrowserClient` and `@strimz/sdk-react` read the mode
@@ -166,11 +164,10 @@ it stays in your audit log as `revoked` so you can prove later when
 it stopped working.
 
 ```ts
-await strimz.apiKeys.revoke('mak_xyz')
-const newKey = await strimz.apiKeys.create({ name: 'production', scopes: [...], mode: 'live' })
+await strimz.apiKeys.revoke('cmq4wwd3p000fje6l1k9s5tqx')
+const newKey = await strimz.apiKeys.create({ name: 'production', kind: 'secret', scopes: [...], mode: 'live' })
 console.log(newKey.secret)  // shown once
 ```
 
-If a key is exposed in a public repo,
-[contact security](mailto:security@strimz.finance). Strimz auto-revokes
-it and audits usage from the leak window.
+If a key is exposed in a public repo, revoke it straight away and
+email [support@strimz.finance](mailto:support@strimz.finance).

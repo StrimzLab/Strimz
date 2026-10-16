@@ -1,13 +1,12 @@
 ---
 title: Build a subscription
-description: Recurring revenue, on stablecoins, with one customer signature.
+description: Recurring stablecoin billing. The customer signs once at checkout and the scheduler charges each period.
 ---
 
-Strimz subscriptions are pull-based. Your customer signs one transaction
-that lets the contract charge them a fixed amount on a fixed schedule.
-After that, the Strimz scheduler does the work every period. There are no
-re-prompts to deal with, no card-on-file expiry, and no "your bank
-declined the renewal" emails.
+Strimz subscriptions are pull-based. Your customer signs once at
+checkout to let the contract charge a fixed amount on a fixed schedule.
+After that, the Strimz scheduler takes each charge when it is due, with
+no further prompts.
 
 ## Define a plan
 
@@ -21,79 +20,83 @@ const plan = await strimz.subscriptionPlans.create({
   trialPeriodDays: 14,
 })
 
-console.log(plan.checkoutUrl)
-// → https://strimz.finance/sub/plan_pro_monthly
+const checkoutUrl = `https://www.strimz.finance/sub/${plan.id}`
 ```
 
-Plans are templates. They don't represent a single customer; they represent a recurring price the customer can subscribe to.
+Plans are templates. They don't represent a single customer; they represent a recurring price the customer can subscribe to. The plan object has no checkout URL field, so build the link from `plan.id`.
 
 ## Customer subscribes
 
-Send the customer to `plan.checkoutUrl`. They connect a wallet, see
-"Subscribe, 20 USDC/month", and sign one message.
+Send the customer to the checkout link. They connect a wallet, see
+"Subscribe, 20 USDC/month", and sign two typed-data messages:
 
-The message is an EIP-2612 `Permit`, a structured authorisation USDC
-supports natively that grants the `StrimzSubscriptions` contract a
-recurring allowance. Strimz's relayer takes that signed permit and
-calls `permitAndCreateSubscription` in a single atomic transaction.
-The permit is consumed and the subscription is created in the same
-block. There is no approve-then-subscribe round trip.
+1. An EIP-2612 `Permit` that gives the `StrimzSubscriptions` contract
+   an allowance on their USDC.
+2. A Strimz `SubscriptionIntent` that binds the plan, amount, interval
+   and start time they agreed to.
+
+Strimz's relayer submits both in one `permitAndCreateSubscription`
+transaction. That transaction creates the subscription and moves no
+money.
 
 The full security model lives on the
 [meta-tx flow page](/docs/concepts/meta-tx-flow): what the customer
 signs, why the relayer cannot move funds on its own, when the
 signature expires.
 
-You receive `subscription.created` immediately and another webhook
-each time a period charges (`subscription.charged`).
+You receive `subscription.created` once the indexer sees the
+enrolment, and `subscription.charged` each time a period charges.
 
 ## What happens at charge time
 
-The Strimz scheduler runs a sweep every 15 minutes (configurable). It finds subscriptions whose `nextChargeAt` is in the past, atomically locks them via `chargeLock`, and enqueues a job per locked sub onto `strimz.subscription.due`.
+The Strimz scheduler runs a sweep every 15 minutes. It finds subscriptions whose `nextChargeAt` (and any retry time) has passed, locks each one with `chargeLock`, and enqueues one job per subscription onto `strimz.subscription.due`.
 
-The worker calls `batchCharge(subscriptionIds, chargeAttemptIds)` on the contract. Each entry has a `chargeAttemptId = keccak256(subscriptionId, periodEndAt)` so retries can't double-charge. The contract pulls USDC from the customer's wallet and emits `SubscriptionCharged` (or `SubscriptionChargeSkipped` with the reason). The indexer projects both into your DB.
+The worker calls `batchCharge([subscriptionId], [chargeAttemptId])` for that one subscription. The attempt id is `keccak256(abi.encodePacked(onchainSubId, currentPeriodEndAt, attempt))`, so a replayed attempt can't charge twice: the contract skips it with outcome `Duplicate`. The contract pulls USDC from the customer's wallet and emits `SubscriptionCharged`, or `SubscriptionChargeSkipped` with the reason. The indexer projects both. See [How charges fire](/docs/subscriptions/charging).
 
 ## Handle a failed charge
 
-A failed charge moves the subscription to `at_risk` and fires `subscription.charge_failed` with the on-chain `outcome`:
+A payment failure moves the subscription to `at_risk` and fires `subscription.charge_failed`. The payload is `{ subscription, charge }`, and `charge.outcome` is one of:
 
-| `outcome`            | What it means                                                        |
-| -------------------- | -------------------------------------------------------------------- |
-| `insufficient_funds` | Customer's USDC balance is below the charge amount                   |
-| `revoked_approval`   | Customer revoked your contract's allowance                           |
-| `cancelled`          | Customer cancelled on-chain between your charge attempts (rare race) |
-| `skipped`            | Period not yet due (defensive; should never reach you)               |
+| `outcome`            | What it means                                               |
+| -------------------- | ----------------------------------------------------------- |
+| `insufficient_funds` | Customer's balance is below the charge amount               |
+| `revoked_approval`   | Customer's allowance to the contract is too low             |
+| `transfer_failed`    | The token transfer failed, for example a blocklisted wallet |
+| `merchant_inactive`  | Your merchant account is not active in the registry         |
 
-If you've enabled the agent's `recovery` capability, the customer gets an email. After your configured grace window (`24h` / `48h` / `72h`), the sub flips to `lapsed`.
+Other outcomes, such as `not_due` or `duplicate`, are recorded but don't fire a webhook.
+
+The scheduler retries after 15 minutes, 1 hour, 3 hours, 6 hours, 12 hours, then every 24 hours. If the charge still hasn't succeeded 48 hours after the period end, an hourly cron flips the subscription to `lapsed` and fires `subscription.lapsed`. If you've enabled the agent's `recovery` capability, the customer also gets emails. See [Recovery](/docs/subscriptions/recovery).
 
 ## Cancel a subscription
 
-There are two paths to cancellation.
+There are two paths to cancellation. Both are immediate.
 
-**Merchant-initiated.** Say the customer's account was deleted on
+**From your server.** Say the customer's account was deleted on
 your side:
 
 ```ts
-await strimz.subscriptions.cancel(subscriptionId, { reason: 'merchant initiated' })
+await strimz.subscriptions.cancel({ id: subscriptionId, reason: 'merchant initiated' })
 ```
 
-This marks the DB optimistically and enqueues an on-chain cancel.
-The `subscription.cancelled` webhook fires once the on-chain tx
-confirms.
+The row becomes `cancelled` straight away, `subscription.cancelled`
+fires during the call, and the scheduler stops charging. Not yet: the
+on-chain cancel the API queues currently reverts. Tracked in
+[#293](https://github.com/StrimzLab/strimz/issues/293).
 
-**Customer-initiated.** The customer calls the contract directly
-from their wallet. The indexer picks up `SubscriptionCancelled` and
-flips the row.
+**From the customer's wallet.** The customer calls `cancel()` on the
+contract directly. The indexer picks up `SubscriptionCancelled` and
+flips the row. No webhook fires for this path today.
 
-Either way, the customer's wallet stops getting charged. Their
-existing token allowance still exists. To revoke the allowance
-fully, the customer calls `approve(spender, 0)` on the USDC
-contract. Strimz does not auto-revoke because future plans might
-use the same spender.
+Either way, the customer stops getting charged. Their token allowance
+still exists. To remove it, the customer calls `approve(spender, 0)`
+on the USDC contract.
 
 ## Trial periods
 
-`trialPeriodDays: 14` on the plan means the first charge is `now + 14 days` instead of `now`. The customer signs immediately so you know they've committed. Strimz holds off on taking their money for two weeks. Standard trial behaviour.
+`trialPeriodDays: 14` on the plan means the first charge is due 14 days after enrolment instead of at enrolment. The customer signs immediately; Strimz takes nothing until the trial ends. A payer gets the trial only on their first subscription to that plan.
+
+Without a trial, the first charge is due at enrolment and the scheduler takes it on its next sweep, within about 15 minutes.
 
 ## Pricing math
 
@@ -103,4 +106,4 @@ Strimz charges a per-transaction fee on every charge based on your tier. For a S
 - Strimz fee: **0.10 USDC** (0.5%)
 - Merchant receives: **19.90 USDC**
 
-The fee is taken on-chain, in the same transaction, by `StrimzPayments`. There's no separate invoicing. Your dashboard's MRR view shows both gross and net.
+The fee is taken on chain, in the same transaction as the charge, by `StrimzSubscriptions`. There's no separate invoicing. Your dashboard's MRR view shows both gross and net.

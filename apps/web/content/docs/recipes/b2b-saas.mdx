@@ -1,26 +1,25 @@
 ---
 title: A B2B SaaS subscription, end to end
-description: The complete integration for a typical B2B SaaS. Checkout signup, recurring billing, grace handling, cancellation. Real code that ships.
+description: A full integration for a typical B2B SaaS. Checkout signup, recurring billing, failed charges, cancellation.
 ---
 
-This is what a B2B SaaS subscription billing integration actually looks like. Not pseudo-code; you can copy-paste this into a Next.js app and it works.
+This is a complete subscription billing integration for a Next.js app. Your database helpers and email sender are left to you.
 
 The scenario: you're shipping a SaaS product called Acme. You have a Pro plan at $99/month (well, 99 USDC/month). Customers sign up, pay monthly, and you want to know when they're churning before it becomes a problem.
 
 ## What we're building
 
-Three routes plus a webhook handler:
+Two routes plus a webhook handler:
 
-- `/pricing` ,  shows the plan; has a "Subscribe" button.
-- `/api/checkout/subscribe` ,  creates the subscription plan checkout URL.
-- `/api/webhooks/strimz` ,  receives the events that matter.
-- `/thanks?session=…` ,  the post-signup success page.
+- `/pricing`: shows the plan and a "Subscribe" button.
+- `/api/checkout/subscribe`: redirects to the plan's checkout link.
+- `/api/webhooks/strimz`: receives the events that matter.
 
 We'll skip a bunch of standard Next.js boilerplate (Tailwind setup, env config, etc.) and focus on the Strimz parts.
 
 ## One-time setup
 
-In your dashboard, create the plan:
+Create the plan once, from a script or the dashboard:
 
 ```ts title="scripts/setup-plan.ts"
 import { StrimzClient } from '@strimz/sdk'
@@ -30,7 +29,7 @@ const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_API_KEY! })
 const plan = await strimz.subscriptionPlans.create({
   name: 'Acme, Pro',
   description: 'Everything, unlimited seats, priority support.',
-  amount: '99000000',           // 99 USDC
+  amount: '99000000', // 99 USDC
   currency: 'USDC',
   interval: 'monthly',
   intervalCount: 1,
@@ -38,10 +37,9 @@ const plan = await strimz.subscriptionPlans.create({
 })
 
 console.log('Plan id:', plan.id)
-// Plan id: plan_acme_pro_8K3jK...
 ```
 
-Save the plan id in your env: `STRIMZ_PRO_PLAN_ID=plan_acme_pro_…`. You'll use it in the checkout route.
+Save the plan id in your env, for example `STRIMZ_PRO_PLAN_ID=cmq4wck6a0002je6lfmb5bgjp`. You'll use it in the checkout route.
 
 Also create a webhook endpoint, subscribed to the events you care about:
 
@@ -53,11 +51,10 @@ const { signingSecret } = await strimz.webhookEndpoints.create({
     'subscription.created',
     'subscription.charged',
     'subscription.charge_failed',
-    'subscription.recovery_outcome',
     'subscription.cancelled',
     'subscription.lapsed',
   ],
-  mode: 'test',   // 'live' once you're ready
+  mode: 'test', // 'live' once you're ready
 })
 
 console.log('Signing secret (saving this once):', signingSecret)
@@ -94,15 +91,11 @@ export default function PricingPage() {
 import { redirect } from 'next/navigation'
 
 export async function POST() {
-  // The Pro plan's checkout URL is just based on its id. No API call needed
-  // for the simple case, Strimz hosts the plan checkout page itself.
-  redirect(`https://strimz-finance.vercel.app/sub/${process.env.STRIMZ_PRO_PLAN_ID}`)
+  redirect(`https://www.strimz.finance/sub/${process.env.STRIMZ_PRO_PLAN_ID}`)
 }
 ```
 
-For a basic flow, that's literally it. The plan id maps to a Strimz-hosted page that handles wallet connect, EIP-2612 permit signing, and the first-cycle charge. You don't need to call the SDK for the signup itself.
-
-If you want to pass metadata or pre-fill the payer's email, you'd create a custom subscription session via the API. We're keeping this minimal; for most cases the plan URL is enough.
+The checkout link is built from the plan id. Strimz hosts the page, which handles wallet connect and the two signatures (the EIP-2612 permit and the `SubscriptionIntent`). Enrolment moves no money. With the 14-day trial the first charge is due when the trial ends; without a trial the scheduler takes it within about 15 minutes. There is no SDK call for the signup itself, and no way to attach metadata to it today.
 
 ## The webhook handler
 
@@ -138,9 +131,6 @@ export async function POST(req: Request) {
     case 'subscription.charge_failed':
       await onSubscriptionChargeFailed(event.data)
       break
-    case 'subscription.recovery_outcome':
-      await onRecoveryOutcome(event.data)
-      break
     case 'subscription.cancelled':
       await onSubscriptionCancelled(event.data)
       break
@@ -166,28 +156,24 @@ async function onSubscriptionCreated(sub) {
       strimzSubscriptionId: sub.id,
       planTier: 'pro',
       // In trial. They have access; you charge them after the trial ends.
-      accessUntil: new Date(sub.trialEndsAt),
+      accessUntil: new Date(sub.trialEndsAt ?? sub.currentPeriodEndAt),
     },
     update: {
       strimzSubscriptionId: sub.id,
       planTier: 'pro',
-      accessUntil: new Date(sub.trialEndsAt),
+      accessUntil: new Date(sub.trialEndsAt ?? sub.currentPeriodEndAt),
     },
   })
 }
 
-async function onSubscriptionCharged(charge) {
-  // A cycle succeeded. Extend their access.
-  const sub = await strimz.subscriptions.retrieve(charge.subscriptionId)
+async function onSubscriptionCharged({ subscription: sub }) {
   await db.user.update({
     where: { strimzSubscriptionId: sub.id },
     data: { accessUntil: new Date(sub.currentPeriodEndAt) },
   })
 }
 
-async function onSubscriptionChargeFailed(charge) {
-  // A cycle failed. Email the customer.
-  const sub = await strimz.subscriptions.retrieve(charge.subscriptionId)
+async function onSubscriptionChargeFailed({ subscription: sub, charge }) {
   const user = await db.user.findUnique({ where: { strimzSubscriptionId: sub.id } })
 
   await sendEmail({
@@ -195,22 +181,13 @@ async function onSubscriptionChargeFailed(charge) {
     template: 'subscription-charge-failed',
     data: {
       amount: '99 USDC',
-      retryAt: sub.nextChargeAt,
+      reason: charge.outcome,
       topUpUrl: 'https://acme.com/wallet',
     },
   })
 }
 
-async function onRecoveryOutcome(sub) {
-  if (sub.status === 'active') {
-    // Recovery succeeded. They're fine.
-    return
-  }
-  // Recovery failed. We'll get a `subscription.lapsed` next.
-}
-
 async function onSubscriptionCancelled(sub) {
-  // At-period-end cancellation. They keep access until currentPeriodEndAt.
   await db.user.update({
     where: { strimzSubscriptionId: sub.id },
     data: { cancelledAt: new Date(), accessUntil: new Date(sub.currentPeriodEndAt) },
@@ -218,8 +195,6 @@ async function onSubscriptionCancelled(sub) {
 }
 
 async function onSubscriptionLapsed(sub) {
-  // Subscription is dead. Revoke access at the end of the current cycle.
-  // (For most products, immediate revocation is fine, they didn't pay.)
   await db.user.update({
     where: { strimzSubscriptionId: sub.id },
     data: { planTier: 'free', accessUntil: new Date() },
@@ -230,29 +205,17 @@ async function onSubscriptionLapsed(sub) {
 }
 ```
 
-## The success page
+`subscription.created`, `subscription.cancelled` and `subscription.lapsed` carry the subscription itself as `event.data`. `subscription.charged` carries `{ subscription, charge, transaction }` and `subscription.charge_failed` carries `{ subscription, charge }`, so the subscription id is at `event.data.subscription.id`.
 
-After the subscription enrolment confirms, Strimz redirects to the plan's `successUrl`. By default the plan doesn't have one configured; you can set it per-plan in the dashboard or override at the subscription create level.
+A cancel from your API keeps access until the paid period ends, as in the handler above. Strimz stops charging at once either way.
 
-If you set `https://acme.com/thanks?session={CHECKOUT_SESSION_ID}` as the success URL, the page lands with the session id in the query.
+`trialEndsAt` is null when the payer gets no trial, for example on a second subscription to the same plan, so the handler falls back to `currentPeriodEndAt`.
 
-```tsx title="app/thanks/page.tsx"
-export default function ThanksPage({ searchParams }) {
-  return (
-    <div>
-      <h1>Welcome to Acme Pro 🎉</h1>
-      <p>
-        Your 14-day trial has started. We'll charge 99 USDC at the end of the
-        trial. You can cancel anytime from <a href="/account/billing">your billing page</a>.
-      </p>
-    </div>
-  )
-}
-```
+## After checkout
 
-Don't grant the access here. The webhook handler does that. The success page is purely UI; the entitlement is granted asynchronously when `subscription.created` lands.
+The subscription checkout page shows its own confirmation once the enrolment confirms. It does not redirect back to your site, so give customers a link back into your product from the page they started on.
 
-If you want the success page to wait for the entitlement (so customers don't see a "trial active" page before your DB knows about them), poll your own DB for a few seconds, then show the welcome state. The webhook usually arrives in under a second, but it can be a beat slower under load.
+Grant access from the webhook handler, not from the browser. `subscription.created` usually arrives within a few seconds of the enrolment.
 
 ## What's not in this recipe
 
@@ -266,6 +229,4 @@ Plans-by-tier (Pro + Team + Enterprise). Create one plan per tier; the rest of t
 
 ## What's also not in this recipe
 
-The "what if Strimz is down" failure mode. The honest answer is: if Strimz is down, your checkout breaks. Your existing customers' renewals also won't fire during the outage (they'll fire when we come back). You should subscribe to our status page and treat sustained outages as a customer-comms event.
-
-This is the same trade-off any third-party billing system has. The argument for Strimz is that we're cheaper than Stripe and our customers are paying in dollars they hold in stablecoins anyway. The argument against is the dependency. Make the call that's right for your business.
+What happens if Strimz is down. New signups fail while checkout is unavailable. Renewals that fall due during an outage are charged on the next sweep after it ends. If an outage lasts longer than a whole billing period, the contract charges one period and skips the missed ones rather than charging for each.

@@ -16,7 +16,7 @@ const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_API_KEY! })
 
 async function main() {
   const session = await strimz.paymentSessions.create({
-    amount: '500000000',                    // 500 USDC in 6-decimal raw
+    amount: '500000000', // 500 USDC in 6-decimal raw
     currency: 'USDC',
     description: 'Q3 consulting engagement',
     successUrl: 'https://your-site.com/thanks',
@@ -33,7 +33,7 @@ async function main() {
 main()
 ```
 
-Run it. You get a `checkoutUrl` like `https://strimz-finance.vercel.app/pay/cs_…`. Email that URL to the customer with whatever copy fits your business.
+Run it. You get a `checkoutUrl` like `https://www.strimz.finance/pay/cmq4wck6a0002je6lfmb5bgjp`. The session expires after 30 minutes by default; pass `expiresInMinutes` (up to 1440, one day) if the customer needs longer. Email that URL to the customer with whatever copy fits your business.
 
 ## Sending the email yourself
 
@@ -61,11 +61,11 @@ The customer clicks Pay, gets to the hosted checkout, signs once, the payment co
 
 ## When the payment lands
 
-Set up a webhook for `payment.completed` (see [Webhooks → Overview](/docs/webhooks/overview)). When the customer pays, your handler runs.
+Set up a webhook for `payment.completed` (see [Webhooks](/docs/webhooks)). When the customer pays, your handler runs.
 
 ```ts title="app/api/webhooks/strimz/route.ts"
 case 'payment.completed': {
-  const session = event.data
+  const { session, transaction } = event.data
   const invoiceNumber = session.metadata?.invoiceNumber
 
   // Mark the invoice paid in your books.
@@ -75,7 +75,7 @@ case 'payment.completed': {
       status: 'paid',
       paidAt: new Date(),
       paidAmount: session.amount,
-      onchainTxHash: session.onchainTxHash,
+      onchainTxHash: transaction.onchainTxHash,
     },
   })
 
@@ -89,27 +89,24 @@ That's the integration.
 
 ## Using Strimz's Invoices instead
 
-If you want Strimz to host the invoice page (line items, customer name, due date), use the Invoices API:
+If you want Strimz to track the invoice (number, line items, customer, due date) and email it for you, use the Invoices API:
 
 ```ts
 const invoice = await strimz.invoices.create({
   customerName: 'Acme Inc.',
   customerEmail: 'ap@acme.com',
-  lineItems: [
-    { description: 'Q3 consulting engagement', quantity: 1, unitAmount: '500000000' },
-  ],
+  lineItems: [{ description: 'Q3 consulting engagement', quantity: 1, unitAmount: '500000000' }],
   currency: 'USDC',
   dueInDays: 14,
   note: 'Net 14',
 })
 
 await strimz.invoices.send(invoice.id)
-// Strimz emails ap@acme.com with a link to the hosted invoice page.
 ```
 
-The hosted invoice page renders the line items, the total, your branding. Customer clicks "Pay invoice," redirects to the backing PaymentSession, signs, pays.
+`strimz.invoices.send` emails the customer the line items, the total and a pay link. The link opens the hosted checkout for the invoice's backing payment session, `https://www.strimz.finance/pay/<sessionId>`. There is no hosted invoice page. A PDF of the invoice can be downloaded from the dashboard only.
 
-`strimz.invoices.send` triggers the email. If you want to email it yourself with custom copy, skip the `send` call and use `invoice.id`'s hosted URL: `https://strimz-finance.vercel.app/invoice/<invoiceId>`.
+To email it yourself with your own copy, skip `send` and link to `https://www.strimz.finance/pay/${invoice.sessionId}`.
 
 When the customer pays, you get an `invoice.paid` webhook (in addition to the `payment.completed` for the backing session). Use whichever is most convenient.
 

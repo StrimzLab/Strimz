@@ -1,6 +1,6 @@
 ---
 title: The AutoPay Agent
-description: Six capabilities your billing surface gets for free.
+description: What each AutoPay Agent capability does today.
 ---
 
 The AutoPay Agent runs scheduled background work for your account: things like recovery emails for failed charges, daily cashflow digests, and anomaly alerts. It holds no signing key, so it can't move money on its own. Every action either sends an email, writes to your activity log, or queues a job that needs your approval before anything signs on-chain.
@@ -38,7 +38,7 @@ Idempotent per UTC day. If a flapping cron fires twice, you only get one email.
 
 ## `cashflow.anomaly`
 
-Hourly, the agent computes a z-score for the last completed clock-hour against the trailing 30-day average for that same hour-of-day. If your revenue dropped more than `nσ` (n derived from your `anomalySensitivity`: `low=3σ`, `medium=2σ`, `high=1σ`), you get an email plus an `AuditLog` entry. The agent only flags drops because revenue surges aren't actionable.
+Starter plan and above. Hourly, the agent computes a z-score for the last completed clock-hour against the trailing 30-day average for that same hour-of-day. If your revenue dropped more than `nσ` (n derived from your `anomalySensitivity`: `low=3σ`, `medium=2σ`, `high=1σ`), you get an email plus an `AuditLog` entry. The agent only flags drops because revenue surges aren't actionable.
 
 The math:
 
@@ -53,7 +53,7 @@ positives.
 
 ## `cashflow.yield`
 
-Daily 9:30am UTC, the agent computes your running net balance:
+Starter plan and above. Daily 9:30am UTC, the agent computes your running net balance:
 
 ```
 balance_cents = sum(Transaction.netAmount where kind != refund) - sum(Refund.amount where status = completed)
@@ -61,9 +61,8 @@ balance_cents = sum(Transaction.netAmount where kind != refund) - sum(Refund.amo
 
 If `balance > cashflowMinimumLiquidReserveCents` and you've enabled `cashflowAutoConvertToYield`, the agent emails you a recommendation: "you have $X in surplus over your $Y reserve target. Consider moving the excess to a yield position".
 
-The agent never signs the deposit itself. Confirming the
-recommendation in the dashboard is what enqueues a scheduler job to
-sign on your behalf. Fund movement is opt-in per transaction.
+The agent never moves funds. The email is a recommendation, and moving
+the surplus is up to you.
 
 ## `commerce`
 
@@ -90,20 +89,13 @@ Monthly, the agent runs the same SQL aggregates the API exposes via `/v1/stats/{
 
 ## `routing`
 
-This one's queue-driven instead of cron-driven. When a customer pays from a non-Arc chain (e.g., USDC on Base), the checkout client enqueues a `strimz.routing.cctp.bridge` job. The agent worker:
-
-1. Records `routing_bridge_initiated` in your activity log
-2. Polls Circle's CCTP V2 attestation API (re-enqueues itself with a 30-second delay until status=`complete`)
-3. Hands off to the scheduler, which calls `MessageTransmitter.receiveMessage(message, attestation)` on Arc to claim the bridged USDC
-4. Records `routing_payment_completed`
-
-You don't have to do anything. The customer pays from whatever
-chain holds their USDC, and the equivalent USDC lands in your Arc
-wallet a few minutes later. The bridge is invisible from your end.
+Coming. Routing is for customers who pay from a chain other than Arc,
+through Circle's CCTP V2. Checkout doesn't offer that yet, so this
+capability does nothing today. See [Cross-chain](/docs/guides/cross-chain).
 
 ## `identity`
 
-A capability flag rather than an automation. When enabled, your dashboard surfaces extra business-info verification steps (KYB, beneficial-owner declaration, sanctions screening). The agent itself doesn't do anything for this capability. It's a configuration affordance.
+A capability flag for Agent Identity, the agent's ERC-8004 on-chain identity. It runs no scheduled work.
 
 ## How to enable
 

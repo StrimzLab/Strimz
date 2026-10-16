@@ -89,7 +89,9 @@ export function MarketingFooter() {
         </section>
 
         <section className="flex w-full flex-col items-center justify-between gap-4 pt-6 md:flex-row md:gap-0">
-          <p className="font-poppins text-ink-muted text-sm md:text-base">Built by the Strimz</p>
+          <p className="font-poppins text-ink-muted text-sm md:text-base">
+            Built by the Strimz team
+          </p>
           <p className="font-poppins text-ink-muted text-sm md:text-base">
             © {year} Strimz. All rights reserved.
           </p>

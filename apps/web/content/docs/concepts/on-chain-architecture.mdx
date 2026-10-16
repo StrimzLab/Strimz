@@ -81,18 +81,18 @@ model lives on the
 
 The single most security-relevant call in the suite is
 `StrimzSubscriptions.batchCharge`. The scheduler hands it an array of
-`chargeAttemptId` values, each one a `keccak256(subscriptionId, periodEndAt)`.
+`chargeAttemptId` values, each one
+`keccak256(abi.encodePacked(onchainSubId, currentPeriodEndAt, attempt))`.
 The contract keeps a `mapping(bytes32 => bool) usedAttempts` and skips
 any entry it has already seen. The skipped subscription emits a
-`SubscriptionChargeSkipped(subId, attemptId, ChargeOutcome.None)`
+`SubscriptionChargeSkipped(subId, attemptId, ChargeOutcome.Duplicate)`
 event; the rest of the batch keeps going.
 
 In practical terms: the scheduler can resubmit the same `batchCharge`
-call as many times as it wants and never charge a customer twice. We
-prove this with an invariant test that drives both submission paths
-through 128,000 fuzz calls and checks that the FeeCollector balance
-never exceeds the fees it has accrued. Neither path can credit a fee
-twice.
+call as many times as it wants and never charge a customer twice. On
+the payments side, an invariant fuzz test drives both submission paths
+and checks that the FeeCollector balance never exceeds the fees it has
+accrued, so neither path can credit a fee twice.
 
 ## ERC-7201 namespaced storage
 
@@ -115,12 +115,14 @@ change.
 git clone https://github.com/StrimzLab/strimz
 cd strimz/packages/contracts
 forge build
-forge test            # 55 tests including 128k-call invariant fuzz
+forge test
 ```
 
-Deployment addresses for testnet and mainnet live in
-`@strimz/shared-config`. Every Strimz process reads the same
-constants at boot. There are no private deployments. What's in the
+Contract addresses come from each deployment's output and are passed
+to every Strimz process through env vars such as
+`STRIMZ_PAYMENTS_ADDRESS` and `STRIMZ_SUBSCRIPTIONS_ADDRESS`.
+`@strimz/shared-config` holds token addresses, not contract
+addresses. There are no private deployments. What's in the
 repo is what runs in production.
 
 ## Verifying a transaction

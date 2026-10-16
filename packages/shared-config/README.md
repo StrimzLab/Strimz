@@ -62,10 +62,10 @@ Bun.
 
 ## Links
 
-- [Documentation](https://strimz.finance/docs)
-- [Repository](https://github.com/StrimzLab/Strimz/tree/main/packages/shared-config)
+- [Documentation](https://www.strimz.finance/docs)
+- [Repository](https://github.com/StrimzLab/strimz/tree/main/packages/shared-config)
 - [Changelog](./CHANGELOG.md)
-- [Issues](https://github.com/StrimzLab/Strimz/issues)
+- [Issues](https://github.com/StrimzLab/strimz/issues)
 
 ## License
 

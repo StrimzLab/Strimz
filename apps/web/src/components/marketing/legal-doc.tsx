@@ -47,7 +47,7 @@ export function LegalDoc({
           <hr className="border-border/40 my-12" />
           <p className="text-muted-foreground text-sm">
             Questions about this document? Email{' '}
-            <a href="mailto:legal@strimz.finance">legal@strimz.finance</a>.
+            <a href="mailto:support@strimz.finance">support@strimz.finance</a>.
           </p>
         </article>
 

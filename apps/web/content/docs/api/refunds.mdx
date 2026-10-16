@@ -8,7 +8,7 @@ description: Server-intent + wallet-signed on-chain transfer.
 ```http
 POST /v1/refunds
 {
-  "transactionId": "tx_xyz",
+  "transactionId": "cmq4wf2b80004je6l7xq1c9ad",
   "amount": "50000000",
   "reason": "customer_request",
   "note": "Buyer asked for a refund"
@@ -20,8 +20,8 @@ Returns:
 ```json
 {
   "refund": {
-    "id": "rf_xyz",
-    "transactionId": "tx_xyz",
+    "id": "cmq4wh9de0006je6l2n5v0kqt",
+    "transactionId": "cmq4wf2b80004je6l7xq1c9ad",
     "amount": "50000000",
     "status": "awaiting_signature",
     "reason": "customer_request",
@@ -32,7 +32,7 @@ Returns:
     "token": "0x...USDC",
     "to": "0x...payer",
     "amount": "50000000",
-    "note": "Refund for transaction tx_xyz"
+    "note": "Refund for transaction cmq4wf2b80004je6l7xq1c9ad"
   }
 }
 ```
@@ -52,20 +52,20 @@ POST /v1/refunds/{id}/signature
 
 ```
 awaiting_signature  →  submitted  →  completed
-                              ↘   failed
 ```
 
-Re-submitting `signature` is idempotent. Useful if the merchant accidentally records the wrong hash and needs to update.
+You can submit a signature only while the refund is `awaiting_signature`. Any other status returns `403 session_invalid_state`, so record the right hash the first time. A refund can't be voided or deleted.
 
 ## Validation
 
-- Cumulative refund amount cannot exceed `Transaction.amount` (across all refunds with status `submitted` or `completed`)
-- The original transaction must be in status `confirmed`
+- The original transaction must be in status `confirmed`.
+- The total of all refunds on a transaction can't exceed `Transaction.amount`. The total counts refunds in `pending`, `awaiting_signature`, `submitted` and `completed`, so an unsigned refund still holds its share.
 
 ## Webhook events
 
-| Event              | Fires when                                      |
-| ------------------ | ----------------------------------------------- |
-| `refund.created`   | The refund row was created                      |
-| `refund.completed` | The indexer confirmed the on-chain Transfer     |
-| `refund.failed`    | Validation rejected the refund or it was voided |
+| Event              | Fires when                                  |
+| ------------------ | ------------------------------------------- |
+| `refund.created`   | The refund row was created                  |
+| `refund.completed` | The indexer confirmed the on-chain Transfer |
+
+Not yet: `refund.failed` is listed as an event type but is never sent. Tracked in [#295](https://github.com/StrimzLab/strimz/issues/295).

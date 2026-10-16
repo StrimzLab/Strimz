@@ -1,36 +1,45 @@
 ---
 title: Idempotency
-description: How Strimz makes sure retries are safe at the API, the scheduler, and on-chain.
+description: Which retries Strimz makes safe today, at the API, in the queues, and on chain.
 ---
 
 Idempotency means an operation can be run more than once but only
 takes effect once. Without it, a network blip during a refund could
 turn into a double refund.
 
-Strimz enforces idempotency at three separate layers. Any retry
-logic you write on top of the SDK is safe to run as many times as
-needed.
+Strimz has idempotency in the queues and on chain. The API does not
+deduplicate your own requests yet, so read the first section before
+you build retry logic.
 
 ## At the API
 
-Every `POST` endpoint that creates a resource accepts an `Idempotency-Key` header. If you send the same key twice within 24 hours, you get the original response. The row is not created twice.
+The SDK sends an `X-Strimz-Idempotency-Key` header on every mutating
+call: a fresh `strimz_<uuid>` by default, or the value you pass.
 
 ```ts
 const session = await strimz.paymentSessions.create(
   { amount: '50000000', currency: 'USDC', description: 'Pro plan, August' },
-  { idempotencyKey: 'session-' + crypto.randomUUID() },
+  { idempotencyKey: `strimz_${crypto.randomUUID()}` },
 )
 ```
 
-Generate the key once per logical operation, persist it in your DB alongside the request you're about to make, and re-send the same key on retry. The SDK does this for you on every retryable verb.
+Not yet: the API ignores the idempotency header, so sending the same
+key twice creates two resources. Tracked in
+[#292](https://github.com/StrimzLab/strimz/issues/292).
 
-## At the queue layer
+Until that ships, guard against duplicates in your own code. For
+example, store the session id against your cart id and reuse it
+instead of creating a second session.
 
-When the API enqueues a job onto BullMQ (webhook delivery, subscription charge, agent action), the job ID is derived from the resource ID. It is not random. Two API replicas processing the same incoming request can't enqueue duplicate jobs.
+## SDK retries
 
-The scheduler then processes each job exactly once. If the job fails partway through, BullMQ marks it failed and the worker can retry. The partial work it did is itself idempotent (see below).
+The SDK retries network failures, `429` responses (honouring
+`Retry-After`), and `5xx` responses for `GET` and for calls that carry
+an idempotency key, reusing the same key. Because the API does not
+deduplicate yet, a retried `POST` after a `5xx` can create a second
+resource if the first request did succeed.
 
-### Relay submissions
+## In the queues
 
 Payer-signed submissions to `/v1/relay/payments` and
 `/v1/relay/subscriptions` do not use a key you choose. Strimz derives
@@ -42,29 +51,22 @@ the same EIP-3009 nonce, which the token accepts once per payer wallet,
 and Strimz refuses a new attempt while an earlier one can still land.
 See the relay section of the [API reference](/docs/api-reference).
 
+Subscription charges are guarded by `chargeLock`: the sweeper locks
+a row before it enqueues the charge, so two scheduler replicas cannot
+queue the same subscription at once.
+
+Webhook deliveries carry an `X-Strimz-Delivery-Id` that stays the same
+across retries. A delivery job that runs again after the delivery is
+already `delivered` or `permanently_failed` does nothing.
+
 ## On-chain
 
-This is the layer where stablecoins genuinely pull their weight. The
-Strimz contracts use deterministic identifiers for every
-state-changing action:
+The contracts use deterministic identifiers for state-changing
+actions:
 
-- **`PaymentSession.id`** is passed as `bytes32 ref` on the on-chain `pay()` call. The contract emits it in `PaymentExecuted`. The indexer keys the resulting `Transaction` row on `(onchainTxHash, ref)`. Replays no-op.
-- **`chargeAttemptId`** is `keccak256(subscriptionId, periodEndAt)`. The contract has a `mapping(bytes32 => bool) usedAttempts`. If you try to charge a sub for a period that's already been charged, the call reverts cheaply.
+- **`PaymentSession.id`** is passed as `bytes32 ref` on the on-chain `pay()` call. The contract emits it in `PaymentExecuted`. The indexer keys the resulting `Transaction` row on `(onchainTxHash, logIndex)`. Replays no-op.
+- **`chargeAttemptId`** is `keccak256(abi.encodePacked(onchainSubId, currentPeriodEndAt, attempt))`. The contract keeps a `usedAttempts` mapping. Charging with an id that is already used does not revert: the contract emits `SubscriptionChargeSkipped` with outcome `Duplicate` and moves no money.
 - **Refund tx hashes** are recorded in `Refund.refundTxHash` after the merchant signs the transfer. The indexer matches incoming ERC-20 Transfer events by hash. Replays of the same hash flip nothing.
 
-This differs from ACH or card processors where idempotency is a database guarantee. Here the chain itself enforces it, so even a maliciously-replayed signed transaction can't cause a duplicate charge.
-
-## When you don't need to think about it
-
-If you're using `@strimz/sdk`, idempotency keys are added
-automatically:
-
-- A fresh `crypto.randomUUID()` per call by default.
-- `429` and `5xx` responses are retried with exponential backoff, re-using the same key.
-
-The only reason to set the key yourself is when your own business
-logic might fire the same operation more than once and you want them
-to collapse to one. For example: a customer clicks "Pay" twice, both
-clicks reach your server, both go on to create a session. Pass the
-same `cartId` as the idempotency key on both, and the second call
-returns the first call's session.
+Because the chain enforces these, a replayed signed transaction can't
+cause a duplicate charge.

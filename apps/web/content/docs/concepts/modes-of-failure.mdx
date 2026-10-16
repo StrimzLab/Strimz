@@ -10,14 +10,16 @@ automatic recovery stops.
 
 ## A subscription charge fails
 
-The contract emits `SubscriptionChargeSkipped(subId, attemptId, outcome)` with one of:
+The contract emits `SubscriptionChargeSkipped(subId, attemptId, outcome)` instead of reverting. The outcomes that count as a payment failure are:
 
-- `InsufficientFunds`. Payer's USDC balance was below the charge amount.
-- `RevokedApproval`. Payer revoked the contract's allowance to move their USDC.
-- `Cancelled`. The subscription is already cancelled (race; rare).
-- `NotDue`. The scheduler tried to charge before `nextChargeAt` (defensive; the contract rejects).
+- `InsufficientFunds`. Payer's balance was below the charge amount.
+- `RevokedApproval`. Payer's allowance to the contract is too low.
+- `TransferFailed`. The token transfer failed, for example because the token blocklisted the payer.
+- `MerchantInactive`. The merchant is not active in the registry.
 
-The indexer projects this into `SubscriptionCharge(status: failed, outcome: <enum>)` and flips the `Subscription` to `at_risk`. The agent's recovery capability (if enabled) emails the customer per your `recoveryStrategy`. If the grace window expires without success, the agent's `subscription-lapsed` cron flips the sub to `lapsed` and fires `subscription.lapsed`.
+The indexer projects these into `SubscriptionCharge(status: failed, outcome: <enum>)`, fires `subscription.charge_failed`, and flips the `Subscription` to `at_risk`. The scheduler retries after 15m, 1h, 3h, 6h, 12h, then every 24h. The agent's recovery capability (if enabled) emails the customer per your `recoveryStrategy`. If no charge succeeds within 48 hours of the period end, the scheduler's hourly `subscription-lapsed` cron flips the sub to `lapsed` and fires `subscription.lapsed`.
+
+Other outcomes are recorded but change nothing: `Cancelled` (already cancelled), `NotDue` (charged before `nextChargeAt`), `Duplicate` (attempt id already used), `Ended` and `Unknown`.
 
 You'll see this in:
 
@@ -44,15 +46,15 @@ After permanent failure:
 
 ## The on-chain payment is broadcast but doesn't confirm
 
-Edge case: the scheduler's `batchCharge` tx hits the mempool, then a chain reorg orphans it. The indexer's confirmation depth (`CONFIRMATIONS=5` by default) prevents projecting until the tx has 5+ blocks of finality. If a reorg drops a tx, the indexer never projects it; the scheduler's next sweep retries. The `chargeAttemptId` idempotency check on the contract handles the replay safely.
+Arc has deterministic sub-second finality, so a confirmed transaction is not reorged away. The indexer projects after `CONFIRMATIONS` blocks; the setting is required and 1 is recommended. If a `batchCharge` broadcast fails or never lands, the worker releases the lock and the next sweep tries again. If the earlier attempt did land, the contract skips the repeat with outcome `Duplicate` (or `NotDue` once the period has moved on), so the payer is not charged twice.
 
 ## A customer cancels their subscription on-chain (without telling you)
 
-The contract emits `SubscriptionCancelled(subId, by)`. The indexer projects `Subscription.status = cancelled` and `cancellationReason = 'on-chain cancel by 0x… in tx 0x…'`. You'll receive `subscription.cancelled` webhook.
+The contract emits `SubscriptionCancelled(subId, by)`. The indexer projects `Subscription.status = cancelled` and `cancellationReason = 'on-chain cancel by 0x… in tx 0x…'`. No `subscription.cancelled` webhook fires for an on-chain cancel today, so check `GET /v1/subscriptions/:id` if your records disagree.
 
 ## A refund tx is signed but never broadcast
 
-The merchant created a refund (status: `awaiting_signature`), got wallet-signing instructions, but didn't follow through. The refund stays in `awaiting_signature` until manually voided (cancel via dashboard) or the merchant does eventually broadcast.
+The merchant created a refund (status: `awaiting_signature`) but didn't sign and send it. The refund stays in `awaiting_signature` until manually voided (cancel via dashboard) or the merchant does eventually broadcast.
 
 If they broadcast but submit the wrong tx hash to
 `POST /v1/refunds/:id/signature`, the indexer's ERC-20 matcher
@@ -62,7 +64,7 @@ idempotently.
 
 ## API key leaks
 
-Strimz scans public GitHub for live-mode key prefixes. If yours is found, the key is auto-revoked and you get an email within minutes. The old key returns `authentication_error` immediately. Audit logs show every action the key took before revocation.
+Strimz does not scan for leaked keys. If a key leaks, revoke it on the [API keys page](/docs/dashboard/api-keys) and create a new one. A revoked key returns `authentication_error` immediately.
 
 ## What's not currently automated
 

@@ -21,15 +21,16 @@ Each subscription shows:
 
 - **Billing:** its plan, payer wallet and trial end, plus the current period and the next charge.
 - **Charges:** every charge, each linking to its transaction. Refunds start from the transaction's page.
-- **Cancel:** for active, trialing and at-risk subscriptions. Strimz marks it cancelled at once and cancels it on-chain. Cancelled subscriptions cannot be resumed; the customer subscribes again.
+- **Cancel:** for active, trialing and at-risk subscriptions. Strimz marks it cancelled at once, fires `subscription.cancelled` and stops charging. Cancelled subscriptions cannot be resumed; the customer subscribes again.
+
+Not yet: the on-chain cancel Strimz queues after a dashboard cancel currently reverts, so the contract still lists the subscription as live, although Strimz no longer charges it. Tracked in [#293](https://github.com/StrimzLab/strimz/issues/293).
 
 ## Statuses
 
 - **trialing:** in the free trial; the first charge comes when it ends.
 - **active:** charged on schedule. Each successful charge fires `subscription.charged`.
-- **at risk:** a charge failed, and the grace period is running. The AutoPay Agent's Recovery can email the customer; see [Agents](/docs/dashboard/agents).
-- **paused:** not charging.
-- **cancelled:** you or the customer cancelled. No more charges.
+- **at risk:** a charge failed, retries are scheduled, and the 48-hour grace period is running. The AutoPay Agent's Recovery can email the customer; see [Agents](/docs/dashboard/agents).
+- **cancelled:** you cancelled from the dashboard or API, or the payer cancelled from their wallet. No more charges.
 - **lapsed:** a charge failed and the grace period ended without a successful charge.
 
 ## Common workflows

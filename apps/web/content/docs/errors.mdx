@@ -1,6 +1,6 @@
 ---
 title: Errors
-description: Every error code Strimz returns, what causes it, and what to do about it.
+description: The error codes Strimz returns, what causes them, and what to do about them.
 ---
 
 Every Strimz error has the same envelope:
@@ -12,7 +12,7 @@ Every Strimz error has the same envelope:
     "message": "amount must be a positive integer string",
     "param": "amount",
     "details": { "issues": [...] },
-    "requestId": "req_abc123"
+    "requestId": "req-4f2"
   }
 }
 ```
@@ -21,6 +21,8 @@ Always include the `requestId` when you contact support. It's the
 key support uses to find your request in the logs.
 
 ## Codes
+
+The common codes. The tables below cover the ones you're most likely to see; a few admin-only and internal codes are left out.
 
 | Code                    | HTTP | Meaning                                                                                            |
 | ----------------------- | ---- | -------------------------------------------------------------------------------------------------- |
@@ -36,8 +38,39 @@ key support uses to find your request in the logs.
 | `invalid_request`       | 400  | Validation failure; `details.issues` has the Zod paths                                             |
 | `session_invalid_state` | 403  | The action conflicts with the resource's current status (e.g. cancelling an already-cancelled sub) |
 | `idempotency_error`     | 409  | An idempotency key was reused with a different payload                                             |
-| `rate_limited`          | 429  | Per-IP or per-key rate limit exceeded; check `Retry-After`                                         |
+| `rate_limited`          | 429  | Rate limit exceeded. Limits are per IP (global and per route), and some relay routes per merchant  |
 | `api_error`             | 500  | Unexpected server error. It surfaces in the Strimz logs and gets triaged.                          |
+
+### Payments, checkout and relay
+
+| Code                        | HTTP | Meaning                                                                                 |
+| --------------------------- | ---- | --------------------------------------------------------------------------------------- |
+| `amount_below_minimum`      | 400  | The amount is below 1.00 of the stablecoin                                              |
+| `token_mismatch`            | 400  | The signed token isn't the token of the session's currency                              |
+| `auth_nonce_mismatch`       | 400  | The EIP-3009 nonce isn't `checkoutPaymentNonce(sessionId)`                              |
+| `relay_simulation_failed`   | 400  | The call would revert on-chain; `details.revert` names the revert                       |
+| `enrolment_terms_mismatch`  | 400  | The signed enrolment terms don't match the plan                                         |
+| `insufficient_balance`      | 400  | The payer holds less than the plan amount of the plan token                             |
+| `session_expired`           | 400  | The payment session has expired                                                         |
+| `merchant_mismatch`         | 403  | The body `merchantId` isn't the on-chain id of the merchant that owns the key           |
+| `session_not_open`          | 409  | The session is no longer open for payment                                               |
+| `payer_already_bound`       | 409  | The session is already linked to another wallet                                         |
+| `session_already_submitted` | 409  | The session's payment has already been mined                                            |
+| `attempt_in_progress`       | 409  | An earlier attempt can still land; `details.submission` is that attempt                 |
+| `already_settled`           | 409  | The earlier attempt already settled on-chain                                            |
+| `subscription_exists`       | 409  | The wallet already subscribes to this plan                                              |
+| `plan_not_active`           | 409  | The plan is archived                                                                    |
+| `sold_out`                  | 409  | The storefront product has no stock left                                                |
+| `relay_budget_exhausted`    | 429  | The merchant's daily relay budget is spent; `details.retryAfterSec` says when it resets |
+
+### Account and agent
+
+| Code                      | HTTP | Meaning                                                                                             |
+| ------------------------- | ---- | --------------------------------------------------------------------------------------------------- |
+| `invalid_state`           | 400  | The action can't run in the current state, e.g. a token address isn't configured on this deployment |
+| `capability_unavailable`  | 403  | The agent capability isn't available yet, such as agent escrow                                      |
+| `capability_disabled`     | 403  | The agent capability is turned off in your agent config                                             |
+| `merchant_not_registered` | 409  | The merchant isn't registered on-chain yet                                                          |
 
 ## Examples
 
@@ -205,7 +238,7 @@ HTTP/1.1 429 Too Many Requests
 Retry-After: 30
 ```
 
-Wait 30 seconds, then retry. The `@strimz/sdk` does this automatically.
+Wait 30 seconds, then retry. The `@strimz/sdk` retries a `429` that carries `Retry-After` automatically.
 
 ## When you should retry
 
