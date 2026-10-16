@@ -36,6 +36,7 @@ export function useStrimzSession(
   const [loading, setLoading] = React.useState<boolean>(false)
   const [error, setError] = React.useState<Error | null>(null)
   const cancelledRef = React.useRef(false)
+  const sessionRef = React.useRef<PaymentSession | null>(null)
 
   const fetchOnce = React.useCallback(async () => {
     if (!sessionId) return
@@ -45,6 +46,7 @@ export function useStrimzSession(
       // The publishable-key client exposes them via `client.checkout.session`.
       const next = await client.checkout.session(sessionId)
       if (!cancelledRef.current) {
+        sessionRef.current = next
         setSession(next)
         setError(null)
       }
@@ -57,12 +59,14 @@ export function useStrimzSession(
 
   React.useEffect(() => {
     cancelledRef.current = false
+    sessionRef.current = null
     if (!sessionId) return
 
     void fetchOnce()
     const interval = options.pollIntervalMs ?? 3_000
     const timer = setInterval(() => {
-      if (session && TERMINAL_STATES.includes(session.status)) return
+      const latest = sessionRef.current
+      if (latest && TERMINAL_STATES.includes(latest.status)) return
       void fetchOnce()
     }, interval)
 
@@ -70,8 +74,6 @@ export function useStrimzSession(
       cancelledRef.current = true
       clearInterval(timer)
     }
-    // session is intentionally not in deps. The interval reads the latest via closure.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, fetchOnce, options.pollIntervalMs])
 
   return { session, loading, error, refresh: fetchOnce }

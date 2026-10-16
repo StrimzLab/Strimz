@@ -36,3 +36,4 @@ export {
   type StrimzCheckoutEmbedProps,
   type StrimzCheckoutTheme,
 } from './components/StrimzCheckoutEmbed.js'
+export { StrimzCheckoutError } from './checkout-error.js'
