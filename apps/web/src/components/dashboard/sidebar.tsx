@@ -14,6 +14,7 @@ import {
   Globe2,
   Home,
   KeyRound,
+  Layers,
   Receipt,
   RefreshCcw,
   Settings,
@@ -45,6 +46,7 @@ const SECTIONS: ReadonlyArray<{
     links: [
       { href: '/app/payment-sessions', label: 'Sessions', icon: CreditCard },
       { href: '/app/transactions', label: 'Transactions', icon: ArrowLeftRight },
+      { href: '/app/plans', label: 'Plans', icon: Layers },
       { href: '/app/subscriptions', label: 'Subscriptions', icon: Receipt },
       { href: '/app/invoices', label: 'Invoices', icon: Receipt },
       { href: '/app/refunds', label: 'Refunds', icon: RefreshCcw },

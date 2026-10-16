@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { Download, MoreHorizontal, Ban } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
@@ -31,6 +32,7 @@ import {
   useCancelSubscription,
   useStatsSummary,
   useSubscriptionPages,
+  useSubscriptionPlans,
 } from '@/hooks/api'
 import { SUBSCRIPTION_CARD_STATUSES, subscriptionCards, summaryValue } from '@/lib/stats-summary'
 
@@ -87,6 +89,11 @@ export default function SubscriptionsPage() {
   const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   const cancelMutation = useCancelSubscription()
+  const plansQuery = useSubscriptionPlans({ limit: 100 })
+  const planNames = React.useMemo(
+    () => new Map((plansQuery.data?.data ?? []).map((plan) => [plan.id, plan.name])),
+    [plansQuery.data],
+  )
 
   const columns = React.useMemo<ColumnDef<Subscription>[]>(
     () => [
@@ -95,7 +102,12 @@ export default function SubscriptionsPage() {
         header: 'Subscriber',
         cell: ({ row }) => (
           <div className="flex flex-col leading-tight">
-            <code className="text-xs">{shortAddress(row.original.payerAddress)}</code>
+            <Link
+              href={`/app/subscriptions/${row.original.id}`}
+              className="text-accent font-mono text-xs hover:underline"
+            >
+              {shortAddress(row.original.payerAddress)}
+            </Link>
             <span className="text-muted-foreground text-[11px]">{row.original.customerId}</span>
           </div>
         ),
@@ -104,7 +116,9 @@ export default function SubscriptionsPage() {
         accessorKey: 'planId',
         header: 'Plan',
         cell: ({ row }) => (
-          <code className="text-muted-foreground text-xs">{row.original.planId.slice(0, 14)}…</code>
+          <Link href={`/app/plans/${row.original.planId}`} className="text-xs hover:underline">
+            {planNames.get(row.original.planId) ?? `${row.original.planId.slice(0, 14)}…`}
+          </Link>
         ),
       },
       {
@@ -203,7 +217,7 @@ export default function SubscriptionsPage() {
         },
       },
     ],
-    [cancelMutation],
+    [cancelMutation, planNames],
   )
 
   return (

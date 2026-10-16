@@ -30,6 +30,15 @@ export function cancelSubscriptionConfirm(sub: { amount: string; currency: strin
   } satisfies ConfirmCopy
 }
 
+export function archivePlanConfirm(plan: { name: string }) {
+  return {
+    title: `Archive ${plan.name}?`,
+    description:
+      'Existing subscribers keep being charged until they cancel. The sign-up link stops accepting new subscribers, and the plan cannot be restored.',
+    confirmLabel: 'Archive plan',
+  } satisfies ConfirmCopy
+}
+
 export function cancelPaymentSessionConfirm(session: { amount: string; currency: string }) {
   return {
     title: 'Cancel this payment session?',
