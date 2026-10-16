@@ -33,11 +33,17 @@ import {
 import { PageHeader } from '@/components/dashboard/page-header'
 import { relativeTime } from '@/lib/format'
 import type { AdminRole } from '@/lib/admin-api'
+import { removeAdminConfirm, suspendAdminConfirm } from '@/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@/components/dashboard/confirm-action-dialog'
 import {
   useAdminList,
   useAdminMe,
   useInviteAdmin,
   useRemoveAdmin,
+  useResendAdminInvite,
   useSetAdminRole,
   useSetAdminStatus,
 } from '@/hooks/admin'
@@ -45,7 +51,7 @@ import {
 const ROLES: AdminRole[] = ['super_admin', 'admin', 'read_only']
 
 const ROLE_TINT: Record<AdminRole, string> = {
-  super_admin: 'border-[#02C76A]/40 bg-[#02C76A]/10 text-[#02C76A]',
+  super_admin: 'border-accent/40 bg-accent/10 text-accent',
   admin: 'border-sky-400/40 bg-sky-50 text-sky-700',
   read_only: 'border-border/60',
 }
@@ -66,6 +72,8 @@ export default function AdminAdminsPage() {
   const removeMutation = useRemoveAdmin()
   const roleMutation = useSetAdminRole()
   const statusMutation = useSetAdminStatus()
+  const resendMutation = useResendAdminInvite()
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   return (
     <div className="space-y-6">
@@ -119,10 +127,15 @@ export default function AdminAdminsPage() {
                       {a.role.replace('_', ' ')}
                     </span>
                   </div>
-                  <div className="col-span-2">
+                  <div className="col-span-2 space-y-1">
                     <Badge variant="outline" className="capitalize">
                       {a.status}
                     </Badge>
+                    {a.invitePending ? (
+                      <div className="text-muted-foreground text-[11px]">
+                        {inviteStateLabel(a.inviteExpiresAt)}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="col-span-2 text-xs">
                     {a.lastLoginAt ? relativeTime(a.lastLoginAt) : 'never'}
@@ -139,6 +152,17 @@ export default function AdminAdminsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {a.invitePending && a.status === 'active' ? (
+                            <>
+                              <DropdownMenuItem
+                                disabled={resendMutation.isPending}
+                                onClick={() => resendMutation.mutate(a.id)}
+                              >
+                                Resend invite
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
+                          ) : null}
                           <DropdownMenuLabel>Role</DropdownMenuLabel>
                           {ROLES.filter((r) => r !== a.role).map((r) => (
                             <DropdownMenuItem
@@ -153,9 +177,13 @@ export default function AdminAdminsPage() {
                           {a.status === 'active' ? (
                             <DropdownMenuItem
                               onClick={() =>
-                                statusMutation.mutate({
-                                  id: a.id,
-                                  input: { status: 'suspended' },
+                                setPendingConfirm({
+                                  copy: suspendAdminConfirm(a),
+                                  run: () =>
+                                    statusMutation.mutate({
+                                      id: a.id,
+                                      input: { status: 'suspended' },
+                                    }),
                                 })
                               }
                             >
@@ -175,7 +203,12 @@ export default function AdminAdminsPage() {
                           )}
                           <DropdownMenuItem
                             className="text-rose-600 focus:text-rose-600"
-                            onClick={() => removeMutation.mutate(a.id)}
+                            onClick={() =>
+                              setPendingConfirm({
+                                copy: removeAdminConfirm(a),
+                                run: () => removeMutation.mutate(a.id),
+                              })
+                            }
                           >
                             Remove
                           </DropdownMenuItem>
@@ -189,8 +222,16 @@ export default function AdminAdminsPage() {
           </CardContent>
         </Card>
       )}
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
   )
+}
+
+function inviteStateLabel(expiresAt: string | null): string {
+  if (!expiresAt) return 'Invite pending: resend to issue a link'
+  if (new Date(expiresAt).getTime() <= Date.now()) return 'Invite expired: resend it'
+  return `Invite pending, expires ${relativeTime(expiresAt)}`
 }
 
 function InviteAdminDialog() {
@@ -240,8 +281,9 @@ function InviteAdminDialog() {
         <DialogHeader>
           <DialogTitle>Invite admin</DialogTitle>
           <DialogDescription>
-            The invitee signs in with the same email through Privy; their `AdminUser` row claims
-            their Privy account automatically.
+            The invitee gets a one-time link that expires in 7 days. They accept it while signed in
+            through Privy with this email address. Resend the invite from the admin list if it
+            expires.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">

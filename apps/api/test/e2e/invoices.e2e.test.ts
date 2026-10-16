@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedApiKey, seedMerchant } from '../helpers/fixtures.js'
+import { must } from '../helpers/must.js'
 
 describe('invoices e2e', () => {
   let t: TestApp
@@ -18,7 +19,7 @@ describe('invoices e2e', () => {
   })
 
   async function authed() {
-    const m = await seedMerchant(t.prisma.db, { onboardingCompleted: true })
+    const m = await seedMerchant(t.prisma.db, { onboardingCompleted: true, onchainMerchantId: 1 })
     const k = await seedApiKey(t.prisma.db, m.id)
     return { m, k }
   }
@@ -77,9 +78,9 @@ describe('invoices e2e', () => {
     expect(JSON.parse(send.body).status).toBe('sent')
 
     expect(t.email.sent).toHaveLength(1)
-    expect(t.email.sent[0]!.to).toBe('buyer@x.test')
-    expect(t.email.sent[0]!.subject).toContain('Invoice')
-    expect(t.email.sent[0]!.html).toContain('Hosting'.slice(0, 0)) // sanity that html exists
+    expect(must(t.email.sent[0]).to).toBe('buyer@x.test')
+    expect(must(t.email.sent[0]).subject).toContain('Invoice')
+    expect(must(t.email.sent[0]).html).toContain('Hosting'.slice(0, 0)) // sanity that html exists
   })
 
   it('refuses to send when there is no customer email', async () => {
@@ -136,5 +137,23 @@ describe('invoices e2e', () => {
       payload: {},
     })
     expect(v2.statusCode).toBe(403)
+  })
+  it('gives concurrent invoices distinct sequential numbers', async () => {
+    const { k } = await authed()
+    const create = () =>
+      t.inject({
+        method: 'POST',
+        url: '/v1/invoices',
+        headers: { authorization: `Bearer ${k.secretKey}` },
+        payload: {
+          currency: 'USDC',
+          lineItems: [{ description: 'X', quantity: 1, unitAmount: '50000000' }],
+        },
+      })
+    const responses = await Promise.all([create(), create(), create()])
+    expect(responses.map((r) => r.statusCode)).toEqual([201, 201, 201])
+    const numbers = responses.map((r) => JSON.parse(r.body).number as string).sort()
+    const year = new Date().getFullYear()
+    expect(numbers).toEqual([`${year}-0001`, `${year}-0002`, `${year}-0003`])
   })
 })

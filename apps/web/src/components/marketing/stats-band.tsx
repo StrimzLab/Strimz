@@ -34,12 +34,12 @@ export function StatsBand() {
   return (
     <section
       ref={ref}
-      className="relative w-full overflow-hidden bg-[#050020] px-4 py-16 md:px-6 lg:py-20"
+      className="bg-ink relative w-full overflow-hidden px-4 py-16 md:px-6 lg:py-20"
     >
       {/* Soft accent glow */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 -top-20 mx-auto h-[280px] max-w-3xl rounded-full bg-[#02C76A]/15 blur-3xl"
+        className="bg-accent/15 pointer-events-none absolute inset-x-0 -top-20 mx-auto h-[280px] max-w-3xl rounded-full blur-3xl"
       />
 
       <div className="relative mx-auto max-w-[1200px]">

@@ -36,6 +36,32 @@
   --fd-accent-foreground: 240 10% 3.9%;
 }
 
+.dark {
+  --fd-background: 240 24.1% 5.7%;
+  --fd-foreground: 240 11.1% 96.5%;
+
+  --fd-muted: 240 16.4% 13.1%;
+  --fd-muted-foreground: 249.5 10.7% 65.3%;
+
+  --fd-popover: 240 18.4% 9.6%;
+  --fd-popover-foreground: 240 11.1% 96.5%;
+
+  --fd-card: 240 18.4% 9.6%;
+  --fd-card-foreground: 240 11.1% 96.5%;
+
+  --fd-border: 240 13.4% 19%;
+  --fd-ring: 150 98% 40%;
+
+  --fd-secondary: 240 16.4% 13.1%;
+  --fd-secondary-foreground: 240 11.1% 96.5%;
+
+  --fd-primary: 150 98% 40%;
+  --fd-primary-foreground: 0 0% 100%;
+
+  --fd-accent: 151 60% 14%;
+  --fd-accent-foreground: 240 11.1% 96.5%;
+}
+
 /* Strimz fonts on docs surface (Sora for headings, Poppins for body). */
 .fd-page,
 [data-fd-content],
@@ -86,4 +112,14 @@ article {
   border-top: 0;
   padding-top: 0;
   margin-top: 1.5rem;
+}
+
+.dark [data-fd-content] code:not(pre code) {
+  background-color: hsl(240 16.4% 13.1%);
+  color: #f5f5f7;
+  border-color: hsl(240 13.4% 19%);
+}
+
+.dark [data-fd-content] h2 {
+  border-top-color: hsl(240 13.4% 19%);
 }

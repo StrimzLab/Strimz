@@ -1,6 +1,6 @@
 {
   "name": "@strimz/shared-types",
-  "version": "0.3.0",
+  "version": "0.12.2",
   "description": "Zod schemas and inferred TypeScript types for every Strimz platform entity, API input, and webhook event.",
   "license": "MIT",
   "author": "Strimz <hello@strimz.finance>",
@@ -103,6 +103,11 @@
       "types": "./dist/events.d.ts",
       "import": "./dist/events.js",
       "require": "./dist/events.cjs"
+    },
+    "./analytics": {
+      "types": "./dist/analytics.d.ts",
+      "import": "./dist/analytics.js",
+      "require": "./dist/analytics.cjs"
     }
   },
   "files": [
@@ -114,7 +119,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"

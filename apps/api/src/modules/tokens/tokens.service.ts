@@ -13,6 +13,8 @@ import {
   tokenWhitelistAbi,
 } from './tokens.abi.js'
 
+const METADATA_TTL_MS = 10 * 60 * 1000
+
 /**
  * Reads token metadata + Strimz-whitelist capabilities from the chain.
  *
@@ -29,6 +31,7 @@ import {
 export class TokensService {
   private readonly log = new Logger(TokensService.name)
   private readonly tokenWhitelistAddress: `0x${string}` | undefined
+  private readonly metadataCache = new Map<string, { metadata: TokenMetadata; expiresAt: number }>()
 
   constructor(
     private readonly chain: ChainService,
@@ -47,6 +50,8 @@ export class TokensService {
       throw new Error('STRIMZ_TOKEN_WHITELIST_ADDRESS is not configured')
     }
     const lower = token.toLowerCase() as `0x${string}`
+    const cached = this.metadataCache.get(lower)
+    if (cached && cached.expiresAt > Date.now()) return cached.metadata
 
     // Capability + whitelist check first — if the token isn't on the
     // list, the caller can stop right here. Cheaper than four metadata
@@ -124,7 +129,7 @@ export class TokensService {
     }
     this.log.debug(`${token}: version="${version}" via ${versionSource}`)
 
-    return {
+    const metadata: TokenMetadata = {
       address: lower,
       name,
       symbol,
@@ -135,6 +140,8 @@ export class TokensService {
         transferAuth3009: (capByte & CAP_TRANSFER_AUTH_3009) === CAP_TRANSFER_AUTH_3009,
       },
     }
+    this.metadataCache.set(lower, { metadata, expiresAt: Date.now() + METADATA_TTL_MS })
+    return metadata
   }
 
   /**

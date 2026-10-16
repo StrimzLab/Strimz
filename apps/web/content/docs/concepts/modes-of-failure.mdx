@@ -69,7 +69,7 @@ Strimz scans public GitHub for live-mode key prefixes. If yours is found, the ke
 These are real failure modes you should still build for:
 
 - **Customer's wallet permanently loses access** (lost seed phrase, hardware wallet bricked). Their subscription will keep failing until they re-create a wallet and re-subscribe. There's no Strimz-side way to "transfer" a subscription to a new wallet. The on-chain authorisation is gone.
-- **Strimz API is down**. Strimz is a single hosted service today. Outage equals downtime. The 99.9% / 99.99% SLAs on the Growth/Enterprise plans are real, but a Free-plan account isn't covered. The on-chain layer keeps working. Payments via direct contract calls still settle.
+- **Strimz API is down**. Strimz is a single hosted service today. Outage equals downtime, and no plan carries an uptime SLA today. The on-chain layer keeps working. Payments via direct contract calls still settle.
 - **Arc network outage**. Same idea: this is a chain-level event. Strimz inherits Arc's availability.
 
 For anything not on this page,

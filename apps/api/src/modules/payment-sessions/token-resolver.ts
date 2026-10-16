@@ -1,5 +1,5 @@
 import type { PaymentCurrency } from '@strimz/shared-types'
-import { TypedConfigService } from '../../config/index.js'
+import { type TypedConfigService } from '../../config/index.js'
 
 /**
  * Resolve a logical currency to the on-chain ERC-20 contract address

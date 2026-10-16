@@ -143,3 +143,52 @@ export const MessageTransmitterAbi = [
     outputs: [{ name: 'success', type: 'bool' }],
   },
 ] as const
+
+export const StrimzRegistryAbi = [
+  {
+    type: 'function',
+    name: 'setFeeBps',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'merchantId', type: 'uint256' },
+      { name: 'newFeeBps', type: 'uint16' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'getMerchant',
+    stateMutability: 'view',
+    inputs: [{ name: 'merchantId', type: 'uint256' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'owner', type: 'address' },
+          { name: 'feeBps', type: 'uint16' },
+          { name: 'active', type: 'bool' },
+          { name: 'payoutAddress', type: 'address' },
+          { name: 'parentMerchantId', type: 'uint256' },
+          { name: 'pendingOwner', type: 'address' },
+          { name: 'pendingPayoutAddress', type: 'address' },
+          { name: 'payoutChangeCommitAt', type: 'uint64' },
+          { name: 'maxFeeBps', type: 'uint16' },
+        ],
+      },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'Registry__UnknownMerchant',
+    inputs: [{ name: 'merchantId', type: 'uint256' }],
+  },
+  {
+    type: 'error',
+    name: 'Registry__FeeExceedsMax',
+    inputs: [
+      { name: 'requested', type: 'uint16' },
+      { name: 'max', type: 'uint16' },
+    ],
+  },
+] as const

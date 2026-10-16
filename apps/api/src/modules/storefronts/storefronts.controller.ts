@@ -1,7 +1,9 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { Public } from '../../common/decorators/public.decorator.js'
+import { RateLimit } from '../../common/decorators/rate-limit.decorator.js'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
+import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
@@ -22,6 +24,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_read')
   @Get('/v1/storefront')
   @ApiOperation({ summary: 'Retrieve the merchant’s own storefront.' })
   retrieve(@CurrentMerchant() ctx: CurrentMerchantPayload) {
@@ -30,6 +33,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_write')
   @Post('/v1/storefront')
   @ApiOperation({ summary: 'Create or update the merchant storefront.' })
   upsert(@CurrentMerchant() ctx: CurrentMerchantPayload, @Body() dto: CreateStorefrontDto) {
@@ -38,6 +42,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_write')
   @Post('/v1/storefront/publish')
   publish(@CurrentMerchant() ctx: CurrentMerchantPayload) {
     return this.storefronts.setStatus(ctx.merchantId, 'published')
@@ -45,6 +50,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_write')
   @Post('/v1/storefront/archive')
   archive(@CurrentMerchant() ctx: CurrentMerchantPayload) {
     return this.storefronts.setStatus(ctx.merchantId, 'archived')
@@ -52,6 +58,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_read')
   @Get('/v1/storefront/products')
   listProducts(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
@@ -66,6 +73,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_write')
   @Post('/v1/storefront/products')
   createProduct(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
@@ -76,6 +84,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_read')
   @Get('/v1/storefront/products/:id')
   retrieveProduct(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string) {
     return this.storefronts.retrieveProduct(ctx.merchantId, id)
@@ -83,6 +92,7 @@ export class StorefrontsController {
 
   @ApiBearerAuth()
   @UseGuards(MerchantAuthGuard)
+  @RequireScopes('storefronts_write')
   @Post('/v1/storefront/products/:id/archive')
   archiveProduct(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string) {
     return this.storefronts.archiveProduct(ctx.merchantId, id)
@@ -91,6 +101,7 @@ export class StorefrontsController {
   // ----- Public read by slug (hosted storefront page) -----
 
   @Public()
+  @RateLimit({ max: 120, windowMs: 60_000, keyBy: 'ip', label: 'storefront.page' })
   @Get('/store/:slug')
   @ApiOperation({ summary: 'Public storefront page by slug. Used by apps/web.' })
   retrievePublic(@Param('slug') slug: string) {
@@ -105,6 +116,7 @@ export class StorefrontsController {
    * `published` status IS the authorisation model.
    */
   @Public()
+  @RateLimit({ max: 10, windowMs: 60_000, keyBy: 'ip', label: 'storefront.checkout' })
   @Post('/store/:slug/products/:productId/checkout')
   @ApiOperation({
     summary:

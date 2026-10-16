@@ -1,8 +1,9 @@
 // Indexer bookkeeping and audit trail.
 
 model IndexerCursor {
+  chainId              Int
   /// The contract address being indexed.
-  contractAddress      String   @id @db.VarChar(42)
+  contractAddress      String   @db.VarChar(42)
   environment          ArcEnvironment
   /// Last confirmed block successfully processed.
   lastProcessedBlock   BigInt
@@ -12,6 +13,7 @@ model IndexerCursor {
   lastBlockHash        String?  @db.VarChar(66)
   updatedAt            DateTime @updatedAt
 
+  @@id([chainId, contractAddress])
   @@index([environment])
 }
 
@@ -31,8 +33,43 @@ model AuditLog {
   createdAt     DateTime            @default(now())
 
   merchant      Merchant?           @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  contractAlert ContractAlert?
 
   @@index([merchantId, createdAt])
   @@index([category, createdAt])
   @@index([targetType, targetId])
+}
+
+model ContractAlert {
+  id         String    @id @default(cuid())
+  auditLogId String    @unique
+  chainId    Int
+  createdAt  DateTime  @default(now())
+  alertedAt  DateTime?
+
+  auditLog   AuditLog  @relation(fields: [auditLogId], references: [id], onDelete: Cascade)
+
+  @@index([alertedAt, createdAt])
+}
+
+model IndexerDeadLetter {
+  id              String         @id @default(cuid())
+  chainId         Int
+  environment     ArcEnvironment
+  contractAddress String         @db.VarChar(42)
+  txHash          String         @db.VarChar(66)
+  logIndex        Int
+  blockNumber     BigInt
+  blockHash       String         @db.VarChar(66)
+  blockTimestamp  DateTime
+  topics          String[]
+  data            String
+  reason          String
+  attempts        Int            @default(1)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  resolvedAt      DateTime?
+
+  @@unique([chainId, txHash, logIndex])
+  @@index([chainId, resolvedAt, blockNumber])
 }

@@ -4,7 +4,7 @@ SHELL := /bin/bash
 
 CONTRACTS_DIR := ../../packages/contracts
 ABI_DEST := internal/abi
-CONTRACTS := StrimzRegistry StrimzPayments StrimzSubscriptions StrimzAgentEscrow FeeCollector IERC20
+CONTRACTS := StrimzRegistry StrimzPayments StrimzSubscriptions StrimzAgentEscrow FeeCollector TokenWhitelist StrimzAgentRegistry TimelockController IERC20
 
 build:
 	go build -o bin/indexer ./cmd/indexer
@@ -27,7 +27,7 @@ test:
 
 test-e2e:
 	DOCKER_HOST=$${DOCKER_HOST:-unix://$$HOME/.docker/run/docker.sock} \
-	  go test -tags=e2e -count=1 -timeout=240s ./internal/store/...
+	  CGO_ENABLED=0 go test -tags=e2e -count=1 -timeout=240s ./internal/store/...
 
 # `make abi` regenerates the embedded ABI JSON files from the Foundry build
 # output. Run after any contract change. The Go binary uses //go:embed to

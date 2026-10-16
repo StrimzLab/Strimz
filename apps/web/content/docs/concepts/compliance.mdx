@@ -1,67 +1,45 @@
 ---
 title: Compliance
-description: 'Wallet address screening, where it sits in the request path, and what we log. Today: a stub screener in test mode and Circle Compliance Engine integration in flight for live.'
+description: 'What stops a blocklisted wallet from paying through Strimz today, and what Strimz does not screen yet.'
 ---
 
-Stablecoin payments are still payments. They're subject to OFAC's sanctions list, SDN matches, and the various country-level sanctions regimes that follow. Strimz screens wallet addresses before money moves so we don't accidentally settle a payment to a sanctioned address.
+Stablecoin payments are still payments. They're subject to OFAC's sanctions list and the country-level sanctions regimes that follow. This page says exactly what protects a Strimz payment today and what doesn't, so you can decide what to layer on top.
 
-The screener runs at two points.
+## What runs today
 
-The first is merchant signup. When you finish onboarding, your payout address is screened. A hit blocks live-mode access. You stay in test mode and we surface a "compliance review required" notice. Most legitimate businesses clear instantly; if you don't and you think there's been a mistake, email support and a human takes a look.
+Strimz does not run third-party wallet screening. No payer or merchant wallet is sent to a screening provider, and no risk score is computed.
 
-The second is payer first-interaction. When a payer connects a wallet on hosted checkout, the wallet address is screened. A hit returns 403 with `code: 'wallet_screening_failed'` from the meta-tx submission endpoint, and the hosted page shows a "we can't process this payment" message. The payer doesn't see anything beyond that. No specific reason code, no ability to retry, just a hard block.
+What does stop a sanctioned wallet is the chain itself. Arc enforces Circle's USDC blocklist in the protocol:
 
-## Caching
+- A transaction from a blocklisted sender is rejected before it reaches the mempool.
+- A USDC `transfer` or `transferFrom` where the sender or the recipient is blocklisted reverts.
 
-Address screenings are cached for 24 hours in Redis. Repeat sessions from the same payer don't re-screen, which keeps us under Circle's rate limits and keeps latency low. The cache key is `compliance:address-screen:{lowercased-address}` and lives at `mode`-scoped scope (test and live cache separately).
+See [Arc's blocklist compliance guide](https://docs.arc.io/integrate/infrastructure/compliance).
 
-A cleared block stays cleared for the cache lifetime. A freshly-flagged address starts being blocked at the next cache miss. We don't proactively invalidate; the 24-hour TTL is the safety net.
+Strimz simulates every relayed payment before it submits it. When the payer is on Circle's blocklist, the simulation fails, the relay answers `400` with `code: 'relay_simulation_failed'`, and nothing is broadcast, so no gas is spent.
 
-If you need a forced re-screen (e.g. an address was wrongly flagged and Circle cleared it), there's an internal API for ops to bust the cache. Reach out; it's not exposed to merchants.
+This covers wallets on Circle's blocklist. It does not cover wallets that are high risk but not blocklisted; those pay normally.
 
-## The log
+## What isn't live yet
 
-Every screening call writes a `ComplianceLog` row. It's append-only. We don't update past rows even if a later screening returns a different decision.
+The API contains adapters for TRM Labs and Elliptic, switched off. When a provider is turned on, a provider error counts as a block: Strimz would rather refuse a payment than settle one it could not screen. Screening at checkout is not wired in yet, and we'll update this page and the changelog before it is.
 
-```ts
-{
-  id: 'cl_…',
-  merchantId: 'mer_…',
-  walletAddress: '0xfd02…7150',
-  decision: 'cleared' | 'flagged' | 'blocked',
-  source: 'compliance_engine' | 'stub_test_mode',
-  reasonCode: 'sdn_match' | 'ofac_match' | null,
-  checkedAt: '2026-06-09T17:00:00Z',
-}
-```
+A few published names exist for that future and are not sent today:
 
-The dashboard has a Compliance tab that shows the logs for any wallet that's interacted with your account. Read-only. You can see history, you can see decisions, you can't override.
+- The webhook events `compliance.wallet_flagged` and `compliance.wallet_blocked`.
+- The SDK error code `compliance_blocked`.
 
-We log decisions to support exactly two operations: you reviewing why a customer of yours was blocked (to decide whether to email them with the bad news), and us proving to a regulator after the fact that we screened. Neither operation needs mutable history.
-
-## What's running today
-
-This is the honest part. Circle Compliance Engine eligibility is application-based and we're in flight on it. Until we're approved, the test-mode screener is a stub that returns `cleared` for everything. We log every call with `source: 'stub_test_mode'` so the audit trail shows what happened.
-
-Live mode is different. The `StrimzPayments` contract refuses to settle unless the screening endpoint returns a `cleared` decision. There's no live-mode code path that skips the check. If our Circle integration is down for any reason, live-mode payments would queue and not broadcast. We'd rather no payments than unscreened ones.
-
-When Circle approves us, we flip the live screener over and remove the "no live mode without Circle" guard from the deploy gate. Test mode stays on the stub forever. Testing your integration against real-money sanctions checks is not something you want anywhere near your CI.
+Don't build a flow that waits for them yet. The read-only `GET /v1/compliance/logs` endpoint returns an empty list while screening is off.
 
 ## What it doesn't cover
 
-A few things compliance screening doesn't do, in case anyone gets the wrong idea:
+Even once screening is on, a few things are out of scope:
 
-- It doesn't do KYC on the payer. Strimz doesn't know who's behind a wallet; we know the wallet address and we screen it.
-- It doesn't do AML investigation. If a wallet is moving suspicious amounts to and from your business, we don't surface that. (We log it; we don't analyze it.)
-- It doesn't do travel-rule data exchange. That's on the roadmap for the over-threshold transfer flows.
-- It doesn't do tax reporting. Also on the roadmap.
+- It doesn't do KYC on the payer. Strimz doesn't know who's behind a wallet; we know the wallet address.
+- It doesn't do AML investigation. If a wallet is moving suspicious amounts to and from your business, we don't surface that.
+- It doesn't do travel-rule data exchange.
+- It doesn't do tax reporting.
 
-If you have a regulated use case that needs more than address screening. A money services business, anything that does customer due diligence. You need to layer your own KYC on top of Strimz. We give you the wallet address; you can hook a Persona / Sumsub / etc. flow at signup.
+If you have a regulated use case that needs more than this, such as a money services business or anything that does customer due diligence, layer your own KYC on top of Strimz. We give you the wallet address; you can hook a Persona, Sumsub or similar flow at signup.
 
-## When something gets blocked
-
-The merchant view: a `compliance.wallet_flagged` or `compliance.wallet_blocked` webhook lands on your endpoint with the full `ComplianceLog` payload. The session that triggered it is in `failed` state with `failureReason: 'wallet_screening_failed'`.
-
-The recommended action is to email the payer (you have their email if you collected it as part of the session, or you can email through whatever support channel they reached you on). Tell them the payment was blocked for compliance reasons and that you'd be happy to clarify if they reach out. We don't recommend telling them exactly what triggered the flag. That information helps actually-sanctioned actors evade screening, and the legitimate ones can resolve it through proper channels.
-
-Most flagged payers we've seen in test mode are false positives. Real sanctioned actors don't typically try to subscribe to your B2B SaaS.
+Questions about a specific sector or jurisdiction go to [compliance@strimz.finance](mailto:compliance@strimz.finance).

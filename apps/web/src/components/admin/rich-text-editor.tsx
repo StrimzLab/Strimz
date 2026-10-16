@@ -56,7 +56,7 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          'prose prose-sm max-w-none min-h-[180px] focus:outline-none px-4 py-3 text-[#050020]',
+          'prose prose-sm max-w-none min-h-[180px] focus:outline-none px-4 py-3 text-foreground',
       },
     },
     onUpdate: ({ editor }) => {
@@ -81,14 +81,14 @@ export function RichTextEditor({
   }, [editor, disabled])
 
   if (!editor) {
-    return <div className="border-border/60 h-[220px] rounded-md border bg-[#F9FAFB]" />
+    return <div className="border-border/60 bg-muted h-[220px] rounded-md border" />
   }
 
   const btn = (active: boolean) =>
     `inline-flex size-8 items-center justify-center rounded-md text-xs transition-colors ${
       active
-        ? 'bg-[#02C76A]/15 text-[#02C76A]'
-        : 'text-[#58556A] hover:bg-muted hover:text-[#050020]'
+        ? 'bg-accent/15 text-accent'
+        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
     }`
 
   function addLink() {
@@ -104,8 +104,8 @@ export function RichTextEditor({
   }
 
   return (
-    <div className="border-border/60 overflow-hidden rounded-md border bg-white transition-colors focus-within:border-[#02C76A]/60">
-      <div className="border-border/60 flex items-center gap-1 border-b bg-[#F9FAFB] px-2 py-1.5">
+    <div className="border-border/60 bg-card focus-within:border-accent/60 overflow-hidden rounded-md border transition-colors">
+      <div className="border-border/60 bg-muted flex items-center gap-1 border-b px-2 py-1.5">
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -133,7 +133,7 @@ export function RichTextEditor({
         >
           <Heading2 className="size-4" />
         </button>
-        <span className="mx-1 h-4 w-px bg-[#E5E7EB]" />
+        <span className="bg-border mx-1 h-4 w-px" />
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
@@ -152,7 +152,7 @@ export function RichTextEditor({
         >
           <ListOrdered className="size-4" />
         </button>
-        <span className="mx-1 h-4 w-px bg-[#E5E7EB]" />
+        <span className="bg-border mx-1 h-4 w-px" />
         <button
           type="button"
           onClick={addLink}
@@ -162,7 +162,7 @@ export function RichTextEditor({
         >
           <LinkIcon className="size-4" />
         </button>
-        <span className="ml-auto text-[10px] text-[#58556A]">
+        <span className="text-muted-foreground ml-auto text-[10px]">
           Rich text · {editor.storage.characterCount?.characters?.() ?? ''}
         </span>
       </div>

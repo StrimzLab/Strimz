@@ -185,7 +185,7 @@ contract PaymentsInvariantsTest is StdInvariant, StrimzTestBase {
         feeCollector.grantRole(
             StrimzAccessControl(address(feeCollector)).FEE_ACCRUER_ROLE(), address(payments)
         );
-        uint256 mid = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, 0);
+        uint256 mid = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, FEE_BPS, 0);
         vm.stopPrank();
 
         handler = new PaymentsHandler(payments, usdc, mid, FEE_BPS);

@@ -1,5 +1,52 @@
 # @strimz/shared-crypto
 
+## 0.2.5
+
+### Patch Changes
+
+- Updated dependencies [2744d9f]
+  - @strimz/shared-config@0.6.0
+
+## 0.2.4
+
+### Patch Changes
+
+- Updated dependencies [9696813]
+  - @strimz/shared-config@0.5.0
+
+## 0.2.3
+
+### Patch Changes
+
+- Updated dependencies [518b06c]
+  - @strimz/shared-config@0.4.0
+
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [6ea1791]
+  - @strimz/shared-config@0.3.0
+
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [0efff34]
+  - @strimz/shared-config@0.2.0
+
+## 0.2.0
+
+### Minor Changes
+
+- 832149c: Add `checkoutPaymentNonce(sessionId)` (also at `@strimz/shared-crypto/checkout`): the EIP-3009 nonce the hosted checkout signs for a payment session, `keccak256(abi.encode("strimz.checkout.payment-nonce.v1", sessionId))`. The Strimz relay refuses a payment authorization for a session that uses any other nonce. The package now depends on `viem`.
+
+## 0.1.2
+
+### Patch Changes
+
+- 6fed14f: Internal lint cleanup. `hashApiKey` and the notification schema behave exactly as before; no public types changed.
+
 ## 0.1.1
 
 ### Patch Changes

@@ -41,8 +41,10 @@ live.
 In your code, you switch modes by changing the API key. The same SDK client works for both:
 
 ```ts
-const strimzTest = new Strimz({ apiKey: process.env.STRIMZ_TEST_KEY! })
-const strimzLive = new Strimz({ apiKey: process.env.STRIMZ_LIVE_KEY! })
+import { StrimzClient } from '@strimz/sdk'
+
+const strimzTest = new StrimzClient({ apiKey: process.env.STRIMZ_TEST_KEY! })
+const strimzLive = new StrimzClient({ apiKey: process.env.STRIMZ_LIVE_KEY! })
 ```
 
 In the dashboard, there's a toggle in the topbar. Switching it doesn't migrate anything. It only filters the data shown to that mode.

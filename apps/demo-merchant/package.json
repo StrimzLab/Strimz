@@ -1,14 +1,14 @@
 {
   "name": "@strimz/demo-merchant",
-  "version": "0.0.3",
+  "version": "0.0.20",
   "private": true,
   "description": "Fanline — sample creator platform that pays out in stablecoins via Strimz. Demo dApp for the Arc grant submission.",
   "scripts": {
     "dev": "next dev --port 3200",
     "build": "next build",
     "start": "next start --port 3200",
-    "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "@strimz/sdk": "workspace:*",

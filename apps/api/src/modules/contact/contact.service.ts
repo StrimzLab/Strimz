@@ -1,10 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common'
-import type { ContactRequestInput } from '@strimz/shared-types'
+import { BadGatewayException, Injectable, Logger } from '@nestjs/common'
+import type { ContactRequestParsed } from '@strimz/shared-types'
 import { EmailService } from '../../infra/email/email.service.js'
 import { TypedConfigService } from '../../config/index.js'
 
 /** Human-friendly labels for the contact topic enum. */
-const TOPIC_LABEL: Record<ContactRequestInput['topic'], string> = {
+const TOPIC_LABEL: Record<ContactRequestParsed['topic'], string> = {
   sales: 'Sales',
   support: 'Support',
   partnership: 'Partnership',
@@ -31,7 +31,7 @@ export class ContactService {
    * The submitter's own address goes in the `replyTo` header so hitting
    * "reply" in Gmail responds to them directly.
    */
-  async submit(input: ContactRequestInput): Promise<{ ok: true }> {
+  async submit(input: ContactRequestParsed): Promise<{ ok: true }> {
     const to = this.cfg.env.RESEND_REPLY_TO
     const html = renderContactHtml(input)
     const text = renderContactText(input)
@@ -54,13 +54,17 @@ export class ContactService {
       // Deliberately do NOT rethrow. The submitter shouldn't see an
       // "email failed" 5xx just because Resend is temporarily
       // unavailable — a message we've logged is still recoverable.
+      throw new BadGatewayException({
+        code: 'email_unavailable',
+        message: 'the message could not be sent; try again later',
+      })
     }
 
     return { ok: true }
   }
 }
 
-function renderContactHtml(input: ContactRequestInput): string {
+function renderContactHtml(input: ContactRequestParsed): string {
   const rows: Array<[label: string, value: string]> = [
     ['Name', input.name],
     ['Email', input.email],
@@ -86,7 +90,7 @@ function renderContactHtml(input: ContactRequestInput): string {
 </html>`.trim()
 }
 
-function renderContactText(input: ContactRequestInput): string {
+function renderContactText(input: ContactRequestParsed): string {
   return [
     `Topic: ${TOPIC_LABEL[input.topic]}`,
     `Name:  ${input.name}`,

@@ -28,7 +28,7 @@ export const TRANSACTIONS: Transaction[] = range(96)
       'subscription_charge',
       'refund',
     ] as TransactionKind[])
-    const customer = CUSTOMERS[Math.floor(rng() * CUSTOMERS.length)]!
+    const customer = pick(rng, CUSTOMERS)
     const amount = Math.floor(rng() * 500_000_000) + 5_000_000
     const fee = kind === 'refund' ? 0 : Math.floor((amount * FEE_BPS) / 10_000)
     return {
@@ -50,4 +50,4 @@ export const TRANSACTIONS: Transaction[] = range(96)
             : 'Refund',
     }
   })
-  .sort((a, b) => +new Date(b.confirmedAt) - +new Date(a.confirmedAt))
+  .sort((a, b) => new Date(b.confirmedAt).getTime() - new Date(a.confirmedAt).getTime())

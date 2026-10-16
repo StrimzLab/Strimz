@@ -9,8 +9,8 @@ import { Glyph } from '@/components/shared/logo'
 export function DashboardFooter() {
   const year = new Date().getFullYear()
   return (
-    <footer className="mt-12 border-t border-[#E5E7EB] bg-white">
-      <div className="font-poppins mx-auto flex w-full max-w-7xl flex-col items-start justify-between gap-3 px-1 py-5 text-[12px] text-[#58556A] sm:flex-row sm:items-center sm:px-2">
+    <footer className="border-border bg-background mt-12 border-t">
+      <div className="font-poppins text-muted-foreground mx-auto flex w-full max-w-7xl flex-col items-start justify-between gap-3 px-1 py-5 text-[12px] sm:flex-row sm:items-center sm:px-2">
         <div className="flex items-center gap-2">
           <Glyph className="size-4" />
           <span>© {year} Strimz Labs</span>
@@ -20,7 +20,7 @@ export function DashboardFooter() {
             href="/docs"
             target="_blank"
             rel="noreferrer"
-            className="transition-colors hover:text-[#050020]"
+            className="hover:text-foreground transition-colors"
           >
             Documentation
           </Link>
@@ -28,16 +28,16 @@ export function DashboardFooter() {
             href="https://status.strimz.finance"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 transition-colors hover:text-[#050020]"
+            className="hover:text-foreground inline-flex items-center gap-1.5 transition-colors"
           >
-            <span className="size-1.5 rounded-full bg-[#02C76A]" />
+            <span className="bg-accent size-1.5 rounded-full" />
             All systems normal
           </a>
           <Link
             href="/legal/terms"
             target="_blank"
             rel="noreferrer"
-            className="transition-colors hover:text-[#050020]"
+            className="hover:text-foreground transition-colors"
           >
             Terms
           </Link>
@@ -45,7 +45,7 @@ export function DashboardFooter() {
             href="/legal/privacy"
             target="_blank"
             rel="noreferrer"
-            className="transition-colors hover:text-[#050020]"
+            className="hover:text-foreground transition-colors"
           >
             Privacy
           </Link>

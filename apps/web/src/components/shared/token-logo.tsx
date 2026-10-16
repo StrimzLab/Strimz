@@ -34,7 +34,7 @@ export function TokenLogo({ symbol, size = 24, className }: TokenLogoProps) {
       <span
         aria-label={symbol}
         className={
-          'inline-flex shrink-0 items-center justify-center rounded-full bg-[#02C76A]/10 font-mono text-[10px] font-bold text-[#02C76A] ' +
+          'bg-accent/10 text-accent inline-flex shrink-0 items-center justify-center rounded-full font-mono text-[10px] font-bold ' +
           (className ?? '')
         }
         style={{ width: size, height: size }}

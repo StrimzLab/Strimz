@@ -52,7 +52,6 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   process.env.REDIS_URL = redisUrl
   process.env.CIRCLE_ATTESTATION_BASE_URL = 'https://iris.test'
   process.env.ARC_ENVIRONMENT = 'testnet'
-  process.env.ARC_RPC_URL = 'http://localhost:8545'
   // Crons set to a never-firing date so they don't compete with manual ticks.
   process.env.RECOVERY_TICK_CRON = '0 0 0 1 1 *'
   process.env.CASHFLOW_DIGEST_CRON = '0 0 0 1 1 *'

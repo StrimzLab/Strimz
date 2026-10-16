@@ -19,3 +19,6 @@ gas-report.json
 
 # Turbo
 .turbo
+out-fork/
+cache-fork/
+deployments/31337.json

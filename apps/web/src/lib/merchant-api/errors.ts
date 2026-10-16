@@ -14,10 +14,13 @@
  * class preserves that contract without forcing a separate lookup.
  */
 
+import { z } from 'zod'
+
 /** Shape of the JSON error envelope returned by apps/api. */
 export interface ApiErrorBody {
   code: string
   message: string
+  requestId?: string
   details?: unknown
 }
 
@@ -29,6 +32,7 @@ export interface ApiErrorBody {
 export class StrimzApiError extends Error {
   readonly status: number
   readonly code: string
+  readonly requestId?: string
   readonly details?: unknown
 
   constructor(status: number, body: ApiErrorBody) {
@@ -36,6 +40,7 @@ export class StrimzApiError extends Error {
     this.name = 'StrimzApiError'
     this.status = status
     this.code = body.code
+    this.requestId = body.requestId
     this.details = body.details
     // Preserves the original stack on V8. Without this the class
     // constructor itself shows up as the throwing frame.
@@ -123,6 +128,27 @@ export function buildApiError(
     return new RateLimitError(body, Number.isFinite(seconds) ? seconds : null)
   }
   return new StrimzApiError(status, body)
+}
+
+const apiErrorEnvelopeSchema = z.object({
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+    requestId: z.string().optional(),
+    details: z.unknown().optional(),
+  }),
+})
+
+export async function apiErrorFromResponse(response: Response): Promise<StrimzApiError> {
+  const unreadable: ApiErrorBody = {
+    code: 'unknown_error',
+    message: `request failed with status ${response.status}`,
+  }
+  const isJson = response.headers.get('content-type')?.includes('application/json')
+  const json: unknown = isJson ? await response.json().catch(() => null) : null
+  const parsed = apiErrorEnvelopeSchema.safeParse(json)
+  const body = parsed.success ? parsed.data.error : unreadable
+  return buildApiError(response.status, body, response.headers)
 }
 
 /**

@@ -81,7 +81,8 @@ export const createSubscriptionPlanInputSchema = z.object({
   trialPeriodDays: z.number().int().min(0).max(365).optional(),
   metadata: metadataSchema.optional(),
 })
-export type CreateSubscriptionPlanInput = z.infer<typeof createSubscriptionPlanInputSchema>
+export type CreateSubscriptionPlanInput = z.input<typeof createSubscriptionPlanInputSchema>
+export type CreateSubscriptionPlanParsed = z.output<typeof createSubscriptionPlanInputSchema>
 
 // ---------- Subscriptions ----------
 
@@ -126,31 +127,35 @@ export const subscriptionStatusResultSchema = z.object({
 })
 export type SubscriptionStatusResult = z.infer<typeof subscriptionStatusResultSchema>
 
-export const createSubscriptionInputSchema = z.object({
-  planId: idSchema,
-  customer: z.object({
-    walletAddress: evmAddressSchema,
-    email: z.string().email().optional(),
-    externalRef: z.string().max(120).optional(),
-  }),
-  gracePeriodHours: z.union([z.literal(24), z.literal(48), z.literal(72)]).default(48),
-  metadata: metadataSchema.optional(),
+export const subscriptionEnrolmentTermsSchema = z.object({
+  startAt: z.string().regex(/^\d+$/),
+  trialDays: z.number().int().min(0),
+  trialEndsAt: isoTimestampSchema.nullable(),
 })
-export type CreateSubscriptionInput = z.infer<typeof createSubscriptionInputSchema>
+export type SubscriptionEnrolmentTerms = z.infer<typeof subscriptionEnrolmentTermsSchema>
 
 export const cancelSubscriptionInputSchema = z.object({
   id: idSchema,
   reason: z.string().max(500).optional(),
 })
-export type CancelSubscriptionInput = z.infer<typeof cancelSubscriptionInputSchema>
+export type CancelSubscriptionInput = z.input<typeof cancelSubscriptionInputSchema>
+export type CancelSubscriptionParsed = z.output<typeof cancelSubscriptionInputSchema>
 
 // ---------- Charges ----------
 
+// One value per contract ChargeOutcome. `skipped` is the fallback for
+// outcomes a future contract appends.
 export const subscriptionChargeOutcomeSchema = z.enum([
   'charged',
   'insufficient_funds',
   'revoked_approval',
   'cancelled',
+  'not_due',
+  'ended',
+  'duplicate',
+  'unknown',
+  'merchant_inactive',
+  'transfer_failed',
   'skipped',
 ])
 export type SubscriptionChargeOutcome = z.infer<typeof subscriptionChargeOutcomeSchema>

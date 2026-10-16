@@ -10,13 +10,15 @@ import {
 import { Reflector } from '@nestjs/core'
 import type { FastifyRequest } from 'fastify'
 import { hashApiKey } from '@strimz/shared-crypto'
-import { kindFromKey, modeFromKey } from '@strimz/shared-config'
-import type { ApiKeyScope } from '@strimz/shared-types'
+import { arcModeFor, modeFromKey } from '@strimz/shared-config'
 
+import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { PrivyService } from '../../infra/privy/privy.service.js'
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js'
-import { REQUIRED_SCOPES_KEY } from '../decorators/scopes.decorator.js'
+import { assertApiKeyRouteAccess } from './api-key-route-access.js'
+import { assertSecretKeyKind } from './api-key-kind.js'
+import { assertDeploymentMode } from './deployment-mode.js'
 
 /**
  * Unified merchant auth guard.
@@ -52,6 +54,7 @@ export class MerchantAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly prisma: PrismaService,
     @Inject(PrivyService) private readonly privy: PrivyService,
+    private readonly chain: ChainService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -88,12 +91,7 @@ export class MerchantAuthGuard implements CanActivate {
     ctx: ExecutionContext,
     req: FastifyRequest,
   ): Promise<void> {
-    if (kindFromKey(token) !== 'secret') {
-      throw new UnauthorizedException({
-        code: 'authentication_error',
-        message: 'invalid api key kind',
-      })
-    }
+    assertSecretKeyKind(token)
     const mode = modeFromKey(token)
     if (mode == null) {
       throw new UnauthorizedException({
@@ -101,6 +99,7 @@ export class MerchantAuthGuard implements CanActivate {
         message: 'invalid api key prefix',
       })
     }
+    assertDeploymentMode(this.chain.environment, mode)
 
     const hash = await hashApiKey(token)
     const apiKey = await this.prisma.db.merchantApiKey.findUnique({
@@ -120,26 +119,12 @@ export class MerchantAuthGuard implements CanActivate {
       })
     }
 
-    const required =
-      this.reflector.getAllAndOverride<ApiKeyScope[]>(REQUIRED_SCOPES_KEY, [
-        ctx.getHandler(),
-        ctx.getClass(),
-      ]) ?? []
-    if (required.length > 0) {
-      const has = new Set(apiKey.scopes as unknown as string[])
-      for (const s of required) {
-        if (!has.has(s)) {
-          throw new ForbiddenException({
-            code: 'permission_denied',
-            message: `api key missing scope ${s}`,
-          })
-        }
-      }
-    }
+    assertApiKeyRouteAccess(this.reflector, ctx, apiKey.scopes)
 
     req.merchant = {
       merchantId: apiKey.merchantId,
       apiKeyId: apiKey.id,
+      apiKeyScopes: apiKey.scopes,
       mode: apiKey.mode as 'test' | 'live',
     }
 
@@ -174,8 +159,7 @@ export class MerchantAuthGuard implements CanActivate {
     // Dashboard traffic ships an `x-strimz-mode` header carrying the
     // merchant's current toggle selection. Missing / malformed values
     // fall back to test — the safer default that runs on Arc testnet.
-    const headerMode = String(req.headers['x-strimz-mode'] ?? '').toLowerCase()
-    const mode: 'test' | 'live' = headerMode === 'live' ? 'live' : 'test'
+    const mode = arcModeFor(this.chain.environment)
 
     req.merchant = {
       merchantId: merchant.id,

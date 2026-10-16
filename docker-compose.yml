@@ -60,23 +60,22 @@ services:
       retries: 10
 
   anvil:
-    image: ghcr.io/foundry-rs/foundry:latest
+    build:
+      context: .
+      dockerfile: infra/arc-anvil/Dockerfile
     restart: unless-stopped
     # `anvil` defaults to localhost-only; we have to bind 0.0.0.0 so
     # other compose services and the host can reach it.
-    entrypoint: ['anvil']
+    entrypoint: ['arc-anvil']
     command:
+      - --network=arc
       - --host=0.0.0.0
-      - --chain-id=31337
+      - --chain-id=5042002
       - --block-time=2
     ports:
       - '8545:8545'
     healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'wget -qO- --post-data=''{"jsonrpc":"2.0","method":"eth_blockNumber","id":1}'' --header=''Content-Type: application/json'' http://localhost:8545 | grep -q result',
-        ]
+      test: ['CMD', 'arc-cast', 'block-number', '--rpc-url', 'http://localhost:8545']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -101,7 +100,7 @@ services:
       - path: ./apps/api/.env
         required: false
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: '4000'
       API_BASE_URL: http://localhost:4000
       CHECKOUT_ORIGIN: http://localhost:3000
@@ -127,7 +126,7 @@ services:
       - path: ./apps/scheduler/.env
         required: false
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: '4200'
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/strimz?schema=public
       REDIS_URL: redis://redis:6379
@@ -149,11 +148,10 @@ services:
       - path: ./apps/agent/.env
         required: false
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       PORT: '4300'
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/strimz?schema=public
       REDIS_URL: redis://redis:6379
-      ARC_RPC_URL: http://anvil:8545
       ARC_ENVIRONMENT: testnet
     ports:
       - '4300:4300'
@@ -171,9 +169,12 @@ services:
       - path: ./apps/indexer/.env
         required: false
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/strimz?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/strimz?sslmode=disable
       ARC_RPC_URL: http://anvil:8545
       ARC_ENVIRONMENT: testnet
+      ARC_CHAIN_ID: '5042002'
+      START_BLOCK: '1'
+      CONFIRMATIONS: '0'
       HTTP_PORT: '4100'
       LOG_LEVEL: info
     ports:

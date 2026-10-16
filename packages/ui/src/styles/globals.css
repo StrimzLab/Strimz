@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /**
  * Strimz design tokens — lifted directly from `strimz-subscription`'s
  * `tailwind.config.ts`. Light mode only; the legacy `.dark` selector and
@@ -29,8 +31,15 @@
   --color-accent: #02c76a;
   --color-accent-foreground: #ffffff;
 
-  --color-primary: #050020;
-  --color-primary-foreground: #ffffff;
+  --color-accent-hover: hsl(var(--accent-hover));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary-hover: hsl(var(--primary-hover));
+
+  --color-ink: hsl(var(--ink));
+  --color-ink-foreground: hsl(var(--ink-foreground));
+  --color-ink-muted: hsl(var(--ink-muted));
 
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
@@ -51,14 +60,22 @@
   --color-chart-4: hsl(var(--chart-4));
   --color-chart-5: hsl(var(--chart-5));
 
+  --color-window-close: hsl(var(--window-close));
+  --color-window-minimize: hsl(var(--window-minimize));
+  --color-window-zoom: hsl(var(--window-zoom));
+
+  --color-step-blue: hsl(var(--step-blue));
+  --color-step-purple: hsl(var(--step-purple));
+  --color-step-red: hsl(var(--step-red));
+
   /* Brand neutrals — used directly across pages. Match
    * strimz-subscription's hard-coded values so the visual rhythm is the
    * same. */
-  --color-brand-muted: #58556a;
-  --color-brand-soft: #f9fafb;
-  --color-brand-line: #e5e7eb;
-  --color-brand-subtle: #d1d5db;
-  --color-brand-placeholder: #8e8c9c;
+  --color-brand-muted: hsl(var(--muted-foreground));
+  --color-brand-soft: hsl(var(--muted));
+  --color-brand-line: hsl(var(--border));
+  --color-brand-subtle: hsl(var(--input));
+  --color-brand-placeholder: hsl(var(--muted-foreground));
 
   /* Accent variants used in gradients */
   --color-accent-bright: #03fc86;
@@ -82,26 +99,36 @@
     /* Pure light-mode token set — neutral grayscale per shadcn's default,
      * matching strimz-subscription's :root block. */
     --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --foreground: 249.4 100% 6.3%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 249.4 100% 6.3%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
+    --popover-foreground: 249.4 100% 6.3%;
 
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
+    --primary: 249.4 100% 6.3%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 247 81.1% 10.4%;
 
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
+    --accent-hover: 151.2 97.8% 35.5%;
+
+    --ink: 249.4 100% 6.3%;
+    --ink-foreground: 0 0% 100%;
+    --ink-muted: 216 12.2% 83.9%;
+
+    --secondary: 220 14.3% 95.9%;
+    --secondary-foreground: 249.4 100% 6.3%;
+
+    --muted: 210 20% 98%;
+    --muted-foreground: 248.6 11% 37.5%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+    --border: 220 13% 91%;
+    --input: 216 12.2% 83.9%;
+    --ring: 249.4 100% 6.3%;
 
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -109,7 +136,63 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
 
+    --window-close: 2.9 100% 67.1%;
+    --window-minimize: 41 99% 58.8%;
+    --window-zoom: 129 66.7% 47.1%;
+
+    --step-blue: 212.4 92.1% 44.5%;
+    --step-purple: 261 69.1% 59.4%;
+    --step-red: 355.8 71.8% 47.3%;
+
     --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 240 24.1% 5.7%;
+    --foreground: 240 11.1% 96.5%;
+
+    --card: 240 18.4% 9.6%;
+    --card-foreground: 240 11.1% 96.5%;
+
+    --popover: 240 18.4% 9.6%;
+    --popover-foreground: 240 11.1% 96.5%;
+
+    --primary: 240 11.1% 96.5%;
+    --primary-foreground: 249.4 100% 6.3%;
+    --primary-hover: 240 12.5% 90.6%;
+
+    --accent-hover: 151.2 97.8% 35.5%;
+
+    --ink: 249.4 100% 6.3%;
+    --ink-foreground: 0 0% 100%;
+    --ink-muted: 216 12.2% 83.9%;
+
+    --secondary: 240 16.4% 13.1%;
+    --secondary-foreground: 240 11.1% 96.5%;
+
+    --muted: 240 16.4% 13.1%;
+    --muted-foreground: 249.5 10.7% 65.3%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 13.4% 19%;
+    --input: 240 11.5% 25.7%;
+    --ring: 151.7 98% 39.4%;
+
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+
+    --window-close: 2.9 100% 67.1%;
+    --window-minimize: 41 99% 58.8%;
+    --window-zoom: 129 66.7% 47.1%;
+
+    --step-blue: 212 100% 67.3%;
+    --step-purple: 265 100% 77.5%;
+    --step-red: 3.8 100% 72.4%;
   }
 
   * {

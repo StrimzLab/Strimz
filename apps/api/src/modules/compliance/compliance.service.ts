@@ -20,6 +20,7 @@ export interface ScreenInput {
 
 export interface ScreenResult {
   status: ComplianceStatus
+  blocked: boolean
   riskScore: number | null
   flags: string[]
   log: ComplianceLog
@@ -51,9 +52,10 @@ export class ComplianceService {
     this.apiKey = cfg.env.COMPLIANCE_API_KEY
     this.blockThreshold = cfg.env.COMPLIANCE_BLOCK_THRESHOLD
     if (this.provider !== 'disabled' && !this.apiKey) {
-      this.log.warn(
-        `COMPLIANCE_PROVIDER=${this.provider} but no COMPLIANCE_API_KEY set — screening will fail open.`,
-      )
+      throw new Error(`COMPLIANCE_API_KEY is required when COMPLIANCE_PROVIDER=${this.provider}`)
+    }
+    if (this.provider === 'disabled') {
+      this.log.log('compliance screening disabled')
     }
   }
 
@@ -77,7 +79,8 @@ export class ComplianceService {
       },
     })
 
-    return { status, riskScore, flags, log: serialise(row) }
+    const blocked = status === 'blocked' || status === 'error'
+    return { status, blocked, riskScore, flags, log: serialise(row) }
   }
 
   async listLogs(
@@ -101,18 +104,17 @@ export class ComplianceService {
 
   // ----- Provider adapters -----
 
-  private async callProvider(walletAddress: string): Promise<{
+  private callProvider(walletAddress: string): Promise<{
     status: ComplianceStatus
     riskScore: number | null
     flags: string[]
     providerRequestId: string | null
   }> {
-    if (this.provider === 'disabled' || !this.apiKey) {
-      return { status: 'clear', riskScore: null, flags: [], providerRequestId: null }
-    }
+    const clear = { status: 'clear' as const, riskScore: null, flags: [], providerRequestId: null }
+    if (this.provider === 'disabled' || !this.apiKey) return Promise.resolve(clear)
     if (this.provider === 'trm') return this.callTrm(walletAddress)
     if (this.provider === 'elliptic') return this.callElliptic(walletAddress)
-    return { status: 'clear', riskScore: null, flags: [], providerRequestId: null }
+    return Promise.resolve(clear)
   }
 
   private async callTrm(walletAddress: string): Promise<{
@@ -131,7 +133,7 @@ export class ComplianceService {
         body: JSON.stringify([{ address: walletAddress, chain: 'ethereum' }]),
       })
       if (!res.ok) {
-        this.log.warn(`TRM screen returned ${res.status}; failing open`)
+        this.log.warn(`TRM screen returned ${res.status}; treating as a block`)
         return { status: 'error', riskScore: null, flags: [], providerRequestId: null }
       }
       const json = (await res.json()) as Array<{
@@ -177,7 +179,7 @@ export class ComplianceService {
         }),
       })
       if (!res.ok) {
-        this.log.warn(`Elliptic screen returned ${res.status}; failing open`)
+        this.log.warn(`Elliptic screen returned ${res.status}; treating as a block`)
         return { status: 'error', riskScore: null, flags: [], providerRequestId: null }
       }
       const json = (await res.json()) as {

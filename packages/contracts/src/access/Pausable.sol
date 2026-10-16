@@ -8,7 +8,7 @@ import { StrimzAccessControl } from "./StrimzAccessControl.sol";
 /// @notice Global kill switch gated by ADMIN_ROLE. Every value-moving
 ///         function in the Strimz system respects this.
 abstract contract StrimzPausable is PausableUpgradeable, StrimzAccessControl {
-    function pause() external onlyRole(ADMIN_ROLE) {
+    function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 

@@ -4,8 +4,11 @@ import { InjectQueue } from '@nestjs/bullmq'
 import type { Queue } from 'bullmq'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
-import { QUEUE_NAMES } from '../../infra/queue/queue-names.js'
-import type { SubscriptionDueJob } from '../../infra/queue/job-payloads.js'
+import {
+  QUEUE_NAMES,
+  subscriptionDueJobSchema,
+  type SubscriptionDueJob,
+} from '@strimz/queue-contracts'
 
 /**
  * Cron-driven sweeper. Every tick:
@@ -43,7 +46,7 @@ export class SubscriptionSweeperService {
   @Cron(process.env.SUBSCRIPTION_SWEEPER_CRON || '0 */15 * * * *', {
     name: 'subscription-sweeper',
   })
-  async sweep(): Promise<{ enqueued: number }> {
+  sweep(): Promise<{ enqueued: number }> {
     return this.sweepNow()
   }
 
@@ -80,7 +83,17 @@ export class SubscriptionSweeperService {
                 )
             AND "nextChargeAt" IS NOT NULL
             AND "nextChargeAt" <= $1
-            AND status IN ('active'::"SubscriptionStatus", 'at_risk'::"SubscriptionStatus")
+            -- Retry backoff. Set by the indexer when a charge fails,
+            -- cleared on success. Without it a payer who is short on
+            -- funds is retried every tick for the whole grace window —
+            -- ~192 on-chain transactions across a 48h grace period for
+            -- one failing subscription.
+            AND ("nextRetryAt" IS NULL OR "nextRetryAt" <= $1)
+            AND status IN (
+                  'trialing'::"SubscriptionStatus",
+                  'active'::"SubscriptionStatus",
+                  'at_risk'::"SubscriptionStatus"
+                )
             AND "onchainSubscriptionId" IS NOT NULL
           ORDER BY "nextChargeAt" ASC
           LIMIT $2
@@ -101,11 +114,10 @@ export class SubscriptionSweeperService {
     // Step 3: enqueue one job per candidate.
     await Promise.all(
       candidates.map((c) =>
-        this.queue.add(
-          'charge',
-          { subscriptionId: c.id },
-          { removeOnComplete: 1_000, removeOnFail: 1_000 },
-        ),
+        this.queue.add('charge', subscriptionDueJobSchema.parse({ subscriptionId: c.id }), {
+          removeOnComplete: 1_000,
+          removeOnFail: 1_000,
+        }),
       ),
     )
 

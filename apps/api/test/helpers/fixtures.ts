@@ -1,5 +1,11 @@
 import { generateApiKey } from '@strimz/shared-crypto'
-import type { PrismaClient } from '@strimz/db'
+import type {
+  MerchantTier,
+  PaymentSessionStatus,
+  PrismaClient,
+  SubscriptionInterval,
+  SubscriptionStatus,
+} from '@strimz/db'
 import { makePrivyDid } from './stubs/privy.stub.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -22,6 +28,9 @@ export async function seedMerchant(
     twoFactorEnabled: boolean
     payoutAddress: string
     mfa: boolean
+    onchainMerchantId: number
+    walletAddress: string
+    tier: MerchantTier
   }> = {},
 ): Promise<SeededMerchant> {
   const email =
@@ -36,6 +45,9 @@ export async function seedMerchant(
       onboardingCompleted: overrides.onboardingCompleted ?? false,
       businessName: overrides.businessName ?? 'Acme Co',
       payoutAddress: overrides.payoutAddress ?? '0x000000000000000000000000000000000000beef',
+      onchainMerchantId: overrides.onchainMerchantId ?? null,
+      walletAddress: overrides.walletAddress ?? null,
+      tier: overrides.tier ?? 'free',
     },
   })
   return {
@@ -93,7 +105,7 @@ export async function seedApiKey(
   return { id: k.id, secretKey: generated.secret }
 }
 
-export async function seedCustomer(
+export function seedCustomer(
   prisma: PrismaClient,
   merchantId: string,
   overrides: Partial<{ email: string; walletAddress: string }> = {},
@@ -109,7 +121,7 @@ export async function seedCustomer(
   })
 }
 
-export async function seedTransaction(
+export function seedTransaction(
   prisma: PrismaClient,
   merchantId: string,
   overrides: Partial<{
@@ -121,6 +133,9 @@ export async function seedTransaction(
     mode: 'test' | 'live'
     blockTimestamp: Date
     merchantAddress: string
+    currency: 'USDC' | 'EURC'
+    sessionId: string
+    subscriptionId: string
   }> = {},
 ) {
   return prisma.transaction.create({
@@ -130,7 +145,7 @@ export async function seedTransaction(
       amount: overrides.amount ?? '100000000', // 100 USDC (6dp)
       netAmount: overrides.netAmount ?? '98500000',
       feeAmount: '1500000',
-      currency: 'USDC',
+      currency: overrides.currency ?? 'USDC',
       payerAddress: overrides.payerAddress ?? '0x' + 'b'.repeat(40),
       merchantAddress: overrides.merchantAddress ?? '0x000000000000000000000000000000000000beef',
       onchainTxHash: '0x' + Math.random().toString(16).slice(2).padEnd(64, '0').slice(0, 64),
@@ -140,6 +155,8 @@ export async function seedTransaction(
       status: overrides.status ?? 'confirmed',
       mode: overrides.mode ?? 'test',
       customerId: overrides.customerId ?? null,
+      sessionId: overrides.sessionId ?? null,
+      subscriptionId: overrides.subscriptionId ?? null,
     },
   })
 }
@@ -151,8 +168,8 @@ export async function seedSubscription(
     planId: string
     customerId: string
     payerAddress: string
-    status: 'active' | 'paused' | 'cancelled' | 'lapsed' | 'completed'
-    interval: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
+    status: SubscriptionStatus
+    interval: SubscriptionInterval
     intervalCount: number
     amount: string
     mode: 'test' | 'live'
@@ -197,6 +214,87 @@ export async function seedSubscription(
       currentPeriodStartAt: now,
       currentPeriodEndAt: new Date(now.getTime() + 30 * 86_400_000),
       nextChargeAt: new Date(now.getTime() + 30 * 86_400_000),
+    },
+  })
+}
+
+export function seedPaymentSession(
+  prisma: PrismaClient,
+  merchantId: string,
+  overrides: Partial<{
+    status: PaymentSessionStatus
+    mode: 'test' | 'live'
+    amount: string
+    storefrontProductId: string
+  }> = {},
+) {
+  return prisma.paymentSession.create({
+    data: {
+      merchantId,
+      status: overrides.status ?? 'created',
+      amount: overrides.amount ?? '100000000',
+      currency: 'USDC',
+      feeAmount: '1500000',
+      netAmount: '98500000',
+      checkoutUrl: 'https://checkout.strimz.test/pay/x',
+      mode: overrides.mode ?? 'test',
+      expiresAt: new Date(Date.now() + 30 * 60_000),
+      storefrontProductId: overrides.storefrontProductId ?? null,
+    },
+  })
+}
+
+export function seedPlan(
+  prisma: PrismaClient,
+  merchantId: string,
+  overrides: Partial<{
+    amount: string
+    currency: 'USDC' | 'EURC'
+    interval: SubscriptionInterval
+    intervalCount: number
+    status: 'active' | 'archived'
+    trialPeriodDays: number
+  }> = {},
+) {
+  return prisma.subscriptionPlan.create({
+    data: {
+      merchantId,
+      name: 'Pro',
+      amount: overrides.amount ?? '20000000',
+      currency: overrides.currency ?? 'USDC',
+      interval: overrides.interval ?? 'monthly',
+      intervalCount: overrides.intervalCount ?? 1,
+      status: overrides.status ?? 'active',
+      trialPeriodDays: overrides.trialPeriodDays ?? null,
+    },
+  })
+}
+
+export function seedStorefront(prisma: PrismaClient, merchantId: string, slug: string) {
+  return prisma.storefront.create({
+    data: { merchantId, slug, name: slug, status: 'published', socialLinks: [] },
+  })
+}
+
+export function seedStorefrontProduct(
+  prisma: PrismaClient,
+  storefrontId: string,
+  overrides: Partial<{
+    stock: number | null
+    type: 'one_time' | 'subscription'
+    planId: string
+    price: string
+  }> = {},
+) {
+  return prisma.storefrontProduct.create({
+    data: {
+      storefrontId,
+      name: 'Widget',
+      price: overrides.price ?? '5000000',
+      currency: 'USDC',
+      type: overrides.type ?? 'one_time',
+      stock: overrides.stock === undefined ? null : overrides.stock,
+      planId: overrides.planId ?? null,
     },
   })
 }

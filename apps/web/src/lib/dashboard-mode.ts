@@ -1,24 +1,13 @@
-import { useEffect, useState } from 'react'
+import { arcModeFor } from '@strimz/shared-config'
+
+import { env } from './env'
 
 export type DashboardMode = 'test' | 'live'
 
-const STORAGE_KEY = 'strimz.dashboardMode'
-
 export function getDashboardMode(): DashboardMode {
-  if (typeof window === 'undefined') return 'test'
-  const raw = window.localStorage.getItem(STORAGE_KEY)
-  return raw === 'live' ? 'live' : 'test'
-}
-
-export function setDashboardMode(mode: DashboardMode): void {
-  if (typeof window === 'undefined') return
-  window.localStorage.setItem(STORAGE_KEY, mode)
+  return arcModeFor(env.arcEnvironment)
 }
 
 export function useDashboardMode(): DashboardMode {
-  const [mode, setMode] = useState<DashboardMode>('test')
-  useEffect(() => {
-    setMode(getDashboardMode())
-  }, [])
-  return mode
+  return getDashboardMode()
 }

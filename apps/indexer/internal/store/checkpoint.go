@@ -11,6 +11,7 @@ import (
 // Checkpoint is the indexer's bookmark for a single contract address. It
 // answers "what's the last block I successfully projected for this address?"
 type Checkpoint struct {
+	ChainID               int64
 	ContractAddress       string
 	Environment           string
 	LastProcessedBlock    uint64
@@ -21,17 +22,17 @@ type Checkpoint struct {
 
 // LoadCheckpoint returns the saved bookmark for `addr` in `env`, or a
 // zero-block default if no row exists yet (i.e., first-time start).
-func (s *Store) LoadCheckpoint(ctx context.Context, env, addr string) (*Checkpoint, error) {
+func (s *Store) LoadCheckpoint(ctx context.Context, chainID int64, addr string) (*Checkpoint, error) {
 	var cp Checkpoint
 	var hash *string
 	err := s.db().QueryRow(ctx, `
-		SELECT "contractAddress", environment::text, "lastProcessedBlock", "lastProcessedLogIndex", "lastBlockHash"
+		SELECT "chainId", "contractAddress", environment::text, "lastProcessedBlock", "lastProcessedLogIndex", "lastBlockHash"
 		FROM "IndexerCursor"
-		WHERE "contractAddress" = $1 AND environment::text = $2
-	`, addr, env).Scan(&cp.ContractAddress, &cp.Environment, &cp.LastProcessedBlock, &cp.LastProcessedLogIndex, &hash)
+		WHERE "chainId" = $1 AND "contractAddress" = $2
+	`, chainID, addr).Scan(&cp.ChainID, &cp.ContractAddress, &cp.Environment, &cp.LastProcessedBlock, &cp.LastProcessedLogIndex, &hash)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return &Checkpoint{ContractAddress: addr, Environment: env, LastProcessedLogIndex: -1}, nil
+			return &Checkpoint{ChainID: chainID, ContractAddress: addr, LastProcessedLogIndex: -1}, nil
 		}
 		return nil, fmt.Errorf("load checkpoint %s: %w", addr, err)
 	}
@@ -49,15 +50,15 @@ func (s *Store) SaveCheckpoint(ctx context.Context, cp *Checkpoint) error {
 		hash = &cp.LastBlockHash
 	}
 	_, err := s.db().Exec(ctx, `
-		INSERT INTO "IndexerCursor" ("contractAddress", environment, "lastProcessedBlock", "lastProcessedLogIndex", "lastBlockHash", "updatedAt")
-		VALUES ($1, $2::"ArcEnvironment", $3, $4, $5, NOW())
-		ON CONFLICT ("contractAddress") DO UPDATE
+		INSERT INTO "IndexerCursor" ("chainId", "contractAddress", environment, "lastProcessedBlock", "lastProcessedLogIndex", "lastBlockHash", "updatedAt")
+		VALUES ($1, $2, $3::"ArcEnvironment", $4, $5, $6, NOW())
+		ON CONFLICT ("chainId", "contractAddress") DO UPDATE
 		  SET environment = EXCLUDED.environment,
 		      "lastProcessedBlock" = EXCLUDED."lastProcessedBlock",
 		      "lastProcessedLogIndex" = EXCLUDED."lastProcessedLogIndex",
 		      "lastBlockHash" = EXCLUDED."lastBlockHash",
 		      "updatedAt" = NOW()
-	`, cp.ContractAddress, cp.Environment, cp.LastProcessedBlock, cp.LastProcessedLogIndex, hash)
+	`, cp.ChainID, cp.ContractAddress, cp.Environment, cp.LastProcessedBlock, cp.LastProcessedLogIndex, hash)
 	if err != nil {
 		return fmt.Errorf("save checkpoint %s: %w", cp.ContractAddress, err)
 	}

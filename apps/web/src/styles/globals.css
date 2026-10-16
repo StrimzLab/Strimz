@@ -53,7 +53,7 @@
     0px 1px 3px 0px rgba(0, 0, 0, 0.1);
   --shadow-nav-cta:
     0px -2px 4px 0px rgba(0, 0, 0, 0.08) inset,
-    0px 0px 0px 1px #e5e7eb;
+    0px 0px 0px 1px hsl(var(--border));
   --shadow-soft-1:
     0px 1px 2px 0px rgba(0, 0, 0, 0.08);
   --shadow-soft-inset:
@@ -83,8 +83,6 @@
   }
 
   body {
-    background-color: #ffffff;
-    color: #050020;
     font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
   }
 
@@ -100,6 +98,11 @@
   .strimz-wave-1 { background: linear-gradient(to bottom, #f0fff8 0%, #ffffff 100%); }
   .strimz-wave-2 { background: linear-gradient(to bottom, #ccffe7 0%, #ffffff 100%); }
   .strimz-wave-3 { background: linear-gradient(to bottom, #b3fedb 0%, #ffffff 100%); }
+  .dark .strimz-wave-1,
+  .dark .strimz-wave-2,
+  .dark .strimz-wave-3 {
+    background: linear-gradient(to bottom, rgba(2, 199, 106, 0.14) 0%, transparent 100%);
+  }
 
   /* Footer + alert gradient strips */
   .strimz-alert-gradient {
@@ -124,9 +127,9 @@
   /* driver.js popover skinning to match the Strimz palette. Applied
    * via the `popoverClass: 'strimz-tour'` config in use-dashboard-tour. */
   .driver-popover.strimz-tour {
-    background: #ffffff;
-    color: #050020;
-    border: 1px solid #E5E7EB;
+    background: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    border: 1px solid hsl(var(--border));
     border-radius: 12px;
     box-shadow: 0 20px 40px -20px rgba(2, 199, 106, 0.25), 0 6px 20px -8px rgba(5, 0, 32, 0.15);
     font-family: var(--font-poppins), system-ui, sans-serif;
@@ -134,15 +137,15 @@
   .driver-popover.strimz-tour .driver-popover-title {
     font-family: var(--font-sora), system-ui, sans-serif;
     font-weight: 600;
-    color: #050020;
+    color: hsl(var(--card-foreground));
   }
   .driver-popover.strimz-tour .driver-popover-description {
-    color: #58556A;
+    color: hsl(var(--muted-foreground));
     font-size: 13px;
     line-height: 1.55;
   }
   .driver-popover.strimz-tour .driver-popover-progress-text {
-    color: #8B8896;
+    color: hsl(var(--muted-foreground));
     font-size: 11px;
   }
   .driver-popover.strimz-tour .driver-popover-navigation-btns button {
@@ -156,17 +159,29 @@
   }
   .driver-popover.strimz-tour .driver-popover-prev-btn {
     background: transparent !important;
-    color: #58556A !important;
-    border: 1px solid #E5E7EB !important;
+    color: hsl(var(--muted-foreground)) !important;
+    border: 1px solid hsl(var(--border)) !important;
   }
   .driver-popover.strimz-tour .driver-popover-close-btn {
-    color: #8B8896;
+    color: hsl(var(--muted-foreground));
     top: 10px;
     right: 12px;
   }
   .driver-popover-arrow-side-bottom.strimz-tour,
   .driver-popover.strimz-tour .driver-popover-arrow {
-    border-color: #ffffff !important;
+    border-color: hsl(var(--card)) !important;
+  }
+
+  .dark .recharts-default-tooltip {
+    background-color: hsl(var(--popover)) !important;
+    border-color: hsl(var(--border)) !important;
+    color: hsl(var(--popover-foreground));
+  }
+  .dark .recharts-cartesian-grid line {
+    stroke: hsl(var(--border));
+  }
+  .dark .recharts-cartesian-axis-tick-value {
+    fill: hsl(var(--muted-foreground));
   }
 
   /* Strip number-input spinners site-wide (matches strimz-subscription's

@@ -9,8 +9,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-02C76A.svg)](./LICENSE)
 
 The Zod schema is the source of truth. TypeScript types are inferred
-through `z.infer<>`, so the wire format and the compile-time shape
-can never drift apart. The Strimz SDK consumes this package
+from it, so the wire format and the compile-time shape can never
+drift apart. Each request schema `xInputSchema` has two types:
+`XInput` (`z.input<>`) is the body a caller sends, where a field with
+a default is optional; `XParsed` (`z.output<>`) is the value after
+`xInputSchema.parse`, with every default filled in. The Strimz SDK consumes this package
 internally, but you can use the schemas and types directly if you
 prefer to validate the wire format in your own code.
 
@@ -27,10 +30,10 @@ pnpm add @strimz/shared-types
 ```ts
 import {
   createPaymentSessionInputSchema,
-  type CreatePaymentSessionInput,
+  type CreatePaymentSessionParsed,
 } from '@strimz/shared-types'
 
-const parsed: CreatePaymentSessionInput = createPaymentSessionInputSchema.parse(req.body)
+const parsed: CreatePaymentSessionParsed = createPaymentSessionInputSchema.parse(req.body)
 ```
 
 ## Exhaustive webhook handling

@@ -1,5 +1,146 @@
 # @strimz/sdk-react
 
+## 0.2.7
+
+### Patch Changes
+
+- Updated dependencies [94cfbb0]
+  - @strimz/sdk@0.10.0
+
+## 0.2.6
+
+### Patch Changes
+
+- Updated dependencies [2744d9f]
+  - @strimz/shared-config@0.6.0
+  - @strimz/sdk@0.9.6
+  - @strimz/shared-types@0.12.2
+
+## 0.2.5
+
+### Patch Changes
+
+- Updated dependencies [9696813]
+  - @strimz/shared-config@0.5.0
+  - @strimz/sdk@0.9.5
+  - @strimz/shared-types@0.12.1
+
+## 0.2.4
+
+### Patch Changes
+
+- Updated dependencies [518b06c]
+- Updated dependencies [518b06c]
+  - @strimz/shared-config@0.4.0
+  - @strimz/shared-types@0.12.0
+  - @strimz/sdk@0.9.4
+
+## 0.2.3
+
+### Patch Changes
+
+- Updated dependencies [6ea1791]
+  - @strimz/shared-config@0.3.0
+  - @strimz/sdk@0.9.3
+  - @strimz/shared-types@0.11.2
+
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [0efff34]
+  - @strimz/shared-config@0.2.0
+  - @strimz/sdk@0.9.2
+  - @strimz/shared-types@0.11.1
+
+## 0.2.1
+
+### Patch Changes
+
+- Updated dependencies [0453728]
+  - @strimz/shared-types@0.11.0
+  - @strimz/sdk@0.9.1
+
+## 0.2.0
+
+### Minor Changes
+
+- 101ab34: `StrimzCheckoutEmbed` accepts an optional `theme` prop (`'light'` or `'dark'`) that pins the embedded checkout's colour scheme. Without it the embedded checkout now follows the payer's system light or dark preference instead of always rendering light; pass `theme="light"` to keep the previous look.
+
+## 0.1.13
+
+### Patch Changes
+
+- Updated dependencies [2f573b1]
+- Updated dependencies [6c98c1a]
+  - @strimz/shared-types@0.10.0
+  - @strimz/sdk@0.9.0
+
+## 0.1.12
+
+### Patch Changes
+
+- Updated dependencies [5713650]
+- Updated dependencies [aa97e01]
+  - @strimz/sdk@0.8.0
+  - @strimz/shared-types@0.9.0
+
+## 0.1.11
+
+### Patch Changes
+
+- Updated dependencies [b161025]
+  - @strimz/shared-types@0.8.0
+  - @strimz/sdk@0.7.1
+
+## 0.1.10
+
+### Patch Changes
+
+- Updated dependencies [9d91ad2]
+  - @strimz/shared-types@0.7.0
+  - @strimz/sdk@0.7.0
+
+## 0.1.9
+
+### Patch Changes
+
+- Updated dependencies [f2d773f]
+  - @strimz/shared-types@0.6.0
+  - @strimz/sdk@0.6.0
+
+## 0.1.8
+
+### Patch Changes
+
+- Updated dependencies [ebc873b]
+  - @strimz/shared-types@0.5.0
+  - @strimz/sdk@0.5.0
+
+## 0.1.7
+
+### Patch Changes
+
+- Updated dependencies [3a4c07e]
+  - @strimz/shared-types@0.4.0
+  - @strimz/sdk@0.4.0
+
+## 0.1.6
+
+### Patch Changes
+
+- Updated dependencies [bd6fc8d]
+  - @strimz/shared-types@0.3.2
+  - @strimz/sdk@0.3.2
+
+## 0.1.5
+
+### Patch Changes
+
+- Updated dependencies [6fed14f]
+  - @strimz/shared-types@0.3.1
+  - @strimz/sdk@0.3.1
+
 ## 0.1.4
 
 ### Patch Changes

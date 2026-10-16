@@ -12,6 +12,7 @@ export const registerMerchantAbi = [
       { name: 'owner', type: 'address' },
       { name: 'payoutAddress', type: 'address' },
       { name: 'feeBps', type: 'uint16' },
+      { name: 'maxFeeBps', type: 'uint16' },
       { name: 'parentMerchantId', type: 'uint256' },
     ],
     outputs: [{ name: 'merchantId', type: 'uint256' }],
@@ -66,6 +67,13 @@ export const registryReadAbi = [
     name: 'PAYOUT_CHANGE_DELAY',
     stateMutability: 'view',
     inputs: [],
+    outputs: [{ type: 'uint64' }],
+  },
+  {
+    type: 'function',
+    name: 'pendingOwnerAcceptableAt',
+    stateMutability: 'view',
+    inputs: [{ name: 'merchantId', type: 'uint256' }],
     outputs: [{ type: 'uint64' }],
   },
   // Registry custom errors so viem decodes reverts to a real name

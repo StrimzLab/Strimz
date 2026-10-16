@@ -8,9 +8,9 @@ You want to charge a customer one time for one thing. Here's the entire flow, wi
 ## Server: create the session
 
 ```ts title="server.ts"
-import { Strimz } from '@strimz/sdk'
+import { StrimzClient } from '@strimz/sdk'
 
-const strimz = new Strimz({ apiKey: process.env.STRIMZ_KEY! })
+const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_KEY! })
 
 export async function createPaymentForOrder(orderId: string, amountUsd: number) {
   const session = await strimz.paymentSessions.create({
@@ -70,18 +70,24 @@ signature expires.
 
 Don't trust the redirect to `successUrl` for state changes. Anyone can navigate to that URL. The webhook is the source of truth.
 
+The handler runs on your server. It verifies the raw request body before parsing it, and it `await`s `verifyWebhookSignature`, which resolves to `{ valid: true }` or `{ valid: false, reason }`:
+
 ```ts title="webhooks-handler.ts"
+import express from 'express'
 import { verifyWebhookSignature } from '@strimz/sdk'
 
-app.post('/webhooks/strimz', async (req, res) => {
-  const ok = verifyWebhookSignature({
-    secret: process.env.STRIMZ_WEBHOOK_SECRET!,
-    body: req.rawBody,
-    signatureHeader: req.headers['strimz-signature'] as string,
-  })
-  if (!ok) return res.status(401).end()
+const app = express()
 
-  const event = JSON.parse(req.rawBody.toString())
+app.post('/webhooks/strimz', express.raw({ type: 'application/json' }), async (req, res) => {
+  const payload = req.body.toString('utf8')
+  const result = await verifyWebhookSignature(
+    payload,
+    req.get('strimz-signature') ?? '',
+    process.env.STRIMZ_WEBHOOK_SECRET!,
+  )
+  if (!result.valid) return res.status(401).end()
+
+  const event = JSON.parse(payload)
   const { type, data } = event
 
   switch (type) {

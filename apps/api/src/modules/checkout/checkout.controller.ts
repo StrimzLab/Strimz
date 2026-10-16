@@ -1,18 +1,25 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common'
+import { Body, Controller, Get, NotFoundException, Param, Post, Query } from '@nestjs/common'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import type {
   MerchantPublicBrand,
   PaymentSession,
+  SubscriptionEnrolmentTerms,
   SubscriptionPlan,
   SubscriptionStatusResult,
 } from '@strimz/shared-types'
 
 import { Public } from '../../common/decorators/public.decorator.js'
-import { CustomersService } from '../customers/customers.service.js'
+import { RateLimit } from '../../common/decorators/rate-limit.decorator.js'
 import { MerchantsService } from '../merchants/merchants.service.js'
 import { PaymentSessionsService } from '../payment-sessions/payment-sessions.service.js'
+import { CheckoutEnrolmentRelayDto, CheckoutPaymentRelayDto } from '../relay/relay.dto.js'
+import { enrolmentRelayInput, paymentRelayInput } from '../relay/relay-inputs.js'
+import { RelayService } from '../relay/relay.service.js'
+import type { RelaySubmissionView } from '../relay/relay.types.js'
 import { SubscriptionPlansService } from '../subscription-plans/subscription-plans.service.js'
+import { EnrolmentTermsService } from '../subscription-plans/enrolment-terms.service.js'
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
+import { CheckoutPayerService } from './checkout-payer.service.js'
 import { PayerIdentityDto } from './checkout.dto.js'
 
 /**
@@ -41,9 +48,11 @@ export class CheckoutController {
   constructor(
     private readonly sessions: PaymentSessionsService,
     private readonly plans: SubscriptionPlansService,
-    private readonly customers: CustomersService,
     private readonly merchants: MerchantsService,
     private readonly subscriptions: SubscriptionsService,
+    private readonly terms: EnrolmentTermsService,
+    private readonly relay: RelayService,
+    private readonly payers: CheckoutPayerService,
   ) {}
 
   @ApiOperation({
@@ -54,6 +63,7 @@ export class CheckoutController {
       'checkout URL already exposes the session/plan tied to this merchant.',
   })
   @Public()
+  @RateLimit({ max: 120, windowMs: 60_000, keyBy: 'ip', label: 'checkout.merchant' })
   @Get('/merchants/:id')
   retrieveMerchant(@Param('id') id: string): Promise<MerchantPublicBrand> {
     return this.merchants.getPublicBrand(id)
@@ -67,6 +77,7 @@ export class CheckoutController {
       'EIP-712 typed-data.',
   })
   @Public()
+  @RateLimit({ max: 120, windowMs: 60_000, keyBy: 'ip', label: 'checkout.session' })
   @Get('/sessions/:id')
   retrieveSession(@Param('id') id: string): Promise<PaymentSession> {
     return this.sessions.retrievePublic(id)
@@ -80,6 +91,7 @@ export class CheckoutController {
       'enrolment page can build the EIP-2612 permit.',
   })
   @Public()
+  @RateLimit({ max: 120, windowMs: 60_000, keyBy: 'ip', label: 'checkout.plan' })
   @Get('/plans/:id')
   retrievePlan(@Param('id') id: string): Promise<SubscriptionPlan> {
     return this.plans.retrievePublic(id)
@@ -94,6 +106,7 @@ export class CheckoutController {
       'to a different plan or merchant never matches.',
   })
   @Public()
+  @RateLimit({ max: 60, windowMs: 60_000, keyBy: 'ip', label: 'checkout.plan_subscription' })
   @Get('/plans/:id/subscription')
   async planSubscriptionStatus(
     @Param('id') planId: string,
@@ -104,29 +117,44 @@ export class CheckoutController {
   }
 
   @ApiOperation({
+    summary: 'Enrolment terms a payer must sign for a plan (public)',
+    description:
+      'Returns the startAt to sign: the end of the trial for a payer who has ' +
+      'never subscribed to this plan, otherwise 0. The relay rejects other values.',
+  })
+  @Public()
+  @RateLimit({ max: 60, windowMs: 60_000, keyBy: 'ip', label: 'checkout.plan_terms' })
+  @Get('/plans/:id/terms')
+  planTerms(
+    @Param('id') planId: string,
+    @Query('payer') payer: string,
+  ): Promise<SubscriptionEnrolmentTerms> {
+    return this.terms.quote(planId, payer ?? '')
+  }
+
+  @ApiOperation({
     summary: 'Attach a payer identity to a payment session (public)',
     description:
       'The hosted checkout calls this after the payer connects a wallet ' +
-      'and enters an email but before they sign the meta-tx. Upserts a ' +
-      'Customer on the merchant keyed by (merchantId, walletAddress), keeps ' +
-      'a rolling email history under Customer.metadata.emailHistory, and ' +
-      'links the session to the customer so the receipt can find the payer ' +
-      'once the on-chain confirmation lands.',
+      'and enters an email but before they sign the meta-tx. Creates a ' +
+      'Customer on the merchant keyed by (merchantId, walletAddress), or sets ' +
+      'the email of an existing one that has none (a known email is never ' +
+      'replaced), and links the session to the customer so the receipt can ' +
+      'find the payer once the on-chain confirmation lands. Answers 409 ' +
+      'session_not_open unless the session is open and unexpired, and 409 ' +
+      'payer_already_bound when it is linked to another wallet.',
   })
   @Public()
+  @RateLimit({ max: 10, windowMs: 60_000, keyBy: 'ip', label: 'checkout.session_payer' })
   @Post('/sessions/:id/payer')
-  async attachSessionPayer(
+  attachSessionPayer(
     @Param('id') sessionId: string,
     @Body() body: PayerIdentityDto,
   ): Promise<{ customerId: string }> {
-    const session = await this.sessions.retrievePublic(sessionId)
-    const customer = await this.customers.upsertFromCheckout({
-      merchantId: session.merchantId,
+    return this.payers.attachToSession(sessionId, {
       walletAddress: body.walletAddress,
       email: body.email,
     })
-    await this.sessions.linkCustomer(sessionId, customer.id)
-    return { customerId: customer.id }
   }
 
   @ApiOperation({
@@ -134,22 +162,118 @@ export class CheckoutController {
     description:
       'Same shape as the session variant, but scoped to a plan. Used by ' +
       'the /sub/:planId page before the payer signs the permit. No ' +
-      'subscription row exists yet at this point, so this only upserts ' +
-      'the Customer. The indexer links Subscription.customerId once the ' +
-      'enrolment event confirms on-chain (by matching wallet address).',
+      'subscription row exists yet at this point, so this only creates ' +
+      'the Customer or fills a missing email. The indexer links ' +
+      'Subscription.customerId once the enrolment event confirms on-chain ' +
+      '(by matching wallet address). Answers 409 plan_not_active for an ' +
+      'archived plan.',
   })
   @Public()
+  @RateLimit({ max: 10, windowMs: 60_000, keyBy: 'ip', label: 'checkout.plan_payer' })
   @Post('/plans/:id/payer')
-  async attachPlanPayer(
+  attachPlanPayer(
     @Param('id') planId: string,
     @Body() body: PayerIdentityDto,
   ): Promise<{ customerId: string }> {
-    const plan = await this.plans.retrievePublic(planId)
-    const customer = await this.customers.upsertFromCheckout({
-      merchantId: plan.merchantId,
+    return this.payers.attachToPlan(planId, {
       walletAddress: body.walletAddress,
       email: body.email,
     })
-    return { customerId: customer.id }
+  }
+
+  @ApiOperation({
+    summary: 'Relay a payer-signed payment for a payment session (public)',
+    description:
+      'Submits the payer-signed EIP-3009 authorization for this session through the ' +
+      'Strimz relayer. The session decides the merchant, the amount, the token and the ' +
+      'authorization nonce; the submission is attributed to the session merchant. ' +
+      'Idempotent on the signed payload.',
+  })
+  @Public()
+  @RateLimit({ max: 20, windowMs: 60_000, keyBy: 'ip', label: 'checkout.session_relay' })
+  @Post('/sessions/:id/relay')
+  async relaySessionPayment(
+    @Param('id') sessionId: string,
+    @Body() body: CheckoutPaymentRelayDto,
+  ): Promise<RelaySubmissionView> {
+    const session = await this.sessions.retrievePublic(sessionId)
+    return this.relay.submitPayWithAuthorization(
+      paymentRelayInput(body, { merchantInternalId: session.merchantId, sessionId }),
+    )
+  }
+
+  @ApiOperation({
+    summary: 'Relay a payer-signed enrolment into a subscription plan (public)',
+    description:
+      'Submits the payer-signed EIP-2612 permit and enrolment for this plan through the ' +
+      'Strimz relayer. The plan decides the merchant and the terms; the payer must hold ' +
+      'at least the plan amount. Idempotent on the signed payload.',
+  })
+  @Public()
+  @RateLimit({ max: 20, windowMs: 60_000, keyBy: 'ip', label: 'checkout.plan_relay' })
+  @Post('/plans/:id/relay')
+  async relayPlanEnrolment(
+    @Param('id') planId: string,
+    @Body() body: CheckoutEnrolmentRelayDto,
+  ): Promise<RelaySubmissionView> {
+    const plan = await this.plans.retrievePublic(planId)
+    return this.relay.submitPermitAndCreateSubscription(
+      enrolmentRelayInput(body, {
+        merchantInternalId: plan.merchantId,
+        subscriptionInternalId: planId,
+      }),
+    )
+  }
+
+  @ApiOperation({
+    summary: 'Look up a relayed payment for a payment session (public)',
+    description:
+      'Returns the state of a relay submission made for this session. 404 when the key ' +
+      'belongs to another session or merchant, or BullMQ aged it out.',
+  })
+  @Public()
+  @RateLimit({ max: 120, windowMs: 60_000, keyBy: 'ip', label: 'checkout.session_submission' })
+  @Get('/sessions/:id/submissions/:key')
+  async sessionSubmission(
+    @Param('id') sessionId: string,
+    @Param('key') key: string,
+  ): Promise<RelaySubmissionView> {
+    const session = await this.sessions.retrievePublic(sessionId)
+    return this.submission(key, session.merchantId, sessionId)
+  }
+
+  @ApiOperation({
+    summary: 'Look up a relayed enrolment for a subscription plan (public)',
+    description:
+      'Returns the state of a relay submission made for this plan. 404 when the key ' +
+      'belongs to another plan or merchant, or BullMQ aged it out.',
+  })
+  @Public()
+  @RateLimit({ max: 120, windowMs: 60_000, keyBy: 'ip', label: 'checkout.plan_submission' })
+  @Get('/plans/:id/submissions/:key')
+  async planSubmission(
+    @Param('id') planId: string,
+    @Param('key') key: string,
+  ): Promise<RelaySubmissionView> {
+    const plan = await this.plans.retrievePublic(planId)
+    return this.submission(key, plan.merchantId, planId)
+  }
+
+  private async submission(
+    key: string,
+    merchantInternalId: string,
+    checkoutId: string,
+  ): Promise<RelaySubmissionView> {
+    const found = await this.relay.getByIdempotencyKey(key, {
+      merchantInternalId,
+      sessionId: checkoutId,
+    })
+    if (!found) {
+      throw new NotFoundException({
+        code: 'submission_not_found',
+        message: `no relay submission for idempotency key ${key}`,
+      })
+    }
+    return found
   }
 }

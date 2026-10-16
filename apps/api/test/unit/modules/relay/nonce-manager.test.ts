@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { NonceManager } from '../../../../src/modules/relay/nonce-manager.service.js'
 import type { RedisService } from '../../../../src/infra/redis/redis.service.js'
 import type { ChainService } from '../../../../src/infra/chain/chain.service.js'
+import { must } from '../../../helpers/must.js'
 
 /**
  * Lightweight Redis fake that implements just the surface the
@@ -14,20 +15,20 @@ function makeFakeRedis(): RedisService {
   const store = new Map<string, string>()
   return {
     client: {
-      async eval(_script: string, _numKeys: number, key: string, seed: string): Promise<number> {
+      eval(_script: string, _numKeys: number, key: string, seed: string): Promise<number> {
         if (!store.has(key)) {
           store.set(key, seed)
         }
-        const next = BigInt(store.get(key)!) + 1n
+        const next = BigInt(must(store.get(key))) + 1n
         store.set(key, next.toString())
-        return Number(next)
+        return Promise.resolve(Number(next))
       },
-      async set(key: string, value: string): Promise<'OK'> {
+      set(key: string, value: string): Promise<'OK'> {
         store.set(key, value)
-        return 'OK'
+        return Promise.resolve('OK')
       },
-      async get(key: string): Promise<string | null> {
-        return store.get(key) ?? null
+      get(key: string): Promise<string | null> {
+        return Promise.resolve(store.get(key) ?? null)
       },
     },
   } as unknown as RedisService
@@ -36,8 +37,8 @@ function makeFakeRedis(): RedisService {
 function makeChain(pendingNonces: Record<string, number>): ChainService {
   return {
     client: {
-      async getTransactionCount({ address }: { address: `0x${string}` }): Promise<number> {
-        return pendingNonces[address.toLowerCase()] ?? 0
+      getTransactionCount({ address }: { address: `0x${string}` }): Promise<number> {
+        return Promise.resolve(pendingNonces[address.toLowerCase()] ?? 0)
       },
       chain: { id: 5042002 },
     },

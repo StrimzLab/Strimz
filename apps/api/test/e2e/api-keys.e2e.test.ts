@@ -42,6 +42,11 @@ describe('api-key auth e2e', () => {
       headers: { authorization: `Bearer ${k.secretKey}` },
     })
     expect(res.statusCode).toBe(401)
+    const body = JSON.parse(res.body)
+    expect(body.error.code).toBe('authentication_error')
+    expect(body.error.message).toBe(
+      'publishable keys can only call /v1/checkout and /v1/tokens; use a secret key from your server',
+    )
   })
 
   it('accepts a valid secret key with correct scope', async () => {

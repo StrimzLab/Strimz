@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import type {
-  CreateSubscriptionPlanInput,
+  CreateSubscriptionPlanParsed,
   PaymentCurrency,
   SubscriptionPlan,
 } from '@strimz/shared-types'
 import { TypedConfigService } from '../../config/index.js'
+import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { tokenAddressForCurrency } from '../payment-sessions/token-resolver.js'
@@ -29,6 +30,14 @@ const SECONDS_PER_INTERVAL: Record<string, number> = {
   yearly: 365 * 24 * 60 * 60,
 }
 
+export function intervalSeconds(interval: string, intervalCount: number): number {
+  const seconds = SECONDS_PER_INTERVAL[interval]
+  if (seconds === undefined) {
+    throw new Error(`unknown subscription interval: ${interval}`)
+  }
+  return seconds * intervalCount
+}
+
 @Injectable()
 export class SubscriptionPlansService {
   constructor(
@@ -40,13 +49,14 @@ export class SubscriptionPlansService {
   async create(
     merchantId: string,
     _mode: 'test' | 'live',
-    input: CreateSubscriptionPlanInput,
+    input: CreateSubscriptionPlanParsed,
   ): Promise<SubscriptionPlan> {
+    assertMinimumAmount(input.amount)
     // Every plan enrolment needs a chain merchant id, so register at
     // plan creation regardless of mode. Idempotent. `mode` is preserved
     // in the signature for parity with other create() methods; the
     // SubscriptionPlan row itself has no per-mode field today.
-    await this.merchantChain.ensureRegistered(merchantId)
+    await this.merchantChain.requestRegistration(merchantId)
     const row = await this.prisma.db.subscriptionPlan.create({
       data: {
         merchantId,
@@ -55,7 +65,7 @@ export class SubscriptionPlansService {
         amount: input.amount,
         currency: input.currency,
         interval: input.interval,
-        intervalCount: input.intervalCount ?? 1,
+        intervalCount: input.intervalCount,
         trialPeriodDays: input.trialPeriodDays ?? null,
         metadata: (input.metadata ?? {}) as never,
       },

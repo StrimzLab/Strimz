@@ -1,20 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import Link from 'next/link'
-import {
-  Mail,
-  Activity,
-  ShoppingBag,
-  BarChart3,
-  Globe2,
-  Check,
-  X,
-  Clock,
-  Plus,
-  Settings2,
-  Shield,
-} from 'lucide-react'
+import { Mail, Activity, ShoppingBag, BarChart3, Globe2, Settings2, Shield } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   Badge,
@@ -27,36 +14,24 @@ import {
   TabsList,
   TabsTrigger,
 } from '@strimz/ui'
-import type {
-  AgentActivityLog,
-  AgentCapability,
-  AgentJob,
-  AgentMerchantConfig,
-} from '@strimz/shared-types'
+import type { AgentActivityLog, AgentCapability, AgentMerchantConfig } from '@strimz/shared-types'
+import { AGENT_CAPABILITIES } from '@strimz/shared-config'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import {
   CashflowSettingsDialog,
-  CommerceSettingsDialog,
   RecoverySettingsDialog,
 } from '@/components/dashboard/agents/settings-dialogs'
-import { CreateAgentJobDialog } from '@/components/dashboard/agents/create-job-dialog'
-import { relativeTime, shortAddress } from '@/lib/format'
-import {
-  useAgentActivity,
-  useAgentConfig,
-  useAgentJobs,
-  useApproveAgentJob,
-  useUpdateAgentConfig,
-} from '@/hooks/api'
+import { relativeTime } from '@/lib/format'
+import { useAgentActivity, useAgentConfig, useUpdateAgentConfig } from '@/hooks/api'
 
 type CapabilityMeta = {
   key: AgentCapability
   name: string
   icon: React.ComponentType<{ className?: string }>
   desc: string
-  configurable: 'recovery' | 'cashflow' | 'commerce' | null
+  configurable: 'recovery' | 'cashflow' | null
   gate?: 'managed' | 'coming_soon'
   gateHint?: string
 }
@@ -90,7 +65,10 @@ const CAPABILITIES: CapabilityMeta[] = [
     icon: ShoppingBag,
     name: 'Commerce',
     desc: 'Agent-driven escrow jobs with vendor allowlist and approval thresholds.',
-    configurable: 'commerce',
+    configurable: null,
+    ...(AGENT_CAPABILITIES.commerce.available
+      ? {}
+      : { gate: 'coming_soon' as const, gateHint: 'Not available at launch.' }),
   },
   {
     key: 'pricing_intelligence',
@@ -117,22 +95,9 @@ const OUTCOME_TONE: Record<string, 'positive' | 'warning' | 'danger' | 'info' | 
   failure: 'danger',
 }
 
-const JOB_STATUS_TONE: Record<string, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
-  proposed: 'warning',
-  accepted: 'info',
-  in_progress: 'info',
-  delivered: 'info',
-  approved: 'info',
-  completed: 'positive',
-  disputed: 'danger',
-  cancelled: 'neutral',
-}
-
 export default function AgentsPage() {
   const configQuery = useAgentConfig()
   const activityQuery = useAgentActivity({ limit: 50 })
-  const jobsQuery = useAgentJobs({ limit: 50 })
-  const approveMutation = useApproveAgentJob()
   const updateConfigMutation = useUpdateAgentConfig()
 
   const config = configQuery.data
@@ -154,14 +119,13 @@ export default function AgentsPage() {
       <PageHeader
         title="Agents"
         docsSlug="agents"
-        description="Opt-in AI agents that act on your behalf. Recovery emails, cashflow alerts, escrow flows. You sign every value-moving action."
+        description="Opt-in AI agents that act on your behalf. Recovery emails, cashflow alerts and pricing insights. You sign every value-moving action."
       />
 
       <Tabs defaultValue="capabilities">
         <TabsList>
           <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="jobs">Jobs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="capabilities" className="mt-4">
@@ -183,18 +147,6 @@ export default function AgentsPage() {
             onRetry={activityQuery.refetch}
           />
         </TabsContent>
-
-        <TabsContent value="jobs" className="mt-4">
-          <JobsTab
-            data={jobsQuery.data?.data ?? []}
-            isLoading={jobsQuery.isLoading}
-            isError={jobsQuery.isError}
-            error={jobsQuery.error}
-            onRetry={jobsQuery.refetch}
-            onApprove={(id) => approveMutation.mutate(id)}
-            isApproving={approveMutation.isPending}
-          />
-        </TabsContent>
       </Tabs>
     </div>
   )
@@ -213,9 +165,7 @@ function CapabilitiesTab({
   onToggle: (cap: AgentCapability, on: boolean) => void
   isUpdating: boolean
 }) {
-  const [openDialog, setOpenDialog] = React.useState<'recovery' | 'cashflow' | 'commerce' | null>(
-    null,
-  )
+  const [openDialog, setOpenDialog] = React.useState<'recovery' | 'cashflow' | null>(null)
 
   if (isLoading) {
     return (
@@ -235,7 +185,7 @@ function CapabilitiesTab({
       <Card className="border-border/60">
         <CardContent className="p-6 text-center text-sm">
           Agents aren't enabled for this account yet. Contact{' '}
-          <a className="text-[#02C76A]" href="mailto:support@strimz.finance">
+          <a className="text-accent" href="mailto:support@strimz.finance">
             support
           </a>{' '}
           to provision the agent identity for your merchant.
@@ -256,7 +206,7 @@ function CapabilitiesTab({
             <Card key={cap.key} className="border-border/60">
               <CardContent className="flex items-start justify-between gap-4 p-4">
                 <div className="flex flex-1 items-start gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-md bg-[#02C76A]/10 text-[#02C76A]">
+                  <div className="bg-accent/10 text-accent flex h-9 w-9 items-center justify-center rounded-md">
                     <Icon className="size-4" />
                   </div>
                   <div>
@@ -281,7 +231,7 @@ function CapabilitiesTab({
                       {isEnabled && !isManaged && !isComingSoon ? (
                         <Badge
                           variant="outline"
-                          className="border-[#02C76A]/40 bg-[#02C76A]/10 text-[10px] text-[#02C76A]"
+                          className="border-accent/40 bg-accent/10 text-accent text-[10px]"
                         >
                           Enabled
                         </Badge>
@@ -313,7 +263,7 @@ function CapabilitiesTab({
                   {isManaged ? (
                     <Badge
                       variant="outline"
-                      className="border-[#02C76A]/40 bg-[#02C76A]/10 text-[10px] text-[#02C76A]"
+                      className="border-accent/40 bg-accent/10 text-accent text-[10px]"
                     >
                       Active
                     </Badge>
@@ -340,11 +290,6 @@ function CapabilitiesTab({
       <CashflowSettingsDialog
         open={openDialog === 'cashflow'}
         onOpenChange={(o) => setOpenDialog(o ? 'cashflow' : null)}
-        config={config}
-      />
-      <CommerceSettingsDialog
-        open={openDialog === 'commerce'}
-        onOpenChange={(o) => setOpenDialog(o ? 'commerce' : null)}
         config={config}
       />
     </>
@@ -415,127 +360,6 @@ function ActivityTab({
       emptyTitle="No agent activity yet"
       emptyDescription="When you enable a capability and it runs, you'll see the log here."
     />
-  )
-}
-
-function JobsTab({
-  data,
-  isLoading,
-  isError,
-  error,
-  onRetry,
-  onApprove,
-  isApproving,
-}: {
-  data: AgentJob[]
-  isLoading: boolean
-  isError: boolean
-  error: Error | null
-  onRetry: () => void
-  onApprove: (id: string) => void
-  isApproving: boolean
-}) {
-  const [openCreate, setOpenCreate] = React.useState(false)
-
-  const columns = React.useMemo<ColumnDef<AgentJob>[]>(
-    () => [
-      {
-        accessorKey: 'description',
-        header: 'Job',
-        cell: ({ row }) => (
-          <Link
-            href={`/app/agents/jobs/${row.original.id}`}
-            className="flex flex-col leading-tight hover:underline"
-          >
-            <span className="text-sm font-medium">
-              {row.original.description ?? row.original.id}
-            </span>
-            <code className="text-muted-foreground text-[11px]">
-              {row.original.id.slice(0, 14)}…
-            </code>
-          </Link>
-        ),
-      },
-      {
-        accessorKey: 'vendorAddress',
-        header: 'Vendor',
-        cell: ({ row }) => (
-          <code className="text-xs">{shortAddress(row.original.vendorAddress)}</code>
-        ),
-      },
-      {
-        accessorKey: 'status',
-        header: 'Status',
-        cell: ({ row }) => (
-          <StatusPill tone={JOB_STATUS_TONE[row.original.status] ?? 'neutral'}>
-            {row.original.status.replace(/_/g, ' ')}
-          </StatusPill>
-        ),
-      },
-      {
-        accessorKey: 'createdAt',
-        header: 'Created',
-        cell: ({ row }) => (
-          <span className="text-muted-foreground text-xs">
-            {relativeTime(row.original.createdAt)}
-          </span>
-        ),
-      },
-      {
-        id: 'actions',
-        header: '',
-        enableHiding: false,
-        enableSorting: false,
-        cell: ({ row }) => {
-          const job = row.original
-          if (job.status === 'proposed' || job.status === 'delivered') {
-            return (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs"
-                onClick={(e) => {
-                  e.preventDefault()
-                  onApprove(job.id)
-                }}
-                disabled={isApproving}
-              >
-                <Check className="mr-1 size-3" /> Approve
-              </Button>
-            )
-          }
-          if (job.status === 'completed') return <Check className="size-4 text-[#02C76A]" />
-          if (job.status === 'disputed') return <X className="size-4 text-rose-600" />
-          if (job.status === 'cancelled') return <X className="text-muted-foreground size-4" />
-          return <Clock className="text-muted-foreground size-4" />
-        },
-      },
-    ],
-    [isApproving, onApprove],
-  )
-
-  if (isError) {
-    return <ErrorBanner message={error?.message ?? 'Failed to load jobs'} onRetry={onRetry} />
-  }
-
-  return (
-    <>
-      <div className="mb-3 flex items-center justify-end">
-        <Button size="sm" onClick={() => setOpenCreate(true)}>
-          <Plus className="mr-1 size-4" />
-          New job
-        </Button>
-      </div>
-      <DataTable
-        columns={columns}
-        data={data}
-        loading={isLoading}
-        searchPlaceholder="Search jobs…"
-        emptyTitle="No agent jobs yet"
-        emptyDescription="Create a job or wait for the Commerce agent to propose one."
-      />
-      <CreateAgentJobDialog open={openCreate} onOpenChange={setOpenCreate} />
-    </>
   )
 }
 

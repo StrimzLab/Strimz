@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { parseGwei } from 'viem'
 
 import { ChainService } from '../../infra/chain/chain.service.js'
@@ -21,7 +21,7 @@ const ARC_MIN_BASE_FEE_WEI = parseGwei('20')
  * for an 18-decimal native), so a 200-Gwei ceiling stays comfortably
  * below worst-case while protecting against runaway fee-bump loops.
  */
-const SAFETY_MAX_FEE_WEI = parseGwei('200')
+const ARC_MAX_BASE_FEE_WEI = parseGwei('20000')
 
 /**
  * Computes EIP-1559 fee parameters for an outbound relay submission.
@@ -43,8 +43,6 @@ const SAFETY_MAX_FEE_WEI = parseGwei('200')
  */
 @Injectable()
 export class GasPricingService {
-  private readonly log = new Logger(GasPricingService.name)
-
   constructor(private readonly chain: ChainService) {}
 
   async compute(opts?: { priorityFeeGwei?: number }): Promise<GasPrice> {
@@ -59,13 +57,6 @@ export class GasPricingService {
     const floor = ARC_MIN_BASE_FEE_WEI + tip
     if (max < floor) max = floor
 
-    if (max > SAFETY_MAX_FEE_WEI) {
-      this.log.warn(
-        `computed maxFeePerGas ${max} exceeds safety cap ${SAFETY_MAX_FEE_WEI}; clamping`,
-      )
-      max = SAFETY_MAX_FEE_WEI
-    }
-
     return { maxFeePerGas: max, maxPriorityFeePerGas: tip }
   }
 
@@ -75,13 +66,17 @@ export class GasPricingService {
    * pre-EIP-1559 chains; not expected on Arc but defensive).
    */
   private async fetchBaseFee(): Promise<bigint> {
-    try {
-      const block = await this.chain.client.getBlock({ blockTag: 'latest' })
-      return block.baseFeePerGas ?? ARC_MIN_BASE_FEE_WEI
-    } catch (err) {
-      this.log.warn(`baseFee fetch failed: ${(err as Error).message}; using floor`)
-      return ARC_MIN_BASE_FEE_WEI
+    const block = await this.chain.client.getBlock({ blockTag: 'latest' })
+    const baseFee = block.baseFeePerGas
+    if (baseFee === null || baseFee === undefined) {
+      throw new Error(`block ${block.number} has no baseFeePerGas; cannot price an Arc relay`)
     }
+    if (baseFee > ARC_MAX_BASE_FEE_WEI) {
+      throw new Error(
+        `base fee ${baseFee} wei is above Arc's maximum ${ARC_MAX_BASE_FEE_WEI} wei; check ARC_RPC_URL or the Arc fee parameters`,
+      )
+    }
+    return baseFee
   }
 }
 
@@ -89,5 +84,5 @@ export class GasPricingService {
 // known constants without duplicating them.
 export const __testing__ = {
   ARC_MIN_BASE_FEE_WEI,
-  SAFETY_MAX_FEE_WEI,
+  ARC_MAX_BASE_FEE_WEI,
 }
