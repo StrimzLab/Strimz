@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   approveAgentJobConfirm,
   cancelPaymentSessionConfirm,
+  archivePlanConfirm,
   cancelSubscriptionConfirm,
   moveToEnterpriseConfirm,
   removeAdminConfirm,
@@ -40,6 +41,14 @@ describe('destructive action confirmations', () => {
     const copy = cancelPaymentSessionConfirm({ amount: '5000000', currency: 'USDC' })
     expect(copy.description).toContain('5 USDC')
     expect(copy.description).toContain('cannot be undone')
+  })
+
+  it('archiving a plan says existing subscribers are still charged and the link stops', () => {
+    const copy = archivePlanConfirm({ name: 'Pro' })
+    expect(copy.title).toBe('Archive Pro?')
+    expect(copy.description).toContain('keep being charged')
+    expect(copy.description).toContain('sign-up link stops')
+    expect(copy.confirmLabel).toBe('Archive plan')
   })
 
   it('suspending a merchant says API keys and the dashboard stop working until reactivated', () => {

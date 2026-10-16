@@ -53,6 +53,8 @@ export const subscriptionPlanKeys = {
   all: ['subscription-plans'] as const,
   lists: () => [...subscriptionPlanKeys.all, 'list'] as const,
   list: (params: ListSubscriptionPlansParams) => [...subscriptionPlanKeys.lists(), params] as const,
+  pages: (params: Omit<ListSubscriptionPlansParams, 'cursor'>) =>
+    [...subscriptionPlanKeys.lists(), 'pages', params] as const,
   details: () => [...subscriptionPlanKeys.all, 'detail'] as const,
   detail: (id: string) => [...subscriptionPlanKeys.details(), id] as const,
 }

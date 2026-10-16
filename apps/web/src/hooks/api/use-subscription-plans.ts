@@ -10,8 +10,10 @@ import type { CreateSubscriptionPlanInput, SubscriptionPlan } from '@strimz/shar
 
 import type { ListSubscriptionPlansParams } from '@/lib/merchant-api/resources/subscription-plans'
 import type { Page } from '@/lib/merchant-api'
+import { patchListCacheRow, type ListCache, type LoadedRows } from '@/lib/cursor-pages'
 
 import { useMerchantApi } from './merchant-api-context'
+import { useCursorList } from './use-cursor-list'
 import { useMutationWithToast } from './use-mutation-with-toast'
 import { subscriptionPlanKeys } from './query-keys'
 
@@ -92,7 +94,7 @@ export function useArchiveSubscriptionPlan() {
       await qc.cancelQueries({ queryKey: subscriptionPlanKeys.lists() })
 
       const previousDetail = qc.getQueryData<SubscriptionPlan>(subscriptionPlanKeys.detail(id))
-      const previousLists = qc.getQueriesData<Page<SubscriptionPlan>>({
+      const previousLists = qc.getQueriesData<ListCache<SubscriptionPlan>>({
         queryKey: subscriptionPlanKeys.lists(),
       })
 
@@ -102,15 +104,12 @@ export function useArchiveSubscriptionPlan() {
           status: 'archived' as const,
         })
       }
-      for (const [key, page] of previousLists) {
-        if (!page) continue
-        const idx = page.data.findIndex((row) => row.id === id)
-        if (idx === -1) continue
-        const target = page.data[idx]
-        if (!target) continue
-        const nextData = [...page.data]
-        nextData[idx] = { ...target, status: 'archived' as const }
-        qc.setQueryData(key, { ...page, data: nextData })
+      for (const [key, cache] of previousLists) {
+        const next = patchListCacheRow(cache, id, (row) => ({
+          ...row,
+          status: 'archived' as const,
+        }))
+        if (next) qc.setQueryData(key, next)
       }
       return { previousDetail, previousLists }
     },
@@ -126,4 +125,16 @@ export function useArchiveSubscriptionPlan() {
       qc.invalidateQueries({ queryKey: subscriptionPlanKeys.lists() })
     },
   })
+}
+
+export function useSubscriptionPlanPages<TView>(
+  params: Omit<ListSubscriptionPlansParams, 'cursor'>,
+  options: { select: (loaded: LoadedRows<SubscriptionPlan>) => TView },
+) {
+  const api = useMerchantApi()
+  return useCursorList(
+    subscriptionPlanKeys.pages(params),
+    (cursor, signal) => api.subscriptionPlans.list({ ...params, cursor }, { signal }),
+    options,
+  )
 }

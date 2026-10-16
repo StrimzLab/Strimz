@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { Plus, ExternalLink, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -594,7 +595,7 @@ function AddProductDialog() {
                       plansQuery.isPending
                         ? 'Loading plans…'
                         : plans.length === 0
-                          ? 'No active plans. Create one under Subscriptions.'
+                          ? 'No active plans'
                           : 'Choose a plan'
                     }
                   />
@@ -609,6 +610,15 @@ function AddProductDialog() {
               </Select>
               {plansQuery.isError && (
                 <p className="text-destructive text-xs">Could not load plans. Try again.</p>
+              )}
+              {!plansQuery.isPending && !plansQuery.isError && plans.length === 0 && (
+                <p className="text-muted-foreground text-xs">
+                  Create one on the{' '}
+                  <Link href="/app/plans" className="text-accent hover:underline">
+                    Plans page
+                  </Link>
+                  .
+                </p>
               )}
             </div>
           )}

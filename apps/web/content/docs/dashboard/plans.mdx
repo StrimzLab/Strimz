@@ -1,0 +1,37 @@
+---
+title: Plans page
+description: Recurring prices your customers subscribe to, each with its own sign-up link.
+---
+
+A **plan** is the shape of a recurring charge: how much, in which currency and how often. Customers subscribe to a plan through its sign-up link.
+
+## The layout
+
+The table lists your plans. Filter by **active**, **archived** or **all**. Each row shows the plan name, its price per interval, the free trial and its status. The name opens the plan's page.
+
+## Creating a plan
+
+Click **New plan** and fill in:
+
+- **Plan name** (required): up to 120 characters.
+- **Price** (required) and **Currency** (required): at least 1.00, in USDC or EURC.
+- **Interval** (required): daily, weekly, monthly, quarterly or yearly.
+- **Bill every** (optional): bill every 2 weeks, every 3 months and so on; 1 if left empty, up to 365.
+- **Free trial** (optional): 0 to 365 days.
+- **Description** (optional): up to 500 characters.
+
+The dashboard opens the new plan's page when it is created.
+
+Plans cannot be edited after creation. To change the price, create a new plan and archive the old one. Existing subscribers stay on the plan they signed up for.
+
+## A plan's page
+
+Each plan shows its price, billing interval, trial, description and ID, plus:
+
+- **Sign-up link:** `/sub/<plan id>` on your Strimz domain, with a copy button. Send it to customers; it opens the hosted subscription checkout.
+- **Subscribers:** the subscriptions on this plan. Each opens the subscription's page.
+- **Archive:** stops new sign-ups. Existing subscribers keep being charged until they cancel. Archiving cannot be undone.
+
+## Storefront
+
+Storefront products of type subscription pick one of your active plans. If you have none, the product dialog links here.
