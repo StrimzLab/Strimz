@@ -1,5 +1,13 @@
 # @strimz/shared-types
 
+## 0.13.1
+
+### Patch Changes
+
+- 8383481: READMEs now match what each package exports. `@strimz/sdk-react` no longer mentions TanStack Query, and documents `useStrimzSession` returning `{ session, loading, error, refresh }`. The `@strimz/sdk` README documents the browser client's `checkout` and `tokens` namespaces, all error classes and `@strimz/sdk/eip712`. No code changes.
+- Updated dependencies [8383481]
+  - @strimz/shared-config@0.7.1
+
 ## 0.13.0
 
 ### Minor Changes
