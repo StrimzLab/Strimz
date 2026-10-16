@@ -3,6 +3,7 @@ node_modules/
 .pnp
 .pnp.js
 .yarn/install-state.gz
+package-lock.json
 
 # Build outputs
 dist/
@@ -69,3 +70,11 @@ coverage/
 # Local agent runs
 .agent-runs/
 apps/web/.source/
+
+# Governance
+.worktrees/
+# ship-*.sh scripts an agent prepares for a human to run; never committed
+/*.sh
+.env*
+!.env.example
+!.env.*.example

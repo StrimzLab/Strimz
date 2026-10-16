@@ -93,7 +93,7 @@ export function generateAesGcmKey(): string {
   return toHex(bytes)
 }
 
-async function importKey(keyHex: string): Promise<CryptoKey> {
+function importKey(keyHex: string): Promise<CryptoKey> {
   if (!/^[0-9a-fA-F]+$/u.test(keyHex)) {
     throw new Error('encryption key must be a hex-encoded string')
   }

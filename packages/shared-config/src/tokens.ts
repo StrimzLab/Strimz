@@ -9,7 +9,7 @@
  */
 
 import type { Address } from 'viem'
-import { ARC_TESTNET_CHAIN_ID, ARC_MAINNET_CHAIN_ID, type ArcEnvironment } from './chains.js'
+import { getArcChain, parseArcEnvironment, type ArcEnvironment } from './chains.js'
 
 export type TokenSymbol = 'USDC' | 'EURC' | 'USYC'
 
@@ -74,13 +74,13 @@ export const TOKEN_ADDRESSES: Record<ArcEnvironment, Record<TokenSymbol, Address
     // testnet for now and must be replaced when Circle publishes the canonical
     // mainnet token registry.
     USDC: '0x3600000000000000000000000000000000000000',
-    EURC: '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a',
-    USYC: '0xe9185F0c5F296Ed1797AaE4238D26CCaBEadb86C',
+    EURC: '0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1',
+    USYC: '0x8a5D989Bbb96929F689B0200f435f53dA42bF490',
   },
 }
 
 export function getTokenAddress(env: ArcEnvironment, symbol: TokenSymbol): Address {
-  return TOKEN_ADDRESSES[env][symbol]
+  return TOKEN_ADDRESSES[parseArcEnvironment(env)][symbol]
 }
 
 export function getTokenBySymbol(symbol: string): TokenDescriptor | undefined {
@@ -92,5 +92,5 @@ export function isPaymentToken(symbol: string): symbol is PaymentToken {
 }
 
 export function chainIdFor(env: ArcEnvironment): number {
-  return env === 'testnet' ? ARC_TESTNET_CHAIN_ID : ARC_MAINNET_CHAIN_ID
+  return getArcChain(env).id
 }

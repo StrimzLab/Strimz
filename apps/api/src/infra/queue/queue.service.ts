@@ -1,19 +1,18 @@
 import { Injectable, Logger, type OnModuleDestroy } from '@nestjs/common'
 import { Queue } from 'bullmq'
+import {
+  agentActionJobSchema,
+  QUEUE_NAMES,
+  relayJobSchema,
+  webhookDeliveryJobSchema,
+  type AgentActionJob,
+  type QueueName,
+  type RelayJob,
+  type WebhookDeliveryJob,
+} from '@strimz/queue-contracts'
 import { RedisService } from '../redis/redis.service.js'
 
-/**
- * Named BullMQ queues used by the scheduler and agent workers.
- * The API enqueues; workers consume in their own processes.
- */
-export const QUEUE_NAMES = {
-  webhookDelivery: 'strimz.webhook.delivery',
-  subscriptionDue: 'strimz.subscription.due',
-  agentAction: 'strimz.agent.action',
-  relaySubmission: 'strimz.relay.submission',
-} as const
-
-export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES]
+export { QUEUE_NAMES, type QueueName }
 
 @Injectable()
 export class QueueService implements OnModuleDestroy {
@@ -30,6 +29,27 @@ export class QueueService implements OnModuleDestroy {
       this.log.log(`queue ready: ${name}`)
     }
     return q
+  }
+
+  async addAgentAction(job: AgentActionJob): Promise<void> {
+    const parsed = agentActionJobSchema.parse(job)
+    await this.queue(QUEUE_NAMES.agentAction).add(parsed.type, parsed)
+  }
+
+  async addWebhookDelivery(job: WebhookDeliveryJob): Promise<void> {
+    const parsed = webhookDeliveryJobSchema.parse(job)
+    await this.queue(QUEUE_NAMES.webhookDelivery).add('deliver', parsed)
+  }
+
+  async addRelaySubmission(job: RelayJob): Promise<void> {
+    const parsed = relayJobSchema.parse(job)
+    await this.queue(QUEUE_NAMES.relaySubmission).add(`relay:${parsed.reason}`, parsed, {
+      jobId: parsed.idempotencyKey,
+      attempts: 5,
+      backoff: { type: 'exponential', delay: 2000 },
+      removeOnComplete: { age: 3600 },
+      removeOnFail: { age: 3600 },
+    })
   }
 
   async onModuleDestroy(): Promise<void> {

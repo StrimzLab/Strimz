@@ -15,6 +15,7 @@ export type StrimzErrorCode =
   | 'idempotency_error'
   | 'rate_limited'
   | 'mode_mismatch'
+  | 'secret_key_in_browser'
   | 'merchant_not_found'
   | 'merchant_inactive'
   | 'token_not_whitelisted'

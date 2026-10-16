@@ -1,4 +1,8 @@
+import { getTokenAddress } from '@strimz/shared-config'
 import { z } from 'zod'
+
+const unsetWhenEmpty = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema.optional())
 
 /**
  * Strict Zod schema for the API's runtime environment.
@@ -67,9 +71,13 @@ export const envSchema = z.object({
    * URL in staging, the apex once it's wired).
    */
   STRIMZ_DASHBOARD_URL: z.string().url().default('https://strimz.finance'),
+  OPS_ALERT_EMAIL: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().email().optional(),
+  ),
 
   // ----- Chain -----
-  ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).default('testnet'),
+  ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).optional(),
   ARC_RPC_URL: z.string().url(),
   STRIMZ_REGISTRY_ADDRESS: z.string().optional(),
   STRIMZ_PAYMENTS_ADDRESS: z.string().optional(),
@@ -94,16 +102,20 @@ export const envSchema = z.object({
   // provider's encrypted secrets vault). Future hardware-backed
   // providers (GCP Cloud KMS, Vault Transit) drop in against the same
   // env enum without touching call sites.
-  KMS_PROVIDER: z.enum(['software']).default('software'),
+  KMS_PROVIDER: z.enum(['software', 'aws-kms']).default('software'),
   // 0x-prefixed 32-byte hex private key for the software signer. In dev
   // and CI this can be omitted — a fresh ephemeral key is generated at
   // boot and the derived address is logged. In production this MUST be
   // set explicitly; the module factory refuses to auto-generate keys
   // when NODE_ENV=production.
-  KMS_SOFTWARE_PRIVATE_KEY: z
-    .string()
-    .regex(/^0x[0-9a-fA-F]{64}$/u, 'must be a 0x-prefixed 32-byte hex string')
-    .optional(),
+  KMS_SOFTWARE_PRIVATE_KEY: unsetWhenEmpty(
+    z.string().regex(/^0x[0-9a-fA-F]{64}$/u, 'must be a 0x-prefixed 32-byte hex string'),
+  ),
+  KMS_AWS_KEY_ID: unsetWhenEmpty(z.string()),
+  KMS_SIGNER_ADDRESS: unsetWhenEmpty(
+    z.string().regex(/^0x[0-9a-fA-F]{40}$/u, 'must be a 0x-prefixed 20-byte hex address'),
+  ),
+  AWS_REGION: unsetWhenEmpty(z.string()),
 
   // ----- Hosted checkout origin (for embed postMessage allow-list) -----
   CHECKOUT_ORIGIN: z.string().url().default('http://localhost:3000'),
@@ -115,10 +127,68 @@ export const envSchema = z.object({
   CORS_ORIGIN: z.string().default('*'),
 })
 
-export type Env = z.infer<typeof envSchema>
+const TOKEN_ADDRESS_SETTINGS = [
+  ['ARC_USDC_ADDRESS', 'USDC'],
+  ['ARC_EURC_ADDRESS', 'EURC'],
+] as const
+
+const networkSchema = envSchema.superRefine((env, ctx) => {
+  if (env.NODE_ENV !== 'production') return
+  if (!env.ARC_ENVIRONMENT) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['ARC_ENVIRONMENT'],
+      message: 'required when NODE_ENV=production',
+    })
+    return
+  }
+  for (const [key, symbol] of TOKEN_ADDRESS_SETTINGS) {
+    const configured = env[key]
+    const canonical = getTokenAddress(env.ARC_ENVIRONMENT, symbol)
+    if (configured && configured.toLowerCase() !== canonical.toLowerCase()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: `must be ${canonical} on ${env.ARC_ENVIRONMENT}, or unset`,
+      })
+    }
+  }
+})
+
+const signerSchema = networkSchema.superRefine((env, ctx) => {
+  if (env.KMS_PROVIDER !== 'aws-kms') return
+  for (const key of ['KMS_AWS_KEY_ID', 'KMS_SIGNER_ADDRESS', 'AWS_REGION'] as const) {
+    if (!env[key]) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: 'required when KMS_PROVIDER=aws-kms',
+      })
+    }
+  }
+  if (env.KMS_SOFTWARE_PRIVATE_KEY) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['KMS_SOFTWARE_PRIVATE_KEY'],
+      message: 'must be unset when KMS_PROVIDER=aws-kms; remove the plaintext key',
+    })
+  }
+})
+
+const validatedEnvSchema = signerSchema.transform((env) => {
+  const arcEnvironment = env.ARC_ENVIRONMENT ?? 'testnet'
+  return {
+    ...env,
+    ARC_ENVIRONMENT: arcEnvironment,
+    ARC_USDC_ADDRESS: env.ARC_USDC_ADDRESS ?? getTokenAddress(arcEnvironment, 'USDC'),
+    ARC_EURC_ADDRESS: env.ARC_EURC_ADDRESS ?? getTokenAddress(arcEnvironment, 'EURC'),
+  }
+})
+
+export type Env = z.output<typeof validatedEnvSchema>
 
 export function validateEnv(raw: Record<string, unknown>): Env {
-  const parsed = envSchema.safeParse(raw)
+  const parsed = validatedEnvSchema.safeParse(raw)
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((i) => `  • ${i.path.join('.')}: ${i.message}`)

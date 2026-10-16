@@ -6,6 +6,8 @@
  * keys can ship in browser bundles.
  */
 
+import { parseArcEnvironment, type ArcEnvironment } from './chains.js'
+
 export type ApiKeyMode = 'test' | 'live'
 export type ApiKeyKind = 'secret' | 'publishable'
 
@@ -41,3 +43,12 @@ export function kindFromKey(key: string): ApiKeyKind | null {
 
 /** Number of leading characters of a key safe to display in dashboards/logs. */
 export const API_KEY_PREFIX_DISPLAY_LENGTH = 12
+
+const MODE_BY_ENVIRONMENT = {
+  testnet: 'test',
+  mainnet: 'live',
+} as const satisfies Record<ArcEnvironment, ApiKeyMode>
+
+export function arcModeFor(env: ArcEnvironment): ApiKeyMode {
+  return MODE_BY_ENVIRONMENT[parseArcEnvironment(env)]
+}

@@ -53,46 +53,46 @@ export default async function ProductPage({
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
       <Link
         href={`/store/${slug}`}
-        className="font-poppins text-sm text-[#58556A] transition-colors hover:text-[#050020]"
+        className="font-poppins text-muted-foreground hover:text-foreground text-sm transition-colors"
       >
         ← Back to {storefront.name}
       </Link>
 
-      <Card className="shadow-sub-card mt-6 overflow-hidden border-[#E5E7EB]">
+      <Card className="shadow-sub-card border-border mt-6 overflow-hidden">
         {product.imageUrl && (
-          <div className="relative aspect-video w-full overflow-hidden bg-[#F9FAFB]">
+          <div className="bg-muted relative aspect-video w-full overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
             {product.type === 'subscription' && (
-              <Badge className="absolute right-3 top-3 bg-[#050020] text-white hover:bg-[#050020]">
+              <Badge className="bg-primary text-primary-foreground hover:bg-primary absolute right-3 top-3">
                 Subscription
               </Badge>
             )}
           </div>
         )}
         <CardContent className="p-8">
-          <h1 className="font-sora text-3xl font-[700] tracking-tight text-[#050020]">
+          <h1 className="font-sora text-foreground text-3xl font-[700] tracking-tight">
             {product.name}
           </h1>
-          <p className="mt-2 inline-flex items-center gap-1.5 font-mono text-sm text-[#58556A]">
+          <p className="text-muted-foreground mt-2 inline-flex items-center gap-1.5 font-mono text-sm">
             <TokenLogo symbol={product.currency} size={14} />
             {priceLabel} {product.currency}
             {product.type === 'subscription' && product.interval ? ` / ${product.interval}` : ''}
           </p>
           {product.description && (
-            <p className="font-poppins mt-6 whitespace-pre-line text-sm leading-6 text-[#58556A]">
+            <p className="font-poppins text-muted-foreground mt-6 whitespace-pre-line text-sm leading-6">
               {product.description}
             </p>
           )}
           {product.stock !== null && product.stock > 0 && (
-            <p className="font-poppins mt-4 text-xs text-[#58556A]">
+            <p className="font-poppins text-muted-foreground mt-4 text-xs">
               Only {product.stock} left in stock.
             </p>
           )}
 
           <div className="mt-8">
             {soldOut ? (
-              <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-4 text-center text-sm text-[#58556A]">
+              <div className="border-border bg-muted text-muted-foreground rounded-lg border p-4 text-center text-sm">
                 This product is sold out.
               </div>
             ) : (

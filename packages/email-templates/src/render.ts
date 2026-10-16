@@ -12,6 +12,6 @@ import type { ReactElement } from 'react'
  * future template needs one, render again with `plainText: true` from
  * @react-email/render and ship both.
  */
-export async function renderToHtml(element: ReactElement): Promise<string> {
+export function renderToHtml(element: ReactElement): Promise<string> {
   return render(element, { pretty: false })
 }

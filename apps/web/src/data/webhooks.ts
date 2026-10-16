@@ -45,18 +45,20 @@ const URLS = [
   'https://api.hooli.com/billing-events',
 ]
 
+const DESCRIPTIONS = [
+  'Production receiver',
+  'Backup receiver',
+  'Reconciliation worker',
+  'Slack notifier',
+  'Audit log',
+] as const
+
 const rng = mulberry32(13)
 
-export const WEBHOOK_ENDPOINTS: WebhookEndpoint[] = range(6).map((i) => ({
+export const WEBHOOK_ENDPOINTS: WebhookEndpoint[] = URLS.map((url, i) => ({
   id: id('ep', i + 1),
-  url: URLS[i]!,
-  description: [
-    'Production receiver',
-    'Backup receiver',
-    'Reconciliation worker',
-    'Slack notifier',
-    'Audit log',
-  ][i % 5]!,
+  url,
+  description: DESCRIPTIONS[i % DESCRIPTIONS.length] ?? DESCRIPTIONS[0],
   events:
     i === 0
       ? [...ALL_EVENT_TYPES]
@@ -123,4 +125,4 @@ export const WEBHOOK_DELIVERIES: WebhookDelivery[] = range(40)
       lastError: failed ? pick(rng, ERRORS) : null,
     }
   })
-  .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())

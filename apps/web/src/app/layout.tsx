@@ -1,8 +1,10 @@
 import type { Metadata, Viewport } from 'next'
 import { Sora, Poppins } from 'next/font/google'
 import { Providers } from '@/components/providers'
+import { ThemeProvider } from '@/components/theme/theme-provider'
 import { Toaster } from '@strimz/ui'
 import { OG_IMAGE, TWITTER_IMAGE } from '@/lib/seo'
+import { THEME_STORAGE_KEY } from '@/lib/theme'
 import '@/styles/globals.css'
 
 const sora = Sora({ subsets: ['latin'], variable: '--font-sora', display: 'swap' })
@@ -50,7 +52,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+    { media: '(prefers-color-scheme: dark)', color: '#0B0B12' },
   ],
 }
 
@@ -63,8 +65,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://challenges.cloudflare.com" />
       </head>
       <body className="bg-background text-foreground antialiased">
-        <Providers>{children}</Providers>
-        <Toaster richColors position="top-right" />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+          storageKey={THEME_STORAGE_KEY}
+        >
+          <Providers>{children}</Providers>
+          <Toaster richColors position="top-right" />
+        </ThemeProvider>
       </body>
     </html>
   )

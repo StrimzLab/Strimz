@@ -104,7 +104,8 @@ export default function AcceptableUsePage() {
       <p>
         When the compliance integration is enabled, every payer wallet is screened against TRM Labs
         / Elliptic at checkout time. Wallets above the configured risk threshold are rejected and
-        you are notified via your AutoPay Agent activity log.
+        you are notified via your AutoPay Agent activity log. The compliance integration is not
+        enabled today.
       </p>
       <p>
         Strimz reserves the right to enable mandatory screening for any merchant we have reasonable

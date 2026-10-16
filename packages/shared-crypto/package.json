@@ -1,6 +1,6 @@
 {
   "name": "@strimz/shared-crypto",
-  "version": "0.1.1",
+  "version": "0.2.5",
   "description": "Web Crypto primitives for Strimz. HMAC webhook signing, API key generation, hashing, AES-256-GCM envelope encryption, and constant-time comparison. Runs in Node 22 and Edge runtimes.",
   "license": "MIT",
   "author": "Strimz <hello@strimz.finance>",
@@ -74,6 +74,11 @@
       "types": "./dist/aes-gcm.d.ts",
       "import": "./dist/aes-gcm.js",
       "require": "./dist/aes-gcm.cjs"
+    },
+    "./checkout": {
+      "types": "./dist/checkout.d.ts",
+      "import": "./dist/checkout.js",
+      "require": "./dist/checkout.cjs"
     }
   },
   "files": [
@@ -85,14 +90,15 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
-    "@strimz/shared-config": "workspace:*"
+    "@strimz/shared-config": "workspace:*",
+    "viem": "^2.22.6"
   },
   "devDependencies": {
     "@strimz/eslint-config": "workspace:*",

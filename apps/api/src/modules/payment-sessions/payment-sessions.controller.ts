@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { createPaymentSessionInputSchema } from '@strimz/shared-types'
-import type { CreatePaymentSessionInput, PaymentSession } from '@strimz/shared-types'
+import type { CreatePaymentSessionParsed, PaymentSession } from '@strimz/shared-types'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import {
   CurrentMerchant,
@@ -20,7 +20,7 @@ export class PaymentSessionsController {
   @Post()
   create(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Body(new ZodValidationPipe(createPaymentSessionInputSchema)) input: CreatePaymentSessionInput,
+    @Body(new ZodValidationPipe(createPaymentSessionInputSchema)) input: CreatePaymentSessionParsed,
   ): Promise<PaymentSession> {
     return this.sessions.create(ctx.merchantId, ctx.mode, input)
   }

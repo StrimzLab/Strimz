@@ -41,7 +41,7 @@ export function LegalDoc({
       </header>
 
       <div className="mt-10 grid gap-12 lg:grid-cols-[1fr_220px]">
-        <article className="prose prose-neutral prose-h2:scroll-mt-24 prose-h2:font-poppins prose-h2:text-2xl prose-h2:font-semibold prose-h3:font-poppins prose-a:text-[#02C76A] prose-a:no-underline hover:prose-a:underline max-w-none">
+        <article className="prose prose-neutral prose-h2:scroll-mt-24 prose-h2:font-poppins prose-h2:text-2xl prose-h2:font-semibold prose-h3:font-poppins prose-a:text-accent prose-a:no-underline hover:prose-a:underline max-w-none">
           {children}
 
           <hr className="border-border/40 my-12" />

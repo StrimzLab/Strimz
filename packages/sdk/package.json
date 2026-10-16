@@ -1,6 +1,6 @@
 {
   "name": "@strimz/sdk",
-  "version": "0.3.0",
+  "version": "0.10.0",
   "description": "The Strimz SDK. Typed client for server and edge runtimes. Handles HTTP, retries, idempotency, pagination, EIP-712 typed-data building, and webhook signature verification.",
   "license": "MIT",
   "author": "Strimz <hello@strimz.finance>",
@@ -70,7 +70,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

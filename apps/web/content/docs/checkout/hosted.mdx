@@ -57,6 +57,12 @@ The page layout. The form factor is fixed. Header, description, amount, action b
 
 If you need full control of the layout, you want [embedded checkout](/docs/checkout/embed) instead. That gives you the SDK + the typed-data builder; you write the UI. The trade-off is you maintain it yourself.
 
+## One wallet per checkout
+
+The first wallet that connects and gives an email owns the session. The same wallet can come back to it as often as it likes; another wallet gets `409 payer_already_bound`, and the page tells the payer to reconnect the first wallet or ask you for a new link. A session that is confirmed, cancelled, or past its expiry answers `409 session_not_open`, and an archived plan answers `409 plan_not_active` on its subscription page.
+
+The email on a customer you already know is never replaced from checkout. A payer can add an email to a customer that has none; changing a known one goes through Strimz support for now.
+
 ## When hosted vs embedded
 
 Hosted is the right default. Stripe Checkout taught us that "redirect to a hosted page" is fine for almost every flow that isn't a single-page app trying to be especially fancy. You ship faster; the page improves without you doing anything; you don't own the surface that's most likely to break.

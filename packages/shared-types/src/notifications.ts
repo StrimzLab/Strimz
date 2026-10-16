@@ -33,11 +33,12 @@ export const createBroadcastInputSchema = z
     /** Required when `audience === 'merchant'`; ignored otherwise. */
     merchantId: z.string().optional(),
   })
-  .refine((v) => v.audience !== 'merchant' || !!v.merchantId, {
+  .refine((v) => v.audience !== 'merchant' || Boolean(v.merchantId), {
     message: 'merchantId is required when audience is merchant',
     path: ['merchantId'],
   })
-export type CreateBroadcastInput = z.infer<typeof createBroadcastInputSchema>
+export type CreateBroadcastInput = z.input<typeof createBroadcastInputSchema>
+export type CreateBroadcastParsed = z.output<typeof createBroadcastInputSchema>
 
 export const broadcastSchema = z.object({
   id: idSchema,

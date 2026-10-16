@@ -75,7 +75,7 @@ export class AdminAuthGuard implements CanActivate {
     const claims = await this.privy.verifyAccessToken(token)
 
     // Path 1 — already-linked admin.
-    let admin = await this.prisma.db.adminUser.findUnique({
+    const admin = await this.prisma.db.adminUser.findUnique({
       where: { privyUserId: claims.userId },
       select: {
         id: true,
@@ -89,37 +89,8 @@ export class AdminAuthGuard implements CanActivate {
     // a verified email; we fetch the full Privy user to read the
     // linked email address. If a matching row exists with
     // `privyUserId IS NULL`, claim it.
-    if (!admin) {
-      let email: string | null = null
-      try {
-        const user = await this.privy.getUser(claims.userId)
-        const linkedEmail = user.linkedAccounts.find((a) => a.type === 'email')
-        if (linkedEmail && 'address' in linkedEmail && typeof linkedEmail.address === 'string') {
-          email = linkedEmail.address.toLowerCase()
-        }
-      } catch (err: unknown) {
-        // If Privy is unreachable, we can't bootstrap. Surface a clear
-        // failure rather than silently denying.
-        this.log.warn(`admin bootstrap: failed to fetch privy user — ${(err as Error).message}`)
-      }
-
-      if (email) {
-        const candidate = await this.prisma.db.adminUser.findUnique({
-          where: { email },
-          select: { id: true, email: true, role: true, status: true, privyUserId: true },
-        })
-        if (candidate && candidate.privyUserId == null) {
-          this.log.log(
-            `admin bootstrap: claiming row ${candidate.id} for privy user ${claims.userId}`,
-          )
-          admin = await this.prisma.db.adminUser.update({
-            where: { id: candidate.id },
-            data: { privyUserId: claims.userId, lastLoginAt: new Date() },
-            select: { id: true, email: true, role: true, status: true },
-          })
-        }
-      }
-    }
+    // If Privy is unreachable, we can't bootstrap. Surface a clear
+    // failure rather than silently denying.
 
     if (!admin) {
       throw new ForbiddenException({

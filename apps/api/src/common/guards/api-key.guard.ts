@@ -8,11 +8,13 @@ import {
 import { Reflector } from '@nestjs/core'
 import type { FastifyRequest } from 'fastify'
 import { hashApiKey } from '@strimz/shared-crypto'
-import { kindFromKey, modeFromKey } from '@strimz/shared-config'
+import { modeFromKey } from '@strimz/shared-config'
+import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js'
-import { REQUIRED_SCOPES_KEY } from '../decorators/scopes.decorator.js'
-import type { ApiKeyScope } from '@strimz/shared-types'
+import { assertApiKeyRouteAccess } from './api-key-route-access.js'
+import { assertSecretKeyKind } from './api-key-kind.js'
+import { assertDeploymentMode } from './deployment-mode.js'
 
 /**
  * Authenticates SDK callers via secret API key.
@@ -27,6 +29,7 @@ export class ApiKeyGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly prisma: PrismaService,
+    private readonly chain: ChainService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -46,12 +49,7 @@ export class ApiKeyGuard implements CanActivate {
     }
     const token = auth.slice('Bearer '.length).trim()
 
-    if (kindFromKey(token) !== 'secret') {
-      throw new UnauthorizedException({
-        code: 'authentication_error',
-        message: 'invalid api key kind',
-      })
-    }
+    assertSecretKeyKind(token)
     const mode = modeFromKey(token)
     if (mode == null) {
       throw new UnauthorizedException({
@@ -59,6 +57,7 @@ export class ApiKeyGuard implements CanActivate {
         message: 'invalid api key prefix',
       })
     }
+    assertDeploymentMode(this.chain.environment, mode)
 
     const hash = await hashApiKey(token)
     const apiKey = await this.prisma.db.merchantApiKey.findUnique({
@@ -72,26 +71,12 @@ export class ApiKeyGuard implements CanActivate {
       throw new ForbiddenException({ code: 'permission_denied', message: 'merchant suspended' })
     }
 
-    const required =
-      this.reflector.getAllAndOverride<ApiKeyScope[]>(REQUIRED_SCOPES_KEY, [
-        ctx.getHandler(),
-        ctx.getClass(),
-      ]) ?? []
-    if (required.length > 0) {
-      const has = new Set(apiKey.scopes as unknown as string[])
-      for (const s of required) {
-        if (!has.has(s)) {
-          throw new ForbiddenException({
-            code: 'permission_denied',
-            message: `api key missing scope ${s}`,
-          })
-        }
-      }
-    }
+    assertApiKeyRouteAccess(this.reflector, ctx, apiKey.scopes)
 
     req.merchant = {
       merchantId: apiKey.merchantId,
       apiKeyId: apiKey.id,
+      apiKeyScopes: apiKey.scopes,
       mode: apiKey.mode as 'test' | 'live',
     }
 

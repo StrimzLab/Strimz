@@ -78,7 +78,7 @@ PaymentReceivedEmail.PreviewProps = {
   sessionId: 'cmq4wck6a0002je6lfmb5bgjp',
   network: 'Arc Testnet',
   explorerTxUrl:
-    'https://testnet.arcscan.app/tx/0x4d328b9b2590614e51c9401a06b3b643e401965972a2494ce593edf71b251907',
+    'https://explorer.testnet.arc.io/tx/0x4d328b9b2590614e51c9401a06b3b643e401965972a2494ce593edf71b251907',
   dashboardUrl: 'https://strimz-finance.vercel.app/app/transactions',
 } as PaymentReceivedEmailProps
 

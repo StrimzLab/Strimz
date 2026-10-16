@@ -22,8 +22,22 @@ import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { downloadInvoicePdf } from '@/lib/invoice-pdf'
-import { formatTokenAmount, relativeTime, tokenAmountToNumber } from '@/lib/format'
-import { useInvoices, useMerchantMe, useSendInvoice, useVoidInvoice } from '@/hooks/api'
+import { formatTokenAmount, relativeTime } from '@/lib/format'
+import { invoiceCards, summaryValue } from '@/lib/stats-summary'
+import type { LoadedRows } from '@/lib/cursor-pages'
+import { voidInvoiceConfirm } from '@/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@/components/dashboard/confirm-action-dialog'
+import {
+  serverRowsOf,
+  useInvoicePages,
+  useMerchantMe,
+  useSendInvoice,
+  useStatsSummary,
+  useVoidInvoice,
+} from '@/hooks/api'
 
 const STATUS_TONE: Record<InvoiceStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
   paid: 'positive',
@@ -35,55 +49,20 @@ const STATUS_TONE: Record<InvoiceStatus, 'positive' | 'warning' | 'danger' | 'in
 
 interface InvoicesView {
   rows: Invoice[]
-  outstanding: number
-  outstandingCount: number
-  paid30dCount: number
-  paid30d: number
-  overdueCount: number
-  overdueTotal: number
+  hasMore: boolean
 }
 
-function projectInvoices(page: { data: Invoice[] }): InvoicesView {
-  const now = Date.now()
-  const thirtyDays = 30 * 86_400_000
-  let outstanding = 0
-  let outstandingCount = 0
-  let paid30d = 0
-  let paid30dCount = 0
-  let overdueCount = 0
-  let overdueTotal = 0
-  for (const inv of page.data) {
-    const total = tokenAmountToNumber(inv.total)
-    if (inv.status === 'sent' || inv.status === 'overdue') {
-      outstanding += total
-      outstandingCount++
-    }
-    if (inv.status === 'paid' && inv.paidAt && now - +new Date(inv.paidAt) < thirtyDays) {
-      paid30d += total
-      paid30dCount++
-    }
-    if (inv.status === 'overdue') {
-      overdueCount++
-      overdueTotal += total
-    }
-  }
-  return {
-    rows: page.data,
-    outstanding,
-    outstandingCount,
-    paid30d,
-    paid30dCount,
-    overdueCount,
-    overdueTotal,
-  }
+function projectInvoices(loaded: LoadedRows<Invoice>): InvoicesView {
+  return { rows: loaded.rows, hasMore: loaded.hasMore }
 }
 
 export default function InvoicesPage() {
   const router = useRouter()
-  const { data, isLoading, isError, error, refetch } = useInvoices(
-    { limit: 100 },
-    { select: projectInvoices },
-  )
+  const invoicesQuery = useInvoicePages({ limit: 100 }, { select: projectInvoices })
+  const { data, isLoading, isError, error, refetch } = invoicesQuery
+  const summaryQuery = useStatsSummary({ select: (summary) => invoiceCards(summary.invoices) })
+  const cards = summaryQuery.data
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
   const { data: merchant } = useMerchantMe()
   const sendMutation = useSendInvoice()
   const voidMutation = useVoidInvoice()
@@ -107,7 +86,7 @@ export default function InvoicesPage() {
         cell: ({ row }) => (
           <Link
             href={`/app/invoices/${row.original.id}`}
-            className="font-mono text-sm font-medium hover:text-[#02C76A] hover:underline"
+            className="hover:text-accent font-mono text-sm font-medium hover:underline"
           >
             {row.original.number}
           </Link>
@@ -194,7 +173,12 @@ export default function InvoicesPage() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-rose-600 focus:text-rose-600"
-                      onClick={() => voidMutation.mutate(inv.id)}
+                      onClick={() =>
+                        setPendingConfirm({
+                          copy: voidInvoiceConfirm(inv),
+                          run: () => voidMutation.mutate(inv.id),
+                        })
+                      }
                       disabled={voidMutation.isPending}
                     >
                       <Ban className="mr-2 size-4" /> Void
@@ -251,35 +235,23 @@ export default function InvoicesPage() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Stat
           label="Outstanding"
-          value={
-            data
-              ? `${data.outstanding.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
-              : '—'
-          }
-          note={data ? `${data.outstandingCount} invoices` : undefined}
+          value={summaryValue(summaryQuery, (c) => c.outstanding)}
+          note={cards?.outstandingNote}
         />
         <Stat
           label="Paid (30d)"
-          value={
-            data
-              ? `${data.paid30d.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
-              : '—'
-          }
-          note={data ? `${data.paid30dCount} invoices` : undefined}
+          value={summaryValue(summaryQuery, (c) => c.paidLast30d)}
+          note={cards?.paidLast30dNote}
         />
         <Stat
           label="Overdue"
-          value={data ? data.overdueCount.toString() : '—'}
-          note={
-            data
-              ? `${data.overdueTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC`
-              : undefined
-          }
-          tone={data && data.overdueCount > 0 ? 'danger' : undefined}
+          value={summaryValue(summaryQuery, (c) => c.overdue)}
+          note={cards?.overdueNote}
+          tone={cards && cards.overdueCount > 0 ? 'danger' : undefined}
         />
       </div>
 
-      {isError ? (
+      {isError && !data ? (
         <ErrorBanner message={error?.message ?? 'Failed to load invoices'} onRetry={refetch} />
       ) : (
         <DataTable
@@ -289,8 +261,11 @@ export default function InvoicesPage() {
           searchPlaceholder="Search by number, customer, email…"
           emptyTitle="No invoices yet"
           emptyDescription="Create your first invoice to send a hosted payment link to a customer."
+          serverRows={serverRowsOf(invoicesQuery)}
         />
       )}
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
   )
 }

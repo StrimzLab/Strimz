@@ -5,6 +5,8 @@ description: Hosted, branded landing pages.
 
 ## Storefront
 
+The storefront builder starts on the Starter plan. On Free, creating or updating a storefront, publishing it and adding products answer `403 plan_required`. Archiving and reading still work.
+
 ```http
 POST /v1/storefront
 {
@@ -70,4 +72,4 @@ Returns the storefront + products with `isActive=true`. Your customers go direct
 
 ## Custom domains
 
-Available on **Growth** and above. Contact sales to set up a CNAME and TLS for your domain.
+Not supported yet. Storefronts live under `strimz.finance/store/<slug>`.

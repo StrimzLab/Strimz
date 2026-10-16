@@ -115,6 +115,16 @@ page rather than in a popup.
 Renders the same UI as the hosted page, but inline. Useful for
 cart-style flows where you don't want to lose the buyer's context.
 
+The embedded checkout follows the payer's system light or dark
+preference. Pass `theme="light"` or `theme="dark"` to pin it to your
+page's look:
+
+```tsx
+<StrimzCheckoutEmbed sessionId={session.id} theme="dark" />
+```
+
+The embed has no theme toggle of its own; your page decides.
+
 ## Hooks
 
 - `useStrimzClient()`. Returns the singleton `StrimzBrowserClient`.

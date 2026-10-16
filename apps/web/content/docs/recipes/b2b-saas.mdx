@@ -109,21 +109,20 @@ If you want to pass metadata or pre-fill the payer's email, you'd create a custo
 This is where the meaningful logic lives. The events you care about are subscription state transitions.
 
 ```ts title="app/api/webhooks/strimz/route.ts"
-import { strimzWebhooks } from '@strimz/sdk'
+import { verifyWebhookSignature } from '@strimz/sdk'
 import { db } from '@/lib/db'
 
 const SECRET = process.env.STRIMZ_WEBHOOK_SECRET!
 
 export async function POST(req: Request) {
-  const signature = req.headers.get('strimz-signature')
+  const signature = req.headers.get('strimz-signature') ?? ''
   const body = await req.text()
 
-  let event
-  try {
-    event = strimzWebhooks.constructEvent(body, signature, SECRET)
-  } catch {
+  const result = await verifyWebhookSignature(body, signature, SECRET)
+  if (!result.valid) {
     return new Response('signature failed', { status: 401 })
   }
+  const event = JSON.parse(body)
 
   // Idempotency. If we've seen this event before, no-op.
   const seen = await db.processedWebhook.findUnique({ where: { id: event.id } })

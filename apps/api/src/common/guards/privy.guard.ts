@@ -8,6 +8,8 @@ import {
 } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import type { FastifyRequest } from 'fastify'
+import { arcModeFor } from '@strimz/shared-config'
+import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrivyService } from '../../infra/privy/privy.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js'
@@ -33,6 +35,7 @@ export class PrivyAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly privy: PrivyService,
     private readonly prisma: PrismaService,
+    private readonly chain: ChainService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -75,7 +78,7 @@ export class PrivyAuthGuard implements CanActivate {
     req.merchant = {
       merchantId: merchant.id,
       // Mode is determined per-resource for dashboard calls; default to test.
-      mode: 'test',
+      mode: arcModeFor(this.chain.environment),
     }
 
     void this.prisma.db.merchant

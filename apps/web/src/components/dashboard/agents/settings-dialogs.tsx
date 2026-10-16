@@ -22,7 +22,10 @@ import {
   Textarea,
 } from '@strimz/ui'
 
-import { useUpdateAgentConfig } from '@/hooks/api'
+import { planIncludes } from '@strimz/shared-config'
+
+import { PlanLockedNotice } from '@/components/dashboard/plan-locked-notice'
+import { useMerchantMe, useUpdateAgentConfig } from '@/hooks/api'
 
 type DialogProps = {
   open: boolean
@@ -137,6 +140,9 @@ export function RecoverySettingsDialog({ open, onOpenChange, config }: DialogPro
 
 export function CashflowSettingsDialog({ open, onOpenChange, config }: DialogProps) {
   const update = useUpdateAgentConfig()
+  const tier = useMerchantMe().data?.tier
+  const canAnomaly = tier !== undefined && planIncludes(tier, 'anomaly_alerts')
+  const canYield = tier !== undefined && planIncludes(tier, 'yield_recommendations')
   const [digestEnabled, setDigestEnabled] = React.useState(config.cashflow.digestEnabled)
   const [sensitivity, setSensitivity] = React.useState(config.cashflow.anomalySensitivity)
   const [autoConvert, setAutoConvert] = React.useState(config.cashflow.autoConvertToYield)
@@ -156,17 +162,17 @@ export function CashflowSettingsDialog({ open, onOpenChange, config }: DialogPro
 
   const submit = async () => {
     const parsed = Number(reserveUsd)
-    if (!Number.isFinite(parsed) || parsed < 0) {
+    if (canYield && (!Number.isFinite(parsed) || parsed < 0)) {
       setReserveErr('Enter a non-negative amount')
       return
     }
-    const cents = Math.round(parsed * 100)
     const payload: UpdateAgentConfigInput = {
       cashflow: {
         digestEnabled,
-        anomalySensitivity: sensitivity,
-        autoConvertToYield: autoConvert,
-        minimumLiquidReserveCents: cents,
+        ...(canAnomaly ? { anomalySensitivity: sensitivity } : {}),
+        ...(canYield
+          ? { autoConvertToYield: autoConvert, minimumLiquidReserveCents: Math.round(parsed * 100) }
+          : {}),
       },
     }
     await update.mutateAsync(payload)
@@ -194,69 +200,81 @@ export function CashflowSettingsDialog({ open, onOpenChange, config }: DialogPro
             <Switch checked={digestEnabled} onCheckedChange={setDigestEnabled} />
           </div>
 
-          <div className="space-y-2">
-            <FieldLabel required htmlFor="anomaly-sensitivity">
-              Anomaly sensitivity
-            </FieldLabel>
-            <Select
-              value={sensitivity}
-              onValueChange={(v) => setSensitivity(v as typeof sensitivity)}
-            >
-              <SelectTrigger id="anomaly-sensitivity">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low — only large swings</SelectItem>
-                <SelectItem value="medium">Medium — balanced</SelectItem>
-                <SelectItem value="high">High — chatty</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-muted-foreground text-xs">
-              Higher sensitivity means more alerts for smaller day-over-day changes.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <FieldLabel required htmlFor="reserve-floor">
-              Minimum liquid reserve (USD)
-            </FieldLabel>
-            <Input
-              id="reserve-floor"
-              type="number"
-              min={0}
-              step="0.01"
-              value={reserveUsd}
-              onChange={(e) => {
-                setReserveUsd(e.target.value)
-                setReserveErr(null)
-              }}
-            />
-            {reserveErr ? (
-              <p className="text-xs text-red-500">{reserveErr}</p>
-            ) : (
+          {tier === undefined ? (
+            <p className="text-muted-foreground text-xs">Loading your plan…</p>
+          ) : canAnomaly ? (
+            <div className="space-y-2">
+              <FieldLabel required htmlFor="anomaly-sensitivity">
+                Anomaly sensitivity
+              </FieldLabel>
+              <Select
+                value={sensitivity}
+                onValueChange={(v) => setSensitivity(v as typeof sensitivity)}
+              >
+                <SelectTrigger id="anomaly-sensitivity">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low — only large swings</SelectItem>
+                  <SelectItem value="medium">Medium — balanced</SelectItem>
+                  <SelectItem value="high">High — chatty</SelectItem>
+                </SelectContent>
+              </Select>
               <p className="text-muted-foreground text-xs">
-                Cashflow will never sweep balance below this floor into yield.
-              </p>
-            )}
-          </div>
-
-          <div className="border-border/60 flex items-start justify-between gap-3 rounded-md border p-3">
-            <div>
-              <div className="text-sm font-medium">Auto-convert surplus to yield</div>
-              <p className="text-muted-foreground text-xs">
-                Balance above the reserve floor gets suggested for yield. You still approve every
-                sweep.
+                Higher sensitivity means more alerts for smaller day-over-day changes.
               </p>
             </div>
-            <Switch checked={autoConvert} onCheckedChange={setAutoConvert} />
-          </div>
+          ) : (
+            <PlanLockedNotice feature="anomaly_alerts" />
+          )}
+
+          {tier === undefined ? null : canYield ? (
+            <>
+              <div className="space-y-2">
+                <FieldLabel required htmlFor="reserve-floor">
+                  Minimum liquid reserve (USD)
+                </FieldLabel>
+                <Input
+                  id="reserve-floor"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={reserveUsd}
+                  onChange={(e) => {
+                    setReserveUsd(e.target.value)
+                    setReserveErr(null)
+                  }}
+                />
+                {reserveErr ? (
+                  <p className="text-xs text-red-500">{reserveErr}</p>
+                ) : (
+                  <p className="text-muted-foreground text-xs">
+                    Cashflow will never sweep balance below this floor into yield.
+                  </p>
+                )}
+              </div>
+
+              <div className="border-border/60 flex items-start justify-between gap-3 rounded-md border p-3">
+                <div>
+                  <div className="text-sm font-medium">Auto-convert surplus to yield</div>
+                  <p className="text-muted-foreground text-xs">
+                    Balance above the reserve floor gets suggested for yield. You still approve
+                    every sweep.
+                  </p>
+                </div>
+                <Switch checked={autoConvert} onCheckedChange={setAutoConvert} />
+              </div>
+            </>
+          ) : (
+            <PlanLockedNotice feature="yield_recommendations" />
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={update.isPending}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={update.isPending}>
+          <Button onClick={submit} disabled={update.isPending || tier === undefined}>
             {update.isPending ? 'Saving…' : 'Save'}
           </Button>
         </DialogFooter>

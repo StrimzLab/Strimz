@@ -6,6 +6,8 @@ import type { CallOptions, Page, PaginationParams } from '../types'
 export interface ListTransactionsParams extends PaginationParams {
   status?: TransactionStatus
   kind?: TransactionKind
+  sessionId?: string
+  subscriptionId?: string
 }
 
 export class TransactionsResource {
@@ -19,6 +21,8 @@ export class TransactionsResource {
         limit: params.limit,
         status: params.status,
         kind: params.kind,
+        sessionId: params.sessionId,
+        subscriptionId: params.subscriptionId,
       },
     })
   }

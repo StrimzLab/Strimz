@@ -4,7 +4,9 @@ import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useAppKit } from '@reown/appkit/react'
+import { useRefreshWhile } from '@/hooks/use-refresh-while'
 import { ArrowRight, CheckCircle2, ExternalLink, Loader2, ShieldCheck, Wallet } from 'lucide-react'
+import { arcExplorerTxUrl } from '@strimz/shared-config'
 import { Badge, FieldLabel, Input } from '@strimz/ui'
 import type { MerchantPublicBrand, PaymentSession, TokenMetadata } from '@strimz/shared-types'
 
@@ -81,6 +83,13 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
   // phase mapping below renders an explicit "not ready" state when
   // the on-chain registry id is missing.
   const chainMerchantId = session?.chainMerchantId ?? null
+  useRefreshWhile(
+    session !== null && chainMerchantId === null && loadError === null,
+    MERCHANT_READY_POLL_MS,
+    () => strimzBrowserClient().checkout.session(sessionId),
+    setSession,
+    (err) => setLoadError(err.message),
+  )
   const amountBaseUnits = session ? BigInt(session.amount) : 0n
   const amountDisplay = formatAmount(amountBaseUnits, tokenMeta?.decimals ?? 6)
 
@@ -116,7 +125,7 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
       <div className="space-y-6">
         <div>
           <Badge variant="outline" className="mb-3 gap-1.5">
-            <ShieldCheck className="size-3 text-[#02C76A]" />
+            <ShieldCheck className="text-accent size-3" />
             Secured by Strimz
           </Badge>
           <h2 className="font-poppins flex items-center gap-2 text-2xl font-semibold tracking-tight">
@@ -388,7 +397,7 @@ function BusyState({ phase }: { phase: 'loading' | 'signing' | 'submitting' | 'p
           : 'Confirming on-chain…'
   return (
     <div className="bg-muted/30 flex items-center gap-3 rounded-md px-3 py-3 text-sm">
-      <Loader2 className="size-4 animate-spin text-[#02C76A]" />
+      <Loader2 className="text-accent size-4 animate-spin" />
       <span>{label}</span>
     </div>
   )
@@ -443,10 +452,10 @@ function CompletionPanel({
   const networkLabel = env.arcEnvironment === 'mainnet' ? 'Arc Mainnet' : 'Arc Testnet'
 
   return (
-    <div className="rounded-xl border border-[#02C76A]/30 bg-[#02C76A]/5 px-5 py-6">
+    <div className="border-accent/30 bg-accent/5 rounded-xl border px-5 py-6">
       <div className="flex flex-col items-center text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#02C76A]/15">
-          <CheckCircle2 className="size-7 text-[#02C76A]" />
+        <div className="bg-accent/15 flex h-12 w-12 items-center justify-center rounded-full">
+          <CheckCircle2 className="text-accent size-7" />
         </div>
         <h3 className="font-poppins text-foreground mt-3 text-base font-semibold tracking-tight">
           Payment complete
@@ -455,13 +464,13 @@ function CompletionPanel({
       </div>
 
       {txHash && explorerHref && (
-        <div className="mt-5 flex items-center justify-between rounded-md border border-[#E5E7EB] bg-white/60 px-3 py-2 text-xs">
+        <div className="border-border mt-5 flex items-center justify-between rounded-md border bg-white/60 px-3 py-2 text-xs">
           <span className="text-muted-foreground">Transaction</span>
           <a
             href={explorerHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-foreground inline-flex items-center gap-1 font-mono font-[500] underline-offset-2 hover:text-[#02C76A] hover:underline"
+            className="text-foreground hover:text-accent inline-flex items-center gap-1 font-mono font-[500] underline-offset-2 hover:underline"
           >
             {shortHash}
             <ExternalLink className="size-3" />
@@ -499,8 +508,7 @@ function CompletionPanel({
  * having to thread environment into a util.
  */
 function explorerTxUrl(hash: string, arcEnv: 'testnet' | 'mainnet'): string {
-  const base = arcEnv === 'mainnet' ? 'https://arcscan.app' : 'https://testnet.arcscan.app'
-  return `${base}/tx/${hash}`
+  return arcExplorerTxUrl(arcEnv, hash)
 }
 
 function ErrorBanner({ message, retry }: { message: string; retry?: () => Promise<void> }) {
@@ -523,15 +531,15 @@ function ErrorBanner({ message, retry }: { message: string; retry?: () => Promis
 function ConnectedRow({ address, onChange }: { address: string; onChange: () => void }) {
   const short = `${address.slice(0, 6)}…${address.slice(-4)}`
   return (
-    <div className="font-poppins flex items-center justify-between rounded-md border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-xs">
+    <div className="font-poppins border-border bg-muted flex items-center justify-between rounded-md border px-3 py-2 text-xs">
       <span className="flex items-center gap-2">
-        <Wallet className="size-3.5 text-[#02C76A]" />
+        <Wallet className="text-accent size-3.5" />
         <span className="font-mono">{short}</span>
       </span>
       <button
         type="button"
         onClick={onChange}
-        className="font-[500] text-[#58556A] hover:text-[#050020]"
+        className="text-muted-foreground hover:text-foreground font-[500]"
       >
         Change
       </button>
@@ -544,6 +552,8 @@ function ConnectedRow({ address, onChange }: { address: string; onChange: () => 
  * capabilities so an accidental submission attempt before the real
  * metadata lands fails loudly in `usePayCheckout.submit()`.
  */
+const MERCHANT_READY_POLL_MS = 3_000
+
 const PLACEHOLDER_TOKEN: TokenMetadata = {
   address: '0x0000000000000000000000000000000000000000',
   name: 'USDC',

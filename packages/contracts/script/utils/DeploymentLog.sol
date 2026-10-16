@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { Vm } from "forge-std/Vm.sol";
+import { Vm, VmSafe } from "forge-std/Vm.sol";
+import { console2 } from "forge-std/console2.sol";
 import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 
 /// @title DeploymentLog
@@ -35,24 +36,36 @@ library DeploymentLog {
     ///      passing `vm` through every helper signature.
     address private constant CHEATCODE_ADDRESS = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
 
-    function append(string memory label, Entry[] memory entries) internal {
+    function append(string memory label, address deployer, Entry[] memory entries) internal {
         Vm vm = Vm(CHEATCODE_ADDRESS);
         string memory path =
             string.concat("deployments/", Strings.toString(block.chainid), ".json");
 
-        string memory entryJson = _serialiseEntry(label, entries);
+        string memory entryJson = _serialiseEntry(label, deployer, entries);
+        if (
+            !vm.isContext(VmSafe.ForgeContext.ScriptBroadcast)
+                && !vm.isContext(VmSafe.ForgeContext.ScriptResume)
+        ) {
+            console2.log("Not broadcasting; deployment log not written. Entry:");
+            console2.log(entryJson);
+            return;
+        }
         string memory updated = _spliceIntoArray(vm, path, entryJson);
         vm.writeFile(path, updated);
     }
 
     /// @dev Convenience wrapper: log a single entry (for cases where a
     ///      script only deploys one proxy).
-    function appendSingle(string memory label, string memory name, address proxy, address impl)
-        internal
-    {
+    function appendSingle(
+        string memory label,
+        address deployer,
+        string memory name,
+        address proxy,
+        address impl
+    ) internal {
         Entry[] memory entries = new Entry[](1);
         entries[0] = Entry({ name: name, proxy: proxy, implementation: impl });
-        append(label, entries);
+        append(label, deployer, entries);
     }
 
     // -------- internals --------
@@ -60,7 +73,7 @@ library DeploymentLog {
     /// @dev Serialises a single deployment record to a JSON object. No
     ///      surrounding `[` or `]`; the caller decides how to splice it
     ///      into the array.
-    function _serialiseEntry(string memory label, Entry[] memory entries)
+    function _serialiseEntry(string memory label, address deployer, Entry[] memory entries)
         private
         view
         returns (string memory)
@@ -74,7 +87,7 @@ library DeploymentLog {
             Strings.toString(block.chainid),
             ",",
             '"deployer":"',
-            Strings.toHexString(uint160(tx.origin), 20),
+            Strings.toHexString(uint160(deployer), 20),
             '",',
             '"label":"',
             label,

@@ -33,7 +33,7 @@ describe('analytics e2e', () => {
     expect(res.statusCode).toBe(200)
     const body = JSON.parse(res.body)
     expect(body.activeSubscribers).toBe(3)
-    expect(body.mrr).toBe('60000000')
+    expect(body.mrr).toEqual({ USDC: '60000000', EURC: '0' })
   })
 
   it('GET /v1/stats/conversion / churn / forecast respond with the documented shape', async () => {
@@ -60,6 +60,6 @@ describe('analytics e2e', () => {
       headers: { authorization: `Bearer ${m.privyAccessToken}` },
     })
     expect(forecast.statusCode).toBe(200)
-    expect(JSON.parse(forecast.body).confidence).toBe('low') // <7 days of data
+    expect(JSON.parse(forecast.body).byCurrency.USDC.confidence).toBe('low') // <7 days of data
   })
 })

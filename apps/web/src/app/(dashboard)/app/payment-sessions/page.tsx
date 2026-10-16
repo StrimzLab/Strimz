@@ -18,8 +18,21 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
-import { formatTokenAmount, relativeTime, shortAddress, tokenAmountToNumber } from '@/lib/format'
-import { useCancelPaymentSession, usePaymentSessions, usePrefetchPaymentSession } from '@/hooks/api'
+import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
+import { paymentSessionCards, summaryValue } from '@/lib/stats-summary'
+import type { LoadedRows } from '@/lib/cursor-pages'
+import { cancelPaymentSessionConfirm } from '@/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@/components/dashboard/confirm-action-dialog'
+import {
+  serverRowsOf,
+  useCancelPaymentSession,
+  usePaymentSessionPages,
+  usePrefetchPaymentSession,
+  useStatsSummary,
+} from '@/hooks/api'
 
 /**
  * Tone mapping for the seven canonical session statuses. Kept on the
@@ -58,29 +71,11 @@ const FILTER_OPTIONS: ReadonlyArray<PaymentSessionStatus | 'all'> = [
  */
 interface PaymentSessionsView {
   rows: PaymentSession[]
-  total: number
-  confirmedCount: number
-  confirmedTotal: string
-  pendingCount: number
-  conversionRate: number
+  hasMore: boolean
 }
 
-function project(page: { data: PaymentSession[] }): PaymentSessionsView {
-  const rows = page.data
-  const confirmedRows = rows.filter((s) => s.status === 'confirmed')
-  const confirmedTotalRaw = confirmedRows.reduce((sum, r) => sum + tokenAmountToNumber(r.amount), 0)
-  return {
-    rows,
-    total: rows.length,
-    confirmedCount: confirmedRows.length,
-    confirmedTotal: confirmedTotalRaw.toLocaleString(undefined, {
-      maximumFractionDigits: 2,
-    }),
-    pendingCount: rows.filter(
-      (s) => s.status === 'created' || s.status === 'awaiting_payment' || s.status === 'submitted',
-    ).length,
-    conversionRate: rows.length === 0 ? 0 : Math.round((100 * confirmedRows.length) / rows.length),
-  }
+function project(loaded: LoadedRows<PaymentSession>): PaymentSessionsView {
+  return { rows: loaded.rows, hasMore: loaded.hasMore }
 }
 
 export default function PaymentSessionsPage() {
@@ -94,13 +89,16 @@ export default function PaymentSessionsPage() {
     [statusFilter],
   )
 
-  const { data, isLoading, isError, error, refetch } = usePaymentSessions(queryParams, {
+  const sessionsQuery = usePaymentSessionPages(queryParams, {
     // `select` projects the page shape into the view-model the page
     // renders. The reference is stable across re-renders as long as
     // the underlying page didn't change. Saves the JSX from
     // re-deriving stats on every parent render.
     select: project,
   })
+  const { data, isLoading, isError, error, refetch } = sessionsQuery
+  const summaryQuery = useStatsSummary({ select: (summary) => summary.paymentSessions })
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
   const prefetch = usePrefetchPaymentSession()
   const cancelMutation = useCancelPaymentSession()
@@ -171,6 +169,7 @@ export default function PaymentSessionsPage() {
         enableSorting: false,
         cell: ({ row }) => {
           const session = row.original
+          const { onchainTxHash } = session
           const cancelable =
             session.status === 'created' ||
             session.status === 'awaiting_payment' ||
@@ -194,12 +193,12 @@ export default function PaymentSessionsPage() {
                 >
                   <Copy className="size-3" /> Copy ID
                 </DropdownMenuItem>
-                {session.onchainTxHash ? (
+                {onchainTxHash ? (
                   <DropdownMenuItem
                     className="-mt-2 text-xs"
                     onClick={() =>
                       navigator.clipboard
-                        .writeText(session.onchainTxHash!)
+                        .writeText(onchainTxHash)
                         .then(() => toast.success('Tx hash copied'))
                     }
                   >
@@ -209,7 +208,12 @@ export default function PaymentSessionsPage() {
                 {cancelable ? (
                   <DropdownMenuItem
                     className="-mt-2 text-xs text-rose-600 focus:text-rose-600"
-                    onClick={() => cancelMutation.mutate(session.id)}
+                    onClick={() =>
+                      setPendingConfirm({
+                        copy: cancelPaymentSessionConfirm(session),
+                        run: () => cancelMutation.mutate(session.id),
+                      })
+                    }
                     disabled={cancelMutation.isPending}
                   >
                     <Ban className="size-3" /> Cancel session
@@ -257,13 +261,25 @@ export default function PaymentSessionsPage() {
       />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Total sessions" value={data ? data.total.toLocaleString() : '—'} />
-        <Stat label="Confirmed" value={data ? `${data.confirmedTotal} USDC` : '—'} />
-        <Stat label="In-flight" value={data ? data.pendingCount.toLocaleString() : '—'} />
-        <Stat label="Conversion" value={data ? `${data.conversionRate}%` : '—'} />
+        <Stat
+          label="Total sessions"
+          value={summaryValue(summaryQuery, (d) => paymentSessionCards(d).total)}
+        />
+        <Stat
+          label="Confirmed"
+          value={summaryValue(summaryQuery, (d) => paymentSessionCards(d).confirmed)}
+        />
+        <Stat
+          label="In-flight"
+          value={summaryValue(summaryQuery, (d) => paymentSessionCards(d).inFlight)}
+        />
+        <Stat
+          label="Conversion"
+          value={summaryValue(summaryQuery, (d) => paymentSessionCards(d).conversion)}
+        />
       </div>
 
-      {isError ? (
+      {isError && !data ? (
         <ErrorBanner
           message={error?.message ?? 'Failed to load payment sessions'}
           onRetry={refetch}
@@ -276,6 +292,7 @@ export default function PaymentSessionsPage() {
           searchPlaceholder="Search by ID, description, customer wallet…"
           emptyTitle="No sessions"
           emptyDescription="Create a payment session via the API or SDK to see one appear here."
+          serverRows={serverRowsOf(sessionsQuery)}
           toolbar={
             <div className="flex flex-wrap items-center gap-1">
               {FILTER_OPTIONS.map((s) => (
@@ -285,7 +302,7 @@ export default function PaymentSessionsPage() {
                   className={[
                     'h-8 rounded-md border px-2.5 text-xs font-medium transition-colors',
                     statusFilter === s
-                      ? 'border-[#02C76A] bg-[#02C76A]/10 text-[#02C76A]'
+                      ? 'border-accent bg-accent/10 text-accent'
                       : 'border-border/60 hover:bg-muted',
                   ].join(' ')}
                 >
@@ -296,6 +313,8 @@ export default function PaymentSessionsPage() {
           }
         />
       )}
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
   )
 }

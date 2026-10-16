@@ -68,7 +68,6 @@ export type {
   // Inputs.
   CreatePaymentSessionInput,
   CreateSubscriptionPlanInput,
-  CreateSubscriptionInput,
   CreateRefundInput,
   CreateInvoiceInput,
   CreateAgentJobInput,

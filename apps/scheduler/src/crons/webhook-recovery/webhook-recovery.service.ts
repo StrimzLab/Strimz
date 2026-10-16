@@ -3,7 +3,7 @@ import { Cron } from '@nestjs/schedule'
 import { InjectQueue } from '@nestjs/bullmq'
 import type { Queue } from 'bullmq'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
-import { QUEUE_NAMES } from '../../infra/queue/queue-names.js'
+import { QUEUE_NAMES, webhookDeliveryJobSchema } from '@strimz/queue-contracts'
 
 const STRANDED_AFTER_MS = 2 * 60_000
 const MAX_AGE_MS = 7 * 24 * 60 * 60_000
@@ -27,7 +27,7 @@ export class WebhookRecoveryService {
   ) {}
 
   @Cron(process.env.WEBHOOK_RECOVERY_CRON || '30 * * * * *', { name: 'webhook-recovery' })
-  async sweep(): Promise<{ requeued: number }> {
+  sweep(): Promise<{ requeued: number }> {
     return this.sweepNow()
   }
 
@@ -38,7 +38,8 @@ export class WebhookRecoveryService {
       where: {
         status: { in: ['pending', 'retrying'] },
         createdAt: { gt: minCreated },
-        OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lt: cutoff } }],
+        endpoint: { status: 'active' },
+        OR: [{ nextAttemptAt: null, createdAt: { lt: cutoff } }, { nextAttemptAt: { lt: cutoff } }],
       },
       take: BATCH,
       include: { endpoint: true },
@@ -53,13 +54,13 @@ export class WebhookRecoveryService {
       })
       await this.deliveryQueue.add(
         'deliver',
-        {
+        webhookDeliveryJobSchema.parse({
           deliveryId: d.deliveryId,
           endpointId: d.endpointId,
           url: d.endpoint.url,
           signingSecretHash: d.endpoint.signingSecretHash,
           eventId: d.eventId,
-        },
+        }),
         { attempts: 1, removeOnComplete: 1_000, removeOnFail: 1_000 },
       )
       requeued++

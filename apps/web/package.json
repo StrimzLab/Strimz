@@ -9,8 +9,8 @@
     "build": "NODE_OPTIONS=--max-old-space-size=4096 next build",
     "dev": "next dev --port 3000",
     "start": "next start --port 3000",
-    "lint": "next lint",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "next typegen && tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
     "test:e2e": "playwright test",
     "clean": "rm -rf .next .turbo *.tsbuildinfo"
@@ -25,6 +25,7 @@
     "@strimz/sdk": "workspace:*",
     "@strimz/sdk-react": "workspace:*",
     "@strimz/shared-config": "workspace:*",
+    "@strimz/shared-crypto": "workspace:*",
     "@strimz/shared-types": "workspace:*",
     "@strimz/ui": "workspace:*",
     "@tanstack/react-query": "^5.62.16",

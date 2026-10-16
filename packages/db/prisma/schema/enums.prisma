@@ -36,8 +36,8 @@ enum MerchantStatus {
 
 enum MerchantTier {
   free
+  starter
   growth
-  business
   enterprise
 }
 
@@ -75,6 +75,10 @@ enum ApiKeyScope {
   relay_write
   api_keys_read
   api_keys_write
+  merchants_read
+  customers_read
+  customers_write
+  analytics_read
 }
 
 // ---------- Payment sessions ----------
@@ -149,11 +153,22 @@ enum SubscriptionChargeStatus {
   abandoned
 }
 
+/// One value per contract ChargeOutcome. Previously every non-billing
+/// outcome collapsed into `skipped`, which made it impossible to tell a
+/// retryable failure from a terminal one — or to measure whether charges
+/// were being dropped at all. `skipped` remains as the fallback for
+/// outcomes a future contract appends.
 enum SubscriptionChargeOutcome {
   charged
   insufficient_funds
   revoked_approval
   cancelled
+  not_due
+  ended
+  duplicate
+  unknown
+  merchant_inactive
+  transfer_failed
   skipped
 }
 
@@ -271,15 +286,25 @@ enum AgentActionOutcome {
   skipped
 }
 
+/// Off-chain job lifecycle. Deliberately NOT a 1:1 mirror of the
+/// contract's JobStatus: `accepted` is off-chain only (approved by the
+/// merchant, queued for on-chain creation) and has no on-chain
+/// counterpart. `funded`, `resolved` and `reclaimed` mirror the escrow's
+/// states — `resolved` (arbitrated split) and `reclaimed` (timeout
+/// recovery) are the escrow's only exits from a dispute or an abandoned
+/// job, so without them such jobs never reach a terminal status.
 enum AgentJobStatus {
   proposed
   accepted
+  funded
   in_progress
   delivered
   approved
   completed
   disputed
   cancelled
+  resolved
+  reclaimed
 }
 
 // ---------- Storefronts ----------

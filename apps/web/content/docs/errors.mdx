@@ -25,8 +25,13 @@ key support uses to find your request in the logs.
 | Code                    | HTTP | Meaning                                                                                            |
 | ----------------------- | ---- | -------------------------------------------------------------------------------------------------- |
 | `authentication_error`  | 401  | Missing, invalid, or expired auth token                                                            |
-| `permission_denied`     | 403  | Token is valid but lacks the required scope                                                        |
+| `permission_denied`     | 403  | Token is valid but lacks the required scope, or the route accepts only a dashboard session         |
+| `live_mode_ineligible`  | 403  | A live key was requested but the account fails a live-mode check; `details.reasons` lists which    |
+| `live_mode_unavailable` | 403  | A live key was requested while live mode is closed, before Strimz runs on Arc mainnet              |
+| `mode_unavailable`      | 403  | The key's mode is not this deployment's: test keys on the live API, or live keys on the sandbox    |
+| `plan_required`         | 403  | The feature needs a higher plan; `details.requiredPlan` names it                                   |
 | `merchant_not_synced`   | 401  | Privy session is valid but no Merchant row. Call `POST /v1/auth/sync` first.                       |
+| `secret_key_in_browser` | none | Thrown by `@strimz/sdk` when `StrimzClient` is constructed in a browser. No request is sent.       |
 | `not_found`             | 404  | Resource doesn't exist or isn't visible to your token                                              |
 | `invalid_request`       | 400  | Validation failure; `details.issues` has the Zod paths                                             |
 | `session_invalid_state` | 403  | The action conflicts with the resource's current status (e.g. cancelling an already-cancelled sub) |
@@ -49,6 +54,29 @@ key support uses to find your request in the logs.
 
 You forgot the `Authorization: Bearer …` header. Or the key is malformed.
 
+A publishable key sent to a route that needs a secret key gets the same code with this message:
+
+```json
+{
+  "error": {
+    "code": "authentication_error",
+    "message": "publishable keys can only call /v1/checkout and /v1/tokens; use a secret key from your server"
+  }
+}
+```
+
+Publishable keys only work with the public checkout and token routes. Make the call from your server with a secret key.
+
+### `secret_key_in_browser`
+
+This one never comes from the API. `@strimz/sdk` throws it as a `StrimzAuthenticationError`, with no `httpStatus`, when you construct `StrimzClient` with a secret key in a browser, a web worker, an Electron renderer, or a React Native app:
+
+```
+StrimzClient cannot run in a browser: secret keys must stay on your server. Create payment sessions from a server route and pass the session id to the browser. See https://strimz.finance/docs/checkout/server-sessions
+```
+
+Move the code that uses `StrimzClient` into a server route and rotate the key if it has already shipped to browsers. See [Create sessions on your server](/docs/checkout/server-sessions).
+
 ### `permission_denied`
 
 ```json
@@ -61,6 +89,78 @@ You forgot the `Authorization: Bearer …` header. Or the key is malformed.
 ```
 
 Your key has read access but not write. Re-issue with broader scopes from the dashboard.
+
+```json
+{
+  "error": {
+    "code": "permission_denied",
+    "message": "route requires a dashboard session"
+  }
+}
+```
+
+The route accepts only a dashboard session, whatever scopes your key holds. See [dashboard-only routes](/docs/authentication#dashboard-only-routes).
+
+### `live_mode_ineligible`
+
+```json
+{
+  "error": {
+    "code": "live_mode_ineligible",
+    "message": "merchant is not eligible for live mode",
+    "details": {
+      "reasons": [
+        {
+          "code": "mfa_required",
+          "message": "Enable two-factor authentication in your account settings."
+        }
+      ]
+    }
+  }
+}
+```
+
+Returned when creating or rotating a live key. Each reason's `code` is one of `email_unverified`, `mfa_required`, `onboarding_incomplete` or `payout_address_missing`. Complete the steps, then try again. See [live-mode eligibility](/docs/authentication#live-mode-eligibility).
+
+### `live_mode_unavailable`
+
+```json
+{
+  "error": {
+    "code": "live_mode_unavailable",
+    "message": "live mode is not available until Arc mainnet is configured"
+  }
+}
+```
+
+Live keys cannot be created or rotated until Strimz runs on Arc mainnet. Use test-mode keys until then.
+
+### `mode_unavailable`
+
+```json
+{
+  "error": {
+    "code": "mode_unavailable",
+    "message": "test keys are not accepted here; this Strimz deployment runs on Arc mainnet in live mode"
+  }
+}
+```
+
+Each deployment runs in one mode: the sandbox on Arc testnet in test mode, the live API on Arc mainnet in live mode. Send test keys to the sandbox and live keys to the live API.
+
+### `plan_required`
+
+```json
+{
+  "error": {
+    "code": "plan_required",
+    "message": "the storefront builder needs the Starter plan, which starts automatically once 1,000 USDC or EURC has been processed",
+    "details": { "feature": "storefront", "plan": "free", "requiredPlan": "starter" }
+  }
+}
+```
+
+The storefront builder, anomaly alerts and yield recommendations start on the Starter plan. Every merchant starts on Free. A merchant moves to Starter automatically once its all-time volume reaches 1,000 in USDC or in EURC; the two currencies are counted separately. `details.feature` is one of `storefront`, `anomaly_alerts` or `yield_recommendations`.
 
 ### `invalid_request`
 
@@ -112,7 +212,10 @@ Wait 30 seconds, then retry. The `@strimz/sdk` does this automatically.
 - **5xx errors.** Yes, with exponential backoff. The SDK handles this.
 - **`rate_limited`.** Yes, after `Retry-After`. The SDK handles this.
 - **`authentication_error`.** No. Your key needs to be fixed.
-- **`permission_denied`.** No. Your scope needs to change.
+- **`permission_denied`.** No. Your scope needs to change, or the route needs a dashboard session.
+- **`live_mode_ineligible`.** No. Complete the steps in `details.reasons` first.
+- **`live_mode_unavailable`.** No. Live mode is not open yet.
+- **`mode_unavailable`.** No. Send the key to the deployment that matches its mode.
 - **`invalid_request`.** No. Your payload needs to change.
 - **`session_invalid_state`.** No. The resource's state needs to change first.
 

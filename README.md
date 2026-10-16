@@ -304,7 +304,7 @@ checkout on Arc testnet.
 
 ### Deployed contracts (Arc testnet)
 
-Every address is source-verified on [ArcScan](https://testnet.arcscan.app).
+Every address is source-verified on [ArcScan](https://explorer.testnet.arc.io).
 
 | Contract            | Address                                      |
 | ------------------- | -------------------------------------------- |

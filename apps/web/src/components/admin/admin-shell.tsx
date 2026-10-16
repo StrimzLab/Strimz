@@ -14,7 +14,7 @@ import {
   Users2,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Button } from '@strimz/ui'
+import { Button, ThemeToggle } from '@strimz/ui'
 
 import { useAdminMe } from '@/hooks/admin'
 import { BlockieAvatar } from '@/components/dashboard/blockie-avatar'
@@ -111,7 +111,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     <div className="bg-background flex min-h-screen">
       <aside className="border-border/60 hidden w-60 border-r p-4 lg:flex lg:flex-col">
         <Link href="/admin" className="mb-6 flex items-center gap-2">
-          <span className="inline-block h-2 w-2 rounded-full bg-[#02C76A]" />
+          <span className="bg-accent inline-block h-2 w-2 rounded-full" />
           <span className="font-display font-semibold">Strimz Admin</span>
         </Link>
         <nav className="flex flex-1 flex-col gap-1">
@@ -127,7 +127,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 className={[
                   'group flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
                   active
-                    ? 'bg-[#02C76A]/10 font-medium text-[#02C76A]'
+                    ? 'bg-accent/10 text-accent font-medium'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 ].join(' ')}
               >
@@ -160,7 +160,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
           </Button>
         </div>
       </aside>
-      <main className="flex-1 overflow-y-auto p-6 sm:p-8">{children}</main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="border-border/60 flex h-14 shrink-0 items-center justify-end border-b px-6 sm:px-8">
+          <ThemeToggle />
+        </header>
+        <main className="flex-1 overflow-y-auto p-6 sm:p-8">{children}</main>
+      </div>
     </div>
   )
 }

@@ -9,9 +9,9 @@ export interface RecordedEmail {
 export class StubEmailService {
   public readonly sent: RecordedEmail[] = []
 
-  async send(options: RecordedEmail): Promise<{ id: string | null; queued: boolean }> {
+  send(options: RecordedEmail): Promise<{ id: string | null; queued: boolean }> {
     this.sent.push(options)
-    return { id: `mock_${this.sent.length}`, queued: true }
+    return Promise.resolve({ id: `mock_${this.sent.length}`, queued: true })
   }
 
   reset() {

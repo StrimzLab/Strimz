@@ -68,6 +68,7 @@ contract StrimzAgentEscrow is
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(UPGRADER_ROLE, admin);
+        _grantRole(PAUSER_ROLE, admin);
         _grantRole(DISPUTE_RESOLVER_ROLE, admin);
 
         Storage storage $ = _s();
@@ -79,7 +80,7 @@ contract StrimzAgentEscrow is
 
     function tokenWhitelist() external view returns (ITokenWhitelist) { return _s().tokenWhitelist; }
 
-    function setTokenWhitelist(ITokenWhitelist v) external onlyRole(ADMIN_ROLE) {
+    function setTokenWhitelist(ITokenWhitelist v) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (address(v) == address(0)) revert AgentEscrow__ZeroAddress();
         _s().tokenWhitelist = v;
         emit DependencyUpdated("tokenWhitelist", address(v));

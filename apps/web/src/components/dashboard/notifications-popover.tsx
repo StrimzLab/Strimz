@@ -67,7 +67,7 @@ export function NotificationsPopover() {
         >
           <Bell className="size-4" />
           {unread > 0 && (
-            <span className="absolute -right-1 -top-1 grid size-4 min-w-4 place-items-center rounded-full bg-[#02C76A] px-1 text-[9px] font-semibold text-white shadow">
+            <span className="bg-accent absolute -right-1 -top-1 grid size-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-semibold text-white shadow">
               {unread > 9 ? '9+' : unread}
             </span>
           )}
@@ -77,23 +77,25 @@ export function NotificationsPopover() {
       <DropdownMenuContent align="end" sideOffset={8} className="w-[380px] p-0">
         <DropdownMenuLabel className="border-border/60 flex items-center justify-between border-b p-4">
           <span className="font-poppins flex items-center gap-2 text-sm font-medium">
-            <Bell className="size-4 text-[#02C76A]" />
+            <Bell className="text-accent size-4" />
             Notifications
           </span>
-          <span className="font-poppins text-[10px] font-normal text-[#58556A]">
+          <span className="font-poppins text-muted-foreground text-[10px] font-normal">
             Refreshes every 30s
           </span>
         </DropdownMenuLabel>
 
         <div className="max-h-[60vh] overflow-y-auto">
           {query.isPending ? (
-            <div className="font-poppins p-8 text-center text-sm text-[#58556A]">Loading…</div>
+            <div className="font-poppins text-muted-foreground p-8 text-center text-sm">
+              Loading…
+            </div>
           ) : query.isError ? (
             <div className="font-poppins p-8 text-center text-sm text-rose-600">
               Couldn&apos;t load notifications.
             </div>
           ) : items.length === 0 ? (
-            <div className="font-poppins p-8 text-center text-sm text-[#58556A]">
+            <div className="font-poppins text-muted-foreground p-8 text-center text-sm">
               Nothing here yet. Notifications will appear as your customers start paying,
               subscribing, or refunding.
             </div>
@@ -108,21 +110,21 @@ export function NotificationsPopover() {
                       className="hover:bg-muted/40 flex items-start gap-3 p-4 transition-colors"
                     >
                       <div
-                        className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full ${!n.read ? 'bg-[#02C76A]/15 text-[#02C76A]' : 'bg-muted text-muted-foreground'}`}
+                        className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full ${!n.read ? 'bg-accent/15 text-accent' : 'bg-muted text-muted-foreground'}`}
                       >
                         <Icon className="size-4" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-poppins text-sm font-medium text-[#050020]">
+                          <p className="font-poppins text-foreground text-sm font-medium">
                             {n.title}
                           </p>
-                          {!n.read && <span className="size-1.5 rounded-full bg-[#02C76A]" />}
+                          {!n.read && <span className="bg-accent size-1.5 rounded-full" />}
                         </div>
-                        <p className="font-poppins mt-0.5 truncate text-xs text-[#58556A]">
+                        <p className="font-poppins text-muted-foreground mt-0.5 truncate text-xs">
                           {n.detail}
                         </p>
-                        <p className="font-poppins mt-1 text-[10px] text-[#58556A]">
+                        <p className="font-poppins text-muted-foreground mt-1 text-[10px]">
                           {formatDistanceToNow(new Date(n.createdAt), {
                             addSuffix: true,
                           })}
@@ -138,10 +140,10 @@ export function NotificationsPopover() {
 
         <DropdownMenuSeparator className="m-0" />
         <div className="flex items-center justify-between p-3">
-          <span className="font-poppins text-[10px] text-[#58556A]">
+          <span className="font-poppins text-muted-foreground text-[10px]">
             {items.length} recent activity item{items.length === 1 ? '' : 's'}
           </span>
-          <span className="flex items-center gap-1.5 text-[#02C76A]">
+          <span className="text-accent flex items-center gap-1.5">
             <CheckCircle2 className="size-3" />
             <span className="font-poppins text-[10px] font-medium">
               {unread === 0 ? 'All caught up' : `${unread} unread`}

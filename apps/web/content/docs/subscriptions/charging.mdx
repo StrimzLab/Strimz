@@ -7,6 +7,11 @@ The scheduler has a cron called the subscription sweeper. It runs every minute b
 
 This is the recurring-billing engine. The design is non-obvious in a couple of places, and the rest of this page names each part.
 
+<Callout type="warn" title="Missed periods are charged on recovery">
+  Until the updated subscriptions contract is deployed, a subscription that falls more than one
+  period behind is charged once for each missed period when it recovers, one charge per sweep.
+</Callout>
+
 ## The sweep query
 
 The SQL the sweeper runs:

@@ -35,20 +35,9 @@ After the 7-day retry, we stop. The subscription lapses, the `subscription.lapse
 
 The `gracePeriodHours` on a subscription is the upper bound on how long recovery can run.
 
-```ts
-await strimz.subscriptions.create({
-  planId: 'plan_…',
-  customerId: 'cust_…',
-  payerAddress: '0x…',
-  gracePeriodHours: 168,   // 7 days, matches the default schedule
-})
-```
+Every subscription gets 48 hours. Payers enrol through the plan's hosted-checkout link, and the subscription row is written when the enrolment confirms on chain, so there is no create call to pass a value to. No API, SDK, or dashboard setting changes it today.
 
-Default is 48 hours, which is shorter than the full 7-day retry window. The implication: a subscription with `gracePeriodHours: 48` would fire the 24-hour retry, but if the 72-hour retry would land after the 48-hour grace window, the subscription lapses without the 72-hour retry firing.
-
-For B2B SaaS, the right value is usually 168 hours (7 days) so all three retries get a chance. The 48-hour default exists for shorter-cycle products (daily / weekly plans) where a 7-day grace would feel longer than the cycle itself.
-
-You can pass `gracePeriodHours` at subscription create time via the SDK. The API doesn't expose it on `create` directly because subscriptions are created via the on-chain enrolment flow, not API call; the value gets read from the plan's metadata at enrolment time.
+48 hours is shorter than the full 7-day retry window. The implication: a subscription with `gracePeriodHours: 48` would fire the 24-hour retry, but if the 72-hour retry would land after the 48-hour grace window, the subscription lapses without the 72-hour retry firing.
 
 ## What fires on the customer's webhook endpoint
 
@@ -96,6 +85,6 @@ A bit of editorializing because it matters for your tuning.
 
 Failed-charge customers are not lost customers. The majority of them are valuable customers who hit a temporary issue. Stablecoin balances fluctuate; people forget to top up; payroll is late one week. Treating the first failed charge as "this customer just churned" is wrong; the first failed charge is "this customer probably needs a reminder."
 
-The recovery rate at week one is dramatically higher than at week two; the rate at week two is higher than at month one. The schedule is designed to maximize recovery without spamming. The default `gracePeriodHours` of 48 is too short for most B2B SaaS. Set it to 168.
+The recovery rate at week one is dramatically higher than at week two; the rate at week two is higher than at month one. The schedule is designed to maximize recovery without spamming. Today every subscription has a 48-hour grace window, which ends before the 7-day retry.
 
 If your product has a lot of failed-charge volume, the right move is upstream of Strimz: make "top up your wallet" a one-click flow inside your product. Don't make the customer leave to fix it. Strimz handles the retry mechanics; your product handles the recovery UX.

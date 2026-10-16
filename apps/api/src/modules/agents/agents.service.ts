@@ -1,18 +1,30 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
-import type {
-  AgentJob,
-  AgentMerchantConfig,
-  CreateAgentJobInput,
-  UpdateAgentConfigInput,
+import {
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common'
+import {
+  agentMerchantConfigSchema,
+  type AgentJob,
+  type AgentMerchantConfig,
+  type CreateAgentJobParsed,
+  type UpdateAgentConfigParsed,
 } from '@strimz/shared-types'
 import { AGENT_DEFAULTS } from '@strimz/shared-config'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
-import { QueueService, QUEUE_NAMES } from '../../infra/queue/queue.service.js'
+import { QueueService } from '../../infra/queue/queue.service.js'
+import { assertPlanIncludes } from '../../common/plans/plan-access.js'
+import { mergeAgentConfig } from './agent-config-merge.js'
+import { assertNewCapabilitiesAvailable } from './capability-availability.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 @Injectable()
 export class AgentsService {
+  private readonly log = new Logger(AgentsService.name)
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly queue: QueueService,
@@ -29,32 +41,56 @@ export class AgentsService {
     return serialiseConfig(row)
   }
 
-  async updateConfig(
-    merchantId: string,
-    input: UpdateAgentConfigInput,
-  ): Promise<AgentMerchantConfig> {
-    await this.prisma.db.agentMerchantConfig.upsert({
-      where: { merchantId },
-      create: { merchantId, enabledCapabilities: [] },
-      update: {},
+  updateConfig(merchantId: string, input: UpdateAgentConfigParsed): Promise<AgentMerchantConfig> {
+    return this.prisma.db.$transaction(async (tx) => {
+      await tx.agentMerchantConfig.upsert({
+        where: { merchantId },
+        create: { merchantId, enabledCapabilities: [] },
+        update: {},
+      })
+      await tx.$queryRaw`SELECT id FROM "AgentMerchantConfig" WHERE "merchantId" = ${merchantId} FOR UPDATE`
+      const stored = await tx.agentMerchantConfig.findUniqueOrThrow({ where: { merchantId } })
+      const current = serialiseConfig(stored)
+      assertNewCapabilitiesAvailable(current.enabledCapabilities, input.enabledCapabilities)
+      const merged = agentMerchantConfigSchema.safeParse(mergeAgentConfig(current, input))
+      if (!merged.success) {
+        this.log.error(
+          `stored agent config for merchant ${merchantId} fails the schema: ${merged.error.message}`,
+        )
+        throw new InternalServerErrorException({
+          code: 'internal_error',
+          message: 'stored agent config is invalid',
+        })
+      }
+      const config = merged.data
+      const { tier } = await tx.merchant.findUniqueOrThrow({
+        where: { id: merchantId },
+        select: { tier: true },
+      })
+      if (config.cashflow.autoConvertToYield && !current.cashflow.autoConvertToYield) {
+        assertPlanIncludes(tier, 'yield_recommendations')
+      }
+      if (config.cashflow.anomalySensitivity !== current.cashflow.anomalySensitivity) {
+        assertPlanIncludes(tier, 'anomaly_alerts')
+      }
+      const updated = await tx.agentMerchantConfig.update({
+        where: { merchantId },
+        data: {
+          enabledCapabilities: config.enabledCapabilities,
+          recoveryGracePeriodHours: config.recovery.gracePeriodHours,
+          recoveryStrategy: config.recovery.strategy,
+          recoveryNotificationTemplate: config.recovery.notificationTemplate,
+          cashflowDigestEnabled: config.cashflow.digestEnabled,
+          cashflowAnomalySensitivity: config.cashflow.anomalySensitivity,
+          cashflowAutoConvertToYield: config.cashflow.autoConvertToYield,
+          cashflowMinimumLiquidReserveCents: config.cashflow.minimumLiquidReserveCents,
+          commerceHumanApprovalAboveUsdCents: config.commerce.requireHumanApprovalAboveUsdCents,
+          commerceApprovedVendors: config.commerce.approvedVendors,
+          commerceMonthlySpendCapUsdCents: config.commerce.monthlySpendCapUsdCents,
+        },
+      })
+      return serialiseConfig(updated)
     })
-    const updated = await this.prisma.db.agentMerchantConfig.update({
-      where: { merchantId },
-      data: {
-        enabledCapabilities: input.enabledCapabilities as never,
-        recoveryGracePeriodHours: input.recovery?.gracePeriodHours,
-        recoveryStrategy: input.recovery?.strategy,
-        recoveryNotificationTemplate: input.recovery?.notificationTemplate ?? undefined,
-        cashflowDigestEnabled: input.cashflow?.digestEnabled,
-        cashflowAnomalySensitivity: input.cashflow?.anomalySensitivity,
-        cashflowAutoConvertToYield: input.cashflow?.autoConvertToYield,
-        cashflowMinimumLiquidReserveCents: input.cashflow?.minimumLiquidReserveCents,
-        commerceHumanApprovalAboveUsdCents: input.commerce?.requireHumanApprovalAboveUsdCents,
-        commerceApprovedVendors: input.commerce?.approvedVendors as never,
-        commerceMonthlySpendCapUsdCents: input.commerce?.monthlySpendCapUsdCents ?? undefined,
-      },
-    })
-    return serialiseConfig(updated)
   }
 
   // ----- Activity -----
@@ -103,7 +139,7 @@ export class AgentsService {
     return serialiseJob(row)
   }
 
-  async createJob(merchantId: string, input: CreateAgentJobInput): Promise<AgentJob> {
+  async createJob(merchantId: string, input: CreateAgentJobParsed): Promise<AgentJob> {
     const cfg = await this.retrieveConfig(merchantId)
 
     if (!cfg.enabledCapabilities.includes('commerce')) {
@@ -130,7 +166,13 @@ export class AgentsService {
         where: {
           merchantId,
           createdAt: { gte: monthStart },
-          status: { notIn: ['cancelled', 'disputed'] },
+          // Exclude jobs whose escrow was returned to the client.
+          // `reclaimed` is a full timeout refund and `cancelled` a
+          // pre-start refund — counting either against the cap charges
+          // the merchant budget for money that came back. `resolved` is
+          // a partial split, so it stays counted until the split amounts
+          // are projected onto the row.
+          status: { notIn: ['cancelled', 'disputed', 'reclaimed'] },
         },
         select: { amount: true },
       })
@@ -177,7 +219,7 @@ export class AgentsService {
     })
 
     if (row.status === 'accepted') {
-      await this.queue.queue(QUEUE_NAMES.agentAction).add('job.create-onchain', { jobId: row.id })
+      await this.queue.addAgentAction({ type: 'job.create-onchain', jobId: row.id })
     }
     return serialiseJob(row)
   }
@@ -199,7 +241,7 @@ export class AgentsService {
         message: `cannot approve a job in status ${row.status}`,
       })
     }
-    await this.queue.queue(QUEUE_NAMES.agentAction).add('job.create-onchain', { jobId: row.id })
+    await this.queue.addAgentAction({ type: 'job.create-onchain', jobId: row.id })
     const updated = await this.prisma.db.agentJob.findUniqueOrThrow({ where: { id: row.id } })
     return serialiseJob(updated)
   }

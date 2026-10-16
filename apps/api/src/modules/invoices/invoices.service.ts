@@ -1,7 +1,8 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
-import type { CreateInvoiceInput, Invoice, Mode } from '@strimz/shared-types'
-import { effectiveFeeBps } from '@strimz/shared-config'
+import type { CreateInvoiceParsed, Invoice, Mode } from '@strimz/shared-types'
+import type { Prisma } from '@strimz/db'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
 import { TypedConfigService } from '../../config/index.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
@@ -24,59 +25,64 @@ export class InvoicesService {
   async create(
     merchantId: string,
     mode: 'test' | 'live',
-    input: CreateInvoiceInput,
+    input: CreateInvoiceParsed,
   ): Promise<Invoice> {
     // Every invoice backs a real PaymentSession that funnels through the
     // hosted checkout, so the merchant needs a chain merchant id no
     // matter which mode we are in. Currently only Arc testnet is live;
     // when mainnet lands we'll route by mode to the right Registry.
-    await this.merchantChain.ensureRegistered(merchantId)
+    await this.merchantChain.requestRegistration(merchantId)
 
     const subtotal = input.lineItems
       .reduce((acc, li) => acc + BigInt(li.unitAmount) * BigInt(li.quantity), 0n)
       .toString()
     const total = subtotal // No taxes / discounts in M1.
-    const dueAt = new Date(Date.now() + (input.dueInDays ?? 7) * 86_400_000)
-    const number = await this.nextInvoiceNumber(merchantId)
+    assertMinimumAmount(total)
+    const dueAt = new Date(Date.now() + input.dueInDays * 86_400_000)
 
     const merchant = await this.prisma.db.merchant.findUniqueOrThrow({ where: { id: merchantId } })
-    const feeBps = effectiveFeeBps(merchant.tier as never, 'one_shot') ?? 150
+    const feeBps = await this.merchantChain.feeBpsFor(merchant)
     const feeAmount = (BigInt(total) * BigInt(feeBps)) / 10_000n
     const netAmount = BigInt(total) - feeAmount
 
-    const session = await this.prisma.db.paymentSession.create({
-      data: {
-        merchantId,
-        amount: total,
-        currency: input.currency,
-        feeAmount: feeAmount.toString(),
-        netAmount: netAmount.toString(),
-        description: `Invoice ${number}`,
-        checkoutUrl: '',
-        mode,
-        expiresAt: dueAt,
-      },
-    })
-    await this.prisma.db.paymentSession.update({
-      where: { id: session.id },
-      data: { checkoutUrl: this.buildCheckoutUrl(session.id) },
-    })
+    const invoice = await this.prisma.db.$transaction(async (tx) => {
+      await tx.$queryRawUnsafe(`SELECT id FROM "Merchant" WHERE id = $1 FOR UPDATE`, merchantId)
+      const number = await this.nextInvoiceNumber(tx, merchantId)
 
-    const invoice = await this.prisma.db.invoice.create({
-      data: {
-        merchantId,
-        number,
-        customerName: input.customerName ?? null,
-        customerEmail: input.customerEmail ?? null,
-        lineItems: input.lineItems as never,
-        subtotal,
-        total,
-        currency: input.currency,
-        note: input.note ?? null,
-        sessionId: session.id,
-        mode,
-        dueAt,
-      },
+      const session = await tx.paymentSession.create({
+        data: {
+          merchantId,
+          amount: total,
+          currency: input.currency,
+          feeAmount: feeAmount.toString(),
+          netAmount: netAmount.toString(),
+          description: `Invoice ${number}`,
+          checkoutUrl: '',
+          mode,
+          expiresAt: dueAt,
+        },
+      })
+      await tx.paymentSession.update({
+        where: { id: session.id },
+        data: { checkoutUrl: this.buildCheckoutUrl(session.id) },
+      })
+
+      return tx.invoice.create({
+        data: {
+          merchantId,
+          number,
+          customerName: input.customerName ?? null,
+          customerEmail: input.customerEmail ?? null,
+          lineItems: input.lineItems as never,
+          subtotal,
+          total,
+          currency: input.currency,
+          note: input.note ?? null,
+          sessionId: session.id,
+          mode,
+          dueAt,
+        },
+      })
     })
 
     void this.events
@@ -173,10 +179,16 @@ export class InvoicesService {
 
   // ----- Helpers -----
 
-  private async nextInvoiceNumber(merchantId: string): Promise<string> {
-    const count = await this.prisma.db.invoice.count({ where: { merchantId } })
+  private async nextInvoiceNumber(
+    tx: Prisma.TransactionClient,
+    merchantId: string,
+  ): Promise<string> {
+    const [row] = await tx.$queryRawUnsafe<Array<{ last: number }>>(
+      `SELECT COALESCE(MAX(SPLIT_PART(number, '-', 2)::int), 0)::int AS last FROM "Invoice" WHERE "merchantId" = $1`,
+      merchantId,
+    )
     const year = new Date().getFullYear()
-    return `${year}-${String(count + 1).padStart(4, '0')}`
+    return `${year}-${String((row?.last ?? 0) + 1).padStart(4, '0')}`
   }
 
   private buildCheckoutUrl(sessionId: string): string {

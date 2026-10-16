@@ -57,6 +57,8 @@ contract DeployCore is Script {
         FeeCollector(feeCollector).grantRole(accruerRole, address(payments));
         FeeCollector(feeCollector).grantRole(accruerRole, address(subs));
 
+        StrimzRegistry(registry).initializeRoleAdmins();
+
         // Optional initial token allowlist seeding. USDC and EURC on Arc both
         // implement EIP-2612 (permit) and EIP-3009 (transfer-with-authorisation),
         // so the capability bitmap is the union of the two flags.
@@ -87,7 +89,7 @@ contract DeployCore is Script {
             DeploymentLog.Entry("FeeCollector", feeCollector, Upgrades.getImplementationAddress(feeCollector));
         entries[3] = DeploymentLog.Entry("StrimzPayments", address(payments), address(payments));
         entries[4] = DeploymentLog.Entry("StrimzSubscriptions", address(subs), address(subs));
-        DeploymentLog.append("core", entries);
+        DeploymentLog.append("core", admin, entries);
 
         console2.log("Core deployment recorded in deployments/<chainId>.jsonl");
     }

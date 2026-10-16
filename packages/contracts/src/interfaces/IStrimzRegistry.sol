@@ -37,7 +37,6 @@ interface IStrimzRegistry {
     );
     event MerchantPayoutChangeCancelled(uint256 indexed merchantId);
     event MerchantFeeBpsUpdated(uint256 indexed merchantId, uint16 newFeeBps);
-    event MerchantMaxFeeBpsLowered(uint256 indexed merchantId, uint16 newMaxFeeBps);
     event MerchantActiveSet(uint256 indexed merchantId, bool active);
     event MerchantOwnershipTransferInitiated(
         uint256 indexed merchantId, address indexed currentOwner, address indexed pendingOwner
@@ -56,13 +55,13 @@ interface IStrimzRegistry {
     error Registry__NoPendingTransfer();
     error Registry__FeeTooHigh(uint16 feeBps);
     error Registry__FeeExceedsMax(uint16 requested, uint16 max);
-    error Registry__MaxFeeCanOnlyLower();
     error Registry__MerchantInactive(uint256 merchantId);
     error Registry__UnknownParentMerchant(uint256 parentMerchantId);
     error Registry__SameOwner();
     error Registry__SamePayoutAddress();
     error Registry__NoPendingPayoutChange();
     error Registry__PayoutChangeNotDue();
+    error Registry__OwnershipTransferNotDue();
 
     // solhint-disable-next-line func-name-mixedcase
     // forge-lint: disable-next-line(mixed-case-function)
@@ -80,6 +79,7 @@ interface IStrimzRegistry {
         address owner,
         address payoutAddress,
         uint16 feeBps,
+        uint16 maxFeeBps,
         uint256 parentMerchantId
     ) external returns (uint256 merchantId);
 
@@ -88,11 +88,6 @@ interface IStrimzRegistry {
     ///         registration. Prevents a compromised admin from hiking
     ///         fees platform-wide.
     function setFeeBps(uint256 merchantId, uint16 newFeeBps) external;
-
-    /// @notice Merchant owner lowers their own max-fee ceiling. Cannot
-    ///         raise — that would defeat the ceiling's purpose. To lift
-    ///         the ceiling a merchant re-registers under new terms.
-    function setMaxFeeBps(uint256 merchantId, uint16 newMaxFeeBps) external;
 
     function setActive(uint256 merchantId, bool active) external;
 
@@ -111,6 +106,8 @@ interface IStrimzRegistry {
     ///         issued by an attacker before the key was revoked.
     function cancelPayoutAddressChange(uint256 merchantId) external;
 
+    function adminCancelPayoutChange(uint256 merchantId) external;
+
     /// @notice Nominate a new owner. Current owner stays in charge
     ///         until the nominee calls `acceptMerchantOwnership`.
     function transferMerchantOwnership(uint256 merchantId, address newOwner) external;
@@ -121,7 +118,10 @@ interface IStrimzRegistry {
     /// @notice Current owner drops a pending nomination.
     function cancelOwnershipTransfer(uint256 merchantId) external;
 
+    function adminCancelOwnershipTransfer(uint256 merchantId) external;
+
     function pendingOwnerOf(uint256 merchantId) external view returns (address);
+    function pendingOwnerAcceptableAt(uint256 merchantId) external view returns (uint64);
 
     function getMerchant(uint256 merchantId) external view returns (Merchant memory);
     function requireActiveMerchant(uint256 merchantId) external view returns (Merchant memory);

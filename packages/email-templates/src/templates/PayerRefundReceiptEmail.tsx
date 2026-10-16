@@ -91,7 +91,7 @@ PayerRefundReceiptEmail.PreviewProps = {
   sessionId: 'cmr8m3hg20004jy6lprky8ao7',
   network: 'Arc Testnet',
   explorerTxUrl:
-    'https://testnet.arcscan.app/tx/0x4d328b9b2590614e51c9401a06b3b643e401965972a2494ce593edf71b251907',
+    'https://explorer.testnet.arc.io/tx/0x4d328b9b2590614e51c9401a06b3b643e401965972a2494ce593edf71b251907',
 } as PayerRefundReceiptEmailProps
 
 export default PayerRefundReceiptEmail

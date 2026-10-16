@@ -45,7 +45,6 @@ export const httpUrlSchema = z.string().url()
 export const tokenAmountSchema = z
   .string()
   .regex(/^[0-9]+$/, 'must be a non-negative integer string (base-10)')
-  .refine((v) => BigInt(v) >= 0n, 'must be >= 0')
 
 /** Unsigned integer up to 2^53 - 1; validated and returned as number. */
 export const uintSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)
@@ -66,7 +65,8 @@ export const paginationInputSchema = z.object({
   limit: z.number().int().min(1).max(100).default(25),
   cursor: z.string().min(1).max(200).nullish(),
 })
-export type PaginationInput = z.infer<typeof paginationInputSchema>
+export type PaginationInput = z.input<typeof paginationInputSchema>
+export type PaginationParsed = z.output<typeof paginationInputSchema>
 
 /** Pagination envelope used by every list response. */
 export const makePaginatedSchema = <T extends z.ZodTypeAny>(item: T) =>
@@ -98,7 +98,7 @@ export const tokenSymbolSchema = z.enum(['USDC', 'EURC', 'USYC'])
 export type TokenSymbol = z.infer<typeof tokenSymbolSchema>
 
 /** Merchant tier enum. */
-export const merchantTierSchema = z.enum(['free', 'growth', 'business', 'enterprise'])
+export const merchantTierSchema = z.enum(['free', 'starter', 'growth', 'enterprise'])
 export type MerchantTier = z.infer<typeof merchantTierSchema>
 
 /** Arc environment enum. */

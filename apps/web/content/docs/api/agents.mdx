@@ -38,6 +38,8 @@ PATCH /v1/agents/config
 
 Partial update. Only the keys you send are applied.
 
+Anomaly alerts and yield recommendations start on the Starter plan. On Free, changing `cashflow.anomalySensitivity` or turning on `cashflow.autoConvertToYield` answers `403 plan_required`, and the agent skips both checks. The cash-flow digest works on every plan.
+
 ## Activity log
 
 ```http
@@ -46,7 +48,20 @@ GET /v1/agents/activity?capability=recovery&outcome=success
 
 Returns chronological agent actions. Filter by `capability`, `actionType`, `outcome`, `subscriptionId`, `transactionId`, `jobId`.
 
+`metadata` is a flat object. Token amounts are base-unit strings (6 decimals), one key per currency, and USDC and EURC are never added together; `...Cents` values are USD cents. Reports count live-mode activity only, except commerce (see below).
+
+| `actionType`                                        | Money keys in `metadata`                                                                                                              |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `cashflow_digest_sent`                              | `revenueUsdc`, `revenueEurc`, `feesUsdc`, `feesEurc`, `netUsdc`, `netEurc`, plus `count` and `uniqueCustomers` across both currencies |
+| `cashflow_anomaly_flagged`                          | `currency`, `actualRevenue`, `expectedMean`, `stddev` in that currency, plus `zScore`. One row per currency and hour                  |
+| `cashflow_yield_converted`                          | `balanceCents`, `surplusCents`, `reserveCents` from USDC only, plus `eurcBalance`                                                     |
+| `commerce_job_completed` (`stage: monthly_summary`) | `spendUsdc`, `spendEurc`; `capUtilisationPct` counts USDC only. Commerce jobs carry no mode, so test jobs are included                |
+
+Rows written before 2026-10 carry `revenue`, `fees`, `net` and `totalSpendCents` instead, with both currencies added together.
+
 ## Jobs
+
+Agent escrow (the `commerce` capability) is coming soon and not available at launch. `POST /v1/agents/jobs` and `POST /v1/agents/jobs/{id}/approve` answer `403 capability_unavailable`, and so does turning on `commerce` through `PATCH /v1/agents/config`. The list and retrieve endpoints still answer.
 
 ```http
 POST /v1/agents/jobs
@@ -74,5 +89,7 @@ POST /v1/agents/jobs/{id}/approve
 | `agent.job_proposed`    | A job needs human approval                |
 | `agent.job_completed`   | A job's escrow was released to the vendor |
 | `agent.job_disputed`    | A job was disputed                        |
+
+The three `agent.job_*` events are not sent while agent escrow is unavailable, and the dashboard does not offer them.
 
 See [The AutoPay Agent](/docs/guides/agent) for the capability-by-capability breakdown.

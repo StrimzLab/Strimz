@@ -6,13 +6,12 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { WebhookSigningService } from '../../infra/webhook-signing/signing.service.js'
 import { WebhookSecretCache } from '../../infra/webhook-signing/secret-cache.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
-import { QUEUE_NAMES } from '../../infra/queue/queue-names.js'
-import {
-  webhookDeliveryJobSchema,
-  type WebhookDeliveryJob,
-} from '../../infra/queue/job-payloads.js'
+import { WebhookTransport } from '../../infra/webhook-transport/webhook-transport.service.js'
+import { QUEUE_NAMES } from '@strimz/queue-contracts'
+import { webhookDeliveryJobSchema, type WebhookDeliveryJob } from '@strimz/queue-contracts'
 
-const RETRY_BACKOFF_MS = [60_000, 300_000, 1_800_000, 7_200_000, 43_200_000] // 1m, 5m, 30m, 2h, 12h
+const MAX_BACKOFF_MS = 43_200_000
+const RETRY_BACKOFF_MS = [60_000, 300_000, 1_800_000, 7_200_000, MAX_BACKOFF_MS] // 1m, 5m, 30m, 2h, 12h
 
 /**
  * Auto-disable an endpoint after this many permanent failures land in a
@@ -54,6 +53,7 @@ export class WebhookDeliveryWorker extends WorkerHost {
     private readonly secrets: WebhookSecretCache,
     private readonly email: EmailService,
     private readonly cfg: TypedConfigService,
+    private readonly transport: WebhookTransport,
     @InjectQueue(QUEUE_NAMES.webhookDelivery)
     private readonly retryQueue: Queue<WebhookDeliveryJob>,
   ) {
@@ -92,8 +92,7 @@ export class WebhookDeliveryWorker extends WorkerHost {
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), this.cfg.env.WEBHOOK_DELIVERY_TIMEOUT_MS)
       try {
-        const res = await fetch(endpoint.url, {
-          method: 'POST',
+        const res = await this.transport.post(endpoint.url, {
           headers: {
             'Content-Type': 'application/json',
             'User-Agent': 'Strimz/1.0',
@@ -108,7 +107,7 @@ export class WebhookDeliveryWorker extends WorkerHost {
           signal: controller.signal,
         })
         httpStatus = res.status
-        responseBody = (await res.text()).slice(0, 4_000)
+        responseBody = res.body
       } finally {
         clearTimeout(timeout)
       }
@@ -149,7 +148,7 @@ export class WebhookDeliveryWorker extends WorkerHost {
 
     // Backoff for the wait AFTER attempt N is index N-1 (attempt 1 → 1m).
     const nextAttempt = delivery.attempt + 1
-    const backoff = RETRY_BACKOFF_MS[delivery.attempt - 1] ?? RETRY_BACKOFF_MS.at(-1)!
+    const backoff = RETRY_BACKOFF_MS[delivery.attempt - 1] ?? MAX_BACKOFF_MS
     const nextAttemptAt = new Date(Date.now() + backoff)
     await this.prisma.db.webhookDelivery.update({
       where: { id: delivery.id },

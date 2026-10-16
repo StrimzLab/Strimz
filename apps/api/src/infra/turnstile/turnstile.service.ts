@@ -17,6 +17,9 @@ export class TurnstileService {
 
   constructor(cfg: TypedConfigService) {
     this.secretKey = cfg.env.TURNSTILE_SECRET_KEY
+    if (!this.secretKey && cfg.env.NODE_ENV === 'production') {
+      throw new Error('TURNSTILE_SECRET_KEY is required when NODE_ENV=production')
+    }
     if (!this.secretKey) {
       this.log.warn('TURNSTILE_SECRET_KEY not set — bot-protection is disabled (OK in dev / test).')
     }

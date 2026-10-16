@@ -1,10 +1,12 @@
 import {
   merchantPublicBrandSchema,
   paymentSessionSchema,
+  subscriptionEnrolmentTermsSchema,
   subscriptionPlanSchema,
   subscriptionStatusResultSchema,
   type MerchantPublicBrand,
   type PaymentSession,
+  type SubscriptionEnrolmentTerms,
   type SubscriptionPlan,
   type SubscriptionStatusResult,
 } from '@strimz/shared-types'
@@ -45,6 +47,13 @@ export class CheckoutResource extends BaseResource {
     return this.get(
       `/v1/checkout/plans/${encodeURIComponent(planId)}/subscription?payer=${encodeURIComponent(payer)}`,
       subscriptionStatusResultSchema,
+    )
+  }
+
+  planTerms(planId: string, payer: string): Promise<SubscriptionEnrolmentTerms> {
+    return this.get(
+      `/v1/checkout/plans/${encodeURIComponent(planId)}/terms?payer=${encodeURIComponent(payer)}`,
+      subscriptionEnrolmentTermsSchema,
     )
   }
 }

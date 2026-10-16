@@ -6,11 +6,11 @@
  * external SDK with internal types.
  */
 
-import type { Merchant } from '@strimz/shared-types'
+import type { CurrencyAmounts, Merchant, Mode, PaymentCurrency } from '@strimz/shared-types'
 
 export type AdminRole = 'super_admin' | 'admin' | 'read_only'
 export type AdminUserStatus = 'active' | 'suspended'
-export type MerchantTier = 'free' | 'growth' | 'business' | 'enterprise'
+export type MerchantTier = 'free' | 'starter' | 'growth' | 'enterprise'
 export type MerchantStatus = 'active' | 'suspended' | 'closed'
 
 export interface AdminProfile {
@@ -26,9 +26,12 @@ export interface AdminProfile {
 export interface AdminListItem extends AdminProfile {
   invitedAt: string
   invitedBy: { id: string; email: string } | null
+  invitePending: boolean
+  inviteExpiresAt: string | null
 }
 
 export interface PlatformOverview {
+  mode: Mode
   merchants: {
     total: number
     byStatus: Record<string, number>
@@ -36,15 +39,15 @@ export interface PlatformOverview {
   }
   volume: {
     /** 6-decimal raw integer string. USDC. */
-    lifetimeUsdc: string
-    lifetimeFeesUsdc: string
-    last30dUsdc: string
+    lifetime: CurrencyAmounts
+    lifetimeFees: CurrencyAmounts
+    last30d: CurrencyAmounts
     confirmedSessions: number
   }
   subscriptions: {
     active: number
     /** 6-decimal raw integer string. USDC. */
-    mrrUsdc: string
+    mrr: CurrencyAmounts
   }
 }
 
@@ -84,18 +87,20 @@ export interface AdminMerchantDetail extends Pick<
   onchainMerchantId: number | null
   lastLoginAt: string | null
   stats: {
+    mode: Mode
     confirmedPayments: number
     activeSubscriptions: number
     /** 6-decimal raw integer string. */
-    lifetimeVolumeUsdc: string
+    lifetimeVolume: CurrencyAmounts
     /** 6-decimal raw integer string. */
-    last30dVolumeUsdc: string
+    last30dVolume: CurrencyAmounts
   }
 }
 
 export interface VolumePoint {
   /** ISO date `YYYY-MM-DD` */
   day: string
+  currency: PaymentCurrency
   /** 6-decimal raw integer string. */
   volume: string
   /** 6-decimal raw integer string. */
@@ -104,6 +109,7 @@ export interface VolumePoint {
 }
 
 export interface VolumeSeriesResponse {
+  mode: Mode
   from: string
   to: string
   data: VolumePoint[]
@@ -125,11 +131,13 @@ export interface TopMerchant {
   businessName: string | null
   email: string
   /** 6-decimal raw integer string. */
-  volumeUsdc: string
+  volume: string
   transactionCount: number
 }
 
 export interface TopMerchantsResponse {
+  mode: Mode
+  currency: PaymentCurrency
   data: TopMerchant[]
 }
 
@@ -156,7 +164,7 @@ export interface SetMerchantStatusInput {
 }
 
 export interface SetMerchantTierInput {
-  tier: MerchantTier
+  tier: 'enterprise'
 }
 
 export interface InviteAdminInput {
@@ -192,11 +200,4 @@ export interface Broadcast {
 
 export interface BroadcastListResponse {
   data: Broadcast[]
-}
-
-export interface CreateBroadcastInput {
-  title: string
-  body: string
-  audience: BroadcastAudience
-  merchantId?: string
 }

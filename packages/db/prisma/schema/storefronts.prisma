@@ -39,6 +39,7 @@ model StorefrontProduct {
   updatedAt       DateTime              @updatedAt
 
   storefront      Storefront            @relation(fields: [storefrontId], references: [id], onDelete: Cascade)
+  sessions        PaymentSession[]
 
   @@index([storefrontId, isActive, sortOrder])
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/StrimzLab/strimz/apps/indexer/internal/chain"
 	"github.com/StrimzLab/strimz/apps/indexer/internal/config"
 )
 
@@ -47,7 +48,11 @@ func (f *fakeChain) BlockHash(ctx context.Context, blockNumber uint64) (string, 
 	return fmt.Sprintf("0x%064x", blockNumber), nil
 }
 
+func (f *fakeChain) ChainID(ctx context.Context) (uint64, error) { return 5042002, nil }
+
 func (f *fakeChain) Close() {}
+
+func (f *fakeChain) Pin() chain.Client { return f }
 
 func TestTick_DoesNothingWhenChainBelowConfirmationWindow(t *testing.T) {
 	c := &fakeChain{head: 3}

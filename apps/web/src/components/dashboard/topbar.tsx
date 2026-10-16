@@ -12,6 +12,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  ThemeToggle,
 } from '@strimz/ui'
 import { cn } from '@strimz/ui'
 import { runDashboardTour } from '@/hooks/use-dashboard-tour'
@@ -102,7 +103,7 @@ export function DashboardTopbar({ title, onMenuClick, menuOpen }: Props) {
               onClick={copyAddress}
               className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-xs transition-colors"
             >
-              <span className="size-1.5 rounded-full bg-[#02C76A]" />
+              <span className="bg-accent size-1.5 rounded-full" />
               {wallet.slice(0, 8)}…{wallet.slice(-6)}
               <span className="opacity-60">{copied ? '· copied!' : '· copy'}</span>
             </button>
@@ -115,12 +116,13 @@ export function DashboardTopbar({ title, onMenuClick, menuOpen }: Props) {
         <button
           type="button"
           onClick={() => runDashboardTour()}
-          className="hover:shadow-sub-icon border-border/60 inline-flex h-9 items-center gap-1.5 rounded-md border bg-white px-2 text-xs font-medium text-[#050020] transition-colors hover:bg-[#F9FAFB] sm:px-3"
+          className="hover:shadow-sub-icon border-border/60 bg-card text-foreground hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition-colors sm:px-3"
           aria-label="Take the dashboard tour"
         >
-          <Sparkles className="size-3.5 text-[#02C76A]" />
+          <Sparkles className="text-accent size-3.5" />
           <span className="hidden sm:inline">Take a tour</span>
         </button>
+        <ThemeToggle />
         <NotificationsPopover />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -136,11 +138,11 @@ export function DashboardTopbar({ title, onMenuClick, menuOpen }: Props) {
             <DropdownMenuLabel className="flex items-center gap-2">
               <BlockieAvatar seed={avatarSeed} size={28} />
               <div className="flex min-w-0 flex-col leading-tight">
-                <span className="font-poppins truncate text-xs font-medium text-[#050020]">
+                <span className="font-poppins text-foreground truncate text-xs font-medium">
                   {email ?? 'Account'}
                 </span>
                 {wallet && (
-                  <span className="font-mono text-[10px] text-[#58556A]">
+                  <span className="text-muted-foreground font-mono text-[10px]">
                     {wallet.slice(0, 6)}…{wallet.slice(-4)}
                   </span>
                 )}
