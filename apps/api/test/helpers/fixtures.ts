@@ -134,6 +134,8 @@ export function seedTransaction(
     blockTimestamp: Date
     merchantAddress: string
     currency: 'USDC' | 'EURC'
+    sessionId: string
+    subscriptionId: string
   }> = {},
 ) {
   return prisma.transaction.create({
@@ -153,6 +155,8 @@ export function seedTransaction(
       status: overrides.status ?? 'confirmed',
       mode: overrides.mode ?? 'test',
       customerId: overrides.customerId ?? null,
+      sessionId: overrides.sessionId ?? null,
+      subscriptionId: overrides.subscriptionId ?? null,
     },
   })
 }

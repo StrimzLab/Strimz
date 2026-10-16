@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { idSchema } from '@strimz/shared-types'
 
 // Shared shape for `/list?limit=&cursor=&status=&query=&...` endpoints.
 // Bounds every field so a caller can't force expensive scans with a
@@ -28,6 +29,8 @@ export const listQuerySchema = z
     eventName: statusToken.optional(),
     endpointId: z.string().uuid().optional(),
     planId: z.string().max(64).optional(),
+    sessionId: idSchema.optional(),
+    subscriptionId: idSchema.optional(),
     audience: statusToken.optional(),
     query: searchQuery.optional(),
     revoked: z.enum(['true', 'false']).optional(),
