@@ -99,9 +99,17 @@ Renders the hosted checkout inline in an iframe. Useful for cart-style flows whe
 | `theme`     | `'light' \| 'dark'`         | payer's preference | Pins the embedded checkout to light or dark. Omit it to follow the payer's system. |
 | `onSuccess` | `(txHash?: string) => void` |                    | Called with the transaction hash after a successful payment.                       |
 | `onCancel`  | `() => void`                |                    | Called when the payer cancels.                                                     |
-| `onError`   | `(error: Error) => void`    |                    | Called when the checkout reports an error.                                         |
+| `onError`   | `(error: Error) => void`    |                    | Called with a `StrimzCheckoutError` when the checkout reports an error.            |
 | `className` | `string`                    |                    | Class name for the iframe wrapper.                                                 |
 | `style`     | `React.CSSProperties`       |                    | Inline style for the iframe wrapper.                                               |
+
+### Checkout results
+
+The popup and the embed report back to your page with `onSuccess(txHash)`, `onCancel()` and `onError(error)`. Neither one navigates, so the session's `successUrl` and `cancelUrl` only apply to the full-page redirect. In the popup, `onCancel` also fires when the payer closes the window.
+
+`error` is a `StrimzCheckoutError` with `code` (`load_failed`, `merchant_not_ready`, `payment_reverted` or `unsupported_wallet`), `sessionId` and `message`. A failure the payer can retry stays inside the checkout and is not reported.
+
+Your page only accepts a message from the checkout origin, from its own popup or iframe, and for the session it opened. These callbacks need version 0.3.0 or later; earlier versions never receive a result.
 
 ## Hooks
 

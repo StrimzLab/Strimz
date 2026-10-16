@@ -2,6 +2,8 @@
 
 import * as React from 'react'
 import { useStrimzContext } from '../provider.js'
+import { StrimzCheckoutError } from '../checkout-error.js'
+import { checkoutOriginOf, checkoutUrl, readCheckoutResult } from '../checkout-message.js'
 
 export type StrimzCheckoutTheme = 'light' | 'dark'
 
@@ -24,11 +26,8 @@ export interface StrimzCheckoutEmbedProps {
 }
 
 /**
- * Embeds Strimz hosted checkout inside the merchant's page in an iframe.
- *
- * The iframe communicates back via `postMessage`. All messages are filtered
- * by the configured `checkoutOrigin` so a malicious page on a different
- * origin cannot spoof success.
+ * Results only count from this iframe, for this session. Another frame on
+ * the checkout origin could otherwise fake a success.
  */
 export function StrimzCheckoutEmbed({
   sessionId,
@@ -43,21 +42,24 @@ export function StrimzCheckoutEmbed({
   const { checkoutOrigin } = useStrimzContext()
   // `checkoutOrigin` may carry a path (e.g. https://strimz.finance/pay); a
   // postMessage `ev.origin` is scheme+host only, so compare against that.
-  const expectedOrigin = React.useMemo(() => {
-    try {
-      return new URL(checkoutOrigin).origin
-    } catch {
-      return checkoutOrigin
-    }
-  }, [checkoutOrigin])
+  const expectedOrigin = React.useMemo(() => checkoutOriginOf(checkoutOrigin), [checkoutOrigin])
+  const frameRef = React.useRef<HTMLIFrameElement | null>(null)
+  const [parentOrigin, setParentOrigin] = React.useState<string | null>(null)
   const handlersRef = React.useRef({ onSuccess, onCancel, onError })
   handlersRef.current = { onSuccess, onCancel, onError }
 
   React.useEffect(() => {
+    setParentOrigin(window.location.origin)
+  }, [])
+
+  React.useEffect(() => {
     function onMessage(ev: MessageEvent) {
-      if (ev.origin !== expectedOrigin) return
-      const data = ev.data as { type?: string; txHash?: string; message?: string }
-      if (!data || typeof data.type !== 'string') return
+      const data = readCheckoutResult(ev, {
+        origin: expectedOrigin,
+        source: frameRef.current?.contentWindow ?? null,
+        sessionId,
+      })
+      if (!data) return
 
       switch (data.type) {
         case 'strimz:checkout:success':
@@ -67,21 +69,25 @@ export function StrimzCheckoutEmbed({
           handlersRef.current.onCancel?.()
           break
         case 'strimz:checkout:error':
-          handlersRef.current.onError?.(new Error(data.message ?? 'Checkout error'))
+          handlersRef.current.onError?.(
+            new StrimzCheckoutError(data.code, data.sessionId, data.message),
+          )
           break
       }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [expectedOrigin])
+  }, [expectedOrigin, sessionId])
 
   // Payment sessions are hosted at /pay/{id}.
-  const themeQuery = theme ? `&theme=${theme}` : ''
-  const src = `${checkoutOrigin}/pay/${encodeURIComponent(sessionId)}?embed=1${themeQuery}`
+  const src = parentOrigin
+    ? checkoutUrl(checkoutOrigin, sessionId, { mode: 'embed', parentOrigin, theme })
+    : undefined
 
   return (
     <div className={className} style={{ width: '100%', ...(style ?? {}) }}>
       <iframe
+        ref={frameRef}
         src={src}
         title="Strimz checkout"
         allow="payment *; clipboard-write *"

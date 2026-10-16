@@ -93,7 +93,7 @@ Drop-in checkout button for an existing session.
 | `label`              | `Pay with Strimz` | Override the button content                                      |
 | `onSuccess(txHash?)` | none              | Fires on `strimz:checkout:success` postMessage                   |
 | `onCancel()`         | none              | Fires on `strimz:checkout:cancel` or popup close                 |
-| `onError(error)`     | none              | Fires on `strimz:checkout:error`                                 |
+| `onError(error)`     | none              | Fires on `strimz:checkout:error` with a `StrimzCheckoutError`    |
 
 Internally the button uses Reown AppKit to connect a wallet, asks
 the customer for a single EIP-3009 signature, and resolves once the
@@ -108,7 +108,7 @@ page rather than in a popup.
 <StrimzCheckoutEmbed
   sessionId={session.id}
   className="rounded-xl border"
-  onSuccess={(tx) => router.push(`/thanks?tx=${tx.txHash}`)}
+  onSuccess={(txHash) => router.push(`/thanks?tx=${txHash ?? ''}`)}
 />
 ```
 
@@ -147,7 +147,8 @@ you don't already have one.
 
 ## Security
 
-- `postMessage` from the iframe or popup is filtered by `checkoutOrigin`. A page on a different origin cannot spoof a success event.
+- The checkout posts its result only to the page that opened it, using that page's exact origin, never `'*'`.
+- A result is accepted only when it comes from `checkoutOrigin`, from this component's own iframe or popup, for the session it opened, and matches the shared message schema. Another page or frame cannot spoof a success event.
 - `<StrimzProvider />` rejects secret keys (`sk_*`) at construction time, so a misconfigured environment fails loudly.
 
 ## SSR and React Server Components

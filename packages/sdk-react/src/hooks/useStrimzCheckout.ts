@@ -2,6 +2,8 @@
 
 import * as React from 'react'
 import { useStrimzContext } from '../provider.js'
+import { StrimzCheckoutError } from '../checkout-error.js'
+import { checkoutOriginOf, checkoutUrl, readCheckoutResult } from '../checkout-message.js'
 
 export type CheckoutMode = 'redirect' | 'popup'
 
@@ -32,15 +34,11 @@ export function useStrimzCheckout(options: UseStrimzCheckoutOptions = {}): UseSt
   const { checkoutOrigin } = useStrimzContext()
   // `checkoutOrigin` may carry a path (e.g. https://strimz.finance/pay), but a
   // postMessage `ev.origin` is always scheme+host only — compare against that.
-  const expectedOrigin = React.useMemo(() => {
-    try {
-      return new URL(checkoutOrigin).origin
-    } catch {
-      return checkoutOrigin
-    }
-  }, [checkoutOrigin])
+  const expectedOrigin = React.useMemo(() => checkoutOriginOf(checkoutOrigin), [checkoutOrigin])
   const [status, setStatus] = React.useState<UseStrimzCheckoutResult['status']>('idle')
+  const statusRef = React.useRef(status)
   const popupRef = React.useRef<Window | null>(null)
+  const sessionIdRef = React.useRef<string | null>(null)
   const optsRef = React.useRef(options)
   optsRef.current = options
 
@@ -51,62 +49,78 @@ export function useStrimzCheckout(options: UseStrimzCheckoutOptions = {}): UseSt
     popupRef.current = null
   }, [])
 
+  const transition = React.useCallback((next: UseStrimzCheckoutResult['status']) => {
+    statusRef.current = next
+    setStatus(next)
+  }, [])
+
   React.useEffect(() => {
     function onMessage(ev: MessageEvent) {
-      if (ev.origin !== expectedOrigin) return
-      const data = ev.data as { type?: string; txHash?: string; message?: string }
-      if (!data || typeof data.type !== 'string' || !data.type.startsWith('strimz:checkout:'))
-        return
+      const data = readCheckoutResult(ev, {
+        origin: expectedOrigin,
+        source: popupRef.current,
+        sessionId: sessionIdRef.current,
+      })
+      if (!data) return
 
       switch (data.type) {
         case 'strimz:checkout:success':
-          setStatus('success')
+          transition('success')
           optsRef.current.onSuccess?.(data.txHash)
           close()
           break
         case 'strimz:checkout:cancel':
-          setStatus('cancelled')
+          transition('cancelled')
           optsRef.current.onCancel?.()
           close()
           break
         case 'strimz:checkout:error':
-          setStatus('error')
-          optsRef.current.onError?.(new Error(data.message ?? 'Checkout error'))
+          transition('error')
+          optsRef.current.onError?.(
+            new StrimzCheckoutError(data.code, data.sessionId, data.message),
+          )
           close()
           break
       }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [expectedOrigin, close])
+  }, [expectedOrigin, close, transition])
 
   const open = React.useCallback(
     (sessionId: string) => {
       // Payment sessions are hosted at /pay/{id}. (Subscriptions use /sub/{planId},
       // which is a plan-link flow, not this payment-session primitive.)
-      const url = `${checkoutOrigin}/pay/${encodeURIComponent(sessionId)}`
       const mode = optsRef.current.mode ?? 'popup'
       if (mode === 'redirect') {
-        window.location.assign(url)
+        window.location.assign(checkoutUrl(checkoutOrigin, sessionId, null))
         return
       }
+      const url = checkoutUrl(checkoutOrigin, sessionId, {
+        mode: 'popup',
+        parentOrigin: window.location.origin,
+      })
       const w = window.open(url, 'strimz-checkout', 'width=480,height=720')
       popupRef.current = w
-      setStatus('open')
+      sessionIdRef.current = sessionId
+      transition('open')
       // Detect manual close.
       const closeWatch = setInterval(() => {
         if (!w || w.closed) {
           clearInterval(closeWatch)
           if (popupRef.current === w) {
             // Only treat as cancel if we haven't already transitioned out of `open`.
-            setStatus((prev) => (prev === 'open' ? 'cancelled' : prev))
+            const wasOpen = statusRef.current === 'open'
             popupRef.current = null
-            if (status === 'open') optsRef.current.onCancel?.()
+            if (wasOpen) {
+              transition('cancelled')
+              optsRef.current.onCancel?.()
+            }
           }
         }
       }, 500)
     },
-    [checkoutOrigin, status],
+    [checkoutOrigin, transition],
   )
 
   return { open, close, status }

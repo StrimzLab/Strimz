@@ -3,6 +3,7 @@
 import { ArrowLeft } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { PaymentSummary, CheckoutPoweredBy, type SummaryProps } from './payment-summary'
+import { CancelledPanel } from './cancelled-panel'
 
 /**
  * Two-column checkout shell. Summary on the left (frozen),
@@ -12,22 +13,26 @@ export function CheckoutShell({
   summary,
   children,
   onCancel,
+  cancelled = false,
 }: {
   summary: SummaryProps
   children: ReactNode
   onCancel?: () => void
+  cancelled?: boolean
 }) {
   return (
     <section className="flex w-full flex-col gap-4 p-4 md:p-8">
-      <div>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm transition-colors"
-        >
-          <ArrowLeft className="size-4" />
-          Cancel
-        </button>
+      <div className="min-h-5">
+        {onCancel && !cancelled && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm transition-colors"
+          >
+            <ArrowLeft className="size-4" />
+            Cancel
+          </button>
+        )}
       </div>
 
       <div className="grid flex-1 gap-6 lg:grid-cols-5">
@@ -35,7 +40,7 @@ export function CheckoutShell({
           <PaymentSummary {...summary} />
         </div>
         <div className="flex items-center justify-center lg:col-span-3 lg:p-8">
-          <div className="w-full max-w-md">{children}</div>
+          <div className="w-full max-w-md">{cancelled ? <CancelledPanel /> : children}</div>
         </div>
       </div>
 

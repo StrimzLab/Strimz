@@ -75,6 +75,42 @@ describe('payment sessions e2e', () => {
     expect(await t.prisma.db.paymentSession.count()).toBe(0)
   })
 
+  it('keeps return URL placeholders as written', async () => {
+    const m = await seedMerchant(t.prisma.db, {
+      onboardingCompleted: true,
+      walletAddress: '0x00000000000000000000000000000000000000c1',
+      onchainMerchantId: 1,
+    })
+    const k = await seedApiKey(t.prisma.db, m.id)
+    const successUrl = 'https://shop.example/thanks?s={CHECKOUT_SESSION_ID}&tx={ON_CHAIN_TX_HASH}'
+    const cancelUrl = 'https://shop.example/cart?s={CHECKOUT_SESSION_ID}'
+    const res = await t.inject({
+      method: 'POST',
+      url: '/v1/payment-sessions',
+      headers: { authorization: `Bearer ${k.secretKey}` },
+      payload: { amount: '1000000', currency: 'USDC', successUrl, cancelUrl },
+    })
+    expect(res.statusCode).toBe(201)
+    expect(JSON.parse(res.body)).toMatchObject({ successUrl, cancelUrl })
+  })
+
+  it('refuses a javascript: return URL', async () => {
+    const m = await seedMerchant(t.prisma.db)
+    const k = await seedApiKey(t.prisma.db, m.id)
+    const res = await t.inject({
+      method: 'POST',
+      url: '/v1/payment-sessions',
+      headers: { authorization: `Bearer ${k.secretKey}` },
+      payload: { amount: '1000000', currency: 'USDC', successUrl: 'javascript:alert(1)' },
+    })
+    expect(res.statusCode).toBe(400)
+    expect(JSON.parse(res.body).error).toMatchObject({
+      code: 'invalid_request',
+      param: 'successUrl',
+    })
+    expect(await t.prisma.db.paymentSession.count()).toBe(0)
+  })
+
   it('returns 404 for another merchant’s session', async () => {
     const owner = await seedMerchant(t.prisma.db)
     const intruder = await seedMerchant(t.prisma.db)
