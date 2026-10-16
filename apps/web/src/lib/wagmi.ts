@@ -24,20 +24,22 @@
 import { cookieStorage, createStorage } from '@wagmi/core'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
 import type { AppKitNetwork } from '@reown/appkit/networks'
-import { arcTestnet } from '@strimz/shared-config'
+import { getArcChain } from '@strimz/shared-config'
 import { env } from './env'
 
 export const projectId = env.reownProjectId
+
+const arcChain = getArcChain(env.arcEnvironment)
 
 /**
  * Arc testnet is the only supported network today. Add `arcMainnet`
  * back to `networks` and switch `defaultNetwork` on it once Arc mainnet
  * launches.
  */
-export const networks = [arcTestnet] as unknown as [AppKitNetwork, ...AppKitNetwork[]]
+export const networks = [arcChain] as unknown as [AppKitNetwork, ...AppKitNetwork[]]
 
 /** Active network. Testnet-only until Arc mainnet ships. */
-export const defaultNetwork = arcTestnet as unknown as AppKitNetwork
+export const defaultNetwork = arcChain as unknown as AppKitNetwork
 
 /**
  * The wagmi adapter is always constructed (so imports are stable) but

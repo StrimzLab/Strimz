@@ -78,13 +78,13 @@ func runCmd() *cobra.Command {
 			// /readyz stale when any cursor stalls past the threshold.
 			freshness := health.NewFreshnessMonitor(
 				runner.Store().Pool(),
-				string(cfg.Environment),
+				cfg.ChainID,
 				runner.MonitoredAddresses(),
 				time.Duration(cfg.StaleCursorSeconds)*time.Second,
 			)
 			go freshness.Start(ctx)
 
-			healthSrv := health.New(cfg.HTTPPort, freshness)
+			healthSrv := health.New(cfg.HTTPPort, freshness, runner.DeadLetters)
 			go func() {
 				if err := healthSrv.Start(ctx); err != nil {
 					slog.Error("health server stopped", "err", err)

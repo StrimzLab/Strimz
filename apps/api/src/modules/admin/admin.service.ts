@@ -1,4 +1,12 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common'
 import type { AdminRole, AdminUserStatus, MerchantTier } from '@strimz/db'
 import {
   AdminBroadcastEmail,
@@ -7,11 +15,25 @@ import {
   AdminStatusChangedEmail,
   renderToHtml,
 } from '@strimz/email-templates'
-import type { BroadcastAudience, CreateBroadcastInput } from '@strimz/shared-types'
+import type {
+  AdminMerchantStats,
+  AdminOverview,
+  AdminTopMerchants,
+  AdminVolumeSeries,
+  BroadcastAudience,
+  CreateBroadcastParsed,
+  Mode,
+  PaymentCurrency,
+} from '@strimz/shared-types'
+import { paymentCurrencySchema } from '@strimz/shared-types'
 
 import { TypedConfigService } from '../../config/index.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { PrivyService } from '../../infra/privy/privy.service.js'
+import { MerchantChainService } from '../merchants/merchant-chain.service.js'
+import { toCurrencyAmounts } from '../../common/money/currency-amounts.js'
+import { hashAdminInviteToken, issueAdminInviteToken } from './admin-invite-token.js'
 
 interface DateRange {
   from?: string
@@ -40,6 +62,8 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly email: EmailService,
     private readonly cfg: TypedConfigService,
+    private readonly privy: PrivyService,
+    private readonly merchantChain: MerchantChainService,
   ) {}
 
   // ------------------------------------------------------------------
@@ -65,46 +89,41 @@ export class AdminService {
   // ------------------------------------------------------------------
   // Platform overview
   // ------------------------------------------------------------------
-  async getOverview() {
-    const [
-      merchants,
-      activeSubscriptions,
-      confirmedSessions,
-      lifetimeVolumeRow,
-      lifetimeFeesRow,
-      last30dVolumeRow,
-      last30dSignups,
-    ] = await Promise.all([
-      this.prisma.db.merchant.groupBy({
-        by: ['status'],
-        _count: { _all: true },
-      }),
-      this.prisma.db.subscription.count({ where: { status: 'active' } }),
-      this.prisma.db.paymentSession.count({ where: { status: 'confirmed' } }),
-      this.prisma.db.$queryRawUnsafe<{ sum: bigint | null }[]>(
-        `SELECT sum(("amount")::numeric)::bigint AS sum FROM "Transaction" WHERE status='confirmed'`,
-      ),
-      this.prisma.db.$queryRawUnsafe<{ sum: bigint | null }[]>(
-        `SELECT sum(("feeAmount")::numeric)::bigint AS sum FROM "Transaction" WHERE status='confirmed'`,
-      ),
-      this.prisma.db.$queryRawUnsafe<{ sum: bigint | null }[]>(
-        `SELECT sum(("amount")::numeric)::bigint AS sum
-         FROM "Transaction"
-         WHERE status='confirmed' AND "blockTimestamp" >= NOW() - INTERVAL '30 days'`,
-      ),
-      this.prisma.db.merchant.count({
-        where: { createdAt: { gte: new Date(Date.now() - 30 * 86_400_000) } },
-      }),
-    ])
+  async getOverview(mode: Mode): Promise<AdminOverview> {
+    const [merchants, activeSubscriptions, confirmedSessions, volumeRows, last30dSignups] =
+      await Promise.all([
+        this.prisma.db.merchant.groupBy({
+          by: ['status'],
+          _count: { _all: true },
+        }),
+        this.prisma.db.subscription.count({ where: { status: 'active', mode } }),
+        this.prisma.db.paymentSession.count({ where: { status: 'confirmed', mode } }),
+        this.prisma.db.$queryRawUnsafe<
+          { currency: string; lifetime: string; fees: string; last30d: string }[]
+        >(
+          `SELECT currency::text AS currency,
+                  sum(("amount")::numeric)::text AS lifetime,
+                  sum(("feeAmount")::numeric)::text AS fees,
+                  coalesce(sum(("amount")::numeric) FILTER (WHERE "blockTimestamp" >= NOW() - INTERVAL '30 days'), 0)::text AS "last30d"
+           FROM "Transaction"
+           WHERE status='confirmed' AND mode = $1::"Mode"
+           GROUP BY currency`,
+          mode,
+        ),
+        this.prisma.db.merchant.count({
+          where: { createdAt: { gte: new Date(Date.now() - 30 * 86_400_000) } },
+        }),
+      ])
 
     // MRR — sum of every active subscription's monthly-normalised amount.
     const activeSubs = await this.prisma.db.subscription.findMany({
-      where: { status: 'active' },
-      select: { amount: true, interval: true, intervalCount: true },
+      where: { status: 'active', mode },
+      select: { amount: true, interval: true, intervalCount: true, currency: true },
     })
-    let mrrUnits = 0n
+    const mrr = new Map<PaymentCurrency, bigint>()
     for (const s of activeSubs) {
-      mrrUnits += normaliseToMonthly(BigInt(s.amount), s.interval, s.intervalCount)
+      const monthly = normaliseToMonthly(BigInt(s.amount), s.interval, s.intervalCount)
+      mrr.set(s.currency, (mrr.get(s.currency) ?? 0n) + monthly)
     }
 
     const merchantsByStatus: Record<string, number> = {}
@@ -115,20 +134,29 @@ export class AdminService {
     }
 
     return {
+      mode,
       merchants: {
         total: totalMerchants,
         byStatus: merchantsByStatus,
         last30dSignups,
       },
       volume: {
-        lifetimeUsdc: (lifetimeVolumeRow[0]?.sum ?? 0n).toString(),
-        lifetimeFeesUsdc: (lifetimeFeesRow[0]?.sum ?? 0n).toString(),
-        last30dUsdc: (last30dVolumeRow[0]?.sum ?? 0n).toString(),
+        lifetime: toCurrencyAmounts(
+          volumeRows.map((r) => ({ currency: r.currency, amount: r.lifetime })),
+        ),
+        lifetimeFees: toCurrencyAmounts(
+          volumeRows.map((r) => ({ currency: r.currency, amount: r.fees })),
+        ),
+        last30d: toCurrencyAmounts(
+          volumeRows.map((r) => ({ currency: r.currency, amount: r.last30d })),
+        ),
         confirmedSessions,
       },
       subscriptions: {
         active: activeSubscriptions,
-        mrrUsdc: mrrUnits.toString(),
+        mrr: toCurrencyAmounts(
+          [...mrr].map(([currency, amount]) => ({ currency, amount: amount.toString() })),
+        ),
       },
     }
   }
@@ -174,12 +202,12 @@ export class AdminService {
 
     const hasMore = merchants.length > limit
     const data = hasMore ? merchants.slice(0, limit) : merchants
-    const nextCursor = hasMore ? data[data.length - 1]!.id : null
+    const nextCursor = hasMore ? (data.at(-1)?.id ?? null) : null
 
     return { data, nextCursor, hasMore }
   }
 
-  async getMerchant(merchantId: string) {
+  async getMerchant(merchantId: string, mode: Mode) {
     const merchant = await this.prisma.db.merchant.findUnique({
       where: { id: merchantId },
       select: {
@@ -201,36 +229,37 @@ export class AdminService {
     if (!merchant) throw new NotFoundException({ code: 'not_found' })
 
     // Counts adjacent to the merchant — useful in the drilldown.
-    const [paymentCount, subscriptionCount, lifetimeRow, last30dRow] = await Promise.all([
+    const [paymentCount, subscriptionCount, volumeRows] = await Promise.all([
       this.prisma.db.paymentSession.count({
-        where: { merchantId, status: 'confirmed' },
+        where: { merchantId, status: 'confirmed', mode },
       }),
       this.prisma.db.subscription.count({
-        where: { merchantId, status: 'active' },
+        where: { merchantId, status: 'active', mode },
       }),
-      this.prisma.db.$queryRawUnsafe<{ sum: bigint | null }[]>(
-        `SELECT sum(("amount")::numeric)::bigint AS sum
-         FROM "Transaction" WHERE "merchantId" = $1 AND status='confirmed'`,
-        merchantId,
-      ),
-      this.prisma.db.$queryRawUnsafe<{ sum: bigint | null }[]>(
-        `SELECT sum(("amount")::numeric)::bigint AS sum
+      this.prisma.db.$queryRawUnsafe<{ currency: string; lifetime: string; last30d: string }[]>(
+        `SELECT currency::text AS currency,
+                sum(("amount")::numeric)::text AS lifetime,
+                coalesce(sum(("amount")::numeric) FILTER (WHERE "blockTimestamp" >= NOW() - INTERVAL '30 days'), 0)::text AS "last30d"
          FROM "Transaction"
-         WHERE "merchantId" = $1 AND status='confirmed'
-           AND "blockTimestamp" >= NOW() - INTERVAL '30 days'`,
+         WHERE "merchantId" = $1 AND status='confirmed' AND mode = $2::"Mode"
+         GROUP BY currency`,
         merchantId,
+        mode,
       ),
     ])
 
-    return {
-      ...merchant,
-      stats: {
-        confirmedPayments: paymentCount,
-        activeSubscriptions: subscriptionCount,
-        lifetimeVolumeUsdc: (lifetimeRow[0]?.sum ?? 0n).toString(),
-        last30dVolumeUsdc: (last30dRow[0]?.sum ?? 0n).toString(),
-      },
+    const stats: AdminMerchantStats = {
+      mode,
+      confirmedPayments: paymentCount,
+      activeSubscriptions: subscriptionCount,
+      lifetimeVolume: toCurrencyAmounts(
+        volumeRows.map((r) => ({ currency: r.currency, amount: r.lifetime })),
+      ),
+      last30dVolume: toCurrencyAmounts(
+        volumeRows.map((r) => ({ currency: r.currency, amount: r.last30d })),
+      ),
     }
+    return { ...merchant, stats }
   }
 
   async setMerchantStatus(
@@ -271,9 +300,11 @@ export class AdminService {
   async setMerchantTier(merchantId: string, tier: MerchantTier, actorId: string) {
     const merchant = await this.prisma.db.merchant.findUnique({
       where: { id: merchantId },
-      select: { tier: true },
+      select: { tier: true, onchainMerchantId: true },
     })
     if (!merchant) throw new NotFoundException({ code: 'not_found' })
+
+    const onchain = await this.verifyOnchainFeeForTier(merchant.onchainMerchantId, tier)
 
     const updated = await this.prisma.db.merchant.update({
       where: { id: merchantId },
@@ -287,39 +318,63 @@ export class AdminService {
       action: 'merchant.tier_changed',
       targetType: 'Merchant',
       targetId: merchantId,
-      metadata: { previous: merchant.tier, next: tier },
+      metadata: {
+        previous: merchant.tier,
+        next: tier,
+        onchainMerchantId: onchain.onchainMerchantId,
+        onchainFeeBps: onchain.onchainFeeBps,
+      },
     })
 
     return updated
   }
 
+  private async verifyOnchainFeeForTier(
+    onchainMerchantId: number | null,
+    tier: MerchantTier,
+  ): Promise<{ onchainMerchantId: string; onchainFeeBps: number }> {
+    if (onchainMerchantId === null) {
+      throw new ConflictException({
+        code: 'merchant_not_registered',
+        message: `the merchant is not registered on-chain yet; ${tier} needs its contract fee set in the registry first`,
+      })
+    }
+
+    const { feeBps } = await this.merchantChain.readRegistryFee(BigInt(onchainMerchantId))
+    return { onchainMerchantId: String(onchainMerchantId), onchainFeeBps: feeBps }
+  }
+
   // ------------------------------------------------------------------
   // Analytics — platform-wide
   // ------------------------------------------------------------------
-  async getVolumeSeries(range: DateRange) {
+  async getVolumeSeries(range: DateRange, mode: Mode): Promise<AdminVolumeSeries> {
     const from = range.from ? new Date(range.from) : new Date(Date.now() - 90 * 86_400_000)
     const to = range.to ? new Date(range.to) : new Date()
-    type Row = { day: Date; volume: bigint; fees: bigint; count: bigint }
+    type Row = { day: string; currency: string; volume: string; fees: string; count: bigint }
     const rows = (await this.prisma.db.$queryRawUnsafe(
       `SELECT
-         date_trunc('day', "blockTimestamp")::timestamp AS day,
-         sum(("amount")::numeric)::bigint AS volume,
-         sum(("feeAmount")::numeric)::bigint AS fees,
+         to_char(date_trunc('day', "blockTimestamp"), 'YYYY-MM-DD') AS day,
+         currency::text AS currency,
+         sum(("amount")::numeric)::text AS volume,
+         sum(("feeAmount")::numeric)::text AS fees,
          count(*) AS count
        FROM "Transaction"
-       WHERE status='confirmed' AND "blockTimestamp" BETWEEN $1 AND $2
-       GROUP BY day
-       ORDER BY day ASC`,
+       WHERE status='confirmed' AND mode = $3::"Mode" AND "blockTimestamp" BETWEEN $1 AND $2
+       GROUP BY date_trunc('day', "blockTimestamp"), currency
+       ORDER BY date_trunc('day', "blockTimestamp") ASC, "Transaction".currency ASC`,
       from,
       to,
+      mode,
     )) as Row[]
     return {
+      mode,
       from: from.toISOString(),
       to: to.toISOString(),
       data: rows.map((r) => ({
-        day: r.day.toISOString().slice(0, 10),
-        volume: r.volume.toString(),
-        fees: r.fees.toString(),
+        day: r.day,
+        currency: paymentCurrencySchema.parse(r.currency),
+        volume: r.volume,
+        fees: r.fees,
         count: Number(r.count),
       })),
     }
@@ -348,12 +403,16 @@ export class AdminService {
     }
   }
 
-  async getTopMerchants(limit = 10) {
+  async getTopMerchants(params: {
+    currency: PaymentCurrency
+    mode: Mode
+    limit: number
+  }): Promise<AdminTopMerchants> {
     type Row = {
       merchantId: string
       businessName: string | null
       email: string
-      volume: bigint
+      volume: string
       txCount: bigint
     }
     const rows = (await this.prisma.db.$queryRawUnsafe(
@@ -361,22 +420,26 @@ export class AdminService {
          m.id AS "merchantId",
          m."businessName",
          m.email,
-         sum(("t"."amount")::numeric)::bigint AS volume,
+         sum(("t"."amount")::numeric)::text AS volume,
          count(*) AS "txCount"
        FROM "Merchant" m
        JOIN "Transaction" t ON t."merchantId" = m.id
-       WHERE t.status = 'confirmed'
+       WHERE t.status = 'confirmed' AND t.mode = $2::"Mode" AND t.currency = $3::"PaymentCurrency"
        GROUP BY m.id
-       ORDER BY volume DESC
+       ORDER BY sum(("t"."amount")::numeric) DESC, m.id ASC
        LIMIT $1`,
-      Math.min(limit, 50),
+      Math.min(params.limit, 50),
+      params.mode,
+      params.currency,
     )) as Row[]
     return {
+      mode: params.mode,
+      currency: params.currency,
       data: rows.map((r) => ({
         merchantId: r.merchantId,
         businessName: r.businessName,
         email: r.email,
-        volumeUsdc: r.volume.toString(),
+        volume: r.volume,
         transactionCount: Number(r.txCount),
       })),
     }
@@ -450,12 +513,19 @@ export class AdminService {
         role: true,
         status: true,
         invitedAt: true,
+        inviteExpiresAt: true,
+        privyUserId: true,
         lastLoginAt: true,
         createdAt: true,
         invitedBy: { select: { id: true, email: true } },
       },
     })
-    return { data: admins }
+    return {
+      data: admins.map(({ privyUserId, ...admin }) => ({
+        ...admin,
+        invitePending: privyUserId === null,
+      })),
+    }
   }
 
   async inviteAdmin(input: { email: string; name?: string; role: AdminRole; invitedById: string }) {
@@ -475,14 +545,25 @@ export class AdminService {
       select: { name: true, email: true },
     })
 
+    const invite = issueAdminInviteToken()
     const admin = await this.prisma.db.adminUser.create({
       data: {
         email: input.email.toLowerCase(),
         name: input.name ?? null,
         role: input.role,
         invitedById: input.invitedById,
+        inviteTokenHash: invite.hash,
+        inviteExpiresAt: invite.expiresAt,
       },
-      select: { id: true, email: true, name: true, role: true, status: true, invitedAt: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        invitedAt: true,
+        inviteExpiresAt: true,
+      },
     })
 
     await this.writeAudit({
@@ -497,20 +578,7 @@ export class AdminService {
     // — the invitee can still be told out-of-band, and the dashboard
     // lets the inviter re-trigger. We log and continue.
     try {
-      const html = await renderToHtml(
-        AdminInviteEmail({
-          inviteeName: admin.name,
-          role: admin.role,
-          inviterDisplay: inviter?.name ?? inviter?.email ?? 'A Strimz admin',
-          inviterEmail: inviter?.email ?? 'strimztokenstream@gmail.com',
-          dashboardUrl: `${this.cfg.env.STRIMZ_DASHBOARD_URL.replace(/\/+$/, '')}/admin`,
-        }),
-      )
-      const result = await this.email.send({
-        to: admin.email,
-        subject: 'You’re a Strimz admin',
-        html,
-      })
+      const result = await this.sendInviteEmail(admin, inviter, invite.token)
       this.log.log(
         `admin invite emailed: to=${admin.email} resendId=${result.id ?? 'stub'} queued=${result.queued}`,
       )
@@ -521,6 +589,183 @@ export class AdminService {
     }
 
     return admin
+  }
+
+  async resendInvite(adminId: string, actorId: string) {
+    const target = await this.prisma.db.adminUser.findUnique({
+      where: { id: adminId },
+      select: { id: true, email: true, name: true, role: true, status: true, privyUserId: true },
+    })
+    if (!target) throw new NotFoundException({ code: 'not_found' })
+    if (target.privyUserId !== null) {
+      throw new BadRequestException({
+        code: 'invalid_state',
+        message: 'invite already accepted',
+      })
+    }
+    if (target.status !== 'active') {
+      throw new BadRequestException({
+        code: 'invalid_state',
+        message: `admin is ${target.status}; reactivate before re-sending the invite`,
+      })
+    }
+
+    const invite = issueAdminInviteToken()
+    const inviter = await this.prisma.db.adminUser.findUnique({
+      where: { id: actorId },
+      select: { name: true, email: true },
+    })
+    const renewed = await this.prisma.db.adminUser.updateMany({
+      where: { id: target.id, privyUserId: null, status: 'active' },
+      data: { inviteTokenHash: invite.hash, inviteExpiresAt: invite.expiresAt },
+    })
+    if (renewed.count !== 1) {
+      throw new BadRequestException({
+        code: 'invalid_state',
+        message: 'invite changed while re-sending; reload and try again',
+      })
+    }
+    const admin = await this.prisma.db.adminUser.findUniqueOrThrow({
+      where: { id: target.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        invitedAt: true,
+        inviteExpiresAt: true,
+      },
+    })
+
+    await this.writeAudit({
+      actorId,
+      action: 'admin.invite_resent',
+      targetType: 'AdminUser',
+      targetId: admin.id,
+      metadata: { email: admin.email, role: admin.role },
+    })
+
+    const result = await this.sendInviteEmail(admin, inviter, invite.token).catch(
+      (err: unknown) => {
+        this.log.warn(
+          `admin invite re-send email failed for ${admin.email}: ${(err as Error).message}`,
+        )
+        throw new ServiceUnavailableException({
+          code: 'invite_email_failed',
+          message: 'the invite was renewed but the email could not be sent; try again',
+        })
+      },
+    )
+    this.log.log(
+      `admin invite re-sent: to=${admin.email} resendId=${result.id ?? 'stub'} queued=${result.queued}`,
+    )
+
+    return admin
+  }
+
+  async acceptInvite(input: { token: string; privyUserId: string }) {
+    const tokenHash = hashAdminInviteToken(input.token)
+    const now = new Date()
+    const invite = await this.prisma.db.adminUser.findUnique({
+      where: { inviteTokenHash: tokenHash },
+      select: { id: true, email: true, status: true, privyUserId: true, inviteExpiresAt: true },
+    })
+    if (
+      !invite ||
+      invite.privyUserId !== null ||
+      invite.status !== 'active' ||
+      !invite.inviteExpiresAt ||
+      invite.inviteExpiresAt <= now
+    ) {
+      throw invalidInvite()
+    }
+
+    const alreadyAdmin = await this.prisma.db.adminUser.findUnique({
+      where: { privyUserId: input.privyUserId },
+      select: { id: true },
+    })
+    if (alreadyAdmin) {
+      throw new BadRequestException({
+        code: 'already_admin',
+        message: 'this account is already a Strimz admin',
+      })
+    }
+
+    const user = await this.privy.getUser(input.privyUserId)
+    const email = this.privy.primaryEmail(user)
+    if (email !== invite.email) {
+      throw new ForbiddenException({
+        code: 'invite_email_mismatch',
+        message: 'sign in with the email address the invite was sent to',
+      })
+    }
+
+    return this.prisma.db.$transaction(async (tx) => {
+      const { count } = await tx.adminUser.updateMany({
+        where: {
+          id: invite.id,
+          email,
+          inviteTokenHash: tokenHash,
+          privyUserId: null,
+          status: 'active',
+          inviteExpiresAt: { gt: now },
+        },
+        data: {
+          privyUserId: input.privyUserId,
+          inviteTokenHash: null,
+          inviteExpiresAt: null,
+          lastLoginAt: now,
+        },
+      })
+      if (count !== 1) throw invalidInvite()
+
+      await tx.auditLog.create({
+        data: {
+          actorId: invite.id,
+          category: 'admin',
+          action: 'admin.invite_accepted',
+          targetType: 'AdminUser',
+          targetId: invite.id,
+          metadata: { privyUserId: input.privyUserId },
+        },
+      })
+
+      return tx.adminUser.findUniqueOrThrow({
+        where: { id: invite.id },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          status: true,
+          lastLoginAt: true,
+          createdAt: true,
+        },
+      })
+    })
+  }
+
+  private async sendInviteEmail(
+    admin: { email: string; name: string | null; role: AdminRole },
+    inviter: { name: string | null; email: string } | null,
+    token: string,
+  ) {
+    const acceptUrl = `${this.cfg.env.STRIMZ_DASHBOARD_URL.replace(/\/+$/, '')}/admin/accept-invite?token=${encodeURIComponent(token)}`
+    const html = await renderToHtml(
+      AdminInviteEmail({
+        inviteeName: admin.name,
+        role: admin.role,
+        inviterDisplay: inviter?.name ?? inviter?.email ?? 'A Strimz admin',
+        inviterEmail: inviter?.email ?? 'strimztokenstream@gmail.com',
+        dashboardUrl: acceptUrl,
+      }),
+    )
+    return this.email.send({
+      to: admin.email,
+      subject: 'You’re invited to be a Strimz admin',
+      html,
+    })
   }
 
   async setAdminRole(adminId: string, role: AdminRole, actorId: string) {
@@ -708,7 +953,7 @@ export class AdminService {
    * merchants are skipped from email fan-out but still see the tray
    * notification on next login.
    */
-  async createBroadcast(input: CreateBroadcastInput, senderId: string) {
+  async createBroadcast(input: CreateBroadcastParsed, senderId: string) {
     const sender = await this.prisma.db.adminUser.findUnique({
       where: { id: senderId },
       select: { id: true, email: true, name: true },
@@ -716,6 +961,7 @@ export class AdminService {
     if (!sender) {
       throw new NotFoundException({ code: 'not_found', message: 'admin not found' })
     }
+    let targetMerchantId: string | null = null
     if (input.audience === 'merchant') {
       if (!input.merchantId) {
         throw new BadRequestException({
@@ -733,6 +979,7 @@ export class AdminService {
           message: 'merchantId does not exist',
         })
       }
+      targetMerchantId = merchant.id
     }
 
     const row = await this.prisma.db.adminBroadcast.create({
@@ -741,7 +988,7 @@ export class AdminService {
         title: input.title,
         body: input.body,
         audience: input.audience,
-        merchantId: input.audience === 'merchant' ? input.merchantId! : null,
+        merchantId: targetMerchantId,
       },
       include: {
         sender: { select: { id: true, email: true, name: true } },
@@ -881,4 +1128,12 @@ function normaliseToMonthly(amount: bigint, interval: string, intervalCount: num
     default:
       return amount
   }
+}
+
+function invalidInvite() {
+  return new BadRequestException({
+    code: 'invite_invalid',
+    message:
+      'this invite link is invalid, already used, or expired; ask a super admin to re-send it',
+  })
 }

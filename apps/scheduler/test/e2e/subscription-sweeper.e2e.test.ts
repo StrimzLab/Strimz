@@ -5,7 +5,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant, seedSubscription } from '../helpers/fixtures.js'
 import { SubscriptionSweeperService } from '../../src/crons/subscription-sweeper/subscription-sweeper.service.js'
-import { QUEUE_NAMES } from '../../src/infra/queue/queue-names.js'
+import { QUEUE_NAMES } from '@strimz/queue-contracts'
 
 describe('subscription sweeper e2e', () => {
   let t: TestApp
@@ -70,6 +70,28 @@ describe('subscription sweeper e2e', () => {
       where: { id: { in: [dueActive.id, dueAtRisk.id] } },
     })
     expect(locked.every((s) => s.chargeLock)).toBe(true)
+  })
+
+  it('charges a trial that has ended and leaves a running trial alone', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const ended = await seedSubscription(t.prisma.db, merchant.id, {
+      onchainSubscriptionId: 1,
+      status: 'trialing',
+    })
+    await seedSubscription(t.prisma.db, merchant.id, {
+      onchainSubscriptionId: 2,
+      status: 'trialing',
+      nextChargeAt: new Date(Date.now() + 86_400_000),
+    })
+
+    const result = await t.app.get(SubscriptionSweeperService).sweepNow()
+    expect(result.enqueued).toBe(1)
+
+    const queue: Queue = t.app.get(getQueueToken(QUEUE_NAMES.subscriptionDue))
+    const jobs = await queue.getJobs(['waiting', 'delayed', 'active'])
+    expect(jobs.map((j) => (j.data as { subscriptionId: string }).subscriptionId)).toEqual([
+      ended.id,
+    ])
   })
 
   it('a second sweep tick does not re-pick already-locked subs', async () => {

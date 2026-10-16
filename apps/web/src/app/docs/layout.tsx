@@ -7,7 +7,7 @@ import '@/styles/docs.css'
 
 export default function DocsRootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <RootProvider theme={{ enabled: false }}>
+    <RootProvider>
       <DocsLayout tree={source.pageTree} {...baseOptions()}>
         {children}
       </DocsLayout>

@@ -12,19 +12,25 @@ const fakeAddr = "0x0000000000000000000000000000000000000001"
 
 func validConfig() *Config {
 	return &Config{
-		Environment:          EnvTestnet,
-		RPCURL:               "https://example.test/rpc",
-		DatabaseURL:          "postgres://localhost/strimz",
-		HTTPPort:             4100,
-		LogLevel:             "info",
-		PollIntervalMillis:   5000,
-		Confirmations:        5,
-		BlockBatchSize:       500,
-		RegistryAddress:      fakeAddr,
-		PaymentsAddress:      fakeAddr,
-		SubscriptionsAddress: fakeAddr,
-		AgentEscrowAddress:   fakeAddr,
-		FeeCollectorAddress:  fakeAddr,
+		Environment:           EnvTestnet,
+		ChainID:               5042002,
+		RPCURL:                "https://example.test/rpc",
+		DatabaseURL:           "postgres://localhost/strimz",
+		HTTPPort:              4100,
+		LogLevel:              "info",
+		PollIntervalMillis:    5000,
+		Confirmations:         1,
+		StartBlock:            1,
+		BlockBatchSize:        500,
+		RegistryAddress:       fakeAddr,
+		PaymentsAddress:       fakeAddr,
+		SubscriptionsAddress:  fakeAddr,
+		AgentEscrowAddress:    fakeAddr,
+		FeeCollectorAddress:   fakeAddr,
+		TokenWhitelistAddress: fakeAddr,
+		AgentRegistryAddress:  fakeAddr,
+		TimelockAddress:       fakeAddr,
+		StablecoinAddresses:   []string{"USDC:" + fakeAddr},
 	}
 }
 
@@ -61,10 +67,10 @@ func TestValidate_RejectsBatchSizeOutOfRange(t *testing.T) {
 
 func TestValidate_RejectsMalformedAddresses(t *testing.T) {
 	bads := []string{
-		"",                  // empty
-		"abc",               // too short
-		"0xZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ",                  // 40 non-hex chars
-		"0000000000000000000000000000000000000001",                  // missing 0x
+		"",    // empty
+		"abc", // too short
+		"0xZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ",   // 40 non-hex chars
+		"0000000000000000000000000000000000000001",     // missing 0x
 		"0x0000000000000000000000000000000000000001ff", // too long
 	}
 	for _, bad := range bads {
@@ -78,8 +84,74 @@ func TestValidate_RejectsMalformedAddresses(t *testing.T) {
 
 func TestValidate_RejectsBadStablecoinAddress(t *testing.T) {
 	c := validConfig()
-	c.StablecoinAddresses = []string{fakeAddr, "not-an-address"}
+	c.StablecoinAddresses = []string{"USDC:" + fakeAddr, "EURC:not-an-address"}
 	_, err := Validate(c)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "STABLECOIN_ADDRESSES[1]")
+}
+
+func TestValidate_ParsesStablecoinSymbols(t *testing.T) {
+	c := validConfig()
+	c.StablecoinAddresses = []string{"USDC:0x3600000000000000000000000000000000000000", " eurc:0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a "}
+	c, err := Validate(c)
+	require.NoError(t, err)
+	assert.Equal(t, []Stablecoin{
+		{Symbol: "USDC", Address: "0x3600000000000000000000000000000000000000"},
+		{Symbol: "EURC", Address: "0x89b50855aa3be2f677cd6303cec089b5f319d72a"},
+	}, c.Stablecoins)
+}
+
+func TestValidate_RejectsStablecoinEntriesThatAreNotSymbolAddressPairs(t *testing.T) {
+	cases := map[string][]string{
+		"bare address":      {fakeAddr},
+		"unknown symbol":    {"USYC:" + fakeAddr},
+		"duplicate symbol":  {"USDC:" + fakeAddr, "USDC:0x0000000000000000000000000000000000000002"},
+		"duplicate address": {"USDC:" + fakeAddr, "EURC:" + fakeAddr},
+		"empty":             {},
+	}
+	for name, entries := range cases {
+		t.Run(name, func(t *testing.T) {
+			c := validConfig()
+			c.StablecoinAddresses = entries
+			_, err := Validate(c)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "STABLECOIN_ADDRESSES")
+		})
+	}
+}
+
+func TestValidate_RequiresTheAgentRegistryAndTimelockAddresses(t *testing.T) {
+	for name, clear := range map[string]func(*Config){
+		"AGENT_REGISTRY_ADDRESS": func(c *Config) { c.AgentRegistryAddress = "" },
+		"TIMELOCK_ADDRESS":       func(c *Config) { c.TimelockAddress = "" },
+	} {
+		c := validConfig()
+		clear(c)
+		_, err := Validate(c)
+		require.Error(t, err, name)
+		assert.Contains(t, err.Error(), name)
+	}
+}
+
+func TestContractNames_NamesEveryWatchedAddress(t *testing.T) {
+	c := validConfig()
+	c.RegistryAddress = "0x00000000000000000000000000000000000000A1"
+	c.PaymentsAddress = "0x00000000000000000000000000000000000000a2"
+	c.SubscriptionsAddress = "0x00000000000000000000000000000000000000a3"
+	c.AgentEscrowAddress = "0x00000000000000000000000000000000000000a4"
+	c.FeeCollectorAddress = "0x00000000000000000000000000000000000000a5"
+	c.TokenWhitelistAddress = "0x00000000000000000000000000000000000000a6"
+	c.AgentRegistryAddress = "0x00000000000000000000000000000000000000a7"
+	c.TimelockAddress = "0x00000000000000000000000000000000000000a8"
+
+	assert.Equal(t, map[string]string{
+		"0x00000000000000000000000000000000000000a1": "StrimzRegistry",
+		"0x00000000000000000000000000000000000000a2": "StrimzPayments",
+		"0x00000000000000000000000000000000000000a3": "StrimzSubscriptions",
+		"0x00000000000000000000000000000000000000a4": "StrimzAgentEscrow",
+		"0x00000000000000000000000000000000000000a5": "FeeCollector",
+		"0x00000000000000000000000000000000000000a6": "TokenWhitelist",
+		"0x00000000000000000000000000000000000000a7": "StrimzAgentRegistry",
+		"0x00000000000000000000000000000000000000a8": "TimelockController",
+	}, c.ContractNames())
 }

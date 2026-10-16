@@ -15,7 +15,9 @@ export function mulberry32(seed: number) {
 }
 
 export function pick<T>(rng: () => number, list: readonly T[]): T {
-  return list[Math.floor(rng() * list.length)]!
+  const item = list[Math.floor(rng() * list.length)]
+  if (item === undefined) throw new Error('pick: list is empty')
+  return item
 }
 
 export function range(n: number): number[] {

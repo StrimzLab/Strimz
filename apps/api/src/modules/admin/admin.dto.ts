@@ -8,7 +8,7 @@ export const setMerchantStatusInputSchema = z.object({
 export class SetMerchantStatusDto extends createZodDto(setMerchantStatusInputSchema) {}
 
 export const setMerchantTierInputSchema = z.object({
-  tier: z.enum(['free', 'growth', 'business', 'enterprise']),
+  tier: z.enum(['enterprise']),
 })
 export class SetMerchantTierDto extends createZodDto(setMerchantTierInputSchema) {}
 
@@ -18,6 +18,14 @@ export const inviteAdminInputSchema = z.object({
   role: z.enum(['super_admin', 'admin', 'read_only']),
 })
 export class InviteAdminDto extends createZodDto(inviteAdminInputSchema) {}
+
+export const acceptAdminInviteInputSchema = z.object({
+  token: z
+    .string()
+    .length(43)
+    .regex(/^[A-Za-z0-9_-]+$/),
+})
+export class AcceptAdminInviteDto extends createZodDto(acceptAdminInviteInputSchema) {}
 
 export const setAdminRoleInputSchema = z.object({
   role: z.enum(['super_admin', 'admin', 'read_only']),

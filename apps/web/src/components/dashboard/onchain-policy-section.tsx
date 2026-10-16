@@ -6,8 +6,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Clock3, ExternalLink, Loader2, ShieldAlert, X } from 'lucide-react'
 import { encodeFunctionData, isAddress } from 'viem'
+import { arcEnvironmentForChainId, arcExplorerTxUrl } from '@strimz/shared-config'
 import { Button, Card, CardContent, FieldLabel, Input, Label } from '@strimz/ui'
 
+import { prepareArcSigning } from '@/lib/arc-network'
+import { env } from '@/lib/env'
+import { privySwitchableWallet } from '@/lib/privy-arc'
 import { registryWriteAbi } from '@/lib/registry-write-abi'
 import { useMerchantOnchainState } from '@/hooks/api/use-merchant'
 import { merchantKeys } from '@/hooks/api/query-keys'
@@ -181,31 +185,43 @@ function OwnershipPanel({ state }: { state: OnchainState }) {
   const [nominee, setNominee] = useState('')
   const tx = useRegistryTx(state)
   const embeddedAddr = useEmbeddedWalletAddress()
+  const nowSec = useNowSec()
+  const acceptDue =
+    state.pendingOwnerAcceptableAt !== null && nowSec >= state.pendingOwnerAcceptableAt
+  const acceptRemainingSec =
+    state.pendingOwnerAcceptableAt !== null && !acceptDue
+      ? state.pendingOwnerAcceptableAt - nowSec
+      : 0
   const iAmPending =
-    !!state.pendingOwner &&
-    !!embeddedAddr &&
-    embeddedAddr.toLowerCase() === state.pendingOwner.toLowerCase()
+    state.pendingOwner && embeddedAddr
+      ? embeddedAddr.toLowerCase() === state.pendingOwner.toLowerCase()
+      : false
 
   const validNominee = isAddress(nominee) && nominee.toLowerCase() !== state.owner.toLowerCase()
 
   return (
     <PanelShell
       title="Ownership"
-      description="Whoever owns this record signs on-chain changes. Transfer is two-step: nominate, then the nominee accepts from their wallet."
+      description="Whoever owns this record signs on-chain changes. Transfer is two-step: nominate, then the nominee accepts from their wallet 24 hours later."
     >
       <ReadonlyAddress label="Current owner" value={state.owner} />
 
       {state.pendingOwner ? (
         <div className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-3">
-          <div className="text-xs font-medium text-amber-900">
-            Nominated owner (waiting to accept)
+          <div className="flex items-center gap-2 text-xs font-medium text-amber-900">
+            <Clock3 className="size-3.5" />
+            {state.pendingOwnerAcceptableAt === null
+              ? 'Nomination cannot be accepted. Cancel it and nominate again.'
+              : acceptDue
+                ? 'Nominated owner can accept now'
+                : `Nominated owner can accept in ${formatDuration(acceptRemainingSec)}`}
           </div>
           <div className="break-all font-mono text-[11px] text-amber-900">{state.pendingOwner}</div>
           <div className="flex flex-wrap gap-2">
             {iAmPending ? (
               <Button
                 size="sm"
-                disabled={tx.busy}
+                disabled={!acceptDue || tx.busy}
                 onClick={() =>
                   tx.call('acceptMerchantOwnership', [BigInt(state.onchainMerchantId)])
                 }
@@ -227,7 +243,7 @@ function OwnershipPanel({ state }: { state: OnchainState }) {
           {!iAmPending ? (
             <p className="text-xs text-amber-900">
               The nominated wallet needs to open this dashboard from its own account and click
-              Accept.
+              Accept once the 24-hour wait is over. Accepting cancels any pending payout change.
             </p>
           ) : null}
         </div>
@@ -257,8 +273,8 @@ function OwnershipPanel({ state }: { state: OnchainState }) {
             Nominate
           </Button>
           <p className="text-muted-foreground text-xs">
-            You keep every owner power until the nominee accepts. You can cancel at any point before
-            they do.
+            The nominee can accept 24 hours after you nominate. You keep every owner power until
+            they accept, and you can cancel at any point before they do.
           </p>
         </div>
       )}
@@ -332,6 +348,7 @@ interface OnchainState {
   maxFeeBps: number
   active: boolean
   pendingOwner: `0x${string}` | null
+  pendingOwnerAcceptableAt: number | null
   pendingPayoutAddress: `0x${string}` | null
   payoutChangeCommitAt: number | null
   payoutChangeDelaySeconds: number
@@ -363,6 +380,7 @@ function useRegistryTx(state: OnchainState) {
     }
     setBusy(true)
     try {
+      await prepareArcSigning(privySwitchableWallet(embedded), env.arcEnvironment)
       const data = encodeFunctionData({
         abi: registryWriteAbi,
         functionName: fn,
@@ -408,8 +426,7 @@ function useRegistryTx(state: OnchainState) {
 }
 
 function explorerUrl(chainId: number, hash: string): string {
-  const base = chainId === 5042002 ? 'https://testnet.arcscan.app/tx/' : 'https://arcscan.app/tx/'
-  return base + hash
+  return arcExplorerTxUrl(arcEnvironmentForChainId(chainId), hash)
 }
 
 function formatDuration(sec: number): string {

@@ -10,12 +10,26 @@ on:
     branches: [main]
     paths:
       - 'apps/*/Dockerfile'
+      - 'infra/arc-anvil/**'
+      - 'scripts/install-arc-foundry.sh'
+      - 'apps/*/tsconfig.build.json'
+      - 'apps/*/nest-cli.json'
+      - 'Dockerfile.lightsail'
+      - 'infra/lightsail/**'
+      - 'scripts/docker-smoke.sh'
       - 'docker-compose.yml'
       - '.github/workflows/docker.yml'
   pull_request:
     branches: [main]
     paths:
       - 'apps/*/Dockerfile'
+      - 'infra/arc-anvil/**'
+      - 'scripts/install-arc-foundry.sh'
+      - 'apps/*/tsconfig.build.json'
+      - 'apps/*/nest-cli.json'
+      - 'Dockerfile.lightsail'
+      - 'infra/lightsail/**'
+      - 'scripts/docker-smoke.sh'
       - 'docker-compose.yml'
       - '.github/workflows/docker.yml'
 
@@ -38,17 +52,29 @@ jobs:
           - app: api
             context: .
             dockerfile: apps/api/Dockerfile
+            smoke: true
           - app: scheduler
             context: .
             dockerfile: apps/scheduler/Dockerfile
+            smoke: true
           - app: agent
             context: .
             dockerfile: apps/agent/Dockerfile
+            smoke: true
           - app: indexer
             context: ./apps/indexer
             dockerfile: ./apps/indexer/Dockerfile
+            smoke: false
+          - app: lightsail
+            context: .
+            dockerfile: Dockerfile.lightsail
+            smoke: lightsail
+          - app: arc-anvil
+            context: .
+            dockerfile: infra/arc-anvil/Dockerfile
+            smoke: arc-anvil
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: docker/setup-buildx-action@v3
 
@@ -58,7 +84,30 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: false
-          load: false
+          load: ${{ matrix.smoke != false }}
           tags: strimz-${{ matrix.app }}:ci
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,scope=${{ matrix.app }},mode=max
+
+      - name: Smoke (starts and reaches env validation)
+        if: ${{ matrix.smoke == true }}
+        run: scripts/docker-smoke.sh strimz-${{ matrix.app }}:ci
+
+      - name: Smoke the Arc local chain
+        if: ${{ matrix.smoke == 'arc-anvil' }}
+        run: |
+          docker run -d --name arc-anvil strimz-arc-anvil:ci
+          trap 'docker rm -f arc-anvil >/dev/null' EXIT
+          for _ in $(seq 1 30); do
+            docker exec arc-anvil arc-cast block-number --rpc-url http://localhost:8545 >/dev/null 2>&1 && break
+            sleep 1
+          done
+          test "$(docker exec arc-anvil arc-cast chain-id --rpc-url http://localhost:8545)" = "5042002"
+          test "$(docker exec arc-anvil arc-cast call 0x3600000000000000000000000000000000000000 'decimals()(uint8)' --rpc-url http://localhost:8545)" = "6"
+
+      - name: Smoke each service in the Lightsail image
+        if: ${{ matrix.smoke == 'lightsail' }}
+        run: |
+          for app in api scheduler agent; do
+            SMOKE_WORKDIR=/repo/apps/$app scripts/docker-smoke.sh strimz-lightsail:ci
+          done

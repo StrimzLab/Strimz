@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"strings"
 	"time"
 
@@ -21,14 +22,17 @@ import (
 type Projector struct {
 	store    *store.Store
 	registry *indabi.Registry
-	mode     string // "test" | "live"
+	mode     string            // "test" | "live"
 	tokens   map[string]string // lowercase token addr → symbol (USDC/EURC)
 	log      *slog.Logger
+	chainID  int64
+
+	contractNames map[string]string
 }
 
 // NewProjector returns a ready-to-use projector. `mode` is fixed by the
 // indexer's environment: testnet → "test", mainnet → "live".
-func NewProjector(s *store.Store, registry *indabi.Registry, env string, tokens map[string]string) *Projector {
+func NewProjector(s *store.Store, registry *indabi.Registry, env string, chainID int64, tokens map[string]string) *Projector {
 	mode := "test"
 	if env == "mainnet" {
 		mode = "live"
@@ -41,9 +45,19 @@ func NewProjector(s *store.Store, registry *indabi.Registry, env string, tokens 
 		store:    s,
 		registry: registry,
 		mode:     mode,
+		chainID:  chainID,
 		tokens:   normalised,
 		log:      slog.Default().With("component", "projector"),
 	}
+}
+
+func (p *Projector) WithContractNames(names map[string]string) *Projector {
+	c := *p
+	c.contractNames = make(map[string]string, len(names))
+	for addr, name := range names {
+		c.contractNames[strings.ToLower(addr)] = name
+	}
+	return &c
 }
 
 // WithStore returns a shallow copy of the projector whose writes go
@@ -63,12 +77,8 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 	if err != nil {
 		// Malformed event for a topic we own. Log and continue — a single
 		// bad log shouldn't stall the whole pipeline.
-		p.log.Warn("decode failed",
-			"contract", lg.Address.Hex(),
-			"tx", lg.TxHash.Hex(),
-			"index", lg.Index,
-			"err", err)
-		return nil
+		return fmt.Errorf("%w: decode %s log %s:%d: %v",
+			store.ErrUnresolvable, lg.Address.Hex(), lg.TxHash.Hex(), lg.Index, err)
 	}
 	if name == "" {
 		return nil // not subscribed
@@ -78,7 +88,14 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 	// ----- Registry -----
 	case indabi.EventMerchantRegistered:
 		ev := payload.(*indabi.MerchantRegistered)
-		_, err = p.store.LinkOnchainMerchant(ctx, ev.MerchantID, strings.ToLower(ev.PayoutAddress.Hex()))
+		var linked int64
+		linked, err = p.store.LinkOnchainMerchant(ctx, ev.MerchantID, lg.TxHash.Hex())
+		if err == nil && linked == 0 {
+			p.log.Warn("MerchantRegistered matched no merchant",
+				"onchainMerchantId", ev.MerchantID.String(),
+				"owner", strings.ToLower(ev.Owner.Hex()),
+				"txHash", lg.TxHash.Hex())
+		}
 
 	case indabi.EventMerchantPayoutAddressUpdated:
 		ev := payload.(*indabi.MerchantPayoutAddressUpdated)
@@ -92,20 +109,67 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 		ev := payload.(*indabi.MerchantFeeBpsUpdated)
 		err = p.store.LogMerchantFeeBpsChange(ctx, ev.MerchantID, ev.NewFeeBps, lg.TxHash.Hex())
 
-	case indabi.EventMerchantOwnerTransferred:
-		ev := payload.(*indabi.MerchantOwnerTransferred)
-		err = p.store.LogMerchantOwnerTransfer(ctx, ev.MerchantID, ev.NewOwner.Hex(), lg.TxHash.Hex())
+	case indabi.EventMerchantOwnershipTransferInitiated:
+		ev := payload.(*indabi.MerchantOwnershipTransferInitiated)
+		current, pending := lowerHex(ev.CurrentOwner), lowerHex(ev.PendingOwner)
+		p.log.Warn("merchant ownership transfer initiated on-chain",
+			"onchainMerchantId", ev.MerchantID.String(),
+			"currentOwner", current,
+			"pendingOwner", pending,
+			"txHash", lg.TxHash.Hex())
+		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.ownership_transfer_initiated_onchain", map[string]any{
+			"currentOwner": current,
+			"pendingOwner": pending,
+		})
+
+	case indabi.EventMerchantOwnershipTransferAccepted:
+		ev := payload.(*indabi.MerchantOwnershipTransferAccepted)
+		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.ownership_transfer_accepted_onchain", map[string]any{
+			"previousOwner": lowerHex(ev.PreviousOwner),
+			"newOwner":      lowerHex(ev.NewOwner),
+		})
+
+	case indabi.EventMerchantOwnershipTransferCancelled:
+		ev := payload.(*indabi.MerchantOwnershipTransferCancelled)
+		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.ownership_transfer_cancelled_onchain", nil)
+
+	case indabi.EventMerchantPayoutChangeInitiated:
+		ev := payload.(*indabi.MerchantPayoutChangeInitiated)
+		newPayout := lowerHex(ev.NewPayoutAddress)
+		p.log.Warn("merchant payout change initiated on-chain",
+			"onchainMerchantId", ev.MerchantID.String(),
+			"newPayoutAddress", newPayout,
+			"commitAt", ev.CommitAt,
+			"txHash", lg.TxHash.Hex())
+		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.payout_change_initiated_onchain", map[string]any{
+			"newPayoutAddress": newPayout,
+			"commitAt":         ev.CommitAt,
+		})
+
+	case indabi.EventMerchantPayoutChangeCancelled:
+		ev := payload.(*indabi.MerchantPayoutChangeCancelled)
+		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.payout_change_cancelled_onchain", nil)
+
+	case indabi.EventMerchantMaxFeeBpsLowered:
+		ev := payload.(*indabi.MerchantMaxFeeBpsLowered)
+		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.max_fee_bps_lowered_onchain", map[string]any{
+			"newMaxFeeBps": int(ev.NewMaxFeeBps),
+		})
 
 	// ----- Payments -----
 	case indabi.EventPaymentExecuted:
 		ev := payload.(*indabi.PaymentExecuted)
+		currency, symErr := p.tokenSymbol(ev.Token)
+		if symErr != nil {
+			return fmt.Errorf("PaymentExecuted tx %s: %w", lg.TxHash.Hex(), symErr)
+		}
 		_, err = p.store.InsertOneShotTransaction(ctx, store.OneShotTxInput{
 			MerchantOnchainID: ev.MerchantID,
 			PayerAddress:      strings.ToLower(ev.Payer.Hex()),
 			Amount:            ev.Amount.String(),
 			FeeAmount:         ev.FeeAmount.String(),
 			NetAmount:         ev.NetAmount.String(),
-			Currency:          p.tokenSymbol(ev.Token),
+			Currency:          currency,
 			SessionRef:        decodeSessionRef(ev.Ref),
 			OnchainTxHash:     lg.TxHash.Hex(),
 			BlockNumber:       lg.BlockNumber,
@@ -117,6 +181,10 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 	// ----- Subscriptions -----
 	case indabi.EventSubscriptionCreated:
 		ev := payload.(*indabi.SubscriptionCreated)
+		currency, symErr := p.tokenSymbol(ev.Token)
+		if symErr != nil {
+			return fmt.Errorf("SubscriptionCreated tx %s: %w", lg.TxHash.Hex(), symErr)
+		}
 		interval, intervalCount := store.IntervalFromSeconds(ev.IntervalSecs)
 		startAt := time.Unix(int64(ev.StartAt), 0).UTC()
 		// The contract makes the first charge due at enrolment
@@ -129,11 +197,12 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 			OnchainSubscriptionID: ev.SubscriptionID,
 			MerchantOnchainID:     ev.MerchantID,
 			PayerAddress:          strings.ToLower(ev.Payer.Hex()),
-			Currency:              p.tokenSymbol(ev.Token),
+			Currency:              currency,
 			Amount:                ev.Amount.String(),
 			Interval:              interval,
 			IntervalCount:         intervalCount,
 			StartAt:               startAt,
+			BlockTimestamp:        blockTime,
 			CurrentPeriodEndAt:    periodEnd,
 			NextChargeAt:          nextCharge,
 			OnchainTxHash:         lg.TxHash.Hex(),
@@ -156,12 +225,22 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 			Mode:                  p.mode,
 		})
 
+	case indabi.EventSubscriptionPeriodsSkipped:
+		ev := payload.(*indabi.SubscriptionPeriodsSkipped)
+		_, err = p.store.RecordSubscriptionPeriodsSkipped(ctx, store.SubscriptionPeriodsSkippedInput{
+			OnchainSubscriptionID: ev.SubscriptionID,
+			PeriodsSkipped:        ev.PeriodsSkipped,
+			PaidPeriodStart:       time.Unix(int64(ev.PaidPeriodStart), 0).UTC(),
+			OnchainTxHash:         lg.TxHash.Hex(),
+		})
+
 	case indabi.EventSubscriptionChargeSkipped:
 		ev := payload.(*indabi.SubscriptionChargeSkipped)
 		_, err = p.store.InsertSubscriptionChargeSkip(ctx, store.SubscriptionChargeSkippedInput{
 			OnchainSubscriptionID: ev.SubscriptionID,
 			ChargeAttemptID:       hexBytes32(ev.ChargeAttemptID),
 			Outcome:               ev.Outcome.DBString(),
+			IsPaymentFailure:      ev.Outcome.IsPaymentFailure(),
 			BlockTimestamp:        blockTime,
 		})
 
@@ -191,10 +270,17 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 
 	case indabi.EventJobFunded:
 		ev := payload.(*indabi.JobFunded)
-		err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.funded", map[string]any{
-			"amount": ev.Amount.String(),
-			"txHash": lg.TxHash.Hex(),
+		_, err = p.store.SetAgentJobStatus(ctx, store.AgentJobStatusInput{
+			OnchainJobID:   ev.JobID,
+			NewStatus:      "funded",
+			BlockTimestamp: blockTime,
 		})
+		if err == nil {
+			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.funded", map[string]any{
+				"amount": ev.Amount.String(),
+				"txHash": lg.TxHash.Hex(),
+			})
+		}
 
 	case indabi.EventJobStarted:
 		ev := payload.(*indabi.JobStarted)
@@ -262,6 +348,7 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 		})
 		if err == nil {
 			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.disputed", map[string]any{
+				"by":     strings.ToLower(ev.By.Hex()),
 				"reason": ev.Reason,
 				"txHash": lg.TxHash.Hex(),
 			})
@@ -282,6 +369,50 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 			})
 		}
 
+	case indabi.EventJobRefunded:
+		ev := payload.(*indabi.JobRefunded)
+		err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.refunded", map[string]any{
+			"to":     strings.ToLower(ev.To.Hex()),
+			"amount": ev.Amount.String(),
+			"txHash": lg.TxHash.Hex(),
+		})
+
+	case indabi.EventJobResolved:
+		ev := payload.(*indabi.JobResolved)
+		_, err = p.store.SetAgentJobStatus(ctx, store.AgentJobStatusInput{
+			OnchainJobID:   ev.JobID,
+			NewStatus:      "resolved",
+			ReleaseTxHash:  lg.TxHash.Hex(),
+			BlockTimestamp: blockTime,
+			CompletedAt:    true,
+		})
+		if err == nil {
+			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.resolved", map[string]any{
+				"resolver": strings.ToLower(ev.Resolver.Hex()),
+				"toVendor": ev.ToVendor.String(),
+				"toClient": ev.ToClient.String(),
+				"txHash":   lg.TxHash.Hex(),
+			})
+		}
+
+	case indabi.EventJobReclaimed:
+		ev := payload.(*indabi.JobReclaimed)
+		_, err = p.store.SetAgentJobStatus(ctx, store.AgentJobStatusInput{
+			OnchainJobID:   ev.JobID,
+			NewStatus:      "reclaimed",
+			ReleaseTxHash:  lg.TxHash.Hex(),
+			BlockTimestamp: blockTime,
+			CompletedAt:    true,
+		})
+		if err == nil {
+			err = p.store.LogAgentJobEvent(ctx, ev.JobID, "job.reclaimed", map[string]any{
+				"to":         strings.ToLower(ev.To.Hex()),
+				"amount":     ev.Amount.String(),
+				"fromStatus": ev.FromStatus,
+				"txHash":     lg.TxHash.Hex(),
+			})
+		}
+
 	// ----- Fees -----
 	case indabi.EventFeeAccrued:
 		ev := payload.(*indabi.FeeAccrued)
@@ -289,6 +420,143 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 			strings.ToLower(ev.Token.Hex()),
 			ev.Amount.String(),
 			lg.TxHash.Hex())
+
+	case indabi.EventPaused:
+		ev := payload.(*indabi.Paused)
+		err = p.logAdminEvent(ctx, lg, "contract.paused", map[string]any{"account": lowerHex(ev.Account)})
+
+	case indabi.EventUnpaused:
+		ev := payload.(*indabi.Unpaused)
+		err = p.logAdminEvent(ctx, lg, "contract.unpaused", map[string]any{"account": lowerHex(ev.Account)})
+
+	case indabi.EventRoleGranted, indabi.EventRoleRevoked:
+		ev := payload.(*indabi.RoleChanged)
+		action := "contract.role_granted"
+		if name == indabi.EventRoleRevoked {
+			action = "contract.role_revoked"
+		}
+		role := common.Hash(ev.Role)
+		err = p.logAdminEvent(ctx, lg, action, map[string]any{
+			"role":     role.Hex(),
+			"roleName": indabi.RoleName(role),
+			"account":  lowerHex(ev.Account),
+			"sender":   lowerHex(ev.Sender),
+		})
+
+	case indabi.EventRoleAdminChanged:
+		ev := payload.(*indabi.RoleAdminChanged)
+		role, previous, next := common.Hash(ev.Role), common.Hash(ev.PreviousAdminRole), common.Hash(ev.NewAdminRole)
+		err = p.logAdminEvent(ctx, lg, "contract.role_admin_changed", map[string]any{
+			"role":                  role.Hex(),
+			"roleName":              indabi.RoleName(role),
+			"previousAdminRole":     previous.Hex(),
+			"previousAdminRoleName": indabi.RoleName(previous),
+			"newAdminRole":          next.Hex(),
+			"newAdminRoleName":      indabi.RoleName(next),
+		})
+
+	case indabi.EventUpgraded:
+		ev := payload.(*indabi.Upgraded)
+		err = p.logAdminEvent(ctx, lg, "contract.upgraded", map[string]any{"implementation": lowerHex(ev.Implementation)})
+
+	case indabi.EventCallScheduled:
+		ev := payload.(*indabi.CallScheduled)
+		err = p.logAdminEvent(ctx, lg, "timelock.call_scheduled", map[string]any{
+			"operationId": common.Hash(ev.ID).Hex(),
+			"index":       ev.Index.String(),
+			"target":      lowerHex(ev.Target),
+			"value":       ev.Value.String(),
+			"data":        "0x" + hex.EncodeToString(ev.Data),
+			"predecessor": common.Hash(ev.Predecessor).Hex(),
+			"delay":       ev.Delay.String(),
+		})
+
+	case indabi.EventCallExecuted:
+		ev := payload.(*indabi.CallExecuted)
+		err = p.logAdminEvent(ctx, lg, "timelock.call_executed", map[string]any{
+			"operationId": common.Hash(ev.ID).Hex(),
+			"index":       ev.Index.String(),
+			"target":      lowerHex(ev.Target),
+			"value":       ev.Value.String(),
+			"data":        "0x" + hex.EncodeToString(ev.Data),
+		})
+
+	case indabi.EventCancelled:
+		ev := payload.(*indabi.Cancelled)
+		err = p.logAdminEvent(ctx, lg, "timelock.cancelled", map[string]any{"operationId": common.Hash(ev.ID).Hex()})
+
+	case indabi.EventMinDelayChange:
+		ev := payload.(*indabi.MinDelayChange)
+		err = p.logAdminEvent(ctx, lg, "timelock.min_delay_changed", map[string]any{
+			"oldDuration": ev.OldDuration.String(),
+			"newDuration": ev.NewDuration.String(),
+		})
+
+	case indabi.EventAgentRegistered:
+		ev := payload.(*indabi.AgentRegistered)
+		err = p.logAgentRegistry(ctx, lg, ev.Agent, "agent.registered", map[string]any{
+			"controller":       lowerHex(ev.Controller),
+			"credentialDigest": common.Hash(ev.CredentialDigest).Hex(),
+			"name":             ev.Name,
+			"version":          ev.Version,
+		})
+
+	case indabi.EventAgentCredentialRotated:
+		ev := payload.(*indabi.AgentCredentialRotated)
+		err = p.logAgentRegistry(ctx, lg, ev.Agent, "agent.credential_rotated", map[string]any{
+			"newCredentialDigest": common.Hash(ev.NewCredentialDigest).Hex(),
+		})
+
+	case indabi.EventAgentReputationAdjusted:
+		ev := payload.(*indabi.AgentReputationAdjusted)
+		err = p.logAgentRegistry(ctx, lg, ev.Agent, "agent.reputation_adjusted", map[string]any{
+			"delta":    ev.Delta.String(),
+			"newScore": ev.NewScore.String(),
+		})
+
+	case indabi.EventAgentDeactivated:
+		ev := payload.(*indabi.AgentStatusChanged)
+		err = p.logAgentRegistry(ctx, lg, ev.Agent, "agent.deactivated", map[string]any{})
+
+	case indabi.EventAgentActivated:
+		ev := payload.(*indabi.AgentStatusChanged)
+		err = p.logAgentRegistry(ctx, lg, ev.Agent, "agent.activated", map[string]any{})
+
+	case indabi.EventDependencyUpdated:
+		ev := payload.(*indabi.DependencyUpdated)
+		err = p.logContractOperation(ctx, lg, "contract.dependency_updated", map[string]any{
+			"name":       ev.Name,
+			"newAddress": lowerHex(ev.NewAddress),
+		})
+
+	case indabi.EventFeeWithdrawn:
+		ev := payload.(*indabi.FeeWithdrawn)
+		err = p.logContractOperation(ctx, lg, "fees.withdrawn", map[string]any{
+			"token":  lowerHex(ev.Token),
+			"to":     lowerHex(ev.To),
+			"amount": ev.Amount.String(),
+		})
+
+	case indabi.EventTokenAdded:
+		ev := payload.(*indabi.TokenAdded)
+		token := lowerHex(ev.Token)
+		if _, known := p.tokens[token]; !known {
+			p.log.Error("whitelisted token is not in STABLECOIN_ADDRESSES; its payments will park until the config lists it",
+				"token", token,
+				"txHash", lg.TxHash.Hex())
+		}
+		err = p.logContractOperation(ctx, lg, "token_whitelist.token_added", map[string]any{"token": token})
+
+	case indabi.EventTokenRemoved:
+		ev := payload.(*indabi.TokenRemoved)
+		err = p.logContractOperation(ctx, lg, "token_whitelist.token_removed", map[string]any{"token": lowerHex(ev.Token)})
+
+	case indabi.EventTokenCapabilitiesSet:
+		ev := payload.(*indabi.TokenCapabilitiesSet)
+		err = p.logContractOperation(ctx, lg, "token_whitelist.capabilities_set", map[string]any{
+			"token":        lowerHex(ev.Token),
+			"capabilities": ev.Capabilities,
+		})
 
 	default:
 		p.log.Warn("unhandled subscribed event in dispatch", "name", string(name))
@@ -300,13 +568,71 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 	return nil
 }
 
+func (p *Projector) logRef(lg types.Log) store.OnchainLogRef {
+	return store.OnchainLogRef{
+		ChainID:     p.chainID,
+		TxHash:      lg.TxHash.Hex(),
+		LogIndex:    lg.Index,
+		BlockNumber: lg.BlockNumber,
+	}
+}
+
+func (p *Projector) logGovernance(ctx context.Context, lg types.Log, onchainMerchantID *big.Int, action string, metadata map[string]any) error {
+	return p.store.LogMerchantGovernance(ctx, store.MerchantGovernanceInput{
+		Log:               p.logRef(lg),
+		OnchainMerchantID: onchainMerchantID,
+		Action:            action,
+		Metadata:          metadata,
+	})
+}
+
+func (p *Projector) logContractOperation(ctx context.Context, lg types.Log, action string, metadata map[string]any) error {
+	return p.store.LogContractOperation(ctx, store.ContractOperationInput{
+		Log:      p.logRef(lg),
+		Contract: lowerHex(lg.Address),
+		Action:   action,
+		Metadata: p.withContractName(lg, metadata),
+	})
+}
+
+func (p *Projector) logAdminEvent(ctx context.Context, lg types.Log, action string, metadata map[string]any) error {
+	return p.store.LogContractOperation(ctx, store.ContractOperationInput{
+		Log:      p.logRef(lg),
+		Contract: lowerHex(lg.Address),
+		Action:   action,
+		Metadata: p.withContractName(lg, metadata),
+		Alert:    true,
+	})
+}
+
+func (p *Projector) logAgentRegistry(ctx context.Context, lg types.Log, agent common.Address, action string, metadata map[string]any) error {
+	return p.store.LogAgentRegistryEvent(ctx, store.AgentRegistryInput{
+		Log:      p.logRef(lg),
+		Agent:    lowerHex(agent),
+		Action:   action,
+		Metadata: p.withContractName(lg, metadata),
+	})
+}
+
+func (p *Projector) withContractName(lg types.Log, metadata map[string]any) map[string]any {
+	if name, ok := p.contractNames[lowerHex(lg.Address)]; ok {
+		metadata["contractName"] = name
+	}
+	return metadata
+}
+
+func lowerHex(a common.Address) string {
+	return strings.ToLower(a.Hex())
+}
+
 // tokenSymbol resolves a token contract address to its display symbol via
 // the configured token map. Falls back to "USDC" when unknown.
-func (p *Projector) tokenSymbol(token common.Address) string {
-	if sym, ok := p.tokens[strings.ToLower(token.Hex())]; ok {
-		return sym
+func (p *Projector) tokenSymbol(token common.Address) (string, error) {
+	addr := strings.ToLower(token.Hex())
+	if sym, ok := p.tokens[addr]; ok {
+		return sym, nil
 	}
-	return "USDC"
+	return "", fmt.Errorf("%w: token %s is not in STABLECOIN_ADDRESSES", store.ErrUnresolvable, addr)
 }
 
 // decodeSessionRef interprets the bytes32 ref carried by `PaymentExecuted`.

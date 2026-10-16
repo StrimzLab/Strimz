@@ -86,7 +86,7 @@ describe('checkout subscription-status e2e', () => {
   })
 
   it('relay enrolment 409s when the wallet already subscribes to the plan', async () => {
-    const m = await seedMerchant(t.prisma.db)
+    const m = await seedMerchant(t.prisma.db, { onchainMerchantId: 1 })
     const sub = await seedSubscription(t.prisma.db, m.id) // active
     const k = await seedApiKey(t.prisma.db, m.id, { scopes: ['relay_write'] })
 

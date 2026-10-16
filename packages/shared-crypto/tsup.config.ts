@@ -11,6 +11,7 @@ export default defineConfig({
     'src/webhook.ts',
     'src/api-key.ts',
     'src/aes-gcm.ts',
+    'src/checkout.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,

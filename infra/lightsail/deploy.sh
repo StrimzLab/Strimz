@@ -23,6 +23,11 @@ CONTAINER_NAME="${CONTAINER_NAME:-strimz}"
 DATA_VOLUME="${DATA_VOLUME:-strimz-data}"
 ENV_FILE="${ENV_FILE:-$REPO_ROOT/.env}"
 HTTP_PORT="${HTTP_PORT:-80}"
+if [ "$HTTP_PORT" = "80" ]; then
+  BIND_ADDR="${BIND_ADDR:-0.0.0.0}"
+else
+  BIND_ADDR="${BIND_ADDR:-127.0.0.1}"
+fi
 
 log() { printf "\033[36m[deploy]\033[0m %s\n" "$*"; }
 die() { printf "\033[31m[deploy]\033[0m %s\n" "$*" >&2; exit 1; }
@@ -91,7 +96,7 @@ docker run -d \
   --restart unless-stopped \
   --env-file "$ENV_FILE" \
   -v "$DATA_VOLUME:/data" \
-  -p "$HTTP_PORT:80" \
+  -p "$BIND_ADDR:$HTTP_PORT:80" \
   --health-cmd 'curl -fsS http://localhost/nginx-health || exit 1' \
   --health-interval 30s \
   --health-timeout 5s \

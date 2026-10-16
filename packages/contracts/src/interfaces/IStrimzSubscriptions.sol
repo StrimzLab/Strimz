@@ -75,6 +75,8 @@ interface IStrimzSubscriptions {
         uint64 nextChargeAt
     );
 
+    event SubscriptionPeriodsSkipped(uint256 indexed subscriptionId, uint256 periodsSkipped, uint64 paidPeriodStart);
+
     event SubscriptionChargeSkipped(
         uint256 indexed subscriptionId, bytes32 indexed chargeAttemptId, ChargeOutcome outcome
     );
@@ -86,6 +88,7 @@ interface IStrimzSubscriptions {
     error Subscriptions__InvalidAmount();
     error Subscriptions__InvalidMerchantId();
     error Subscriptions__InvalidEndAt();
+    error Subscriptions__InvalidStartAt();
     error Subscriptions__UnauthorisedCharger();
     error Subscriptions__DuplicateAttempt(bytes32 chargeAttemptId);
     error Subscriptions__UnknownSubscription(uint256 subscriptionId);
@@ -93,6 +96,8 @@ interface IStrimzSubscriptions {
     error Subscriptions__LengthMismatch();
     error Subscriptions__UnsupportedCapability(address token);
     error Subscriptions__InvalidIntent();
+    error Subscriptions__AlreadyCancelled(uint256 subscriptionId);
+    error Subscriptions__IntentAlreadyUsed(bytes32 nonce);
 
     /// @param merchantId The merchant the subscription bills to.
     /// @param token ERC20 token address — must be whitelisted.
@@ -132,6 +137,7 @@ interface IStrimzSubscriptions {
         uint32 interval,
         uint64 startAt,
         uint64 endAt,
+        bytes32 nonce,
         PermitData calldata permitData,
         Sig calldata permitSig,
         Sig calldata intentSig

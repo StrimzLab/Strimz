@@ -9,6 +9,7 @@ import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
 import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
 import { AgentsService } from './agents.service.js'
+import { assertCapabilityAvailable } from './capability-availability.js'
 import { CreateAgentJobDto, UpdateAgentConfigDto } from './agents.dto.js'
 
 @ApiTags('agents')
@@ -75,6 +76,7 @@ export class AgentsController {
       'Create an ERC-8183 escrow job. Auto-approves below the merchant-configured threshold.',
   })
   createJob(@CurrentMerchant() ctx: CurrentMerchantPayload, @Body() dto: CreateAgentJobDto) {
+    assertCapabilityAvailable('commerce')
     return this.agents.createJob(ctx.merchantId, dto)
   }
 
@@ -82,6 +84,7 @@ export class AgentsController {
   @Post('/jobs/:id/approve')
   @ApiOperation({ summary: 'Human-approve a job that needed manual sign-off.' })
   approveJob(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string) {
+    assertCapabilityAvailable('commerce')
     return this.agents.approveJob(ctx.merchantId, id)
   }
 }

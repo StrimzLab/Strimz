@@ -37,7 +37,7 @@ const SheetOverlay = React.forwardRef<
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName
 
 const sheetVariants = cva(
-  'fixed z-[70] gap-4 bg-white p-6 shadow-2xl transition-transform duration-300 ease-out',
+  'bg-background fixed z-[70] gap-4 p-6 shadow-2xl transition-transform duration-300 ease-out',
   {
     variants: {
       side: {
@@ -80,7 +80,7 @@ const SheetContent = React.forwardRef<
     <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
       {children}
       {hideCloseButton ? null : (
-        <SheetPrimitive.Close className="absolute right-5 top-5 rounded-md p-1.5 text-[#58556A] transition-colors hover:bg-[#F9FAFB] hover:text-[#050020] focus:outline-none focus:ring-2 focus:ring-[#02C76A]/40 focus:ring-offset-2 disabled:pointer-events-none">
+        <SheetPrimitive.Close className="text-muted-foreground hover:bg-muted hover:text-foreground focus:ring-accent/40 absolute right-5 top-5 rounded-md p-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none">
           <X className="h-5 w-5" />
           <span className="sr-only">Close</span>
         </SheetPrimitive.Close>
@@ -109,7 +109,7 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Title
     ref={ref}
-    className={cn('font-sora text-lg font-semibold text-[#050020]', className)}
+    className={cn('font-sora text-foreground text-lg font-semibold', className)}
     {...props}
   />
 ))
@@ -121,7 +121,7 @@ const SheetDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Description
     ref={ref}
-    className={cn('font-poppins text-sm text-[#58556A]', className)}
+    className={cn('font-poppins text-muted-foreground text-sm', className)}
     {...props}
   />
 ))

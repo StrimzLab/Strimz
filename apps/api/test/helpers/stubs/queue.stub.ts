@@ -10,16 +10,63 @@ export interface RecordedJob {
   opts: unknown
 }
 
-export class StubQueueService {
+import {
+  agentActionJobSchema,
+  QUEUE_NAMES,
+  relayJobSchema,
+  webhookDeliveryJobSchema,
+  type AgentActionJob,
+  type RelayJob,
+  type WebhookDeliveryJob,
+} from '@strimz/queue-contracts'
+import type { QueueService } from '../../../src/infra/queue/queue.service.js'
+
+export class StubQueueService implements Pick<
+  QueueService,
+  'addAgentAction' | 'addWebhookDelivery' | 'addRelaySubmission' | 'onModuleDestroy'
+> {
   public readonly recorded: RecordedJob[] = []
 
   queue(queueName: string) {
+    const view = (id: string, data: unknown) => ({
+      id,
+      data,
+      timestamp: Date.now(),
+      attemptsMade: 0,
+      returnvalue: undefined,
+      failedReason: undefined,
+      getState: () => Promise.resolve('waiting'),
+    })
     return {
-      add: async (name: string, data: unknown, opts?: unknown) => {
+      add: (name: string, data: unknown, opts?: unknown) => {
         this.recorded.push({ queue: queueName, name, data, opts })
-        return { id: String(this.recorded.length) }
+        const id = (opts as { jobId?: string } | undefined)?.jobId ?? String(this.recorded.length)
+        return Promise.resolve(view(id, data))
+      },
+      getJob: (id: string) => {
+        const job = this.recorded.find(
+          (j) => j.queue === queueName && (j.opts as { jobId?: string } | undefined)?.jobId === id,
+        )
+        return Promise.resolve(job ? view(id, job.data) : undefined)
       },
     }
+  }
+
+  async addAgentAction(job: AgentActionJob): Promise<void> {
+    const parsed = agentActionJobSchema.parse(job)
+    await this.queue(QUEUE_NAMES.agentAction).add(parsed.type, parsed)
+  }
+
+  async addWebhookDelivery(job: WebhookDeliveryJob): Promise<void> {
+    const parsed = webhookDeliveryJobSchema.parse(job)
+    await this.queue(QUEUE_NAMES.webhookDelivery).add('deliver', parsed)
+  }
+
+  async addRelaySubmission(job: RelayJob): Promise<void> {
+    const parsed = relayJobSchema.parse(job)
+    await this.queue(QUEUE_NAMES.relaySubmission).add(`relay:${parsed.reason}`, parsed, {
+      jobId: parsed.idempotencyKey,
+    })
   }
 
   reset() {

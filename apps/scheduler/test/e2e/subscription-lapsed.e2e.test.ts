@@ -6,7 +6,8 @@ import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant, seedSubscription, seedWebhookEndpoint } from '../helpers/fixtures.js'
 import { SubscriptionLapsedService } from '../../src/crons/subscription-lapsed/subscription-lapsed.service.js'
 import { WebhookOutboxService } from '../../src/infra/webhook-outbox/webhook-outbox.service.js'
-import { QUEUE_NAMES } from '../../src/infra/queue/queue-names.js'
+import { QUEUE_NAMES } from '@strimz/queue-contracts'
+import { must } from '../helpers/must.js'
 
 describe('subscription-lapsed cron e2e', () => {
   let t: TestApp
@@ -83,7 +84,7 @@ describe('subscription-lapsed cron e2e', () => {
       where: { type: 'subscription_lapsed' },
     })
     expect(events).toHaveLength(1)
-    expect(events[0]!.dispatchedAt).toBeNull()
+    expect(must(events[0]).dispatchedAt).toBeNull()
 
     const outbox = t.app.get(WebhookOutboxService)
     const dispatched = await outbox.tickNow()
@@ -97,5 +98,53 @@ describe('subscription-lapsed cron e2e', () => {
     const cron = t.app.get(SubscriptionLapsedService)
     const result = await cron.sweepNow()
     expect(result).toEqual({ flipped: 0 })
+  })
+  it('keeps the subscription at_risk when the outbox event cannot be written', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const sub = await seedSubscription(t.prisma.db, merchant.id, {
+      onchainSubscriptionId: 3,
+      status: 'at_risk',
+    })
+    await t.prisma.db.subscription.update({
+      where: { id: sub.id },
+      data: {
+        currentPeriodEndAt: new Date(Date.now() - 7 * 24 * 60 * 60_000),
+        gracePeriodHours: 48,
+      },
+    })
+
+    const realDb = t.prisma.db
+    const failingDb = new Proxy(realDb, {
+      get: (client, prop) =>
+        prop === '$transaction'
+          ? (fn: (tx: object) => Promise<unknown>) =>
+              client.$transaction((tx) =>
+                fn(
+                  new Proxy(tx, {
+                    get: (target, key) =>
+                      key === 'webhookEvent'
+                        ? { create: () => Promise.reject(new Error('boom')) }
+                        : Reflect.get(target, key),
+                  }),
+                ),
+              )
+          : Reflect.get(client, prop),
+    })
+    const service = t.prisma as unknown as { db: typeof realDb }
+    service.db = failingDb
+
+    const cron = t.app.get(SubscriptionLapsedService)
+    try {
+      await expect(cron.sweepNow()).rejects.toThrow('boom')
+    } finally {
+      service.db = realDb
+    }
+
+    const row = await t.prisma.db.subscription.findUniqueOrThrow({ where: { id: sub.id } })
+    expect(row.status).toBe('at_risk')
+    expect(await t.prisma.db.webhookEvent.count()).toBe(0)
+
+    expect(await cron.sweepNow()).toEqual({ flipped: 1 })
+    expect(await t.prisma.db.webhookEvent.count({ where: { type: 'subscription_lapsed' } })).toBe(1)
   })
 })

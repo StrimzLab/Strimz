@@ -19,13 +19,16 @@ import { PageHeader } from '@/components/dashboard/page-header'
 import { KpiCard } from '@/components/dashboard/kpi-card'
 import { stagger, inViewOnce } from '@/lib/motion'
 import { formatTokenAmount, tokenAmountToNumber } from '@/lib/format'
+import { bucketVolumeDays, formatCurrencyAmounts, utcDayStart } from '@/lib/currency-totals'
+import { homeCards, summaryValue } from '@/lib/stats-summary'
+import { paymentCurrencies } from '@strimz/shared-types'
 import { useDashboardTour } from '@/hooks/use-dashboard-tour'
 import {
-  useInvoices,
   useMerchantMe,
   useMrr,
   usePaymentSessions,
-  useSubscriptions,
+  useStatsSummary,
+  useStatsVolume,
 } from '@/hooks/api'
 
 const STEPS = [
@@ -49,87 +52,86 @@ const STEPS = [
   },
 ] as const
 
+const CHART_DAYS = 30
+
 export default function DashboardHome() {
   const merchantQuery = useMerchantMe()
   const mrrQuery = useMrr()
-  const sessionsQuery = usePaymentSessions({ limit: 100 })
-  const subsQuery = useSubscriptions({ status: 'active', limit: 100 })
-  const invoicesQuery = useInvoices({ limit: 100 })
-
-  useDashboardTour({ enabled: !!merchantQuery.data })
-
-  const derived = React.useMemo(() => {
+  const summaryQuery = useStatsSummary()
+  const [chartRange] = React.useState(() => {
     const now = Date.now()
-    const sevenDays = 7 * 86_400_000
-    const thirtyDays = 30 * 86_400_000
+    return {
+      nowMs: now,
+      from: new Date(utcDayStart(now, CHART_DAYS - 1)).toISOString(),
+      to: new Date(now).toISOString(),
+    }
+  })
+  const volumeQuery = useStatsVolume({ from: chartRange.from, to: chartRange.to })
 
-    const sessions = sessionsQuery.data?.data ?? []
-    const confirmed = sessions.filter((s) => s.status === 'confirmed')
-    const confirmed7d = confirmed.filter((s) => now - +new Date(s.updatedAt) < sevenDays)
-    const confirmed30d = confirmed.filter((s) => now - +new Date(s.updatedAt) < thirtyDays)
-    const volume7d = confirmed7d.reduce((s, r) => s + tokenAmountToNumber(r.amount), 0)
+  useDashboardTour({ enabled: Boolean(merchantQuery.data) })
 
-    const invoices = invoicesQuery.data?.data ?? []
-    const openInvoices = invoices.filter((i) => i.status === 'sent' || i.status === 'overdue')
+  const cards = summaryQuery.data ? homeCards(summaryQuery.data) : null
 
+  const chart = React.useMemo(() => {
     // Per-day series for the volume chart. We index into a 30-slot
     // array keyed by midnight-UTC day so the chart shows a stable
     // x-axis even when a day has no confirmed transactions.
     const dayLabel = (d: Date) =>
       d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-    const buckets: { date: Date; day: string; volume: number; count: number }[] = []
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(now - i * 86_400_000)
-      d.setUTCHours(0, 0, 0, 0)
-      buckets.push({ date: d, day: dayLabel(d), volume: 0, count: 0 })
-    }
-    for (const s of confirmed30d) {
-      const d = new Date(s.updatedAt)
-      d.setUTCHours(0, 0, 0, 0)
-      const slot = buckets.find((b) => +b.date === +d)
-      if (slot) {
-        slot.volume += tokenAmountToNumber(s.amount)
-        slot.count += 1
-      }
-    }
+    const rows = volumeQuery.data?.data ?? []
+    const currencies = paymentCurrencies.filter((c) => rows.some((r) => r.currency === c))
+    const buckets = bucketVolumeDays(rows, chartRange.nowMs, CHART_DAYS)
     return {
-      volume7d,
-      confirmedCount7d: confirmed7d.length,
-      activeSubsCount: subsQuery.data?.data.length ?? 0,
-      openInvoiceCount: openInvoices.length,
-      anyConfirmedAtAll: confirmed.length > 0,
-      series: buckets.map(({ day, volume, count }) => ({ day, volume, count })),
+      currencies,
+      series: buckets.map((b) => ({
+        day: dayLabel(new Date(b.dayStart)),
+        count: b.count,
+        ...Object.fromEntries(
+          currencies.map((currency) => [
+            currency,
+            tokenAmountToNumber((b.totals[currency] ?? 0n).toString()),
+          ]),
+        ),
+      })),
     }
-  }, [sessionsQuery.data, subsQuery.data, invoicesQuery.data])
+  }, [volumeQuery.data, chartRange.nowMs])
 
   const merchant = merchantQuery.data
-  const showGettingStarted = !derived.anyConfirmedAtAll
+  const showGettingStarted = cards ? !cards.anyConfirmedAtAll : false
 
   const KPIS = [
     {
       label: 'MRR',
-      value: mrrQuery.data ? formatTokenAmount(mrrQuery.data.mrr, 'USDC') : '—',
+      value: summaryValue(mrrQuery, (d) => formatCurrencyAmounts(d.mrr)),
       icon: Wallet,
       href: '/app/analytics',
-      subtle: mrrQuery.data ? `${mrrQuery.data.activeSubscribers} active` : 'Loading…',
+      subtle: mrrQuery.data
+        ? `${mrrQuery.data.activeSubscribers} active`
+        : mrrQuery.isError
+          ? 'Could not load MRR'
+          : 'Loading…',
     },
     {
       label: 'Active subscribers',
-      value: derived.activeSubsCount.toLocaleString(),
+      value: summaryValue(mrrQuery, (d) => d.activeSubscribers.toLocaleString()),
       icon: Users,
       href: '/app/subscriptions',
       subtle: 'Customers cycling',
     },
     {
       label: '7-day volume',
-      value: derived.volume7d.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' USDC',
+      value: summaryValue(summaryQuery, (d) => homeCards(d).volume7d),
       icon: CreditCard,
       href: '/app/payment-sessions',
-      subtle: `${derived.confirmedCount7d} confirmed`,
+      subtle: cards
+        ? cards.volume7dNote
+        : summaryQuery.isError
+          ? 'Could not load volume'
+          : 'Loading…',
     },
     {
       label: 'Open invoices',
-      value: derived.openInvoiceCount.toString(),
+      value: summaryValue(summaryQuery, (d) => homeCards(d).openInvoices),
       icon: Receipt,
       href: '/app/invoices',
       subtle: 'Sent or overdue',
@@ -159,22 +161,38 @@ export default function DashboardHome() {
         ))}
       </motion.div>
 
-      <VolumeChartCard series={derived.series} isLoading={sessionsQuery.isPending} />
+      <VolumeChartCard
+        series={chart.series}
+        currencies={chart.currencies}
+        total={summaryValue(summaryQuery, (d) => homeCards(d).volume30d)}
+        isLoading={volumeQuery.isPending}
+        error={volumeQuery.isError ? volumeQuery.error.message : null}
+        onRetry={() => void volumeQuery.refetch()}
+      />
 
       <div className="mt-6">{showGettingStarted ? <GetStartedCard /> : <RecentSessionsCard />}</div>
     </>
   )
 }
 
+const CURRENCY_STROKE: Record<string, string> = { USDC: '#02C76A', EURC: '#2563EB' }
+
 function VolumeChartCard({
   series,
+  currencies,
+  total,
   isLoading,
+  error,
+  onRetry,
 }: {
-  series: { day: string; volume: number; count: number }[]
+  series: ({ day: string; count: number } & Record<string, number | string>)[]
+  currencies: string[]
+  total: string
   isLoading: boolean
+  error: string | null
+  onRetry: () => void
 }) {
-  const total = series.reduce((s, p) => s + p.volume, 0)
-  const empty = !isLoading && total === 0
+  const empty = !isLoading && currencies.length === 0
 
   return (
     <Card className="shadow-sub-card border-border/60 mt-6" data-tour="volume-chart">
@@ -182,18 +200,29 @@ function VolumeChartCard({
         <div className="flex items-start justify-between">
           <div>
             <h3 className="font-poppins font-semibold">Volume (30 days)</h3>
-            <p className="text-muted-foreground text-xs">Confirmed payments, USDC.</p>
+            <p className="text-muted-foreground text-xs">
+              Confirmed payments and subscription charges, per currency.
+            </p>
           </div>
           <div className="text-right">
-            <div className="font-sora text-lg font-semibold">
-              {total.toLocaleString(undefined, { maximumFractionDigits: 2 })} USDC
-            </div>
+            <div className="font-sora text-lg font-semibold">{total}</div>
             <div className="text-muted-foreground text-xs">Rolling total</div>
           </div>
         </div>
         <div className="mt-4">
           {isLoading ? (
             <div className="bg-muted/30 h-[220px] animate-pulse rounded-md" />
+          ) : error ? (
+            <div className="text-muted-foreground flex h-[220px] flex-col items-center justify-center gap-2 text-xs">
+              <span>Could not load volume: {error}</span>
+              <button
+                type="button"
+                onClick={onRetry}
+                className="text-accent font-medium hover:underline"
+              >
+                Retry
+              </button>
+            </div>
           ) : empty ? (
             <div className="text-muted-foreground flex h-[220px] items-center justify-center text-xs">
               No confirmed payments in the last 30 days.
@@ -202,10 +231,27 @@ function VolumeChartCard({
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={series} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="strimzVol" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#02C76A" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#02C76A" stopOpacity={0} />
-                  </linearGradient>
+                  {currencies.map((currency) => (
+                    <linearGradient
+                      key={currency}
+                      id={`strimzVol-${currency}`}
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor={CURRENCY_STROKE[currency] ?? '#58556A'}
+                        stopOpacity={0.35}
+                      />
+                      <stop
+                        offset="100%"
+                        stopColor={CURRENCY_STROKE[currency] ?? '#58556A'}
+                        stopOpacity={0}
+                      />
+                    </linearGradient>
+                  ))}
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
                 <XAxis
@@ -216,16 +262,23 @@ function VolumeChartCard({
                 />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip
-                  formatter={(value: number) => [`${value.toFixed(2)} USDC`, 'Volume']}
+                  formatter={(value: number, currency: string) => [
+                    `${value.toFixed(2)} ${currency}`,
+                    'Volume',
+                  ]}
                   labelStyle={{ fontSize: 11 }}
                 />
-                <Area
-                  type="monotone"
-                  dataKey="volume"
-                  stroke="#02C76A"
-                  strokeWidth={2}
-                  fill="url(#strimzVol)"
-                />
+                {currencies.map((currency) => (
+                  <Area
+                    key={currency}
+                    type="monotone"
+                    dataKey={currency}
+                    name={currency}
+                    stroke={CURRENCY_STROKE[currency] ?? '#58556A'}
+                    strokeWidth={2}
+                    fill={`url(#strimzVol-${currency})`}
+                  />
+                ))}
               </AreaChart>
             </ResponsiveContainer>
           )}
@@ -245,7 +298,7 @@ function GetStartedCard() {
             href="https://strimz.finance/docs/getting-started/quickstart"
             target="_blank"
             rel="noreferrer"
-            className="text-xs font-medium text-[#02C76A] hover:underline"
+            className="text-accent text-xs font-medium hover:underline"
           >
             Open the docs →
           </Link>
@@ -255,9 +308,9 @@ function GetStartedCard() {
             <Link
               key={s.n}
               href={s.href}
-              className="border-border/60 bg-background group flex items-start gap-3 rounded-lg border p-4 transition-all hover:border-[#02C76A]/40 hover:shadow-sm"
+              className="border-border/60 bg-background hover:border-accent/40 group flex items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm"
             >
-              <div className="font-sora flex size-8 shrink-0 items-center justify-center rounded-full bg-[#02C76A]/10 text-sm font-semibold text-[#02C76A]">
+              <div className="font-sora bg-accent/10 text-accent flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
                 {s.n}
               </div>
               <div className="min-w-0 flex-1">
@@ -286,7 +339,7 @@ function RecentSessionsCard() {
           <h3 className="font-poppins font-semibold">Recent activity</h3>
           <Link
             href="/app/payment-sessions"
-            className="text-xs font-medium text-[#02C76A] hover:underline"
+            className="text-accent text-xs font-medium hover:underline"
           >
             View all →
           </Link>

@@ -8,8 +8,7 @@ export const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
 
-  ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).default('testnet'),
-  ARC_RPC_URL: z.string().url(),
+  ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).optional(),
 
   RECOVERY_TICK_CRON: z.string().default('0 0 * * * *'),
   CASHFLOW_DIGEST_CRON: z.string().default('0 0 9 * * *'),
@@ -36,10 +35,22 @@ export const envSchema = z.object({
   CIRCLE_API_KEY: z.string().optional(),
 })
 
-export type Env = z.infer<typeof envSchema>
+const validatedEnvSchema = envSchema
+  .superRefine((env, ctx) => {
+    if (env.NODE_ENV === 'production' && !env.ARC_ENVIRONMENT) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['ARC_ENVIRONMENT'],
+        message: 'required when NODE_ENV=production',
+      })
+    }
+  })
+  .transform((env) => ({ ...env, ARC_ENVIRONMENT: env.ARC_ENVIRONMENT ?? 'testnet' }))
+
+export type Env = z.output<typeof validatedEnvSchema>
 
 export function validateEnv(raw: Record<string, unknown>): Env {
-  const parsed = envSchema.safeParse(raw)
+  const parsed = validatedEnvSchema.safeParse(raw)
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((i) => `  • ${i.path.join('.')}: ${i.message}`)

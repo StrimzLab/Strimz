@@ -63,6 +63,7 @@ export interface OnchainMerchantState {
   maxFeeBps: number
   active: boolean
   pendingOwner: `0x${string}` | null
+  pendingOwnerAcceptableAt: number | null
   pendingPayoutAddress: `0x${string}` | null
   payoutChangeCommitAt: number | null
   payoutChangeDelaySeconds: number

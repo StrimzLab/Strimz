@@ -21,6 +21,7 @@ export interface AgentCapabilityDescriptor {
   valueMoving: boolean
   /** Default enabled state for a newly created merchant. */
   defaultEnabled: boolean
+  available: boolean
 }
 
 export const AGENT_CAPABILITIES: Record<AgentCapability, AgentCapabilityDescriptor> = {
@@ -29,36 +30,42 @@ export const AGENT_CAPABILITIES: Record<AgentCapability, AgentCapabilityDescript
     name: 'Agent Identity (ERC-8004)',
     valueMoving: false,
     defaultEnabled: true,
+    available: true,
   },
   recovery: {
     id: 'recovery',
     name: 'Subscription Recovery',
     valueMoving: true,
     defaultEnabled: false,
+    available: true,
   },
   routing: {
     id: 'routing',
     name: 'Cross-Chain Payment Routing',
     valueMoving: true,
     defaultEnabled: false,
+    available: true,
   },
   cashflow: {
     id: 'cashflow',
     name: 'Treasury Cash Flow Insights',
     valueMoving: false,
     defaultEnabled: false,
+    available: true,
   },
   commerce: {
     id: 'commerce',
     name: 'Agentic B2B Commerce (ERC-8183)',
     valueMoving: true,
     defaultEnabled: false,
+    available: false,
   },
   pricing_intelligence: {
     id: 'pricing_intelligence',
     name: 'Subscription Pricing Intelligence',
     valueMoving: false,
     defaultEnabled: false,
+    available: true,
   },
 }
 

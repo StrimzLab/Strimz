@@ -37,6 +37,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
     uint16 internal constant FEE_BPS = 100;
     uint256 internal constant AMOUNT = 50_000_000; // 50 mUSDC per period
     uint32 internal constant INTERVAL = 1 hours;
+    bytes32 internal constant INTENT_NONCE = keccak256("intent-1");
     address internal relayer;
 
     function setUp() public {
@@ -55,7 +56,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         whitelist.add(address(usdc));
         whitelist.setCapabilities(address(usdc), cap);
         feeCollector.grantRole(accruerRole, address(subs));
-        merchantId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, 0);
+        merchantId = registry.registerMerchant(merchant, merchantPayout, FEE_BPS, FEE_BPS, 0);
         vm.stopPrank();
 
         _fund(payer, 10_000_000_000);
@@ -91,9 +92,37 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         uint256 permitDeadline
     ) internal view returns (IStrimzSubscriptions.Sig memory) {
         (uint8 v, bytes32 r, bytes32 s) = _signSubscriptionIntent(
-            subs, signerPk, mid, token, amount, interval, startAt, endAt, permitDeadline
+            subs, signerPk, mid, token, amount, interval, startAt, endAt, permitDeadline, INTENT_NONCE
         );
         return IStrimzSubscriptions.Sig(v, r, s);
+    }
+
+    // ---------- Backdated startAt (audit M-02) ----------
+
+    // The relayer submits the calldata, so the backdating guard has to
+    // hold on this path too. It fires before `permit()` is called, so a
+    // rejected enrolment does not burn the payer's token nonce.
+    function test_permitCreateRejectsBackdatedStartAt() public {
+        vm.warp(10 days);
+        uint256 deadline = block.timestamp + 24 hours;
+        uint64 backdated = uint64(block.timestamp - 1);
+
+        IStrimzSubscriptions.PermitData memory pd = _defaultPermit(type(uint256).max, deadline);
+        IStrimzSubscriptions.Sig memory permitSig = _signPermitFor(pd, payerPk);
+        IStrimzSubscriptions.Sig memory intentSig = _signIntentFor(
+            payerPk, merchantId, address(usdc), AMOUNT, INTERVAL, backdated, 0, deadline
+        );
+
+        uint256 nonceBefore = usdc.nonces(payer);
+
+        vm.prank(relayer);
+        vm.expectRevert(IStrimzSubscriptions.Subscriptions__InvalidStartAt.selector);
+        subs.permitAndCreateSubscription(
+            merchantId, address(usdc), AMOUNT, INTERVAL, backdated, 0, INTENT_NONCE, pd, permitSig, intentSig
+        );
+
+        assertEq(usdc.nonces(payer), nonceBefore, "rejected enrolment must not burn the permit nonce");
+        assertEq(usdc.allowance(payer, address(subs)), 0, "no allowance granted");
     }
 
     // ---------- Happy path ----------
@@ -108,14 +137,15 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
 
         vm.prank(relayer);
         uint256 subId = subs.permitAndCreateSubscription(
-            merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0, pd, permitSig, intentSig
+            merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0,
+            INTENT_NONCE, pd, permitSig, intentSig
         );
 
         assertEq(usdc.allowance(payer, address(subs)), type(uint256).max, "allowance from permit");
 
         IStrimzSubscriptions.Subscription memory sub = subs.getSubscription(subId);
         assertEq(sub.payer, payer, "payer == permit owner");
-        assertEq(sub.merchantId, uint96(merchantId));
+        assertEq(uint256(sub.merchantId), merchantId);
         assertEq(sub.amount, AMOUNT);
         assertEq(sub.interval, INTERVAL);
     }
@@ -130,7 +160,8 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
 
         vm.prank(relayer);
         uint256 subId = subs.permitAndCreateSubscription(
-            merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0, pd, permitSig, intentSig
+            merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0,
+            INTENT_NONCE, pd, permitSig, intentSig
         );
 
         uint256[] memory ids = new uint256[](1);
@@ -157,7 +188,8 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
 
         vm.prank(relayer);
         uint256 subId = subs.permitAndCreateSubscription(
-            merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0, pd, permitSig, intentSig
+            merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0,
+            INTENT_NONCE, pd, permitSig, intentSig
         );
 
         // Relayer has no cancel standing.
@@ -178,8 +210,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
     // attacker's plan.
     function test_intent_hijackedMerchantId_reverts() public {
         vm.prank(admin);
-        uint256 attackerMerchant = registry.registerMerchant(
-            makeAddr("attackerOwner"), makeAddr("attackerPayout"), FEE_BPS, 0
+        uint256 attackerMerchant = registry.registerMerchant(makeAddr("attackerOwner"), makeAddr("attackerPayout"), FEE_BPS, FEE_BPS, 0
         );
 
         uint256 deadline = block.timestamp + 24 hours;
@@ -194,7 +225,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         vm.expectRevert(IStrimzSubscriptions.Subscriptions__InvalidIntent.selector);
         subs.permitAndCreateSubscription(
             attackerMerchant, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0,
-            pd, permitSig, intentSig
+            INTENT_NONCE, pd, permitSig, intentSig
         );
 
         // Permit nonce was NOT burnt because intent verification runs
@@ -215,7 +246,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         vm.expectRevert(IStrimzSubscriptions.Subscriptions__InvalidIntent.selector);
         subs.permitAndCreateSubscription(
             merchantId, address(usdc), AMOUNT * 10, INTERVAL, uint64(block.timestamp), 0,
-            pd, permitSig, intentSig
+            INTENT_NONCE, pd, permitSig, intentSig
         );
     }
 
@@ -232,7 +263,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         vm.expectRevert(IStrimzSubscriptions.Subscriptions__InvalidIntent.selector);
         subs.permitAndCreateSubscription(
             merchantId, address(usdc), AMOUNT, 2 hours, uint64(block.timestamp), 0,
-            pd, permitSig, intentSig
+            INTENT_NONCE, pd, permitSig, intentSig
         );
     }
 
@@ -250,7 +281,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         vm.expectRevert(IStrimzSubscriptions.Subscriptions__InvalidIntent.selector);
         subs.permitAndCreateSubscription(
             merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0,
-            pd, permitSig, intentSig
+            INTENT_NONCE, pd, permitSig, intentSig
         );
     }
 
@@ -264,7 +295,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         vm.prank(relayer);
         vm.expectRevert(IStrimzSubscriptions.Subscriptions__InvalidAmount.selector);
         subs.permitAndCreateSubscription(
-            merchantId, address(usdc), 0, INTERVAL, uint64(block.timestamp), 0, pd, sig, sig
+            merchantId, address(usdc), 0, INTERVAL, uint64(block.timestamp), 0, INTENT_NONCE, pd, sig, sig
         );
     }
 
@@ -276,7 +307,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         vm.prank(relayer);
         vm.expectRevert(IStrimzSubscriptions.Subscriptions__InvalidInterval.selector);
         subs.permitAndCreateSubscription(
-            merchantId, address(usdc), AMOUNT, 60, uint64(block.timestamp), 0, pd, sig, sig
+            merchantId, address(usdc), AMOUNT, 60, uint64(block.timestamp), 0, INTENT_NONCE, pd, sig, sig
         );
     }
 
@@ -291,7 +322,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
             abi.encodeWithSelector(IStrimzSubscriptions.Subscriptions__InvalidToken.selector, address(other))
         );
         subs.permitAndCreateSubscription(
-            merchantId, address(other), AMOUNT, INTERVAL, uint64(block.timestamp), 0, pd, sig, sig
+            merchantId, address(other), AMOUNT, INTERVAL, uint64(block.timestamp), 0, INTENT_NONCE, pd, sig, sig
         );
     }
 
@@ -310,7 +341,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
             )
         );
         subs.permitAndCreateSubscription(
-            merchantId, address(plain), AMOUNT, INTERVAL, uint64(block.timestamp), 0, pd, sig, sig
+            merchantId, address(plain), AMOUNT, INTERVAL, uint64(block.timestamp), 0, INTENT_NONCE, pd, sig, sig
         );
     }
 
@@ -328,7 +359,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         vm.expectRevert();
         subs.permitAndCreateSubscription(
             merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0,
-            pd, badPermit, intentSig
+            INTENT_NONCE, pd, badPermit, intentSig
         );
     }
 
@@ -344,7 +375,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         vm.expectRevert();
         subs.permitAndCreateSubscription(
             merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0,
-            pd, permitSig, intentSig
+            INTENT_NONCE, pd, permitSig, intentSig
         );
     }
 
@@ -363,7 +394,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         vm.expectRevert();
         subs.permitAndCreateSubscription(
             merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0,
-            pd, permitSig, intentSig
+            INTENT_NONCE, pd, permitSig, intentSig
         );
     }
 }

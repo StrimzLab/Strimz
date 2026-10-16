@@ -14,10 +14,10 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <textarea
         className={cn(
-          'font-poppins flex min-h-[80px] w-full rounded-md border border-[#E5E7EB] bg-white px-3 py-2 text-sm text-[#050020] transition-colors',
-          'placeholder:text-[#8E8C9C]',
-          'focus-visible:border-[#02C76A] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#02C76A]/15',
-          'disabled:cursor-not-allowed disabled:bg-[#F9FAFB] disabled:opacity-50',
+          'font-poppins border-border bg-card text-foreground flex min-h-[80px] w-full rounded-md border px-3 py-2 text-sm transition-colors',
+          'placeholder:text-muted-foreground',
+          'focus-visible:border-accent focus-visible:ring-accent/15 focus-visible:outline-none focus-visible:ring-4',
+          'disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-50',
           'aria-invalid:border-rose-500 aria-invalid:ring-rose-500/15',
           className,
         )}

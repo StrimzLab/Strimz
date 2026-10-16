@@ -24,6 +24,9 @@ import {
   SelectValue,
 } from '@strimz/ui'
 import type { Merchant, PaymentCurrency, UpdateMerchantInput } from '@strimz/shared-types'
+import { PLANS } from '@strimz/shared-config'
+
+import { nextPlanNotice, planFeeLabel } from '@/lib/pricing-plans'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { ImageUpload } from '@/components/dashboard/image-upload'
@@ -244,7 +247,7 @@ function BusinessSection({ merchant }: { merchant: Merchant }) {
               Managed by Privy. Required to issue or rotate live-mode keys.
             </div>
           </div>
-          <Badge variant="outline" className="border-[#02C76A]/40 bg-[#02C76A]/10 text-[#02C76A]">
+          <Badge variant="outline" className="border-accent/40 bg-accent/10 text-accent">
             Managed by Privy
           </Badge>
         </div>
@@ -312,11 +315,16 @@ function PayoutSection({ merchant }: { merchant: Merchant }) {
       >
         <div className="border-border/60 rounded-md border p-3 text-sm">
           <div className="flex items-center justify-between">
-            <span>Current tier</span>
-            <Badge className="capitalize">{merchant.tier}</Badge>
+            <span>Current plan</span>
+            <Badge>{PLANS[merchant.tier].name}</Badge>
+          </div>
+          <div className="mt-2 flex items-center justify-between">
+            <span>Plan fee</span>
+            <span className="text-muted-foreground">{planFeeLabel(merchant.tier)}</span>
           </div>
           <p className="text-muted-foreground mt-2 text-xs">
-            Tier upgrades happen automatically based on rolling 30-day volume.
+            Your plan moves up automatically as your all-time volume grows, and never moves back.
+            Enterprise pricing is agreed by contract.
           </p>
         </div>
       </SettingsCard>
@@ -395,15 +403,18 @@ function BillingSection({ merchant }: { merchant: Merchant }) {
         <div className="border-border/60 rounded-md border p-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-medium capitalize">{merchant.tier}</div>
-              <div className="text-muted-foreground text-xs">
-                {merchant.tier === 'free' ? '0.5% per transaction' : 'Negotiated rate'}
-              </div>
+              <div className="text-sm font-medium">{PLANS[merchant.tier].name}</div>
+              <div className="text-muted-foreground text-xs">{planFeeLabel(merchant.tier)}</div>
             </div>
-            <Badge variant="outline" className="border-[#02C76A]/40 bg-[#02C76A]/10 text-[#02C76A]">
+            <Badge variant="outline" className="border-accent/40 bg-accent/10 text-accent">
               Current
             </Badge>
           </div>
+          {nextPlanNotice(merchant.tier) ? (
+            <p className="text-muted-foreground border-border/60 mt-3 border-t pt-3 text-xs">
+              {nextPlanNotice(merchant.tier)}
+            </p>
+          ) : null}
         </div>
       </SettingsCard>
 

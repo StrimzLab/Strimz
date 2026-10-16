@@ -175,6 +175,32 @@
   },
   {
     "type": "function",
+    "name": "adminCancelOwnershipTransfer",
+    "inputs": [
+      {
+        "name": "merchantId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "adminCancelPayoutChange",
+    "inputs": [
+      {
+        "name": "merchantId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "cancelOwnershipTransfer",
     "inputs": [
       {
@@ -361,6 +387,25 @@
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "pendingOwnerAcceptableAt",
+    "inputs": [
+      {
+        "name": "merchantId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "view"
@@ -1124,6 +1169,11 @@
   {
     "type": "error",
     "name": "Registry__NotPendingOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Registry__OwnershipTransferNotDue",
     "inputs": []
   },
   {

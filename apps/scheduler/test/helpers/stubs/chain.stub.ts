@@ -1,11 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Address } from 'viem'
+import type { ChainService } from '../../../src/infra/chain/chain.service.js'
+
+type Methods<T> = {
+  [K in keyof T as T[K] extends (...args: never[]) => unknown ? K : never]: T[K]
+}
 
 /**
  * Records every write call without broadcasting. `txHash` defaults to a
  * deterministic synthetic value so callers can assert on it.
  */
-export class StubChainService {
+export class StubChainService implements Methods<ChainService> {
   public readonly account = { address: '0x0000000000000000000000000000000000000001' as Address }
   public readonly subscriptionsAddress: Address = '0x0000000000000000000000000000000000000001'
   public readonly agentEscrowAddress: Address = '0x0000000000000000000000000000000000000002'
@@ -17,13 +22,27 @@ export class StubChainService {
   public readonly calls: { fn: string; args: unknown[] }[] = []
   public attemptUsedAnswers = new Map<string, boolean>()
   public attemptUsedDefault = false
+  public chargeDueAnswers = new Map<bigint, boolean>()
+  public chargeDueDefault = true
   public failNext = false
+  public registryFees = new Map<bigint, number>()
+  public registryFeeDefault = 0
+  public feeWriteFailures = new Set<bigint>()
+
+  onModuleInit(): Promise<void> {
+    return Promise.resolve()
+  }
 
   reset() {
     this.calls.length = 0
     this.attemptUsedAnswers.clear()
     this.attemptUsedDefault = false
+    this.chargeDueAnswers.clear()
+    this.chargeDueDefault = true
     this.failNext = false
+    this.registryFees.clear()
+    this.registryFeeDefault = 0
+    this.feeWriteFailures.clear()
   }
 
   private record(fn: string, args: unknown[]): `0x${string}` {
@@ -44,6 +63,9 @@ export class StubChainService {
   isAttemptUsed(id: `0x${string}`): Promise<boolean> {
     return Promise.resolve(this.attemptUsedAnswers.get(id) ?? this.attemptUsedDefault)
   }
+  isChargeDue(subscriptionId: bigint): Promise<boolean> {
+    return Promise.resolve(this.chargeDueAnswers.get(subscriptionId) ?? this.chargeDueDefault)
+  }
   createJob(input: any): Promise<`0x${string}`> {
     return Promise.resolve(this.record('createJob', [input]))
   }
@@ -61,6 +83,18 @@ export class StubChainService {
     attestationHex: `0x${string}`
   }): Promise<`0x${string}`> {
     return Promise.resolve(this.record('receiveCctpMessage', [input]))
+  }
+
+  readMerchantFeeBps(onchainMerchantId: bigint): Promise<number> {
+    return Promise.resolve(this.registryFees.get(onchainMerchantId) ?? this.registryFeeDefault)
+  }
+  setMerchantFeeBps(onchainMerchantId: bigint, feeBps: number): Promise<`0x${string}`> {
+    if (this.feeWriteFailures.has(onchainMerchantId)) {
+      return Promise.reject(new Error(`stub chain: setFeeBps(${onchainMerchantId}) reverted`))
+    }
+    const hash = this.record('setMerchantFeeBps', [onchainMerchantId, feeBps])
+    this.registryFees.set(onchainMerchantId, feeBps)
+    return Promise.resolve(hash)
   }
 
   callsFor(fn: string) {

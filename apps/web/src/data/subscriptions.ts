@@ -96,7 +96,7 @@ const rng = mulberry32(101)
 
 export const SUBSCRIPTIONS: Subscription[] = range(45).map((i) => {
   const plan = pick(rng, PLANS)
-  const customer = CUSTOMERS[Math.floor(rng() * CUSTOMERS.length)]!
+  const customer = pick(rng, CUSTOMERS)
   const status = pick(rng, STATUSES)
   const periodLength = plan.interval === 'yearly' ? 365 : plan.interval === 'monthly' ? 30 : 7
   const periodStartDays = Math.floor(rng() * periodLength)

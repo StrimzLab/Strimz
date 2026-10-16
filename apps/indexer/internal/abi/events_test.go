@@ -179,6 +179,38 @@ func TestDecode_SubscriptionCharged(t *testing.T) {
 	assert.Equal(t, nextCharge, sc.NextChargeAt)
 }
 
+func TestDecode_SubscriptionPeriodsSkipped(t *testing.T) {
+	r := MustLoad()
+	subID := big.NewInt(9)
+	periodsSkipped := big.NewInt(6)
+	paidPeriodStart := uint64(1_715_000_000)
+
+	topic, ok := r.TopicByName(EventSubscriptionPeriodsSkipped)
+	require.True(t, ok)
+
+	uint256, _ := ethabi.NewType("uint256", "", nil)
+	uint64Type, _ := ethabi.NewType("uint64", "", nil)
+	args := ethabi.Arguments{
+		{Type: uint256, Name: "periodsSkipped"},
+		{Type: uint64Type, Name: "paidPeriodStart"},
+	}
+	data, err := args.Pack(periodsSkipped, paidPeriodStart)
+	require.NoError(t, err)
+
+	log := types.Log{
+		Topics: []common.Hash{topic, common.BigToHash(subID)},
+		Data:   data,
+	}
+	name, payload, err := r.Decode(log)
+	require.NoError(t, err)
+	assert.Equal(t, EventSubscriptionPeriodsSkipped, name)
+	ps := payload.(*SubscriptionPeriodsSkipped)
+	assert.Equal(t, 0, ps.SubscriptionID.Cmp(subID))
+	assert.Equal(t, 0, ps.PeriodsSkipped.Cmp(periodsSkipped))
+	assert.Equal(t, paidPeriodStart, ps.PaidPeriodStart)
+	assert.Contains(t, SubscribedEvents, EventSubscriptionPeriodsSkipped)
+}
+
 func TestDecode_JobCreated(t *testing.T) {
 	r := MustLoad()
 	jobID := big.NewInt(1)
@@ -225,10 +257,39 @@ func TestChargeOutcome_DBStringMap(t *testing.T) {
 		ChargeOutcomeInsufficientFunds: "insufficient_funds",
 		ChargeOutcomeRevokedApproval:   "revoked_approval",
 		ChargeOutcomeCancelled:         "cancelled",
-		ChargeOutcomeNotDue:            "skipped",
+		ChargeOutcomeNotDue:            "not_due",
+		ChargeOutcomeEnded:             "ended",
+		ChargeOutcomeDuplicate:         "duplicate",
+		ChargeOutcomeUnknown:           "unknown",
+		ChargeOutcomeMerchantInactive:  "merchant_inactive",
+		ChargeOutcomeTransferFailed:    "transfer_failed",
 		ChargeOutcomeNone:              "skipped", // defensive default
 	}
 	for outcome, want := range cases {
 		assert.Equal(t, want, outcome.DBString(), "outcome %d", outcome)
+	}
+}
+
+// Only outcomes that mean "we tried to bill this payer and could not"
+// may move a subscription to at_risk and arm the retry backoff. If a
+// NotDue or Duplicate ever flips to true here, an early sweep would
+// downgrade a healthy payer and delay their next charge attempt.
+func TestChargeOutcome_IsPaymentFailure(t *testing.T) {
+	cases := map[ChargeOutcome]bool{
+		ChargeOutcomeInsufficientFunds: true,
+		ChargeOutcomeRevokedApproval:   true,
+		ChargeOutcomeMerchantInactive:  true,
+		ChargeOutcomeTransferFailed:    true,
+
+		ChargeOutcomeCharged:   false,
+		ChargeOutcomeCancelled: false,
+		ChargeOutcomeNotDue:    false,
+		ChargeOutcomeEnded:     false,
+		ChargeOutcomeDuplicate: false,
+		ChargeOutcomeUnknown:   false,
+		ChargeOutcomeNone:      false,
+	}
+	for outcome, want := range cases {
+		assert.Equal(t, want, outcome.IsPaymentFailure(), "outcome %d", outcome)
 	}
 }

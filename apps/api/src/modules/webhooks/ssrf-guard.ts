@@ -1,4 +1,6 @@
 import { lookup } from 'node:dns/promises'
+import { isIP } from 'node:net'
+import { isBlockedAddress } from './blocked-addresses.js'
 
 /**
  * SSRF defence — returns true if a hostname resolves to a private, loopback,
@@ -7,6 +9,9 @@ import { lookup } from 'node:dns/promises'
  * own internal infrastructure (or someone else's).
  */
 export async function isPrivateOrLoopback(hostname: string): Promise<boolean> {
+  const literal =
+    hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname
+  if (isIP(literal) !== 0) return isBlockedAddress(literal)
   const lower = hostname.toLowerCase()
   // Block "localhost" and friends without resolving.
   if (lower === 'localhost' || lower === 'ip6-localhost' || lower.endsWith('.local')) {
@@ -26,6 +31,7 @@ export async function isPrivateOrLoopback(hostname: string): Promise<boolean> {
 }
 
 function isPrivateIp(addr: string): boolean {
+  if (isBlockedAddress(addr)) return true
   // IPv6 loopback / link-local / unique-local.
   if (addr === '::1') return true
   if (addr.startsWith('fc') || addr.startsWith('fd')) return true // fc00::/7

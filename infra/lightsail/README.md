@@ -66,11 +66,13 @@ The first build takes ~5 minutes (Node install + Prisma generate + Go build). Su
 `infra/lightsail/env.example` is the full template. Required secrets:
 
 - `PRIVY_APP_ID` + `PRIVY_APP_SECRET` — from privy.io
-- `TURNSTILE_SECRET_KEY` — from Cloudflare (signup bot check)
+- `TURNSTILE_SECRET_KEY` — from Cloudflare (contact form bot check; signup runs Privy's own CAPTCHA). The API does not start with `NODE_ENV=production` without it.
 - `STRIMZ_WEBHOOK_SIGNING_SECRET` + `WEBHOOK_SECRET_ENCRYPTION_KEY` — any 32-byte hex; both services need the **same** values
 - `RESEND_API_KEY`, `RESEND_FROM_EMAIL` — from resend.com
-- `KMS_SOFTWARE_PRIVATE_KEY` — the private key of your relayer EOA (fund from Circle's Arc testnet faucet)
-- `SCHEDULER_PRIVATE_KEY` — usually the same private key as the relayer in the demo setup
+- Signing keys — the relayer and the scheduler sign with AWS KMS keys; neither service starts with a plaintext key under `NODE_ENV=production`. Create the keys and the IAM user with [docs/runbooks/kms-signers.md](../../docs/runbooks/kms-signers.md), then set:
+  - `KMS_PROVIDER=aws-kms`, `KMS_AWS_KEY_ID`, `KMS_SIGNER_ADDRESS` — the relayer key. Its address needs `MERCHANT_REGISTRAR_ROLE` on the Registry and USDC for gas.
+  - `SCHEDULER_SIGNER_PROVIDER=aws-kms`, `SCHEDULER_KMS_KEY_ID`, `SCHEDULER_SIGNER_ADDRESS` — the scheduler's own key, never the relayer's. The scheduler does not start when its address equals `RELAYER_ADDRESS`. It needs `CHARGER_ROLE` on Subscriptions (see `packages/contracts/README.md`, Admin roles) and USDC for gas.
+  - `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` — the IAM user's access key. It signs only from the Lightsail static IP.
 
 Placeholders you'll want to point at your real hostname:
 
@@ -81,6 +83,14 @@ Placeholders you'll want to point at your real hostname:
 DNS provider → A-record → your static Lightsail IP.
 
 If you want TLS, install [Caddy](https://caddyserver.com/) or `certbot` on the host and put it in front of port 80 in Docker (change `HTTP_PORT=8080` in `deploy.sh` and run Caddy on 80/443). The nginx inside the container does not terminate TLS — one job, HTTP-in HTTP-out.
+
+With any `HTTP_PORT` other than 80, `deploy.sh` publishes the container on `127.0.0.1` only, so clients reach it only through the host proxy. Set `BIND_ADDR` to override the address (`0.0.0.0` is the default when `HTTP_PORT` is 80).
+
+Per-IP rate limits depend on the client address the host proxy forwards:
+
+- The container's nginx takes the right-most `X-Forwarded-For` entry from requests that arrive from the Docker bridge gateway (`set_real_ip_from 172.17.0.1` in `infra/lightsail/nginx.conf`) and forwards that single address to the API, which trusts only the local nginx. Check that `docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}'` prints `172.17.0.1`; if it does not, change `set_real_ip_from` before deploying.
+- Caddy must replace, not extend, the client's forwarding headers. Its default does this; keep the site block free of `trusted_proxies` and of `header_up X-Forwarded-For` or `header_up X-Real-IP`.
+- After a deploy, `curl -s https://<your-domain>/health -H 'X-Forwarded-For: 6.6.6.6'` must log the real client address in `docker logs strimz`, not `6.6.6.6`.
 
 ## 5 · Day-2 ops
 
@@ -102,6 +112,28 @@ docker exec -it strimz su-exec postgres psql strimz
 # Deploy a new build after `git pull`
 sudo HTTP_PORT=8080 bash infra/lightsail/deploy.sh
 ```
+
+## First admin
+
+A fresh database has no admin. After the first deploy, and whenever no active
+`super_admin` exists, create one from the server with the operator's Privy DID
+(Privy dashboard, Users):
+
+```bash
+docker exec -it strimz sh -c \
+  'cd /repo/apps/api && node dist/cli/admin-bootstrap.main.js --privy-did did:privy:<id> --name "<name>"'
+```
+
+The command refuses once an active `super_admin` exists; further admins are invited from
+`/admin/admins`. Check the current admins with:
+
+```bash
+docker exec -it strimz su-exec postgres psql strimz -c \
+  'SELECT id, "privyUserId", role, status, "invitedById", "lastLoginAt", "createdAt"
+     FROM "AdminUser" ORDER BY "createdAt";'
+```
+
+Error codes, invites and the break-glass procedure: `docs/runbooks/admin-bootstrap.md`.
 
 ## 6 · Backups
 

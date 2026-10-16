@@ -19,10 +19,7 @@ import (
 // ErrSkipLog marks a log that cannot be projected in its current state
 // but must not wedge the cursor. The runner logs it loudly and moves on;
 // recovery is a manual cursor reset once the blocking state is fixed.
-var ErrSkipLog = errors.New("skip log")
-
-// keep the unexported alias used inside this package.
-var errSkipLog = ErrSkipLog
+var ErrUnresolvable = errors.New("unresolvable log")
 
 // ----- Merchant registry -----
 
@@ -30,13 +27,14 @@ var errSkipLog = ErrSkipLog
 // row owns the matching `payoutAddress`. We don't insert a Merchant — that
 // row is created off-chain via `/auth/sync` long before the on-chain
 // transaction lands.
-func (s *Store) LinkOnchainMerchant(ctx context.Context, onchainID *big.Int, payoutAddress string) (int64, error) {
+func (s *Store) LinkOnchainMerchant(ctx context.Context, onchainID *big.Int, registrationTxHash string) (int64, error) {
 	tag, err := s.db().Exec(ctx, `
 		UPDATE "Merchant"
 		   SET "onchainMerchantId" = $1
-		 WHERE "payoutAddress" = $2
-		   AND ("onchainMerchantId" IS NULL OR "onchainMerchantId" = $1)
-	`, onchainID.Int64(), payoutAddress)
+		 WHERE (LOWER("onchainRegistrationTxHash") = LOWER($2)
+		        AND ("onchainMerchantId" IS NULL OR "onchainMerchantId" = $1))
+		    OR "onchainMerchantId" = $1
+	`, onchainID.Int64(), registrationTxHash)
 	if err != nil {
 		return 0, fmt.Errorf("link merchant: %w", err)
 	}
@@ -85,23 +83,7 @@ func (s *Store) LogMerchantFeeBpsChange(ctx context.Context, onchainID *big.Int,
 		TargetType: "Merchant",
 		TargetID:   fmt.Sprintf("onchain:%s", onchainID.String()),
 		Metadata: map[string]any{
-			"newFeeBps":      int(newFeeBps),
-			"transactionHash": txHash,
-		},
-	})
-}
-
-// LogMerchantOwnerTransfer records `MerchantOwnerTransferred`. Owner is an
-// on-chain concept (address); off-chain we map by the dashboard user/email.
-// M1 records the event; M2 will reconcile to the off-chain Merchant.privyUserId.
-func (s *Store) LogMerchantOwnerTransfer(ctx context.Context, onchainID *big.Int, newOwner, txHash string) error {
-	return s.appendAudit(ctx, auditEntry{
-		Category:   "merchant",
-		Action:     "merchant.owner_transferred_onchain",
-		TargetType: "Merchant",
-		TargetID:   fmt.Sprintf("onchain:%s", onchainID.String()),
-		Metadata: map[string]any{
-			"newOwner":        strings.ToLower(newOwner),
+			"newFeeBps":       int(newFeeBps),
 			"transactionHash": txHash,
 		},
 	})
@@ -135,13 +117,18 @@ type OneShotTxInput struct {
 func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput) (int64, error) {
 	var rows int64
 	err := s.inTx(ctx, func(tx pgxTxLike) error {
-		var sessionID *string
+		var session *paymentSessionRow
 		if in.SessionRef != "" {
-			var maybeID string
-			err := tx.QueryRow(ctx, `SELECT id FROM "PaymentSession" WHERE id = $1`, in.SessionRef).Scan(&maybeID)
+			var row paymentSessionRow
+			err := tx.QueryRow(ctx, `
+				SELECT p.id, p."merchantId", p.amount, p.currency::text, p.mode::text, p.status::text,
+				       EXISTS (SELECT 1 FROM "Transaction" t WHERE t."sessionId" = p.id)
+				  FROM "PaymentSession" p
+				 WHERE p.id = $1
+			`, in.SessionRef).Scan(&row.id, &row.merchantID, &row.amount, &row.currency, &row.mode, &row.status, &row.hasTransaction)
 			switch {
 			case err == nil:
-				sessionID = &maybeID
+				session = &row
 			case errors.Is(err, pgx.ErrNoRows):
 				// No session with this ref. Legitimate for direct contract
 				// calls that bypass hosted checkout; the tx row still lands.
@@ -162,7 +149,7 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 			// loudly instead; the tx is on-chain and can be replayed by
 			// resetting the cursor once the merchant link exists.
 			return fmt.Errorf("%w: PaymentExecuted tx %s for unlinked onchain merchant %s",
-				errSkipLog, in.OnchainTxHash, in.MerchantOnchainID)
+				ErrUnresolvable, in.OnchainTxHash, in.MerchantOnchainID)
 		}
 		if err != nil {
 			return err
@@ -170,6 +157,15 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 		merchantAddr := in.MerchantAddress
 		if merchantAddr == "" {
 			merchantAddr = merchantPayout
+		}
+
+		var sessionID *string
+		var mismatches []string
+		if session != nil {
+			mismatches = session.mismatches(merchantID, in)
+			if len(mismatches) == 0 {
+				sessionID = &session.id
+			}
 		}
 
 		var txID string
@@ -187,7 +183,7 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 			  $9, $10, $11, $12,
 			  $13::"Mode", NOW()
 			)
-			ON CONFLICT ("onchainTxHash") DO NOTHING
+			ON CONFLICT ("onchainTxHash", "logIndex") DO NOTHING
 			RETURNING id
 		`,
 			merchantID, sessionID,
@@ -205,6 +201,36 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 			return fmt.Errorf("insert transaction: %w", err)
 		}
 		rows = 1
+
+		if session != nil && len(mismatches) > 0 {
+			err := insertAuditInTx(ctx, tx, merchantID, auditEntry{
+				Category:   "payment",
+				Action:     "payment.session_mismatch",
+				TargetType: "PaymentSession",
+				TargetID:   session.id,
+				Metadata: map[string]any{
+					"reasons":         mismatches,
+					"transactionId":   txID,
+					"transactionHash": in.OnchainTxHash,
+					"paid": map[string]any{
+						"merchantId": merchantID,
+						"amount":     in.Amount,
+						"currency":   in.Currency,
+						"mode":       in.Mode,
+					},
+					"session": map[string]any{
+						"merchantId": session.merchantID,
+						"amount":     session.amount,
+						"currency":   session.currency,
+						"mode":       session.mode,
+						"status":     session.status,
+					},
+				},
+			})
+			if err != nil {
+				return fmt.Errorf("record session mismatch: %w", err)
+			}
+		}
 
 		if sessionID != nil {
 			// Confirm the session and set payerWalletAddress (NULL until
@@ -250,6 +276,42 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 	return rows, err
 }
 
+type paymentSessionRow struct {
+	id             string
+	merchantID     string
+	amount         string
+	currency       string
+	mode           string
+	status         string
+	hasTransaction bool
+}
+
+func (p *paymentSessionRow) mismatches(paidMerchantID string, in OneShotTxInput) []string {
+	var reasons []string
+	if p.merchantID != paidMerchantID {
+		reasons = append(reasons, "merchant")
+	}
+	if !sameAmount(p.amount, in.Amount) {
+		reasons = append(reasons, "amount")
+	}
+	if p.currency != in.Currency {
+		reasons = append(reasons, "currency")
+	}
+	if p.mode != in.Mode {
+		reasons = append(reasons, "mode")
+	}
+	if p.status == "confirmed" || p.hasTransaction {
+		reasons = append(reasons, "already_paid")
+	}
+	return reasons
+}
+
+func sameAmount(a, b string) bool {
+	x, okA := new(big.Int).SetString(a, 10)
+	y, okB := new(big.Int).SetString(b, 10)
+	return okA && okB && x.Cmp(y) == 0
+}
+
 // insertOutboxEvent writes an undispatched WebhookEvent carrying only
 // entity refs. The scheduler dispatcher hydrates the full envelope in
 // TypeScript (against the shared Zod schemas) so payload shapes never
@@ -283,6 +345,7 @@ type SubscriptionCreatedInput struct {
 	Interval              string // "daily" / "weekly" / "monthly" / "quarterly" / "yearly"
 	IntervalCount         int32
 	StartAt               time.Time
+	BlockTimestamp        time.Time
 	CurrentPeriodEndAt    time.Time
 	NextChargeAt          time.Time
 	OnchainTxHash         string
@@ -292,9 +355,26 @@ type SubscriptionCreatedInput struct {
 // UpsertSubscriptionFromOnchain projects `SubscriptionCreated`. Idempotent
 // on `onchainSubscriptionId` (UNIQUE) — replays no-op.
 func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in SubscriptionCreatedInput) (int64, error) {
+	if in.BlockTimestamp.IsZero() {
+		return 0, fmt.Errorf("subscription %s: block timestamp is required", in.OnchainSubscriptionID)
+	}
+	status := "active"
+	periodStart, periodEnd := in.StartAt, in.CurrentPeriodEndAt
+	var trialEndsAt *time.Time
+	if in.StartAt.After(in.BlockTimestamp) {
+		status = "trialing"
+		periodStart, periodEnd = in.BlockTimestamp, in.StartAt
+		trialEnd := in.StartAt
+		trialEndsAt = &trialEnd
+	}
+
 	var rows int64
 	err := s.inTx(ctx, func(tx pgxTxLike) error {
 		merchantID, _, err := lookupMerchantByOnchain(ctx, tx, in.MerchantOnchainID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: SubscriptionCreated %s for unlinked onchain merchant %s",
+				ErrUnresolvable, in.OnchainSubscriptionID, in.MerchantOnchainID)
+		}
 		if err != nil {
 			return err
 		}
@@ -314,12 +394,12 @@ func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in Subscripti
 			INSERT INTO "Subscription" (
 			  id, "onchainSubscriptionId", "enrolmentTxHash", "merchantId", "customerId", "planId",
 			  status, "payerAddress", currency, amount, interval, "intervalCount",
-			  "currentPeriodStartAt", "currentPeriodEndAt", "nextChargeAt",
+			  "currentPeriodStartAt", "currentPeriodEndAt", "nextChargeAt", "trialEndsAt",
 			  "gracePeriodHours", mode, "createdAt", "updatedAt"
 			) VALUES (
 			  gen_random_uuid()::text, $1, $2, $3, $4, $5,
-			  'active'::"SubscriptionStatus", $6, $7::"PaymentCurrency", $8, $9::"SubscriptionInterval", $10,
-			  $11, $12, $13,
+			  $15::"SubscriptionStatus", $6, $7::"PaymentCurrency", $8, $9::"SubscriptionInterval", $10,
+			  $11, $12, $13, $16,
 			  48, $14::"Mode", NOW(), NOW()
 			)
 			ON CONFLICT ("onchainSubscriptionId") DO NOTHING
@@ -327,8 +407,8 @@ func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in Subscripti
 		`,
 			in.OnchainSubscriptionID.Int64(), in.OnchainTxHash, merchantID, customerID, planID,
 			in.PayerAddress, in.Currency, in.Amount, in.Interval, in.IntervalCount,
-			in.StartAt, in.CurrentPeriodEndAt, in.NextChargeAt,
-			in.Mode,
+			periodStart, periodEnd, in.NextChargeAt,
+			in.Mode, status, trialEndsAt,
 		).Scan(&subID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Replay — subscription already exists.
@@ -375,21 +455,27 @@ type SubscriptionChargedInput struct {
 func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionChargedInput) (int64, error) {
 	var rows int64
 	err := s.inTx(ctx, func(tx pgxTxLike) error {
-		var subID, merchantID, currency, payerAddress string
+		var subID, merchantID, currency, payerAddress, merchantAddress string
 		var periodStart time.Time
 		err := tx.QueryRow(ctx, `
-			SELECT id, "merchantId", currency::text, "payerAddress", "currentPeriodEndAt"
-			  FROM "Subscription"
-			 WHERE "onchainSubscriptionId" = $1
-		`, in.OnchainSubscriptionID.Int64()).Scan(&subID, &merchantID, &currency, &payerAddress, &periodStart)
+			SELECT s.id, s."merchantId", s.currency::text, s."payerAddress", s."nextChargeAt",
+			       COALESCE(m."payoutAddress", '')
+			  FROM "Subscription" s
+			  JOIN "Merchant" m ON m.id = s."merchantId"
+			 WHERE s."onchainSubscriptionId" = $1
+		`, in.OnchainSubscriptionID.Int64()).Scan(&subID, &merchantID, &currency, &payerAddress, &periodStart, &merchantAddress)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				// SubscriptionCreated may not have been processed yet (e.g.
 				// out-of-order event delivery from RPC). Skip silently — a
 				// later replay or reorg will resolve.
-				return nil
+				return fmt.Errorf("%w: SubscriptionCharged for unknown subscription %s",
+					ErrUnresolvable, in.OnchainSubscriptionID)
 			}
 			return fmt.Errorf("subscription lookup: %w", err)
+		}
+		if merchantAddress == "" {
+			return fmt.Errorf("subscription %s: merchant %s has no payout address for charge %s", subID, merchantID, in.OnchainTxHash)
 		}
 
 		// 1) Insert SubscriptionCharge.
@@ -409,7 +495,16 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 			  $8, $8, $9,
 			  NOW(), NOW()
 			)
-			ON CONFLICT ("chargeAttemptId") DO NOTHING
+			ON CONFLICT ("chargeAttemptId") DO UPDATE
+			   SET status = 'succeeded'::"SubscriptionChargeStatus",
+			       outcome = 'charged'::"SubscriptionChargeOutcome",
+			       "periodStartAt" = EXCLUDED."periodStartAt",
+			       "periodEndAt" = EXCLUDED."periodEndAt",
+			       amount = EXCLUDED.amount,
+			       "executedAt" = EXCLUDED."executedAt",
+			       "onchainTxHash" = EXCLUDED."onchainTxHash",
+			       "updatedAt" = NOW()
+			 WHERE "SubscriptionCharge".status = 'failed'::"SubscriptionChargeStatus"
 			RETURNING id
 		`,
 			subID, merchantID, in.ChargeAttemptID,
@@ -443,18 +538,18 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 			  gen_random_uuid()::text, $1, 'subscription_charge'::"TransactionKind",
 			  'confirmed'::"TransactionStatus", $2, $3,
 			  $4, $5, $6, $7::"PaymentCurrency",
-			  $8, '',
+			  $8, $14,
 			  $9, $10, $11, $12,
 			  $13::"Mode", NOW()
 			)
-			ON CONFLICT ("onchainTxHash") DO NOTHING
+			ON CONFLICT ("onchainTxHash", "logIndex") DO NOTHING
 			RETURNING id
 		`,
 			merchantID, subID, chargeID,
 			in.Amount, in.FeeAmount, in.NetAmount, currency,
 			payerAddress,
 			in.OnchainTxHash, in.BlockNumber, in.BlockTimestamp, in.LogIndex,
-			in.Mode,
+			in.Mode, merchantAddress,
 		).Scan(&txID)
 		isNewTx := true
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -469,11 +564,23 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 		// 3) Bump nextChargeAt + currentPeriod window. The charge-in-advance
 		//    model makes the new period start where the just-paid charge was
 		//    due (the old nextChargeAt), not the old period end.
+		//    A successful charge also clears the failure state: retry
+		//    counters reset, and an `at_risk` payer returns to `active`.
+		//    Without the status reset a payer who failed once and then
+		//    paid stays `at_risk` and is eventually flipped to `lapsed`
+		//    by the grace-window cron despite being current.
 		if _, err := tx.Exec(ctx, `
 			UPDATE "Subscription"
 			   SET "currentPeriodStartAt" = "nextChargeAt",
 			       "currentPeriodEndAt"   = $2,
 			       "nextChargeAt"         = $2,
+			       "retryCount"           = 0,
+			       "nextRetryAt"          = NULL,
+			       status = CASE
+			         WHEN status IN ('at_risk'::"SubscriptionStatus", 'trialing'::"SubscriptionStatus")
+			         THEN 'active'::"SubscriptionStatus"
+			         ELSE status
+			       END,
 			       "updatedAt"            = NOW()
 			 WHERE id = $1
 		`, subID, in.NextChargeAt); err != nil {
@@ -499,12 +606,61 @@ func (in SubscriptionChargedInput) Currency(fallback string) string {
 	return "USDC"
 }
 
+type SubscriptionPeriodsSkippedInput struct {
+	OnchainSubscriptionID *big.Int
+	PeriodsSkipped        *big.Int
+	PaidPeriodStart       time.Time
+	OnchainTxHash         string
+}
+
+func (s *Store) RecordSubscriptionPeriodsSkipped(ctx context.Context, in SubscriptionPeriodsSkippedInput) (int64, error) {
+	var rows int64
+	err := s.inTx(ctx, func(tx pgxTxLike) error {
+		var subID, merchantID string
+		err := tx.QueryRow(ctx, `
+			UPDATE "Subscription"
+			   SET "nextChargeAt" = $2,
+			       "updatedAt"    = NOW()
+			 WHERE "onchainSubscriptionId" = $1
+			RETURNING id, "merchantId"
+		`, in.OnchainSubscriptionID.Int64(), in.PaidPeriodStart).Scan(&subID, &merchantID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("%w: SubscriptionPeriodsSkipped for unknown subscription %s",
+					ErrUnresolvable, in.OnchainSubscriptionID)
+			}
+			return fmt.Errorf("move period start: %w", err)
+		}
+		if err := insertAuditInTx(ctx, tx, merchantID, auditEntry{
+			Category:   "subscription",
+			Action:     "subscription.periods_skipped",
+			TargetType: "Subscription",
+			TargetID:   subID,
+			Metadata: map[string]any{
+				"periodsSkipped":  in.PeriodsSkipped,
+				"paidPeriodStart": in.PaidPeriodStart.UTC().Format(time.RFC3339),
+				"txHash":          in.OnchainTxHash,
+			},
+		}); err != nil {
+			return fmt.Errorf("audit periods skipped: %w", err)
+		}
+		rows = 1
+		return nil
+	})
+	return rows, err
+}
+
 // SubscriptionChargeSkippedInput projects a failed-charge attempt.
 type SubscriptionChargeSkippedInput struct {
 	OnchainSubscriptionID *big.Int
 	ChargeAttemptID       string
-	Outcome               string // "insufficient_funds" / "revoked_approval" / "cancelled" / "skipped"
-	BlockTimestamp        time.Time
+	Outcome               string // DB `SubscriptionChargeOutcome` value
+	// IsPaymentFailure separates "we tried to bill and could not"
+	// (insufficient funds, revoked approval, merchant frozen, transfer
+	// reverted) from scheduler noise (not due, duplicate, ended). Only
+	// the former moves the payer to `at_risk` and arms the backoff.
+	IsPaymentFailure bool
+	BlockTimestamp   time.Time
 }
 
 // InsertSubscriptionChargeSkip persists a failed-charge attempt as a
@@ -523,7 +679,8 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 		`, in.OnchainSubscriptionID.Int64()).Scan(&subID, &merchantID, &currency, &amount, &mode, &periodStart, &periodEnd)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				return nil
+				return fmt.Errorf("%w: SubscriptionChargeSkipped for unknown subscription %s",
+					ErrUnresolvable, in.OnchainSubscriptionID)
 			}
 			return fmt.Errorf("subscription lookup: %w", err)
 		}
@@ -559,9 +716,15 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 		}
 		if isNewCharge {
 			rows = 1
-			ref := fmt.Sprintf(`"subscriptionId":%q,"chargeId":%q`, subID, chargeID)
-			if err := insertOutboxEvent(ctx, tx, "subscription_charge_failed", "subscription.charge_failed", merchantID, "test", ref); err != nil {
-				return fmt.Errorf("emit subscription.charge_failed: %w", err)
+			// The row is written for every outcome (audit trail), but the
+			// merchant-facing webhook only fires on a real payment
+			// failure — a NotDue or Duplicate skip is scheduler noise and
+			// must not surface as "this customer's payment failed".
+			if in.IsPaymentFailure {
+				ref := fmt.Sprintf(`"subscriptionId":%q,"chargeId":%q`, subID, chargeID)
+				if err := insertOutboxEvent(ctx, tx, "subscription_charge_failed", "subscription.charge_failed", merchantID, mode, ref); err != nil {
+					return fmt.Errorf("emit subscription.charge_failed: %w", err)
+				}
 			}
 		}
 
@@ -576,20 +739,34 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 		// that skip downgrades a payer who DID pay this period to
 		// `at_risk` on the dashboard. Filter by the period boundaries
 		// so an in-period success masks the duplicate skip.
+		//
+		// Gated on IsPaymentFailure: a NotDue from an early sweep, or a
+		// Duplicate from the indexer lagging a confirmed charge, must
+		// not downgrade a healthy payer or delay their next attempt.
+		if !isNewCharge || !in.IsPaymentFailure {
+			return nil
+		}
 		if _, err := tx.Exec(ctx, `
 			UPDATE "Subscription"
 			   SET status = 'at_risk'::"SubscriptionStatus",
+			       "retryCount" = "retryCount" + 1,
+			       -- Escalating backoff. The sweeper ticks every 15
+			       -- minutes; a flat retry would fire ~192 on-chain
+			       -- transactions across a 48h grace window for one
+			       -- broke payer. This spends ~6. Computed here so the
+			       -- schedule and the counter stay atomic.
+			       "nextRetryAt" = $2::timestamptz + (CASE
+			         WHEN "retryCount" + 1 <= 1 THEN INTERVAL '15 minutes'
+			         WHEN "retryCount" + 1 = 2 THEN INTERVAL '1 hour'
+			         WHEN "retryCount" + 1 = 3 THEN INTERVAL '3 hours'
+			         WHEN "retryCount" + 1 = 4 THEN INTERVAL '6 hours'
+			         WHEN "retryCount" + 1 = 5 THEN INTERVAL '12 hours'
+			         ELSE INTERVAL '24 hours'
+			       END),
 			       "updatedAt" = NOW()
 			 WHERE id = $1
-			   AND status = 'active'::"SubscriptionStatus"
-			   AND NOT EXISTS (
-			     SELECT 1 FROM "SubscriptionCharge"
-			      WHERE "subscriptionId" = $1
-			        AND "periodStartAt" = $2
-			        AND "periodEndAt" = $3
-			        AND status = 'succeeded'::"SubscriptionChargeStatus"
-			   )
-		`, subID, periodStart, periodEnd); err != nil {
+			   AND status IN ('active'::"SubscriptionStatus", 'at_risk'::"SubscriptionStatus")
+		`, subID, in.BlockTimestamp); err != nil {
 			return fmt.Errorf("flag at_risk: %w", err)
 		}
 		return nil
@@ -614,7 +791,19 @@ func (s *Store) MarkSubscriptionCancelled(ctx context.Context, onchainSubID *big
 	if err != nil {
 		return 0, fmt.Errorf("cancel sub: %w", err)
 	}
-	return tag.RowsAffected(), nil
+	if tag.RowsAffected() > 0 {
+		return tag.RowsAffected(), nil
+	}
+	var exists bool
+	if err := s.db().QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM "Subscription" WHERE "onchainSubscriptionId" = $1)`,
+		onchainSubID.Int64()).Scan(&exists); err != nil {
+		return 0, fmt.Errorf("cancel sub lookup: %w", err)
+	}
+	if !exists {
+		return 0, fmt.Errorf("%w: SubscriptionCancelled for unknown subscription %s", ErrUnresolvable, onchainSubID)
+	}
+	return 0, nil
 }
 
 // ----- Refunds -----
@@ -671,9 +860,9 @@ func (s *Store) LinkAgentJobOnchain(ctx context.Context, onchainJobID *big.Int, 
 	tag, err := s.db().Exec(ctx, `
 		UPDATE "AgentJob"
 		   SET "onchainJobId" = $1,
-		       "escrowTxHash" = $2,
 		       status = 'in_progress'::"AgentJobStatus"
-		 WHERE LOWER("vendorAddress") = LOWER($3)
+		 WHERE LOWER("escrowTxHash") = LOWER($2)
+		   AND LOWER("vendorAddress") = LOWER($3)
 		   AND "onchainJobId" IS NULL
 	`, onchainJobID.Int64(), escrowTxHash, vendor)
 	if err != nil {
@@ -715,7 +904,7 @@ func (s *Store) LogAgentJobEvent(ctx context.Context, onchainJobID *big.Int, act
 		`SELECT id, "merchantId" FROM "AgentJob" WHERE "onchainJobId" = $1`,
 		onchainJobID.Int64()).Scan(&jobID, &merchantID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil // job not yet linked off-chain; log skipped
+			return fmt.Errorf("%w: %s for unknown onchain job %s", ErrUnresolvable, action, onchainJobID)
 		}
 		return fmt.Errorf("job lookup: %w", err)
 	}
@@ -747,7 +936,7 @@ func (s *Store) LogFeeAccrued(ctx context.Context, onchainMerchantID *big.Int, t
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Merchant not linked yet. No-op; the fee ledger on-chain is
 		// the source of truth and this row is only a dashboard view.
-		return nil
+		return fmt.Errorf("%w: FeeAccrued tx %s for unlinked onchain merchant %s", ErrUnresolvable, txHash, onchainMerchantID)
 	}
 	if err != nil {
 		return fmt.Errorf("fee accrual merchant lookup: %w", err)

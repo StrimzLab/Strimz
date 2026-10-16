@@ -29,20 +29,36 @@ type EventName string
 
 const (
 	// Registry
-	EventMerchantRegistered          EventName = "MerchantRegistered"
+	EventMerchantRegistered           EventName = "MerchantRegistered"
 	EventMerchantPayoutAddressUpdated EventName = "MerchantPayoutAddressUpdated"
-	EventMerchantFeeBpsUpdated       EventName = "MerchantFeeBpsUpdated"
-	EventMerchantActiveSet           EventName = "MerchantActiveSet"
-	EventMerchantOwnerTransferred    EventName = "MerchantOwnerTransferred"
+	EventMerchantFeeBpsUpdated        EventName = "MerchantFeeBpsUpdated"
+	EventMerchantActiveSet            EventName = "MerchantActiveSet"
+
+	EventMerchantOwnershipTransferInitiated EventName = "MerchantOwnershipTransferInitiated"
+	EventMerchantOwnershipTransferAccepted  EventName = "MerchantOwnershipTransferAccepted"
+	EventMerchantOwnershipTransferCancelled EventName = "MerchantOwnershipTransferCancelled"
+	EventMerchantPayoutChangeInitiated      EventName = "MerchantPayoutChangeInitiated"
+	EventMerchantPayoutChangeCancelled      EventName = "MerchantPayoutChangeCancelled"
+	EventMerchantMaxFeeBpsLowered           EventName = "MerchantMaxFeeBpsLowered"
+
+	EventPaused            EventName = "Paused"
+	EventUnpaused          EventName = "Unpaused"
+	EventDependencyUpdated EventName = "DependencyUpdated"
+	EventFeeWithdrawn      EventName = "FeeWithdrawn"
+
+	EventTokenAdded           EventName = "TokenAdded"
+	EventTokenRemoved         EventName = "TokenRemoved"
+	EventTokenCapabilitiesSet EventName = "TokenCapabilitiesSet"
 
 	// Payments (one-shot)
 	EventPaymentExecuted EventName = "PaymentExecuted"
 
 	// Subscriptions
-	EventSubscriptionCreated       EventName = "SubscriptionCreated"
-	EventSubscriptionCharged       EventName = "SubscriptionCharged"
-	EventSubscriptionChargeSkipped EventName = "SubscriptionChargeSkipped"
-	EventSubscriptionCancelled     EventName = "SubscriptionCancelled"
+	EventSubscriptionCreated        EventName = "SubscriptionCreated"
+	EventSubscriptionCharged        EventName = "SubscriptionCharged"
+	EventSubscriptionPeriodsSkipped EventName = "SubscriptionPeriodsSkipped"
+	EventSubscriptionChargeSkipped  EventName = "SubscriptionChargeSkipped"
+	EventSubscriptionCancelled      EventName = "SubscriptionCancelled"
 
 	// Agent escrow
 	EventJobCreated   EventName = "JobCreated"
@@ -53,26 +69,67 @@ const (
 	EventJobReleased  EventName = "JobReleased"
 	EventJobDisputed  EventName = "JobDisputed"
 	EventJobCancelled EventName = "JobCancelled"
+	EventJobRefunded  EventName = "JobRefunded"
+	// Terminal exits added when the escrow gained a dispute-resolution
+	// and timeout-reclaim path. Without these the indexer leaves any
+	// disputed or abandoned job parked in a non-terminal status forever.
+	EventJobResolved  EventName = "JobResolved"
+	EventJobReclaimed EventName = "JobReclaimed"
 
 	// Fees
 	EventFeeAccrued EventName = "FeeAccrued"
 
 	// ERC-20 (used only for refund-completion detection)
 	EventERC20Transfer EventName = "Transfer"
+
+	EventRoleGranted      EventName = "RoleGranted"
+	EventRoleRevoked      EventName = "RoleRevoked"
+	EventRoleAdminChanged EventName = "RoleAdminChanged"
+	EventUpgraded         EventName = "Upgraded"
+
+	EventCallScheduled  EventName = "CallScheduled"
+	EventCallExecuted   EventName = "CallExecuted"
+	EventCancelled      EventName = "Cancelled"
+	EventMinDelayChange EventName = "MinDelayChange"
+
+	EventAgentRegistered         EventName = "AgentRegistered"
+	EventAgentCredentialRotated  EventName = "AgentCredentialRotated"
+	EventAgentReputationAdjusted EventName = "AgentReputationAdjusted"
+	EventAgentDeactivated        EventName = "AgentDeactivated"
+	EventAgentActivated          EventName = "AgentActivated"
 )
 
 // SubscribedEvents is the exhaustive set the projector handles. Anything not
 // in this list with a matching topic[0] is decoded but logged-and-skipped.
 var SubscribedEvents = []EventName{
 	EventMerchantRegistered, EventMerchantPayoutAddressUpdated, EventMerchantFeeBpsUpdated,
-	EventMerchantActiveSet, EventMerchantOwnerTransferred,
+	EventMerchantActiveSet,
+	EventMerchantOwnershipTransferInitiated, EventMerchantOwnershipTransferAccepted,
+	EventMerchantOwnershipTransferCancelled, EventMerchantPayoutChangeInitiated,
+	EventMerchantPayoutChangeCancelled, EventMerchantMaxFeeBpsLowered,
 	EventPaymentExecuted,
-	EventSubscriptionCreated, EventSubscriptionCharged, EventSubscriptionChargeSkipped, EventSubscriptionCancelled,
+	EventSubscriptionCreated, EventSubscriptionCharged, EventSubscriptionPeriodsSkipped,
+	EventSubscriptionChargeSkipped, EventSubscriptionCancelled,
 	EventJobCreated, EventJobFunded, EventJobStarted, EventJobDelivered,
 	EventJobApproved, EventJobReleased, EventJobDisputed, EventJobCancelled,
+	EventJobRefunded, EventJobResolved, EventJobReclaimed,
 	EventFeeAccrued,
+	EventPaused, EventUnpaused, EventDependencyUpdated, EventFeeWithdrawn,
+	EventTokenAdded, EventTokenRemoved, EventTokenCapabilitiesSet,
 	EventERC20Transfer,
+	EventRoleGranted, EventRoleRevoked, EventRoleAdminChanged, EventUpgraded,
+	EventCallScheduled, EventCallExecuted, EventCancelled, EventMinDelayChange,
+	EventAgentRegistered, EventAgentCredentialRotated, EventAgentReputationAdjusted,
+	EventAgentDeactivated, EventAgentActivated,
 }
+
+var subscribed = func() map[EventName]bool {
+	set := make(map[EventName]bool, len(SubscribedEvents))
+	for _, name := range SubscribedEvents {
+		set[name] = true
+	}
+	return set
+}()
 
 // Registry holds parsed ABIs and a topic-to-event lookup table.
 type Registry struct {
@@ -187,6 +244,9 @@ func (r *Registry) Decode(log types.Log) (EventName, interface{}, error) {
 	if !ok {
 		return "", nil, nil
 	}
+	if !subscribed[EventName(bound.event.Name)] {
+		return EventName(bound.event.Name), nil, nil
+	}
 	parsed := r.abis[bound.contract]
 
 	values := make(map[string]interface{}, len(bound.event.Inputs))
@@ -242,9 +302,133 @@ type MerchantActiveSet struct {
 	Active     bool
 }
 
-type MerchantOwnerTransferred struct {
+type MerchantOwnershipTransferInitiated struct {
+	MerchantID   *big.Int
+	CurrentOwner common.Address
+	PendingOwner common.Address
+}
+
+type MerchantOwnershipTransferAccepted struct {
+	MerchantID    *big.Int
+	PreviousOwner common.Address
+	NewOwner      common.Address
+}
+
+type MerchantOwnershipTransferCancelled struct {
 	MerchantID *big.Int
-	NewOwner   common.Address
+}
+
+type MerchantPayoutChangeInitiated struct {
+	MerchantID       *big.Int
+	NewPayoutAddress common.Address
+	CommitAt         uint64
+}
+
+type MerchantPayoutChangeCancelled struct {
+	MerchantID *big.Int
+}
+
+type MerchantMaxFeeBpsLowered struct {
+	MerchantID   *big.Int
+	NewMaxFeeBps uint16
+}
+
+type RoleChanged struct {
+	Role    [32]byte
+	Account common.Address
+	Sender  common.Address
+}
+
+type RoleAdminChanged struct {
+	Role              [32]byte
+	PreviousAdminRole [32]byte
+	NewAdminRole      [32]byte
+}
+
+type Upgraded struct {
+	Implementation common.Address
+}
+
+type CallScheduled struct {
+	ID          [32]byte
+	Index       *big.Int
+	Target      common.Address
+	Value       *big.Int
+	Data        []byte
+	Predecessor [32]byte
+	Delay       *big.Int
+}
+
+type CallExecuted struct {
+	ID     [32]byte
+	Index  *big.Int
+	Target common.Address
+	Value  *big.Int
+	Data   []byte
+}
+
+type Cancelled struct {
+	ID [32]byte
+}
+
+type MinDelayChange struct {
+	OldDuration *big.Int
+	NewDuration *big.Int
+}
+
+type AgentRegistered struct {
+	Agent            common.Address
+	Controller       common.Address
+	CredentialDigest [32]byte
+	Name             string
+	Version          string
+}
+
+type AgentCredentialRotated struct {
+	Agent               common.Address
+	NewCredentialDigest [32]byte
+}
+
+type AgentReputationAdjusted struct {
+	Agent    common.Address
+	Delta    *big.Int
+	NewScore *big.Int
+}
+
+type AgentStatusChanged struct {
+	Agent common.Address
+}
+
+type Paused struct {
+	Account common.Address
+}
+
+type Unpaused struct {
+	Account common.Address
+}
+
+type DependencyUpdated struct {
+	Name       string
+	NewAddress common.Address
+}
+
+type FeeWithdrawn struct {
+	Token  common.Address
+	To     common.Address
+	Amount *big.Int
+}
+
+type TokenAdded struct {
+	Token common.Address
+}
+
+type TokenRemoved struct {
+	Token common.Address
+}
+
+type TokenCapabilitiesSet struct {
+	Token        common.Address
+	Capabilities uint8
 }
 
 type PaymentExecuted struct {
@@ -318,18 +502,48 @@ func (c ChargeOutcome) DBString() string {
 		return "revoked_approval"
 	case ChargeOutcomeCancelled:
 		return "cancelled"
-	case ChargeOutcomeNotDue,
-		ChargeOutcomeEnded,
-		ChargeOutcomeDuplicate,
-		ChargeOutcomeUnknown,
-		ChargeOutcomeMerchantInactive,
-		ChargeOutcomeTransferFailed:
-		// Bucket into "skipped". Split into per-reason values later
-		// when the dashboard needs to tell retryable from terminal.
-		return "skipped"
+	case ChargeOutcomeNotDue:
+		return "not_due"
+	case ChargeOutcomeEnded:
+		return "ended"
+	case ChargeOutcomeDuplicate:
+		return "duplicate"
+	case ChargeOutcomeUnknown:
+		return "unknown"
+	case ChargeOutcomeMerchantInactive:
+		return "merchant_inactive"
+	case ChargeOutcomeTransferFailed:
+		return "transfer_failed"
 	default:
+		// ChargeOutcomeNone and anything a future contract appends.
 		return "skipped"
 	}
+}
+
+// IsPaymentFailure reports whether the outcome means "we tried to bill
+// this payer and could not" — as opposed to "there was nothing to bill".
+//
+// Only these outcomes should move a subscription to `at_risk` and arm the
+// retry backoff. A NotDue from an early sweep, or a Duplicate from the
+// indexer lagging a confirmed charge, are scheduler noise: treating them
+// as failures downgrades a healthy payer on the merchant dashboard and
+// pushes out their next retry for no reason.
+func (c ChargeOutcome) IsPaymentFailure() bool {
+	switch c {
+	case ChargeOutcomeInsufficientFunds,
+		ChargeOutcomeRevokedApproval,
+		ChargeOutcomeMerchantInactive,
+		ChargeOutcomeTransferFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+type SubscriptionPeriodsSkipped struct {
+	SubscriptionID  *big.Int
+	PeriodsSkipped  *big.Int
+	PaidPeriodStart uint64
 }
 
 type SubscriptionChargeSkipped struct {
@@ -361,7 +575,7 @@ type JobStarted struct {
 }
 
 type JobDelivered struct {
-	JobID            *big.Int
+	JobID           *big.Int
 	DeliverableHash [32]byte
 }
 
@@ -378,12 +592,36 @@ type JobReleased struct {
 
 type JobDisputed struct {
 	JobID  *big.Int
+	By     common.Address
 	Reason string
 }
 
 type JobCancelled struct {
 	JobID  *big.Int
 	Reason string
+}
+
+type JobRefunded struct {
+	JobID  *big.Int
+	To     common.Address
+	Amount *big.Int
+}
+
+type JobResolved struct {
+	JobID    *big.Int
+	Resolver common.Address
+	ToVendor *big.Int
+	ToClient *big.Int
+}
+
+// FromStatus is the JobStatus the job held when the timeout fired, so the
+// projector can report what was abandoned (Funded / InProgress /
+// Delivered / Disputed) rather than just "reclaimed".
+type JobReclaimed struct {
+	JobID      *big.Int
+	To         common.Address
+	Amount     *big.Int
+	FromStatus uint8
 }
 
 type FeeAccrued struct {
@@ -463,6 +701,13 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 		}
 		return x, nil
 	}
+	byteSlice := func(k string) ([]byte, error) {
+		x, ok := get(k).([]byte)
+		if !ok {
+			return nil, fmt.Errorf("%s.%s missing or wrong type", name, k)
+		}
+		return x, nil
+	}
 	b32 := func(k string) ([32]byte, error) {
 		x, ok := get(k).([32]byte)
 		if !ok {
@@ -506,13 +751,54 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 		}
 		return &MerchantActiveSet{MerchantID: merchantID, Active: active}, nil
 
-	case EventMerchantOwnerTransferred:
+	case EventMerchantOwnershipTransferInitiated:
 		merchantID, e1 := bigint("merchantId")
-		owner, e2 := addr("newOwner")
+		current, e2 := addr("currentOwner")
+		pending, e3 := addr("pendingOwner")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &MerchantOwnershipTransferInitiated{MerchantID: merchantID, CurrentOwner: current, PendingOwner: pending}, nil
+
+	case EventMerchantOwnershipTransferAccepted:
+		merchantID, e1 := bigint("merchantId")
+		previous, e2 := addr("previousOwner")
+		owner, e3 := addr("newOwner")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &MerchantOwnershipTransferAccepted{MerchantID: merchantID, PreviousOwner: previous, NewOwner: owner}, nil
+
+	case EventMerchantOwnershipTransferCancelled:
+		merchantID, err := bigint("merchantId")
+		if err != nil {
+			return nil, err
+		}
+		return &MerchantOwnershipTransferCancelled{MerchantID: merchantID}, nil
+
+	case EventMerchantPayoutChangeInitiated:
+		merchantID, e1 := bigint("merchantId")
+		payout, e2 := addr("newPayoutAddress")
+		commitAt, e3 := u64("commitAt")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &MerchantPayoutChangeInitiated{MerchantID: merchantID, NewPayoutAddress: payout, CommitAt: commitAt}, nil
+
+	case EventMerchantPayoutChangeCancelled:
+		merchantID, err := bigint("merchantId")
+		if err != nil {
+			return nil, err
+		}
+		return &MerchantPayoutChangeCancelled{MerchantID: merchantID}, nil
+
+	case EventMerchantMaxFeeBpsLowered:
+		merchantID, e1 := bigint("merchantId")
+		maxFee, e2 := u16("newMaxFeeBps")
 		if err := firstErr(e1, e2); err != nil {
 			return nil, err
 		}
-		return &MerchantOwnerTransferred{MerchantID: merchantID, NewOwner: owner}, nil
+		return &MerchantMaxFeeBpsLowered{MerchantID: merchantID, NewMaxFeeBps: maxFee}, nil
 
 	case EventPaymentExecuted:
 		merchantID, e1 := bigint("merchantId")
@@ -559,6 +845,17 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 		return &SubscriptionCharged{
 			SubscriptionID: subID, ChargeAttemptID: attempt,
 			Amount: amount, FeeAmount: fee, NetAmount: net, NextChargeAt: next,
+		}, nil
+
+	case EventSubscriptionPeriodsSkipped:
+		subID, e1 := bigint("subscriptionId")
+		skipped, e2 := bigint("periodsSkipped")
+		paidPeriodStart, e3 := u64("paidPeriodStart")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &SubscriptionPeriodsSkipped{
+			SubscriptionID: subID, PeriodsSkipped: skipped, PaidPeriodStart: paidPeriodStart,
 		}, nil
 
 	case EventSubscriptionChargeSkipped:
@@ -633,11 +930,41 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 
 	case EventJobDisputed:
 		jobID, e1 := bigint("jobId")
-		reason, e2 := str("reason")
-		if err := firstErr(e1, e2); err != nil {
+		by, e2 := addr("by")
+		reason, e3 := str("reason")
+		if err := firstErr(e1, e2, e3); err != nil {
 			return nil, err
 		}
-		return &JobDisputed{JobID: jobID, Reason: reason}, nil
+		return &JobDisputed{JobID: jobID, By: by, Reason: reason}, nil
+
+	case EventJobRefunded:
+		jobID, e1 := bigint("jobId")
+		to, e2 := addr("to")
+		amount, e3 := bigint("amount")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &JobRefunded{JobID: jobID, To: to, Amount: amount}, nil
+
+	case EventJobResolved:
+		jobID, e1 := bigint("jobId")
+		resolver, e2 := addr("resolver")
+		toVendor, e3 := bigint("toVendor")
+		toClient, e4 := bigint("toClient")
+		if err := firstErr(e1, e2, e3, e4); err != nil {
+			return nil, err
+		}
+		return &JobResolved{JobID: jobID, Resolver: resolver, ToVendor: toVendor, ToClient: toClient}, nil
+
+	case EventJobReclaimed:
+		jobID, e1 := bigint("jobId")
+		to, e2 := addr("to")
+		amount, e3 := bigint("amount")
+		fromStatus, e4 := u8("fromStatus")
+		if err := firstErr(e1, e2, e3, e4); err != nil {
+			return nil, err
+		}
+		return &JobReclaimed{JobID: jobID, To: to, Amount: amount, FromStatus: fromStatus}, nil
 
 	case EventJobCancelled:
 		jobID, e1 := bigint("jobId")
@@ -656,6 +983,59 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 		}
 		return &FeeAccrued{Token: token, MerchantID: merchantID, Amount: amount}, nil
 
+	case EventPaused:
+		account, err := addr("account")
+		if err != nil {
+			return nil, err
+		}
+		return &Paused{Account: account}, nil
+
+	case EventUnpaused:
+		account, err := addr("account")
+		if err != nil {
+			return nil, err
+		}
+		return &Unpaused{Account: account}, nil
+
+	case EventDependencyUpdated:
+		depName, e1 := str("name")
+		newAddress, e2 := addr("newAddress")
+		if err := firstErr(e1, e2); err != nil {
+			return nil, err
+		}
+		return &DependencyUpdated{Name: depName, NewAddress: newAddress}, nil
+
+	case EventFeeWithdrawn:
+		token, e1 := addr("token")
+		to, e2 := addr("to")
+		amount, e3 := bigint("amount")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &FeeWithdrawn{Token: token, To: to, Amount: amount}, nil
+
+	case EventTokenAdded:
+		token, err := addr("token")
+		if err != nil {
+			return nil, err
+		}
+		return &TokenAdded{Token: token}, nil
+
+	case EventTokenRemoved:
+		token, err := addr("token")
+		if err != nil {
+			return nil, err
+		}
+		return &TokenRemoved{Token: token}, nil
+
+	case EventTokenCapabilitiesSet:
+		token, e1 := addr("token")
+		capabilities, e2 := u8("capabilities")
+		if err := firstErr(e1, e2); err != nil {
+			return nil, err
+		}
+		return &TokenCapabilitiesSet{Token: token, Capabilities: capabilities}, nil
+
 	case EventERC20Transfer:
 		from, e1 := addr("from")
 		to, e2 := addr("to")
@@ -664,6 +1044,105 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 			return nil, err
 		}
 		return &ERC20Transfer{From: from, To: to, Value: value}, nil
+
+	case EventRoleGranted, EventRoleRevoked:
+		role, e1 := b32("role")
+		account, e2 := addr("account")
+		sender, e3 := addr("sender")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &RoleChanged{Role: role, Account: account, Sender: sender}, nil
+
+	case EventRoleAdminChanged:
+		role, e1 := b32("role")
+		previous, e2 := b32("previousAdminRole")
+		next, e3 := b32("newAdminRole")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &RoleAdminChanged{Role: role, PreviousAdminRole: previous, NewAdminRole: next}, nil
+
+	case EventUpgraded:
+		implementation, err := addr("implementation")
+		if err != nil {
+			return nil, err
+		}
+		return &Upgraded{Implementation: implementation}, nil
+
+	case EventCallScheduled:
+		id, e1 := b32("id")
+		index, e2 := bigint("index")
+		target, e3 := addr("target")
+		value, e4 := bigint("value")
+		data, e5 := byteSlice("data")
+		predecessor, e6 := b32("predecessor")
+		delay, e7 := bigint("delay")
+		if err := firstErr(e1, e2, e3, e4, e5, e6, e7); err != nil {
+			return nil, err
+		}
+		return &CallScheduled{ID: id, Index: index, Target: target, Value: value, Data: data, Predecessor: predecessor, Delay: delay}, nil
+
+	case EventCallExecuted:
+		id, e1 := b32("id")
+		index, e2 := bigint("index")
+		target, e3 := addr("target")
+		value, e4 := bigint("value")
+		data, e5 := byteSlice("data")
+		if err := firstErr(e1, e2, e3, e4, e5); err != nil {
+			return nil, err
+		}
+		return &CallExecuted{ID: id, Index: index, Target: target, Value: value, Data: data}, nil
+
+	case EventCancelled:
+		id, err := b32("id")
+		if err != nil {
+			return nil, err
+		}
+		return &Cancelled{ID: id}, nil
+
+	case EventMinDelayChange:
+		oldDuration, e1 := bigint("oldDuration")
+		newDuration, e2 := bigint("newDuration")
+		if err := firstErr(e1, e2); err != nil {
+			return nil, err
+		}
+		return &MinDelayChange{OldDuration: oldDuration, NewDuration: newDuration}, nil
+
+	case EventAgentRegistered:
+		agent, e1 := addr("agent")
+		controller, e2 := addr("controller")
+		digest, e3 := b32("credentialDigest")
+		agentName, e4 := str("name")
+		version, e5 := str("version")
+		if err := firstErr(e1, e2, e3, e4, e5); err != nil {
+			return nil, err
+		}
+		return &AgentRegistered{Agent: agent, Controller: controller, CredentialDigest: digest, Name: agentName, Version: version}, nil
+
+	case EventAgentCredentialRotated:
+		agent, e1 := addr("agent")
+		digest, e2 := b32("newCredentialDigest")
+		if err := firstErr(e1, e2); err != nil {
+			return nil, err
+		}
+		return &AgentCredentialRotated{Agent: agent, NewCredentialDigest: digest}, nil
+
+	case EventAgentReputationAdjusted:
+		agent, e1 := addr("agent")
+		delta, e2 := bigint("delta")
+		score, e3 := bigint("newScore")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &AgentReputationAdjusted{Agent: agent, Delta: delta, NewScore: score}, nil
+
+	case EventAgentDeactivated, EventAgentActivated:
+		agent, err := addr("agent")
+		if err != nil {
+			return nil, err
+		}
+		return &AgentStatusChanged{Agent: agent}, nil
 
 	default:
 		return nil, fmt.Errorf("no materialiser for event %q", name)

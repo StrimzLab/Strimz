@@ -133,7 +133,7 @@ function MerchantMark({
     return <BlockieAvatar seed={walletAddress} size={40} className="rounded-full" />
   }
   return (
-    <div className="font-sora flex size-10 items-center justify-center rounded-full bg-[#02C76A] text-base font-semibold text-white">
+    <div className="font-sora bg-accent flex size-10 items-center justify-center rounded-full text-base font-semibold text-white">
       {name?.charAt(0).toUpperCase() || 'S'}
     </div>
   )

@@ -21,6 +21,7 @@
 
 import { createPrismaClient } from '@strimz/db'
 import { generateApiKey, hashApiKey } from '@strimz/shared-crypto'
+import { print } from './print.mjs'
 
 const EMAIL = process.env.SEED_EMAIL ?? 'smoke@strimz.test'
 const BUSINESS = process.env.SEED_BUSINESS_NAME ?? 'Smoke Test Co'
@@ -113,17 +114,17 @@ async function main() {
     scopes: ['sessions_read', 'transactions_read'],
   })
 
-  console.log('--- merchant ---')
-  console.log('id:               ', merchant.id)
-  console.log('email:            ', merchant.email)
-  console.log('walletAddress:    ', merchant.walletAddress)
-  console.log('payoutAddress:    ', merchant.payoutAddress)
-  console.log('tier:             ', merchant.tier)
-  console.log('onchainMerchantId:', merchant.onchainMerchantId ?? '<unset; first live API call will register>')
-  console.log('--- live secret API key ---')
-  console.log(secret.printable ?? '<pinned; recover from SEED_SECRET_KEY>')
-  console.log('--- live publishable key ---')
-  console.log(publishable.printable ?? '<pinned; recover from SEED_PUBLISHABLE_KEY>')
+  print('--- merchant ---')
+  print('id:               ', merchant.id)
+  print('email:            ', merchant.email)
+  print('walletAddress:    ', merchant.walletAddress)
+  print('payoutAddress:    ', merchant.payoutAddress)
+  print('tier:             ', merchant.tier)
+  print('onchainMerchantId:', merchant.onchainMerchantId ?? '<unset; first live API call will register>')
+  print('--- live secret API key ---')
+  print(secret.printable ?? '<pinned; recover from SEED_SECRET_KEY>')
+  print('--- live publishable key ---')
+  print(publishable.printable ?? '<pinned; recover from SEED_PUBLISHABLE_KEY>')
 }
 
 async function ensureKey({ pinned, kind, mode, name, merchantId, scopes }) {

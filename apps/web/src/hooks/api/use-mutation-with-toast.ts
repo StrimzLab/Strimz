@@ -4,12 +4,7 @@ import { useMutation, type UseMutationOptions } from '@tanstack/react-query'
 import { useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 
-import {
-  isAuthError,
-  isNotFound,
-  isValidation,
-  type StrimzApiError,
-} from '@/lib/merchant-api/errors'
+import { apiErrorToast } from '@/lib/api-error-toast'
 
 /**
  * Standard messages a mutation surfaces through sonner. Three states
@@ -115,8 +110,8 @@ export function useMutationWithToast<TResult, TInput, TOnMutateResult = unknown>
     },
     onError: (error, variables, onMutateResult, mutationCtx) => {
       const explicit = resolve(messagesRef.current.error, [error, variables])
-      const description = describeError(error)
-      const message = explicit ?? defaultErrorMessage(error)
+      const { title, description } = apiErrorToast(error)
+      const message = explicit ?? title
       if (onMutateResult?.toastId !== undefined) {
         toast.error(message, { id: onMutateResult.toastId, description })
       } else {
@@ -139,29 +134,4 @@ export function useMutationWithToast<TResult, TInput, TOnMutateResult = unknown>
       )
     },
   })
-}
-
-/**
- * Maps known error subclasses to user-readable copy. Reaches into
- * `StrimzApiError.code` for codes we don't subclass (5xx, network).
- */
-function defaultErrorMessage(error: unknown): string {
-  if (isAuthError(error)) return 'Your session expired. Please sign in again.'
-  if (isNotFound(error)) return 'That resource no longer exists.'
-  if (isValidation(error)) return 'Please check the highlighted fields and try again.'
-  if (error && typeof error === 'object' && 'status' in error) {
-    const e = error as StrimzApiError
-    if (e.status === 429) return "You're going too fast. Try again in a moment."
-    if (e.status >= 500) return 'Strimz is having trouble. We’re on it.'
-  }
-  return 'Something went wrong.'
-}
-
-/**
- * Sub-line of the error toast. We use it for the raw server message ,
- * helps support diagnose without forcing the merchant to read a code.
- */
-function describeError(error: unknown): string | undefined {
-  if (error instanceof Error && error.message) return error.message
-  return undefined
 }

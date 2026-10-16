@@ -10,12 +10,12 @@ import type { ChainService } from '../../../../src/infra/chain/chain.service.js'
 function makeChain(baseFeePerGas: bigint | null): ChainService {
   return {
     client: {
-      async getBlock(): Promise<{ baseFeePerGas: bigint | null }> {
-        return { baseFeePerGas }
+      getBlock(): Promise<{ baseFeePerGas: bigint | null }> {
+        return Promise.resolve({ baseFeePerGas })
       },
     },
     environment: 'testnet',
-    getBlockNumber: async () => 0n,
+    getBlockNumber: () => Promise.resolve(0n),
   } as unknown as ChainService
 }
 
@@ -38,18 +38,28 @@ describe('GasPricingService', () => {
     expect(maxFeePerGas).toBe(expectedFloor)
   })
 
-  it('clamps maxFeePerGas at the safety cap when baseFee is absurdly high', async () => {
-    const baseFee = parseGwei('500') // 2x = 1000 gwei, well above 200 gwei cap
+  it('pays at least the base fee when it is above 200 gwei', async () => {
+    const baseFee = parseGwei('500')
     const svc = new GasPricingService(makeChain(baseFee))
     const { maxFeePerGas } = await svc.compute()
-    expect(maxFeePerGas).toBe(__testing__.SAFETY_MAX_FEE_WEI)
+    expect(maxFeePerGas).toBe(baseFee * 2n + parseGwei('1'))
   })
 
-  it('falls back to the floor when the RPC has no baseFeePerGas', async () => {
-    const svc = new GasPricingService(makeChain(null))
+  it("prices at Arc's maximum base fee without clamping", async () => {
+    const baseFee = parseGwei('20000')
+    const svc = new GasPricingService(makeChain(baseFee))
     const { maxFeePerGas } = await svc.compute()
-    // baseFee fallback is the floor; 2 * floor + tip
-    expect(maxFeePerGas).toBe(__testing__.ARC_MIN_BASE_FEE_WEI * 2n + parseGwei('1'))
+    expect(maxFeePerGas).toBe(baseFee * 2n + parseGwei('1'))
+  })
+
+  it("refuses a base fee above Arc's maximum, naming the reading", async () => {
+    const svc = new GasPricingService(makeChain(parseGwei('20001')))
+    await expect(svc.compute()).rejects.toThrow(/20001000000000/u)
+  })
+
+  it('rejects when the RPC has no baseFeePerGas', async () => {
+    const svc = new GasPricingService(makeChain(null))
+    await expect(svc.compute()).rejects.toThrow(/baseFeePerGas/u)
   })
 
   it('honours a bumped priority tip on retry', async () => {
@@ -60,20 +70,17 @@ describe('GasPricingService', () => {
     expect(maxFeePerGas).toBe(baseFee * 2n + parseGwei('5'))
   })
 
-  it('does not crash when the chain client throws', async () => {
+  it('rejects when the chain client throws', async () => {
     const broken = {
       client: {
-        async getBlock(): Promise<never> {
-          throw new Error('rpc unavailable')
+        getBlock(): Promise<never> {
+          return Promise.reject(new Error('rpc unavailable'))
         },
       },
       environment: 'testnet',
-      getBlockNumber: async () => 0n,
+      getBlockNumber: () => Promise.resolve(0n),
     } as unknown as ChainService
     const svc = new GasPricingService(broken)
-    const { maxFeePerGas, maxPriorityFeePerGas } = await svc.compute()
-    // Falls back to floor, returns a usable price rather than throwing.
-    expect(maxPriorityFeePerGas).toBe(parseGwei('1'))
-    expect(maxFeePerGas).toBe(__testing__.ARC_MIN_BASE_FEE_WEI * 2n + parseGwei('1'))
+    await expect(svc.compute()).rejects.toThrow('rpc unavailable')
   })
 })

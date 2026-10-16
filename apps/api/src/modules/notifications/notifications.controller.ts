@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
+import { SessionOnly } from '../../common/decorators/session-only.decorator.js'
 import {
   CurrentMerchant,
   type CurrentMerchantPayload,
@@ -14,6 +15,7 @@ import { NotificationsService } from './notifications.service.js'
 export class NotificationsController {
   constructor(private readonly notifications: NotificationsService) {}
 
+  @SessionOnly()
   @Get()
   @ApiOperation({
     summary:
@@ -23,6 +25,7 @@ export class NotificationsController {
     return this.notifications.list(ctx.merchantId, limit ? Number(limit) : 20)
   }
 
+  @SessionOnly()
   @Post('/mark-all-read')
   @ApiOperation({
     summary:

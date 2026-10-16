@@ -4,11 +4,8 @@ import type { Job } from 'bullmq'
 import { keccak256 } from 'viem'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
-import { QUEUE_NAMES } from '../../infra/queue/queue-names.js'
-import {
-  subscriptionDueJobSchema,
-  type SubscriptionDueJob,
-} from '../../infra/queue/job-payloads.js'
+import { QUEUE_NAMES } from '@strimz/queue-contracts'
+import { subscriptionDueJobSchema, type SubscriptionDueJob } from '@strimz/queue-contracts'
 
 /**
  * Consumes `strimz.subscription.due`. Each job is a single-subscription

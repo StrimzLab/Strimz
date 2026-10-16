@@ -1,5 +1,13 @@
+import type {
+  StatsForecast,
+  StatsLtv,
+  StatsLtvQuery,
+  StatsMrr,
+  StatsSummary,
+  StatsVolume,
+} from '@strimz/shared-types'
 import type { MerchantApiClient } from '../client'
-import type { CallOptions, Page, PaginationParams } from '../types'
+import type { CallOptions, Page } from '../types'
 
 /**
  * Analytics endpoints. The wire shapes don't exist as Zod-inferred
@@ -83,18 +91,29 @@ export class AnalyticsResource {
     })
   }
 
-  mrr(options?: CallOptions): Promise<MrrResponse> {
-    return this.client.get<MrrResponse>('/v1/stats/mrr', options)
+  mrr(options?: CallOptions): Promise<StatsMrr> {
+    return this.client.get<StatsMrr>('/v1/stats/mrr', options)
   }
 
-  ltv(params: PaginationParams = {}, options?: CallOptions): Promise<LtvResponse> {
-    return this.client.get<LtvResponse>('/v1/stats/ltv', {
+  ltv(params: StatsLtvQuery, options?: CallOptions): Promise<StatsLtv> {
+    return this.client.get<StatsLtv>('/v1/stats/ltv', {
       ...options,
-      query: { cursor: params.cursor, limit: params.limit },
+      query: { currency: params.currency, cursor: params.cursor, limit: params.limit },
     })
   }
 
-  forecast(options?: CallOptions): Promise<ForecastResponse> {
-    return this.client.get<ForecastResponse>('/v1/stats/forecast', options)
+  forecast(options?: CallOptions): Promise<StatsForecast> {
+    return this.client.get<StatsForecast>('/v1/stats/forecast', options)
+  }
+
+  summary(options?: CallOptions): Promise<StatsSummary> {
+    return this.client.get<StatsSummary>('/v1/stats/summary', options)
+  }
+
+  volume(range: DateRange = {}, options?: CallOptions): Promise<StatsVolume> {
+    return this.client.get<StatsVolume>('/v1/stats/volume', {
+      ...options,
+      query: { from: range.from, to: range.to },
+    })
   }
 }

@@ -22,50 +22,59 @@ Authorization: Bearer sk_test_xxx
 
 ## Resources
 
+### Minimum amount
+
+Every amount Strimz relays is at least 1.00 of the stablecoin: `1000000` base
+units of USDC or EURC (6 decimals). Creating a payment session, a subscription
+plan, a storefront product or an invoice whose total is below that is refused
+with `400 amount_below_minimum`, and so is a relayed payment or enrolment below
+it. A session, plan, product or invoice created before this rule keeps its
+amount and is refused the same way when someone tries to pay it.
+
 ### Payment sessions
 
-- `POST /v1/payment-sessions` ,  create a one-shot checkout session
-- `GET  /v1/payment-sessions/:id` ,  fetch
-- `GET  /v1/payment-sessions` ,  list
+- `POST /v1/payment-sessions` , create a one-shot checkout session
+- `GET  /v1/payment-sessions/:id` , fetch
+- `GET  /v1/payment-sessions` , list
 
 ### Subscriptions
 
 - `GET  /v1/subscriptions/:id`
 - `GET  /v1/subscriptions` (filterable by status, planId)
-- `POST /v1/subscriptions/:id/cancel` ,  marks DB cancelled, enqueues on-chain cancel
+- `POST /v1/subscriptions/:id/cancel` , marks DB cancelled, enqueues on-chain cancel
 
 ### Refunds
 
-- `POST /v1/refunds` ,  returns wallet-signing instructions
-- `POST /v1/refunds/:id/signature` ,  record the on-chain tx hash
+- `POST /v1/refunds` , returns wallet-signing instructions
+- `POST /v1/refunds/:id/signature` , record the on-chain tx hash
 - `GET  /v1/refunds`, `GET /v1/refunds/:id`
 
 ### Webhooks
 
-- `POST /v1/webhook-endpoints` ,  register an endpoint, returns the signing secret **once**
+- `POST /v1/webhook-endpoints` , register an endpoint, returns the signing secret **once**
 - `POST /v1/webhook-endpoints/:id/{enable,disable,rotate-secret}`
-- `GET  /v1/webhook-deliveries` ,  every attempt, every response code
+- `GET  /v1/webhook-deliveries` , every attempt, every response code
 
 ### Invoices
 
-- `POST /v1/invoices` ,  create with line items, returns a backing payment session
+- `POST /v1/invoices` , create with line items, returns a backing payment session
 - `POST /v1/invoices/:id/{send,void}`
 
 ### Storefronts
 
-- `POST /v1/storefront` ,  create or update your storefront
-- `POST /v1/storefront/products` ,  add a product
-- `GET  /store/:slug` ,  public read
+- `POST /v1/storefront` , create or update your storefront
+- `POST /v1/storefront/products` , add a product
+- `GET  /store/:slug` , public read
 
 ### Agents
 
 - `GET  /v1/agents/config`, `PATCH /v1/agents/config`
-- `GET  /v1/agents/activity` ,  chronological feed
-- `POST /v1/agents/jobs` ,  create an ERC-8183 escrow job
+- `GET  /v1/agents/activity` , chronological feed
+- `POST /v1/agents/jobs` , create an ERC-8183 escrow job (not available at launch: `403 capability_unavailable`)
 
 ### Analytics
 
-- `GET /v1/stats/{conversion,churn,mrr,ltv,forecast}`
+- `GET /v1/stats/{summary,volume,conversion,churn,mrr,ltv,forecast}`
 
 ### Tokens (public, no auth)
 
@@ -76,12 +85,111 @@ Authorization: Bearer sk_test_xxx
 
 - `GET /v1/checkout/sessions/:id`. Loads a payment session for the hosted checkout page.
 - `GET /v1/checkout/plans/:id`. Loads a subscription plan for the hosted enrolment page.
+- `POST /v1/checkout/sessions/:id/relay`. Relays the payer-signed EIP-3009 authorization
+  for that session.
+- `POST /v1/checkout/plans/:id/relay`. Relays the payer-signed EIP-2612 permit plus
+  enrolment for that plan.
+- `GET /v1/checkout/sessions/:id/submissions/:key` and
+  `GET /v1/checkout/plans/:id/submissions/:key`. Look up a submission made for that
+  session or plan.
+
+The relay routes take the same body as `POST /v1/relay/payments` and
+`POST /v1/relay/subscriptions`, without `sessionId` or `subscriptionInternalId`: the
+session or plan comes from the path. They need no key. The session or plan decides
+the merchant, and every check below runs against it:
+
+- Payment: the session must be payable, the body `merchantId` must be the session
+  merchant's on-chain id, the signed amount must equal the session amount, the
+  `token` must be the session currency's token (`400 token_mismatch`), and the
+  EIP-3009 `nonce` must be `checkoutPaymentNonce(sessionId)`.
+- Enrolment: the terms must match the plan (`400 enrolment_terms_mismatch`), the
+  wallet must not already subscribe (`409 subscription_exists`), and the payer must
+  hold at least the plan amount of the plan token when the call is made
+  (`400 insufficient_balance`), trial plans included.
+- The submission is attributed to, and counted against the daily relay budget of,
+  the merchant who owns the session or plan.
+- The lookup routes answer `404` for a key that belongs to another session, plan or
+  merchant, the same answer as an unknown key.
+- Limits per client address: 20 relay calls a minute on each `POST` route and 120
+  lookups a minute on each `GET` route. Over the limit is `429 rate_limited`.
 
 ### Relay (`relay_write` and `relay_read` scopes)
 
 - `POST /v1/relay/payments`. Submits a payer-signed EIP-3009 authorization.
 - `POST /v1/relay/subscriptions`. Submits a payer-signed EIP-2612 permit plus enrolment.
 - `GET  /v1/relay/submissions/:idempotencyKey`. Looks up a submission's on-chain status.
+
+These routes relay only for your own merchant account, and only for one of your
+payment sessions or plans. This is a breaking change from 2026-10-10 for
+integrations that call them directly:
+
+- `sessionId` is required on `POST /v1/relay/payments` and `subscriptionInternalId`
+  (the plan id) on `POST /v1/relay/subscriptions`. A body without it is
+  `400 invalid_request`.
+- The body `merchantId` must be the on-chain id of the merchant that owns the key.
+  Any other id is `403 merchant_mismatch`, and so is every call from a merchant
+  account that is not registered on-chain yet. This is checked before the session
+  or plan is looked up and before the call is simulated.
+- A session or plan of another merchant is therefore refused too, because its
+  on-chain merchant id is not yours.
+
+Strimz issues the submission key. Both `POST` endpoints return it as
+`idempotencyKey` in the response: `relay-pay-<hex>` or `relay-sub-<hex>`,
+where `<hex>` is the keccak256 hash of the signed calldata. Poll the
+`GET` endpoint with that key; a key you chose yourself returns `404`.
+Sending the identical signed payload again returns the same submission
+and never broadcasts it twice. A newly signed payload is a new
+submission.
+
+- `idempotencyKey` in the request body is deprecated. It is accepted
+  and ignored, and will be removed.
+- Before a submission is queued, Strimz simulates the exact call
+  against the latest block. A call that would revert is refused with
+  `400 relay_simulation_failed`; `error.details.revert` names the
+  revert.
+- The EIP-3009 `nonce` must be
+  `checkoutPaymentNonce(sessionId)` from `@strimz/shared-crypto`,
+  otherwise the request is refused with `400 auth_nonce_mismatch`.
+  Every authorization for one session shares that nonce, so the token
+  accepts at most one of them per payer wallet.
+- A session whose payment has already been mined is refused with
+  `409 session_already_submitted`.
+- A payment or enrolment below 1.00 is refused with `400 amount_below_minimum`
+  before it is simulated.
+- The `token` must be the token of the session currency, otherwise
+  `400 token_mismatch`.
+- An enrolment is refused with `400 insufficient_balance` when the payer holds less
+  than the signed `amount` of `token`, trial plans included.
+- Each of `POST /v1/relay/payments` and `POST /v1/relay/subscriptions` accepts 60
+  calls a minute per merchant account, counted across every key and address. Over
+  the limit is `429 rate_limited`.
+- One attempt per payment session, or per plan and payer, is live at a
+  time. A new attempt is refused with `409 attempt_in_progress` while
+  the earlier one can still land; `error.details.submission` is the
+  earlier submission, which you can poll. If the earlier attempt
+  already settled on-chain the answer is `409 already_settled`.
+- `GET /v1/relay/submissions/:idempotencyKey` only returns submissions
+  made by your merchant account. Add `?sessionId=` to also require
+  that the submission belongs to that payment session or plan. A
+  mismatch is a `404`, the same answer as an unknown key.
+
+### Daily relay budget
+
+Strimz pays the gas for every relayed call, so each merchant has a daily number of
+new relay submissions, counted per UTC day across the merchant-key and the public
+checkout routes:
+
+| Tier       | Submissions a day |
+| ---------- | ----------------- |
+| Free       | 500               |
+| Growth     | 5,000             |
+| Business   | 50,000            |
+| Enterprise | 50,000            |
+
+A submission counts when it is queued. Sending the identical signed payload again,
+or paying a session that is already paid, does not count. Once the budget is spent,
+new submissions are refused with `429 relay_budget_exhausted` until 00:00 UTC;
+`error.details.retryAfterSec` is the number of seconds until then.
 
 The `tokens` and `checkout` namespaces sit outside the auth boundary
 on purpose. Both serve data that is either chain-derived or already
@@ -90,9 +198,12 @@ hosted checkout pages and the browser SDK call them directly. From
 your own server, use the merchant-scoped equivalents on
 `StrimzClient` (`paymentSessions.retrieve`,
 `subscriptionPlans.retrieve`).
+The checkout relay routes are public too: the payer's signature and
+the session or plan in the path decide what is relayed and for whom,
+and the minimum amount, the limits and the daily budget bound what it
+can cost.
 
-The `relay` namespace does need a secret key. The hosted checkout
-reaches it through a same-origin BFF route
-(`/api/checkout/sessions/:id/submit`) that proxies the call with a
-server-only Strimz key. The secret never leaves the server; the
-browser only ever talks to the BFF.
+The `relay` namespace does need a secret key, and it relays only for the
+merchant that owns the key. The hosted checkout does not use it: the payer's
+browser calls the public checkout relay routes above directly, so no Strimz key
+is held by the hosted checkout.

@@ -43,6 +43,9 @@
 
 set -euo pipefail
 
+CAST="${CAST:-arc-cast}"
+FORGE="${FORGE:-arc-forge}"
+
 # ----- env validation -----
 required_env=(
     STRIMZ_DEPLOYER_PRIVATE_KEY STRIMZ_MERCHANT_PRIVATE_KEY STRIMZ_PAYER_PRIVATE_KEY
@@ -59,9 +62,9 @@ for v in "${required_env[@]}"; do
 done
 
 RPC="$ARC_TESTNET_RPC_URL"
-ADMIN=$(cast wallet address --private-key "$STRIMZ_DEPLOYER_PRIVATE_KEY")
-MERCHANT=$(cast wallet address --private-key "$STRIMZ_MERCHANT_PRIVATE_KEY")
-PAYER=$(cast wallet address --private-key "$STRIMZ_PAYER_PRIVATE_KEY")
+ADMIN=$("$CAST" wallet address --private-key "$STRIMZ_DEPLOYER_PRIVATE_KEY")
+MERCHANT=$("$CAST" wallet address --private-key "$STRIMZ_MERCHANT_PRIVATE_KEY")
+PAYER=$("$CAST" wallet address --private-key "$STRIMZ_PAYER_PRIVATE_KEY")
 
 FEE_BPS=200
 ONE_USDC=1000000
@@ -105,19 +108,19 @@ assert_drop_with_gas() {
 strip_uint() { awk '{print $1}'; }
 
 balance() {
-    cast call "$ARC_USDC_ADDRESS" "balanceOf(address)(uint256)" "$1" --rpc-url "$RPC" | strip_uint
+    "$CAST" call "$ARC_USDC_ADDRESS" "balanceOf(address)(uint256)" "$1" --rpc-url "$RPC" | strip_uint
 }
 
 send_as() {
     local key=$1; shift
-    cast send "$@" --private-key "$key" --rpc-url "$RPC" --json > /dev/null
+    "$CAST" send "$@" --private-key "$key" --rpc-url "$RPC" --json > /dev/null
 }
 
 # Same as send_as, but prints the receipt JSON to stdout so the caller can
 # parse logs without a second RPC round-trip.
 send_as_capture() {
     local key=$1; shift
-    cast send "$@" --private-key "$key" --rpc-url "$RPC" --json
+    "$CAST" send "$@" --private-key "$key" --rpc-url "$RPC" --json
 }
 
 # Run script/Digests.s.sol's signing helper for the given signature and args.
@@ -128,7 +131,7 @@ send_as_capture() {
 sign_via_forge() {
     local sig=$1; shift
     local output rc
-    output=$(forge script script/Digests.s.sol --sig "$sig" "$@" --rpc-url "$RPC" 2>&1) && rc=0 || rc=$?
+    output=$("$FORGE" script script/Digests.s.sol --network arc --sig "$sig" "$@" --rpc-url "$RPC" 2>&1) && rc=0 || rc=$?
     if [ "$rc" -ne 0 ]; then
         printf '  forge script failed (exit %s):\n%s\n' "$rc" "$output" >&2
         return 1
@@ -194,18 +197,18 @@ fi
 # ----- stage 1: register merchant -----
 section 1 "Strimz registers the merchant"
 
-NEXT_ID=$(cast call "$STRIMZ_REGISTRY_ADDRESS" "nextMerchantId()(uint256)" --rpc-url "$RPC" | strip_uint)
+NEXT_ID=$("$CAST" call "$STRIMZ_REGISTRY_ADDRESS" "nextMerchantId()(uint256)" --rpc-url "$RPC" | strip_uint)
 MERCHANT_ID="$NEXT_ID"
 echo "  expected merchantId: $MERCHANT_ID"
 
 send_as "$STRIMZ_DEPLOYER_PRIVATE_KEY" \
     "$STRIMZ_REGISTRY_ADDRESS" \
-    "registerMerchant(address,address,uint16,uint256)" \
-    "$MERCHANT" "$STRIMZ_MERCHANT_PAYOUT_ADDRESS" "$FEE_BPS" 0
+    "registerMerchant(address,address,uint16,uint16,uint256)" \
+    "$MERCHANT" "$STRIMZ_MERCHANT_PAYOUT_ADDRESS" "$FEE_BPS" "$FEE_BPS" 0
 
-M=$(cast call "$STRIMZ_REGISTRY_ADDRESS" \
-    "getMerchant(uint256)(address,uint16,bool,address,uint256)" "$MERCHANT_ID" \
-    --rpc-url "$RPC")
+M=$("$CAST" call "$STRIMZ_REGISTRY_ADDRESS" \
+    "getMerchant(uint256)((address,uint16,bool,address,uint256,address,address,uint64,uint16))" "$MERCHANT_ID" \
+    --rpc-url "$RPC" | parse_tuple)
 OWNER=$(printf '%s' "$M" | field _ 1)
 FEE_STORED=$(printf '%s' "$M" | field _ 2)
 ACTIVE=$(printf '%s' "$M" | field _ 3)
@@ -241,10 +244,10 @@ assert_eq            "fee delta"    "$((FEE_BAL_1 - FEE_BAL_0))"       "$EXPECTE
 # ----- stage 3: EIP-3009 payWithAuthorization -----
 section 3 "Payer signs EIP-3009; relayer broadcasts payWithAuthorization"
 
-NOW=$(cast block latest --field timestamp --rpc-url "$RPC" | strip_uint)
+NOW=$("$CAST" block latest --field timestamp --rpc-url "$RPC" | strip_uint)
 VALID_AFTER=$((NOW - 1))
 VALID_BEFORE=$((NOW + 3600))
-AUTH_NONCE=$(cast keccak "strimz.e2e.payAuth.$NOW")
+AUTH_NONCE=$("$CAST" keccak "strimz.e2e.payAuth.$NOW")
 
 echo "  computing + signing EIP-3009 via forge script (can take ~20s)..."
 SIG_OUT=$(sign_via_forge \
@@ -254,16 +257,24 @@ read -r V R S <<<"$SIG_OUT"
 [ -n "${V:-}" ] || fail "stage 3: failed to obtain receiveWithAuth signature"
 echo "  signature ok (v=$V)"
 
+PAY_REF="0x000000000000000000000000000000000000000000000000000000000000e2e3"
+INTENT_OUT=$(sign_via_forge \
+    "signPayIntent(uint256,uint256,bytes32,uint256,bytes32)" \
+    "$MERCHANT_ID" "$ONE_USDC" "$AUTH_NONCE" "$VALID_BEFORE" "$PAY_REF")
+read -r IV IR IS <<<"$INTENT_OUT"
+[ -n "${IV:-}" ] || fail "stage 3: failed to obtain PayIntent signature"
+echo "  intent signature ok (v=$IV)"
+
 echo "  broadcasting payWithAuthorization as admin..."
 send_as "$STRIMZ_DEPLOYER_PRIVATE_KEY" \
     "$STRIMZ_PAYMENTS_ADDRESS" \
-    "payWithAuthorization(uint256,address,(address,uint256,uint256,uint256,bytes32),bytes32,uint8,bytes32,bytes32)" \
+    "payWithAuthorization(uint256,address,(address,uint256,uint256,uint256,bytes32),bytes32,(uint8,bytes32,bytes32),(uint8,bytes32,bytes32))" \
     "$MERCHANT_ID" "$ARC_USDC_ADDRESS" \
     "($PAYER,$ONE_USDC,$VALID_AFTER,$VALID_BEFORE,$AUTH_NONCE)" \
-    "0x000000000000000000000000000000000000000000000000000000000000e2e3" \
-    "$V" "$R" "$S"
+    "$PAY_REF" \
+    "($V,$R,$S)" "($IV,$IR,$IS)"
 
-USED=$(cast call "$ARC_USDC_ADDRESS" "authorizationState(address,bytes32)(bool)" \
+USED=$("$CAST" call "$ARC_USDC_ADDRESS" "authorizationState(address,bytes32)(bool)" \
     "$PAYER" "$AUTH_NONCE" --rpc-url "$RPC")
 assert_eq "nonce used after submit" "$USED" "true"
 
@@ -291,28 +302,37 @@ PERMIT_SIG_OUT=$(sign_via_forge \
 read -r PV PR PS <<<"$PERMIT_SIG_OUT"
 [ -n "${PV:-}" ] || fail "stage 4: failed to obtain permit signature"
 echo "  signature ok (v=$PV)"
+
+SUB_NONCE=$("$CAST" keccak "strimz.e2e.subIntent.$NOW")
+SUB_INTENT_OUT=$(sign_via_forge \
+    "signSubscriptionIntent(uint256,uint256,uint32,uint64,uint64,uint256,bytes32)" \
+    "$MERCHANT_ID" "$ONE_USDC" "$INTERVAL" "$START_AT" "$END_AT" "$DEADLINE" "$SUB_NONCE")
+read -r SV SR SS <<<"$SUB_INTENT_OUT"
+[ -n "${SV:-}" ] || fail "stage 4: failed to obtain SubscriptionIntent signature"
+echo "  intent signature ok (v=$SV)"
 echo "  broadcasting permitAndCreateSubscription as admin..."
 
 RECEIPT=$(send_as_capture "$STRIMZ_DEPLOYER_PRIVATE_KEY" \
     "$STRIMZ_SUBSCRIPTIONS_ADDRESS" \
-    "permitAndCreateSubscription(uint256,address,uint256,uint32,uint64,uint64,(address,uint256,uint256),uint8,bytes32,bytes32)" \
+    "permitAndCreateSubscription(uint256,address,uint256,uint32,uint64,uint64,bytes32,(address,uint256,uint256),(uint8,bytes32,bytes32),(uint8,bytes32,bytes32))" \
     "$MERCHANT_ID" "$ARC_USDC_ADDRESS" "$ONE_USDC" "$INTERVAL" "$START_AT" "$END_AT" \
+    "$SUB_NONCE" \
     "($PAYER,$PERMIT_VALUE,$DEADLINE)" \
-    "$PV" "$PR" "$PS")
+    "($PV,$PR,$PS)" "($SV,$SR,$SS)")
 
 # SubscriptionCreated(subscriptionId indexed, merchantId indexed, payer indexed, token, amount, interval, endAt).
 # topic[0] = signature hash, topic[1] = subscriptionId. Pull it straight out
 # of the receipt the previous call already returned.
-SUB_SIG=$(cast keccak "SubscriptionCreated(uint256,uint256,address,address,uint256,uint32,uint64)")
+SUB_SIG=$("$CAST" keccak "SubscriptionCreated(uint256,uint256,address,address,uint256,uint32,uint64)")
 SUB_TOPIC1=$(printf '%s' "$RECEIPT" \
     | jq -r --arg sig "$SUB_SIG" \
         '.logs[] | select(.topics[0] == $sig) | .topics[1]' \
     | head -1)
 [ -n "$SUB_TOPIC1" ] || fail "stage 4: SubscriptionCreated event missing from receipt"
-SUB_ID=$(cast --to-dec "$SUB_TOPIC1")
+SUB_ID=$("$CAST" --to-dec "$SUB_TOPIC1")
 echo "  subscriptionId: $SUB_ID"
 
-SUB=$(cast call "$STRIMZ_SUBSCRIPTIONS_ADDRESS" \
+SUB=$("$CAST" call "$STRIMZ_SUBSCRIPTIONS_ADDRESS" \
     "getSubscription(uint256)((address,uint64,uint32,address,uint96,uint256,uint64,bool))" \
     "$SUB_ID" --rpc-url "$RPC" | parse_tuple)
 SUB_PAYER=$(printf '%s' "$SUB" | field _ 1)
@@ -336,7 +356,7 @@ send_as "$STRIMZ_MERCHANT_PRIVATE_KEY" \
     "$STRIMZ_SUBSCRIPTIONS_ADDRESS" \
     "cancel(uint256)" "$SUB_ID"
 
-SUB_AFTER=$(cast call "$STRIMZ_SUBSCRIPTIONS_ADDRESS" \
+SUB_AFTER=$("$CAST" call "$STRIMZ_SUBSCRIPTIONS_ADDRESS" \
     "getSubscription(uint256)((address,uint64,uint32,address,uint96,uint256,uint64,bool))" \
     "$SUB_ID" --rpc-url "$RPC" | parse_tuple)
 CANCELLED_AFTER=$(printf '%s' "$SUB_AFTER" | field _ 8)

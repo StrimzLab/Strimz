@@ -4,10 +4,13 @@ import { useState, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PrivyProvider } from '@privy-io/react-auth'
 import { StrimzProvider } from '@strimz/sdk-react'
-import { arcTestnet } from '@strimz/shared-config'
+import { getArcChain } from '@strimz/shared-config'
+import { useResolvedTheme } from '@strimz/ui'
 import { env } from '@/lib/env'
+import { privyAppearanceTheme } from '@/lib/theme'
 import { MerchantApiProvider } from '@/hooks/api/merchant-api-context'
 import { AdminApiProvider } from '@/hooks/admin/admin-context'
+import { SessionCacheGuard } from '@/components/auth/session-cache-guard'
 
 /**
  * Root-provider tree. Strimz is light-mode only.
@@ -23,6 +26,7 @@ import { AdminApiProvider } from '@/hooks/admin/admin-context'
  * initialises AppKit and never pops the switch-network modal.
  */
 export function Providers({ children }: { children: ReactNode }) {
+  const resolvedTheme = useResolvedTheme()
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -54,13 +58,17 @@ export function Providers({ children }: { children: ReactNode }) {
     <PrivyProvider
       appId={env.privyAppId}
       config={{
-        appearance: { theme: 'light', accentColor: '#02C76A' },
+        appearance: {
+          theme: privyAppearanceTheme(resolvedTheme ?? 'light'),
+          accentColor: '#02C76A',
+        },
         loginMethods: ['email', 'wallet', 'google'],
         embeddedWallets: { createOnLogin: 'users-without-wallets' },
-        defaultChain: arcTestnet,
-        supportedChains: [arcTestnet],
+        defaultChain: getArcChain(env.arcEnvironment),
+        supportedChains: [getArcChain(env.arcEnvironment)],
       }}
     >
+      <SessionCacheGuard cache={queryClient} />
       {tree}
     </PrivyProvider>
   )

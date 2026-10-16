@@ -84,11 +84,11 @@ export default function OnboardingPage() {
   return (
     <div className="w-full max-w-xl">
       <div className="text-center">
-        <span className="inline-flex items-center gap-1 rounded-full bg-[#02C76A]/10 px-3 py-1 text-xs font-medium text-[#02C76A]">
+        <span className="bg-accent/10 text-accent inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium">
           <Sparkles className="size-3" />
           One step from live
         </span>
-        <h1 className="font-sora mt-4 text-3xl font-[700] tracking-tight text-[#050020]">
+        <h1 className="font-sora text-foreground mt-4 text-3xl font-[700] tracking-tight">
           Tell us about your business
         </h1>
         <p className="font-poppins text-muted-foreground mt-2 text-sm">
@@ -176,7 +176,7 @@ export default function OnboardingPage() {
 
         <div>
           <Label className="mb-1.5 inline-flex items-center gap-1">Your payout wallet</Label>
-          <div className="border-border bg-muted/30 flex items-center rounded-md border px-3 py-2 font-mono text-xs text-[#050020]">
+          <div className="border-border bg-muted/30 text-foreground flex items-center rounded-md border px-3 py-2 font-mono text-xs">
             {payoutAddress || 'Preparing your Strimz-embedded wallet…'}
           </div>
           <p className="text-muted-foreground mt-1 text-xs">
@@ -214,7 +214,7 @@ function Field({
     <div>
       <Label className="mb-1.5 inline-flex items-center gap-1">
         {label}
-        {required && <span className="text-[#02C76A]">*</span>}
+        {required && <span className="text-accent">*</span>}
       </Label>
       {children}
       {help && <p className="text-muted-foreground mt-1 text-xs">{help}</p>}

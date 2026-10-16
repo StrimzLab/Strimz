@@ -1,17 +1,27 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common'
 import {
+  createNonceManager,
   createPublicClient,
   createWalletClient,
   http,
   type Address,
+  type Chain,
   type Hash,
+  type LocalAccount,
   type PublicClient,
   type WalletClient,
 } from 'viem'
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts'
-import { arcMainnet, arcTestnet, getCctpContracts } from '@strimz/shared-config'
+import { assertArcChainId, getArcChain, getCctpContracts } from '@strimz/shared-config'
+import { jsonRpc } from 'viem/nonce'
+import { toKmsAccount, type KmsSigner } from '@strimz/signer'
 import { TypedConfigService } from '../../config/index.js'
-import { StrimzSubscriptionsAbi, StrimzAgentEscrowAbi, MessageTransmitterAbi } from './abis.js'
+import {
+  MessageTransmitterAbi,
+  StrimzAgentEscrowAbi,
+  StrimzRegistryAbi,
+  StrimzSubscriptionsAbi,
+} from './abis.js'
+import { SCHEDULER_SIGNER } from './scheduler-signer.js'
 
 /**
  * Chain access for the scheduler.
@@ -32,46 +42,63 @@ import { StrimzSubscriptionsAbi, StrimzAgentEscrowAbi, MessageTransmitterAbi } f
  * pin queue concurrency.
  */
 @Injectable()
-export class ChainService {
+export class ChainService implements OnModuleInit {
   public readonly publicClient: PublicClient
   public readonly walletClient: WalletClient
   // PrivateKeyAccount (not just `{ address }`): viem dispatches to
   // local signing + eth_sendRawTransaction only when it sees a
   // LocalAccount object. A bare address string sends viem down the
   // wallet_sendTransaction path, which RPC nodes don't implement.
-  public readonly account: PrivateKeyAccount
+  public readonly account: LocalAccount
   public readonly subscriptionsAddress: Address
   public readonly agentEscrowAddress: Address
+  public readonly registryAddress: Address
   public readonly messageTransmitterAddress: Address
+  private readonly environment: 'testnet' | 'mainnet'
+  private readonly chain: Chain
+  private readonly production: boolean
   private readonly log = new Logger(ChainService.name)
 
-  constructor(cfg: TypedConfigService) {
-    const chain = cfg.env.ARC_ENVIRONMENT === 'mainnet' ? arcMainnet : arcTestnet
+  constructor(cfg: TypedConfigService, @Inject(SCHEDULER_SIGNER) signer: KmsSigner) {
+    this.environment = cfg.env.ARC_ENVIRONMENT
+    this.production = cfg.env.NODE_ENV === 'production'
+    const chain = getArcChain(this.environment)
+    this.chain = chain
     const transport = http(cfg.env.ARC_RPC_URL)
 
     this.publicClient = createPublicClient({ chain, transport }) as PublicClient
-    const account = privateKeyToAccount(cfg.env.SCHEDULER_PRIVATE_KEY as `0x${string}`)
-    this.account = account
-    this.walletClient = createWalletClient({ account, chain, transport })
+    this.account = {
+      ...toKmsAccount(signer),
+      nonceManager: createNonceManager({ source: jsonRpc() }),
+    }
+    this.walletClient = createWalletClient({ account: this.account, chain, transport })
 
     this.subscriptionsAddress = cfg.env.SUBSCRIPTIONS_ADDRESS as Address
     this.agentEscrowAddress = cfg.env.AGENT_ESCROW_ADDRESS as Address
+    this.registryAddress = cfg.env.REGISTRY_ADDRESS as Address
     this.messageTransmitterAddress = getCctpContracts(cfg.env.ARC_ENVIRONMENT)
       .messageTransmitterV2 as Address
-    this.log.log(`scheduler signing as ${account.address}`)
+    this.log.log(`scheduler signing as ${this.account.address}`)
+  }
+
+  async onModuleInit(): Promise<void> {
+    if (!this.production) return
+    const rpcChainId = await this.publicClient.getChainId()
+    assertArcChainId(this.environment, rpcChainId)
+    this.log.log(`ARC_RPC_URL serves chain id ${rpcChainId} (${this.environment})`)
   }
 
   // ----- Subscription writes -----
 
   /** Cancels a single on-chain subscription. */
-  async cancelSubscription(subscriptionId: bigint): Promise<Hash> {
+  cancelSubscription(subscriptionId: bigint): Promise<Hash> {
     return this.walletClient.writeContract({
       account: this.account,
       address: this.subscriptionsAddress,
       abi: StrimzSubscriptionsAbi,
       functionName: 'cancel',
       args: [subscriptionId],
-      chain: null,
+      chain: this.chain,
     })
   }
 
@@ -90,18 +117,19 @@ export class ChainService {
     if (subscriptionIds.length !== chargeAttemptIds.length) {
       throw new Error('batchCharge: subscriptionIds.length !== chargeAttemptIds.length')
     }
-    return this.walletClient.writeContract({
+    const txHash = await this.walletClient.writeContract({
       account: this.account,
       address: this.subscriptionsAddress,
       abi: StrimzSubscriptionsAbi,
       functionName: 'batchCharge',
       args: [subscriptionIds, chargeAttemptIds],
-      chain: null,
+      chain: this.chain,
     })
+    return txHash
   }
 
   /** True if the on-chain idempotency check has already burned the attempt id. */
-  async isAttemptUsed(chargeAttemptId: `0x${string}`): Promise<boolean> {
+  isAttemptUsed(chargeAttemptId: `0x${string}`): Promise<boolean> {
     return this.publicClient.readContract({
       address: this.subscriptionsAddress,
       abi: StrimzSubscriptionsAbi,
@@ -124,9 +152,37 @@ export class ChainService {
     return now >= sub.nextChargeAt
   }
 
+  // ----- Registry -----
+
+  async setMerchantFeeBps(onchainMerchantId: bigint, feeBps: number): Promise<Hash> {
+    const hash = await this.walletClient.writeContract({
+      account: this.account,
+      address: this.registryAddress,
+      abi: StrimzRegistryAbi,
+      functionName: 'setFeeBps',
+      args: [onchainMerchantId, feeBps],
+      chain: this.chain,
+    })
+    const receipt = await this.publicClient.waitForTransactionReceipt({ hash })
+    if (receipt.status !== 'success') {
+      throw new Error(`setFeeBps(${onchainMerchantId}, ${feeBps}) reverted in ${hash}`)
+    }
+    return hash
+  }
+
+  async readMerchantFeeBps(onchainMerchantId: bigint): Promise<number> {
+    const record = await this.publicClient.readContract({
+      address: this.registryAddress,
+      abi: StrimzRegistryAbi,
+      functionName: 'getMerchant',
+      args: [onchainMerchantId],
+    })
+    return record.feeBps
+  }
+
   // ----- Agent escrow writes -----
 
-  async createJob(input: {
+  createJob(input: {
     vendor: Address
     assessor: Address
     token: Address
@@ -139,40 +195,40 @@ export class ChainService {
       abi: StrimzAgentEscrowAbi,
       functionName: 'createJob',
       args: [input.vendor, input.assessor, input.token, input.amount, input.description],
-      chain: null,
+      chain: this.chain,
     })
   }
 
-  async approveAndReleaseJob(jobId: bigint): Promise<Hash> {
+  approveAndReleaseJob(jobId: bigint): Promise<Hash> {
     return this.walletClient.writeContract({
       account: this.account,
       address: this.agentEscrowAddress,
       abi: StrimzAgentEscrowAbi,
       functionName: 'approveAndRelease',
       args: [jobId],
-      chain: null,
+      chain: this.chain,
     })
   }
 
-  async disputeJob(jobId: bigint, reason: string): Promise<Hash> {
+  disputeJob(jobId: bigint, reason: string): Promise<Hash> {
     return this.walletClient.writeContract({
       account: this.account,
       address: this.agentEscrowAddress,
       abi: StrimzAgentEscrowAbi,
       functionName: 'dispute',
       args: [jobId, reason],
-      chain: null,
+      chain: this.chain,
     })
   }
 
-  async cancelJob(jobId: bigint, reason: string): Promise<Hash> {
+  cancelJob(jobId: bigint, reason: string): Promise<Hash> {
     return this.walletClient.writeContract({
       account: this.account,
       address: this.agentEscrowAddress,
       abi: StrimzAgentEscrowAbi,
       functionName: 'cancelJob',
       args: [jobId, reason],
-      chain: null,
+      chain: this.chain,
     })
   }
 
@@ -188,7 +244,7 @@ export class ChainService {
    * reverts with `MessageAlreadyUsed`. The agent's bridge worker won't
    * normally re-enqueue, but the property still holds.
    */
-  async receiveCctpMessage(input: {
+  receiveCctpMessage(input: {
     messageHex: `0x${string}`
     attestationHex: `0x${string}`
   }): Promise<Hash> {
@@ -198,7 +254,7 @@ export class ChainService {
       abi: MessageTransmitterAbi,
       functionName: 'receiveMessage',
       args: [input.messageHex, input.attestationHex],
-      chain: null,
+      chain: this.chain,
     })
   }
 }

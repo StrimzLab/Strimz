@@ -21,6 +21,7 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
     struct Storage {
         uint256 nextMerchantId;
         mapping(uint256 merchantId => Merchant data) merchants;
+        mapping(uint256 merchantId => uint64 acceptableAt) ownershipAcceptableAt;
     }
 
     // keccak256(abi.encode(uint256(keccak256("strimz.storage.StrimzRegistry")) - 1)) & ~bytes32(uint256(0xff))
@@ -45,7 +46,12 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(UPGRADER_ROLE, admin);
         _grantRole(MERCHANT_REGISTRAR_ROLE, admin);
+        _setRoleAdmin(FEE_MANAGER_ROLE, ADMIN_ROLE);
         _s().nextMerchantId = 1;
+    }
+
+    function initializeRoleAdmins() external reinitializer(2) onlyRole(DEFAULT_ADMIN_ROLE) {
+        _setRoleAdmin(MERCHANT_REGISTRAR_ROLE, ADMIN_ROLE);
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }
@@ -73,6 +79,11 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
         return _load(merchantId).pendingOwner;
     }
 
+    function pendingOwnerAcceptableAt(uint256 merchantId) external view override returns (uint64) {
+        _load(merchantId);
+        return _s().ownershipAcceptableAt[merchantId];
+    }
+
     // ---------- Register ----------
 
     /// @inheritdoc IStrimzRegistry
@@ -80,10 +91,12 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
         address owner,
         address payoutAddress,
         uint16 feeBps,
+        uint16 maxFeeBps,
         uint256 parentMerchantId
     ) external override onlyRole(MERCHANT_REGISTRAR_ROLE) returns (uint256 merchantId) {
         if (owner == address(0) || payoutAddress == address(0)) revert Registry__ZeroAddress();
-        if (feeBps > MAX_FEE_BPS) revert Registry__FeeTooHigh(feeBps);
+        if (maxFeeBps > MAX_FEE_BPS) revert Registry__FeeTooHigh(maxFeeBps);
+        if (feeBps > maxFeeBps) revert Registry__FeeExceedsMax(feeBps, maxFeeBps);
 
         Storage storage $ = _s();
         if (parentMerchantId != 0) {
@@ -105,34 +118,24 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
             pendingOwner: address(0),
             pendingPayoutAddress: address(0),
             payoutChangeCommitAt: 0,
-            maxFeeBps: feeBps
+            maxFeeBps: maxFeeBps
         });
 
-        emit MerchantRegistered(merchantId, owner, payoutAddress, feeBps, feeBps, parentMerchantId);
+        emit MerchantRegistered(merchantId, owner, payoutAddress, feeBps, maxFeeBps, parentMerchantId);
     }
 
     // ---------- Fee ----------
 
     /// @inheritdoc IStrimzRegistry
-    function setFeeBps(uint256 merchantId, uint16 newFeeBps) external override onlyRole(ADMIN_ROLE) {
+    function setFeeBps(uint256 merchantId, uint16 newFeeBps) external override {
+        if (!hasRole(ADMIN_ROLE, msg.sender) && !hasRole(FEE_MANAGER_ROLE, msg.sender)) {
+            revert AccessControlUnauthorizedAccount(msg.sender, FEE_MANAGER_ROLE);
+        }
         if (newFeeBps > MAX_FEE_BPS) revert Registry__FeeTooHigh(newFeeBps);
         Merchant storage m = _load(merchantId);
         if (newFeeBps > m.maxFeeBps) revert Registry__FeeExceedsMax(newFeeBps, m.maxFeeBps);
         m.feeBps = newFeeBps;
         emit MerchantFeeBpsUpdated(merchantId, newFeeBps);
-    }
-
-    /// @inheritdoc IStrimzRegistry
-    function setMaxFeeBps(uint256 merchantId, uint16 newMaxFeeBps) external override {
-        Merchant storage m = _load(merchantId);
-        if (msg.sender != m.owner) revert Registry__NotMerchantOwner();
-        if (newMaxFeeBps >= m.maxFeeBps) revert Registry__MaxFeeCanOnlyLower();
-        m.maxFeeBps = newMaxFeeBps;
-        if (m.feeBps > newMaxFeeBps) {
-            m.feeBps = newMaxFeeBps;
-            emit MerchantFeeBpsUpdated(merchantId, newMaxFeeBps);
-        }
-        emit MerchantMaxFeeBpsLowered(merchantId, newMaxFeeBps);
     }
 
     // ---------- Active flag ----------
@@ -173,10 +176,11 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
     function cancelPayoutAddressChange(uint256 merchantId) external override {
         Merchant storage m = _load(merchantId);
         if (msg.sender != m.owner) revert Registry__NotMerchantOwner();
-        if (m.pendingPayoutAddress == address(0)) revert Registry__NoPendingPayoutChange();
-        m.pendingPayoutAddress = address(0);
-        m.payoutChangeCommitAt = 0;
-        emit MerchantPayoutChangeCancelled(merchantId);
+        _cancelPayoutChange(merchantId, m);
+    }
+
+    function adminCancelPayoutChange(uint256 merchantId) external override onlyRole(ADMIN_ROLE) {
+        _cancelPayoutChange(merchantId, _load(merchantId));
     }
 
     // ---------- Two-step ownership ----------
@@ -188,6 +192,7 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
         if (newOwner == address(0)) revert Registry__ZeroAddress();
         if (newOwner == m.owner) revert Registry__SameOwner();
         m.pendingOwner = newOwner;
+        _s().ownershipAcceptableAt[merchantId] = uint64(block.timestamp) + PAYOUT_CHANGE_DELAY;
         emit MerchantOwnershipTransferInitiated(merchantId, m.owner, newOwner);
     }
 
@@ -197,10 +202,19 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
         address pending = m.pendingOwner;
         if (pending == address(0)) revert Registry__NoPendingTransfer();
         if (msg.sender != pending) revert Registry__NotPendingOwner();
+        Storage storage $ = _s();
+        uint64 acceptableAt = $.ownershipAcceptableAt[merchantId];
+        if (acceptableAt == 0 || block.timestamp < acceptableAt) revert Registry__OwnershipTransferNotDue();
 
         address previous = m.owner;
         m.owner = pending;
         m.pendingOwner = address(0);
+        delete $.ownershipAcceptableAt[merchantId];
+        if (m.pendingPayoutAddress != address(0)) {
+            m.pendingPayoutAddress = address(0);
+            m.payoutChangeCommitAt = 0;
+            emit MerchantPayoutChangeCancelled(merchantId);
+        }
         emit MerchantOwnershipTransferAccepted(merchantId, previous, pending);
     }
 
@@ -208,8 +222,24 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
     function cancelOwnershipTransfer(uint256 merchantId) external override {
         Merchant storage m = _load(merchantId);
         if (msg.sender != m.owner) revert Registry__NotMerchantOwner();
+        _cancelOwnershipTransfer(merchantId, m);
+    }
+
+    function adminCancelOwnershipTransfer(uint256 merchantId) external override onlyRole(ADMIN_ROLE) {
+        _cancelOwnershipTransfer(merchantId, _load(merchantId));
+    }
+
+    function _cancelPayoutChange(uint256 merchantId, Merchant storage m) private {
+        if (m.pendingPayoutAddress == address(0)) revert Registry__NoPendingPayoutChange();
+        m.pendingPayoutAddress = address(0);
+        m.payoutChangeCommitAt = 0;
+        emit MerchantPayoutChangeCancelled(merchantId);
+    }
+
+    function _cancelOwnershipTransfer(uint256 merchantId, Merchant storage m) private {
         if (m.pendingOwner == address(0)) revert Registry__NoPendingTransfer();
         m.pendingOwner = address(0);
+        delete _s().ownershipAcceptableAt[merchantId];
         emit MerchantOwnershipTransferCancelled(merchantId);
     }
 

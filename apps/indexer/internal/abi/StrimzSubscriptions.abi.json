@@ -20,6 +20,12 @@
   },
   {
     "type": "event",
+    "name": "EIP712DomainChanged",
+    "inputs": [],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Initialized",
     "inputs": [
       {
@@ -257,25 +263,37 @@
   },
   {
     "type": "event",
-    "name": "Unpaused",
+    "name": "SubscriptionPeriodsSkipped",
     "inputs": [
       {
-        "name": "account",
-        "type": "address",
+        "name": "subscriptionId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "periodsSkipped",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "address"
+        "internalType": "uint256"
+      },
+      {
+        "name": "paidPeriodStart",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
       }
     ],
     "anonymous": false
   },
   {
     "type": "event",
-    "name": "Upgraded",
+    "name": "Unpaused",
     "inputs": [
       {
-        "name": "implementation",
+        "name": "account",
         "type": "address",
-        "indexed": true,
+        "indexed": false,
         "internalType": "address"
       }
     ],

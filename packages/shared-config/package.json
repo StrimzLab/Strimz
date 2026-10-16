@@ -1,6 +1,6 @@
 {
   "name": "@strimz/shared-config",
-  "version": "0.1.1",
+  "version": "0.6.0",
   "description": "Single source of truth for chain definitions, token registry, fee tiers, webhook events, and agent flags.",
   "license": "MIT",
   "author": "Strimz <hello@strimz.finance>",
@@ -79,8 +79,9 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
@@ -91,6 +92,7 @@
     "@strimz/tsconfig": "workspace:*",
     "eslint": "^9.18.0",
     "tsup": "^8.3.5",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
   }
 }

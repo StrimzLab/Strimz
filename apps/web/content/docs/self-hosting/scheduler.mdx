@@ -5,7 +5,7 @@ description: Cron jobs and the webhook delivery queue.
 
 The scheduler is a Nest, Fastify, and BullMQ app. It owns the cron
 jobs (subscription sweeper, invoice-overdue marker,
-subscription-lapsed transitions) and the webhook delivery queue. At
+subscription-lapsed transitions, plan upgrades) and the webhook delivery queue. At
 boot it also warms the webhook-secret cache so the API can verify
 outgoing signatures without a Postgres round-trip.
 
@@ -31,6 +31,7 @@ REDIS_URL=redis://...
 
 ARC_ENVIRONMENT=mainnet
 ARC_RPC_URL=https://your-arc-rpc.com
+REGISTRY_ADDRESS=0x...               # the plan upgrade sets fees here
 
 STRIMZ_API_URL=http://api:4000      # the relayer endpoint the scheduler calls
 STRIMZ_API_INTERNAL_TOKEN=...       # shared secret for internal API calls
@@ -41,6 +42,8 @@ WEBHOOK_MAX_ATTEMPTS=5
 
 SUBSCRIPTION_SWEEPER_CRON=0 */15 * * * *
 INVOICE_OVERDUE_CRON=0 0 * * * *
+PLAN_UPGRADE_CRON=0 */5 * * * *
+CONTRACT_ALERT_CRON=0 * * * * *     # emails on-chain admin events to STRIMZ_ADMIN_ALERT_EMAIL
 SUBSCRIPTION_LAPSED_CRON=0 0 * * * *
 
 RESEND_API_KEY=...
