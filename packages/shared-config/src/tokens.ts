@@ -94,3 +94,5 @@ export function isPaymentToken(symbol: string): symbol is PaymentToken {
 export function chainIdFor(env: ArcEnvironment): number {
   return getArcChain(env).id
 }
+
+export const MINIMUM_PAYMENT_AMOUNT = 1_000_000n

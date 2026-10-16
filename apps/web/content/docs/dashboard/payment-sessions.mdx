@@ -1,52 +1,60 @@
 ---
 title: Payment sessions page
-description: Every one-shot checkout your account has created, live.
+description: One-time payment links, created from the dashboard or the API.
 ---
 
-A **Payment session** is a single-charge checkout — a customer pays you a fixed amount, once. Recurring charges live under Subscriptions instead.
+A **payment session** is a one-time checkout: a customer pays you a fixed amount, once. Recurring charges live under Subscriptions instead.
 
-The Payment sessions page shows every session your account has ever created, most recent first. If you accept payments through a hosted checkout, an embedded checkout, an invoice link, or a storefront product, they all land in this table.
+The Payment sessions page lists every session in this mode, most recent first, whether you created it here, from the API, from an invoice or from a storefront product.
 
 ## The layout
 
 At the top:
 
-- **KPI cards.** Total sessions, confirmed count, pending count, and gross value in USD. Test-mode counts stay small because you're seeing Testnet activity only.
-- **New session** button. Opens a dialog for creating a session manually — same fields the API takes. Useful when you want a one-off payment link without wiring your app.
-- **Export CSV.** Downloads the visible rows for accounting.
+- **Cards:** total sessions, confirmed, in flight, and the conversion rate.
+- **New session:** creates a payment link from the dashboard.
+- **Export CSV:** downloads the loaded rows, with amounts in base units (6 decimals).
 
-Below, a searchable table with one row per session.
+Below, a table with one row per session. Filter it by status. The session ID opens the session's page.
 
-## Reading a row
+## Creating a session
 
-Each row shows:
+Click **New session** and fill in:
 
-- **Amount** and stablecoin (USDC or EURC)
-- **Status** — `pending`, `succeeded`, or `expired`
-- **Customer email** — the address the payer entered at checkout, if any
-- **Payer wallet** — the on-chain address that signed and paid, if the session confirmed
-- **Session id** — click it to open the session detail page
-- **Created** — relative time
+- **Amount** (required): at least 1.00.
+- **Currency** (required): USDC or EURC.
+- **Description** (optional): what the customer is paying for, up to 500 characters.
+- **Customer email** (optional).
+- **Expires in** (optional): 1 to 1440 minutes; 30 if left empty.
+- **Success URL** and **Cancel URL** (optional): where the checkout sends the customer afterwards. They must start with `http://` or `https://`.
 
-The row is a link. The detail page shows:
+The dialog then shows the checkout link with a **Copy** button. Send it by email or chat, or open the session.
 
-- The full session envelope, including on-chain fields (`chainMerchantId`, token address, contract address)
-- The confirmed transaction hash, linked to the block explorer
-- Every webhook delivery this session triggered
-- The receipt email history sent to the payer
+## A session's page
 
-## Statuses explained
+Each session shows:
 
-**Pending.** The session was created but nothing has been paid yet. Sessions expire after a configurable window (default 30 minutes); on expiry they move to `expired`.
+- **Amount:** the amount, the Strimz fee and the net amount.
+- **Payer:** the payer wallet and email once paid.
+- **Link:** the payment link with a copy button, and when it expires.
+- **Payment:** the on-chain transaction with an Arcscan link, and its transaction, which opens the transaction's page.
 
-**Succeeded.** The indexer saw a matching on-chain transaction and confirmed it. The `payment.completed` webhook fires. If the payer left an email, a receipt goes out via the payer notifier cron.
+Actions:
 
-**Expired.** No matching on-chain transaction landed before the expiry window. Firing again just means starting a new session; the old one stays in the table for audit.
+- **Cancel**, while the session is `created` or `awaiting_payment`. The link stops accepting the payment.
+- **Refund**, once the payment is confirmed. It opens the refund dialog for that transaction. See [Refunds](/docs/dashboard/refunds).
+
+## Statuses
+
+- **created** and **awaiting payment:** the link is open and nothing is paid yet.
+- **submitted:** the payment was sent and Strimz is waiting to see it on-chain.
+- **confirmed:** the payment confirmed. The `payment.completed` webhook fires, and the payer gets a receipt if they left an email.
+- **failed:** the payment did not go through.
+- **expired:** nothing was paid before the expiry. Create a new session to collect it.
+- **cancelled:** you cancelled the session.
 
 ## Common workflows
 
-**A customer says they paid but the session is still pending.** Check the payer wallet field — is it populated? If yes, the indexer has already linked the transaction and the row is probably one refresh behind. If no, either the customer paid to the wrong address (unlikely if they used your checkout) or the transaction hasn't confirmed on-chain yet. Give Arc Testnet's confirmations window (~30s) time; if it's been minutes, click into the detail page and inspect the raw envelope.
+**A customer says they paid but the session is not confirmed.** Open the session. If it shows a payer and an on-chain transaction, it is moments from confirming. If not, the payment has not reached the chain yet.
 
-**I need to reconcile Strimz revenue with accounting.** Use Export CSV. Filter by status = `succeeded` and the date range you're closing.
-
-**I want to create a session from the dashboard without touching the API.** Click **New session**, fill in the amount, currency, and (optionally) customer email + description, and submit. The dialog returns a checkout URL you can paste into an email or chat.
+**Reconciling with your books.** Use **Transactions** for what actually settled, or Export CSV here with the confirmed filter.

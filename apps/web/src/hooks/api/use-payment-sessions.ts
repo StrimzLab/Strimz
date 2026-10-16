@@ -10,6 +10,7 @@ import type { CreatePaymentSessionInput, PaymentSession } from '@strimz/shared-t
 
 import type { ListPaymentSessionsParams } from '@/lib/merchant-api/resources/payment-sessions'
 import type { Page } from '@/lib/merchant-api'
+import { formatTokenAmount } from '@/lib/format'
 import { patchListCacheRow, type ListCache, type LoadedRows } from '@/lib/cursor-pages'
 
 import { useMerchantApi } from './merchant-api-context'
@@ -91,7 +92,7 @@ export function useCreatePaymentSession() {
     },
     messages: {
       loading: 'Creating payment session…',
-      success: (s) => `Payment session created for ${s.amount} ${s.currency}`,
+      success: (s) => `Payment session created for ${formatTokenAmount(s.amount, s.currency)}`,
     },
   })
 }

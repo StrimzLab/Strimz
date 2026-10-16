@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { Download, MoreHorizontal, ExternalLink, Copy, Ban } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
@@ -15,6 +16,7 @@ import {
 import type { PaymentSession, PaymentSessionStatus } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
+import { NewPaymentSessionDialog } from '@/components/dashboard/payment-sessions/new-payment-session-dialog'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
@@ -109,8 +111,9 @@ export default function PaymentSessionsPage() {
         accessorKey: 'id',
         header: 'ID',
         cell: ({ row }) => (
-          <code
-            className="text-muted-foreground text-xs"
+          <Link
+            href={`/app/payment-sessions/${row.original.id}`}
+            className="text-accent font-mono text-xs hover:underline"
             // Prefetch the session detail when the row is in the user's
             // cursor. Clicking through feels instant. Hover-prefetch
             // is the cheapest UX win TanStack Query offers.
@@ -118,7 +121,7 @@ export default function PaymentSessionsPage() {
             onFocus={() => void prefetch(row.original.id)}
           >
             {row.original.id.slice(0, 14)}…
-          </code>
+          </Link>
         ),
       },
       {
@@ -235,28 +238,31 @@ export default function PaymentSessionsPage() {
         docsSlug="payment-sessions"
         description="One-time hosted checkouts you've created. Each session has its own link you can send to a customer."
         action={
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!data || data.rows.length === 0}
-            onClick={() => {
-              if (!data) return
-              downloadCsv('payment-sessions.csv', data.rows, [
-                { key: 'id', header: 'ID' },
-                { key: 'description', header: 'Description' },
-                { key: 'amount', header: 'Amount (raw)' },
-                { key: 'currency', header: 'Currency' },
-                { key: 'payerWalletAddress', header: 'Customer wallet' },
-                { key: 'status', header: 'Status' },
-                { key: 'onchainTxHash', header: 'On-chain tx' },
-                { key: 'createdAt', header: 'Created' },
-                { key: 'expiresAt', header: 'Expires' },
-              ])
-              toast.success('Exported payment-sessions.csv')
-            }}
-          >
-            <Download className="mr-1.5 size-4" /> Export CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!data || data.rows.length === 0}
+              onClick={() => {
+                if (!data) return
+                downloadCsv('payment-sessions.csv', data.rows, [
+                  { key: 'id', header: 'ID' },
+                  { key: 'description', header: 'Description' },
+                  { key: 'amount', header: 'Amount (raw)' },
+                  { key: 'currency', header: 'Currency' },
+                  { key: 'payerWalletAddress', header: 'Customer wallet' },
+                  { key: 'status', header: 'Status' },
+                  { key: 'onchainTxHash', header: 'On-chain tx' },
+                  { key: 'createdAt', header: 'Created' },
+                  { key: 'expiresAt', header: 'Expires' },
+                ])
+                toast.success('Exported payment-sessions.csv')
+              }}
+            >
+              <Download className="mr-1.5 size-4" /> Export CSV
+            </Button>
+            <NewPaymentSessionDialog />
+          </div>
         }
       />
 
@@ -291,7 +297,7 @@ export default function PaymentSessionsPage() {
           loading={isLoading}
           searchPlaceholder="Search by ID, description, customer wallet…"
           emptyTitle="No sessions"
-          emptyDescription="Create a payment session via the API or SDK to see one appear here."
+          emptyDescription="Click New session to create a payment link, or create one from the API or SDK."
           serverRows={serverRowsOf(sessionsQuery)}
           toolbar={
             <div className="flex flex-wrap items-center gap-1">

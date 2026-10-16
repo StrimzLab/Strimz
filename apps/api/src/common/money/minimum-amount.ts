@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common'
+import { MINIMUM_PAYMENT_AMOUNT } from '@strimz/shared-config'
 
-export const MINIMUM_AMOUNT = 1_000_000n
+export const MINIMUM_AMOUNT = MINIMUM_PAYMENT_AMOUNT
 
 export function assertMinimumAmount(amount: bigint | string): void {
   if (BigInt(amount) >= MINIMUM_AMOUNT) return
