@@ -1,11 +1,11 @@
 'use client'
 
 import { use, useCallback, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAccount, useDisconnect } from 'wagmi'
 import { useAppKit } from '@reown/appkit/react'
 import { useRefreshWhile } from '@/hooks/use-refresh-while'
 import { trialCopy } from '@/lib/subscription-trial'
+import { isCancellable } from '@/lib/checkout-result'
 import { Loader2, Repeat, ShieldCheck, Wallet } from 'lucide-react'
 import { Badge, FieldLabel, Input } from '@strimz/ui'
 import type {
@@ -37,7 +37,6 @@ import { useSubscriptionCheckout, type SubscriptionPhase } from '@/hooks/use-sub
  */
 export default function SubscribePage({ params }: { params: Promise<{ planId: string }> }) {
   const { planId } = use(params)
-  const router = useRouter()
 
   const { address, isConnected } = useAccount()
   const { open } = useAppKit()
@@ -51,6 +50,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState<string | null>(null)
   const [attaching, setAttaching] = useState(false)
+  const [cancelled, setCancelled] = useState(false)
   const [existingSub, setExistingSub] = useState<{
     active: boolean
     subscriptionId: string | null
@@ -178,7 +178,8 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
         interval: plan?.interval ?? 'monthly',
         description: plan?.description ?? `Plan ${planId}`,
       }}
-      onCancel={() => router.push('/')}
+      onCancel={isCancellable(phase) ? () => setCancelled(true) : undefined}
+      cancelled={cancelled}
     >
       <WalletPickerGuard />
       <div className="space-y-6">
