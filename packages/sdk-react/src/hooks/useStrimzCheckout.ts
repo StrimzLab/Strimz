@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useStrimzContext } from '../provider.js'
 import { StrimzCheckoutError } from '../checkout-error.js'
-import { checkoutOriginOf, checkoutUrl, readCheckoutResult } from '../checkout-message.js'
+import { checkoutUrl, readCheckoutResult } from '../checkout-message.js'
 
 export type CheckoutMode = 'redirect' | 'popup'
 
@@ -32,9 +32,6 @@ export interface UseStrimzCheckoutResult {
  */
 export function useStrimzCheckout(options: UseStrimzCheckoutOptions = {}): UseStrimzCheckoutResult {
   const { checkoutOrigin } = useStrimzContext()
-  // `checkoutOrigin` may carry a path (e.g. https://strimz.finance/pay), but a
-  // postMessage `ev.origin` is always scheme+host only — compare against that.
-  const expectedOrigin = React.useMemo(() => checkoutOriginOf(checkoutOrigin), [checkoutOrigin])
   const [status, setStatus] = React.useState<UseStrimzCheckoutResult['status']>('idle')
   const statusRef = React.useRef(status)
   const popupRef = React.useRef<Window | null>(null)
@@ -57,7 +54,7 @@ export function useStrimzCheckout(options: UseStrimzCheckoutOptions = {}): UseSt
   React.useEffect(() => {
     function onMessage(ev: MessageEvent) {
       const data = readCheckoutResult(ev, {
-        origin: expectedOrigin,
+        origin: checkoutOrigin,
         source: popupRef.current,
         sessionId: sessionIdRef.current,
       })
@@ -85,7 +82,7 @@ export function useStrimzCheckout(options: UseStrimzCheckoutOptions = {}): UseSt
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [expectedOrigin, close, transition])
+  }, [checkoutOrigin, close, transition])
 
   const open = React.useCallback(
     (sessionId: string) => {

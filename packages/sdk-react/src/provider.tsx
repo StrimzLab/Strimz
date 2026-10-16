@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { StrimzBrowserClient } from '@strimz/sdk/browser'
+import { checkoutOriginOf, DEFAULT_CHECKOUT_ORIGIN } from './checkout-message.js'
 
 export interface StrimzContextValue {
   client: StrimzBrowserClient
@@ -16,7 +17,7 @@ export interface StrimzProviderProps {
   publishableKey: string
   /** Override the API base URL. */
   apiBaseUrl?: string
-  /** Override the hosted-checkout origin (scheme + host, no path). Defaults to https://strimz.finance. */
+  /** Hosted-checkout origin, scheme and host only. Defaults to https://www.strimz.finance. */
   checkoutOrigin?: string
   children: React.ReactNode
 }
@@ -28,13 +29,13 @@ export interface StrimzProviderProps {
 export function StrimzProvider({
   publishableKey,
   apiBaseUrl,
-  checkoutOrigin = 'https://strimz.finance',
+  checkoutOrigin = DEFAULT_CHECKOUT_ORIGIN,
   children,
 }: StrimzProviderProps) {
   const value = React.useMemo<StrimzContextValue>(
     () => ({
       client: new StrimzBrowserClient({ publishableKey, baseUrl: apiBaseUrl }),
-      checkoutOrigin,
+      checkoutOrigin: checkoutOriginOf(checkoutOrigin),
     }),
     [publishableKey, apiBaseUrl, checkoutOrigin],
   )

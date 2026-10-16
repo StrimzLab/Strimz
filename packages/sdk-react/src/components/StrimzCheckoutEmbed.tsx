@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useStrimzContext } from '../provider.js'
 import { StrimzCheckoutError } from '../checkout-error.js'
-import { checkoutOriginOf, checkoutUrl, readCheckoutResult } from '../checkout-message.js'
+import { checkoutUrl, readCheckoutResult } from '../checkout-message.js'
 
 export type StrimzCheckoutTheme = 'light' | 'dark'
 
@@ -40,9 +40,6 @@ export function StrimzCheckoutEmbed({
   theme,
 }: StrimzCheckoutEmbedProps) {
   const { checkoutOrigin } = useStrimzContext()
-  // `checkoutOrigin` may carry a path (e.g. https://strimz.finance/pay); a
-  // postMessage `ev.origin` is scheme+host only, so compare against that.
-  const expectedOrigin = React.useMemo(() => checkoutOriginOf(checkoutOrigin), [checkoutOrigin])
   const frameRef = React.useRef<HTMLIFrameElement | null>(null)
   const [parentOrigin, setParentOrigin] = React.useState<string | null>(null)
   const handlersRef = React.useRef({ onSuccess, onCancel, onError })
@@ -55,7 +52,7 @@ export function StrimzCheckoutEmbed({
   React.useEffect(() => {
     function onMessage(ev: MessageEvent) {
       const data = readCheckoutResult(ev, {
-        origin: expectedOrigin,
+        origin: checkoutOrigin,
         source: frameRef.current?.contentWindow ?? null,
         sessionId,
       })
@@ -77,7 +74,7 @@ export function StrimzCheckoutEmbed({
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [expectedOrigin, sessionId])
+  }, [checkoutOrigin, sessionId])
 
   // Payment sessions are hosted at /pay/{id}.
   const src = parentOrigin
