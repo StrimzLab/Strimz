@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Sparkles } from 'lucide-react'
-import { Input, Label } from '@strimz/ui'
+import { FieldLabel, Input, Label } from '@strimz/ui'
 import type { OnboardMerchantInput } from '@strimz/shared-types'
 import { SubmitButton } from '@/components/auth/submit-button'
 import { ImageUpload } from '@/components/dashboard/image-upload'
@@ -143,7 +143,7 @@ export default function OnboardingPage() {
         </div>
 
         <Field
-          label="Logo (optional)"
+          label="Logo"
           help="Shown to your payers on the checkout page. Skip and your customers see a wallet-derived placeholder — you can upload later from Settings."
         >
           <ImageUpload
@@ -157,7 +157,7 @@ export default function OnboardingPage() {
           />
         </Field>
 
-        <Field label="Website (optional)">
+        <Field label="Website">
           <Input
             value={form.websiteUrl}
             onChange={(e) => setForm((f) => ({ ...f, websiteUrl: e.target.value }))}
@@ -166,7 +166,7 @@ export default function OnboardingPage() {
           />
         </Field>
 
-        <Field label="Phone (optional)">
+        <Field label="Phone">
           <Input
             value={form.phone}
             onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
@@ -202,7 +202,7 @@ export default function OnboardingPage() {
 function Field({
   label,
   children,
-  required,
+  required = false,
   help,
 }: {
   label: string
@@ -212,10 +212,9 @@ function Field({
 }) {
   return (
     <div>
-      <Label className="mb-1.5 inline-flex items-center gap-1">
+      <FieldLabel required={required} className="mb-1.5">
         {label}
-        {required && <span className="text-accent">*</span>}
-      </Label>
+      </FieldLabel>
       {children}
       {help && <p className="text-muted-foreground mt-1 text-xs">{help}</p>}
     </div>

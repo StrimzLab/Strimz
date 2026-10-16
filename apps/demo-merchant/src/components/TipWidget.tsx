@@ -134,7 +134,7 @@ export function TipWidget({ creatorHandle }: TipWidgetProps) {
 
       <div className="mt-4">
         <label htmlFor="custom" className="muted text-xs">
-          Or enter your own
+          Or enter your own <span className="muted">(optional)</span>
         </label>
         <div className="focus-within:border-brand-500 mt-1 flex items-center gap-2 rounded-xl border border-[hsl(var(--border))] px-3 py-2">
           <span className="muted">$</span>
