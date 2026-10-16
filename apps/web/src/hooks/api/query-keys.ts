@@ -103,6 +103,8 @@ export const transactionKeys = {
   all: ['transactions'] as const,
   lists: () => [...transactionKeys.all, 'list'] as const,
   list: (params: ListTransactionsParams) => [...transactionKeys.lists(), params] as const,
+  pages: (params: Omit<ListTransactionsParams, 'cursor'>) =>
+    [...transactionKeys.lists(), 'pages', params] as const,
   details: () => [...transactionKeys.all, 'detail'] as const,
   detail: (id: string) => [...transactionKeys.details(), id] as const,
 }

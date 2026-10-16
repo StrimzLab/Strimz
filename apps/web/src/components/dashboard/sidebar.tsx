@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 import {
   ArrowLeft,
+  ArrowLeftRight,
   ArrowUpFromLine,
   BarChart3,
   Bot,
@@ -43,6 +44,7 @@ const SECTIONS: ReadonlyArray<{
     label: 'Payments',
     links: [
       { href: '/app/payment-sessions', label: 'Sessions', icon: CreditCard },
+      { href: '/app/transactions', label: 'Transactions', icon: ArrowLeftRight },
       { href: '/app/subscriptions', label: 'Subscriptions', icon: Receipt },
       { href: '/app/invoices', label: 'Invoices', icon: Receipt },
       { href: '/app/refunds', label: 'Refunds', icon: RefreshCcw },
@@ -134,7 +136,9 @@ export function DashboardSidebar({ open, onClose }: Props) {
               </div>
               <div className="space-y-0.5">
                 {section.links.map((link) => {
-                  const active = pathname === link.href
+                  const active =
+                    pathname === link.href ||
+                    (link.href !== '/app' && pathname.startsWith(`${link.href}/`))
                   return (
                     <Link
                       key={link.href}
