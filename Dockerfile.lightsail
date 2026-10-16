@@ -66,7 +66,7 @@ RUN pnpm --filter "./packages/*" --filter '!@strimz/contracts' build \
 # =====================================================
 # Stage 2 — Go builder for the on-chain indexer binary.
 # =====================================================
-FROM golang:1.25-alpine AS indexer-build
+FROM golang:1.26-alpine AS indexer-build
 
 WORKDIR /src
 COPY apps/indexer/go.mod apps/indexer/go.sum ./
