@@ -113,8 +113,8 @@ export const createPaymentSessionInputSchema = z.object({
       externalRef: z.string().max(120).optional(),
     })
     .optional(),
-  successUrl: z.string().url().optional(),
-  cancelUrl: z.string().url().optional(),
+  successUrl: callbackUrlSchema.optional(),
+  cancelUrl: callbackUrlSchema.optional(),
   /** Minutes until the session expires. Default 30, max 60*24 (one day). */
   expiresInMinutes: z
     .number()
@@ -153,3 +153,31 @@ export const submitPaymentSessionInputSchema = z.object({
 })
 export type SubmitPaymentSessionInput = z.input<typeof submitPaymentSessionInputSchema>
 export type SubmitPaymentSessionParsed = z.output<typeof submitPaymentSessionInputSchema>
+
+export const checkoutResultErrorCodes = [
+  'load_failed',
+  'merchant_not_ready',
+  'payment_reverted',
+  'unsupported_wallet',
+] as const
+export const checkoutResultErrorCodeSchema = z.enum(checkoutResultErrorCodes)
+export type CheckoutResultErrorCode = z.infer<typeof checkoutResultErrorCodeSchema>
+
+export const checkoutResultMessageSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('strimz:checkout:success'),
+    sessionId: idSchema,
+    txHash: evmTxHashSchema,
+  }),
+  z.object({
+    type: z.literal('strimz:checkout:cancel'),
+    sessionId: idSchema,
+  }),
+  z.object({
+    type: z.literal('strimz:checkout:error'),
+    sessionId: idSchema,
+    code: checkoutResultErrorCodeSchema,
+    message: z.string().min(1).max(500),
+  }),
+])
+export type CheckoutResultMessage = z.infer<typeof checkoutResultMessageSchema>
