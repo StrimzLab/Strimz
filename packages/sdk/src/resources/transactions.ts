@@ -11,6 +11,8 @@ export class TransactionsResource extends BaseResource {
     params?: PaginationParams & {
       kind?: string
       status?: string
+      sessionId?: string
+      subscriptionId?: string
       from?: string
       to?: string
     },

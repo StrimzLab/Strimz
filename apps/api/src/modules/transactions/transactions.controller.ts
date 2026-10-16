@@ -34,6 +34,8 @@ export class TransactionsController {
       cursor: q.cursor ?? null,
       kind: q.kind,
       status: q.status,
+      sessionId: q.sessionId,
+      subscriptionId: q.subscriptionId,
     })
   }
 }

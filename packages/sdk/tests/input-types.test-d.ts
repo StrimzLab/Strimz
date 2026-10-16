@@ -24,6 +24,11 @@ describe('SDK request methods take the caller-facing input type', () => {
     })
   })
 
+  it('transactions.list filters by payment session and by subscription', () => {
+    expectTypeOf(client.transactions.list).toBeCallableWith({ sessionId: 'ps_1' })
+    expectTypeOf(client.transactions.list).toBeCallableWith({ subscriptionId: 'sub_1' })
+  })
+
   it('invoices.create accepts a body without dueInDays', () => {
     expectTypeOf(client.invoices.create).toBeCallableWith({
       lineItems: [{ description: 'Seat', quantity: 1, unitAmount: '1000000' }],
