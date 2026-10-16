@@ -1,15 +1,25 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { usePrivy, getAccessToken } from '@privy-io/react-auth'
 import { Loader2 } from 'lucide-react'
 import type { Merchant } from '@strimz/shared-types'
 import { AuthCard } from '@/components/auth/auth-card'
 import { env } from '@/lib/env'
+import { safeNextPath, withNext } from '@/lib/auth-redirect'
 
 export default function AuthCallbackPage() {
+  return (
+    <Suspense>
+      <AuthCallback />
+    </Suspense>
+  )
+}
+
+function AuthCallback() {
   const router = useRouter()
+  const next = safeNextPath(useSearchParams().get('next'))
   const privy = usePrivyOrNull()
   const [error, setError] = useState<string | null>(null)
   // React StrictMode double-invokes effects in dev; without this guard
@@ -23,7 +33,7 @@ export default function AuthCallbackPage() {
     if (!privy) return
     if (privy.ready === false) return
     if (!privy.authenticated) {
-      router.replace('/login')
+      router.replace(withNext('/login', next))
       return
     }
     if (syncingRef.current) return
@@ -46,7 +56,7 @@ export default function AuthCallbackPage() {
       // Always route by the durable flag on the row. `isNewMerchant`
       // is only true the very first time; a merchant who abandoned
       // onboarding on a prior visit would otherwise slip into /app.
-      router.replace(body.merchant.onboardingCompleted ? '/app' : '/onboarding')
+      router.replace(body.merchant.onboardingCompleted ? (next ?? '/app') : '/onboarding')
     } catch (err) {
       setError((err as Error).message)
     }
