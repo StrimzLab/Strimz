@@ -54,7 +54,16 @@ The API returns the refund and the signing instructions together:
 }
 ```
 
-Not yet: `strimz.refunds.create` in the SDK throws on this response, so call the API directly for now. Tracked in [#294](https://github.com/StrimzLab/strimz/issues/294).
+With the SDK:
+
+```ts
+const { refund, signingInstructions } = await strimz.refunds.create({
+  transactionId: 'cmq4wf2b80004je6l7xq1c9ad',
+  amount: '50000000',
+  reason: 'customer_request',
+  note: 'Customer asked nicely',
+})
+```
 
 The `signingInstructions` object tells the merchant's wallet what to sign:
 

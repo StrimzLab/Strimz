@@ -56,9 +56,7 @@ const unusedMs = Math.max(0, Date.parse(sub.currentPeriodEndAt) - Date.now())
 const refundAmount = (BigInt(sub.amount) * BigInt(unusedMs)) / BigInt(periodMs)
 ```
 
-Then issue the refund from the dashboard's [Refunds page](/docs/dashboard/refunds), where your Strimz wallet signs the transfer.
-
-Not yet: `strimz.refunds.create` in the SDK throws instead of returning the refund to sign. Tracked in [#294](https://github.com/StrimzLab/strimz/issues/294).
+Then issue the refund from the dashboard's [Refunds page](/docs/dashboard/refunds), where your Strimz wallet signs the transfer. From code, `strimz.refunds.create` returns the refund and the transfer to sign; see [Process a refund](/docs/guides/refunds).
 
 ## Allowances
 

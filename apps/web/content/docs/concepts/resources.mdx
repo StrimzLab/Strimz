@@ -75,9 +75,8 @@ original. On the dashboard, your Strimz wallet then signs and sends
 the ERC-20 transfer. The indexer sees the on-chain transfer and
 flips the row to `completed`.
 
-Not yet: `strimz.refunds.create` in the SDK throws instead of
-returning the refund to sign. Tracked in
-[#294](https://github.com/StrimzLab/strimz/issues/294).
+`strimz.refunds.create` returns `{ refund, signingInstructions }`:
+the refund and the transfer to sign.
 
 ## Invoice
 

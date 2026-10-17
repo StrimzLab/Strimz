@@ -23,7 +23,7 @@ const sub = await strimz.subscriptions.retrieve('cmq4wpz2k000cje6l8e3v7nbd')
 const page = await strimz.transactions.list({ limit: 25 })
 ```
 
-Not yet: `strimz.refunds.create` throws on the API's response today; see [Process a refund](/docs/guides/refunds). Tracked in [#294](https://github.com/StrimzLab/strimz/issues/294).
+`strimz.refunds.create` returns `{ refund, signingInstructions }`; see [Process a refund](/docs/guides/refunds).
 
 Resources:
 

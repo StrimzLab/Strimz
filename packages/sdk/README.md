@@ -105,7 +105,7 @@ signatures and response types come from
 - **Idempotency keys.** Every `POST` and `PATCH` sends an `X-Strimz-Idempotency-Key` header (`strimz_<uuid>`). Pass `{ idempotencyKey }` in the options argument to set your own. `generateIdempotencyKey()` and `isValidIdempotencyKey()` are exported. The API replays the first response for a repeated key for 24 hours, so a retried call runs once.
 - **Retries.** Network errors, `5xx` responses on idempotent calls, and `429`s are retried up to 3 times with exponential backoff and jitter. `Retry-After` is respected on 429.
 - **Pagination.** `list(...)` returns one page (`{ data, nextCursor, hasMore }`). Pass `nextCursor` as `cursor` to get the next one.
-- **Refunds.** Not yet: `refunds.create` throws, because the API returns `{ refund, signingInstructions }` and the SDK expects a bare refund. Call `POST /v1/refunds` directly for now. Tracked in [#294](https://github.com/StrimzLab/strimz/issues/294).
+- **Refunds.** `refunds.create` returns `{ refund, signingInstructions }`. Send the transfer in `signingInstructions` from the payout wallet, then call `refunds.submitSignature({ id, refundTxHash })`.
 - **Version header.** Not yet: the `X-Strimz-Sdk-Version` header is always `0.0.0`. Tracked in [#296](https://github.com/StrimzLab/strimz/issues/296).
 - **Typed errors.** The SDK throws on failure rather than returning `{ ok: false }`. Catch the base `StrimzError` or narrow with `instanceof` (see [Error handling](#error-handling)).
 
