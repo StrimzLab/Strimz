@@ -1,5 +1,18 @@
 # @strimz/sdk
 
+## 0.12.0
+
+### Minor Changes
+
+- 3b52e35: Remove the `subscription.recovery_outcome`, `refund.failed` and `agent.action_executed` webhook events, which were never sent, along with their envelope schemas and the `SubscriptionRecoveryOutcomeEvent`, `RefundFailedEvent` and `AgentActionExecutedEvent` types. `payment.created` and `subscription.recovery_attempt` are now sent.
+
+### Patch Changes
+
+- Updated dependencies [3b52e35]
+  - @strimz/shared-types@0.14.0
+  - @strimz/shared-config@0.8.0
+  - @strimz/shared-crypto@0.2.8
+
 ## 0.11.0
 
 ### Minor Changes
