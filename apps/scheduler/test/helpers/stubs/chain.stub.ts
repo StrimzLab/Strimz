@@ -24,6 +24,7 @@ export class StubChainService implements Methods<ChainService> {
   public attemptUsedDefault = false
   public chargeDueAnswers = new Map<bigint, boolean>()
   public chargeDueDefault = true
+  public cancelledOnchain = new Set<bigint>()
   public failNext = false
   public registryFees = new Map<bigint, number>()
   public registryFeeDefault = 0
@@ -39,6 +40,7 @@ export class StubChainService implements Methods<ChainService> {
     this.attemptUsedDefault = false
     this.chargeDueAnswers.clear()
     this.chargeDueDefault = true
+    this.cancelledOnchain.clear()
     this.failNext = false
     this.registryFees.clear()
     this.registryFeeDefault = 0
@@ -54,6 +56,9 @@ export class StubChainService implements Methods<ChainService> {
     return ('0x' + 'a'.repeat(63) + this.calls.length.toString(16)) as `0x${string}`
   }
 
+  isSubscriptionCancelled(subscriptionId: bigint): Promise<boolean> {
+    return Promise.resolve(this.cancelledOnchain.has(subscriptionId))
+  }
   cancelSubscription(subscriptionId: bigint): Promise<`0x${string}`> {
     return Promise.resolve(this.record('cancelSubscription', [subscriptionId]))
   }

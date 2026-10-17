@@ -70,7 +70,14 @@ export class AgentActionWorker extends WorkerHost {
       this.log.warn(`sub ${data.subscriptionId} has no on-chain id — skipping`)
       return { txHash: '0xskipped' }
     }
-    const txHash = await this.chain.cancelSubscription(BigInt(data.onchainSubscriptionId))
+    const onchainId = BigInt(data.onchainSubscriptionId)
+    // The payer or merchant may have cancelled on chain first; a second
+    // cancel reverts with AlreadyCancelled.
+    if (await this.chain.isSubscriptionCancelled(onchainId)) {
+      this.log.log(`sub ${data.subscriptionId} already cancelled on chain — skipping`)
+      return { txHash: '0xskipped' }
+    }
+    const txHash = await this.chain.cancelSubscription(onchainId)
     this.log.log(`broadcast cancelSubscription onchain=${data.onchainSubscriptionId} tx=${txHash}`)
     return { txHash }
   }

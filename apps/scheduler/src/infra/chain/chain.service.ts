@@ -90,6 +90,16 @@ export class ChainService implements OnModuleInit {
 
   // ----- Subscription writes -----
 
+  async isSubscriptionCancelled(subscriptionId: bigint): Promise<boolean> {
+    const sub = await this.publicClient.readContract({
+      address: this.subscriptionsAddress,
+      abi: StrimzSubscriptionsAbi,
+      functionName: 'getSubscription',
+      args: [subscriptionId],
+    })
+    return sub.cancelled
+  }
+
   /** Cancels a single on-chain subscription. */
   cancelSubscription(subscriptionId: bigint): Promise<Hash> {
     return this.walletClient.writeContract({
