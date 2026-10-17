@@ -664,8 +664,7 @@ type SubscriptionChargeSkippedInput struct {
 }
 
 // InsertSubscriptionChargeSkip persists a failed-charge attempt as a
-// `SubscriptionCharge` with `status=failed`. Used for at-risk dashboards.
-// Idempotent on `chargeAttemptId`.
+// `SubscriptionCharge` with `status=failed`, one row per `chargeAttemptId`.
 func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in SubscriptionChargeSkippedInput) (int64, error) {
 	var rows int64
 	err := s.inTx(ctx, func(tx pgxTxLike) error {
@@ -708,53 +707,55 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 			periodStart, periodEnd, amount, currency,
 			in.Outcome, in.BlockTimestamp,
 		).Scan(&chargeID)
-		isNewCharge := true
+		isNewFailure := true
 		if errors.Is(err, pgx.ErrNoRows) {
-			isNewCharge = false
+			isNewFailure = false
 		} else if err != nil {
 			return fmt.Errorf("insert charge skip: %w", err)
 		}
-		if isNewCharge {
-			rows = 1
-			// The row is written for every outcome (audit trail), but the
-			// merchant-facing webhook only fires on a real payment
-			// failure — a NotDue or Duplicate skip is scheduler noise and
-			// must not surface as "this customer's payment failed".
-			if in.IsPaymentFailure {
-				ref := fmt.Sprintf(`"subscriptionId":%q,"chargeId":%q`, subID, chargeID)
-				if err := insertOutboxEvent(ctx, tx, "subscription_charge_failed", "subscription.charge_failed", merchantID, mode, ref); err != nil {
-					return fmt.Errorf("emit subscription.charge_failed: %w", err)
-				}
+		// Balance and allowance skips leave the attempt id unspent, so the
+		// retry reuses it. A later block is a new failure; the same or an
+		// earlier one is a replay of a log already projected.
+		if !isNewFailure && in.IsPaymentFailure {
+			err = tx.QueryRow(ctx, `
+				UPDATE "SubscriptionCharge"
+				   SET outcome = $2::"SubscriptionChargeOutcome",
+				       "executedAt" = $3,
+				       "attemptNumber" = "attemptNumber" + 1,
+				       "updatedAt" = NOW()
+				 WHERE "chargeAttemptId" = $1
+				   AND status = 'failed'::"SubscriptionChargeStatus"
+				   AND "executedAt" < $3
+				RETURNING id
+			`, in.ChargeAttemptID, in.Outcome, in.BlockTimestamp).Scan(&chargeID)
+			if err == nil {
+				isNewFailure = true
+			} else if !errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("record repeat charge skip: %w", err)
 			}
 		}
-
-		// Move the subscription to `at_risk` — but only if the same
-		// period doesn't already have a successful charge. Background:
-		// the scheduler cron runs every minute. The chain confirms a
-		// successful batchCharge in < 1s, but the indexer may take
-		// several seconds to project the success. If the next sweep
-		// fires in that window, the worker calls batchCharge again,
-		// the contract recognises the chargeAttemptId as already used
-		// and emits `SubscriptionChargeSkipped`. Naively projecting
-		// that skip downgrades a payer who DID pay this period to
-		// `at_risk` on the dashboard. Filter by the period boundaries
-		// so an in-period success masks the duplicate skip.
-		//
-		// Gated on IsPaymentFailure: a NotDue from an early sweep, or a
-		// Duplicate from the indexer lagging a confirmed charge, must
-		// not downgrade a healthy payer or delay their next attempt.
-		if !isNewCharge || !in.IsPaymentFailure {
+		if !isNewFailure {
 			return nil
 		}
+		rows = 1
+		// Every outcome gets a row, but only a payment failure reaches the
+		// merchant or moves the subscription. NotDue and Duplicate are
+		// scheduler noise.
+		if !in.IsPaymentFailure {
+			return nil
+		}
+		ref := fmt.Sprintf(`"subscriptionId":%q,"chargeId":%q`, subID, chargeID)
+		if err := insertOutboxEvent(ctx, tx, "subscription_charge_failed", "subscription.charge_failed", merchantID, mode, ref); err != nil {
+			return fmt.Errorf("emit subscription.charge_failed: %w", err)
+		}
+
 		if _, err := tx.Exec(ctx, `
 			UPDATE "Subscription"
 			   SET status = 'at_risk'::"SubscriptionStatus",
 			       "retryCount" = "retryCount" + 1,
-			       -- Escalating backoff. The sweeper ticks every 15
-			       -- minutes; a flat retry would fire ~192 on-chain
-			       -- transactions across a 48h grace window for one
-			       -- broke payer. This spends ~6. Computed here so the
-			       -- schedule and the counter stay atomic.
+			       -- Escalating backoff. A flat retry on every 15-minute
+			       -- sweep would be ~192 transactions over the 48h grace
+			       -- window for one broke payer.
 			       "nextRetryAt" = $2::timestamptz + (CASE
 			         WHEN "retryCount" + 1 <= 1 THEN INTERVAL '15 minutes'
 			         WHEN "retryCount" + 1 = 2 THEN INTERVAL '1 hour'
