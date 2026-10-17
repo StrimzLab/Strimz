@@ -195,6 +195,12 @@ export class WebhookOutboxService {
         })
         return serialiseSubscription(sub)
       }
+      case 'subscription.recovery_attempt': {
+        const sub = await this.prisma.db.subscription.findUniqueOrThrow({
+          where: { id: ref.subscriptionId },
+        })
+        return { subscription: serialiseSubscription(sub), attemptNumber: ref.attemptNumber }
+      }
       case 'invoice.overdue': {
         const invoice = await this.prisma.db.invoice.findUniqueOrThrow({
           where: { id: ref.invoiceId },

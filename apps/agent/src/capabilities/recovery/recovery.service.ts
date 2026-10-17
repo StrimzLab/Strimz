@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
+import { uuid } from '@strimz/shared-crypto'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { ActivityLogService } from '../../infra/activity-log/activity-log.service.js'
@@ -32,7 +33,8 @@ const STRATEGY_SCHEDULE: Record<string, number[]> = {
  *      for this subscription within the dedup window.
  *   4. Send the notification email (using the merchant's
  *      `recoveryNotificationTemplate` if set, else a default).
- *   5. Record an `AgentActivityLog` entry per send.
+ *   5. Record an `AgentActivityLog` entry per send and queue
+ *      `subscription.recovery_attempt`.
  *
  * All sends are merchant-scoped: the recipient is the *customer* the
  * subscription belongs to (via `Customer.email`), not the merchant
@@ -121,17 +123,37 @@ export class RecoveryService {
             subject: `Action needed: your subscription with ${cfg.merchant.businessName ?? 'your provider'}`,
             html,
           })
-          await this.activity.record({
-            merchantId: cfg.merchantId,
-            capability: 'recovery',
-            actionType: 'recovery_notification_sent',
-            outcome: 'success',
-            subscriptionId: sub.id,
-            metadata: {
-              attemptNumber: dueIndex + 1,
-              totalAttempts: schedule.length,
-              strategy: cfg.recoveryStrategy,
-            },
+          await this.prisma.db.$transaction(async (db) => {
+            await this.activity.record({
+              merchantId: cfg.merchantId,
+              capability: 'recovery',
+              actionType: 'recovery_notification_sent',
+              outcome: 'success',
+              subscriptionId: sub.id,
+              metadata: {
+                attemptNumber: dueIndex + 1,
+                totalAttempts: schedule.length,
+                strategy: cfg.recoveryStrategy,
+              },
+              db,
+            })
+            // The scheduler's outbox builds the payload from this ref.
+            await db.webhookEvent.create({
+              data: {
+                id: `evt_${uuid()}`,
+                merchantId: cfg.merchantId,
+                type: 'subscription_recovery_attempt',
+                apiVersion: '2026-04-27',
+                mode: sub.mode,
+                payload: {
+                  ref: {
+                    kind: 'subscription.recovery_attempt',
+                    subscriptionId: sub.id,
+                    attemptNumber: dueIndex + 1,
+                  },
+                },
+              },
+            })
           })
           notified++
         } catch (err) {

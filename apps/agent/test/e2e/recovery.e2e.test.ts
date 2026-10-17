@@ -53,6 +53,35 @@ describe('recovery e2e', () => {
     expect(must(logs[0]).outcome).toBe('success')
   })
 
+  it('queues subscription.recovery_attempt for each email sent', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    await seedAgentConfig(t.prisma.db, merchant.id, {
+      enabledCapabilities: ['recovery'],
+      recoveryStrategy: 'once',
+    })
+    const sub = await seedSubscription(t.prisma.db, merchant.id, {
+      status: 'at_risk',
+      customerEmail: 'buyer@x.test',
+      currentPeriodEndAt: new Date(Date.now() - 60_000),
+    })
+
+    const recovery = t.app.get(RecoveryService)
+    await recovery.tick()
+    await recovery.tick()
+
+    const events = await t.prisma.db.webhookEvent.findMany()
+    expect(events).toHaveLength(1)
+    expect(must(events[0])).toMatchObject({
+      merchantId: merchant.id,
+      type: 'subscription_recovery_attempt',
+      mode: sub.mode,
+      dispatchedAt: null,
+      payload: {
+        ref: { kind: 'subscription.recovery_attempt', subscriptionId: sub.id, attemptNumber: 1 },
+      },
+    })
+  })
+
   it('deduplicates a second tick within 23h', async () => {
     const merchant = await seedMerchant(t.prisma.db)
     await seedAgentConfig(t.prisma.db, merchant.id, {
@@ -119,6 +148,7 @@ describe('recovery e2e', () => {
       where: { capability: 'recovery', actionType: 'recovery_abandoned' },
     })
     expect(abandoned).not.toBeNull()
+    expect(await t.prisma.db.webhookEvent.count()).toBe(0)
   })
 
   it('respects strategy=until_grace_ends — schedules 3 attempts at 0/24h/72h', async () => {
