@@ -24,22 +24,24 @@ key support uses to find your request in the logs.
 
 The common codes. The tables below cover the ones you're most likely to see; a few admin-only and internal codes are left out.
 
-| Code                    | HTTP | Meaning                                                                                            |
-| ----------------------- | ---- | -------------------------------------------------------------------------------------------------- |
-| `authentication_error`  | 401  | Missing, invalid, or expired auth token                                                            |
-| `permission_denied`     | 403  | Token is valid but lacks the required scope, or the route accepts only a dashboard session         |
-| `live_mode_ineligible`  | 403  | A live key was requested but the account fails a live-mode check; `details.reasons` lists which    |
-| `live_mode_unavailable` | 403  | A live key was requested while live mode is closed, before Strimz runs on Arc mainnet              |
-| `mode_unavailable`      | 403  | The key's mode is not this deployment's: test keys on the live API, or live keys on the sandbox    |
-| `plan_required`         | 403  | The feature needs a higher plan; `details.requiredPlan` names it                                   |
-| `merchant_not_synced`   | 401  | Privy session is valid but no Merchant row. Call `POST /v1/auth/sync` first.                       |
-| `secret_key_in_browser` | none | Thrown by `@strimz/sdk` when `StrimzClient` is constructed in a browser. No request is sent.       |
-| `not_found`             | 404  | Resource doesn't exist or isn't visible to your token                                              |
-| `invalid_request`       | 400  | Validation failure; `details.issues` has the Zod paths                                             |
-| `session_invalid_state` | 403  | The action conflicts with the resource's current status (e.g. cancelling an already-cancelled sub) |
-| `idempotency_error`     | 409  | An idempotency key was reused with a different payload                                             |
-| `rate_limited`          | 429  | Rate limit exceeded. Limits are per IP (global and per route), and some relay routes per merchant  |
-| `api_error`             | 500  | Unexpected server error. It surfaces in the Strimz logs and gets triaged.                          |
+| Code                      | HTTP | Meaning                                                                                            |
+| ------------------------- | ---- | -------------------------------------------------------------------------------------------------- |
+| `authentication_error`    | 401  | Missing, invalid, or expired auth token                                                            |
+| `permission_denied`       | 403  | Token is valid but lacks the required scope, or the route accepts only a dashboard session         |
+| `live_mode_ineligible`    | 403  | A live key was requested but the account fails a live-mode check; `details.reasons` lists which    |
+| `live_mode_unavailable`   | 403  | A live key was requested while live mode is closed, before Strimz runs on Arc mainnet              |
+| `mode_unavailable`        | 403  | The key's mode is not this deployment's: test keys on the live API, or live keys on the sandbox    |
+| `plan_required`           | 403  | The feature needs a higher plan; `details.requiredPlan` names it                                   |
+| `merchant_not_synced`     | 401  | Privy session is valid but no Merchant row. Call `POST /v1/auth/sync` first.                       |
+| `secret_key_in_browser`   | none | Thrown by `@strimz/sdk` when `StrimzClient` is constructed in a browser. No request is sent.       |
+| `not_found`               | 404  | Resource doesn't exist or isn't visible to your token                                              |
+| `invalid_request`         | 400  | Validation failure; `details.issues` has the Zod paths                                             |
+| `session_invalid_state`   | 403  | The action conflicts with the resource's current status (e.g. cancelling an already-cancelled sub) |
+| `idempotency_error`       | 409  | An idempotency key was reused with a different payload                                             |
+| `idempotency_in_progress` | 409  | A request with this idempotency key is still running; retry after `Retry-After`                    |
+| `rate_limited`            | 429  | Rate limit exceeded. Limits are per IP (global and per route), and some relay routes per merchant  |
+| `api_error`               | 500  | Unexpected server error. It surfaces in the Strimz logs and gets triaged.                          |
+| `service_unavailable`     | 503  | Strimz couldn't reach its idempotency store, so the write didn't run. Retry with the same key.     |
 
 ### Payments, checkout and relay
 

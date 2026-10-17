@@ -58,11 +58,10 @@ previous layout. Strimz's upgradeable contracts use it, which makes
 
 ## Idempotency key
 
-A string the client picks per write, meant to let the API dedupe
-retries. The SDK sends one in the `X-Strimz-Idempotency-Key` header on
-every mutating call. Not yet: the API ignores the header and does not
-deduplicate. Tracked in
-[#292](https://github.com/StrimzLab/strimz/issues/292).
+A string the client picks per write, so the API can dedupe retries.
+The SDK sends one in the `X-Strimz-Idempotency-Key` header on every
+`POST` and `PATCH`. The API replays the first response for the same key
+for 24 hours. See [Idempotency](/docs/concepts/idempotency).
 
 ## Indexer cursor
 

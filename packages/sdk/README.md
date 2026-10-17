@@ -102,7 +102,7 @@ signatures and response types come from
 ## Behaviour
 
 - **Mode auto-detection.** Live versus test mode is derived from the API key prefix (`sk_test_` or `sk_live_`). The server client refuses publishable keys; use the [browser client](#browser-client) for those.
-- **Idempotency keys.** Every `POST` and `PATCH` sends an `X-Strimz-Idempotency-Key` header (`strimz_<uuid>`). Pass `{ idempotencyKey }` in the options argument to set your own. `generateIdempotencyKey()` and `isValidIdempotencyKey()` are exported. Not yet: the API doesn't dedupe on this key, so a retried call can run twice. Tracked in [#292](https://github.com/StrimzLab/strimz/issues/292).
+- **Idempotency keys.** Every `POST` and `PATCH` sends an `X-Strimz-Idempotency-Key` header (`strimz_<uuid>`). Pass `{ idempotencyKey }` in the options argument to set your own. `generateIdempotencyKey()` and `isValidIdempotencyKey()` are exported. The API replays the first response for a repeated key for 24 hours, so a retried call runs once.
 - **Retries.** Network errors, `5xx` responses on idempotent calls, and `429`s are retried up to 3 times with exponential backoff and jitter. `Retry-After` is respected on 429.
 - **Pagination.** `list(...)` returns one page (`{ data, nextCursor, hasMore }`). Pass `nextCursor` as `cursor` to get the next one.
 - **Refunds.** Not yet: `refunds.create` throws, because the API returns `{ refund, signingInstructions }` and the SDK expects a bare refund. Call `POST /v1/refunds` directly for now. Tracked in [#294](https://github.com/StrimzLab/strimz/issues/294).
@@ -183,17 +183,17 @@ them if you build your own signing UI.
 Every error thrown by the SDK is a typed subclass of `StrimzError`.
 Each carries `code`, `httpStatus`, `requestId`, `param` and `details`.
 
-| Class                       | When                                            |
-| --------------------------- | ----------------------------------------------- |
-| `StrimzAuthenticationError` | `401`, or a secret key in a browser             |
-| `StrimzPermissionError`     | `403`                                           |
-| `StrimzNotFoundError`       | `404`                                           |
-| `StrimzIdempotencyError`    | `409` with code `idempotency_error`             |
-| `StrimzValidationError`     | `422`                                           |
-| `StrimzRateLimitError`      | `429`, with `retryAfterMs`                      |
-| `StrimzNetworkError`        | The request never got a response                |
-| `StrimzTimeoutError`        | The request hit `timeoutMs`                     |
-| `StrimzModeMismatchError`   | Exported, but the client doesn't throw it today |
+| Class                       | When                                                             |
+| --------------------------- | ---------------------------------------------------------------- |
+| `StrimzAuthenticationError` | `401`, or a secret key in a browser                              |
+| `StrimzPermissionError`     | `403`                                                            |
+| `StrimzNotFoundError`       | `404`                                                            |
+| `StrimzIdempotencyError`    | `409` with code `idempotency_error` or `idempotency_in_progress` |
+| `StrimzValidationError`     | `422`                                                            |
+| `StrimzRateLimitError`      | `429`, with `retryAfterMs`                                       |
+| `StrimzNetworkError`        | The request never got a response                                 |
+| `StrimzTimeoutError`        | The request hit `timeoutMs`                                      |
+| `StrimzModeMismatchError`   | Exported, but the client doesn't throw it today                  |
 
 Any other status, including `400 invalid_request`, is a plain
 `StrimzError`; check `err.code`. `classifyError(httpStatus, body)` maps
