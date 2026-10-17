@@ -44,7 +44,7 @@ amount and is refused the same way when someone tries to pay it.
 - `GET  /v1/subscriptions` (filterable by status, planId)
 - `POST /v1/subscriptions/:id/cancel` , marks the subscription cancelled in Strimz and queues the on-chain cancel
 
-Not yet: the queued on-chain cancel reverts, so the subscription stays active on-chain. Tracked in [#293](https://github.com/StrimzLab/strimz/issues/293).
+The queued on-chain cancel works with the subscriptions contract from the next testnet redeploy ([#142](https://github.com/StrimzLab/strimz/issues/142)). On the current deployment it reverts, so the subscription stays active on-chain.
 
 ### Refunds
 

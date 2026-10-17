@@ -80,9 +80,9 @@ await strimz.subscriptions.cancel({ id: subscriptionId, reason: 'merchant initia
 ```
 
 The row becomes `cancelled` straight away, `subscription.cancelled`
-fires during the call, and the scheduler stops charging. Not yet: the
-on-chain cancel the API queues currently reverts. Tracked in
-[#293](https://github.com/StrimzLab/strimz/issues/293).
+fires during the call, and the scheduler stops charging. The API also
+queues an on-chain cancel, which works from the next testnet redeploy
+([#142](https://github.com/StrimzLab/strimz/issues/142)) and reverts on the current deployment.
 
 **From the customer's wallet.** The customer calls `cancel()` on the
 contract directly. The indexer picks up `SubscriptionCancelled` and

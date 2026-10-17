@@ -314,7 +314,9 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         if (sub.payer == address(0)) revert Subscriptions__UnknownSubscription(subscriptionId);
 
         IStrimzRegistry.Merchant memory m = $.registry.getMerchant(sub.merchantId);
-        if (msg.sender != sub.payer && msg.sender != m.owner) revert Subscriptions__NotSubscriptionParty();
+        if (msg.sender != sub.payer && msg.sender != m.owner && !hasRole(CHARGER_ROLE, msg.sender)) {
+            revert Subscriptions__NotSubscriptionParty();
+        }
         // The indexer rebuilds state from logs; a second SubscriptionCancelled
         // for the same id would be a state transition that never happened.
         if (sub.cancelled) revert Subscriptions__AlreadyCancelled(subscriptionId);

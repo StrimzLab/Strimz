@@ -47,6 +47,22 @@ describe('agent-action worker e2e', () => {
     expect(must(calls[0]).args[0]).toBe(7n)
   })
 
+  it('subscription.cancel-onchain sends nothing when the chain already shows it cancelled', async () => {
+    t.chain.cancelledOnchain.add(99n)
+    const worker = t.app.get(AgentActionWorker)
+    const result = await worker.process({
+      data: {
+        type: 'subscription.cancel-onchain',
+        subscriptionId: 'sub_x',
+        onchainSubscriptionId: 99,
+        merchantId: 'm_x',
+        reason: null,
+      },
+    } as never)
+    expect(result.txHash).toBe('0xskipped')
+    expect(t.chain.callsFor('cancelSubscription')).toHaveLength(0)
+  })
+
   it('subscription.cancel-onchain skips when on-chain id is null', async () => {
     const worker = t.app.get(AgentActionWorker)
     const result = await worker.process({

@@ -143,6 +143,7 @@ interface IStrimzSubscriptions {
         Sig calldata intentSig
     ) external returns (uint256 subscriptionId);
 
+    /// @notice Callable by the payer, the merchant owner, or a CHARGER_ROLE holder cancelling for the merchant.
     function cancel(uint256 subscriptionId) external;
 
     function batchCharge(uint256[] calldata subscriptionIds, bytes32[] calldata chargeAttemptIds)

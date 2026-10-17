@@ -452,6 +452,43 @@ contract StrimzSubscriptionsTest is StrimzTestBase {
         assertTrue(subs.getSubscription(id).cancelled);
     }
 
+    // The scheduler cancels for the merchant when the API cancel is called.
+    function test_chargerCanCancel() public {
+        uint256 id = _createSub(50_000_000);
+        address charger = _charger();
+
+        vm.expectEmit(true, true, false, false, address(subs));
+        emit IStrimzSubscriptions.SubscriptionCancelled(id, charger);
+        vm.prank(charger);
+        subs.cancel(id);
+        assertTrue(subs.getSubscription(id).cancelled);
+
+        (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "after-charger-cancel");
+        vm.prank(charger);
+        IStrimzSubscriptions.ChargeOutcome[] memory outcomes = subs.batchCharge(ids, attempts);
+        assertEq(uint256(outcomes[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Cancelled));
+    }
+
+    function test_chargerSecondCancelReverts() public {
+        uint256 id = _createSub(50_000_000);
+        address charger = _charger();
+        vm.prank(charger);
+        subs.cancel(id);
+
+        vm.prank(charger);
+        vm.expectRevert(
+            abi.encodeWithSelector(IStrimzSubscriptions.Subscriptions__AlreadyCancelled.selector, id)
+        );
+        subs.cancel(id);
+    }
+
+    function _charger() private returns (address charger) {
+        charger = makeAddr("charger");
+        bytes32 role = subs.CHARGER_ROLE();
+        vm.prank(admin);
+        subs.grantRole(role, charger);
+    }
+
     // No one else can.
     function test_thirdPartyCannotCancel() public {
         uint256 id = _createSub(50_000_000);

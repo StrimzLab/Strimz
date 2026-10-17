@@ -72,17 +72,10 @@ export class SubscriptionsService {
    *
    * 1. Validate the subscription exists and is owned by the merchant.
    * 2. Validate it is not already cancelled / lapsed.
-   * 3. Mark `cancelled` in DB optimistically.
-   * 4. Enqueue an on-chain cancel job onto the agent action queue (the
-   *    scheduler signs and broadcasts the contract call).
+   * 3. Mark `cancelled` in DB. This is final; the sweeper stops charging.
+   * 4. Enqueue an on-chain cancel, which the scheduler sends with its
+   *    CHARGER_ROLE key.
    * 5. Fire `subscription.cancelled` webhook.
-   *
-   * If the on-chain cancel fails, the agent worker reverts the DB flag
-   * and surfaces the failure via `subscription.charge_failed` (the reason
-   * field carries the cause). This avoids the race where a charge runs
-   * after the off-chain mark-cancelled but before the on-chain cancel
-   * lands; the contract's `requireActiveMerchant` + `cancelled` storage
-   * is the final source of truth.
    */
   async cancel(
     merchantId: string,

@@ -161,7 +161,7 @@ export default async function BillingPage() {
 
 That's the whole flow. Strimz stops charging as soon as the cancel call returns. Keeping access until `currentPeriodEndAt` is your product's choice, since the customer already paid for that period.
 
-Not yet: the API also queues an on-chain cancel, and that currently reverts, so the contract still lists the subscription as live. Strimz does not charge it. Tracked in [#293](https://github.com/StrimzLab/strimz/issues/293).
+The API also queues an on-chain cancel. It works with the subscriptions contract from the next testnet redeploy ([#142](https://github.com/StrimzLab/strimz/issues/142)). On the current deployment it reverts, so the contract still lists the subscription as live. Strimz does not charge it.
 
 ## When the cancellation lands
 

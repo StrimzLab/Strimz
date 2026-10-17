@@ -87,7 +87,7 @@ The scheduler signs these itself:
 | Set a merchant's fee  | `StrimzRegistry.setFeeBps(...)` (plan upgrades)                      |
 | Agent escrow jobs     | `StrimzAgentEscrow` create, release, dispute, cancel (not live yet)  |
 
-Not yet: the on-chain subscription cancel reverts today. Tracked in [#293](https://github.com/StrimzLab/strimz/issues/293).
+The subscription cancel needs the scheduler to hold `CHARGER_ROLE` on a subscriptions contract from the next testnet redeploy ([#142](https://github.com/StrimzLab/strimz/issues/142)). On the current deployment it reverts.
 
 ## Multi-instance safety
 
