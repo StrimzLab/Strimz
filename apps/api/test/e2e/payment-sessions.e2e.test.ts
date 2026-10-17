@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import type { PaymentSessionStatus } from '@strimz/db'
+import { paymentCreatedEventSchema } from '@strimz/shared-types'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedApiKey, seedMerchant, seedPaymentSession } from '../helpers/fixtures.js'
@@ -92,6 +93,23 @@ describe('payment sessions e2e', () => {
     })
     expect(res.statusCode).toBe(201)
     expect(JSON.parse(res.body)).toMatchObject({ successUrl, cancelUrl })
+  })
+
+  it('fires payment.created with the new session', async () => {
+    const m = await seedMerchant(t.prisma.db, { onboardingCompleted: true, onchainMerchantId: 1 })
+    const k = await seedApiKey(t.prisma.db, m.id)
+    const res = await t.inject({
+      method: 'POST',
+      url: '/v1/payment-sessions',
+      headers: { authorization: `Bearer ${k.secretKey}` },
+      payload: { amount: '1000000', currency: 'USDC' },
+    })
+    expect(res.statusCode).toBe(201)
+    const events = await t.prisma.db.webhookEvent.findMany({ where: { type: 'payment_created' } })
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({ merchantId: m.id, mode: 'test' })
+    const event = paymentCreatedEventSchema.parse(events[0]?.payload)
+    expect(event.data.id).toBe(JSON.parse(res.body).id)
   })
 
   it('refuses a javascript: return URL', async () => {
