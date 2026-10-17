@@ -1,5 +1,11 @@
 # @strimz/sdk
 
+## 0.11.0
+
+### Minor Changes
+
+- bfc7c45: `refunds.create` now returns `{ refund, signingInstructions }`, the shape the API sends. It used to throw on every call because it expected a bare refund. `RefundCreateOutput` and `RefundSigningInstructions` are exported. `refunds.submitSignature` sends only `refundTxHash` in the body.
+
 ## 0.10.4
 
 ### Patch Changes
