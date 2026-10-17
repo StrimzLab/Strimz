@@ -14,9 +14,7 @@ The contract skips a charge with one of these outcomes:
 - `transfer_failed`: the token transfer failed, for example because the token blocklisted the payer's address.
 - `merchant_inactive`: the merchant is not active in the registry.
 
-The contract emits `SubscriptionChargeSkipped` instead of `SubscriptionCharged`. The indexer writes a failed `SubscriptionCharge` row, fires `subscription.charge_failed`, and flips the subscription to `at_risk`. It only does that when the period has no successful charge yet (see the [race-condition guard](/docs/concepts/safety-nets#the-race-condition-projector-fix)).
-
-Not yet: a failed charge while the subscription is `trialing` does not move it to `at_risk` or schedule a retry. Tracked in [#295](https://github.com/StrimzLab/strimz/issues/295).
+The contract emits `SubscriptionChargeSkipped` instead of `SubscriptionCharged`. The indexer writes a failed `SubscriptionCharge` row, fires `subscription.charge_failed`, and flips the subscription to `at_risk`. It only does that when the period has no successful charge yet (see the [race-condition guard](/docs/concepts/safety-nets#the-race-condition-projector-fix)). A first charge that fails at the end of a trial is handled the same way: the subscription goes from `trialing` to `at_risk`.
 
 ## The retry schedule
 
@@ -48,8 +46,7 @@ The `recoveryGracePeriodHours` setting on the Agents page does not change this w
 - `subscription.charge_failed`: a charge attempt failed. It is sent for every failed retry. The payload is `{ subscription, charge }`; `charge.outcome` says why it failed and `charge.attemptNumber` which attempt it was.
 - `subscription.charged`: a retry succeeded and the subscription is `active` again.
 - `subscription.lapsed`: the grace window ran out. Use this to revoke access.
-
-Not yet: `subscription.recovery_attempt` and `subscription.recovery_outcome` are listed as event types but are never sent. Tracked in [#295](https://github.com/StrimzLab/strimz/issues/295).
+- `subscription.recovery_attempt`: the recovery agent emailed the customer. The payload is `{ subscription, attemptNumber }`. It is only sent when the recovery agent is on and the email went out.
 
 ## Emailing the payer
 

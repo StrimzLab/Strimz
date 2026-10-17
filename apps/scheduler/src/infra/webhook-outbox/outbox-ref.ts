@@ -26,6 +26,11 @@ export const outboxRefSchema = z.discriminatedUnion('kind', [
     subscriptionId: z.string(),
     chargeId: z.string(),
   }),
+  z.object({
+    kind: z.literal('subscription.recovery_attempt'),
+    subscriptionId: z.string(),
+    attemptNumber: z.number().int().min(1),
+  }),
   z.object({ kind: z.literal('refund.completed'), refundId: z.string() }),
 ])
 

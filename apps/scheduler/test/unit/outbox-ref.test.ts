@@ -22,6 +22,13 @@ describe('outbox ref payloads', () => {
     expect(ref).toMatchObject({ kind: 'payment.failed', reason: 'session expired' })
   })
 
+  it('needs a positive attempt number on subscription.recovery_attempt', () => {
+    const ref = { kind: 'subscription.recovery_attempt', subscriptionId: 'sub_1' }
+    expect(outboxRefSchema.safeParse({ ...ref, attemptNumber: 1 }).success).toBe(true)
+    expect(outboxRefSchema.safeParse({ ...ref, attemptNumber: 0 }).success).toBe(false)
+    expect(outboxRefSchema.safeParse(ref).success).toBe(false)
+  })
+
   it('treats a full envelope as having no ref', () => {
     expect(readOutboxRef({ id: 'evt_1', type: 'payment.completed', data: {} })).toBeUndefined()
     expect(readOutboxRef(null)).toBeUndefined()

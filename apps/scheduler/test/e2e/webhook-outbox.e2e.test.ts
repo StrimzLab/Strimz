@@ -105,6 +105,38 @@ describe('webhook outbox dispatcher e2e', () => {
     })
   })
 
+  it('builds subscription.recovery_attempt from the ref the agent writes', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const sub = await seedSubscription(t.prisma.db, merchant.id, { status: 'at_risk' })
+    await seedWebhookEndpoint(t.prisma.db, merchant.id, {
+      url: 'https://example.com/recovery',
+      events: ['subscription_recovery_attempt'],
+    })
+    await t.prisma.db.webhookEvent.create({
+      data: {
+        id: 'evt_recovery_1',
+        merchantId: merchant.id,
+        type: 'subscription_recovery_attempt',
+        apiVersion: '2026-04-27',
+        mode: 'test',
+        payload: {
+          ref: { kind: 'subscription.recovery_attempt', subscriptionId: sub.id, attemptNumber: 2 },
+        },
+      },
+    })
+
+    const outbox = t.app.get(WebhookOutboxService)
+    expect(await outbox.tickNow()).toEqual({ dispatched: 1, deliveriesQueued: 1 })
+    const event = await t.prisma.db.webhookEvent.findUniqueOrThrow({
+      where: { id: 'evt_recovery_1' },
+    })
+    expect(event.dispatchError).toBeNull()
+    expect(event.payload).toMatchObject({
+      type: 'subscription.recovery_attempt',
+      data: { subscription: { id: sub.id }, attemptNumber: 2 },
+    })
+  })
+
   it('does not dispatch the same event twice', async () => {
     const merchant = await seedMerchant(t.prisma.db)
     const sub = await seedSubscription(t.prisma.db, merchant.id, { status: 'lapsed' })

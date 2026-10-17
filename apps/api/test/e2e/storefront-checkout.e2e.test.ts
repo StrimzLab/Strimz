@@ -46,6 +46,8 @@ describe('storefront checkout e2e', () => {
       where: { id: JSON.parse(accepted.body).ref },
     })
     expect(session.storefrontProductId).toBe(product.id)
+    const events = await t.prisma.db.webhookEvent.findMany({ where: { type: 'payment_created' } })
+    expect(events.map((e) => (e.payload as { data: { id: string } }).data.id)).toEqual([session.id])
   })
 
   it('returns the unit once when the session is cancelled', async () => {

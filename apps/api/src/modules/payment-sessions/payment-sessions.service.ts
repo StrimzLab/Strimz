@@ -14,6 +14,7 @@ import type { PaymentSessionStatus, Prisma } from '@strimz/db'
 import { TypedConfigService } from '../../config/index.js'
 import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
 import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { tokenAddressForCurrency } from './token-resolver.js'
 
@@ -33,6 +34,7 @@ export class PaymentSessionsService {
     private readonly prisma: PrismaService,
     private readonly cfg: TypedConfigService,
     private readonly merchantChain: MerchantChainService,
+    private readonly events: WebhookEventService,
   ) {}
 
   async create(
@@ -111,7 +113,9 @@ export class PaymentSessionsService {
       data: { checkoutUrl: `${this.cfg.env.CHECKOUT_ORIGIN.replace(/\/$/, '')}/pay/${row.id}` },
       ...WITH_MERCHANT,
     })
-    return this.serialise(finalRow)
+    const session = this.serialise(finalRow)
+    await this.events.fire({ merchantId, mode, name: 'payment.created', data: session, db })
+    return session
   }
 
   async retrieve(merchantId: string, mode: Mode, id: string): Promise<PaymentSession> {

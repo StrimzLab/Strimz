@@ -766,7 +766,7 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 			       END),
 			       "updatedAt" = NOW()
 			 WHERE id = $1
-			   AND status IN ('active'::"SubscriptionStatus", 'at_risk'::"SubscriptionStatus")
+			   AND status IN ('trialing'::"SubscriptionStatus", 'active'::"SubscriptionStatus", 'at_risk'::"SubscriptionStatus")
 		`, subID, in.BlockTimestamp); err != nil {
 			return fmt.Errorf("flag at_risk: %w", err)
 		}

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { uuid } from '@strimz/shared-crypto'
+import type { Prisma } from '@strimz/db'
 import type { WebhookEventName } from '@strimz/shared-types'
 import { PrismaService } from '../prisma/prisma.service.js'
 
@@ -11,7 +12,8 @@ const API_VERSION = '2026-04-27'
  * enqueues them — one dispatch path shared with the Go indexer's events.
  *
  * `data` must already be the schema-valid envelope body; the dispatcher
- * validates the full envelope before delivery.
+ * validates the full envelope before delivery. Pass `db` to write the
+ * event in the caller's transaction.
  */
 @Injectable()
 export class WebhookEventService {
@@ -24,9 +26,10 @@ export class WebhookEventService {
     mode: 'test' | 'live'
     name: TName
     data: unknown
+    db?: Prisma.TransactionClient
   }): Promise<{ eventId: string }> {
     const eventId = `evt_${uuid()}`
-    const event = await this.prisma.db.webhookEvent.create({
+    const event = await (input.db ?? this.prisma.db).webhookEvent.create({
       data: {
         id: eventId,
         merchantId: input.merchantId,

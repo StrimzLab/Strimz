@@ -16,14 +16,12 @@ export const WEBHOOK_EVENTS = {
     charged: 'subscription.charged',
     chargeFailed: 'subscription.charge_failed',
     recoveryAttempt: 'subscription.recovery_attempt',
-    recoveryOutcome: 'subscription.recovery_outcome',
     cancelled: 'subscription.cancelled',
     lapsed: 'subscription.lapsed',
   },
   refund: {
     created: 'refund.created',
     completed: 'refund.completed',
-    failed: 'refund.failed',
   },
   invoice: {
     created: 'invoice.created',
@@ -31,7 +29,6 @@ export const WEBHOOK_EVENTS = {
     overdue: 'invoice.overdue',
   },
   agent: {
-    actionExecuted: 'agent.action_executed',
     jobProposed: 'agent.job_proposed',
     jobCompleted: 'agent.job_completed',
     jobDisputed: 'agent.job_disputed',

@@ -76,9 +76,8 @@ Sessions expire 30 minutes after creation by default. Set `expiresInMinutes` to 
 
 ## Webhook events
 
-| Event               | Fires when                         |
-| ------------------- | ---------------------------------- |
-| `payment.completed` | The on-chain transaction confirmed |
-| `payment.failed`    | The scheduler expired the session  |
-
-Not yet: `payment.created` is listed as an event type but is never sent. Tracked in [#295](https://github.com/StrimzLab/strimz/issues/295).
+| Event               | Fires when                                          |
+| ------------------- | --------------------------------------------------- |
+| `payment.created`   | The session was created, by the API or a storefront |
+| `payment.completed` | The on-chain transaction confirmed                  |
+| `payment.failed`    | The scheduler expired the session                   |

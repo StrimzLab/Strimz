@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import type { Prisma } from '@strimz/db'
 import { PrismaService } from '../prisma/prisma.service.js'
 
 /** Maps to `AgentCapability` enum on the Postgres side. */
@@ -52,8 +53,9 @@ export class ActivityLogService {
     transactionId?: string | null
     jobId?: string | null
     metadata?: Record<string, unknown>
+    db?: Prisma.TransactionClient
   }): Promise<void> {
-    await this.prisma.db.agentActivityLog.create({
+    await (input.db ?? this.prisma.db).agentActivityLog.create({
       data: {
         merchantId: input.merchantId,
         capability: input.capability,

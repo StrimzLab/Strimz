@@ -83,15 +83,15 @@ POST /v1/agents/jobs/{id}/approve
 
 ## Webhook events
 
-| Event                   | Fires when                                |
-| ----------------------- | ----------------------------------------- |
-| `agent.action_executed` | Any capability completed an action        |
-| `agent.job_proposed`    | A job needs human approval                |
-| `agent.job_completed`   | A job's escrow was released to the vendor |
-| `agent.job_disputed`    | A job was disputed                        |
+| Event                           | Fires when                                |
+| ------------------------------- | ----------------------------------------- |
+| `subscription.recovery_attempt` | Recovery emailed a customer               |
+| `agent.job_proposed`            | A job needs human approval                |
+| `agent.job_completed`           | A job's escrow was released to the vendor |
+| `agent.job_disputed`            | A job was disputed                        |
 
 The three `agent.job_*` events are not sent while agent escrow is unavailable, and the dashboard does not offer them.
 
-Not yet: `agent.action_executed` is listed as an event type but is never sent. Tracked in [#295](https://github.com/StrimzLab/strimz/issues/295).
+Other agent actions show on the dashboard's agent feed, not as webhooks.
 
 See [The AutoPay Agent](/docs/guides/agent) for the capability-by-capability breakdown.

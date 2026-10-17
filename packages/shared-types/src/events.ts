@@ -16,7 +16,7 @@ import { transactionSchema } from './transactions.js'
 import { subscriptionSchema, subscriptionChargeSchema } from './subscriptions.js'
 import { refundSchema } from './refunds.js'
 import { invoiceSchema } from './invoices.js'
-import { agentActivityLogSchema, agentJobSchema } from './agents.js'
+import { agentJobSchema } from './agents.js'
 import { complianceLogSchema } from './compliance.js'
 import { webhookEventNameSchema } from './webhooks.js'
 
@@ -62,13 +62,6 @@ export const subscriptionRecoveryAttemptEventSchema = envelope(
   'subscription.recovery_attempt',
   z.object({ subscription: subscriptionSchema, attemptNumber: z.number().int().min(1) }),
 )
-export const subscriptionRecoveryOutcomeEventSchema = envelope(
-  'subscription.recovery_outcome',
-  z.object({
-    subscription: subscriptionSchema,
-    outcome: z.enum(['recovered', 'churned']),
-  }),
-)
 export const subscriptionCancelledEventSchema = envelope(
   'subscription.cancelled',
   subscriptionSchema,
@@ -82,10 +75,6 @@ export const refundCompletedEventSchema = envelope(
   'refund.completed',
   z.object({ refund: refundSchema, transaction: transactionSchema }),
 )
-export const refundFailedEventSchema = envelope(
-  'refund.failed',
-  z.object({ refund: refundSchema, reason: z.string() }),
-)
 
 // ---------- Invoice ----------
 
@@ -98,10 +87,6 @@ export const invoiceOverdueEventSchema = envelope('invoice.overdue', invoiceSche
 
 // ---------- Agent ----------
 
-export const agentActionExecutedEventSchema = envelope(
-  'agent.action_executed',
-  agentActivityLogSchema,
-)
 export const agentJobProposedEventSchema = envelope('agent.job_proposed', agentJobSchema)
 export const agentJobCompletedEventSchema = envelope('agent.job_completed', agentJobSchema)
 export const agentJobDisputedEventSchema = envelope('agent.job_disputed', agentJobSchema)
@@ -127,16 +112,13 @@ export const webhookEventSchema = z.discriminatedUnion('type', [
   subscriptionChargedEventSchema,
   subscriptionChargeFailedEventSchema,
   subscriptionRecoveryAttemptEventSchema,
-  subscriptionRecoveryOutcomeEventSchema,
   subscriptionCancelledEventSchema,
   subscriptionLapsedEventSchema,
   refundCreatedEventSchema,
   refundCompletedEventSchema,
-  refundFailedEventSchema,
   invoiceCreatedEventSchema,
   invoicePaidEventSchema,
   invoiceOverdueEventSchema,
-  agentActionExecutedEventSchema,
   agentJobProposedEventSchema,
   agentJobCompletedEventSchema,
   agentJobDisputedEventSchema,
@@ -155,18 +137,13 @@ export type SubscriptionChargeFailedEvent = z.infer<typeof subscriptionChargeFai
 export type SubscriptionRecoveryAttemptEvent = z.infer<
   typeof subscriptionRecoveryAttemptEventSchema
 >
-export type SubscriptionRecoveryOutcomeEvent = z.infer<
-  typeof subscriptionRecoveryOutcomeEventSchema
->
 export type SubscriptionCancelledEvent = z.infer<typeof subscriptionCancelledEventSchema>
 export type SubscriptionLapsedEvent = z.infer<typeof subscriptionLapsedEventSchema>
 export type RefundCreatedEvent = z.infer<typeof refundCreatedEventSchema>
 export type RefundCompletedEvent = z.infer<typeof refundCompletedEventSchema>
-export type RefundFailedEvent = z.infer<typeof refundFailedEventSchema>
 export type InvoiceCreatedEvent = z.infer<typeof invoiceCreatedEventSchema>
 export type InvoicePaidEvent = z.infer<typeof invoicePaidEventSchema>
 export type InvoiceOverdueEvent = z.infer<typeof invoiceOverdueEventSchema>
-export type AgentActionExecutedEvent = z.infer<typeof agentActionExecutedEventSchema>
 export type AgentJobProposedEvent = z.infer<typeof agentJobProposedEventSchema>
 export type AgentJobCompletedEvent = z.infer<typeof agentJobCompletedEventSchema>
 export type AgentJobDisputedEvent = z.infer<typeof agentJobDisputedEventSchema>
