@@ -55,6 +55,8 @@ export type {
   Subscription,
   SubscriptionCharge,
   Refund,
+  RefundCreateOutput,
+  RefundSigningInstructions,
   WebhookEndpoint,
   WebhookDelivery,
   Invoice,

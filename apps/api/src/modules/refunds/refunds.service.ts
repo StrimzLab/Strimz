@@ -9,6 +9,7 @@ import type {
   CreateRefundParsed,
   Mode,
   Refund,
+  RefundCreateOutput,
   SubmitRefundSignatureParsed,
 } from '@strimz/shared-types'
 import { TypedConfigService } from '../../config/index.js'
@@ -16,18 +17,6 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
-export interface RefundCreateOutput {
-  refund: Refund
-  /** Wallet-signing instructions the merchant uses to issue the on-chain transfer. */
-  signingInstructions: {
-    token: string
-    to: string
-    amount: string
-    /** Free-text human-friendly description for wallet UI. */
-    note: string
-  }
-}
 
 @Injectable()
 export class RefundsService {
@@ -120,7 +109,6 @@ export class RefundsService {
       })
       .catch((err) => this.log.warn(`refund.created webhook failed: ${(err as Error).message}`))
 
-    // Map internal currency → ERC20 token address for the wallet UI.
     return {
       refund: serialise(refund),
       signingInstructions: {
