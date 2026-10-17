@@ -26,11 +26,11 @@ What happens during the call:
 
 Cancelling a subscription that is already `cancelled` or `lapsed` returns an error.
 
-The API also queues an on-chain `cancel()` so the contract's state matches. Not yet: that on-chain cancel currently reverts, so the contract still shows the subscription as live, although Strimz no longer charges it. Tracked in [#293](https://github.com/StrimzLab/strimz/issues/293).
+The API also queues an on-chain `cancel()` so the contract's state matches. The scheduler sends it with its charger key, and skips it if the subscription is already cancelled on chain. This works with the subscriptions contract from the next testnet redeploy ([#142](https://github.com/StrimzLab/strimz/issues/142)). On the current deployment the on-chain cancel still reverts, so the contract shows the subscription as live, although Strimz no longer charges it.
 
 ## Cancelling from the payer's wallet
 
-The contract's `cancel(uint256 subscriptionId)` can be called by the payer or by the merchant's registry owner. A payer can call it from any wallet tool that can send a contract call. The indexer sees the `SubscriptionCancelled` event and marks the row `cancelled`.
+The contract's `cancel(uint256 subscriptionId)` can be called by the payer, by the merchant's registry owner, or by Strimz's scheduler acting on an API cancel. A payer can call it from any wallet tool that can send a contract call. The indexer sees the `SubscriptionCancelled` event and marks the row `cancelled`.
 
 Strimz has no hosted cancel page for payers, and an on-chain cancel does not fire a `subscription.cancelled` webhook today. If you need to react to it, poll `subscriptions.retrieve` or `subscriptions.list`.
 

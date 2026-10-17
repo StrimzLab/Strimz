@@ -23,7 +23,7 @@ Each subscription shows:
 - **Charges:** every charge, each linking to its transaction. Refunds start from the transaction's page.
 - **Cancel:** for active, trialing and at-risk subscriptions. Strimz marks it cancelled at once, fires `subscription.cancelled` and stops charging. Cancelled subscriptions cannot be resumed; the customer subscribes again.
 
-Not yet: the on-chain cancel Strimz queues after a dashboard cancel currently reverts, so the contract still lists the subscription as live, although Strimz no longer charges it. Tracked in [#293](https://github.com/StrimzLab/strimz/issues/293).
+Strimz also queues an on-chain cancel. It works with the subscriptions contract from the next testnet redeploy ([#142](https://github.com/StrimzLab/strimz/issues/142)). On the current deployment it reverts, so the contract still lists the subscription as live, although Strimz no longer charges it.
 
 ## Statuses
 
