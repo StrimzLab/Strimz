@@ -21,9 +21,7 @@ Enrolment moves no money. The payer signs on the plan's checkout page, the relay
 
 If the plan has `trialPeriodDays`, a payer's first subscription to that plan starts in `trialing`, and `nextChargeAt` is set to the end of the trial. A payer who subscribed to the same plan before gets no second trial.
 
-When the trial ends, the scheduler's sweeper picks the row up on its next run (every 15 minutes) and calls `batchCharge(...)`. If the charge succeeds, the status flips to `active` and `nextChargeAt` moves forward by one interval.
-
-Not yet: a failed charge during a trial does not move the subscription to `at_risk` or schedule a retry. Tracked in [#295](https://github.com/StrimzLab/strimz/issues/295).
+When the trial ends, the scheduler's sweeper picks the row up on its next run (every 15 minutes) and calls `batchCharge(...)`. If the charge succeeds, the status flips to `active` and `nextChargeAt` moves forward by one interval. If it fails for a payment reason, the subscription moves to `at_risk` and follows the [retry schedule](/docs/subscriptions/recovery#the-retry-schedule).
 
 ## No trial
 

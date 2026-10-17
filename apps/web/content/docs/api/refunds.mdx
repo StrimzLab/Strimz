@@ -68,4 +68,4 @@ You can submit a signature only while the refund is `awaiting_signature`. Any ot
 | `refund.created`   | The refund row was created                  |
 | `refund.completed` | The indexer confirmed the on-chain Transfer |
 
-Not yet: `refund.failed` is listed as an event type but is never sent. Tracked in [#295](https://github.com/StrimzLab/strimz/issues/295).
+There is no failure event. A refund whose transfer is never sent or reverts stays in `awaiting_signature` or `submitted`.
