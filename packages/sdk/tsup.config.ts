@@ -1,4 +1,5 @@
 import { defineConfig } from 'tsup'
+import pkg from './package.json' with { type: 'json' }
 
 export default defineConfig({
   entry: {
@@ -16,4 +17,5 @@ export default defineConfig({
   treeshake: true,
   target: 'es2022',
   outDir: 'dist',
+  define: { __SDK_VERSION__: JSON.stringify(pkg.version) },
 })
