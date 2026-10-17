@@ -31,6 +31,12 @@ describe('classifyError', () => {
     expect(classifyError(409, body('idempotency_error'))).toBeInstanceOf(StrimzIdempotencyError)
   })
 
+  it('409 idempotency_in_progress → StrimzIdempotencyError', () => {
+    expect(classifyError(409, body('idempotency_in_progress'))).toBeInstanceOf(
+      StrimzIdempotencyError,
+    )
+  })
+
   it('422 → StrimzValidationError', () => {
     expect(classifyError(422, body('invalid_request'))).toBeInstanceOf(StrimzValidationError)
   })

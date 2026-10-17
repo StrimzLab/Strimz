@@ -116,6 +116,12 @@ export class Fetcher {
           attempt++
           continue
         }
+        const inProgress = res.status === 409 && errorBody.code === 'idempotency_in_progress'
+        if (inProgress && attempt < this.maxRetries) {
+          await delay(retryAfterMs ?? this.backoffFor(attempt))
+          attempt++
+          continue
+        }
         // 5xx. Retry only if idempotent.
         if (res.status >= 500 && idempotent && attempt < this.maxRetries) {
           await delay(this.backoffFor(attempt))
