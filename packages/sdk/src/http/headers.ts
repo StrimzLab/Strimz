@@ -18,8 +18,8 @@ export const HEADERS = {
 
 export const SDK_NAME = '@strimz/sdk'
 
-/** The SDK version. Updated by the build pipeline if a version is published. */
-export const SDK_VERSION = '0.0.0'
+/** Set from package.json at build time. */
+export const SDK_VERSION: string = __SDK_VERSION__
 
 export function buildBaseHeaders(apiKey: string, runtime: string): Record<string, string> {
   return {
