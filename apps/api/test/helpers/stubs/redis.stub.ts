@@ -1,12 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { COMPARE_AND_SET_SCRIPT } from '../../../src/modules/relay/relay-attempts.js'
 
-/**
- * Minimal Redis stand-in. The real RedisService is only ever consumed via
- * `QueueService` and (in M2+) idempotency caches; replacing the wrapping
- * services with stubs is enough to skip Redis entirely. This stub exists so
- * NestJS DI doesn't blow up on construction of the real one.
- */
+/** In-memory Redis with the few commands the API uses outside BullMQ. TTLs are ignored. */
 export class StubRedisService {
   private readonly store = new Map<string, string>()
   public readonly client: any = {
@@ -27,6 +22,9 @@ export class StubRedisService {
     del: (key: string) => Promise.resolve(this.store.delete(key) ? 1 : 0),
     quit: () => Promise.resolve('OK'),
     on: () => undefined,
+  }
+  keys(): string[] {
+    return [...this.store.keys()]
   }
   reset(): void {
     this.store.clear()

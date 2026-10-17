@@ -5,6 +5,7 @@ import {
   CurrentMerchant,
   type CurrentMerchantPayload,
 } from '../../common/decorators/current-merchant.decorator.js'
+import { SkipIdempotency } from '../../common/decorators/skip-idempotency.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
 import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
@@ -21,6 +22,7 @@ export class WebhooksController {
   // ----- Endpoints -----
 
   @RequireScopes('webhooks_write')
+  @SkipIdempotency()
   @Post('/webhook-endpoints')
   @ApiOperation({ summary: 'Register a new webhook endpoint and return the signing secret once.' })
   createEndpoint(
@@ -61,6 +63,7 @@ export class WebhooksController {
   }
 
   @RequireScopes('webhooks_write')
+  @SkipIdempotency()
   @Post('/webhook-endpoints/:id/rotate-secret')
   @ApiOperation({ summary: 'Generate a fresh signing secret. Old secret immediately invalidated.' })
   rotateSecret(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string) {

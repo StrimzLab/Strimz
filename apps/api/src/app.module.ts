@@ -15,6 +15,7 @@ import { WebhookEventModule } from './infra/events/webhook-event.module.js'
 
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js'
 import { RequestIdInterceptor } from './common/interceptors/request-id.interceptor.js'
+import { IdempotencyInterceptor } from './common/interceptors/idempotency.interceptor.js'
 import { RateLimitInterceptor } from './common/interceptors/rate-limit.interceptor.js'
 
 import { AuthModule } from './modules/auth/auth.module.js'
@@ -81,6 +82,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     { provide: APP_INTERCEPTOR, useClass: RequestIdInterceptor },
     // Runs after RequestId so rate-limit logs carry the request id.
     { provide: APP_INTERCEPTOR, useClass: RateLimitInterceptor },
+    // After RateLimit, so a 429 is never stored against an idempotency key.
+    { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
     // Global Zod validation — every controller using a `createZodDto` class
     // gets validated automatically.
     { provide: APP_PIPE, useClass: ZodValidationPipe },
