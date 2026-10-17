@@ -1681,3 +1681,50 @@ func TestE2E_DeadLetters(t *testing.T) {
 	assert.Equal(t, 2, open[0].Attempts)
 	assert.Equal(t, "still missing", open[0].Reason)
 }
+
+func TestE2E_SubscriptionChargeSkip_TrialFailureMovesToAtRisk(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_trial", "trial@x.io", "0x000000000000000000000000000000000000fe07", big.NewInt(408))
+
+	enrolled := time.Now().UTC().Truncate(time.Second).Add(-14 * 24 * time.Hour)
+	trialEnd := enrolled.Add(14 * 24 * time.Hour)
+	_, err := s.UpsertSubscriptionFromOnchain(ctx, SubscriptionCreatedInput{
+		OnchainSubscriptionID: big.NewInt(7),
+		MerchantOnchainID:     big.NewInt(408),
+		PayerAddress:          "0x000000000000000000000000000000000000aa77",
+		Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
+		StartAt:            trialEnd,
+		BlockTimestamp:     enrolled,
+		CurrentPeriodEndAt: trialEnd.Add(30 * 24 * time.Hour),
+		NextChargeAt:       trialEnd,
+		OnchainTxHash:      "0x" + repeatStr("9", 64),
+		Mode:               "live",
+	})
+	require.NoError(t, err)
+
+	var status string
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT status::text FROM "Subscription" WHERE "onchainSubscriptionId"=7`).Scan(&status))
+	require.Equal(t, "trialing", status)
+
+	rows, err := s.InsertSubscriptionChargeSkip(ctx, SubscriptionChargeSkippedInput{
+		OnchainSubscriptionID: big.NewInt(7),
+		ChargeAttemptID:       "0x" + repeatStr("7", 64),
+		Outcome:               "insufficient_funds",
+		IsPaymentFailure:      true,
+		BlockTimestamp:        trialEnd,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), rows)
+
+	var retryCount int
+	var nextRetryAt *time.Time
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT status::text, "retryCount", "nextRetryAt" FROM "Subscription" WHERE "onchainSubscriptionId"=7`,
+	).Scan(&status, &retryCount, &nextRetryAt))
+	assert.Equal(t, "at_risk", status)
+	assert.Equal(t, 1, retryCount)
+	require.NotNil(t, nextRetryAt)
+	assert.WithinDuration(t, trialEnd.Add(15*time.Minute), *nextRetryAt, time.Second)
+}
