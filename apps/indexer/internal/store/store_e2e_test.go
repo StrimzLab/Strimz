@@ -723,6 +723,119 @@ func TestE2E_SubscriptionChargeSkip_PaymentFailureAfterPaidCycles(t *testing.T) 
 	assert.Nil(t, st.nextRetryAt)
 }
 
+func TestE2E_SubscriptionChargeSkip_RetryUnderSameAttemptIdAdvancesBackoff(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_backoff", "backoff@x.io", "0x000000000000000000000000000000000000fe06", big.NewInt(407))
+
+	interval := 30 * 24 * time.Hour
+	start := time.Now().UTC().Truncate(time.Second)
+	subID := big.NewInt(6)
+	attempt := "0x" + repeatStr("6", 64)
+
+	_, err := s.UpsertSubscriptionFromOnchain(ctx, SubscriptionCreatedInput{
+		OnchainSubscriptionID: subID,
+		MerchantOnchainID:     big.NewInt(407),
+		PayerAddress:          "0x000000000000000000000000000000000000aa66",
+		Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
+		StartAt:            start,
+		BlockTimestamp:     start,
+		CurrentPeriodEndAt: start.Add(interval),
+		NextChargeAt:       start,
+		OnchainTxHash:      "0x" + repeatStr("8", 64),
+		Mode:               "live",
+	})
+	require.NoError(t, err)
+
+	skip := func(outcome string, paymentFailure bool, at time.Time) int64 {
+		t.Helper()
+		rows, err := s.InsertSubscriptionChargeSkip(ctx, SubscriptionChargeSkippedInput{
+			OnchainSubscriptionID: subID,
+			ChargeAttemptID:       attempt,
+			Outcome:               outcome,
+			IsPaymentFailure:      paymentFailure,
+			BlockTimestamp:        at,
+		})
+		require.NoError(t, err)
+		return rows
+	}
+	type state struct {
+		retryCount    int
+		nextRetryAt   *time.Time
+		outcome       string
+		attemptNumber int
+		failedEvents  int
+	}
+	read := func() state {
+		t.Helper()
+		var st state
+		require.NoError(t, s.pool.QueryRow(ctx,
+			`SELECT "retryCount", "nextRetryAt" FROM "Subscription" WHERE "onchainSubscriptionId"=6`,
+		).Scan(&st.retryCount, &st.nextRetryAt))
+		require.NoError(t, s.pool.QueryRow(ctx,
+			`SELECT outcome::text, "attemptNumber" FROM "SubscriptionCharge" WHERE "chargeAttemptId"=$1`, attempt,
+		).Scan(&st.outcome, &st.attemptNumber))
+		require.NoError(t, s.pool.QueryRow(ctx,
+			`SELECT count(*) FROM "WebhookEvent" WHERE "merchantId"='m_backoff' AND type='subscription_charge_failed'`,
+		).Scan(&st.failedEvents))
+		return st
+	}
+
+	first := start
+	assert.Equal(t, int64(1), skip("insufficient_funds", true, first))
+
+	assert.Equal(t, int64(0), skip("insufficient_funds", true, first))
+	st := read()
+	assert.Equal(t, 1, st.retryCount)
+	assert.Equal(t, 1, st.attemptNumber)
+	assert.Equal(t, 1, st.failedEvents)
+
+	second := first.Add(15 * time.Minute)
+	assert.Equal(t, int64(1), skip("revoked_approval", true, second))
+	st = read()
+	assert.Equal(t, 2, st.retryCount)
+	require.NotNil(t, st.nextRetryAt)
+	assert.WithinDuration(t, second.Add(time.Hour), *st.nextRetryAt, time.Second)
+	assert.Equal(t, "revoked_approval", st.outcome)
+	assert.Equal(t, 2, st.attemptNumber)
+	assert.Equal(t, 2, st.failedEvents)
+
+	assert.Equal(t, int64(0), skip("duplicate", false, second.Add(time.Hour)))
+	st = read()
+	assert.Equal(t, 2, st.retryCount)
+	assert.Equal(t, "revoked_approval", st.outcome)
+	assert.Equal(t, 2, st.failedEvents)
+
+	rows, err := s.InsertSubscriptionCharge(ctx, SubscriptionChargedInput{
+		OnchainSubscriptionID: subID,
+		ChargeAttemptID:       attempt,
+		Amount:                "20000000",
+		FeeAmount:             "300000",
+		NetAmount:             "19700000",
+		NextChargeAt:          start.Add(interval),
+		OnchainTxHash:         "0x" + repeatStr("9", 64),
+		BlockNumber:           3100,
+		BlockTimestamp:        second.Add(time.Hour),
+		LogIndex:              0,
+		Mode:                  "live",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), rows)
+
+	assert.Equal(t, int64(0), skip("insufficient_funds", true, second.Add(2*time.Hour)))
+	var status, outcome string
+	var retryCount int
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT status::text, outcome::text FROM "SubscriptionCharge" WHERE "chargeAttemptId"=$1`, attempt,
+	).Scan(&status, &outcome))
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT "retryCount" FROM "Subscription" WHERE "onchainSubscriptionId"=6`,
+	).Scan(&retryCount))
+	assert.Equal(t, "succeeded", status)
+	assert.Equal(t, "charged", outcome)
+	assert.Equal(t, 0, retryCount)
+}
+
 func TestE2E_SubscriptionCharged_RetryUnderSameAttemptIdUpgradesFailedRow(t *testing.T) {
 	s := startTestPostgres(t)
 	ctx := context.Background()
