@@ -48,9 +48,9 @@ Other outcomes, such as `not_due` or `duplicate`, are written for the audit trai
 
 ## Retries
 
-Retries back off: 15 minutes after the first failure, then 1 hour, 3 hours, 6 hours, 12 hours, then every 24 hours. The scheduler makes at most 8 attempts per billing period.
+Retries back off: 15 minutes after the first failure, then 1 hour, 3 hours, 6 hours, 12 hours, then every 24 hours. About seven attempts fit in the 48-hour grace window.
 
-Not yet: when the payer's balance or allowance is still too low, the retry reuses the same attempt id, so the backoff doesn't advance and retries run on every sweep. Only the first failure sends `subscription.charge_failed`. Tracked in [#297](https://github.com/StrimzLab/strimz/issues/297).
+Each failed retry fires `subscription.charge_failed` again and pushes the next retry further out. A retry that reuses the same attempt id updates its charge row and raises `attemptNumber` (see [Recovery](/docs/subscriptions/recovery)).
 
 If a retry succeeds, the subscription returns to `active`, the retry counter resets, and the schedule continues. The failed `SubscriptionCharge` rows stay for audit.
 

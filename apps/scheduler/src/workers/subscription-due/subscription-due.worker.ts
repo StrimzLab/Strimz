@@ -67,9 +67,8 @@ export class SubscriptionDueWorker extends WorkerHost {
       return { txHash: '0xnotdue', chargeAttemptId: '0x0' }
     }
 
-    // The contract burns an attempt id even when the charge fails, so a
-    // retry within the same period needs a fresh id. Walk the attempt
-    // index until we find an unburned one.
+    // Only a transfer that was attempted burns the id. Balance and
+    // allowance skips leave it unspent, so the retry reuses it.
     let chargeAttemptId: `0x${string}` | null = null
     for (let attempt = 0; attempt < MAX_ATTEMPTS_PER_PERIOD; attempt++) {
       const candidate = deriveChargeAttemptId(

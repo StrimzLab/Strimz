@@ -31,9 +31,9 @@ When the indexer records a failed charge, it sets the next retry time:
 | 5th           | 12 hours         |
 | 6th and later | 24 hours         |
 
-The sweeper runs every 15 minutes, so a retry fires on the first run after its time. The scheduler makes at most 8 attempts per billing period.
+The sweeper runs every 15 minutes, so a retry fires on the first run after its time. About seven attempts fit in the grace window.
 
-Not yet: when the payer's balance or allowance is still too low, the retry reuses the same attempt id, so the backoff doesn't advance and retries run on every sweep. Only the first failure sends `subscription.charge_failed`. Tracked in [#297](https://github.com/StrimzLab/strimz/issues/297).
+A retry after a balance or allowance failure reuses the same attempt id, so it updates the same charge: `charge.attemptNumber` goes up by one and `charge.outcome` shows the latest reason.
 
 ## The grace window
 
@@ -45,7 +45,7 @@ The `recoveryGracePeriodHours` setting on the Agents page does not change this w
 
 ## What fires on your webhook endpoint
 
-- `subscription.charge_failed`: a failed charge was recorded. The payload is `{ subscription, charge }`; `charge.outcome` says why it failed.
+- `subscription.charge_failed`: a charge attempt failed. It is sent for every failed retry. The payload is `{ subscription, charge }`; `charge.outcome` says why it failed and `charge.attemptNumber` which attempt it was.
 - `subscription.charged`: a retry succeeded and the subscription is `active` again.
 - `subscription.lapsed`: the grace window ran out. Use this to revoke access.
 
@@ -53,7 +53,7 @@ Not yet: `subscription.recovery_attempt` and `subscription.recovery_outcome` are
 
 ## Emailing the payer
 
-The first `charge_failed` is the one to act on. Email the payer and ask them to top up their wallet. You can send it yourself from your webhook handler, or turn on the recovery agent on the [Agents page](/docs/dashboard/agents), which emails the customer if Strimz has their email on file.
+The first `charge_failed` (`charge.attemptNumber` 1) is the one to act on. Email the payer and ask them to top up their wallet. You can send it yourself from your webhook handler, or turn on the recovery agent on the [Agents page](/docs/dashboard/agents), which emails the customer if Strimz has their email on file.
 
 ## What it costs to retry
 
