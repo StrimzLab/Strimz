@@ -11,11 +11,9 @@ export const ALL_EVENT_TYPES = [
   'subscription.lapsed',
   'refund.created',
   'refund.completed',
-  'refund.failed',
   'invoice.created',
   'invoice.paid',
   'invoice.overdue',
-  'agent.action_executed',
   'agent.job_proposed',
 ] as const
 

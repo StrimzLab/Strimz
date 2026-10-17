@@ -201,16 +201,13 @@ enum WebhookEventName {
   subscription_charged
   subscription_charge_failed
   subscription_recovery_attempt
-  subscription_recovery_outcome
   subscription_cancelled
   subscription_lapsed
   refund_created
   refund_completed
-  refund_failed
   invoice_created
   invoice_paid
   invoice_overdue
-  agent_action_executed
   agent_job_proposed
   agent_job_completed
   agent_job_disputed
