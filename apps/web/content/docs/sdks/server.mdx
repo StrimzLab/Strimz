@@ -172,8 +172,6 @@ await strimz.paymentSessions.create(input, { idempotencyKey: 'order-' + orderId 
 
 See [Idempotency](/docs/concepts/idempotency).
 
-Not yet: the API doesn't dedupe requests on the idempotency key. Tracked in [#292](https://github.com/StrimzLab/strimz/issues/292).
-
 ## Compatibility
 
 - Node.js ≥ 18 (uses `fetch`)

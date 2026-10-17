@@ -60,9 +60,7 @@ Pass `?cursor=<nextCursor>` on the next call. `limit` defaults to 25, max 100.
 
 ## Idempotency
 
-The SDK sends an `X-Strimz-Idempotency-Key` header on `POST` and `PATCH` requests. See [Idempotency](/docs/concepts/idempotency).
-
-Not yet: the API doesn't dedupe requests on that key. Tracked in [#292](https://github.com/StrimzLab/strimz/issues/292).
+Send an `X-Strimz-Idempotency-Key` header on a `POST` or `PATCH` and the API replays the first response for that key for 24 hours. The SDK sends one on every write. See [Idempotency](/docs/concepts/idempotency).
 
 ## Rate limits
 

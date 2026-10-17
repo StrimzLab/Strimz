@@ -7,14 +7,12 @@ Idempotency means an operation can be run more than once but only
 takes effect once. Without it, a network blip during a refund could
 turn into a double refund.
 
-Strimz has idempotency in the queues and on chain. The API does not
-deduplicate your own requests yet, so read the first section before
-you build retry logic.
+Strimz has idempotency at the API, in the queues and on chain.
 
 ## At the API
 
-The SDK sends an `X-Strimz-Idempotency-Key` header on every mutating
-call: a fresh `strimz_<uuid>` by default, or the value you pass.
+The SDK sends an `X-Strimz-Idempotency-Key` header on every `POST` and
+`PATCH`: a fresh `strimz_<uuid>` by default, or the value you pass.
 
 ```ts
 const session = await strimz.paymentSessions.create(
@@ -23,21 +21,38 @@ const session = await strimz.paymentSessions.create(
 )
 ```
 
-Not yet: the API ignores the idempotency header, so sending the same
-key twice creates two resources. Tracked in
-[#292](https://github.com/StrimzLab/strimz/issues/292).
+The API remembers each key for 24 hours, per merchant and mode:
 
-Until that ships, guard against duplicates in your own code. For
-example, store the session id against your cart id and reuse it
-instead of creating a second session.
+- **Same key, same request:** you get the first response again, with
+  the header `X-Strimz-Idempotent-Replayed: true`. Nothing runs twice and
+  no second webhook is sent.
+- **Same key, different request** (other path or body): `409
+idempotency_error`.
+- **Same key while the first request is still running:** `409
+idempotency_in_progress` with `Retry-After: 1`.
+
+Every response is stored, errors included. If a request failed and you
+want to try it again as a new attempt, use a new key.
+
+A key is 1 to 255 visible ASCII characters, so a value from your own
+system, like `order-1234`, works. Anything else is `400
+invalid_request`.
+
+Keys are ignored on routes that return a one-time secret: creating or
+rotating an API key, and creating a webhook endpoint or rotating its
+secret. Strimz never stores those responses. A repeat makes a spare key
+that you can revoke.
+
+If Strimz can't reach its idempotency store, the write fails with `503
+service_unavailable` rather than running without the check.
 
 ## SDK retries
 
 The SDK retries network failures, `429` responses (honouring
-`Retry-After`), and `5xx` responses for `GET` and for calls that carry
-an idempotency key, reusing the same key. Because the API does not
-deduplicate yet, a retried `POST` after a `5xx` can create a second
-resource if the first request did succeed.
+`Retry-After`), `409 idempotency_in_progress`, and `5xx` responses for
+`GET` and for calls that carry an idempotency key. A retry reuses the
+same key, so it gets the first request's response instead of creating
+a second resource.
 
 ## In the queues
 

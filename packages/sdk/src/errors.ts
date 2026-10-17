@@ -13,6 +13,7 @@ export type StrimzErrorCode =
   | 'invalid_request'
   | 'not_found'
   | 'idempotency_error'
+  | 'idempotency_in_progress'
   | 'rate_limited'
   | 'mode_mismatch'
   | 'secret_key_in_browser'
@@ -131,7 +132,10 @@ export function classifyError(
   if (httpStatus === 401) return new StrimzAuthenticationError(body, httpStatus)
   if (httpStatus === 403) return new StrimzPermissionError(body, httpStatus)
   if (httpStatus === 404) return new StrimzNotFoundError(body, httpStatus)
-  if (httpStatus === 409 && body.code === 'idempotency_error') {
+  if (
+    httpStatus === 409 &&
+    (body.code === 'idempotency_error' || body.code === 'idempotency_in_progress')
+  ) {
     return new StrimzIdempotencyError(body, httpStatus)
   }
   if (httpStatus === 422) return new StrimzValidationError(body, httpStatus)

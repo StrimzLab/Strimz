@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { Fetcher } from '../src/http/fetcher.js'
 import {
   StrimzAuthenticationError,
+  StrimzIdempotencyError,
   StrimzNetworkError,
   StrimzNotFoundError,
   StrimzRateLimitError,
@@ -201,5 +202,46 @@ describe('Fetcher', () => {
     await expect(f.request({ method: 'GET', path: '/x' })).rejects.toBeInstanceOf(
       StrimzRateLimitError,
     )
+  })
+
+  it('retries a POST while its idempotency key is still in progress', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonRes(
+          { error: { code: 'idempotency_in_progress', message: 'still running' } },
+          { status: 409 },
+        ),
+      )
+      .mockResolvedValueOnce(jsonRes({ id: 'sess_1' }, { status: 201 }))
+    const f = new Fetcher({
+      baseUrl: 'https://example.test',
+      baseHeaders: {},
+      maxRetries: 2,
+      initialBackoffMs: 1,
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    const out = await f.request({ method: 'POST', path: '/x', body: {}, idempotencyKey: 'k1' })
+    expect(out).toEqual({ id: 'sess_1' })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not retry a reused idempotency key', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        jsonRes({ error: { code: 'idempotency_error', message: 'reused' } }, { status: 409 }),
+      )
+    const f = new Fetcher({
+      baseUrl: 'https://example.test',
+      baseHeaders: {},
+      maxRetries: 2,
+      initialBackoffMs: 1,
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+    await expect(
+      f.request({ method: 'POST', path: '/x', body: {}, idempotencyKey: 'k1' }),
+    ).rejects.toBeInstanceOf(StrimzIdempotencyError)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })
