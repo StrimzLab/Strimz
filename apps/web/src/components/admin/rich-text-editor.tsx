@@ -56,7 +56,7 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          'prose prose-sm max-w-none min-h-[180px] focus:outline-none px-4 py-3 text-foreground',
+          'prose prose-sm prose-strimz max-w-none min-h-[180px] focus:outline-none px-4 py-3 text-foreground',
       },
     },
     onUpdate: ({ editor }) => {

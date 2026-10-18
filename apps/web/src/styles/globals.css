@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import '@strimz/ui/globals.css';
+@plugin '@tailwindcss/typography';
 
 /* Tailwind v4 only scans the root app by default. We have shared shadcn
  * primitives in `packages/ui` that bake in their own utility classes
@@ -613,4 +614,30 @@ html.lenis body {
   .morph-word:first-child {
     opacity: 1;
   }
+}
+
+/* Long-form text (legal pages, the broadcast editor) on theme tokens, so it follows the light/dark toggle. */
+:root {
+  --prose-link: #027a43;
+}
+.dark {
+  --prose-link: #02c76a;
+}
+@utility prose-strimz {
+  --tw-prose-body: hsl(var(--muted-foreground));
+  --tw-prose-headings: hsl(var(--foreground));
+  --tw-prose-lead: hsl(var(--muted-foreground));
+  --tw-prose-links: var(--prose-link);
+  --tw-prose-bold: hsl(var(--foreground));
+  --tw-prose-counters: hsl(var(--muted-foreground));
+  --tw-prose-bullets: var(--prose-link);
+  --tw-prose-hr: hsl(var(--border));
+  --tw-prose-quotes: hsl(var(--foreground));
+  --tw-prose-quote-borders: hsl(var(--border));
+  --tw-prose-captions: hsl(var(--muted-foreground));
+  --tw-prose-code: hsl(var(--foreground));
+  --tw-prose-pre-code: hsl(var(--foreground));
+  --tw-prose-pre-bg: hsl(var(--muted));
+  --tw-prose-th-borders: hsl(var(--border));
+  --tw-prose-td-borders: hsl(var(--border));
 }

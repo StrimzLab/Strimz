@@ -27,7 +27,9 @@ export function LegalDoc({
         <div className="text-muted-foreground mb-3 text-[11px] font-medium uppercase tracking-widest">
           Legal
         </div>
-        <h1 className="font-poppins text-4xl font-bold tracking-tight sm:text-5xl">{title}</h1>
+        <h1 className="font-sora text-foreground text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">
+          {title}
+        </h1>
         <p className="text-muted-foreground mt-3 max-w-2xl">{description}</p>
         <div className="text-muted-foreground mt-6 flex flex-wrap items-center gap-4 text-xs">
           <span>
@@ -41,7 +43,7 @@ export function LegalDoc({
       </header>
 
       <div className="mt-10 grid gap-12 lg:grid-cols-[1fr_220px]">
-        <article className="prose prose-neutral prose-h2:scroll-mt-24 prose-h2:font-poppins prose-h2:text-2xl prose-h2:font-semibold prose-h3:font-poppins prose-a:text-accent prose-a:no-underline hover:prose-a:underline max-w-none">
+        <article className="prose prose-strimz font-poppins prose-h2:mt-12 prose-h2:scroll-mt-28 prose-h2:font-sora prose-h2:text-2xl prose-h2:font-semibold prose-h2:tracking-[-0.02em] prose-h3:font-sora prose-a:font-medium prose-a:no-underline hover:prose-a:underline max-w-none">
           {children}
 
           <hr className="border-border/40 my-12" />
