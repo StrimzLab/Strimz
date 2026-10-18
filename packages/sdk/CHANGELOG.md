@@ -1,5 +1,11 @@
 # @strimz/sdk
 
+## 0.12.1
+
+### Patch Changes
+
+- d4edd95: `X-Strimz-Sdk-Version` now sends the installed SDK version instead of `0.0.0`. The build sets it from `package.json`.
+
 ## 0.12.0
 
 ### Minor Changes
