@@ -91,7 +91,7 @@ describe('dashboard plan notices', () => {
 })
 
 describe('pricing surfaces use the plan module', () => {
-  it.each(['src/app/(marketing)/pricing/page.tsx', 'src/components/marketing/pricing-teaser.tsx'])(
+  it.each(['src/app/(marketing)/pricing/page.tsx', 'src/components/marketing/home/pricing.tsx'])(
     '%s reads plans from the plan module',
     (path) => {
       const source = read(path)

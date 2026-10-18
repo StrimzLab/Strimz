@@ -47,3 +47,28 @@ describe('marketing pages make no invented claims', () => {
     expect(hits).toEqual([])
   })
 })
+
+const HOMEPAGE_FILES = [
+  ...files(join(WEB_ROOT, 'src/components/marketing/home')),
+  join(WEB_ROOT, 'src/app/(marketing)/page.tsx'),
+  join(WEB_ROOT, 'src/lib/fee-estimate.ts'),
+]
+
+// The homepage shows what Strimz does; it does not quote other processors' prices or terms.
+const COMPARISONS = [
+  'chargeback',
+  'on cards',
+  'card rate',
+  'card fee',
+  'Card payments',
+  'CARD_RATE',
+]
+
+describe('the homepage makes no comparisons with cards', () => {
+  it.each(COMPARISONS)('never says %s', (phrase) => {
+    const hits = HOMEPAGE_FILES.filter((file) =>
+      readFileSync(file, 'utf8').toLowerCase().includes(phrase.toLowerCase()),
+    ).map((file) => relative(WEB_ROOT, file))
+    expect(hits).toEqual([])
+  })
+})
