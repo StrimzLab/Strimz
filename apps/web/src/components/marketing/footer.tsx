@@ -1,7 +1,30 @@
+'use client'
+
 import Link from 'next/link'
-import { FaXTwitter, FaLinkedin, FaGithub } from 'react-icons/fa6'
+import { useRef } from 'react'
+import { FaGithub, FaLinkedin, FaXTwitter } from 'react-icons/fa6'
+import art1 from '@/../public/art/1.svg'
+import art2 from '@/../public/art/2.svg'
+import dynamic from 'next/dynamic'
+import externalIcon from '@iconify-icons/solar/arrow-right-up-linear'
 import { Logo } from '@/components/shared/logo'
-import { PaddedLines } from '@/components/shared/padded-lines'
+import { MkIcon } from './icon'
+import { PlaceholderLine } from './fx/placeholder'
+import { MOTION_OK, gsap, useGSAP, PLAY_ONCE } from './motion/gsap'
+
+const AsciiStage = dynamic(() => import('./fx/ascii-stage').then((m) => m.AsciiStage), {
+  ssr: false,
+  loading: () => (
+    <div
+      role="status"
+      className="mt-12 flex h-40 items-center justify-between px-10 opacity-20 lg:mt-4"
+    >
+      <span className="sr-only">Loading the footer artwork</span>
+      <PlaceholderLine className="h-24 w-[30%] rounded-full" />
+      <PlaceholderLine className="h-24 w-[30%] rounded-full" />
+    </div>
+  ),
+})
 
 const COLUMNS = [
   {
@@ -18,7 +41,7 @@ const COLUMNS = [
     links: [
       { href: '/about', label: 'About' },
       { href: '/contact', label: 'Contact' },
-      { href: 'https://github.com/StrimzLab/strimz', label: 'GitHub' },
+      { href: 'https://github.com/StrimzLab/strimz', label: 'GitHub', external: true },
     ],
   },
   {
@@ -29,75 +52,160 @@ const COLUMNS = [
       { href: '/legal/acceptable-use', label: 'Acceptable use' },
     ],
   },
+] as const satisfies readonly {
+  label: string
+  links: readonly { href: string; label: string; external?: boolean }[]
+}[]
+
+const SOCIAL = [
+  { href: 'https://x.com/Strimz_HQ', label: 'Strimz on X', Icon: FaXTwitter },
+  {
+    href: 'https://www.linkedin.com/company/strimzhq/',
+    label: 'Strimz on LinkedIn',
+    Icon: FaLinkedin,
+  },
+  { href: 'https://github.com/StrimzLab/strimz', label: 'Strimz on GitHub', Icon: FaGithub },
 ] as const
 
-export function MarketingFooter() {
-  const year = new Date().getFullYear()
-  return (
-    <>
-      <footer className="bg-ink flex w-full flex-col px-4 pb-10 pt-12 md:px-12 lg:px-20 lg:pt-20">
-        <section className="border-muted-foreground flex w-full flex-col items-start justify-between gap-12 border-b pb-10 md:flex-row md:gap-0">
-          <div className="max-w-xs">
-            <Logo variant="white" className="lg:w-[126.98px]" />
-            <p className="font-poppins text-ink-muted mt-5 text-sm">
-              Stablecoin billing for businesses. One API for one-time payments, subscriptions, and
-              invoices. Settled in USDC on Arc.
-            </p>
-            <div className="mt-6 flex items-center gap-4">
-              <Link
-                href="https://x.com/Strimz_HQ"
-                target="_blank"
-                className="text-ink-muted transition hover:text-white"
-              >
-                <FaXTwitter className="size-5" />
-              </Link>
-              <Link
-                href="https://www.linkedin.com/company/strimzhq/"
-                target="_blank"
-                className="text-ink-muted transition hover:text-white"
-              >
-                <FaLinkedin className="size-5" />
-              </Link>
-              <Link
-                href="https://github.com/StrimzLab/strimz"
-                target="_blank"
-                className="text-ink-muted transition hover:text-white"
-              >
-                <FaGithub className="size-5" />
-              </Link>
-            </div>
-          </div>
+const WORDMARK = 'Strimz'
 
+export function MarketingFooter() {
+  const scope = useRef<HTMLElement>(null)
+  const year = new Date().getFullYear()
+
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia()
+      mm.add(MOTION_OK, () => {
+        gsap.from('[data-rule]', {
+          scaleX: 0,
+          ease: 'none',
+          scrollTrigger: {
+            trigger: scope.current,
+            start: 'top bottom',
+            end: 'top 55%',
+            scrub: true,
+          },
+        })
+        gsap.from('[data-col]', {
+          y: 24,
+          autoAlpha: 0,
+          duration: 0.9,
+          stagger: 0.07,
+          ease: 'power3.out',
+          scrollTrigger: { trigger: scope.current, start: 'top 85%', ...PLAY_ONCE },
+        })
+        gsap.from('[data-mark-char]', {
+          yPercent: 115,
+          duration: 1.1,
+          ease: 'power3.out',
+          stagger: { each: 0.05, from: 'center' },
+          scrollTrigger: {
+            trigger: '[data-mark]',
+            start: 'top 95%',
+            toggleActions: 'play none none reverse',
+          },
+        })
+      })
+      return () => mm.revert()
+    },
+    { scope },
+  )
+
+  return (
+    <footer ref={scope} className="relative mt-28 overflow-hidden sm:mt-36 lg:mt-44">
+      <div className="mx-auto max-w-[1280px] px-5 sm:px-10">
+        <div aria-hidden className="relative h-px">
+          <div className="bg-border absolute inset-0" />
+          <div
+            data-rule
+            className="via-accent absolute inset-0 origin-left bg-gradient-to-r from-transparent to-transparent"
+          />
+        </div>
+
+        <div className="flex flex-col justify-between gap-12 pt-14 lg:flex-row lg:pt-20">
+          <div data-col className="max-w-xs">
+            <Logo className="lg:w-[126.98px]" />
+            <p className="font-poppins text-muted-foreground mt-5 text-sm leading-relaxed">
+              Stablecoin billing for businesses. One-time payments, subscriptions and invoices,
+              settled in USDC and EURC on Arc.
+            </p>
+            <ul className="mt-6 flex items-center gap-2">
+              {SOCIAL.map(({ href, label, Icon }) => (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={label}
+                    className="border-border text-muted-foreground hover:border-accent hover:text-foreground focus-visible:ring-accent grid size-10 place-items-center rounded-full border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2"
+                  >
+                    <Icon className="size-[18px]" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
           <div className="grid w-full max-w-2xl grid-cols-2 gap-10 sm:grid-cols-3">
             {COLUMNS.map((col) => (
-              <div key={col.label}>
-                <div className="font-sora mb-4 text-sm font-[600] uppercase tracking-wide text-white">
-                  {col.label}
-                </div>
-                <ul className="font-poppins text-ink-muted space-y-3 text-sm">
+              <nav key={col.label} aria-label={col.label} data-col>
+                <p className="font-sora text-foreground mb-4 text-sm font-semibold">{col.label}</p>
+                <ul className="font-poppins text-muted-foreground space-y-3 text-sm">
                   {col.links.map((l) => (
                     <li key={l.href}>
-                      <Link href={l.href} className="transition hover:text-white">
+                      <Link
+                        href={l.href}
+                        {...('external' in l && l.external
+                          ? { target: '_blank', rel: 'noreferrer' }
+                          : {})}
+                        className="from-accent to-accent hover:text-foreground focus-visible:ring-accent group inline-flex items-center gap-1 rounded-sm bg-gradient-to-r bg-[length:0%_1.5px] bg-left-bottom bg-no-repeat pb-0.5 transition-[background-size,color] duration-300 hover:bg-[length:100%_1.5px] focus-visible:outline-none focus-visible:ring-2"
+                      >
                         {l.label}
+                        {'external' in l && l.external ? (
+                          <MkIcon
+                            icon={externalIcon}
+                            className="size-3.5 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                          />
+                        ) : null}
                       </Link>
                     </li>
                   ))}
                 </ul>
-              </div>
+              </nav>
             ))}
           </div>
-        </section>
+        </div>
+      </div>
 
-        <section className="flex w-full flex-col items-center justify-between gap-4 pt-6 md:flex-row md:gap-0">
-          <p className="font-poppins text-ink-muted text-sm md:text-base">
-            Built by the Strimz team
-          </p>
-          <p className="font-poppins text-ink-muted text-sm md:text-base">
-            © {year} Strimz. All rights reserved.
-          </p>
-        </section>
-      </footer>
-      <PaddedLines />
-    </>
+      <AsciiStage
+        left={art1.src}
+        right={art2.src}
+        className="mt-12 overflow-hidden px-3 sm:px-6 lg:mt-4"
+      />
+
+      <div className="relative mx-auto max-w-[1280px] px-5 sm:px-10">
+        <p
+          data-mark
+          aria-label={WORDMARK}
+          className="font-sora -mb-[0.12em] overflow-hidden pb-[0.12em] text-center text-[26vw] font-semibold leading-[0.82] tracking-[-0.06em] sm:text-[21vw] xl:text-[17rem]"
+        >
+          {[...WORDMARK].map((ch, i) => (
+            <span
+              key={i}
+              data-mark-char
+              aria-hidden
+              className="from-foreground to-foreground/15 inline-block bg-gradient-to-b bg-clip-text text-transparent"
+            >
+              {ch}
+            </span>
+          ))}
+        </p>
+
+        <div className="font-poppins text-muted-foreground border-border flex flex-col items-center justify-between gap-4 border-t pb-24 pt-6 text-sm sm:flex-row lg:pb-6">
+          <p>Built by the Strimz team</p>
+          <p>© {year} Strimz. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
   )
 }

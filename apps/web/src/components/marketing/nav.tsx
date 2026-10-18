@@ -1,63 +1,138 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
-import { ThemeToggle } from '@strimz/ui'
+import { useEffect, useRef, useState } from 'react'
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+  ThemeToggle,
+  cn,
+} from '@strimz/ui'
+import menuIcon from '@iconify-icons/solar/hamburger-menu-linear'
 import { Logo } from '@/components/shared/logo'
-import { ScrollProgressBar } from '@/components/shared/scroll-progress-bar'
-import { MobileNav } from '@/components/shared/mobile-nav'
-import { InteractiveHoverButton } from '@/components/effects/interactive-hover-button'
+import { MkIcon } from './icon'
+import { PopLink } from './fx/pop-button'
 
-type NavLink = { href: string; label: string; external?: boolean }
-
-const NAV_LINKS: NavLink[] = [
+const LINKS = [
   { href: '/about', label: 'About' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/customers', label: 'Customers' },
-  { href: '/docs', label: 'Docs', external: true },
+  { href: '/docs', label: 'Docs' },
   { href: '/contact', label: 'Contact' },
 ]
 
 export function MarketingNav() {
+  const [open, setOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+  const linksRef = useRef<HTMLUListElement>(null)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Spotlight hover adapted from Vengeance UI's Spotlight Navbar (MIT).
+  const onMove = (e: React.PointerEvent<HTMLUListElement>) => {
+    const el = linksRef.current
+    if (!el) return
+    el.style.setProperty('--spot-x', `${e.clientX - el.getBoundingClientRect().left}px`)
+    el.style.setProperty('--spot-o', '1')
+  }
+
   return (
-    <>
-      <ScrollProgressBar />
-      <header className="bg-background flex h-[80px] w-full items-center px-4 md:h-[82px] md:px-8 lg:px-16">
-        <nav className="mx-auto flex w-full max-w-6xl items-center justify-between">
-          <Logo />
-
-          <div className="hidden items-center gap-[28px] lg:flex">
-            {NAV_LINKS.map((link) => (
+    <header className="sticky top-0 z-50 px-2 pt-2 sm:px-3">
+      <a
+        href="#main"
+        className="bg-foreground text-background sr-only rounded-full px-4 py-2 focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-10"
+      >
+        Skip to content
+      </a>
+      <nav
+        aria-label="Main"
+        className={cn(
+          'mx-auto flex max-w-[1280px] items-center justify-between gap-4 rounded-[20px] border px-4 transition-[height,background-color,border-color,box-shadow] duration-300 sm:px-5',
+          scrolled
+            ? 'bg-background/75 border-border h-14 shadow-[0_12px_40px_-18px_rgb(5_0_32/0.35)] backdrop-blur-xl backdrop-saturate-150'
+            : 'h-[72px] border-transparent bg-transparent',
+        )}
+      >
+        <Logo />
+        <ul
+          ref={linksRef}
+          onPointerMove={onMove}
+          onPointerLeave={() => linksRef.current?.style.setProperty('--spot-o', '0')}
+          className="relative hidden items-center rounded-full p-1 [--spot-o:0] lg:flex"
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-full opacity-[var(--spot-o)] transition-opacity duration-300 [background:radial-gradient(90px_circle_at_var(--spot-x)_50%,rgb(2_199_106/0.16),transparent_70%)]"
+          />
+          {LINKS.map((l) => (
+            <li key={l.href} className="relative">
               <Link
-                key={link.href}
-                href={link.href}
-                target={link.external ? '_blank' : undefined}
-                rel={link.external ? 'noreferrer' : undefined}
-                className="font-poppins text-muted-foreground hover:text-foreground cursor-pointer text-[15px] font-[400] capitalize transition-all"
+                href={l.href}
+                className="font-poppins text-muted-foreground hover:text-foreground focus-visible:ring-accent rounded-full px-4 py-2 text-[15px] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2"
               >
-                {link.label}
+                {l.label}
               </Link>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <InteractiveHoverButton
-              type="button"
-              icon={<ArrowRight className="h-4 w-4" />}
-              innerClassName="bg-accent rounded-[8px]"
-              className="shadow-nav-cta font-poppins bg-muted text-foreground flex h-[40px] cursor-pointer items-center justify-center whitespace-nowrap rounded-[8px] px-5 text-[14px] font-[500] transition-all duration-300 hover:text-white"
-              onClick={() => (window.location.href = '/signup')}
+            </li>
+          ))}
+        </ul>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link
+            href="/login"
+            className="font-poppins text-foreground focus-visible:ring-accent hidden rounded-full px-2 text-[15px] font-medium focus-visible:outline-none focus-visible:ring-2 sm:inline"
+          >
+            Sign in
+          </Link>
+          <ThemeToggle />
+          <PopLink href="/signup" size="sm" className="hidden sm:inline-flex">
+            Get started
+          </PopLink>
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
+              <button
+                type="button"
+                aria-label="Open menu"
+                className="text-foreground hover:bg-muted focus-visible:ring-accent flex size-11 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 lg:hidden"
+              >
+                <MkIcon icon={menuIcon} className="size-6" />
+              </button>
+            </SheetTrigger>
+            <SheetContent
+              aria-describedby={undefined}
+              className="bg-background w-full border-none p-6"
             >
-              Get started
-            </InteractiveHoverButton>
-
-            <div className="flex items-center lg:hidden">
-              <MobileNav links={NAV_LINKS} />
-            </div>
-          </div>
-        </nav>
-      </header>
-    </>
+              <SheetTitle className="sr-only">Menu</SheetTitle>
+              <Logo />
+              <ul className="mt-12 space-y-1">
+                {[...LINKS, { href: '/login', label: 'Sign in' }].map((l) => (
+                  <li key={l.href}>
+                    <SheetClose asChild>
+                      <Link
+                        href={l.href}
+                        className="font-sora text-foreground block py-2 text-3xl font-semibold tracking-[-0.03em]"
+                      >
+                        {l.label}
+                      </Link>
+                    </SheetClose>
+                  </li>
+                ))}
+              </ul>
+              <SheetClose asChild>
+                <PopLink href="/signup" className="mt-10 flex w-full text-base">
+                  Get started
+                </PopLink>
+              </SheetClose>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </nav>
+    </header>
   )
 }

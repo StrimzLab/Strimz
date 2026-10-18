@@ -1,9 +1,4 @@
-/**
- * Shared framer-motion variants. Centralised so every animated surface
- * (hero, feature grid, dashboard cards, callbacks) shares the same
- * easing curve and timing. That's what makes a site feel polished
- * rather than just "animated".
- */
+/** Shared framer-motion variants for the dashboard and auth screens. */
 import type { Transition, Variants } from 'framer-motion'
 
 /** Springy but tasteful. Close to the iOS feel without going bouncy. */
@@ -20,12 +15,6 @@ export const fadeUp: Variants = {
   show: { opacity: 1, y: 0, transition: tWelcome },
 }
 
-/** Scale-in for cards, KPI tiles, modals. */
-export const scaleIn: Variants = {
-  hidden: { opacity: 0, scale: 0.96 },
-  show: { opacity: 1, scale: 1, transition: tWelcome },
-}
-
 /** Container variants. Stagger children in sequence. */
 export const stagger = (delayChildren = 0.1, stagger = 0.07): Variants => ({
   hidden: {},
@@ -33,12 +22,6 @@ export const stagger = (delayChildren = 0.1, stagger = 0.07): Variants => ({
     transition: { delayChildren, staggerChildren: stagger },
   },
 })
-
-/** Marquee-friendly entrance. Used for trusted-by row, feature pills. */
-export const slideLeft: Variants = {
-  hidden: { opacity: 0, x: -24 },
-  show: { opacity: 1, x: 0, transition: tWelcome },
-}
 
 /** Reveal-on-scroll defaults that pair with `<motion.div whileInView />`. */
 export const inViewOnce = {

@@ -1,43 +1,62 @@
 import type { Metadata } from 'next'
 import { OG_IMAGE } from '@/lib/seo'
-import { Hero } from '@/components/marketing/hero'
-import { SocialProof } from '@/components/marketing/social-proof'
-import { HowItWorks } from '@/components/marketing/how-it-works'
-import { Features } from '@/components/marketing/features'
-import { Benefits } from '@/components/marketing/benefits'
-import { Developers } from '@/components/marketing/developers'
-import { PricingTeaser } from '@/components/marketing/pricing-teaser'
-import { Faqs } from '@/components/marketing/faqs'
-import { ClosingCta } from '@/components/marketing/cta'
+import { Hero } from '@/components/marketing/home/hero'
+import { Sectors } from '@/components/marketing/home/sectors'
+import { Manifesto } from '@/components/marketing/home/manifesto'
+import { HowItWorks } from '@/components/marketing/home/how-it-works'
+import { Assurances } from '@/components/marketing/home/assurances'
+import { BillingTools } from '@/components/marketing/home/billing-tools'
+import { Developers } from '@/components/marketing/home/developers'
+import { Pricing } from '@/components/marketing/home/pricing'
+import { Faq } from '@/components/marketing/home/faq'
+import { Closing } from '@/components/marketing/home/closing'
+import { SectionBoundary } from '@/components/marketing/fx/section-boundary'
+
+const TITLE = 'Strimz. Get paid in USDC and EURC, in seconds'
+const DESCRIPTION =
+  'Take one time and subscription payments in USDC and EURC. Every payment lands in your own wallet in seconds. 0% on your first $1,000.'
 
 export const metadata: Metadata = {
-  // Override the title template for the homepage. We want the bare
-  // brand line, not "Home · Strimz".
-  title: { absolute: 'Strimz. Stablecoin billing infrastructure' },
-  description:
-    'B2B subscription billing on stablecoins. One API for one-shot payments, recurring charges, refunds, webhooks, and an AI AutoPay Agent. All settled in USDC on Arc.',
-  openGraph: {
-    title: 'Strimz. Stablecoin billing infrastructure',
-    description:
-      'One API for stablecoin one-shot, subscription, and AI-driven payments. Settled in USDC on Arc.',
-    url: '/',
-    images: [OG_IMAGE],
-  },
+  title: { absolute: TITLE },
+  description: DESCRIPTION,
+  openGraph: { title: TITLE, description: DESCRIPTION, url: '/', images: [OG_IMAGE] },
+  twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION },
   alternates: { canonical: '/' },
 }
 
 export default function HomePage() {
   return (
     <>
-      <Hero />
-      <SocialProof />
-      <HowItWorks />
-      <Features />
-      <Benefits />
-      <Developers />
-      <PricingTeaser />
-      <Faqs />
-      <ClosingCta />
+      <SectionBoundary name="introduction">
+        <Hero />
+      </SectionBoundary>
+      <SectionBoundary name="industries">
+        <Sectors />
+      </SectionBoundary>
+      <SectionBoundary name="why Strimz">
+        <Manifesto />
+      </SectionBoundary>
+      <SectionBoundary name="how it works">
+        <HowItWorks />
+      </SectionBoundary>
+      <SectionBoundary name="guarantees">
+        <Assurances />
+      </SectionBoundary>
+      <SectionBoundary name="billing tools">
+        <BillingTools />
+      </SectionBoundary>
+      <SectionBoundary name="developer">
+        <Developers />
+      </SectionBoundary>
+      <SectionBoundary name="pricing">
+        <Pricing />
+      </SectionBoundary>
+      <SectionBoundary name="questions">
+        <Faq />
+      </SectionBoundary>
+      <SectionBoundary name="get started">
+        <Closing />
+      </SectionBoundary>
     </>
   )
 }
