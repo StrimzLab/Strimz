@@ -1,10 +1,4 @@
-'use client'
-
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@strimz/ui'
-import { motion } from 'framer-motion'
-import { fadeUp, inViewOnce, stagger } from '@/lib/motion'
-
-const FAQS = [
+export const FAQS = [
   {
     q: 'What does Strimz actually do?',
     a: 'Strimz lets your business take payments in stablecoins. You can charge a customer once, or set up a subscription that charges them every period. You get paid in USDC or EURC; we handle the on-chain side, refunds, webhooks, dashboards, and everything in between.',
@@ -46,54 +40,3 @@ const FAQS = [
     a: 'In the docs at strimz.finance/docs: the API, SDKs, webhook signatures, contract architecture and error codes, from a 5-minute quickstart to self-hosting.',
   },
 ] as const
-
-export function Faqs() {
-  return (
-    <section className="bg-background w-full px-6 py-16 md:py-20">
-      <motion.div
-        {...inViewOnce}
-        variants={stagger(0.05, 0.1)}
-        className="mx-auto max-w-[996px] text-center"
-      >
-        <motion.h2
-          variants={fadeUp}
-          className="font-sora text-foreground text-[32px] font-[700] leading-[40px] md:text-[40px] md:leading-[48px]"
-        >
-          Frequently asked questions
-        </motion.h2>
-        <motion.p
-          variants={fadeUp}
-          className="font-poppins text-muted-foreground mt-4 text-base font-[400]"
-        >
-          Don&apos;t see yours?{' '}
-          <a
-            href="mailto:support@strimz.finance"
-            className="text-foreground font-[500] underline-offset-4 hover:underline"
-          >
-            Email us
-          </a>
-          . Real people read every message.
-        </motion.p>
-      </motion.div>
-
-      <motion.div {...inViewOnce} variants={fadeUp} className="mx-auto mt-10 max-w-[996px]">
-        <Accordion type="single" defaultValue="0" collapsible className="space-y-2">
-          {FAQS.map((f, i) => (
-            <AccordionItem
-              key={i}
-              value={String(i)}
-              className="border-border bg-secondary rounded-[8px] border px-4 md:px-8"
-            >
-              <AccordionTrigger className="font-poppins text-foreground py-4 text-[16px] font-[500] md:text-[18px] md:leading-[28px]">
-                {f.q}
-              </AccordionTrigger>
-              <AccordionContent className="font-poppins text-muted-foreground pb-4 text-base leading-[28px]">
-                {f.a}
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </motion.div>
-    </section>
-  )
-}

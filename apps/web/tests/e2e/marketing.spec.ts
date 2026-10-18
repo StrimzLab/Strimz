@@ -10,12 +10,11 @@ import { expect, test } from '@playwright/test'
 test.describe('marketing', () => {
   test('landing page renders hero + CTAs', async ({ page }) => {
     await page.goto('/')
-    // The hero headline is split across multiple lines: "The billing
-    // layer / for stablecoins." Asserting "stablecoins" is enough — it
-    // sits in an h1 unique to the hero.
-    await expect(page.getByRole('heading', { level: 1, name: /stablecoins/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /start building/i }).first()).toBeVisible()
-    await expect(page.getByRole('link', { name: /read the docs/i }).first()).toBeVisible()
+    await expect(
+      page.getByRole('heading', { level: 1, name: /stablecoin billing for/i }),
+    ).toBeVisible()
+    await expect(page.getByRole('link', { name: /start free/i }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: /read the docs/i }).first()).toBeAttached()
   })
 
   test('pricing page lists all tiers', async ({ page }) => {

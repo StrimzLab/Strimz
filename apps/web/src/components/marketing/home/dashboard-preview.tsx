@@ -59,7 +59,7 @@ export function DashboardPreview() {
         <ChromeBar urlIndex={sceneIndex} />
 
         {/* Fixed min-height keeps the card from jumping between scenes */}
-        <div className="relative min-h-[400px]">
+        <div className="relative min-h-[345px] sm:min-h-[400px]">
           <AnimatePresence mode="wait">
             {sceneIndex === 0 ? (
               <SubscriptionScene key="scene-sub" reducedMotion={reducedMotion} />
@@ -117,7 +117,7 @@ function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
     return () => timers.forEach(clearTimeout)
   }, [reducedMotion])
 
-  const charges = ['May 2', 'Apr 2', 'Mar 2', 'Feb 2', 'Jan 2', 'Dec 2', 'Nov 2']
+  const charges = ['Sep 20', 'Aug 20', 'Jul 20', 'Jun 20', 'May 20', 'Apr 20', 'Mar 20']
 
   return (
     <SceneShell>
@@ -186,7 +186,7 @@ function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
                 <motion.span
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="font-poppins text-accent text-[10px] sm:text-[11px]"
+                  className="font-poppins text-accent-ink dark:text-accent text-[10px] sm:text-[11px]"
                 >
                   all confirmed
                 </motion.span>
@@ -203,8 +203,9 @@ function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
                 animate={{ opacity: 1, y: 0 }}
                 className="font-poppins text-muted-foreground mt-3 text-[10px] sm:text-[11px]"
               >
-                Customer signed <span className="text-foreground font-[600]">once on Nov 2</span>
-                {' · '}charged <span className="text-accent font-[600]">7 times</span>
+                Customer signed <span className="text-foreground font-[600]">once on Mar 20</span>
+                {' · '}charged{' '}
+                <span className="text-accent-ink dark:text-accent font-[600]">7 times</span>
               </motion.p>
             ) : null}
           </motion.div>
@@ -345,7 +346,7 @@ function OneShotScene({ reducedMotion }: { reducedMotion: boolean }) {
                   <span className="font-poppins text-muted-foreground text-[10px] sm:text-[11px]">
                     Settled in
                   </span>
-                  <span className="text-accent font-mono text-[10px] font-[600] sm:text-[11px]">
+                  <span className="text-accent-ink dark:text-accent font-mono text-[10px] font-[600] sm:text-[11px]">
                     seconds
                   </span>
                 </motion.div>
@@ -395,7 +396,7 @@ function SessionStatusPill({ step }: { step: number }) {
         key="pending"
         initial={{ opacity: 0, scale: 0.85 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="font-poppins inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-[500] text-amber-700 sm:text-[11px]"
+        className="font-poppins inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-[500] text-amber-700 sm:text-[11px] dark:text-amber-300"
       >
         <span className="size-1.5 animate-pulse rounded-full bg-amber-500" />
         pending
@@ -408,7 +409,7 @@ function SessionStatusPill({ step }: { step: number }) {
         key="confirming"
         initial={{ opacity: 0, scale: 0.85 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="font-poppins inline-flex shrink-0 items-center gap-1.5 rounded-full bg-sky-500/10 px-2.5 py-1 text-[10px] font-[500] text-sky-700 sm:text-[11px]"
+        className="font-poppins inline-flex shrink-0 items-center gap-1.5 rounded-full bg-sky-500/10 px-2.5 py-1 text-[10px] font-[500] text-sky-700 sm:text-[11px] dark:text-sky-300"
       >
         <span className="relative flex size-1.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-500/70" />
@@ -424,7 +425,7 @@ function SessionStatusPill({ step }: { step: number }) {
       initial={{ scale: 0.5, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 280, damping: 15 }}
-      className="font-poppins bg-accent/10 text-accent inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-[500] sm:text-[11px]"
+      className="font-poppins bg-accent/10 text-accent-ink dark:text-accent inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-[500] sm:text-[11px]"
     >
       <Check className="size-3" strokeWidth={3} />
       confirmed
@@ -446,7 +447,7 @@ function BlockTicker() {
       className="mt-3 flex items-center justify-between border-t border-sky-500/15 pt-3"
     >
       <span className="font-poppins text-muted-foreground text-[10px] sm:text-[11px]">Block</span>
-      <span className="font-mono text-[10px] font-[600] tabular-nums text-sky-700 sm:text-[11px]">
+      <span className="font-mono text-[10px] font-[600] tabular-nums text-sky-700 sm:text-[11px] dark:text-sky-300">
         #{block.toLocaleString()}
       </span>
     </motion.div>
@@ -582,7 +583,7 @@ function RecoveryStatusPill({ atRisk, resolved }: { atRisk: boolean; resolved: b
       <motion.span
         initial={{ scale: 0.85 }}
         animate={{ scale: 1 }}
-        className="font-poppins inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-[500] text-amber-700 sm:text-[11px]"
+        className="font-poppins inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-[500] text-amber-700 sm:text-[11px] dark:text-amber-300"
       >
         <span className="size-1.5 animate-pulse rounded-full bg-amber-500" />
         at_risk
@@ -726,9 +727,9 @@ function Pill({
   tone?: 'positive' | 'info' | 'warning'
 }) {
   const tones = {
-    positive: 'bg-accent/10 text-accent',
-    info: 'bg-sky-500/10 text-sky-700',
-    warning: 'bg-amber-500/10 text-amber-700',
+    positive: 'bg-accent/10 text-accent-ink dark:text-accent',
+    info: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
+    warning: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
   } as const
   return (
     <span
@@ -744,7 +745,7 @@ function Pill({
 
 function PulsePill({ children }: { children: ReactNode }) {
   return (
-    <span className="font-poppins bg-accent/10 text-accent inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-[500] sm:text-[11px]">
+    <span className="font-poppins bg-accent/10 text-accent-ink dark:text-accent inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-[500] sm:text-[11px]">
       <span className="relative flex size-1.5">
         <span className="bg-accent/70 absolute inline-flex h-full w-full animate-ping rounded-full" />
         <span className="bg-accent relative inline-flex size-1.5 rounded-full" />

@@ -1,10 +1,6 @@
 import { cn } from '@strimz/ui'
 
-/**
- * Three stacked accent bars used as a visual cap below the marketing
- * footer (and sometimes between sections). Direct match to
- * strimz-subscription's `paddedLines` component.
- */
+/** The brand's three green bars, used under the navy band on the homepage. */
 export function PaddedLines({ className }: { className?: string }) {
   return (
     <div className={cn('w-full', className)} aria-hidden>
