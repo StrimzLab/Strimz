@@ -53,15 +53,6 @@ export function useSubscription<TData = Subscription>(
   })
 }
 
-/**
- * Cancel a subscription. Two cancellation modes are supported server-side:
- *   - `at_period_end`: status stays `active`, `cancelledAt` is stamped.
- *   - `immediate`: status flips to `cancelled` immediately.
- *
- * We don't optimistic-flip the status because the at-period-end variant
- * keeps the row "active". Easier to invalidate-and-refetch than to
- * fork the optimistic patch on the input shape.
- */
 export function useCancelSubscription() {
   const api = useMerchantApi()
   const qc = useQueryClient()
@@ -73,10 +64,7 @@ export function useCancelSubscription() {
     },
     messages: {
       loading: 'Cancelling subscription…',
-      success: (s) =>
-        s.status === 'cancelled'
-          ? 'Subscription cancelled immediately'
-          : 'Subscription will end at period end',
+      success: 'Subscription cancelled immediately',
     },
   })
 }
