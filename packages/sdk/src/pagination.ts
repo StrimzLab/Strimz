@@ -16,7 +16,8 @@ export interface PaginationParams {
 /**
  * Async-iterable wrapper that auto-paginates through every page of a list.
  *
- *   for await (const tx of strimz.transactions.listAll()) { ... }
+ *   const subs = new AutoPagingIterator((cursor) => strimz.subscriptions.list({ cursor }))
+ *   for await (const sub of subs) { ... }
  */
 export class AutoPagingIterator<T> implements AsyncIterable<T> {
   constructor(private readonly fetchPage: (cursor: string | null) => Promise<Page<T>>) {}
