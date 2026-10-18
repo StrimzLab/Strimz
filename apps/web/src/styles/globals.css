@@ -21,47 +21,31 @@
  * `shadow-cta-rim`, `shadow-auth-card` etc. work as utility classes.
  */
 @theme {
+  /* Brand green dark enough for small text on white (about 5:1). */
+  --color-accent-ink: #027a43;
   --shadow-cta-rim:
-    0px -4px 4px 0px rgba(0, 0, 0, 0.2) inset,
-    0px 4px 4px 0px rgba(225, 225, 225, 0.25) inset,
+    0px -4px 4px 0px rgba(0, 0, 0, 0.2) inset, 0px 4px 4px 0px rgba(225, 225, 225, 0.25) inset,
     0px 0px 0px 1px rgba(2, 199, 106, 0.25);
   --shadow-cta:
-    0px -4px 4px 0px rgba(0, 0, 0, 0.2) inset,
-    0px 4px 4px 0px rgba(225, 225, 225, 0.25) inset;
-  --shadow-sub-card:
-    0px 1px 2px -1px rgba(0, 0, 0, 0.1),
-    0px 1px 3px 0px rgba(0, 0, 0, 0.1);
+    0px -4px 4px 0px rgba(0, 0, 0, 0.2) inset, 0px 4px 4px 0px rgba(225, 225, 225, 0.25) inset;
+  --shadow-sub-card: 0px 1px 2px -1px rgba(0, 0, 0, 0.1), 0px 1px 3px 0px rgba(0, 0, 0, 0.1);
   --shadow-verify-m:
-    0px 2.8px 5.6px -2.8px rgba(0, 0, 0, 0.05),
-    0px 5.6px 8.4px -1.4px rgba(0, 0, 0, 0.1),
+    0px 2.8px 5.6px -2.8px rgba(0, 0, 0, 0.05), 0px 5.6px 8.4px -1.4px rgba(0, 0, 0, 0.1),
     0px -2.8px 5.6px 0px rgba(0, 0, 0, 0.1) inset;
-  --shadow-auth-card:
-    0px 2px 4px -2px rgba(0, 0, 0, 0.05),
-    0px 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-auth-card: 0px 2px 4px -2px rgba(0, 0, 0, 0.05), 0px 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-strimz-logo:
-    0px 25px 40px 0px rgba(2, 199, 106, 0.6),
-    0px -9px 15px 0px rgba(0, 0, 0, 0.2) inset;
-  --shadow-sidebar-link:
-    0px 2px 4px -2px rgba(0, 0, 0, 0.05),
-    0px 4px 6px -1px rgba(0, 0, 0, 0.1);
+    0px 25px 40px 0px rgba(2, 199, 106, 0.6), 0px -9px 15px 0px rgba(0, 0, 0, 0.2) inset;
+  --shadow-sidebar-link: 0px 2px 4px -2px rgba(0, 0, 0, 0.05), 0px 4px 6px -1px rgba(0, 0, 0, 0.1);
   --shadow-sub-icon:
-    0px 2px 4px -2px rgba(0, 0, 0, 0.05),
-    0px 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0px 2px 4px -2px rgba(0, 0, 0, 0.05), 0px 4px 6px -1px rgba(0, 0, 0, 0.1),
     0px -2px 4px 0px rgba(0, 0, 0, 0.1) inset;
-  --shadow-navbar:
-    0px 1px 2px -1px rgba(0, 0, 0, 0.1),
-    0px 1px 3px 0px rgba(0, 0, 0, 0.1);
-  --shadow-nav-cta:
-    0px -2px 4px 0px rgba(0, 0, 0, 0.08) inset,
-    0px 0px 0px 1px hsl(var(--border));
-  --shadow-soft-1:
-    0px 1px 2px 0px rgba(0, 0, 0, 0.08);
-  --shadow-soft-inset:
-    0px -2px 4px 0px rgba(0, 0, 0, 0.08) inset;
+  --shadow-navbar: 0px 1px 2px -1px rgba(0, 0, 0, 0.1), 0px 1px 3px 0px rgba(0, 0, 0, 0.1);
+  --shadow-nav-cta: 0px -2px 4px 0px rgba(0, 0, 0, 0.08) inset, 0px 0px 0px 1px hsl(var(--border));
+  --shadow-soft-1: 0px 1px 2px 0px rgba(0, 0, 0, 0.08);
+  --shadow-soft-inset: 0px -2px 4px 0px rgba(0, 0, 0, 0.08) inset;
 
   /* Branded drop shadow used on hero brand logos (Netflix, Spotify…) */
-  --drop-shadow-brand:
-    drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.05))
+  --drop-shadow-brand: drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.05))
     drop-shadow(0px 10px 15px rgba(0, 0, 0, 0.1));
 
   /* Custom keyframes */
@@ -69,7 +53,8 @@
 }
 
 @keyframes custom-ping {
-  75%, 100% {
+  75%,
+  100% {
     transform: scale(1.2);
     opacity: 0;
   }
@@ -86,7 +71,12 @@
     font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
     letter-spacing: -0.01em;
   }
@@ -95,9 +85,15 @@
 @layer utilities {
   /* Concentric wave gradients for the strimz-subscription hero orb. Light
    * mode only; the design never ships a dark variant. */
-  .strimz-wave-1 { background: linear-gradient(to bottom, #f0fff8 0%, #ffffff 100%); }
-  .strimz-wave-2 { background: linear-gradient(to bottom, #ccffe7 0%, #ffffff 100%); }
-  .strimz-wave-3 { background: linear-gradient(to bottom, #b3fedb 0%, #ffffff 100%); }
+  .strimz-wave-1 {
+    background: linear-gradient(to bottom, #f0fff8 0%, #ffffff 100%);
+  }
+  .strimz-wave-2 {
+    background: linear-gradient(to bottom, #ccffe7 0%, #ffffff 100%);
+  }
+  .strimz-wave-3 {
+    background: linear-gradient(to bottom, #b3fedb 0%, #ffffff 100%);
+  }
   .dark .strimz-wave-1,
   .dark .strimz-wave-2,
   .dark .strimz-wave-3 {
@@ -121,8 +117,13 @@
   }
 
   /* Hide scrollbars where appropriate (sidebar, marquee). */
-  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
-  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 
   /* driver.js popover skinning to match the Strimz palette. Applied
    * via the `popoverClass: 'strimz-tour'` config in use-dashboard-tour. */
@@ -131,7 +132,9 @@
     color: hsl(var(--card-foreground));
     border: 1px solid hsl(var(--border));
     border-radius: 12px;
-    box-shadow: 0 20px 40px -20px rgba(2, 199, 106, 0.25), 0 6px 20px -8px rgba(5, 0, 32, 0.15);
+    box-shadow:
+      0 20px 40px -20px rgba(2, 199, 106, 0.25),
+      0 6px 20px -8px rgba(5, 0, 32, 0.15);
     font-family: var(--font-poppins), system-ui, sans-serif;
   }
   .driver-popover.strimz-tour .driver-popover-title {
@@ -149,7 +152,7 @@
     font-size: 11px;
   }
   .driver-popover.strimz-tour .driver-popover-navigation-btns button {
-    background: #02C76A;
+    background: #02c76a;
     color: #ffffff;
     font-weight: 500;
     padding: 6px 14px;
@@ -187,6 +190,427 @@
   /* Strip number-input spinners site-wide (matches strimz-subscription's
    * global declaration). */
   input[type='number']::-webkit-outer-spin-button,
-  input[type='number']::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  input[type='number'] { -moz-appearance: textfield; }
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+}
+
+:root {
+  --ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@theme inline {
+  --ease-out-quint: var(--ease-out-quint);
+  --animate-marquee: marquee var(--marquee-duration, 40s) linear infinite;
+  --animate-marquee-reverse: marquee var(--marquee-duration, 40s) linear infinite reverse;
+}
+
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes beam {
+  to {
+    offset-distance: 100%;
+  }
+}
+
+@keyframes light-down {
+  from {
+    transform: translateY(-1080px);
+  }
+  to {
+    transform: translateY(1080px);
+  }
+}
+
+.light-down,
+.light-up {
+  animation: light-down linear infinite;
+}
+.light-up {
+  animation-direction: reverse;
+}
+
+/* Adapted from Vengeance UI's Pop Button (MIT): a keycap that sinks when pressed. */
+@property --pop-d {
+  syntax: '<length>';
+  initial-value: 6px;
+  inherits: false;
+}
+.pop-button {
+  --pop-depth: 6px;
+  --pop-d: var(--pop-depth);
+  --pop-face: #02c76a;
+  --pop-face-hover: #0bd677;
+  --pop-side: #01a85a;
+  --pop-edge: #027a43;
+  --pop-floor: rgb(2 122 67 / 0.22);
+  --pop-shine: rgb(255 255 255 / 0.45);
+  border: 1.5px solid var(--pop-edge);
+  background: var(--pop-face);
+  color: #050020;
+  box-shadow:
+    inset 0 1px 0 var(--pop-shine),
+    0 var(--pop-d) 0 -1.5px var(--pop-side),
+    0 var(--pop-d) 0 0 var(--pop-edge),
+    0 calc(var(--pop-d) * 1.9) 0 0 var(--pop-floor);
+  transform: translateY(calc(var(--pop-depth) - var(--pop-d)));
+  transition:
+    --pop-d 0.15s cubic-bezier(0, 0, 0.58, 1),
+    transform 0.15s cubic-bezier(0, 0, 0.58, 1),
+    background-color 0.15s,
+    opacity 0.3s,
+    scale 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+.pop-button[data-size='sm'] {
+  --pop-depth: 4px;
+}
+.pop-button[data-tone='neutral'] {
+  --pop-face: hsl(var(--card));
+  --pop-face-hover: hsl(var(--muted));
+  --pop-side: hsl(var(--border));
+  --pop-edge: hsl(var(--input));
+  --pop-floor: rgb(5 0 32 / 0.08);
+  --pop-shine: rgb(255 255 255 / 0.9);
+  color: hsl(var(--foreground));
+}
+.dark .pop-button[data-tone='neutral'],
+.pop-button[data-tone='neutral'][data-on-ink] {
+  --pop-face: hsl(240 18% 13%);
+  --pop-face-hover: hsl(240 17% 17%);
+  --pop-side: hsl(240 16% 9%);
+  --pop-edge: hsl(240 12% 28%);
+  --pop-floor: rgb(0 0 0 / 0.35);
+  --pop-shine: rgb(255 255 255 / 0.08);
+  color: #fff;
+}
+.dark .pop-button:not([data-tone]) {
+  --pop-floor: rgb(0 0 0 / 0.4);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pop-button:hover {
+    --pop-d: calc(var(--pop-depth) * 0.6);
+    background: var(--pop-face-hover);
+  }
+}
+.pop-button:active,
+.pop-button[data-pressed] {
+  --pop-d: 0px;
+  background: var(--pop-face-hover);
+}
+.pop-button:focus-visible {
+  outline: 2px solid #028d4b;
+  outline-offset: 3px;
+}
+.dark .pop-button:focus-visible,
+.pop-button[data-on-ink]:focus-visible {
+  outline-color: #95fecc;
+}
+
+/* Five words, a fifth of the cycle each. Each fade-out overlaps the next fade-in. */
+.morph-word {
+  opacity: 0;
+  animation-name: morph-word;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes morph-word {
+  0% {
+    opacity: 0;
+    filter: blur(12px);
+    transform: translateY(12%) scale(0.92);
+  }
+  4%,
+  20% {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+  24%,
+  100% {
+    opacity: 0;
+    filter: blur(12px);
+    transform: translateY(-12%) scale(1.04);
+  }
+}
+
+.toast-timer {
+  animation-name: toast-timer;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.toasts-paused .toast-timer {
+  animation-play-state: paused;
+}
+@keyframes toast-timer {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+html.lenis,
+html.lenis body {
+  height: auto;
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: clip;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+/* Film grain for the navy stages. */
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Adapted from Vengeance UI's Typing Keyboard (MIT), themed and scaled by --tk-scale. */
+.tk {
+  --tk-cap: #fffffb;
+  --tk-cap-tint: color-mix(in srgb, #02c76a 22%, #fffffb);
+  --tk-side: #8c8a99;
+  --tk-side-2: #c4c3cc;
+  --tk-body: #fffffb;
+  --tk-body-2: #eae7e5;
+  --tk-plate-from: color-mix(in srgb, #02c76a 30%, white);
+  --tk-plate-to: #d7d5de;
+  --tk-scale: 0.8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dark .tk {
+  --tk-cap: #34305e;
+  --tk-cap-tint: color-mix(in srgb, #02c76a 20%, #34305e);
+  --tk-side: #171433;
+  --tk-side-2: #4a4680;
+  --tk-body: #26224d;
+  --tk-body-2: #12102b;
+  --tk-plate-from: color-mix(in srgb, #02c76a 25%, #15123a);
+  --tk-plate-to: #0b0828;
+}
+.tk * {
+  transform-style: preserve-3d;
+}
+.tk-main {
+  width: 800px;
+  height: 600px;
+  flex-shrink: 0;
+  position: relative;
+  /* The 3D screen rises above the box and the keys leave room below, so recentre the art. */
+  transform: scale(var(--tk-scale)) translateY(120px);
+}
+.tk-flex {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.tk-face {
+  position: absolute;
+}
+.tk-keyboard {
+  width: 500px;
+  height: 160px;
+  transform: perspective(10000px) rotateX(60deg) rotateZ(-35deg);
+}
+.tk-keyboard__front {
+  width: 500px;
+  height: 25px;
+  transform: rotateX(-90deg) translateZ(80px);
+  background: var(--tk-side);
+}
+.tk-keyboard__back {
+  width: 500px;
+  height: 25px;
+  transform: rotateX(90deg) translateZ(80px);
+  background: var(--tk-body);
+}
+.tk-keyboard__top {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  width: 500px;
+  height: 160px;
+  transform: translateZ(12.5px);
+  background-image: linear-gradient(to bottom, var(--tk-plate-from), var(--tk-plate-to));
+  border-radius: 6px;
+}
+.tk-keyboard__bottom {
+  width: 500px;
+  height: 160px;
+  transform: rotateY(180deg) translateZ(12.5px);
+  background: var(--tk-body-2);
+}
+.tk-keyboard__right {
+  width: 25px;
+  height: 160px;
+  transform: rotateY(90deg) translateZ(250px);
+  background: var(--tk-body);
+}
+.tk-keyboard__left {
+  width: 25px;
+  height: 160px;
+  transform: rotateY(90deg) translateZ(-250px);
+  background: var(--tk-body-2);
+}
+.tk-screen {
+  width: 320px;
+  height: 230px;
+  transform: translateZ(100px) translateY(-200px) translateZ(50px) rotateX(270deg);
+  background: #050020;
+  border: 1px solid rgb(2 199 106 / 0.5);
+  border-radius: 14px;
+  padding: 18px;
+  font:
+    500 13px/1.65 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: #95fecc;
+  white-space: pre-wrap;
+  overflow: hidden;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  box-shadow:
+    0 0 10px rgb(2 199 106 / 0.45),
+    0 0 30px rgb(2 199 106 / 0.3),
+    0 0 70px rgb(2 199 106 / 0.2);
+}
+.tk-keys {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  transform: translateZ(4px);
+  padding: 0 2px;
+}
+.tk-key {
+  width: 30px;
+  height: 27px;
+  transition: transform 0.05s ease;
+}
+.tk-key.w2 {
+  width: 60px;
+}
+.tk-key.w3 {
+  width: 90px;
+}
+.tk-key.w6 {
+  width: 195px;
+}
+.tk-key > .front,
+.tk-key > .back {
+  width: 100%;
+  height: 8px;
+  background: var(--tk-side);
+}
+.tk-key > .front {
+  transform: rotateX(-90deg) translateZ(13.5px);
+}
+.tk-key > .back {
+  transform: rotateX(90deg) translateZ(13.5px);
+  background: var(--tk-cap);
+}
+.tk-key > .top {
+  width: 100%;
+  height: 27px;
+  transform: translateZ(4px);
+  border-radius: 3px;
+  background-image: linear-gradient(to bottom, var(--tk-cap-tint), var(--tk-cap));
+  box-shadow:
+    inset 0 0 0 0.5px rgb(0 0 0 / 0.12),
+    0 -1px 2px rgb(0 0 0 / 0.08);
+}
+.tk-key > .side {
+  width: 8px;
+  height: 27px;
+  background: var(--tk-side-2);
+  transform: rotateY(90deg) translateZ(calc(var(--w, 30px) / 2));
+}
+.tk-key > .side.left {
+  transform: rotateY(90deg) translateZ(calc(var(--w, 30px) / -2));
+}
+.tk-key.accent > .top {
+  background: #02c76a;
+}
+.tk-key.accent > .front {
+  background: #027a43;
+}
+.tk-key.mint > .top {
+  background: #95fecc;
+}
+.tk-key.mint > .front {
+  background: #3bbf86;
+}
+.tk-key.down {
+  transform: translateZ(-5px);
+}
+.tk-key.down > .top {
+  background: #03fc86 !important;
+}
+.tk-caret {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: #02c76a;
+  animation: tk-blink 1s steps(1) infinite;
+}
+@keyframes tk-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.circuit-pulse {
+  stroke-dasharray: 14 86;
+  stroke-dashoffset: 100;
+  animation: circuit-pulse 2.6s linear infinite;
+}
+@keyframes circuit-pulse {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* The inline gate adds .mk-motion before first paint when motion is allowed,
+ * so intro items start hidden instead of flashing; without it they render final. */
+.mk-motion [data-intro] {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-motion [data-intro] {
+    visibility: visible;
+  }
+  .animate-marquee,
+  .animate-marquee-reverse,
+  .light-down,
+  .light-up,
+  .beam::after,
+  .morph-word,
+  .tk-caret {
+    animation: none;
+  }
+  .circuit-pulse {
+    display: none;
+  }
+  .morph-word:first-child {
+    opacity: 1;
+  }
 }
