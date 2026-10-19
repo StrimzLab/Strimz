@@ -16,6 +16,14 @@ import type {
 } from '@strimz/shared-types'
 
 import { CheckoutShell, StepIndicator } from '@/components/checkout/checkout-shell'
+import {
+  CheckoutNotice,
+  PayerErrorNotice,
+  WalletConnectUnavailable,
+} from '@/components/checkout/checkout-notice'
+import { ConnectedRow } from '@/components/checkout/connected-row'
+import { HowItWorks } from '@/components/checkout/how-it-works'
+import { ReceiptPanel } from '@/components/checkout/receipt-panel'
 import { WalletPickerGuard } from '@/components/checkout/wallet-picker-guard'
 import { SubmitButton } from '@/components/auth/submit-button'
 import { TokenLogo } from '@/components/shared/token-logo'
@@ -23,17 +31,14 @@ import { projectId as reownProjectId } from '@/lib/wagmi'
 import { env } from '@/lib/env'
 import { strimzBrowserClient } from '@/lib/strimz-browser'
 import { attachPlanPayer } from '@/lib/checkout-payer'
+import { busyLabel, intervalLabel, phaseLine } from '@/lib/checkout-copy'
+import { attachError, payerError } from '@/lib/payer-errors'
 import { useSubscriptionCheckout, type SubscriptionPhase } from '@/hooks/use-subscription-checkout'
 
 /**
- * Public hosted checkout for subscription enrolment.
- *
- * Loads the plan payload (amount, currency, intervalSeconds,
- * tokenAddress, chainMerchantId), looks up token capabilities, then
- * drives the EIP-2612 single-signature flow via
- * `useSubscriptionCheckout`. A plan whose merchant isn't yet
- * registered on-chain (chainMerchantId == null) surfaces a clear
- * error rather than letting the payer attempt a doomed signature.
+ * Hosted checkout for subscriptions. A merchant not yet registered with
+ * the contract (no chainMerchantId) can't take one, so the page waits
+ * instead of asking for a doomed approval.
  */
 export default function SubscribePage({ params }: { params: Promise<{ planId: string }> }) {
   const { planId } = use(params)
@@ -142,7 +147,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
   const amountBaseUnits = plan ? BigInt(plan.amount) : 0n
   const amountDisplay = formatAmount(amountBaseUnits, tokenMeta?.decimals ?? 6)
   const intervalSeconds = plan?.intervalSeconds ?? 0
-  const intervalLabel = humaniseInterval(plan?.interval ?? null)
+  const interval = intervalLabel(plan?.interval)
 
   const subscribe = useSubscriptionCheckout({
     sessionId: planId,
@@ -152,8 +157,8 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
     intervalSeconds: intervalSeconds || 1, // hook validates > 0; 1 keeps it from throwing while loading
     resolveStartAt,
   })
-  const symbol = tokenMeta?.symbol ?? 'USDC'
-  const copy = terms ? trialCopy(terms, `${amountDisplay} ${symbol}`, intervalLabel) : null
+  const symbol = tokenMeta?.symbol ?? plan?.currency ?? 'USDC'
+  const copy = terms ? trialCopy(terms, `${amountDisplay} ${symbol}`, interval) : null
 
   const phase = derivePhase({
     hookPhase: subscribe.phase,
@@ -167,19 +172,37 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
     termsReady: terms !== null,
   })
 
+  const rawError = phase === 'load_error' ? loadError : subscribe.error
+  // Payers see plain copy; the raw reason stays here for whoever debugs it.
+  useEffect(() => {
+    if (rawError) console.error('[checkout]', rawError)
+  }, [rawError])
+
+  const merchantName = brand?.businessName ?? null
+  const error =
+    phase === 'load_error' || phase === 'reverted' || phase === 'failed'
+      ? payerError({
+          raw: rawError,
+          phase,
+          submitted: subscribe.submission !== null,
+          merchantName,
+        })
+      : null
+
   return (
     <CheckoutShell
       summary={{
-        merchantName: brand?.businessName,
+        merchantName: brand?.businessName ?? (loadError ? 'Strimz checkout' : undefined),
         merchantLogoUrl: brand?.logoUrl ?? null,
         merchantWalletAddress: brand?.walletAddress ?? null,
-        amount: amountDisplay,
-        currency: tokenMeta?.symbol ?? plan?.currency ?? 'USDC',
-        interval: plan?.interval ?? 'monthly',
-        description: plan?.description ?? `Plan ${planId}`,
+        amount: plan ? amountDisplay : undefined,
+        currency: symbol,
+        interval: plan?.interval,
+        description: plan?.description ?? plan?.name,
       }}
       onCancel={isCancellable(phase) ? () => setCancelled(true) : undefined}
       cancelled={cancelled}
+      flow="subscribe"
     >
       <WalletPickerGuard />
       <div className="space-y-6">
@@ -189,43 +212,41 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
             Secured by Strimz
           </Badge>
           <h2 className="font-poppins flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <Repeat className="text-accent size-5" />
+            <Repeat className="text-accent size-5 shrink-0" />
             {phase === 'confirmed'
               ? 'Subscription active'
               : phase === 'already_subscribed'
                 ? 'Already subscribed'
-                : 'Subscribe'}
+                : plan?.name
+                  ? `Subscribe to ${plan.name}`
+                  : 'Subscribe'}
           </h2>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {phaseDescription(phase, subscribe.error)}
-          </p>
+          {phaseLine(phase, 'subscribe') && (
+            <p className="text-muted-foreground mt-1 text-sm">{phaseLine(phase, 'subscribe')}</p>
+          )}
         </div>
 
         {phase !== 'connect' &&
           phase !== 'loading' &&
           phase !== 'load_error' &&
           phase !== 'not_ready' &&
-          phase !== 'already_subscribed' && <StepIndicator phase={phase} />}
-
-        {phase === 'load_error' && <ErrorBanner message={loadError ?? 'Failed to load plan.'} />}
+          phase !== 'already_subscribed' &&
+          phase !== 'confirmed' && <StepIndicator phase={phase} />}
 
         {phase === 'not_ready' && (
-          <ErrorBanner
-            message={
-              'This merchant has not been registered on-chain yet. Subscriptions will be available once Strimz completes their on-chain enrolment.'
-            }
-          />
+          <CheckoutNotice
+            tone="info"
+            title={`${merchantName ?? 'This merchant'} can't take subscriptions yet`}
+          >
+            This page will update by itself.
+          </CheckoutNotice>
         )}
 
         {phase === 'loading' && <BusyState phase="loading" />}
 
         {phase === 'connect' && (
           <>
-            {!reownProjectId && (
-              <div className="font-poppins rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700">
-                Wallet connect is unavailable. Set <code>NEXT_PUBLIC_REOWN_PROJECT_ID</code>.
-              </div>
-            )}
+            {!reownProjectId && <WalletConnectUnavailable />}
             <SubmitButton type="button" onClick={() => open()} disabled={!reownProjectId}>
               <Wallet className="size-4" />
               Connect wallet
@@ -255,12 +276,12 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
                 aria-describedby={emailError ? 'payer-email-error' : undefined}
               />
               {emailError ? (
-                <p id="payer-email-error" className="text-xs text-red-600">
+                <p id="payer-email-error" className="text-xs text-red-600 dark:text-red-400">
                   {emailError}
                 </p>
               ) : (
                 <p className="text-muted-foreground text-xs">
-                  We send an enrolment receipt now and one for each renewal.
+                  We&apos;ll email a receipt for every charge.
                 </p>
               )}
             </div>
@@ -282,9 +303,9 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
               {attaching ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
-                <TokenLogo symbol={tokenMeta?.symbol ?? 'USDC'} size={18} />
+                <TokenLogo symbol={symbol} size={18} />
               )}
-              {copy?.button ?? `Subscribe. ${amountDisplay} ${symbol}/${intervalLabel}`}
+              {copy?.button ?? `Subscribe for ${amountDisplay} ${symbol} / ${interval}`}
             </SubmitButton>
           </>
         )}
@@ -311,35 +332,34 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
         )}
 
         {phase === 'confirmed' && (
-          <div className="border-accent/30 bg-accent/5 rounded-xl border p-5 text-center text-sm">
-            <p className="text-foreground font-medium">Subscription active</p>
-            {subscribe.txHash && (
-              <p className="text-muted-foreground mt-1 break-all font-mono text-xs">
-                {subscribe.txHash}
-              </p>
-            )}
-            <p className="text-muted-foreground mt-2 text-xs">
-              {copy?.confirmed ??
-                'Your first charge has been recorded on-chain. Strimz will charge automatically each period. Cancel anytime.'}
-            </p>
-          </div>
-        )}
-
-        {(phase === 'reverted' || phase === 'failed') && (
-          <ErrorBanner
-            message={subscribe.error ?? 'The subscription enrolment did not go through.'}
-            retry={subscribe.submit}
+          <ReceiptPanel
+            title="Subscription active"
+            rows={[
+              { label: 'Plan', value: plan?.name ?? 'Subscription' },
+              { label: 'Price', value: `${amountDisplay} ${symbol} / ${interval}` },
+              ...(merchantName ? [{ label: 'Paid to', value: merchantName }] : []),
+              {
+                label: 'Date',
+                value: new Date().toLocaleDateString(undefined, {
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                }),
+              },
+            ]}
+            note={copy?.confirmed ?? null}
+            txHash={subscribe.txHash}
+            merchantName={merchantName}
+            returnUrl={null}
+            hostMode="page"
           />
         )}
 
-        <div className="bg-muted/30 text-muted-foreground rounded-lg p-4 text-xs">
-          <p className="text-foreground font-medium">How it works</p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5">
-            <li>Connect a wallet that holds {tokenMeta?.symbol ?? 'USDC'} on Arc.</li>
-            <li>Sign once. Strimz creates the subscription on-chain.</li>
-            <li>Strimz settles each scheduled charge automatically.</li>
-          </ol>
-        </div>
+        {error && <PayerErrorNotice error={error} onRetry={() => void subscribe.submit()} />}
+
+        {phase !== 'confirmed' && phase !== 'already_subscribed' && (
+          <HowItWorks flow="subscribe" symbol={symbol} />
+        )}
       </div>
     </CheckoutShell>
   )
@@ -373,7 +393,7 @@ async function handleSubscribeClick(args: {
     })
     args.onReady()
   } catch (err) {
-    args.setEmailError((err as Error).message)
+    args.setEmailError(attachError((err as Error).message))
   } finally {
     args.setAttaching(false)
   }
@@ -434,35 +454,6 @@ function derivePhase(args: {
   return 'ready'
 }
 
-function phaseDescription(phase: VisiblePhase, error: string | null): string {
-  switch (phase) {
-    case 'loading':
-      return 'Loading plan…'
-    case 'load_error':
-      return 'We could not load this subscription plan.'
-    case 'not_ready':
-      return ''
-    case 'connect':
-      return 'Connect a wallet to continue. We use Reown AppKit to support every major wallet.'
-    case 'ready':
-      return 'One signature, then we charge automatically each period. Cancel anytime from your wallet.'
-    case 'already_subscribed':
-      return ''
-    case 'signing':
-      return 'Confirm the signature in your wallet.'
-    case 'submitting':
-      return 'Creating your subscription on-chain…'
-    case 'polling':
-      return 'Waiting for on-chain confirmation. Arc finalises in under a second.'
-    case 'confirmed':
-      return ''
-    case 'reverted':
-      return 'The transaction was rejected on-chain.'
-    case 'failed':
-      return error ?? 'Something went wrong before the transaction was submitted.'
-  }
-}
-
 /**
  * Format a base-units bigint as a token-decimals-correct display
  * string. `50000000` at 6 decimals → `"50.00"`. Uses string slicing
@@ -476,72 +467,11 @@ function formatAmount(baseUnits: bigint, decimals: number): string {
   return frac ? `${whole}.${frac}` : `${whole}.00`
 }
 
-function humaniseInterval(interval: SubscriptionPlan['interval'] | null): string {
-  switch (interval) {
-    case 'daily':
-      return 'day'
-    case 'weekly':
-      return 'week'
-    case 'monthly':
-      return 'month'
-    case 'quarterly':
-      return 'quarter'
-    case 'yearly':
-      return 'year'
-    default:
-      return 'period'
-  }
-}
-
 function BusyState({ phase }: { phase: 'loading' | 'signing' | 'submitting' | 'polling' }) {
-  const label =
-    phase === 'loading'
-      ? 'Loading…'
-      : phase === 'signing'
-        ? 'Awaiting wallet signature…'
-        : phase === 'submitting'
-          ? 'Submitting…'
-          : 'Confirming on-chain…'
   return (
-    <div className="bg-muted/30 flex items-center gap-3 rounded-md px-3 py-3 text-sm">
+    <div className="bg-muted/30 flex items-center gap-3 rounded-md px-3 py-3 text-sm" role="status">
       <Loader2 className="text-accent size-4 animate-spin" />
-      <span>{label}</span>
-    </div>
-  )
-}
-
-function ErrorBanner({ message, retry }: { message: string; retry?: () => Promise<void> }) {
-  return (
-    <div className="rounded-md border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-700">
-      <p>{message}</p>
-      {retry && (
-        <button
-          type="button"
-          onClick={() => void retry()}
-          className="mt-2 text-xs font-medium underline"
-        >
-          Try again
-        </button>
-      )}
-    </div>
-  )
-}
-
-function ConnectedRow({ address, onChange }: { address: string; onChange: () => void }) {
-  const short = `${address.slice(0, 6)}…${address.slice(-4)}`
-  return (
-    <div className="font-poppins border-border bg-muted flex items-center justify-between rounded-md border px-3 py-2 text-xs">
-      <span className="flex items-center gap-2">
-        <Wallet className="text-accent size-3.5" />
-        <span className="font-mono">{short}</span>
-      </span>
-      <button
-        type="button"
-        onClick={onChange}
-        className="text-muted-foreground hover:text-foreground font-[500]"
-      >
-        Change
-      </button>
+      <span>{busyLabel(phase)}</span>
     </div>
   )
 }

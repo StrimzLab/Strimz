@@ -4,12 +4,20 @@ import { use, useEffect, useState } from 'react'
 import { useAccount, useBytecode, useDisconnect } from 'wagmi'
 import { useAppKit } from '@reown/appkit/react'
 import { useRefreshWhile } from '@/hooks/use-refresh-while'
-import { ArrowRight, CheckCircle2, ExternalLink, Loader2, ShieldCheck, Wallet } from 'lucide-react'
-import { arcExplorerTxUrl, getArcChain } from '@strimz/shared-config'
+import { Loader2, ShieldCheck, Wallet } from 'lucide-react'
+import { getArcChain } from '@strimz/shared-config'
 import { Badge, FieldLabel, Input } from '@strimz/ui'
 import type { MerchantPublicBrand, PaymentSession, TokenMetadata } from '@strimz/shared-types'
 
 import { CheckoutShell, StepIndicator } from '@/components/checkout/checkout-shell'
+import {
+  CheckoutNotice,
+  PayerErrorNotice,
+  WalletConnectUnavailable,
+} from '@/components/checkout/checkout-notice'
+import { ConnectedRow } from '@/components/checkout/connected-row'
+import { HowItWorks } from '@/components/checkout/how-it-works'
+import { ReceiptPanel } from '@/components/checkout/receipt-panel'
 import { WalletPickerGuard } from '@/components/checkout/wallet-picker-guard'
 import { SubmitButton } from '@/components/auth/submit-button'
 import { TokenLogo } from '@/components/shared/token-logo'
@@ -17,6 +25,8 @@ import { projectId as reownProjectId } from '@/lib/wagmi'
 import { env } from '@/lib/env'
 import { strimzBrowserClient } from '@/lib/strimz-browser'
 import { attachSessionPayer } from '@/lib/checkout-payer'
+import { busyLabel, phaseLine } from '@/lib/checkout-copy'
+import { attachError, payerError } from '@/lib/payer-errors'
 import { usePayCheckout, type PayPhase } from '@/hooks/use-pay-checkout'
 import { useCheckoutHost } from '@/hooks/use-checkout-host'
 import {
@@ -25,18 +35,12 @@ import {
   isCancellable,
   isContractAccount,
   resultMessageForPhase,
-  type CheckoutHostMode,
 } from '@/lib/checkout-result'
 
 /**
- * Public hosted checkout for one-shot payment sessions.
- *
- * Loads the real session payload (amount, currency, tokenAddress,
- * chainMerchantId), looks up token capabilities, then drives the
- * EIP-3009 single-signature flow via `usePayCheckout`. A session whose
- * merchant isn't yet registered on-chain (chainMerchantId == null)
- * cannot be paid via meta-tx and the page surfaces a clear error
- * instead of letting the payer attempt a doomed signature.
+ * Hosted checkout for one-off payment sessions. A merchant not yet
+ * registered with the contract (no chainMerchantId) can't be paid, so
+ * the page waits instead of asking for a doomed approval.
  */
 export default function PayPage({ params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = use(params)
@@ -136,6 +140,23 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
     if (message) report(message)
   }, [phase, sessionId, resultTxHash, resultError, report])
 
+  // Payers see plain copy; the raw reason stays here for whoever debugs it.
+  useEffect(() => {
+    if (resultError) console.error('[checkout]', resultError)
+  }, [resultError])
+
+  const merchantName = brand?.businessName ?? null
+  const symbol = tokenMeta?.symbol ?? session?.currency ?? 'USDC'
+  const error =
+    phase === 'load_error' || phase === 'reverted' || phase === 'failed'
+      ? payerError({
+          raw: resultError,
+          phase,
+          submitted: pay.submission !== null,
+          merchantName,
+        })
+      : null
+
   const cancel = () => {
     const destination = cancelDestination(host, session?.cancelUrl ?? null, sessionId)
     if (destination) {
@@ -149,15 +170,16 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
   return (
     <CheckoutShell
       summary={{
-        merchantName: brand?.businessName,
+        merchantName: brand?.businessName ?? (loadError ? 'Strimz checkout' : undefined),
         merchantLogoUrl: brand?.logoUrl ?? null,
         merchantWalletAddress: brand?.walletAddress ?? null,
-        amount: amountDisplay,
-        currency: tokenMeta?.symbol ?? session?.currency ?? 'USDC',
-        description: session?.description ?? `Session ${sessionId}`,
+        amount: session ? amountDisplay : undefined,
+        currency: symbol,
+        description: session?.description ?? undefined,
       }}
       onCancel={isCancellable(phase) ? cancel : undefined}
       cancelled={cancelled}
+      flow="pay"
     >
       <WalletPickerGuard />
       <div className="space-y-6">
@@ -166,39 +188,40 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
             <ShieldCheck className="text-accent size-3" />
             Secured by Strimz
           </Badge>
-          <h2 className="font-poppins flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            {phase === 'confirmed' ? (
-              'Payment confirmed'
-            ) : (
-              <>
-                Pay with <TokenLogo symbol={tokenMeta?.symbol ?? 'USDC'} size={24} />
-                {tokenMeta?.symbol ?? session?.currency ?? 'USDC'}
-              </>
-            )}
+          <h2 className="font-poppins text-2xl font-semibold tracking-tight">
+            {phase === 'confirmed'
+              ? 'Payment complete'
+              : merchantName
+                ? `Pay ${merchantName}`
+                : 'Checkout'}
           </h2>
-          <p className="text-muted-foreground mt-1 text-sm">{phaseDescription(phase, pay.error)}</p>
+          {phaseLine(phase, 'pay') && (
+            <p className="text-muted-foreground mt-1 text-sm">{phaseLine(phase, 'pay')}</p>
+          )}
         </div>
 
         {phase !== 'connect' &&
           phase !== 'loading' &&
           phase !== 'load_error' &&
           phase !== 'not_ready' &&
-          phase !== 'unsupported_wallet' && <StepIndicator phase={phase} />}
-
-        {phase === 'load_error' && <ErrorBanner message={loadError ?? 'Failed to load session.'} />}
+          phase !== 'unsupported_wallet' &&
+          phase !== 'confirmed' && <StepIndicator phase={phase} />}
 
         {phase === 'not_ready' && (
-          <ErrorBanner
-            message={
-              'This merchant has not been registered on-chain yet. Payments will be available once Strimz completes their on-chain enrolment.'
-            }
-          />
+          <CheckoutNotice
+            tone="info"
+            title={`${merchantName ?? 'This merchant'} can't take payments yet`}
+          >
+            This page will update by itself.
+          </CheckoutNotice>
         )}
 
         {phase === 'unsupported_wallet' && (
           <>
             {address && <ConnectedRow address={address} onChange={disconnect} />}
-            <ErrorBanner message="Smart-contract wallets (like Safe) can't pay here yet. Connect a regular wallet." />
+            <CheckoutNotice title="This wallet type can't pay here yet">
+              Connect a regular wallet such as MetaMask or Coinbase Wallet.
+            </CheckoutNotice>
           </>
         )}
 
@@ -206,11 +229,7 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
 
         {phase === 'connect' && (
           <>
-            {!reownProjectId && (
-              <div className="font-poppins rounded-md border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-700">
-                Wallet connect is unavailable. Set <code>NEXT_PUBLIC_REOWN_PROJECT_ID</code>.
-              </div>
-            )}
+            {!reownProjectId && <WalletConnectUnavailable />}
             <SubmitButton type="button" onClick={() => open()} disabled={!reownProjectId}>
               <Wallet className="size-4" />
               Connect wallet
@@ -240,13 +259,11 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
                 aria-describedby={emailError ? 'payer-email-error' : undefined}
               />
               {emailError ? (
-                <p id="payer-email-error" className="text-xs text-red-600">
+                <p id="payer-email-error" className="text-xs text-red-600 dark:text-red-400">
                   {emailError}
                 </p>
               ) : (
-                <p className="text-muted-foreground text-xs">
-                  We send your receipt here once the payment settles on-chain.
-                </p>
+                <p className="text-muted-foreground text-xs">We&apos;ll email your receipt here.</p>
               )}
             </div>
             <SubmitButton
@@ -266,9 +283,9 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
               {attaching ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
-                <TokenLogo symbol={tokenMeta?.symbol ?? 'USDC'} size={18} />
+                <TokenLogo symbol={symbol} size={18} />
               )}
-              Pay {amountDisplay} {tokenMeta?.symbol ?? 'USDC'}
+              Pay {amountDisplay} {symbol}
             </SubmitButton>
           </>
         )}
@@ -281,12 +298,17 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
         )}
 
         {phase === 'confirmed' && (
-          <CompletionPanel
-            // `pay.txHash` is set when the hook just drove the flow;
-            // `session.onchainTxHash` is set when a previous attempt
-            // already settled and the indexer projected it back. Prefer
-            // the live one if both exist (they should be equal anyway).
+          <ReceiptPanel
+            title="Payment complete"
+            rows={[
+              { label: 'Amount', value: `${amountDisplay} ${symbol}` },
+              ...(merchantName ? [{ label: 'Paid to', value: merchantName }] : []),
+              ...(session?.description ? [{ label: 'For', value: session.description }] : []),
+              { label: 'Date', value: receiptDate(session) },
+            ]}
+            note={session?.payerEmail ? `A receipt is on its way to ${session.payerEmail}.` : null}
             txHash={resultTxHash}
+            merchantName={merchantName}
             returnUrl={
               host.mode === 'page' && session?.successUrl
                 ? buildReturnUrl(session.successUrl, { sessionId, txHash: resultTxHash })
@@ -296,21 +318,14 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
           />
         )}
 
-        {(phase === 'reverted' || phase === 'failed') && (
-          <ErrorBanner
-            message={pay.error ?? 'The payment did not go through.'}
-            retry={pay.submit}
+        {error && (
+          <PayerErrorNotice
+            error={error}
+            onRetry={phase === 'load_error' ? undefined : () => void pay.submit()}
           />
         )}
 
-        <div className="bg-muted/30 text-muted-foreground rounded-lg p-4 text-xs">
-          <p className="text-foreground font-medium">How it works</p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5">
-            <li>Connect a wallet that holds {tokenMeta?.symbol ?? 'USDC'} on Arc.</li>
-            <li>Sign once. Strimz submits the transaction for you.</li>
-            <li>{tokenMeta?.symbol ?? 'USDC'} settles directly to the merchant.</li>
-          </ol>
-        </div>
+        {phase !== 'confirmed' && <HowItWorks flow="pay" symbol={symbol} />}
       </div>
     </CheckoutShell>
   )
@@ -344,7 +359,7 @@ async function handlePayClick(args: {
     })
     args.onReady()
   } catch (err) {
-    args.setEmailError((err as Error).message)
+    args.setEmailError(attachError((err as Error).message))
   } finally {
     args.setAttaching(false)
   }
@@ -407,35 +422,6 @@ function derivePhase(args: {
   return 'ready'
 }
 
-function phaseDescription(phase: VisiblePhase, error: string | null): string {
-  switch (phase) {
-    case 'loading':
-      return 'Loading session…'
-    case 'load_error':
-      return 'We could not load this checkout.'
-    case 'not_ready':
-      return ''
-    case 'unsupported_wallet':
-      return ''
-    case 'connect':
-      return 'Connect a wallet to continue. We use Reown AppKit to support every major wallet.'
-    case 'ready':
-      return 'One signature. Strimz settles the payment and notifies the merchant.'
-    case 'signing':
-      return 'Confirm the signature in your wallet.'
-    case 'submitting':
-      return 'Submitting your signed authorization to the network…'
-    case 'polling':
-      return 'Waiting for on-chain confirmation. Arc finalises in under a second.'
-    case 'confirmed':
-      return ''
-    case 'reverted':
-      return 'The transaction was rejected on-chain.'
-    case 'failed':
-      return error ?? 'Something went wrong before the transaction was submitted.'
-  }
-}
-
 /**
  * Format a base-units bigint as a token-decimals-correct display
  * string. `50000000` at 6 decimals → `"50.00"`. Intentionally simple
@@ -451,157 +437,17 @@ function formatAmount(baseUnits: bigint, decimals: number): string {
 }
 
 function BusyState({ phase }: { phase: 'loading' | 'signing' | 'submitting' | 'polling' }) {
-  const label =
-    phase === 'loading'
-      ? 'Loading…'
-      : phase === 'signing'
-        ? 'Awaiting wallet signature…'
-        : phase === 'submitting'
-          ? 'Submitting…'
-          : 'Confirming on-chain…'
   return (
-    <div className="bg-muted/30 flex items-center gap-3 rounded-md px-3 py-3 text-sm">
+    <div className="bg-muted/30 flex items-center gap-3 rounded-md px-3 py-3 text-sm" role="status">
       <Loader2 className="text-accent size-4 animate-spin" />
-      <span>{label}</span>
+      <span>{busyLabel(phase)}</span>
     </div>
   )
 }
 
-/**
- * Only the full page redirects. Popup and embed stay put: the merchant
- * page already has the result. No "merchant notified" line, since we
- * can't know a webhook was delivered.
- */
-function CompletionPanel({
-  txHash,
-  returnUrl,
-  hostMode,
-}: {
-  txHash: string | null
-  returnUrl: string | null
-  hostMode: CheckoutHostMode
-}) {
-  // 8 seconds gives the payer time to register the confirmation and
-  // skim the tx hash, but keeps the flow feeling like it has somewhere
-  // to go. The "Return to merchant" button below skips the wait.
-  const REDIRECT_AFTER_SECONDS = 8
-  const [secondsLeft, setSecondsLeft] = useState(REDIRECT_AFTER_SECONDS)
-  const [showCloseHint, setShowCloseHint] = useState(hostMode === 'page')
-
-  useEffect(() => {
-    if (!returnUrl) return
-    if (secondsLeft <= 0) {
-      window.location.href = returnUrl
-      return
-    }
-    const t = window.setTimeout(() => setSecondsLeft((n) => n - 1), 1_000)
-    return () => window.clearTimeout(t)
-  }, [secondsLeft, returnUrl])
-
-  useEffect(() => {
-    if (hostMode !== 'popup') return
-    const t = window.setTimeout(() => setShowCloseHint(true), POPUP_CLOSE_HINT_MS)
-    return () => window.clearTimeout(t)
-  }, [hostMode])
-
-  const explorerHref = txHash ? explorerTxUrl(txHash, env.arcEnvironment) : null
-  const shortHash = txHash ? `${txHash.slice(0, 6)}…${txHash.slice(-4)}` : null
-  const networkLabel = env.arcEnvironment === 'mainnet' ? 'Arc Mainnet' : 'Arc Testnet'
-
-  return (
-    <div className="border-accent/30 bg-accent/5 rounded-xl border px-5 py-6">
-      <div className="flex flex-col items-center text-center">
-        <div className="bg-accent/15 flex h-12 w-12 items-center justify-center rounded-full">
-          <CheckCircle2 className="text-accent size-7" />
-        </div>
-        <h3 className="font-poppins text-foreground mt-3 text-base font-semibold tracking-tight">
-          Payment complete
-        </h3>
-        <p className="text-muted-foreground mt-1 text-xs">Settled on {networkLabel}</p>
-      </div>
-
-      {txHash && explorerHref && (
-        <div className="border-border mt-5 flex items-center justify-between rounded-md border bg-white/60 px-3 py-2 text-xs">
-          <span className="text-muted-foreground">Transaction</span>
-          <a
-            href={explorerHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-foreground hover:text-accent inline-flex items-center gap-1 font-mono font-[500] underline-offset-2 hover:underline"
-          >
-            {shortHash}
-            <ExternalLink className="size-3" />
-          </a>
-        </div>
-      )}
-
-      {returnUrl ? (
-        <div className="mt-5 space-y-3">
-          <p className="text-muted-foreground text-center text-xs">
-            Returning to merchant in {secondsLeft}s…
-          </p>
-          <SubmitButton
-            type="button"
-            onClick={() => {
-              window.location.href = returnUrl
-            }}
-          >
-            Return to merchant
-            <ArrowRight className="size-4" />
-          </SubmitButton>
-        </div>
-      ) : showCloseHint ? (
-        <p className="text-muted-foreground mt-5 text-center text-xs">
-          You can safely close this window.
-        </p>
-      ) : null}
-    </div>
-  )
-}
-
-/**
- * Arcscan (Blockscout-v2) tx URL. Two-domain lookup keeps the success
- * card honest about which network the funds actually moved on without
- * having to thread environment into a util.
- */
-function explorerTxUrl(hash: string, arcEnv: 'testnet' | 'mainnet'): string {
-  return arcExplorerTxUrl(arcEnv, hash)
-}
-
-function ErrorBanner({ message, retry }: { message: string; retry?: () => Promise<void> }) {
-  return (
-    <div className="rounded-md border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-700">
-      <p>{message}</p>
-      {retry && (
-        <button
-          type="button"
-          onClick={() => void retry()}
-          className="mt-2 text-xs font-medium underline"
-        >
-          Try again
-        </button>
-      )}
-    </div>
-  )
-}
-
-function ConnectedRow({ address, onChange }: { address: string; onChange: () => void }) {
-  const short = `${address.slice(0, 6)}…${address.slice(-4)}`
-  return (
-    <div className="font-poppins border-border bg-muted flex items-center justify-between rounded-md border px-3 py-2 text-xs">
-      <span className="flex items-center gap-2">
-        <Wallet className="text-accent size-3.5" />
-        <span className="font-mono">{short}</span>
-      </span>
-      <button
-        type="button"
-        onClick={onChange}
-        className="text-muted-foreground hover:text-foreground font-[500]"
-      >
-        Change
-      </button>
-    </div>
-  )
+function receiptDate(session: PaymentSession | null): string {
+  const at = session?.status === 'confirmed' ? new Date(session.updatedAt) : new Date()
+  return at.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 /**
@@ -610,7 +456,6 @@ function ConnectedRow({ address, onChange }: { address: string; onChange: () => 
  * metadata lands fails loudly in `usePayCheckout.submit()`.
  */
 const MERCHANT_READY_POLL_MS = 3_000
-const POPUP_CLOSE_HINT_MS = 2_000
 
 const PLACEHOLDER_TOKEN: TokenMetadata = {
   address: '0x0000000000000000000000000000000000000000',

@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { PaymentSummary, CheckoutPoweredBy, type SummaryProps } from './payment-summary'
 import { CancelledPanel } from './cancelled-panel'
+import { STEP_LABELS, type CheckoutFlow } from '@/lib/checkout-copy'
 
 /**
  * Two-column checkout shell. Summary on the left (frozen),
@@ -14,11 +15,13 @@ export function CheckoutShell({
   children,
   onCancel,
   cancelled = false,
+  flow,
 }: {
   summary: SummaryProps
   children: ReactNode
   onCancel?: () => void
   cancelled?: boolean
+  flow: CheckoutFlow
 }) {
   return (
     <section className="flex w-full flex-col gap-4 p-4 md:p-8">
@@ -40,7 +43,9 @@ export function CheckoutShell({
           <PaymentSummary {...summary} />
         </div>
         <div className="flex items-center justify-center lg:col-span-3 lg:p-8">
-          <div className="w-full max-w-md">{cancelled ? <CancelledPanel /> : children}</div>
+          <div className="w-full max-w-md">
+            {cancelled ? <CancelledPanel flow={flow} /> : children}
+          </div>
         </div>
       </div>
 
@@ -49,16 +54,6 @@ export function CheckoutShell({
   )
 }
 
-/**
- * Two-step indicator: `Sign` then `Settle`.
- *
- * The flow has collapsed from the legacy four-stage (connect →
- * approve → pay → confirmed) to a single payer-facing action: sign
- * once, Strimz settles. The first dot fills while the wallet prompt
- * is up; the second fills while the relay submits + confirms. The
- * connect step is handled by the page (button appears before the
- * indicator renders) so it's not represented here.
- */
 export type CheckoutPhase =
   | 'connect'
   | 'ready'
@@ -69,11 +64,12 @@ export type CheckoutPhase =
   | 'reverted'
   | 'failed'
 
+/**
+ * Two steps: approve in the wallet, then Strimz processes it. Connect
+ * happens before the indicator shows.
+ */
 export function StepIndicator({ phase }: { phase: CheckoutPhase }) {
-  const items = [
-    { id: 'sign', label: 'Sign' },
-    { id: 'settle', label: 'Settle' },
-  ] as const
+  const items = STEP_LABELS
   const activeIndex = activeIndexForPhase(phase)
   const isTerminal = phase === 'confirmed' || phase === 'reverted' || phase === 'failed'
 
@@ -83,7 +79,7 @@ export function StepIndicator({ phase }: { phase: CheckoutPhase }) {
         const isActive = activeIndex === i
         const isDone = activeIndex > i || (phase === 'confirmed' && i === items.length - 1)
         return (
-          <div key={item.id} className="flex flex-1 items-center gap-3">
+          <div key={item} className="flex flex-1 items-center gap-3">
             <div
               className={`flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
                 isDone
@@ -95,7 +91,7 @@ export function StepIndicator({ phase }: { phase: CheckoutPhase }) {
             >
               {isDone ? '✓' : i + 1}
             </div>
-            <span className="text-muted-foreground text-sm">{item.label}</span>
+            <span className="text-muted-foreground text-sm">{item}</span>
             {i < items.length - 1 && <div className="bg-border h-px flex-1" />}
           </div>
         )
@@ -105,9 +101,6 @@ export function StepIndicator({ phase }: { phase: CheckoutPhase }) {
 }
 
 function activeIndexForPhase(phase: CheckoutPhase): number {
-  // `Sign` is index 0; `Settle` is index 1. `connect`/`ready` mean
-  // we're before the indicator should show, but if a page does render
-  // it during `ready` we still light up Sign as the next action.
   switch (phase) {
     case 'ready':
     case 'signing':

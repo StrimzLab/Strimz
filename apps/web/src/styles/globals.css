@@ -357,6 +357,21 @@
   }
 }
 
+.receipt-check path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .receipt-check path {
+    animation: draw-check 400ms ease-out both;
+  }
+}
+@keyframes draw-check {
+  from {
+    stroke-dashoffset: 24;
+  }
+}
+
 html.lenis,
 html.lenis body {
   height: auto;
