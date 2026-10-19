@@ -35,6 +35,7 @@ export class SubscriptionsController {
       cursor: q.cursor ?? null,
       status: q.status,
       planId: q.planId,
+      customerId: q.customerId,
     })
   }
 

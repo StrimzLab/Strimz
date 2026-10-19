@@ -48,7 +48,13 @@ export class SubscriptionsService {
   async list(
     merchantId: string,
     mode: Mode,
-    params: { limit?: number; cursor?: string | null; status?: string; planId?: string },
+    params: {
+      limit?: number
+      cursor?: string | null
+      status?: string
+      planId?: string
+      customerId?: string
+    },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.subscription.findMany({
@@ -57,6 +63,7 @@ export class SubscriptionsService {
         mode,
         status: (params.status as never) ?? undefined,
         planId: params.planId ?? undefined,
+        customerId: params.customerId,
       },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,

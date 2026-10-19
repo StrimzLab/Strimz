@@ -36,6 +36,7 @@ export class TransactionsController {
       status: q.status,
       sessionId: q.sessionId,
       subscriptionId: q.subscriptionId,
+      customerId: q.customerId,
     })
   }
 }

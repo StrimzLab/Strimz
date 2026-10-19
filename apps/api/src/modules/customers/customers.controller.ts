@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
-import { upsertCustomerInputSchema } from '@strimz/shared-types'
+import { z } from 'zod'
+import { evmAddressSchema, upsertCustomerInputSchema } from '@strimz/shared-types'
 import type { Customer, UpsertCustomerParsed } from '@strimz/shared-types'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
@@ -9,6 +10,15 @@ import {
 } from '../../common/decorators/current-merchant.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
 import { CustomersService } from './customers.service.js'
+
+const listCustomersQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+    cursor: z.string().max(200).optional(),
+    externalRef: z.string().max(200).optional(),
+    walletAddress: evmAddressSchema.optional(),
+  })
+  .strict()
 
 @UseGuards(MerchantAuthGuard)
 @Controller('/v1/customers')
@@ -37,14 +47,14 @@ export class CustomersController {
   @Get()
   list(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query('limit') limit?: string,
-    @Query('cursor') cursor?: string,
-    @Query('externalRef') externalRef?: string,
+    @Query(new ZodValidationPipe(listCustomersQuerySchema))
+    q: z.infer<typeof listCustomersQuerySchema>,
   ) {
     return this.customers.list(ctx.merchantId, {
-      limit: limit ? Number(limit) : undefined,
-      cursor: cursor ?? null,
-      externalRef,
+      limit: q.limit,
+      cursor: q.cursor ?? null,
+      externalRef: q.externalRef,
+      walletAddress: q.walletAddress,
     })
   }
 }

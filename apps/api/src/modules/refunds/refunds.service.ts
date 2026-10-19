@@ -129,11 +129,22 @@ export class RefundsService {
   async list(
     merchantId: string,
     mode: Mode,
-    params: { limit?: number; cursor?: string | null; status?: string },
+    params: { limit?: number; cursor?: string | null; status?: string; customerId?: string },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
+    // Refunds don't store the customer; they point at the payment being refunded.
+    const transactionId = params.customerId
+      ? {
+          in: (
+            await this.prisma.db.transaction.findMany({
+              where: { merchantId, mode, customerId: params.customerId },
+              select: { id: true },
+            })
+          ).map((tx) => tx.id),
+        }
+      : undefined
     const rows = await this.prisma.db.refund.findMany({
-      where: { merchantId, mode, status: (params.status as never) ?? undefined },
+      where: { merchantId, mode, status: (params.status as never) ?? undefined, transactionId },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,
       ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),

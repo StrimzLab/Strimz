@@ -48,6 +48,7 @@ model PaymentSession {
 
   @@index([merchantId, status])
   @@index([merchantId, createdAt])
+  @@index([merchantId, customerId])
   @@index([onchainTxHash])
   @@index([status, expiresAt])
   @@index([storefrontProductId])
