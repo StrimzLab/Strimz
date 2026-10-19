@@ -31,7 +31,7 @@ const COLUMNS = [
     label: 'Product',
     links: [
       { href: '/pricing', label: 'Pricing' },
-      { href: '/customers', label: 'Customers' },
+      { href: '/use-cases', label: 'Use cases' },
       { href: '/docs', label: 'Documentation' },
       { href: '/docs/api/overview', label: 'API reference' },
     ],

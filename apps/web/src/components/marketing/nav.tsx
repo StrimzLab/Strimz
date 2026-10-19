@@ -19,7 +19,7 @@ import { PopLink } from './fx/pop-button'
 const LINKS = [
   { href: '/about', label: 'About' },
   { href: '/pricing', label: 'Pricing' },
-  { href: '/customers', label: 'Customers' },
+  { href: '/use-cases', label: 'Use cases' },
   { href: '/docs', label: 'Docs' },
   { href: '/contact', label: 'Contact' },
 ]

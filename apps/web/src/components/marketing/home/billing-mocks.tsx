@@ -9,7 +9,7 @@ import { MkIcon } from '../icon'
 
 // Final frames. BillingTools animates into them when each sheet arrives.
 
-function Window({
+export function Window({
   title,
   children,
   badge,
@@ -29,7 +29,13 @@ function Window({
   )
 }
 
-function Pill({ tone, children }: { tone: 'good' | 'warn' | 'muted'; children: React.ReactNode }) {
+export function Pill({
+  tone,
+  children,
+}: {
+  tone: 'good' | 'warn' | 'muted'
+  children: React.ReactNode
+}) {
   return (
     <span
       className={cn(

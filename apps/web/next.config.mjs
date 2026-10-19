@@ -118,6 +118,9 @@ function cspReportOnly(frameAncestors) {
 const config = {
   reactStrictMode: true,
   poweredByHeader: false,
+  redirects() {
+    return Promise.resolve([{ source: '/customers', destination: '/use-cases', permanent: true }])
+  },
   webpack: (cfg) => {
     cfg.resolve = cfg.resolve ?? {}
     cfg.resolve.alias = {
