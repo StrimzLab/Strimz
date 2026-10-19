@@ -17,7 +17,9 @@ export class PaymentSessionsResource extends BaseResource {
     return this.get(`/v1/payment-sessions/${encodeURIComponent(id)}`, paymentSessionSchema)
   }
 
-  list(params?: PaginationParams & { status?: string }): Promise<Page<PaymentSession>> {
+  list(
+    params?: PaginationParams & { status?: string; customerId?: string },
+  ): Promise<Page<PaymentSession>> {
     return this.listPage('/v1/payment-sessions', paymentSessionSchema, params)
   }
 

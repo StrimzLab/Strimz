@@ -13,7 +13,7 @@ export class SubscriptionsResource extends BaseResource {
   }
 
   list(
-    params?: PaginationParams & { status?: string; planId?: string },
+    params?: PaginationParams & { status?: string; planId?: string; customerId?: string },
   ): Promise<Page<Subscription>> {
     return this.listPage('/v1/subscriptions', subscriptionSchema, params)
   }

@@ -21,7 +21,9 @@ export class RefundsResource extends BaseResource {
     return this.get(`/v1/refunds/${encodeURIComponent(id)}`, refundSchema)
   }
 
-  list(params?: PaginationParams & { status?: string }): Promise<Page<Refund>> {
+  list(
+    params?: PaginationParams & { status?: string; customerId?: string },
+  ): Promise<Page<Refund>> {
     return this.listPage('/v1/refunds', refundSchema, params)
   }
 

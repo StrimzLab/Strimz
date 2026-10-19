@@ -17,7 +17,9 @@ export class InvoicesResource extends BaseResource {
     return this.get(`/v1/invoices/${encodeURIComponent(id)}`, invoiceSchema)
   }
 
-  list(params?: PaginationParams & { status?: string }): Promise<Page<Invoice>> {
+  list(
+    params?: PaginationParams & { status?: string; customerId?: string },
+  ): Promise<Page<Invoice>> {
     return this.listPage('/v1/invoices', invoiceSchema, params)
   }
 
