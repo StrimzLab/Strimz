@@ -3,19 +3,29 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@strimz/ui'
 import { FAQS } from './faq-data'
 
+type FaqItem = { readonly q: string; readonly a: string }
+
 // Row styling adapted from Vengeance UI's FAQ Accordion (MIT), on the accessible Radix accordion.
-export function Faq() {
+export function Faq({
+  title = 'Questions, answered.',
+  items = FAQS,
+  id = 'faq-title',
+}: {
+  title?: string
+  items?: readonly FaqItem[]
+  id?: string
+}) {
   return (
     <section
-      aria-labelledby="faq-title"
+      aria-labelledby={id}
       className="mx-auto grid max-w-[1280px] gap-10 px-5 py-20 sm:px-10 sm:py-28 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16"
     >
       <div className="lg:sticky lg:top-28 lg:self-start">
         <h2
-          id="faq-title"
+          id={id}
           className="font-sora text-foreground text-[34px] font-semibold leading-[1.04] tracking-[-0.04em] sm:text-[48px]"
         >
-          Questions, answered.
+          {title}
         </h2>
         <p className="font-poppins text-muted-foreground mt-4 text-base">
           Don&apos;t see yours?{' '}
@@ -29,7 +39,7 @@ export function Faq() {
         </p>
       </div>
       <Accordion type="single" collapsible className="border-border border-t">
-        {FAQS.map((f) => (
+        {items.map((f) => (
           <AccordionItem
             key={f.q}
             value={f.q}

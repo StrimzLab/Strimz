@@ -50,11 +50,13 @@ describe('marketing pages make no invented claims', () => {
 
 const HOMEPAGE_FILES = [
   ...files(join(WEB_ROOT, 'src/components/marketing/home')),
+  ...files(join(WEB_ROOT, 'src/components/marketing/pricing')),
   join(WEB_ROOT, 'src/app/(marketing)/page.tsx'),
+  join(WEB_ROOT, 'src/app/(marketing)/pricing/page.tsx'),
   join(WEB_ROOT, 'src/lib/fee-estimate.ts'),
 ]
 
-// The homepage shows what Strimz does; it does not quote other processors' prices or terms.
+// These pages show what Strimz does; they do not quote other processors' prices or terms.
 const COMPARISONS = [
   'chargeback',
   'on cards',
@@ -64,7 +66,7 @@ const COMPARISONS = [
   'CARD_RATE',
 ]
 
-describe('the homepage makes no comparisons with cards', () => {
+describe('the homepage and pricing page make no comparisons with cards', () => {
   it.each(COMPARISONS)('never says %s', (phrase) => {
     const hits = HOMEPAGE_FILES.filter((file) =>
       readFileSync(file, 'utf8').toLowerCase().includes(phrase.toLowerCase()),
