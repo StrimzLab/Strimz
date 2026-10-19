@@ -226,6 +226,7 @@ export function seedPaymentSession(
     mode: 'test' | 'live'
     amount: string
     storefrontProductId: string
+    customerId: string
   }> = {},
 ) {
   return prisma.paymentSession.create({
@@ -238,6 +239,7 @@ export function seedPaymentSession(
       netAmount: '98500000',
       checkoutUrl: 'https://checkout.strimz.test/pay/x',
       mode: overrides.mode ?? 'test',
+      customerId: overrides.customerId ?? null,
       expiresAt: new Date(Date.now() + 30 * 60_000),
       storefrontProductId: overrides.storefrontProductId ?? null,
     },
