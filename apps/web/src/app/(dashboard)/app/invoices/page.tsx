@@ -38,6 +38,7 @@ import {
   useStatsSummary,
   useVoidInvoice,
 } from '@/hooks/api'
+import { EMPTY_STATES } from '@/lib/empty-states'
 
 const STATUS_TONE: Record<InvoiceStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
   paid: 'positive',
@@ -259,8 +260,9 @@ export default function InvoicesPage() {
           data={data?.rows ?? []}
           loading={isLoading}
           searchPlaceholder="Search by number, customer, email…"
-          emptyTitle="No invoices yet"
-          emptyDescription="Create your first invoice to send a hosted payment link to a customer."
+          emptyTitle={EMPTY_STATES.invoices.title}
+          emptyDescription={EMPTY_STATES.invoices.description}
+          emptyAction={EMPTY_STATES.invoices.action}
           serverRows={serverRowsOf(invoicesQuery)}
         />
       )}

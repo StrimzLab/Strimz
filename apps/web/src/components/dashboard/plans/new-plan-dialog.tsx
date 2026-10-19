@@ -25,6 +25,7 @@ import type { PaymentCurrency, SubscriptionInterval } from '@strimz/shared-types
 
 import { useCreateSubscriptionPlan } from '@/hooks/api'
 import { buildPlanInput } from '@/lib/plan-input'
+import { OpenOnNewParam } from '@/components/dashboard/open-on-new-param'
 
 const INTERVALS: ReadonlyArray<[SubscriptionInterval, string]> = [
   ['daily', 'Daily'],
@@ -39,6 +40,7 @@ const EMPTY = { name: '', description: '', amount: '', intervalCount: '', trialD
 export function NewPlanDialog() {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
+  const openFromLink = React.useCallback(() => setOpen(true), [])
   const [fields, setFields] = React.useState(EMPTY)
   const [currency, setCurrency] = React.useState<PaymentCurrency>('USDC')
   const [interval, setInterval] = React.useState<SubscriptionInterval>('monthly')
@@ -85,6 +87,7 @@ export function NewPlanDialog() {
           <Plus className="mr-1.5 size-4" /> New plan
         </Button>
       </DialogTrigger>
+      <OpenOnNewParam onOpen={openFromLink} />
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>New subscription plan</DialogTitle>

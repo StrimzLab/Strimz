@@ -27,6 +27,7 @@ import type { PaymentCurrency, PaymentSession } from '@strimz/shared-types'
 import { useCreatePaymentSession } from '@/hooks/api'
 import { formatTokenAmount } from '@/lib/format'
 import { buildPaymentSessionInput } from '@/lib/payment-session-input'
+import { OpenOnNewParam } from '@/components/dashboard/open-on-new-param'
 
 const EMPTY = {
   amount: '',
@@ -39,6 +40,7 @@ const EMPTY = {
 
 export function NewPaymentSessionDialog() {
   const [open, setOpen] = React.useState(false)
+  const openFromLink = React.useCallback(() => setOpen(true), [])
   const [fields, setFields] = React.useState(EMPTY)
   const [currency, setCurrency] = React.useState<PaymentCurrency>('USDC')
   const [error, setError] = React.useState<string | null>(null)
@@ -76,9 +78,10 @@ export function NewPaymentSessionDialog() {
     >
       <DialogTrigger asChild>
         <Button size="sm">
-          <Plus className="mr-1.5 size-4" /> New session
+          <Plus className="mr-1.5 size-4" /> New payment link
         </Button>
       </DialogTrigger>
+      <OpenOnNewParam onOpen={openFromLink} />
       <DialogContent className="sm:max-w-md">
         {created ? (
           <>
@@ -115,7 +118,7 @@ export function NewPaymentSessionDialog() {
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>New payment session</DialogTitle>
+              <DialogTitle>New payment link</DialogTitle>
               <DialogDescription>
                 Creates a hosted checkout link for one payment. Your customer pays with USDC or EURC
                 on Arc.

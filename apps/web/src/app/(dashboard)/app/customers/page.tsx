@@ -30,6 +30,7 @@ import { downloadCsv } from '@/lib/csv-export'
 import { relativeTime, shortAddress } from '@/lib/format'
 import { serverRowsOf, useCustomerPages, useStatsSummary } from '@/hooks/api'
 import { customerCards, summaryValue } from '@/lib/stats-summary'
+import { EMPTY_STATES } from '@/lib/empty-states'
 
 interface EmailHistoryEntry {
   email: string
@@ -260,8 +261,9 @@ export default function CustomersPage() {
           data={data?.rows ?? []}
           loading={isLoading}
           searchPlaceholder="Search by name, email, wallet…"
-          emptyTitle="No customers yet"
-          emptyDescription="Once a wallet pays you, they show up here automatically."
+          emptyTitle={EMPTY_STATES.customers.title}
+          emptyDescription={EMPTY_STATES.customers.description}
+          emptyAction={EMPTY_STATES.customers.action}
           serverRows={serverRowsOf(customersQuery)}
         />
       )}

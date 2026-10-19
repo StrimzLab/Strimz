@@ -91,8 +91,8 @@ export function useCreatePaymentSession() {
       qc.invalidateQueries({ queryKey: paymentSessionKeys.lists() })
     },
     messages: {
-      loading: 'Creating payment session…',
-      success: (s) => `Payment session created for ${formatTokenAmount(s.amount, s.currency)}`,
+      loading: 'Creating payment link…',
+      success: (s) => `Payment link created for ${formatTokenAmount(s.amount, s.currency)}`,
     },
   })
 }

@@ -35,6 +35,7 @@ import {
   usePrefetchPaymentSession,
   useStatsSummary,
 } from '@/hooks/api'
+import { EMPTY_STATES } from '@/lib/empty-states'
 
 /**
  * Tone mapping for the seven canonical session statuses. Kept on the
@@ -234,9 +235,9 @@ export default function PaymentSessionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Payment sessions"
+        title="Payment links"
         docsSlug="payment-sessions"
-        description="One-time hosted checkouts you've created. Each session has its own link you can send to a customer."
+        description="One-time checkouts for a set amount. Each has its own link you can send to a customer."
         action={
           <div className="flex items-center gap-2">
             <Button
@@ -296,8 +297,9 @@ export default function PaymentSessionsPage() {
           data={data?.rows ?? []}
           loading={isLoading}
           searchPlaceholder="Search by ID, description, customer wallet…"
-          emptyTitle="No sessions"
-          emptyDescription="Click New session to create a payment link, or create one from the API or SDK."
+          emptyTitle={EMPTY_STATES.paymentLinks.title}
+          emptyDescription={EMPTY_STATES.paymentLinks.description}
+          emptyAction={EMPTY_STATES.paymentLinks.action}
           serverRows={serverRowsOf(sessionsQuery)}
           toolbar={
             <div className="flex flex-wrap items-center gap-1">

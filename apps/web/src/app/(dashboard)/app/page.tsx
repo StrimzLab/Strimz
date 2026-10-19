@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { ArrowUpRight, CreditCard, Receipt, Users, Wallet } from 'lucide-react'
+import { ArrowUpRight, Check, CreditCard, LineChart, Receipt, Users, Wallet } from 'lucide-react'
 import {
   Area,
   AreaChart,
@@ -13,7 +13,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Card, CardContent } from '@strimz/ui'
+import { Button, Card, CardContent } from '@strimz/ui'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { KpiCard } from '@/components/dashboard/kpi-card'
@@ -23,34 +23,15 @@ import { bucketVolumeDays, formatCurrencyAmounts, utcDayStart } from '@/lib/curr
 import { homeCards, summaryValue } from '@/lib/stats-summary'
 import { paymentCurrencies } from '@strimz/shared-types'
 import { useDashboardTour } from '@/hooks/use-dashboard-tour'
+import { NEW_PAYMENT_LINK_HREF, firstRunSteps, type FirstRunPath } from '@/lib/first-run'
 import {
   useMerchantMe,
   useMrr,
   usePaymentSessions,
   useStatsSummary,
+  useSubscriptionPlans,
   useStatsVolume,
 } from '@/hooks/api'
-
-const STEPS = [
-  {
-    n: 1,
-    t: 'Issue your first API key',
-    d: 'Test mode is free. Live mode unlocks after MFA + email verification.',
-    href: '/app/api-keys',
-  },
-  {
-    n: 2,
-    t: 'Send a test payment',
-    d: 'Create a test session, complete the hosted checkout, watch it confirm.',
-    href: '/app/payment-sessions',
-  },
-  {
-    n: 3,
-    t: 'Wire a webhook',
-    d: 'Add an HTTPS endpoint and send a test event to verify your handler.',
-    href: '/app/webhooks',
-  },
-] as const
 
 const CHART_DAYS = 30
 
@@ -101,14 +82,14 @@ export default function DashboardHome() {
 
   const KPIS = [
     {
-      label: 'MRR',
+      label: 'Monthly recurring revenue',
       value: summaryValue(mrrQuery, (d) => formatCurrencyAmounts(d.mrr)),
       icon: Wallet,
       href: '/app/analytics',
       subtle: mrrQuery.data
-        ? `${mrrQuery.data.activeSubscribers} active`
+        ? 'From active subscriptions'
         : mrrQuery.isError
-          ? 'Could not load MRR'
+          ? 'Could not load recurring revenue'
           : 'Loading…',
     },
     {
@@ -116,10 +97,10 @@ export default function DashboardHome() {
       value: summaryValue(mrrQuery, (d) => d.activeSubscribers.toLocaleString()),
       icon: Users,
       href: '/app/subscriptions',
-      subtle: 'Customers cycling',
+      subtle: 'Paying you every period',
     },
     {
-      label: '7-day volume',
+      label: 'Last 7 days',
       value: summaryValue(summaryQuery, (d) => homeCards(d).volume7d),
       icon: CreditCard,
       href: '/app/payment-sessions',
@@ -134,7 +115,7 @@ export default function DashboardHome() {
       value: summaryValue(summaryQuery, (d) => homeCards(d).openInvoices),
       icon: Receipt,
       href: '/app/invoices',
-      subtle: 'Sent or overdue',
+      subtle: 'Sent and not yet paid',
     },
   ] as const
 
@@ -170,7 +151,9 @@ export default function DashboardHome() {
         onRetry={() => void volumeQuery.refetch()}
       />
 
-      <div className="mt-6">{showGettingStarted ? <GetStartedCard /> : <RecentSessionsCard />}</div>
+      <div className="mt-6">
+        {showGettingStarted ? <FirstRunCard paid={false} /> : <RecentSessionsCard />}
+      </div>
     </>
   )
 }
@@ -199,7 +182,7 @@ function VolumeChartCard({
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="font-poppins font-semibold">Volume (30 days)</h3>
+            <h3 className="font-poppins font-semibold">Last 30 days</h3>
             <p className="text-muted-foreground text-xs">
               Confirmed payments and subscription charges, per currency.
             </p>
@@ -224,8 +207,19 @@ function VolumeChartCard({
               </button>
             </div>
           ) : empty ? (
-            <div className="text-muted-foreground flex h-[220px] items-center justify-center text-xs">
-              No confirmed payments in the last 30 days.
+            <div className="flex h-[220px] flex-col items-center justify-center gap-3 text-center">
+              <span className="bg-accent/10 text-accent grid size-11 place-items-center rounded-xl">
+                <LineChart className="size-5" />
+              </span>
+              <div>
+                <p className="text-sm font-medium">Your first payment will show here</p>
+                <p className="text-muted-foreground text-xs">
+                  Confirmed payments and subscription charges from the last 30 days.
+                </p>
+              </div>
+              <Button asChild size="sm">
+                <Link href={NEW_PAYMENT_LINK_HREF}>Create a payment link</Link>
+              </Button>
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={220}>
@@ -288,39 +282,73 @@ function VolumeChartCard({
   )
 }
 
-function GetStartedCard() {
+function FirstRunCard({ paid }: { paid: boolean }) {
+  const sessionsQuery = usePaymentSessions({ limit: 1 }, { select: (page) => page.data.length })
+  const plansQuery = useSubscriptionPlans({ limit: 1 }, { select: (page) => page.data.length })
+  const created = (sessionsQuery.data ?? 0) > 0 || (plansQuery.data ?? 0) > 0
+  const paths = firstRunSteps({ created, paid })
+  const [pathId, setPathId] = React.useState<FirstRunPath['id']>('no-code')
+  const path = paths.find((p) => p.id === pathId)
+  if (!path) return null
+
   return (
     <Card className="shadow-sub-card border-border/60" data-tour="get-started">
       <CardContent className="p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-poppins font-semibold">Get started</h3>
-          <Link
-            href="https://strimz.finance/docs/getting-started/quickstart"
-            target="_blank"
-            rel="noreferrer"
-            className="text-accent text-xs font-medium hover:underline"
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-poppins font-semibold">Get paid</h3>
+            <p className="text-muted-foreground text-xs">
+              Take your first payment. Pick the way that suits you.
+            </p>
+          </div>
+          <div
+            role="tablist"
+            aria-label="How you will set up"
+            className="bg-muted flex rounded-lg p-1"
           >
-            Open the docs →
-          </Link>
+            {paths.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                role="tab"
+                aria-selected={p.id === path.id}
+                onClick={() => setPathId(p.id)}
+                className={
+                  p.id === path.id
+                    ? 'bg-card text-foreground rounded-md px-3 py-1.5 text-xs font-medium shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground rounded-md px-3 py-1.5 text-xs font-medium'
+                }
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-3">
-          {STEPS.map((s) => (
-            <Link
-              key={s.n}
-              href={s.href}
-              className="border-border/60 bg-background hover:border-accent/40 group flex items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm"
-            >
-              <div className="font-sora bg-accent/10 text-accent flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
-                {s.n}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="font-medium">{s.t}</div>
-                <div className="text-muted-foreground mt-0.5 text-xs">{s.d}</div>
-              </div>
-              <ArrowUpRight className="text-muted-foreground/40 group-hover:text-foreground size-4 shrink-0 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-            </Link>
+        <ol role="tabpanel" className="grid gap-3 md:grid-cols-3">
+          {path.steps.map((s, i) => (
+            <li key={s.title}>
+              <Link
+                href={s.href}
+                className="border-border/60 bg-background hover:border-accent/40 group flex h-full items-start gap-3 rounded-lg border p-4 transition-all hover:shadow-sm"
+              >
+                <span
+                  className={
+                    s.done
+                      ? 'bg-accent text-ink flex size-8 shrink-0 items-center justify-center rounded-full'
+                      : 'font-sora bg-accent/10 text-accent flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold'
+                  }
+                >
+                  {s.done ? <Check className="size-4" aria-label="Done" /> : i + 1}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{s.title}</span>
+                  <span className="text-muted-foreground mt-0.5 block text-xs">{s.body}</span>
+                </span>
+                <ArrowUpRight className="text-muted-foreground/40 group-hover:text-foreground size-4 shrink-0 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </Link>
+            </li>
           ))}
-        </div>
+        </ol>
       </CardContent>
     </Card>
   )

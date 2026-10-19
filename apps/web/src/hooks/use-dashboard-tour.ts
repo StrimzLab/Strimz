@@ -18,7 +18,7 @@ const STEPS: Array<{
     selector: '[data-tour="kpis"]',
     title: 'Your business at a glance',
     description:
-      'MRR, active subscribers, 7-day volume, open invoices. Click a card to jump to the detail view.',
+      'Monthly recurring revenue, active subscribers, the last 7 days of payments and open invoices. Click a card for the detail.',
     side: 'bottom',
   },
   {
@@ -29,16 +29,17 @@ const STEPS: Array<{
     side: 'top',
   },
   {
+    selector: '[data-tour="nav-payment-sessions"]',
+    title: 'Payment links',
+    description:
+      'Create a link for a set amount and send it to a customer. No code needed. Watch it confirm as they pay.',
+    side: 'right',
+  },
+  {
     selector: '[data-tour="nav-api-keys"]',
     title: 'API keys',
     description:
       'Issue a test key first, then upgrade to live once your team is ready. Every key is scoped and revocable.',
-    side: 'right',
-  },
-  {
-    selector: '[data-tour="nav-payment-sessions"]',
-    title: 'Payment sessions',
-    description: 'Create a checkout link with one call. Watch it confirm as the payer signs.',
     side: 'right',
   },
   {

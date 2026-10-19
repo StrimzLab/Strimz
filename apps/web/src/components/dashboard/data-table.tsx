@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import {
   flexRender,
   getCoreRowModel,
@@ -42,6 +43,8 @@ export interface DataTableProps<TData, TValue> {
   /** Empty-state copy when the source list is empty. */
   emptyTitle?: string
   emptyDescription?: string
+  /** The next step to offer when the list is empty. */
+  emptyAction?: { label: string; href: string }
   /** Page size for client pagination. */
   pageSize?: number
   /**
@@ -60,6 +63,7 @@ export function DataTable<TData, TValue>({
   toolbar,
   emptyTitle = 'No results',
   emptyDescription = 'Nothing here yet. Adjust your filters or check back later.',
+  emptyAction,
   pageSize = 10,
   loading = false,
   serverRows,
@@ -182,7 +186,12 @@ export function DataTable<TData, TValue>({
                 <TableCell colSpan={columns.length} className="h-40">
                   <div className="flex flex-col items-center justify-center gap-1.5 py-6 text-center">
                     <div className="text-sm font-medium">{emptyTitle}</div>
-                    <div className="text-muted-foreground text-xs">{emptyDescription}</div>
+                    <div className="text-muted-foreground max-w-md text-xs">{emptyDescription}</div>
+                    {emptyAction && !globalFilter ? (
+                      <Button asChild size="sm" className="mt-3">
+                        <Link href={emptyAction.href}>{emptyAction.label}</Link>
+                      </Button>
+                    ) : null}
                   </div>
                 </TableCell>
               </TableRow>

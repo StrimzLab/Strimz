@@ -16,6 +16,7 @@ import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
 import type { LoadedRows } from '@/lib/cursor-pages'
 import { transactionKindLabel } from '@/lib/transactions-view'
 import { serverRowsOf, useTransactionPages } from '@/hooks/api'
+import { EMPTY_STATES } from '@/lib/empty-states'
 
 const STATUS_TONE: Record<TransactionStatus, 'positive' | 'warning' | 'danger'> = {
   confirmed: 'positive',
@@ -183,8 +184,9 @@ export default function TransactionsPage() {
           data={data?.rows ?? []}
           loading={isLoading}
           searchPlaceholder="Search by ID, payer, transaction hash…"
-          emptyTitle="No transactions"
-          emptyDescription="Confirmed payments, subscription charges and refunds appear here once they land on-chain."
+          emptyTitle={EMPTY_STATES.transactions.title}
+          emptyDescription={EMPTY_STATES.transactions.description}
+          emptyAction={EMPTY_STATES.transactions.action}
           serverRows={serverRowsOf(transactionsQuery)}
           toolbar={
             <div className="flex flex-wrap items-center gap-3">
