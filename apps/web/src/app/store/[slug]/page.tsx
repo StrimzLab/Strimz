@@ -7,10 +7,6 @@ import { OG_IMAGE } from '@/lib/seo'
 import { fetchPublicStorefront } from '@/lib/public-store'
 import { formatTokenAmount } from '@/lib/format'
 
-/**
- * Per-storefront metadata. Pulls the merchant's own name + description
- * from the storefront row so the OG card shows real branding.
- */
 export async function generateMetadata({
   params,
 }: {
@@ -19,9 +15,7 @@ export async function generateMetadata({
   const { slug } = await params
   const detail = await fetchPublicStorefront(slug).catch(() => null)
   const name = detail?.storefront.name ?? slug
-  const description =
-    detail?.storefront.description ??
-    `Buy from ${name} with USDC on Arc. Instant, gas-free, no card needed.`
+  const description = detail?.storefront.description ?? `Pay ${name} with USDC from your wallet.`
   return {
     title: name,
     description,
@@ -114,7 +108,7 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
                         </Badge>
                       )}
                       {product.stock !== null && product.stock <= 0 && (
-                        <div className="text-muted-foreground absolute inset-0 grid place-items-center bg-white/80 font-semibold">
+                        <div className="text-muted-foreground bg-background/80 absolute inset-0 grid place-items-center font-semibold">
                           Sold out
                         </div>
                       )}

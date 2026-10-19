@@ -15,9 +15,8 @@ export function trialCopy(
   if (terms.trialDays === 0 || terms.trialEndsAt === null) {
     return {
       notice: `You are charged ${price} today, then every ${intervalLabel}.`,
-      button: `Subscribe. ${price}/${intervalLabel}`,
-      confirmed:
-        'Your first charge has been recorded on-chain. Strimz will charge automatically each period. Cancel anytime.',
+      button: `Subscribe for ${price} / ${intervalLabel}`,
+      confirmed: `Your first charge of ${price} is done. The next one is in a ${intervalLabel}. Cancel anytime.`,
     }
   }
   const firstCharge = new Date(terms.trialEndsAt).toLocaleDateString(locale, {

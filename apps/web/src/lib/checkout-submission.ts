@@ -1,4 +1,5 @@
 import { env } from '@/lib/env'
+import { PAYER_MESSAGES } from '@/lib/payer-errors'
 
 export interface RelaySubmissionView {
   id: string
@@ -29,17 +30,6 @@ const LIVE_STATUSES: ReadonlySet<RelaySubmissionView['status']> = new Set([
   'signing',
   'broadcast',
 ])
-
-const PAYER_MESSAGES: Readonly<Record<string, string>> = {
-  insufficient_balance:
-    'There is not enough of this token in your wallet to cover the first charge. Add funds and try again.',
-  amount_below_minimum:
-    'This checkout is below the 1.00 minimum Strimz can process. Ask the merchant for a new link.',
-  relay_budget_exhausted:
-    'This merchant cannot take more checkouts today. Please try again after 00:00 UTC.',
-  rate_limited: 'Too many attempts from your network. Wait a minute and try again.',
-  subscription_exists: 'This wallet already subscribes to this plan.',
-}
 
 function checkoutPath(target: CheckoutRelayTarget): string {
   return `${env.apiUrl}/v1/checkout/${target.kind}/${encodeURIComponent(target.id)}`

@@ -27,7 +27,7 @@ export async function generateMetadata({
   const description =
     found?.product.description ??
     (found
-      ? `Buy ${found.product.name} from ${found.storefront.name} with USDC on Arc.`
+      ? `Pay ${found.storefront.name} for ${found.product.name} with USDC from your wallet.`
       : 'A Strimz-hosted product.')
   return {
     title,
@@ -74,7 +74,7 @@ export default async function ProductPage({
           <h1 className="font-sora text-foreground text-3xl font-[700] tracking-tight">
             {product.name}
           </h1>
-          <p className="text-muted-foreground mt-2 inline-flex items-center gap-1.5 font-mono text-sm">
+          <p className="text-foreground font-sora mt-2 inline-flex items-center gap-1.5 text-base font-[600]">
             <TokenLogo symbol={product.currency} size={14} />
             {priceLabel} {product.currency}
             {product.type === 'subscription' && product.interval ? ` / ${product.interval}` : ''}

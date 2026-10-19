@@ -6,6 +6,7 @@ import { Loader2, ShoppingBag } from 'lucide-react'
 import { Button, FieldLabel, Input } from '@strimz/ui'
 import type { StorefrontCheckoutResponse } from '@strimz/shared-types'
 import { env } from '@/lib/env'
+import { storefrontCheckoutError } from '@/lib/payer-errors'
 
 interface BuyButtonProps {
   slug: string
@@ -15,19 +16,7 @@ interface BuyButtonProps {
   productType: 'one_time' | 'subscription'
 }
 
-/**
- * Public "Buy" button on the storefront + product-detail pages. On
- * click:
- *
- *   1. Optionally collects an email (so the buyer gets a receipt).
- *   2. POSTs to `${apiUrl}/store/:slug/products/:productId/checkout`.
- *   3. Redirects to the returned Strimz hosted-checkout URL.
- *
- * We hit the API directly (no BFF hop) because the endpoint is
- * `@Public()` on the backend. No cookies, no bearer token, just a
- * cross-origin fetch. CORS on apps/api already allows the marketing
- * origin.
- */
+/** Calls the public API directly (no BFF hop), then sends the buyer to hosted checkout. */
 export function BuyButton({ slug, productId, currency, priceLabel, productType }: BuyButtonProps) {
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
@@ -46,24 +35,27 @@ export function BuyButton({ slug, productId, currency, priceLabel, productType }
         },
       )
       if (!res.ok) {
-        const detail = await res
-          .json()
-          .catch(() => ({ error: { message: 'unexpected server error' } }))
-        const message = detail?.error?.message ?? `Something went wrong (${res.status})`
-        throw new Error(message)
+        const detail = (await res.json().catch(() => null)) as {
+          error?: { code?: string; message?: string }
+        } | null
+        console.error('[storefront checkout]', res.status, detail?.error?.message)
+        toast.error(storefrontCheckoutError(detail?.error?.code ?? null))
+        setBusy(false)
+        return
       }
       const body = (await res.json()) as StorefrontCheckoutResponse
       window.location.assign(body.checkoutUrl)
     } catch (err) {
-      toast.error((err as Error).message)
+      console.error('[storefront checkout]', err)
+      toast.error(storefrontCheckoutError(null))
       setBusy(false)
     }
   }
 
   const cta =
     productType === 'subscription'
-      ? `Subscribe · ${priceLabel} ${currency}`
-      : `Buy · ${priceLabel} ${currency}`
+      ? `Subscribe for ${priceLabel} ${currency}`
+      : `Pay ${priceLabel} ${currency}`
 
   return (
     <div className="space-y-3">
@@ -94,9 +86,7 @@ export function BuyButton({ slug, productId, currency, priceLabel, productType }
           </>
         )}
       </Button>
-      <p className="font-poppins text-muted-foreground text-center text-[10px]">
-        Powered by Strimz · Settles in ~13s on Arc
-      </p>
+      <p className="font-poppins text-muted-foreground text-center text-xs">Powered by Strimz</p>
     </div>
   )
 }

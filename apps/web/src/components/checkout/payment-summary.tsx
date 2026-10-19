@@ -6,6 +6,7 @@ import { Logo, Glyph } from '@/components/shared/logo'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { BlockieAvatar } from '@/components/dashboard/blockie-avatar'
 import { Repeat } from 'lucide-react'
+import { intervalLabel } from '@/lib/checkout-copy'
 
 export interface SummaryProps {
   merchantName?: string
@@ -17,11 +18,7 @@ export interface SummaryProps {
   interval?: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
 }
 
-/**
- * Left-rail payment summary. Stays static during the checkout step
- * machine on the right. Anchors the eye and reduces "did I just pay?"
- * anxiety.
- */
+/** Stays still while the steps on the right change, so the order is always in view. */
 export function PaymentSummary({
   merchantName,
   merchantLogoUrl,
@@ -46,36 +43,25 @@ export function PaymentSummary({
           </h4>
         </div>
 
-        {/* Amount */}
-        <div className="space-y-1.5">
-          <div className="text-muted-foreground text-xs font-medium uppercase tracking-widest">
-            Total amount
-          </div>
-          <div className="flex items-center gap-2.5">
-            <div className="shadow-sub-icon bg-background flex size-8 items-center justify-center rounded-full">
-              <TokenLogo symbol={currency} size={20} />
-            </div>
-            <h2 className="font-sora text-2xl font-bold md:text-3xl">
-              {amount ?? '—'} {currency}
-            </h2>
-          </div>
-          {interval && (
-            <div className="text-muted-foreground flex items-center gap-1.5 text-sm">
-              <Repeat className="size-3.5" />
-              Charged every {interval.replace('ly', '')}
-            </div>
-          )}
-        </div>
-
-        {/* Details */}
         <div className="space-y-4">
-          {description && <div className="text-muted-foreground text-sm">{description}</div>}
+          {description && <p className="text-foreground text-sm">{description}</p>}
           <div className="border-border/60 border-t" />
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Total due</span>
-            <span className="font-poppins text-sm font-semibold">
-              {amount ?? '—'} {currency}
-            </span>
+          <div className="flex items-end justify-between gap-4">
+            <span className="text-muted-foreground text-sm">Total</span>
+            <div className="text-right">
+              <div className="flex items-center justify-end gap-2">
+                <TokenLogo symbol={currency} size={20} />
+                <span className="font-sora text-2xl font-bold md:text-3xl">
+                  {amount ?? '—'} {currency}
+                </span>
+              </div>
+              {interval && (
+                <div className="text-muted-foreground mt-1 flex items-center justify-end gap-1.5 text-sm">
+                  <Repeat className="size-3.5" />
+                  Charged every {intervalLabel(interval)}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

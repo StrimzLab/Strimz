@@ -19,7 +19,8 @@ describe('trialCopy', () => {
   it('says the payer is charged today without a trial', () => {
     const copy = trialCopy({ startAt: '0', trialDays: 0, trialEndsAt: null }, '20 USDC', 'month')
     expect(copy.notice).toBe('You are charged 20 USDC today, then every month.')
-    expect(copy.button).toBe('Subscribe. 20 USDC/month')
+    expect(copy.button).toBe('Subscribe for 20 USDC / month')
+    expect(copy.confirmed).not.toContain('on-chain')
   })
 
   it('uses the singular for a one-day trial', () => {
