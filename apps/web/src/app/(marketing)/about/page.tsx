@@ -1,173 +1,168 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
-import { Coins, Lock, ShieldCheck, Zap } from 'lucide-react'
+import boltIcon from '@iconify-icons/solar/bolt-linear'
+import documentIcon from '@iconify-icons/solar/document-text-linear'
+import globeIcon from '@iconify-icons/solar/globus-linear'
+import lockIcon from '@iconify-icons/solar/lock-keyhole-linear'
+import shieldIcon from '@iconify-icons/solar/shield-check-linear'
+import walletIcon from '@iconify-icons/solar/wallet-linear'
+import { cn } from '@strimz/ui'
 import { OG_IMAGE } from '@/lib/seo'
+import { MkIcon } from '@/components/marketing/icon'
+import { PageHero } from '@/components/marketing/page-hero'
+import { RiseIn } from '@/components/marketing/fx/rise-in'
+import { SectionBoundary } from '@/components/marketing/fx/section-boundary'
+import { Closing } from '@/components/marketing/home/closing'
 
 export const metadata: Metadata = {
   title: 'About',
   description:
-    'Strimz is the stablecoin billing layer for businesses. Built stablecoin-first on Arc. No card-rails legacy, no chargebacks, no FX surprises. Meet the team and the principles behind the product.',
+    'Strimz is billing for businesses that get paid in stablecoins. Payments settle on Arc into your own wallet, in USDC or EURC, and every one leaves an on-chain receipt.',
   openGraph: {
     title: 'About Strimz',
     description:
-      'Stablecoin-first billing infrastructure built on Arc. Why we built it, what it stands for, and how it differs from card-era processors.',
+      'Billing for businesses that get paid in stablecoins: non-custodial, settled on Arc, with on-chain receipts.',
     url: '/about',
     images: [OG_IMAGE],
   },
   alternates: { canonical: '/about' },
 }
 
-const PRINCIPLES = [
+const WHY = [
   {
-    icon: Coins,
-    title: 'Stablecoins first, not bolted on',
-    body: 'The whole platform was designed for on-chain settlement on day one. Nothing has been grafted onto a card-rails product to make this work.',
+    icon: boltIcon,
+    title: 'Paid in seconds',
+    body: 'Payments settle on Arc, which finalises transactions in under a second. The money is in your wallet moments after your customer approves.',
   },
   {
-    icon: Zap,
-    title: 'Settlement in seconds, not days',
-    body: 'When a customer pays, the money is in your wallet within seconds. No three-day clearing window. No reversal risk.',
+    icon: shieldIcon,
+    title: 'Final once it settles',
+    body: 'A confirmed payment on Arc is not reorganised away. When Strimz tells you a payment landed, it has landed.',
   },
   {
-    icon: Lock,
-    title: 'You hold your money, not us',
-    body: 'Strimz is non-custodial. Payments settle directly into a wallet you control. There is no balance you have to wait to withdraw.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Verifiable end to end',
-    body: 'Every payment is on-chain. You can verify any transaction independently. Without needing to trust our database, our team, or anyone else.',
+    icon: globeIcon,
+    title: 'Customers anywhere',
+    body: 'Anyone holding USDC or EURC can pay you, wherever they are. They sign in their wallet and never need gas.',
   },
 ] as const
 
-const NUMBERS = [
-  { value: 'Arc', label: 'Network payments settle on' },
+const SAFETY = [
+  {
+    icon: walletIcon,
+    title: 'We never hold your money',
+    body: 'Strimz is non-custodial. Every payment settles directly into a wallet you control, so there is no Strimz balance to withdraw.',
+  },
+  {
+    icon: documentIcon,
+    title: 'A receipt for every payment',
+    body: 'Each payment is an Arc transaction. You, your customer or your accountant can check it independently.',
+  },
+  {
+    icon: lockIcon,
+    title: 'Privately audited contracts',
+    body: 'The smart contracts that move payments have been through a private security audit.',
+  },
+] as const
+
+const FACTS = [
+  { value: 'Arc', label: 'The network payments settle on' },
   { value: '2', label: 'Stablecoins: USDC and EURC' },
   { value: '0', label: 'Gas your customers pay' },
   { value: '0', label: 'Funds we hold for you' },
 ] as const
 
+function Pillars({ items }: { items: typeof WHY | typeof SAFETY }) {
+  return (
+    <RiseIn className="mt-12 grid gap-4 md:grid-cols-3">
+      {items.map((item) => (
+        <article
+          key={item.title}
+          data-rise
+          className="border-border bg-card rounded-[24px] border p-7"
+        >
+          <span className="bg-accent/10 text-accent-ink dark:text-accent grid size-11 place-items-center rounded-xl">
+            <MkIcon icon={item.icon} className="size-5" />
+          </span>
+          <h3 className="font-sora text-foreground mt-6 text-xl font-semibold tracking-[-0.02em]">
+            {item.title}
+          </h3>
+          <p className="font-poppins text-muted-foreground mt-2 text-[15px] leading-relaxed">
+            {item.body}
+          </p>
+        </article>
+      ))}
+    </RiseIn>
+  )
+}
+
 export default function AboutPage() {
   return (
     <>
-      {/* Hero */}
-      <section className="bg-background relative overflow-hidden">
-        <div
-          className="strimz-wave-1 absolute inset-x-0 -top-32 mx-auto h-[400px] max-w-3xl rounded-full opacity-60 blur-3xl"
-          aria-hidden
+      <SectionBoundary name="about introduction">
+        <PageHero
+          id="about-title"
+          label="About"
+          lines={['Billing for businesses', 'paid in stablecoins.']}
+          intro="Strimz gives an online business the billing it needs: hosted checkout, subscriptions, invoices, refunds and reporting, with every payment settling in USDC or EURC straight into its own wallet."
         />
-        <div className="relative mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 lg:py-28">
-          <span className="font-poppins bg-accent/10 text-accent inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-[600]">
-            <span className="bg-accent size-1.5 rounded-full" />
-            About
-          </span>
-          <h1 className="font-sora text-foreground mt-5 text-[40px] font-[700] leading-[48px] md:text-[56px] md:leading-[60px]">
-            Billing, designed for stablecoins.
-          </h1>
-          <p className="font-poppins text-muted-foreground mx-auto mt-5 max-w-2xl text-base font-[400] leading-[28px]">
-            Strimz is a billing platform for businesses that want to take payments in stablecoins.
-            We handle the parts you would otherwise have to build yourself: hosted checkout,
-            recurring subscriptions, refunds, payouts, and a real audit trail.
-          </p>
-        </div>
-      </section>
+      </SectionBoundary>
 
-      {/* Story */}
-      <section className="bg-background py-16">
-        <div className="font-poppins text-muted-foreground mx-auto max-w-3xl space-y-6 px-4 text-base leading-[28px] sm:px-6">
-          <p>
-            We started Strimz because the existing options for taking stablecoin payments are either
-            too complex (a wallet plus a manual reconciliation script) or too consumer (built for
-            individuals sending money to each other, not businesses billing customers).
-          </p>
-          <p>
-            Businesses need the same primitives card processors gave them years ago: subscriptions
-            that don&apos;t fail silently, refunds with a clear paper trail, webhooks that retry on
-            their own, and a dashboard you can hand to a finance team. We think those should work
-            the same when the money is USDC. And the on-chain settlement should make a few of them
-            better.
-          </p>
-          <p>
-            Everything we build is anchored to that. Take payments fast. Settle fast. Give the
-            customer something they can verify themselves.
-          </p>
-        </div>
-      </section>
+      <SectionBoundary name="why stablecoins">
+        <section aria-labelledby="why-title" className="py-16 sm:py-24">
+          <div className="mx-auto max-w-[1280px] px-5 sm:px-10">
+            <h2
+              id="why-title"
+              className="font-sora text-foreground max-w-2xl text-[34px] font-semibold leading-[1.04] tracking-[-0.04em] sm:text-[48px]"
+            >
+              Why stablecoins work for business.
+            </h2>
+            <Pillars items={WHY} />
+          </div>
+        </section>
+      </SectionBoundary>
 
-      {/* Numbers */}
-      <section className="bg-ink py-16">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="grid grid-cols-2 gap-y-8 sm:grid-cols-4 sm:gap-x-6">
-            {NUMBERS.map((n) => (
-              <div key={n.label} className="text-center sm:text-left">
-                <div className="font-sora text-[32px] font-[700] leading-none tracking-[-0.02em] text-white sm:text-[40px]">
-                  {n.value}
-                </div>
-                <div className="font-poppins mt-2 text-[12px] font-[400] uppercase tracking-[0.18em] text-white/60">
-                  {n.label}
-                </div>
+      <SectionBoundary name="safety">
+        <section aria-labelledby="safety-title" className="bg-muted py-16 sm:py-24">
+          <div className="mx-auto max-w-[1280px] px-5 sm:px-10">
+            <h2
+              id="safety-title"
+              className="font-sora text-foreground max-w-2xl text-[34px] font-semibold leading-[1.04] tracking-[-0.04em] sm:text-[48px]"
+            >
+              How we keep your money safe.
+            </h2>
+            <Pillars items={SAFETY} />
+          </div>
+        </section>
+      </SectionBoundary>
+
+      <SectionBoundary name="facts">
+        <section aria-label="Strimz in numbers" className="py-16 sm:py-24">
+          <RiseIn className="border-border mx-5 grid max-w-[1200px] grid-cols-2 border-y sm:mx-10 md:grid-cols-4 xl:mx-auto">
+            {FACTS.map((f, i) => (
+              <div
+                key={f.label}
+                data-rise
+                className={cn(
+                  'border-border py-10 pr-6 md:py-14',
+                  i % 2 === 1 && 'border-l pl-6',
+                  i > 0 && 'md:border-l md:pl-8',
+                  i > 1 && 'border-t md:border-t-0',
+                )}
+              >
+                <p className="font-sora text-accent-ink dark:text-accent text-5xl font-semibold tracking-[-0.04em] sm:text-6xl">
+                  {f.value}
+                </p>
+                <p className="font-poppins text-muted-foreground mt-3 max-w-[14rem] text-sm">
+                  {f.label}
+                </p>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
+          </RiseIn>
+        </section>
+      </SectionBoundary>
 
-      {/* Principles */}
-      <section className="bg-muted py-20">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="font-sora text-foreground text-[32px] font-[700] leading-[40px] md:text-[40px] md:leading-[48px]">
-              What we believe
-            </h2>
-            <p className="font-poppins text-muted-foreground mt-4 text-base">
-              Four ideas that shape every product decision we make.
-            </p>
-          </div>
-          <div className="mt-12 grid gap-5 md:grid-cols-2">
-            {PRINCIPLES.map((p) => (
-              <article
-                key={p.title}
-                className="shadow-sub-card border-border bg-card hover:border-accent/40 rounded-[16px] border p-6 transition-colors"
-              >
-                <span className="shadow-sub-icon bg-accent/10 text-accent inline-flex size-10 items-center justify-center rounded-[10px]">
-                  <p.icon className="size-5" />
-                </span>
-                <h3 className="font-sora text-foreground mt-5 text-[20px] font-[700]">{p.title}</h3>
-                <p className="font-poppins text-muted-foreground mt-2 text-sm leading-[24px]">
-                  {p.body}
-                </p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Team + CTA */}
-      <section className="bg-background py-20">
-        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
-          <h3 className="font-sora text-foreground text-[24px] font-[700] md:text-[28px]">
-            Want to try Strimz with your business?
-          </h3>
-          <p className="font-poppins text-muted-foreground mt-3 text-base">
-            Start on the free plan, or tell us what you&apos;re building and we&apos;ll help you set
-            it up.
-          </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <Link
-              href="/signup"
-              className="font-poppins shadow-cta bg-accent inline-flex h-[44px] items-center rounded-[8px] px-5 text-sm font-[600] text-white transition-transform hover:scale-[1.02]"
-            >
-              Start free
-            </Link>
-            <Link
-              href="/contact"
-              className="font-poppins border-border bg-card text-foreground hover:border-primary inline-flex h-[44px] items-center rounded-[8px] border px-5 text-sm font-[500]"
-            >
-              Get in touch
-            </Link>
-          </div>
-        </div>
-      </section>
+      <SectionBoundary name="closing">
+        <Closing />
+      </SectionBoundary>
     </>
   )
 }
