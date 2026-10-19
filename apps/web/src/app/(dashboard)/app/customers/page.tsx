@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { Download, History, MoreHorizontal, Mail, Copy } from 'lucide-react'
+import Link from 'next/link'
+import { Copy, Download, History, Mail, MoreHorizontal, UserRound } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import {
@@ -57,12 +58,8 @@ function readEmailHistory(customer: Customer): EmailHistoryEntry[] {
 }
 
 /**
- * Customers page.
- *
- * The API's `Customer` shape is intentionally minimal. No aggregated
- * LTV, no transaction count. Those are derived metrics that belong on
- * the analytics surface, not here. This page renders identity +
- * activity (first/last seen) and routes deeper for spend history.
+ * Customers page. Identity and activity only; each row opens the
+ * customer page for their payments, subscriptions and the rest.
  *
  * Re-render hygiene:
  *   - `select` projects the page envelope into `{rows, count}` so the
@@ -105,9 +102,12 @@ export default function CustomersPage() {
           const extraCount = Math.max(0, history.length - 1)
           return (
             <div className="flex flex-col leading-tight">
-              <span className="font-medium">
+              <Link
+                href={`/app/customers/${row.original.id}`}
+                className="hover:text-accent font-medium hover:underline"
+              >
                 {row.original.displayName ?? row.original.email ?? 'Anonymous'}
-              </span>
+              </Link>
               <div className="mt-0.5 flex items-center gap-1.5">
                 <span className="text-muted-foreground text-xs">
                   {row.original.email ?? 'no email on file'}
@@ -140,7 +140,12 @@ export default function CustomersPage() {
         accessorKey: 'walletAddress',
         header: 'Wallet',
         cell: ({ row }) => (
-          <code className="text-xs">{shortAddress(row.original.walletAddress)}</code>
+          <Link
+            href={`/app/customers/${row.original.id}`}
+            className="hover:text-accent text-xs hover:underline"
+          >
+            <code>{shortAddress(row.original.walletAddress)}</code>
+          </Link>
         ),
       },
       {
@@ -184,6 +189,11 @@ export default function CustomersPage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuItem asChild>
+                  <Link href={`/app/customers/${row.original.id}`}>
+                    <UserRound className="mr-2 size-4" /> View customer
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() =>
                     navigator.clipboard

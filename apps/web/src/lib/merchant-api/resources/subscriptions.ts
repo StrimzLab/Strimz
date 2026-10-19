@@ -10,6 +10,7 @@ import type { CallOptions, Page, PaginationParams } from '../types'
 export interface ListSubscriptionsParams extends PaginationParams {
   status?: SubscriptionStatus
   planId?: string
+  customerId?: string
 }
 
 export class SubscriptionsResource {
@@ -23,6 +24,7 @@ export class SubscriptionsResource {
         limit: params.limit,
         status: params.status,
         planId: params.planId,
+        customerId: params.customerId,
       },
     })
   }

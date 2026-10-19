@@ -11,6 +11,7 @@ import type { CallOptions, Page, PaginationParams } from '../types'
 
 export interface ListRefundsParams extends PaginationParams {
   status?: RefundStatus
+  customerId?: string
 }
 
 export class RefundsResource {
@@ -23,6 +24,7 @@ export class RefundsResource {
         cursor: params.cursor,
         limit: params.limit,
         status: params.status,
+        customerId: params.customerId,
       },
     })
   }

@@ -60,6 +60,8 @@ GET  /v1/invoices/{id}
 GET  /v1/invoices?status=overdue
 ```
 
+The list also takes `customerId`. It returns invoices whose payment session belongs to that customer, so an invoice nobody has opened yet won't match.
+
 ## Lifecycle
 
 ```

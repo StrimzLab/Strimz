@@ -8,6 +8,7 @@ export interface ListTransactionsParams extends PaginationParams {
   kind?: TransactionKind
   sessionId?: string
   subscriptionId?: string
+  customerId?: string
 }
 
 export class TransactionsResource {
@@ -23,6 +24,7 @@ export class TransactionsResource {
         kind: params.kind,
         sessionId: params.sessionId,
         subscriptionId: params.subscriptionId,
+        customerId: params.customerId,
       },
     })
   }

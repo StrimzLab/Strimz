@@ -9,6 +9,7 @@ import type { CallOptions, Page, PaginationParams } from '../types'
 
 export interface ListPaymentSessionsParams extends PaginationParams {
   status?: PaymentSessionStatus
+  customerId?: string
 }
 
 /**
@@ -26,7 +27,12 @@ export class PaymentSessionsResource {
   ): Promise<Page<PaymentSession>> {
     return this.client.get<Page<PaymentSession>>('/v1/payment-sessions', {
       ...options,
-      query: { cursor: params.cursor, limit: params.limit, status: params.status },
+      query: {
+        cursor: params.cursor,
+        limit: params.limit,
+        status: params.status,
+        customerId: params.customerId,
+      },
     })
   }
 

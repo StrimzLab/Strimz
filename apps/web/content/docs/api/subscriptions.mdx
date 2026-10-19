@@ -36,6 +36,8 @@ GET  /v1/subscriptions?status=active&planId=cmq4wjr3m0008je6l5t0w2yhb
 POST /v1/subscriptions/{id}/cancel    { "reason": "merchant initiated" }
 ```
 
+The list also takes `customerId` to show one customer's subscriptions.
+
 Cancel marks the subscription `cancelled` in Strimz right away and queues the on-chain cancel.
 
 That on-chain cancel works with the subscriptions contract from the next testnet redeploy ([#142](https://github.com/StrimzLab/strimz/issues/142)). On the current deployment it reverts, so the subscription stays active on-chain.
