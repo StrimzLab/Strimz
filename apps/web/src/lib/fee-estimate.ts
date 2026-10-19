@@ -1,4 +1,4 @@
-import { PLANS, type VolumePlan } from '@strimz/shared-config'
+import { PLANS, TOKENS, planForVolume, type VolumePlan } from '@strimz/shared-config'
 
 const TIERS = (['free', 'starter', 'growth'] as const satisfies readonly VolumePlan[]).map(
   (tier) => ({
@@ -41,4 +41,15 @@ export function firstYearFees(monthlyVolume: number): {
   const processed = (monthCents * 12) / 100
   const fees = Math.round(feeCents) / 100
   return { processed, fees, kept: processed - fees, effectiveRate: (fees / processed) * 100 }
+}
+
+/** The plan a merchant is on after this much all-time volume, priced as USDC. */
+export function planAtVolume(allTimeUsd: number): VolumePlan {
+  const cents = BigInt(Math.round(allTimeUsd * 100))
+  const usdc = cents * 10n ** BigInt(TOKENS.USDC.decimals - 2)
+  return planForVolume({ USDC: usdc, EURC: 0n })
+}
+
+export function planAfterYear(monthlyVolume: number): VolumePlan {
+  return planAtVolume(monthlyVolume * 12)
 }

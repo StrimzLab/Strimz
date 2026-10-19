@@ -13,7 +13,7 @@ const ROUTES = [
   'M -27 93 L 150 93 L 211 149 L 399 149 L 485 61 L 651 60 L 676 76 L 725 76',
 ]
 
-export function Closing() {
+export function Closing({ startHref = '/signup' }: { startHref?: string }) {
   const scope = useRef<HTMLElement>(null)
 
   useGSAP(
@@ -76,7 +76,7 @@ export function Closing() {
             and nothing to pay on your first $1,000.
           </p>
           <div data-cta className="mt-9 flex flex-wrap items-center justify-center gap-3">
-            <PopLink href="/signup" onInk className="px-8">
+            <PopLink href={startHref} onInk className="px-8">
               Start free
             </PopLink>
             <PopLink href="/contact" tone="neutral" onInk>

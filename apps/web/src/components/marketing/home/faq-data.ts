@@ -1,3 +1,7 @@
+import { PLANS } from '@strimz/shared-config'
+
+const usd = (n: number | null) => `$${(n ?? 0).toLocaleString('en-US')}`
+
 export const FAQS = [
   {
     q: 'What does Strimz actually do?',
@@ -38,5 +42,32 @@ export const FAQS = [
   {
     q: 'Where can I find the technical details?',
     a: 'In the docs at strimz.finance/docs: the API, SDKs, webhook signatures, contract architecture and error codes, from a 5-minute quickstart to self-hosting.',
+  },
+] as const
+
+export const PRICING_FAQS = [
+  {
+    q: 'When does my plan change?',
+    a: `Automatically. You move to ${PLANS.starter.name} once your all-time volume reaches ${usd(PLANS.starter.entersAtVolume)}, and to ${PLANS.growth.name} at ${usd(PLANS.growth.entersAtVolume)}. Plans only move up, never back down.`,
+  },
+  {
+    q: 'Do USDC and EURC count together?',
+    a: `No, each currency counts on its own. You reach ${PLANS.starter.name} once you have processed ${(PLANS.starter.entersAtVolume ?? 0).toLocaleString('en-US')} USDC or ${(PLANS.starter.entersAtVolume ?? 0).toLocaleString('en-US')} EURC.`,
+  },
+  {
+    q: 'How is the fee charged?',
+    a: 'On-chain, in the same transaction as the payment. Your customer pays the full price, you receive it minus the fee, and there is no separate invoice from Strimz.',
+  },
+  {
+    q: 'Is there a monthly fee?',
+    a: 'No. You only pay the per-transaction fee for your plan.',
+  },
+  {
+    q: 'Who pays the network fee?',
+    a: 'Not your customer. They sign the payment in their wallet, and the Strimz relayer submits it and pays the gas.',
+  },
+  {
+    q: 'What does Enterprise include?',
+    a: `Everything in ${PLANS.growth.name}, with a rate agreed by contract. Tell us about your volume and we will come back with one.`,
   },
 ] as const
