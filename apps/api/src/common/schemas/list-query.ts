@@ -31,6 +31,7 @@ export const listQuerySchema = z
     planId: z.string().max(64).optional(),
     sessionId: idSchema.optional(),
     subscriptionId: idSchema.optional(),
+    customerId: idSchema.optional(),
     audience: statusToken.optional(),
     query: searchQuery.optional(),
     revoked: z.enum(['true', 'false']).optional(),

@@ -41,6 +41,7 @@ export class InvoicesController {
       limit: q.limit,
       cursor: q.cursor ?? null,
       status: q.status,
+      customerId: q.customerId,
     })
   }
 

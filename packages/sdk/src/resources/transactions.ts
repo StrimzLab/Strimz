@@ -13,6 +13,7 @@ export class TransactionsResource extends BaseResource {
       status?: string
       sessionId?: string
       subscriptionId?: string
+      customerId?: string
       from?: string
       to?: string
     },

@@ -97,11 +97,23 @@ export class CustomersService {
 
   async list(
     merchantId: string,
-    params: { limit?: number; cursor?: string | null; externalRef?: string },
+    params: {
+      limit?: number
+      cursor?: string | null
+      externalRef?: string
+      walletAddress?: string
+    },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.customer.findMany({
-      where: { merchantId, externalRef: params.externalRef ?? undefined },
+      where: {
+        merchantId,
+        externalRef: params.externalRef ?? undefined,
+        // Checkout stores wallets lower-cased; API upserts keep what the caller sent.
+        ...(params.walletAddress
+          ? { walletAddress: { equals: params.walletAddress, mode: 'insensitive' as const } }
+          : {}),
+      },
       orderBy: { lastSeenAt: 'desc' },
       take: limit + 1,
       ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),

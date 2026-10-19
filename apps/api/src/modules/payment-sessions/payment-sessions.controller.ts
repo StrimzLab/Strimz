@@ -44,6 +44,7 @@ export class PaymentSessionsController {
       limit: q.limit,
       cursor: q.cursor ?? null,
       status: q.status,
+      customerId: q.customerId,
     })
   }
 

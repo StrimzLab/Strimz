@@ -29,5 +29,6 @@ model Refund {
 
   @@index([merchantId, status])
   @@index([merchantId, createdAt])
+  @@index([transactionId])
   @@index([status, customerNotifiedAt])
 }

@@ -106,11 +106,16 @@ export class InvoicesService {
   async list(
     merchantId: string,
     mode: Mode,
-    params: { limit?: number; cursor?: string | null; status?: string },
+    params: { limit?: number; cursor?: string | null; status?: string; customerId?: string },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.invoice.findMany({
-      where: { merchantId, mode, status: (params.status as never) ?? undefined },
+      where: {
+        merchantId,
+        mode,
+        status: (params.status as never) ?? undefined,
+        ...(params.customerId ? { session: { customerId: params.customerId } } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,
       ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),

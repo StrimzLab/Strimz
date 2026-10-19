@@ -5,6 +5,7 @@ import type { CallOptions, Page, PaginationParams } from '../types'
 
 export interface ListInvoicesParams extends PaginationParams {
   status?: InvoiceStatus
+  customerId?: string
 }
 
 export class InvoicesResource {
@@ -17,6 +18,7 @@ export class InvoicesResource {
         cursor: params.cursor,
         limit: params.limit,
         status: params.status,
+        customerId: params.customerId,
       },
     })
   }

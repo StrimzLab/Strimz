@@ -1,36 +1,53 @@
 ---
 title: Customers page
-description: Every wallet that's paid you, with email history and lifetime value.
+description: Every wallet that's paid you, and a page per customer with everything they've done.
 ---
 
-Customers is a merchant-view of every payer wallet that has interacted with your account. A "customer" in Strimz is the pair `(merchantId, walletAddress)`. If the same wallet pays two different merchants, each merchant sees their own separate customer record.
+Customers lists every payer wallet that has interacted with your account. A "customer" in Strimz is the pair `(merchantId, walletAddress)`. If the same wallet pays two different merchants, each merchant sees their own separate customer record.
 
-## The layout
+## The list
 
-A single table, one row per customer. Columns:
+One row per customer. Columns:
 
-- **Wallet** — a short-form of the payer's on-chain address. Click through to see the full address.
-- **Emails** — the email addresses this wallet has ever entered at your checkout. Displayed as a chip; if there's more than one, a `+N more` badge opens a dialog listing every email in order.
-- **Lifetime value** — sum of every succeeded payment, in USD equivalent.
-- **First seen** and **last seen** — relative time.
+- **Customer**: the display name if you set one through the API, otherwise their email. The email shows underneath.
+- **Wallet**: a short form of the payer's address.
+- **External ref**: your own ID for this customer, if you set one through the API.
+- **First seen** and **Last activity**: relative time.
 
-## The email history dialog
+Click the name or the wallet, or choose **View customer** in the row's menu, to open the customer page.
 
-The dialog is worth calling out because it's the answer to a question merchants ask a lot: "which email did this customer give me?"
+The search box matches name, email and wallet. **Export CSV** downloads the customers you've loaded, with ID, wallet, email, display name, external ref and dates.
 
-Strimz treats email as a payer-provided field on the checkout envelope. It never overrides the wallet-based identity. So the same wallet can enter different emails on different visits — spouse, work, personal, etc. The dialog shows every email that wallet has given you, most recent first, with the timestamp of the checkout that captured it.
+## The customer page
 
-This is also how the payer notifier cron decides where to send receipts: it uses the most recent email a customer has entered for a given checkout, not a global "primary" email.
+The top of the page shows:
+
+- the full wallet address;
+- the email receipts go to;
+- your external ref;
+- when you first saw them and when they were last active.
+
+Copy buttons sit next to each value.
+
+Below that, one section each for their **payments** (payment links they opened), **subscriptions**, **transactions**, **refunds** and **invoices**. Each section shows the newest 25, and each row opens its own page. A refund opens the payment it refunded.
+
+The page doesn't add up a total spend. USDC and EURC are different currencies and Strimz never adds them together.
+
+## Emails
+
+The email comes from the payer at checkout, or from you when you create the customer through the API. It never replaces the wallet as their identity.
+
+Strimz keeps the **first** email a wallet gives you. If the same wallet types a different email at a later checkout, the stored email doesn't change. Receipts always go to the stored email, the one shown as "Receipts go to" on the customer page.
 
 ## Common workflows
 
-**A customer says "I paid but didn't get a receipt".** Look them up by wallet address. Check the email history — the receipt went to whatever email they entered at that specific checkout. If they entered a typo, that's why they didn't get the mail.
+**A customer says "I paid but didn't get a receipt".** Search the list for their wallet, or call `GET /v1/customers?walletAddress=0x…`. Open the customer page and check "Receipts go to". If that address has a typo, that's why the mail didn't arrive.
 
-**I want to build a mailing list from paying customers.** Not exposed as a bulk export yet — for now, filter the payment sessions table and export CSV, then dedupe by wallet.
+**I want to build a mailing list from paying customers.** Use **Export CSV** on the Customers page and keep the rows that have an email.
 
-**I want to see everything one customer has done.** Click the wallet. The customer detail page shows every payment session, subscription, refund, and invoice associated with that wallet.
+**I want to see everything one customer has done.** Open their customer page. Through the API, pass `customerId` to the payment sessions, subscriptions, transactions, refunds or invoices list.
 
-## What's *not* on this page
+## What's _not_ on this page
 
 - **No account creation for customers.** Strimz doesn't require payers to sign up. If you need customer accounts, you build that layer on your side using the wallet as the primary key.
-- **No PII beyond email.** Strimz does not collect names, addresses, or phone numbers at checkout. Everything you see here comes from what the payer voluntarily entered.
+- **No PII beyond email.** Strimz does not collect names, addresses, or phone numbers at checkout. Everything you see here comes from what the payer entered or what you set through the API.
