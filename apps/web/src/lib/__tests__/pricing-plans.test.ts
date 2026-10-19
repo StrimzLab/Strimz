@@ -91,11 +91,18 @@ describe('dashboard plan notices', () => {
 })
 
 describe('pricing surfaces use the plan module', () => {
+  it.each([
+    'src/components/marketing/pricing/plan-cards.tsx',
+    'src/components/marketing/pricing/compare-table.tsx',
+  ])('%s reads plans from the plan module', (path) => {
+    expect(read(path)).toMatch(/@\/lib\/pricing-plans/u)
+  })
+
   it.each(['src/app/(marketing)/pricing/page.tsx', 'src/components/marketing/home/pricing.tsx'])(
-    '%s reads plans from the plan module',
+    '%s shows the shared plan cards and sends no one to sign-up or sales',
     (path) => {
       const source = read(path)
-      expect(source).toMatch(/@\/lib\/pricing-plans/u)
+      expect(source).toMatch(/<PlanCards\b/u)
       expect(source).not.toMatch(/Talk to sales|\/signup|Contact sales/u)
     },
   )
