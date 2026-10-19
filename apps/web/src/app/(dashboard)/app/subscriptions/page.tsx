@@ -35,6 +35,7 @@ import {
   useSubscriptionPlans,
 } from '@/hooks/api'
 import { SUBSCRIPTION_CARD_STATUSES, subscriptionCards, summaryValue } from '@/lib/stats-summary'
+import { EMPTY_STATES } from '@/lib/empty-states'
 
 const STATUS_TONE: Record<
   SubscriptionStatus,
@@ -280,8 +281,9 @@ export default function SubscriptionsPage() {
           data={data?.rows ?? []}
           loading={isLoading}
           searchPlaceholder="Search by subscriber wallet, plan…"
-          emptyTitle="No subscriptions"
-          emptyDescription="Send customers your hosted plan URL to start subscribing."
+          emptyTitle={EMPTY_STATES.subscriptions.title}
+          emptyDescription={EMPTY_STATES.subscriptions.description}
+          emptyAction={EMPTY_STATES.subscriptions.action}
           serverRows={serverRowsOf(subscriptionsQuery)}
           toolbar={
             <div className="flex flex-wrap items-center gap-1">

@@ -27,6 +27,7 @@ import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
 import { refundCards, summaryValue } from '@/lib/stats-summary'
 import type { LoadedRows } from '@/lib/cursor-pages'
 import { serverRowsOf, useRefundPages, useStatsSummary } from '@/hooks/api'
+import { EMPTY_STATES } from '@/lib/empty-states'
 
 const STATUS_TONE: Record<RefundStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
   completed: 'positive',
@@ -261,8 +262,9 @@ export default function RefundsPage() {
           data={data?.rows ?? []}
           loading={isLoading}
           searchPlaceholder="Search by refund ID, original tx, wallet…"
-          emptyTitle="No refunds"
-          emptyDescription="Refunds you create from confirmed transactions appear here."
+          emptyTitle={EMPTY_STATES.refunds.title}
+          emptyDescription={EMPTY_STATES.refunds.description}
+          emptyAction={EMPTY_STATES.refunds.action}
           serverRows={serverRowsOf(refundsQuery)}
         />
       )}

@@ -44,7 +44,7 @@ const SECTIONS: ReadonlyArray<{
   {
     label: 'Payments',
     links: [
-      { href: '/app/payment-sessions', label: 'Sessions', icon: CreditCard },
+      { href: '/app/payment-sessions', label: 'Payment links', icon: CreditCard },
       { href: '/app/transactions', label: 'Transactions', icon: ArrowLeftRight },
       { href: '/app/plans', label: 'Plans', icon: Layers },
       { href: '/app/subscriptions', label: 'Subscriptions', icon: Receipt },
@@ -54,7 +54,7 @@ const SECTIONS: ReadonlyArray<{
     ],
   },
   {
-    label: 'Buyers',
+    label: 'Customers',
     links: [
       { href: '/app/customers', label: 'Customers', icon: Users },
       { href: '/app/storefront', label: 'Storefront', icon: Store },

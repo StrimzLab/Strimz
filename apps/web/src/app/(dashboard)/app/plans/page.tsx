@@ -14,6 +14,7 @@ import { relativeTime } from '@/lib/format'
 import type { LoadedRows } from '@/lib/cursor-pages'
 import { planPriceLabel } from '@/lib/plans-view'
 import { serverRowsOf, useSubscriptionPlanPages } from '@/hooks/api'
+import { EMPTY_STATES } from '@/lib/empty-states'
 
 const FILTERS = ['active', 'archived', 'all'] as const
 type Filter = (typeof FILTERS)[number]
@@ -115,8 +116,9 @@ export default function PlansPage() {
           data={data?.rows ?? []}
           loading={isLoading}
           searchPlaceholder="Search plans…"
-          emptyTitle={filter === 'archived' ? 'No archived plans' : 'No plans yet'}
-          emptyDescription="Click New plan to create a recurring price and get its sign-up link."
+          emptyTitle={filter === 'archived' ? 'No archived plans' : EMPTY_STATES.plans.title}
+          emptyDescription={EMPTY_STATES.plans.description}
+          emptyAction={filter === 'archived' ? undefined : EMPTY_STATES.plans.action}
           serverRows={serverRowsOf(plansQuery)}
           toolbar={
             <div className="flex flex-wrap items-center gap-1">
