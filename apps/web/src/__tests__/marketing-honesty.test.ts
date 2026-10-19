@@ -29,7 +29,6 @@ const INVENTED = [
   'Northstar',
   'Pulsefin',
   'Bridgehead',
-  'are audited',
   'Built by the Strimz<',
   'London and Lagos',
   'Most popular',
@@ -53,6 +52,8 @@ const HOMEPAGE_FILES = [
   ...files(join(WEB_ROOT, 'src/components/marketing/pricing')),
   join(WEB_ROOT, 'src/app/(marketing)/page.tsx'),
   join(WEB_ROOT, 'src/app/(marketing)/pricing/page.tsx'),
+  join(WEB_ROOT, 'src/app/(marketing)/about/page.tsx'),
+  join(WEB_ROOT, 'src/app/(marketing)/contact/page.tsx'),
   join(WEB_ROOT, 'src/lib/fee-estimate.ts'),
 ]
 
@@ -64,12 +65,28 @@ const COMPARISONS = [
   'card fee',
   'Card payments',
   'CARD_RATE',
+  'card-rails',
+  'card processor',
+  'card-era',
+  'three-day',
 ]
 
-describe('the homepage and pricing page make no comparisons with cards', () => {
+describe('the homepage, pricing, about and contact pages make no comparisons with cards', () => {
   it.each(COMPARISONS)('never says %s', (phrase) => {
     const hits = HOMEPAGE_FILES.filter((file) =>
       readFileSync(file, 'utf8').toLowerCase().includes(phrase.toLowerCase()),
+    ).map((file) => relative(WEB_ROOT, file))
+    expect(hits).toEqual([])
+  })
+})
+
+// The contracts were audited privately and no report is public, so nothing may imply one.
+const AUDIT_OVERCLAIMS = ['audit report', 'audited by', 'independently audited', 'certified']
+
+describe('marketing pages do not overstate the audit', () => {
+  it.each(AUDIT_OVERCLAIMS)('never says %s', (phrase) => {
+    const hits = PUBLIC_FILES.filter((file) =>
+      readFileSync(file, 'utf8').toLowerCase().includes(phrase),
     ).map((file) => relative(WEB_ROOT, file))
     expect(hits).toEqual([])
   })
