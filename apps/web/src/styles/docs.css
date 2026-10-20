@@ -2,10 +2,8 @@
  * Strimz brand overrides for Fumadocs UI. Imported by the docs layout
  * after `fumadocs-ui/style.css` so these declarations win.
  *
- * Strategy: keep neutral-grayscale surfaces (matches our light-only
- * design) but replace the default neutral primary with Strimz green
- * (#02C76A) so active sidebar links, link underlines, copy-button
- * highlights, and TOC indicators all read as on-brand.
+ * Neutral surfaces in both themes, with Strimz green (#02C76A) as the
+ * primary for links, active sidebar items and TOC indicators.
  */
 
 :root {
@@ -122,4 +120,16 @@ article {
 
 .dark [data-fd-content] h2 {
   border-top-color: hsl(240 13.4% 19%);
+}
+
+.docs-logo-dark {
+  display: none;
+}
+
+.dark .docs-logo-light {
+  display: none;
+}
+
+.dark .docs-logo-dark {
+  display: block;
 }
