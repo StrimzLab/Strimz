@@ -1,5 +1,11 @@
 # @strimz/sdk
 
+## 0.13.0
+
+### Minor Changes
+
+- 37202d5: `paymentSessions.list`, `subscriptions.list`, `transactions.list`, `refunds.list` and `invoices.list` take a `customerId` filter. `customers.list({ walletAddress })` now filters on the server.
+
 ## 0.12.1
 
 ### Patch Changes
