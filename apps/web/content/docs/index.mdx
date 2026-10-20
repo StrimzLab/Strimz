@@ -16,9 +16,9 @@ endpoint list lives at [/docs/api/overview](/docs/api/overview).
 
 The piece worth knowing about up front is the on-chain behaviour. The
 contract enforces idempotency itself, which means a retried charge
-cannot become a double charge. Settlement is final the moment your
-webhook fires. There is no three-day wait, no chargeback window, no
-bank that decides a week later to reverse the transaction.
+cannot become a double charge. Arc finalises a block in under a
+second, so a payment is settled for good by the time your webhook
+fires.
 
 <Callout title="Live on Arc" type="info">
   All examples in these docs assume Arc, Circle's stablecoin-native L1 where USDC is the gas token.

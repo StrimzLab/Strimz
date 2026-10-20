@@ -3,10 +3,7 @@ import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared'
 import blueLogo from '@/../public/logo/blueLogo.png'
 import whiteLogo from '@/../public/logo/whiteLogo.png'
 
-/**
- * Shared layout options for the docs surface. The brand mark is the
- * real `blueLogo.png` so the docs nav matches the marketing site.
- */
+// The logo swap lives in docs.css: fumadocs' unlayered CSS overrides Tailwind's dark: display utilities.
 export function baseOptions(): BaseLayoutProps {
   return {
     nav: {
@@ -19,7 +16,7 @@ export function baseOptions(): BaseLayoutProps {
             height={128}
             priority
             quality={100}
-            className="h-auto w-[88px] md:w-[100px] dark:hidden"
+            className="docs-logo-light h-auto w-[88px] md:w-[100px]"
           />
           <Image
             src={whiteLogo}
@@ -28,7 +25,7 @@ export function baseOptions(): BaseLayoutProps {
             height={128}
             priority
             quality={100}
-            className="hidden h-auto w-[88px] md:w-[100px] dark:block"
+            className="docs-logo-dark h-auto w-[88px] md:w-[100px]"
           />
         </>
       ),
