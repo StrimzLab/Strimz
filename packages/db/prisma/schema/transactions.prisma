@@ -43,6 +43,7 @@ model Transaction {
   @@index([merchantId, kind, blockTimestamp])
   @@index([merchantId, status])
   @@index([merchantId, mode, status, blockTimestamp])
+  @@index([merchantId, mode, blockTimestamp])
   @@index([customerId])
   @@index([payerAddress])
   @@index([blockNumber])

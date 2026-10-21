@@ -31,7 +31,9 @@ export class AgentsResource extends BaseResource {
     params?: PaginationParams & {
       capability?: string
       outcome?: string
+      /** ISO-8601 with offset, inclusive. */
       from?: string
+      /** ISO-8601 with offset, exclusive. */
       to?: string
     },
   ): Promise<Page<AgentActivityLog>> {

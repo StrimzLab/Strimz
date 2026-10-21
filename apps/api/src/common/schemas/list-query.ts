@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { idSchema } from '@strimz/shared-types'
+import { idSchema, isoTimestampSchema } from '@strimz/shared-types'
 
 // Shared shape for `/list?limit=&cursor=&status=&query=&...` endpoints.
 // Bounds every field so a caller can't force expensive scans with a
@@ -39,3 +39,23 @@ export const listQuerySchema = z
   .strict()
 
 export type ListQuery = z.infer<typeof listQuerySchema>
+
+// Half-open: from is inclusive, to is exclusive, so consecutive months never overlap.
+// Only routes that filter on a date use this; the rest keep refusing from/to.
+export const datedListQuerySchema = listQuerySchema
+  .extend({
+    from: isoTimestampSchema.transform((v) => new Date(v)).optional(),
+    to: isoTimestampSchema.transform((v) => new Date(v)).optional(),
+  })
+  .superRefine((q, ctx) => {
+    if (q.from && q.to && q.from >= q.to) {
+      ctx.addIssue({ code: 'custom', path: ['to'], message: 'must be after from' })
+    }
+  })
+
+export type DatedListQuery = z.infer<typeof datedListQuerySchema>
+
+export function dateRange(q: { from?: Date; to?: Date }) {
+  if (!q.from && !q.to) return undefined
+  return { ...(q.from ? { gte: q.from } : {}), ...(q.to ? { lt: q.to } : {}) }
+}

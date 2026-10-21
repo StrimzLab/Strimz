@@ -14,7 +14,9 @@ export class TransactionsResource extends BaseResource {
       sessionId?: string
       subscriptionId?: string
       customerId?: string
+      /** ISO-8601 with offset, inclusive. */
       from?: string
+      /** ISO-8601 with offset, exclusive. */
       to?: string
     },
   ): Promise<Page<Transaction>> {

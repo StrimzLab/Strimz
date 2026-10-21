@@ -7,7 +7,13 @@ import {
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
-import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
+import {
+  dateRange,
+  datedListQuerySchema,
+  listQuerySchema,
+  type DatedListQuery,
+  type ListQuery,
+} from '../../common/schemas/list-query.js'
 import { AgentsService } from './agents.service.js'
 import { assertCapabilityAvailable } from './capability-availability.js'
 import { CreateAgentJobDto, UpdateAgentConfigDto } from './agents.dto.js'
@@ -40,13 +46,14 @@ export class AgentsController {
   @ApiOperation({ summary: 'Paginated activity log for AutoPay Agent.' })
   listActivity(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
+    @Query(new ZodValidationPipe(datedListQuerySchema)) q: DatedListQuery,
   ) {
     return this.agents.listActivity(ctx.merchantId, {
       limit: q.limit,
       cursor: q.cursor ?? null,
       capability: q.capability,
       outcome: q.outcome,
+      createdAt: dateRange(q),
     })
   }
 
