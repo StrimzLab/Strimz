@@ -36,4 +36,18 @@ describe('marketing contact form', () => {
     expect(form).toMatch(/<FieldLabel htmlFor=\{id\}[^>]*required=\{required\}/u)
     expect(form).not.toMatch(/<Label\b/u)
   })
+
+  it('validates with the form schema and its plain-language messages', () => {
+    expect(form).toMatch(/zodResolver\(contactFormSchema, \{ errorMap: contactErrorMap \}\)/u)
+  })
+
+  it.each(['name', 'email', 'company', 'message'])('ties the %s error to its field', (id) => {
+    expect(form).toMatch(new RegExp(`\\{\\.\\.\\.errorProps\\('${id}', errors\\.${id}\\)\\}`, 'u'))
+  })
+
+  it('gives each error an id the field points at', () => {
+    expect(form).toMatch(/<p id=\{`\$\{id\}-error`\}/u)
+    expect(form).toMatch(/'aria-describedby': error \? `\$\{id\}-error` : undefined/u)
+    expect(form).toMatch(/'aria-invalid': error \? true : undefined/u)
+  })
 })
