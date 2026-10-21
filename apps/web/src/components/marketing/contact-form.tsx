@@ -15,20 +15,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@strimz/ui'
-import { contactRequestInputSchema, type ContactRequestInput } from '@strimz/shared-types'
 import { TurnstileWidget } from '@/components/turnstile-widget'
 import { submitContact } from '@/lib/contact-submission'
+import { contactErrorMap, contactFormSchema, type ContactFormValues } from '@/lib/contact-form'
 import { env } from '@/lib/env'
 
-type FormValues = ContactRequestInput
+type FormValues = ContactFormValues
 
-/**
- * Marketing contact form. Validates client-side with the shared
- * `contactRequestInputSchema` (same shape apps/api enforces) and
- * POSTs to `POST /v1/contact` ,  the backend routes the message
- * straight into Strimz's support inbox via Resend and replies to
- * the submitter's own email address.
- */
+function errorProps(id: string, error: { message?: string } | undefined) {
+  return {
+    'aria-invalid': error ? true : undefined,
+    'aria-describedby': error ? `${id}-error` : undefined,
+  }
+}
+
 export function ContactForm() {
   const [submitted, setSubmitted] = useState(false)
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
@@ -41,7 +41,7 @@ export function ContactForm() {
     formState: { errors, isSubmitting },
     reset,
   } = useForm<FormValues>({
-    resolver: zodResolver(contactRequestInputSchema),
+    resolver: zodResolver(contactFormSchema, { errorMap: contactErrorMap }),
     defaultValues: { topic: 'sales' },
   })
 
@@ -92,7 +92,15 @@ export function ContactForm() {
           required
           label="Your name"
           error={errors.name?.message}
-          input={<Input id="name" placeholder="Alex" autoComplete="name" {...register('name')} />}
+          input={
+            <Input
+              id="name"
+              placeholder="Alex"
+              autoComplete="name"
+              {...errorProps('name', errors.name)}
+              {...register('name')}
+            />
+          }
         />
         <Field
           id="email"
@@ -105,6 +113,7 @@ export function ContactForm() {
               type="email"
               placeholder="alex@your-co.com"
               autoComplete="email"
+              {...errorProps('email', errors.email)}
               {...register('email')}
             />
           }
@@ -121,6 +130,7 @@ export function ContactForm() {
             id="company"
             placeholder="Acme Inc."
             autoComplete="organization"
+            {...errorProps('company', errors.company)}
             {...register('company')}
           />
         }
@@ -157,6 +167,7 @@ export function ContactForm() {
             id="message"
             rows={5}
             placeholder="Tell us what you're building, what you're stuck on, or what you want to know."
+            {...errorProps('message', errors.message)}
             {...register('message')}
           />
         }
@@ -209,7 +220,11 @@ function Field({
         {label}
       </FieldLabel>
       {input}
-      {error ? <p className="font-poppins text-[12px] text-rose-600">{error}</p> : null}
+      {error ? (
+        <p id={`${id}-error`} className="font-poppins text-[12px] text-rose-600 dark:text-rose-400">
+          {error}
+        </p>
+      ) : null}
     </div>
   )
 }
