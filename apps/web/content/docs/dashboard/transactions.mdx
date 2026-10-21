@@ -31,4 +31,12 @@ Confirmed payments have a **Refund** button. It opens the refund dialog with thi
 
 ## From the API
 
-`GET /v1/transactions` takes the same filters, plus `sessionId` and `subscriptionId` to list the transactions of one payment session or one subscription. See the [API reference](/docs/api-reference).
+`GET /v1/transactions` takes the same filters, plus `sessionId` and `subscriptionId` to list the transactions of one payment session or one subscription.
+
+To list a period, pass `from` and `to` as ISO-8601 timestamps with a time zone. `from` is included and `to` is not, so one month is:
+
+```ts
+await strimz.transactions.list({ from: '2026-10-01T00:00:00Z', to: '2026-11-01T00:00:00Z' })
+```
+
+The range applies to when the payment settled on Arc. See the [API reference](/docs/api-reference).
