@@ -7,7 +7,11 @@ import {
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
-import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
+import {
+  dateRange,
+  datedListQuerySchema,
+  type DatedListQuery,
+} from '../../common/schemas/list-query.js'
 import { TransactionsService } from './transactions.service.js'
 
 @UseGuards(MerchantAuthGuard)
@@ -27,7 +31,7 @@ export class TransactionsController {
   @Get()
   list(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
+    @Query(new ZodValidationPipe(datedListQuerySchema)) q: DatedListQuery,
   ) {
     return this.transactions.list(ctx.merchantId, ctx.mode, {
       limit: q.limit,
@@ -37,6 +41,7 @@ export class TransactionsController {
       sessionId: q.sessionId,
       subscriptionId: q.subscriptionId,
       customerId: q.customerId,
+      blockTimestamp: dateRange(q),
     })
   }
 }

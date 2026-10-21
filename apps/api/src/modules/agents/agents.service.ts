@@ -97,7 +97,13 @@ export class AgentsService {
 
   async listActivity(
     merchantId: string,
-    params: { limit?: number; cursor?: string | null; capability?: string; outcome?: string },
+    params: {
+      limit?: number
+      cursor?: string | null
+      capability?: string
+      outcome?: string
+      createdAt?: { gte?: Date; lt?: Date }
+    },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.agentActivityLog.findMany({
@@ -105,6 +111,7 @@ export class AgentsService {
         merchantId,
         capability: (params.capability as never) ?? undefined,
         outcome: (params.outcome as never) ?? undefined,
+        createdAt: params.createdAt,
       },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,

@@ -23,6 +23,7 @@ export class TransactionsService {
       sessionId?: string
       subscriptionId?: string
       customerId?: string
+      blockTimestamp?: { gte?: Date; lt?: Date }
     },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
@@ -35,6 +36,7 @@ export class TransactionsService {
         sessionId: params.sessionId,
         subscriptionId: params.subscriptionId,
         customerId: params.customerId,
+        blockTimestamp: params.blockTimestamp,
       },
       orderBy: { blockTimestamp: 'desc' },
       take: limit + 1,
