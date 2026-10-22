@@ -36,7 +36,7 @@ export interface NavGroup {
   feature?: NavItem
 }
 
-const USE_CASE_ICON: Record<UseCaseId, IconifyIcon> = {
+export const USE_CASE_ICON: Record<UseCaseId, IconifyIcon> = {
   saas: usersIcon,
   marketplaces: cartIcon,
   creators: starIcon,

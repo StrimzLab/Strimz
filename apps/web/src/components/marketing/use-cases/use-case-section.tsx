@@ -8,23 +8,14 @@ import infoIcon from '@iconify-icons/solar/info-circle-linear'
 import { cn } from '@strimz/ui'
 import { MkIcon } from '../icon'
 import { EASE_OUT, MOTION_OK, PLAY_ONCE, gsap, useGSAP } from '../motion/gsap'
-import { InvoicesMock, SubscriptionsMock } from '../home/billing-mocks'
-import { EurcLinkMock, OrderMock, StorefrontMock } from './mocks'
-import { sampleCost, type MockKind, type UseCase } from './data'
-
-const MOCKS: Record<MockKind, () => React.JSX.Element> = {
-  subscriptions: SubscriptionsMock,
-  order: OrderMock,
-  storefront: StorefrontMock,
-  invoice: InvoicesMock,
-  'payment-link': EurcLinkMock,
-}
+import { USE_CASE_MOCKS } from './mock-map'
+import { sampleCost, type UseCase } from './data'
 
 const amount = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 })
 
 export function UseCaseSection({ useCase, flip }: { useCase: UseCase; flip: boolean }) {
   const scope = useRef<HTMLElement>(null)
-  const Mock = MOCKS[useCase.mock]
+  const Mock = USE_CASE_MOCKS[useCase.mock]
   const { sample } = useCase
   const cost = sampleCost(sample)
 
