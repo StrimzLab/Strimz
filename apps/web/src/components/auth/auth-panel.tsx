@@ -13,14 +13,6 @@ import { AUTH_COPY, authVariant } from './auth-copy'
 
 const BENEFIT_ICONS: readonly IconifyIcon[] = [boltIcon, walletIcon, giftIcon]
 
-function SampleTag() {
-  return (
-    <span className="font-poppins rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/70">
-      Sample
-    </span>
-  )
-}
-
 function PaymentReceivedCard() {
   const card = AUTH_COPY.new.card
   return (
@@ -30,7 +22,6 @@ function PaymentReceivedCard() {
           <Icon icon={checkIcon} aria-hidden className="text-accent size-5" />
           {card.title}
         </span>
-        <SampleTag />
       </div>
       <p className="font-sora mt-4 text-3xl font-semibold tabular-nums tracking-[-0.03em] text-white">
         {card.amount} <span className="text-ink-muted text-base font-normal">{card.unit}</span>
@@ -47,7 +38,6 @@ function MonthCard() {
     <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-sm">
       <div className="flex items-center justify-between">
         <span className="font-poppins text-sm text-white">{card.title}</span>
-        <SampleTag />
       </div>
       <p className="font-sora mt-4 text-3xl font-semibold tabular-nums tracking-[-0.03em] text-white">
         {card.amount} <span className="text-ink-muted text-base font-normal">{card.unit}</span>

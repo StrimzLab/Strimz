@@ -39,7 +39,7 @@ describe('auth side panel', () => {
     expect(AUTH_COPY.new.benefits).toHaveLength(3)
   })
 
-  it.each(['new', 'returning'] as const)('labels the %s sample card as a sample', (v) => {
-    expect(AUTH_COPY[v].card.tag).toBe('Sample')
+  it.each(['new', 'returning'] as const)('shows the %s card without a tag', (v) => {
+    expect(AUTH_COPY[v].card).not.toHaveProperty('tag')
   })
 })

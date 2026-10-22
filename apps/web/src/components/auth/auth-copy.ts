@@ -27,7 +27,6 @@ export const AUTH_COPY = {
       },
     ],
     card: {
-      tag: 'Sample',
       title: 'Payment received',
       amount: '+49.00',
       unit: 'USDC',
@@ -38,7 +37,6 @@ export const AUTH_COPY = {
     title: 'Welcome back.',
     body: 'Your payments, subscriptions and invoices are where you left them.',
     card: {
-      tag: 'Sample',
       title: 'This month',
       amount: '3,420.00',
       unit: 'USDC',

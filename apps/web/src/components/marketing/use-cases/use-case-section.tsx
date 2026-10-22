@@ -111,7 +111,9 @@ export function UseCaseSection({ useCase, flip }: { useCase: UseCase; flip: bool
             <Mock />
             <dl className="border-border bg-card mt-4 rounded-2xl border p-5">
               <div className="flex items-baseline justify-between gap-3">
-                <dt className="font-poppins text-muted-foreground text-xs font-medium">Sample</dt>
+                <dt className="font-poppins text-muted-foreground text-xs font-medium">
+                  If you bill
+                </dt>
                 <dd className="font-poppins text-foreground text-sm tabular-nums">
                   {amount(sample.count)} {sample.unit} × {amount(sample.unitAmount)}{' '}
                   {sample.currency} = {amount(sample.monthlyVolume)} {sample.currency} a month
