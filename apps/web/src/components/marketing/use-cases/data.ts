@@ -8,6 +8,8 @@ export interface UseCase {
   label: string
   title: string
   job: string
+  pain: string
+  fix: string
   features: readonly { title: string; body: string; href: string }[]
   limit?: string
   mock: MockKind
@@ -35,6 +37,8 @@ export const USE_CASES: readonly UseCase[] = [
     label: 'SaaS',
     title: 'Charge every month without asking every month.',
     job: 'Your customers pick a plan, try it, and keep paying while they use it. You want renewals to happen on their own and to hear about the ones that fail.',
+    pain: 'Renewals depend on customers remembering to pay.',
+    fix: 'Customers approve a plan once. Strimz charges each renewal and retries the ones that fail.',
     features: [
       {
         title: 'Subscriptions with free trials',
@@ -60,6 +64,8 @@ export const USE_CASES: readonly UseCase[] = [
     label: 'Marketplaces',
     title: 'A checkout for every order, and your system kept in step.',
     job: 'Buyers check out on your platform and your order system needs to know the moment each payment lands, with a clean way to refund.',
+    pain: 'Your order system has to find out when a buyer has paid.',
+    fix: "A checkout for each order, and a signed webhook the moment it's paid.",
     features: [
       {
         title: 'A checkout per order',
@@ -87,6 +93,8 @@ export const USE_CASES: readonly UseCase[] = [
     label: 'Creators',
     title: 'Sell memberships and one-off products from one page.',
     job: 'You want a place to list what you sell, a monthly membership for your regulars, and a link you can drop anywhere.',
+    pain: 'Memberships, products and payment links live in different places.',
+    fix: 'One storefront for memberships and products, plus links you can post anywhere.',
     features: [
       {
         title: 'A no-code storefront',
@@ -112,6 +120,8 @@ export const USE_CASES: readonly UseCase[] = [
     label: 'Agencies',
     title: 'Send the invoice, get paid, and know when it lands.',
     job: 'Clients pay project fees and monthly retainers. You want invoices that are easy to pay and a record of each one.',
+    pain: 'Invoices and retainers mean chasing clients to pay.',
+    fix: 'Invoices arrive with a Pay button, and retainers charge themselves after one approval.',
     features: [
       {
         title: 'Invoices with a Pay button',
@@ -137,6 +147,8 @@ export const USE_CASES: readonly UseCase[] = [
     label: 'Global B2B',
     title: 'Bill clients abroad in dollars or euros.',
     job: 'Your clients are in other countries. You want to bill in a stable currency they already hold and have it settle to you directly.',
+    pain: 'Clients in other countries need a way to pay you in one currency.',
+    fix: 'Bill in USDC or EURC. It settles straight to your wallet, and your client pays no network fee.',
     features: [
       {
         title: 'USDC or EURC',

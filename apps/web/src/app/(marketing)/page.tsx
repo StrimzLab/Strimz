@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { OG_IMAGE } from '@/lib/seo'
 import { Hero } from '@/components/marketing/home/hero'
-import { Sectors } from '@/components/marketing/home/sectors'
+import { WhoItsFor } from '@/components/marketing/home/who-its-for'
 import { Manifesto } from '@/components/marketing/home/manifesto'
 import { HowItWorks } from '@/components/marketing/home/how-it-works'
 import { Assurances } from '@/components/marketing/home/assurances'
@@ -30,8 +30,8 @@ export default function HomePage() {
       <SectionBoundary name="introduction">
         <Hero />
       </SectionBoundary>
-      <SectionBoundary name="industries">
-        <Sectors />
+      <SectionBoundary name="who it's for">
+        <WhoItsFor />
       </SectionBoundary>
       <SectionBoundary name="why Strimz">
         <Manifesto />
