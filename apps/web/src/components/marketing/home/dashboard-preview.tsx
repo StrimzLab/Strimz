@@ -735,9 +735,6 @@ function SceneHeader({ children }: { children: ReactNode }) {
   return (
     <div className="border-border flex items-center justify-between border-b px-4 py-3 sm:px-5">
       <div className="flex items-center gap-2">{children}</div>
-      <span className="font-poppins text-muted-foreground shrink-0 text-[10px] sm:text-[11px]">
-        Sample data
-      </span>
     </div>
   )
 }

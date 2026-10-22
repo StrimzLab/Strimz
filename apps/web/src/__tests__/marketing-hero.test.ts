@@ -17,8 +17,8 @@ describe('homepage hero mock (#272)', () => {
     expect(visibleText).not.toMatch(/\bat_risk\b/u)
   })
 
-  it('labels the mock as sample data rather than live', () => {
-    expect(visibleText).toContain('Sample data')
+  it('shows no "sample data" or "live" label', () => {
+    expect(visibleText).not.toMatch(/sample data/iu)
     expect(visibleText).not.toMatch(/>\s*Live\s*</u)
   })
 
