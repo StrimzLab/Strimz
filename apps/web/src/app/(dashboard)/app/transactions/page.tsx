@@ -5,13 +5,21 @@ import Link from 'next/link'
 import { Download } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
-import { Button } from '@strimz/ui'
+import { Button, FieldLabel, Input } from '@strimz/ui'
 import type { Transaction, TransactionKind, TransactionStatus } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
+import {
+  rangeFileName,
+  resolveDateRange,
+  timeZoneName,
+  type DatePreset,
+  type DateSelection,
+  type ValidRange,
+} from '@/lib/date-range'
 import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
 import type { LoadedRows } from '@/lib/cursor-pages'
 import { transactionKindLabel } from '@/lib/transactions-view'
@@ -40,6 +48,24 @@ const STATUS_FILTERS: ReadonlyArray<TransactionStatus | 'all'> = [
   'failed',
 ]
 
+const DATE_PRESETS: ReadonlyArray<DatePreset> = [
+  'any',
+  'last_7_days',
+  'this_month',
+  'last_month',
+  'custom',
+]
+
+const DATE_PRESET_LABEL: Record<DatePreset, string> = {
+  any: 'Any time',
+  last_7_days: 'Last 7 days',
+  this_month: 'This month',
+  last_month: 'Last month',
+  custom: 'Custom',
+}
+
+const NO_DATES: DateSelection = { preset: 'any', fromDay: '', toDay: '' }
+
 interface TransactionsView {
   rows: Transaction[]
   hasMore: boolean
@@ -52,14 +78,29 @@ function project(loaded: LoadedRows<Transaction>): TransactionsView {
 export default function TransactionsPage() {
   const [kind, setKind] = React.useState<TransactionKind | 'all'>('all')
   const [status, setStatus] = React.useState<TransactionStatus | 'all'>('all')
+  const [dates, setDates] = React.useState<DateSelection>(NO_DATES)
+
+  const resolved = React.useMemo(() => resolveDateRange(dates, new Date()), [dates])
+  // An invalid custom range keeps the last valid one on screen.
+  const [range, setRange] = React.useState<ValidRange>({ ok: true })
+  if (resolved.ok && resolved !== range) setRange(resolved)
+
+  const filtered = kind !== 'all' || status !== 'all' || dates.preset !== 'any'
+  const clearFilters = () => {
+    setKind('all')
+    setStatus('all')
+    setDates(NO_DATES)
+  }
 
   const queryParams = React.useMemo(
     () => ({
       kind: kind === 'all' ? undefined : kind,
       status: status === 'all' ? undefined : status,
+      from: range.from,
+      to: range.to,
       limit: 100,
     }),
-    [kind, status],
+    [kind, status, range.from, range.to],
   )
   const transactionsQuery = useTransactionPages(queryParams, { select: project })
   const { data, isLoading, isError, error, refetch } = transactionsQuery
@@ -144,7 +185,8 @@ export default function TransactionsPage() {
             disabled={!data || data.rows.length === 0}
             onClick={() => {
               if (!data) return
-              downloadCsv('transactions.csv', data.rows, [
+              const fileName = rangeFileName('transactions', range)
+              downloadCsv(fileName, data.rows, [
                 { key: 'id', header: 'ID' },
                 { key: 'kind', header: 'Kind' },
                 { key: 'status', header: 'Status' },
@@ -158,7 +200,7 @@ export default function TransactionsPage() {
                 { key: 'subscriptionId', header: 'Subscription' },
                 { key: 'blockTimestamp', header: 'Block time' },
               ])
-              toast.success('Exported transactions.csv')
+              toast.success(`Exported ${fileName}`)
             }}
           >
             <Download className="mr-1.5 size-4" /> Export CSV
@@ -184,9 +226,19 @@ export default function TransactionsPage() {
           data={data?.rows ?? []}
           loading={isLoading}
           searchPlaceholder="Search by ID, payer, transaction hash…"
-          emptyTitle={EMPTY_STATES.transactions.title}
-          emptyDescription={EMPTY_STATES.transactions.description}
-          emptyAction={EMPTY_STATES.transactions.action}
+          emptyTitle={
+            filtered ? 'No transactions match these filters' : EMPTY_STATES.transactions.title
+          }
+          emptyDescription={
+            filtered
+              ? 'Try another date range, kind or status.'
+              : EMPTY_STATES.transactions.description
+          }
+          emptyAction={
+            filtered
+              ? { label: 'Clear filters', onClick: clearFilters }
+              : EMPTY_STATES.transactions.action
+          }
           serverRows={serverRowsOf(transactionsQuery)}
           toolbar={
             <div className="flex flex-wrap items-center gap-3">
@@ -202,6 +254,19 @@ export default function TransactionsPage() {
                 onChange={setStatus}
                 label={(s) => (s === 'all' ? 'Any status' : s)}
               />
+              <FilterChips
+                options={DATE_PRESETS}
+                value={dates.preset}
+                onChange={(preset) => setDates((prev) => ({ ...prev, preset }))}
+                label={(preset) => DATE_PRESET_LABEL[preset]}
+              />
+              {dates.preset === 'custom' ? (
+                <CustomDates
+                  dates={dates}
+                  error={resolved.ok ? null : resolved.error}
+                  onChange={setDates}
+                />
+              ) : null}
             </div>
           }
         />
@@ -241,6 +306,61 @@ function FilterChips<T extends string>({
           {label(option)}
         </button>
       ))}
+    </div>
+  )
+}
+
+function CustomDates({
+  dates,
+  error,
+  onChange,
+}: {
+  dates: DateSelection
+  error: string | null
+  onChange: (next: DateSelection) => void
+}) {
+  return (
+    <div className="basis-full space-y-1.5">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-1">
+          <FieldLabel htmlFor="transactions-from" required={false}>
+            From
+          </FieldLabel>
+          <Input
+            id="transactions-from"
+            type="date"
+            value={dates.fromDay}
+            max={dates.toDay || undefined}
+            aria-invalid={error ? true : undefined}
+            aria-describedby="transactions-dates-note"
+            onChange={(e) => onChange({ ...dates, fromDay: e.target.value })}
+            className="h-9 w-44 [color-scheme:light] dark:[color-scheme:dark]"
+          />
+        </div>
+        <div className="space-y-1">
+          <FieldLabel htmlFor="transactions-to" required={false}>
+            To
+          </FieldLabel>
+          <Input
+            id="transactions-to"
+            type="date"
+            value={dates.toDay}
+            min={dates.fromDay || undefined}
+            aria-invalid={error ? true : undefined}
+            aria-describedby="transactions-dates-note"
+            onChange={(e) => onChange({ ...dates, toDay: e.target.value })}
+            className="h-9 w-44 [color-scheme:light] dark:[color-scheme:dark]"
+          />
+        </div>
+      </div>
+      {error ? (
+        <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">
+          {error}
+        </p>
+      ) : null}
+      <p id="transactions-dates-note" className="text-muted-foreground text-xs">
+        Both days are included. Dates are in your time zone ({timeZoneName()}).
+      </p>
     </div>
   )
 }
