@@ -64,7 +64,7 @@ newly signed retry is a new submission. A retry for a payment session
 cannot become a second charge: every authorization for the session uses
 the same EIP-3009 nonce, which the token accepts once per payer wallet,
 and Strimz refuses a new attempt while an earlier one can still land.
-See the relay section of the [API reference](/docs/api-reference).
+See the relay section of the [endpoint list](/docs/api-reference).
 
 Subscription charges are guarded by `chargeLock`: the sweeper locks
 a row before it enqueues the charge, so two scheduler replicas cannot
