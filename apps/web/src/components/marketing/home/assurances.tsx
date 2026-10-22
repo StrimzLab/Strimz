@@ -30,7 +30,7 @@ const ITEMS = [
     art: art3,
     icon: boltIcon,
     title: 'Paid in seconds',
-    body: 'Each payment settles on Arc straight into a wallet you control. Strimz never holds your money, and the transaction is your receipt.',
+    body: 'Each payment settles straight into a wallet you control. Strimz never holds your money, and the transaction is your receipt.',
   },
 ] as const
 

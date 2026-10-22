@@ -20,7 +20,7 @@ export function Manifesto() {
           One link. One approval. Every renewal charged on schedule, in USDC or EURC.
         </p>
         <p className="text-foreground">
-          Each payment settles on Arc and the money is{' '}
+          Each payment settles on-chain and the money is{' '}
           <span className="text-accent">in your own wallet in seconds.</span>
         </p>
       </GooeyTextReveal>

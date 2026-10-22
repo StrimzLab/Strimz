@@ -17,7 +17,7 @@ export const OG_IMAGE = {
   url: '/thumbnail.png',
   width: 1200,
   height: 630,
-  alt: 'Strimz. The billing layer for stablecoins. One API for one-time payments and recurring subscriptions, settled in USDC on Arc.',
+  alt: 'Strimz. The billing layer for stablecoins. One-time payments and recurring subscriptions, settled in USDC.',
 } as const
 
 /** Twitter accepts a string-or-array; we expose the bare URL for that field. */

@@ -36,7 +36,7 @@ const STEPS = [
     icon: moneyIcon,
     tone: 'bg-step-red/10 text-step-red',
     title: 'The money is yours in seconds',
-    body: 'Each payment settles on Arc straight into your wallet, minus the fee. Your customer gets a receipt and you get a record.',
+    body: 'Each payment settles straight into your wallet, minus the fee. Your customer gets a receipt and you get a record.',
     Scene: PaidScene,
   },
 ] as const

@@ -145,7 +145,7 @@ export const USE_CASES: readonly UseCase[] = [
       },
       {
         title: 'Straight to your wallet',
-        body: 'Payments settle on Arc into a wallet you control. Strimz never holds your money.',
+        body: 'Payments settle into a wallet you control. Strimz never holds your money.',
         href: '/docs/concepts/meta-tx-flow',
       },
       {

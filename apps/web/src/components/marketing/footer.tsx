@@ -128,7 +128,7 @@ export function MarketingFooter() {
             <Logo className="lg:w-[126.98px]" />
             <p className="font-poppins text-muted-foreground mt-5 text-sm leading-relaxed">
               Stablecoin billing for businesses. One-time payments, subscriptions and invoices,
-              settled in USDC and EURC on Arc.
+              settled in USDC and EURC.
             </p>
             <ul className="mt-6 flex items-center gap-2">
               {SOCIAL.map(({ href, label, Icon }) => (

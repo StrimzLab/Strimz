@@ -9,11 +9,11 @@ export const FAQS = [
   },
   {
     q: 'Do my customers need to understand crypto?',
-    a: "A little. Today they pay from a wallet that holds USDC or EURC on Arc. They don't need gas: they approve the payment with a signature in their wallet and Strimz submits it for them.",
+    a: "A little. They pay from a wallet that holds USDC or EURC. They don't need gas: they approve the payment with a signature in their wallet and Strimz submits it for them.",
   },
   {
     q: 'Do I need to hold any crypto myself to use Strimz?',
-    a: "Only a little USDC. Strimz pays the gas for your customers' payments and subscription charges. On Arc, USDC is the gas token, so refunds and withdrawals you send from your own wallet cost a small amount of USDC, and nothing else.",
+    a: "Only a little USDC. Strimz pays the network fee for your customers' payments and subscription charges. Refunds and withdrawals you send from your own wallet cost a small network fee, paid in USDC, and nothing else.",
   },
   {
     q: 'Is Strimz custodial? Do you hold my money?',
@@ -37,7 +37,7 @@ export const FAQS = [
   },
   {
     q: 'What if my customer wants to pay from a different chain?',
-    a: 'Paying from other chains is coming. Today customers pay on Arc directly.',
+    a: 'Today customers pay on Arc, the network Strimz settles on. Paying from other networks is coming.',
   },
   {
     q: 'Where can I find the technical details?',

@@ -91,7 +91,7 @@ export function EurcLinkMock() {
       <div className="border-border mt-3 flex items-center gap-3 rounded-xl border p-3">
         <MkIcon icon={walletIcon} className="text-accent size-5 shrink-0" />
         <p className="font-poppins text-muted-foreground text-[12px]">
-          Settled on Arc to your wallet. Your client paid no gas.
+          Settled to your wallet. Your client paid no gas.
         </p>
       </div>
     </Window>
