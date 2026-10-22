@@ -295,9 +295,6 @@ export function AnalyticsMock() {
           strokeLinejoin="round"
         />
       </svg>
-      <p className="font-poppins text-muted-foreground mt-2 text-[11px]">
-        Sample figures. Yours come from your own payments.
-      </p>
     </Window>
   )
 }

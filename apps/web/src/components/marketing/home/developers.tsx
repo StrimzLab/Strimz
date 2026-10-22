@@ -30,7 +30,7 @@ const CodeBlock = dynamic(() => import('@/components/shared/code-block').then((m
   ssr: false,
   loading: () => (
     <div role="status" className="space-y-2.5 py-1 opacity-30">
-      <span className="sr-only">Loading the code sample</span>
+      <span className="sr-only">Loading the code example</span>
       {['w-2/5', 'w-3/4', 'w-2/3', 'w-1/2', 'w-4/5', 'w-3/5', 'w-1/3'].map((w) => (
         <PlaceholderLine key={w} className={`h-3 ${w}`} />
       ))}
@@ -241,7 +241,7 @@ export function Developers() {
               >
                 <CopyButton
                   text={s.code}
-                  label={`The ${s.file} sample`}
+                  label={`The ${s.file} example`}
                   className="absolute right-3 top-3 text-white/60 hover:bg-white/10 hover:text-white"
                 />
                 <CodeBlock code={s.code} language={s.language} tone="dark" />
