@@ -8,6 +8,7 @@ import { QueueService } from '../../src/infra/queue/queue.service.js'
 import { EmailService } from '../../src/infra/email/email.service.js'
 import { ChainService } from '../../src/infra/chain/chain.service.js'
 import { RedisService } from '../../src/infra/redis/redis.service.js'
+import { RelayProcessor } from '../../src/modules/relay/relay.processor.js'
 import { PrismaService } from '../../src/infra/prisma/prisma.service.js'
 import { TypedConfigService } from '../../src/config/index.js'
 import { corsPolicy } from '../../src/common/http/cors-policy.js'
@@ -67,6 +68,9 @@ export async function createTestApp(): Promise<TestApp> {
     .useValue(stubChain)
     .overrideProvider(RedisService)
     .useValue(stubRedis)
+    // BullMQ can't use the stub client and would dial a real Redis on its own.
+    .overrideProvider(RelayProcessor)
+    .useValue({})
     .compile()
 
   const app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter())
