@@ -73,3 +73,28 @@ describe('inline code renders as a chip without backticks', () => {
     expect(docs).toMatch(/^\.dark #nd-page \.prose code:not\(pre code\)\s*\{/m)
   })
 })
+
+describe('the docs sidebar', () => {
+  const root = join(WEB_ROOT, 'content/docs')
+  const meta = JSON.parse(readFileSync(join(root, 'meta.json'), 'utf8')) as { pages: string[] }
+
+  function entryTitle(slug: string): string {
+    const folder = join(root, slug, 'meta.json')
+    const source = statSync(join(root, slug), { throwIfNoEntry: false })?.isDirectory()
+      ? readFileSync(folder, 'utf8')
+      : readFileSync(join(root, `${slug}.mdx`), 'utf8')
+    const match = /"title":\s*"([^"]+)"|^title:\s*(.+)$/m.exec(source)
+    return (match?.[1] ?? match?.[2] ?? slug).trim()
+  }
+
+  it('gives every top-level entry its own name', () => {
+    const titles = meta.pages.filter((p) => !p.startsWith('---')).map(entryTitle)
+    const repeated = titles.filter((t, i) => titles.indexOf(t) !== i)
+    expect(repeated).toEqual([])
+  })
+
+  it('shows the endpoint list title once', () => {
+    const page = readFileSync(join(root, 'api-reference.mdx'), 'utf8')
+    expect(page).not.toMatch(/^# /m)
+  })
+})
