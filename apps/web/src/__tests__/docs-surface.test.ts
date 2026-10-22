@@ -92,9 +92,13 @@ describe('the docs sidebar', () => {
     const repeated = titles.filter((t, i) => titles.indexOf(t) !== i)
     expect(repeated).toEqual([])
   })
+})
 
-  it('shows the endpoint list title once', () => {
-    const page = readFileSync(join(root, 'api-reference.mdx'), 'utf8')
-    expect(page).not.toMatch(/^# /m)
+// fumadocs renders the frontmatter title as the h1, so a `# ` heading in the body repeats it.
+describe('docs pages show their title once', () => {
+  const outsideCode = (source: string) => source.replace(/^```[\s\S]*?^```/gm, '')
+
+  it.each(DOCS.map((file) => relative(WEB_ROOT, file)))('%s has no h1 of its own', (file) => {
+    expect(outsideCode(readFileSync(join(WEB_ROOT, file), 'utf8'))).not.toMatch(/^# /m)
   })
 })
