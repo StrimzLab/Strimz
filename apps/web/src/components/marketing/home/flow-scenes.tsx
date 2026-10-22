@@ -224,7 +224,7 @@ export function ApproveScene() {
             className="font-poppins bg-muted text-foreground absolute inset-0 flex items-center justify-center gap-2 rounded-xl text-sm font-medium opacity-0"
           >
             <span className="border-foreground/20 border-t-accent size-4 animate-spin rounded-full border-2" />
-            Confirming on Arc
+            Confirming payment
           </span>
           <span
             data-approved
@@ -262,7 +262,7 @@ export function PaidScene() {
           <span className="text-accent-soft text-base font-medium">USDC</span>
         </p>
         <p className="font-poppins relative mt-1 text-xs text-white/60">
-          Settled on Arc. No fee on your first $1,000.
+          Settled to your wallet. No fee on your first $1,000.
         </p>
       </div>
       <ol className="relative space-y-3 pl-6">

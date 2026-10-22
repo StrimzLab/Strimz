@@ -22,13 +22,13 @@ export const metadata: Metadata = {
     template: '%s · Strimz',
   },
   description:
-    'B2B subscription billing on stablecoins. One API for one-shot payments, recurring charges, refunds, webhooks, and an AI AutoPay Agent. All settled in USDC on Arc.',
+    'Take one-time and subscription payments in USDC and EURC. Every payment lands in your own wallet in seconds, with an on-chain receipt.',
   applicationName: 'Strimz',
   keywords: [
     'stablecoin payments',
     'subscription billing',
     'USDC',
-    'Arc',
+    'EURC',
     'b2b payments',
     'crypto billing',
   ],
@@ -37,14 +37,14 @@ export const metadata: Metadata = {
     siteName: 'Strimz',
     title: 'Strimz. Stablecoin billing infrastructure',
     description:
-      'One API for stablecoin one-shot, subscription, and AI-driven payments. Settled in USDC on Arc.',
+      'One-time and subscription payments in USDC and EURC, paid into your own wallet in seconds.',
     images: [OG_IMAGE],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Strimz. Stablecoin billing infrastructure',
     description:
-      'One API for stablecoin one-shot, subscription, and AI-driven payments. Settled in USDC on Arc.',
+      'One-time and subscription payments in USDC and EURC, paid into your own wallet in seconds.',
     images: [TWITTER_IMAGE],
   },
 }

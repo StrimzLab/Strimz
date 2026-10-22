@@ -16,11 +16,11 @@ import { Closing } from '@/components/marketing/home/closing'
 export const metadata: Metadata = {
   title: 'About',
   description:
-    'Strimz is billing for businesses that get paid in stablecoins. Payments settle on Arc into your own wallet, in USDC or EURC, and every one leaves an on-chain receipt.',
+    'Strimz is billing for businesses that get paid in stablecoins. Payments settle into your own wallet in seconds, in USDC or EURC, and every one leaves an on-chain receipt.',
   openGraph: {
     title: 'About Strimz',
     description:
-      'Billing for businesses that get paid in stablecoins: non-custodial, settled on Arc, with on-chain receipts.',
+      'Billing for businesses that get paid in stablecoins: non-custodial, settled in seconds, with on-chain receipts.',
     url: '/about',
     images: [OG_IMAGE],
   },
@@ -31,12 +31,12 @@ const WHY = [
   {
     icon: boltIcon,
     title: 'Paid in seconds',
-    body: 'Payments settle on Arc, which finalises transactions in under a second. The money is in your wallet moments after your customer approves.',
+    body: 'Payments settle in seconds, straight into your wallet. The money is yours moments after your customer approves.',
   },
   {
     icon: shieldIcon,
     title: 'Final once it settles',
-    body: 'A confirmed payment on Arc is not reorganised away. When Strimz tells you a payment landed, it has landed.',
+    body: 'A settled payment is final on-chain. When Strimz tells you a payment landed, it has landed.',
   },
   {
     icon: globeIcon,
@@ -54,7 +54,7 @@ const SAFETY = [
   {
     icon: documentIcon,
     title: 'A receipt for every payment',
-    body: 'Each payment is an Arc transaction. You, your customer or your accountant can check it independently.',
+    body: 'Each payment is an on-chain transaction. You, your customer or your accountant can check it independently.',
   },
   {
     icon: lockIcon,
@@ -64,7 +64,7 @@ const SAFETY = [
 ] as const
 
 const FACTS = [
-  { value: 'Arc', label: 'The network payments settle on' },
+  { value: '1', label: 'Approval covers every renewal' },
   { value: '2', label: 'Stablecoins: USDC and EURC' },
   { value: '0', label: 'Gas your customers pay' },
   { value: '0', label: 'Funds we hold for you' },
