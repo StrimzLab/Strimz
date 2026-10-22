@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Check, Mail, Repeat, Wallet, X, Zap } from 'lucide-react'
 import { cn } from '@strimz/ui'
+import { usePrefersReducedMotion } from '../motion/reduced-motion'
 
 /**
  * Animated dashboard preview shown in the marketing hero.
@@ -21,22 +22,6 @@ import { cn } from '@strimz/ui'
  * respects `prefers-reduced-motion` (each scene jumps to its final
  * frame and the rotator stops).
  */
-const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
-
-function subscribeReducedMotion(onChange: () => void) {
-  const query = window.matchMedia(REDUCED_MOTION)
-  query.addEventListener('change', onChange)
-  return () => query.removeEventListener('change', onChange)
-}
-
-// The server can't know the preference, so hydrate as motion-on and switch after.
-function usePrefersReducedMotion() {
-  return useSyncExternalStore(
-    subscribeReducedMotion,
-    () => window.matchMedia(REDUCED_MOTION).matches,
-    () => false,
-  )
-}
 
 const SCENE_DURATIONS = [7000, 6000, 7000] as const
 const URLS = [
