@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Check, Mail, Repeat, Wallet, X, Zap } from 'lucide-react'
 import { cn } from '@strimz/ui'
 
@@ -21,6 +21,23 @@ import { cn } from '@strimz/ui'
  * respects `prefers-reduced-motion` (each scene jumps to its final
  * frame and the rotator stops).
  */
+const REDUCED_MOTION = '(prefers-reduced-motion: reduce)'
+
+function subscribeReducedMotion(onChange: () => void) {
+  const query = window.matchMedia(REDUCED_MOTION)
+  query.addEventListener('change', onChange)
+  return () => query.removeEventListener('change', onChange)
+}
+
+// The server can't know the preference, so hydrate as motion-on and switch after.
+function usePrefersReducedMotion() {
+  return useSyncExternalStore(
+    subscribeReducedMotion,
+    () => window.matchMedia(REDUCED_MOTION).matches,
+    () => false,
+  )
+}
+
 const SCENE_DURATIONS = [7000, 6000, 7000] as const
 const URLS = [
   'strimz.finance/app/subscriptions',
@@ -29,7 +46,7 @@ const URLS = [
 ] as const
 
 export function DashboardPreview() {
-  const reducedMotion = useReducedMotion() ?? false
+  const reducedMotion = usePrefersReducedMotion()
   const [sceneIndex, setSceneIndex] = useState(0)
   const [tabVisible, setTabVisible] = useState(true)
 
@@ -62,11 +79,14 @@ export function DashboardPreview() {
         <div className="relative min-h-[345px] sm:min-h-[400px]">
           <AnimatePresence mode="wait">
             {sceneIndex === 0 ? (
-              <SubscriptionScene key="scene-sub" reducedMotion={reducedMotion} />
+              <SubscriptionScene key={`scene-sub-${reducedMotion}`} reducedMotion={reducedMotion} />
             ) : sceneIndex === 1 ? (
-              <OneShotScene key="scene-oneshot" reducedMotion={reducedMotion} />
+              <OneShotScene key={`scene-oneshot-${reducedMotion}`} reducedMotion={reducedMotion} />
             ) : (
-              <RecoveryScene key="scene-recovery" reducedMotion={reducedMotion} />
+              <RecoveryScene
+                key={`scene-recovery-${reducedMotion}`}
+                reducedMotion={reducedMotion}
+              />
             )}
           </AnimatePresence>
         </div>
@@ -132,9 +152,9 @@ function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <Reveal show={step >= 1}>
-                <code className="text-muted-foreground font-mono text-[10px] sm:text-[11px]">
-                  0x3f4a…a2d1
-                </code>
+                <span className="font-poppins text-muted-foreground text-[10px] sm:text-[11px]">
+                  Brightline Studio
+                </span>
               </Reveal>
               <Reveal show={step >= 2}>
                 <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -318,9 +338,9 @@ function OneShotScene({ reducedMotion }: { reducedMotion: boolean }) {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <code className="text-muted-foreground font-mono text-[10px] sm:text-[11px]">
-                  0xa9f3…7c12
-                </code>
+                <span className="font-poppins text-muted-foreground text-[10px] sm:text-[11px]">
+                  Halden &amp; Co
+                </span>
                 <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                   <span className="font-sora text-foreground text-[14px] font-[700] sm:text-[15px]">
                     Pro plan, August
@@ -335,7 +355,7 @@ function OneShotScene({ reducedMotion }: { reducedMotion: boolean }) {
 
             <AnimatePresence mode="wait">
               {step === 3 ? (
-                <BlockTicker key="ticker" />
+                <ConfirmingBar key="confirming" />
               ) : step >= 4 ? (
                 <motion.div
                   key="settled"
@@ -433,23 +453,30 @@ function SessionStatusPill({ step }: { step: number }) {
   )
 }
 
-function BlockTicker() {
-  const [block, setBlock] = useState(18_402_001)
-  useEffect(() => {
-    const id = setInterval(() => setBlock((b) => b + 1), 350)
-    return () => clearInterval(id)
-  }, [])
+function ConfirmingBar() {
   return (
     <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className="mt-3 flex items-center justify-between border-t border-sky-500/15 pt-3"
+      className="mt-3 border-t border-sky-500/15 pt-3"
     >
-      <span className="font-poppins text-muted-foreground text-[10px] sm:text-[11px]">Block</span>
-      <span className="font-mono text-[10px] font-[600] tabular-nums text-sky-700 sm:text-[11px] dark:text-sky-300">
-        #{block.toLocaleString()}
-      </span>
+      <div className="flex items-center justify-between">
+        <span className="font-poppins text-muted-foreground text-[10px] sm:text-[11px]">
+          Confirming payment
+        </span>
+        <span className="font-poppins text-[10px] font-[600] text-sky-700 sm:text-[11px] dark:text-sky-300">
+          a few seconds
+        </span>
+      </div>
+      <div className="mt-2 h-1 overflow-hidden rounded-full bg-sky-500/15">
+        <motion.div
+          initial={{ width: '8%' }}
+          animate={{ width: '92%' }}
+          transition={{ duration: 1.2, ease: 'easeOut' }}
+          className="h-full rounded-full bg-sky-500"
+        />
+      </div>
     </motion.div>
   )
 }
@@ -483,7 +510,7 @@ function RecoveryScene({ reducedMotion }: { reducedMotion: boolean }) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
             >
-              <Pill tone="warning">1 at-risk</Pill>
+              <Pill tone="warning">1 at risk</Pill>
             </motion.span>
           ) : (
             <motion.span
@@ -510,9 +537,9 @@ function RecoveryScene({ reducedMotion }: { reducedMotion: boolean }) {
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <code className="text-muted-foreground font-mono text-[10px] sm:text-[11px]">
-                  0x77b2…cf08
-                </code>
+                <span className="font-poppins text-muted-foreground text-[10px] sm:text-[11px]">
+                  Northwind GmbH
+                </span>
                 <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                   <span className="font-sora text-foreground text-[14px] font-[700] sm:text-[15px]">
                     Team plan
@@ -586,7 +613,7 @@ function RecoveryStatusPill({ atRisk, resolved }: { atRisk: boolean; resolved: b
         className="font-poppins inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-[500] text-amber-700 sm:text-[11px] dark:text-amber-300"
       >
         <span className="size-1.5 animate-pulse rounded-full bg-amber-500" />
-        at_risk
+        at risk
       </motion.span>
     )
   }
@@ -607,8 +634,8 @@ function TimelineRow({
   tone: 'danger' | 'info' | 'success'
 }) {
   const tones = {
-    danger: 'bg-rose-500/10 text-rose-700',
-    info: 'bg-sky-500/10 text-sky-700',
+    danger: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
+    info: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
     success: 'bg-accent/10 text-accent',
   } as const
   return (
@@ -631,9 +658,9 @@ function TimelineRow({
 
 function FloatingChips({ sceneIndex }: { sceneIndex: number }) {
   const top = [
-    { event: 'subscription.charged', latency: '· signed' },
-    { event: 'payment.completed', latency: '· settled' },
-    { event: 'subscription.charged', latency: '· recovered' },
+    { event: 'Renewal charged', latency: 'Pro plan' },
+    { event: 'Payment received', latency: 'one-time' },
+    { event: 'Payment recovered', latency: 'Team plan' },
   ] as const
   const bottom = [
     { amount: '+$20.00 USDC' },
@@ -657,9 +684,9 @@ function FloatingChips({ sceneIndex }: { sceneIndex: number }) {
             <span className="bg-accent/60 absolute inline-flex h-full w-full animate-ping rounded-full" />
             <span className="bg-accent relative inline-flex size-2 rounded-full" />
           </span>
-          <code className="text-foreground font-mono text-[10px] font-[500] md:text-[11px]">
+          <span className="font-poppins text-foreground text-[10px] font-[500] md:text-[11px]">
             {topScene.event}
-          </code>
+          </span>
           <span className="font-poppins text-muted-foreground text-[9px] md:text-[10px]">
             {topScene.latency}
           </span>
@@ -680,7 +707,7 @@ function FloatingChips({ sceneIndex }: { sceneIndex: number }) {
             {bottomScene.amount}
           </span>
           <span className="font-poppins text-[9px] text-white/60 md:text-[10px]">
-            → payout wallet
+            → your wallet
           </span>
         </motion.div>
       </AnimatePresence>
@@ -708,7 +735,9 @@ function SceneHeader({ children }: { children: ReactNode }) {
   return (
     <div className="border-border flex items-center justify-between border-b px-4 py-3 sm:px-5">
       <div className="flex items-center gap-2">{children}</div>
-      <span className="font-poppins text-muted-foreground hidden text-[11px] sm:inline">Live</span>
+      <span className="font-poppins text-muted-foreground shrink-0 text-[10px] sm:text-[11px]">
+        Sample data
+      </span>
     </div>
   )
 }
