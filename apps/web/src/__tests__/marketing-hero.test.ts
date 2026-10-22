@@ -24,9 +24,16 @@ describe('homepage hero mock (#272)', () => {
 
   // The server can't know the motion preference, so the first client render must match it (#353).
   it('reads reduced motion with a server snapshot and remounts scenes when it resolves', () => {
+    const hook = readFileSync(
+      join(WEB_ROOT, 'src/components/marketing/motion/reduced-motion.ts'),
+      'utf8',
+    )
     expect(preview).not.toMatch(/useReducedMotion/u)
-    expect(preview).toMatch(/useSyncExternalStore\(/u)
-    expect(preview).toMatch(/\(\) => false,?\s*\)/u)
+    expect(preview).toMatch(
+      /import \{ usePrefersReducedMotion \} from '\.\.\/motion\/reduced-motion'/u,
+    )
+    expect(hook).toMatch(/useSyncExternalStore\(/u)
+    expect(hook).toMatch(/\(\) => false,?\s*\)/u)
     expect(preview).toMatch(/key=\{`scene-[a-z]+-\$\{reducedMotion\}`\}/u)
   })
 })
