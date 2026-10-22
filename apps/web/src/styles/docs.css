@@ -91,7 +91,7 @@ article {
 }
 
 /* Inline `code` chips */
-[data-fd-content] code:not(pre code) {
+#nd-page .prose code:not(pre code) {
   background-color: rgb(243, 244, 246);
   color: #050020;
   padding: 0.125rem 0.375rem;
@@ -112,7 +112,7 @@ article {
   margin-top: 1.5rem;
 }
 
-.dark [data-fd-content] code:not(pre code) {
+.dark #nd-page .prose code:not(pre code) {
   background-color: hsl(240 16.4% 13.1%);
   color: #f5f5f7;
   border-color: hsl(240 13.4% 19%);
