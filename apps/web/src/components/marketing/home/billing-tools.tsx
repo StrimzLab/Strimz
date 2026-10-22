@@ -207,7 +207,7 @@ export function BillingTools() {
                 </p>
                 <h3
                   id={`sheet-${s.key}`}
-                  className="font-sora text-foreground mt-5 text-[26px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[34px]"
+                  className="font-sora text-foreground mt-5 scroll-mt-28 text-[26px] font-semibold leading-[1.1] tracking-[-0.03em] sm:text-[34px]"
                 >
                   {s.title}
                 </h3>
