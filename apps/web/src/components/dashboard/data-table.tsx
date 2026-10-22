@@ -44,7 +44,7 @@ export interface DataTableProps<TData, TValue> {
   emptyTitle?: string
   emptyDescription?: string
   /** The next step to offer when the list is empty. */
-  emptyAction?: { label: string; href: string }
+  emptyAction?: { label: string; href: string } | { label: string; onClick: () => void }
   /** Page size for client pagination. */
   pageSize?: number
   /**
@@ -188,9 +188,20 @@ export function DataTable<TData, TValue>({
                     <div className="text-sm font-medium">{emptyTitle}</div>
                     <div className="text-muted-foreground max-w-md text-xs">{emptyDescription}</div>
                     {emptyAction && !globalFilter ? (
-                      <Button asChild size="sm" className="mt-3">
-                        <Link href={emptyAction.href}>{emptyAction.label}</Link>
-                      </Button>
+                      'href' in emptyAction ? (
+                        <Button asChild size="sm" className="mt-3">
+                          <Link href={emptyAction.href}>{emptyAction.label}</Link>
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-3"
+                          onClick={emptyAction.onClick}
+                        >
+                          {emptyAction.label}
+                        </Button>
+                      )
                     ) : null}
                   </div>
                 </TableCell>

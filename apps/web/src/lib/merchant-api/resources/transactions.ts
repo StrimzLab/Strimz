@@ -9,6 +9,10 @@ export interface ListTransactionsParams extends PaginationParams {
   sessionId?: string
   subscriptionId?: string
   customerId?: string
+  /** ISO-8601 with offset, inclusive. */
+  from?: string
+  /** ISO-8601 with offset, exclusive. */
+  to?: string
 }
 
 export class TransactionsResource {
@@ -25,6 +29,8 @@ export class TransactionsResource {
         sessionId: params.sessionId,
         subscriptionId: params.subscriptionId,
         customerId: params.customerId,
+        from: params.from,
+        to: params.to,
       },
     })
   }
