@@ -44,6 +44,9 @@ export class RelayProcessor implements OnModuleInit, OnModuleDestroy {
         concurrency: 1,
       },
     )
+    this.worker.on('error', (err) => {
+      this.log.error(`relay worker error: ${err.message}`)
+    })
     this.worker.on('failed', (job, err) => {
       this.log.warn(`relay job ${job?.id} failed: ${err.message}`)
     })
