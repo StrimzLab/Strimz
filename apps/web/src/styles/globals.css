@@ -638,6 +638,11 @@ html.lenis body {
 .dark {
   --prose-link: #02c76a;
 }
+/* The typography plugin wraps inline code in literal backticks; the chip styling is enough. */
+.prose :where(code)::before,
+.prose :where(code)::after {
+  content: none;
+}
 @utility prose-strimz {
   --tw-prose-body: hsl(var(--muted-foreground));
   --tw-prose-headings: hsl(var(--foreground));

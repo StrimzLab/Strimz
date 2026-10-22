@@ -51,3 +51,25 @@ describe('the docs logo follows the theme', () => {
     expect(css).toMatch(/^\.dark \.docs-logo-dark\s*\{\s*display:\s*block;?\s*\}/m)
   })
 })
+
+describe('inline code renders as a chip without backticks', () => {
+  const globals = readFileSync(join(WEB_ROOT, 'src/styles/globals.css'), 'utf8')
+  const docs = readFileSync(join(WEB_ROOT, 'src/styles/docs.css'), 'utf8')
+
+  it.each(['before', 'after'])('drops the typography plugin backtick on ::%s', (pseudo) => {
+    expect(globals).toMatch(
+      new RegExp(`\\.prose :where\\(code\\)::${pseudo}[^{]*\\{[^}]*content:\\s*none`),
+    )
+  })
+
+  it('styles the chip under the page id fumadocs renders', () => {
+    const fumadocs = readFileSync(
+      join(WEB_ROOT, 'node_modules/fumadocs-ui/dist/page.client.js'),
+      'utf8',
+    )
+    expect(fumadocs).toContain('"nd-page"')
+    expect(docs).not.toContain('[data-fd-content] code')
+    expect(docs).toMatch(/^#nd-page \.prose code:not\(pre code\)\s*\{/m)
+    expect(docs).toMatch(/^\.dark #nd-page \.prose code:not\(pre code\)\s*\{/m)
+  })
+})
