@@ -4,6 +4,7 @@ import { Hero } from '@/components/marketing/home/hero'
 import { WhoItsFor } from '@/components/marketing/home/who-its-for'
 import { Manifesto } from '@/components/marketing/home/manifesto'
 import { HowItWorks } from '@/components/marketing/home/how-it-works'
+import { ProductTour } from '@/components/marketing/home/product-tour'
 import { Assurances } from '@/components/marketing/home/assurances'
 import { BillingTools } from '@/components/marketing/home/billing-tools'
 import { Developers } from '@/components/marketing/home/developers'
@@ -38,6 +39,9 @@ export default function HomePage() {
       </SectionBoundary>
       <SectionBoundary name="how it works">
         <HowItWorks />
+      </SectionBoundary>
+      <SectionBoundary name="product tour">
+        <ProductTour />
       </SectionBoundary>
       <SectionBoundary name="guarantees">
         <Assurances />
