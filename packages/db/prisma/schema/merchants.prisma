@@ -8,6 +8,12 @@ model Merchant {
   onchainMerchantId    Int?           @unique
   onchainRegistrationTxHash      String?   @unique @db.VarChar(66)
   onchainRegistrationRequestedAt DateTime?
+  /// The registry's fee and ceiling, projected by the indexer. Compared with the plan fee by the scheduler.
+  onchainFeeBps        Int?
+  onchainMaxFeeBps     Int?
+  onchainFeeTxHash     String?        @db.VarChar(66)
+  /// Block time of the last fee or ceiling event.
+  onchainFeeChangedAt  DateTime?
   businessName         String?        @db.VarChar(120)
   email                String         @unique @db.VarChar(320)
   /// True after Privy confirms the email address. Required for live mode.
