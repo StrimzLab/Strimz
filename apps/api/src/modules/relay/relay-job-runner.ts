@@ -8,7 +8,7 @@ import {
   type Hex,
   type TransactionReceipt,
 } from 'viem'
-import { relayJobSchema, type RelayJob } from '@strimz/queue-contracts'
+import { relayJobSchema, type RelayBroadcast, type RelayJob } from '@strimz/queue-contracts'
 import { toKmsAccount, type KmsSigner } from '@strimz/signer'
 
 import { TypedConfigService } from '../../config/index.js'
@@ -21,7 +21,7 @@ import {
   registerMerchantCallData,
   registrationGaps,
 } from '../merchants/registration.js'
-import { GasPricingService } from './gas-pricing.service.js'
+import { GasPricingService, type GasPrice } from './gas-pricing.service.js'
 import { RelayBudgetService } from './relay-budget.service.js'
 import { NonceManager } from './nonce-manager.service.js'
 
@@ -185,6 +185,7 @@ export class RelayJobRunner {
   ): Promise<TransactionReceipt> {
     const chainId = this.chainId()
     let nonce: bigint
+    let previous: GasPrice | undefined
 
     if (data.broadcast) {
       const settled = await this.settledReceipt(data.broadcast.txHash)
@@ -208,6 +209,7 @@ export class RelayJobRunner {
       )
       if (confirmed <= recordedNonce) {
         nonce = recordedNonce
+        previous = recordedFees(data.broadcast)
       } else {
         await this.nonces.resync(chainId, this.signer.address)
         nonce = await this.nonces.acquire(chainId, this.signer.address)
@@ -220,7 +222,8 @@ export class RelayJobRunner {
     }
 
     const { maxFeePerGas, maxPriorityFeePerGas } = await this.gas.compute({
-      priorityFeeGwei: 1 + job.attemptsMade,
+      retry: job.attemptsMade > 0,
+      previous,
     })
     const serialized = await toKmsAccount(this.signer).signTransaction({
       type: 'eip1559',
@@ -237,7 +240,13 @@ export class RelayJobRunner {
 
     await job.updateData({
       ...data,
-      broadcast: { txHash, nonce: nonce.toString(), from: this.signer.address },
+      broadcast: {
+        txHash,
+        nonce: nonce.toString(),
+        from: this.signer.address,
+        maxFeePerGas: maxFeePerGas.toString(),
+        maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+      },
     })
     await onRecorded?.(txHash)
 
@@ -294,6 +303,16 @@ export class RelayJobRunner {
       throw new Error('relay processor: chain client has no chain bound')
     }
     return chain.id
+  }
+}
+
+function recordedFees(broadcast: RelayBroadcast): GasPrice | undefined {
+  if (broadcast.maxFeePerGas === undefined || broadcast.maxPriorityFeePerGas === undefined) {
+    return undefined
+  }
+  return {
+    maxFeePerGas: BigInt(broadcast.maxFeePerGas),
+    maxPriorityFeePerGas: BigInt(broadcast.maxPriorityFeePerGas),
   }
 }
 
