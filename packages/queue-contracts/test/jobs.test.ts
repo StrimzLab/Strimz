@@ -111,6 +111,28 @@ describe('relay submission jobs', () => {
     ).toBe(false)
   })
 
+  it('keeps the fees of a recorded broadcast and rejects non-integer ones', () => {
+    const base = relayJobFixtures.payWithAuthorization
+    const recorded = {
+      txHash: `0x${'d'.repeat(64)}`,
+      nonce: '3',
+      maxFeePerGas: '40000000000',
+      maxPriorityFeePerGas: '0',
+    }
+    expect(relayJobSchema.parse({ ...base, broadcast: recorded }).broadcast).toMatchObject({
+      maxFeePerGas: '40000000000',
+      maxPriorityFeePerGas: '0',
+    })
+    expect(
+      relayJobSchema.safeParse({ ...base, broadcast: { ...recorded, maxFeePerGas: '4e10' } })
+        .success,
+    ).toBe(false)
+    expect(
+      relayJobSchema.safeParse({ ...base, broadcast: { ...recorded, maxPriorityFeePerGas: '-1' } })
+        .success,
+    ).toBe(false)
+  })
+
   it('rejects a registerMerchant job without the merchant id', () => {
     const { merchantInternalId: _omitted, ...rest } = relayJobFixtures.registerMerchant
     expect(relayJobSchema.safeParse(rest).success).toBe(false)
