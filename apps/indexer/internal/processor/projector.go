@@ -89,7 +89,9 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 	case indabi.EventMerchantRegistered:
 		ev := payload.(*indabi.MerchantRegistered)
 		var linked int64
-		linked, err = p.store.LinkOnchainMerchant(ctx, ev.MerchantID, lg.TxHash.Hex())
+		linked, err = p.store.LinkOnchainMerchant(ctx, ev.MerchantID, lg.TxHash.Hex(), store.OnchainFee{
+			FeeBps: ev.FeeBps, MaxFeeBps: ev.MaxFeeBps, TxHash: lg.TxHash.Hex(), At: blockTime,
+		})
 		if err == nil && linked == 0 {
 			p.log.Warn("MerchantRegistered matched no merchant",
 				"onchainMerchantId", ev.MerchantID.String(),
@@ -107,7 +109,14 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 
 	case indabi.EventMerchantFeeBpsUpdated:
 		ev := payload.(*indabi.MerchantFeeBpsUpdated)
-		err = p.store.LogMerchantFeeBpsChange(ctx, ev.MerchantID, ev.NewFeeBps, lg.TxHash.Hex())
+		var set int64
+		set, err = p.store.SetMerchantOnchainFeeBps(ctx, ev.MerchantID, ev.NewFeeBps, lg.TxHash.Hex(), blockTime)
+		if err == nil && set == 0 {
+			p.warnUnlinkedFee(ev.MerchantID, lg)
+		}
+		if err == nil {
+			err = p.store.LogMerchantFeeBpsChange(ctx, ev.MerchantID, ev.NewFeeBps, lg.TxHash.Hex())
+		}
 
 	case indabi.EventMerchantOwnershipTransferInitiated:
 		ev := payload.(*indabi.MerchantOwnershipTransferInitiated)
@@ -152,9 +161,16 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 
 	case indabi.EventMerchantMaxFeeBpsLowered:
 		ev := payload.(*indabi.MerchantMaxFeeBpsLowered)
-		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.max_fee_bps_lowered_onchain", map[string]any{
-			"newMaxFeeBps": int(ev.NewMaxFeeBps),
-		})
+		var set int64
+		set, err = p.store.SetMerchantOnchainMaxFeeBps(ctx, ev.MerchantID, ev.NewMaxFeeBps, lg.TxHash.Hex(), blockTime)
+		if err == nil && set == 0 {
+			p.warnUnlinkedFee(ev.MerchantID, lg)
+		}
+		if err == nil {
+			err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.max_fee_bps_lowered_onchain", map[string]any{
+				"newMaxFeeBps": int(ev.NewMaxFeeBps),
+			})
+		}
 
 	// ----- Payments -----
 	case indabi.EventPaymentExecuted:
@@ -566,6 +582,12 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 		return fmt.Errorf("project %s: %w", name, err)
 	}
 	return nil
+}
+
+func (p *Projector) warnUnlinkedFee(onchainMerchantID *big.Int, lg types.Log) {
+	p.log.Warn("registry fee event matched no merchant",
+		"onchainMerchantId", onchainMerchantID.String(),
+		"txHash", lg.TxHash.Hex())
 }
 
 func (p *Projector) logRef(lg types.Log) store.OnchainLogRef {

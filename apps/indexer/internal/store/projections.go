@@ -23,20 +23,59 @@ var ErrUnresolvable = errors.New("unresolvable log")
 
 // ----- Merchant registry -----
 
-// LinkOnchainMerchant sets the on-chain merchant ID on whichever Merchant
-// row owns the matching `payoutAddress`. We don't insert a Merchant — that
+// OnchainFee is the registry's fee and ceiling as of one event.
+type OnchainFee struct {
+	FeeBps    uint16
+	MaxFeeBps uint16
+	TxHash    string
+	At        time.Time
+}
+
+// LinkOnchainMerchant sets the on-chain merchant ID and registration fee on
+// the row whose registration tx matches. We don't insert a Merchant — that
 // row is created off-chain via `/auth/sync` long before the on-chain
 // transaction lands.
-func (s *Store) LinkOnchainMerchant(ctx context.Context, onchainID *big.Int, registrationTxHash string) (int64, error) {
+func (s *Store) LinkOnchainMerchant(ctx context.Context, onchainID *big.Int, registrationTxHash string, fee OnchainFee) (int64, error) {
 	tag, err := s.db().Exec(ctx, `
 		UPDATE "Merchant"
-		   SET "onchainMerchantId" = $1
+		   SET "onchainMerchantId" = $1,
+		       "onchainFeeBps" = $3,
+		       "onchainMaxFeeBps" = $4,
+		       "onchainFeeTxHash" = $5,
+		       "onchainFeeChangedAt" = $6
 		 WHERE (LOWER("onchainRegistrationTxHash") = LOWER($2)
 		        AND ("onchainMerchantId" IS NULL OR "onchainMerchantId" = $1))
 		    OR "onchainMerchantId" = $1
-	`, onchainID.Int64(), registrationTxHash)
+	`, onchainID.Int64(), registrationTxHash, int(fee.FeeBps), int(fee.MaxFeeBps), strings.ToLower(fee.TxHash), fee.At)
 	if err != nil {
 		return 0, fmt.Errorf("link merchant: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// SetMerchantOnchainFeeBps mirrors `MerchantFeeBpsUpdated`.
+func (s *Store) SetMerchantOnchainFeeBps(ctx context.Context, onchainID *big.Int, feeBps uint16, txHash string, at time.Time) (int64, error) {
+	tag, err := s.db().Exec(ctx, `
+		UPDATE "Merchant"
+		   SET "onchainFeeBps" = $2, "onchainFeeTxHash" = $3, "onchainFeeChangedAt" = $4
+		 WHERE "onchainMerchantId" = $1
+	`, onchainID.Int64(), int(feeBps), strings.ToLower(txHash), at)
+	if err != nil {
+		return 0, fmt.Errorf("set onchain fee: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// SetMerchantOnchainMaxFeeBps mirrors `MerchantMaxFeeBpsLowered`, which only
+// the registry deployed before the fee-ceiling change emits.
+func (s *Store) SetMerchantOnchainMaxFeeBps(ctx context.Context, onchainID *big.Int, maxFeeBps uint16, txHash string, at time.Time) (int64, error) {
+	tag, err := s.db().Exec(ctx, `
+		UPDATE "Merchant"
+		   SET "onchainMaxFeeBps" = $2, "onchainFeeTxHash" = $3, "onchainFeeChangedAt" = $4
+		 WHERE "onchainMerchantId" = $1
+	`, onchainID.Int64(), int(maxFeeBps), strings.ToLower(txHash), at)
+	if err != nil {
+		return 0, fmt.Errorf("set onchain max fee: %w", err)
 	}
 	return tag.RowsAffected(), nil
 }
@@ -72,10 +111,7 @@ func (s *Store) SetMerchantActive(ctx context.Context, onchainID *big.Int, activ
 	return tag.RowsAffected(), nil
 }
 
-// LogMerchantFeeBpsChange records `MerchantFeeBpsUpdated` to the AuditLog —
-// fee bps isn't stored on the Merchant row itself (per-tier defaults +
-// per-merchant overrides live elsewhere), so we surface it as an audit
-// entry the dashboard can render.
+// LogMerchantFeeBpsChange records `MerchantFeeBpsUpdated` to the AuditLog.
 func (s *Store) LogMerchantFeeBpsChange(ctx context.Context, onchainID *big.Int, newFeeBps uint16, txHash string) error {
 	return s.appendAudit(ctx, auditEntry{
 		Category:   "merchant",
