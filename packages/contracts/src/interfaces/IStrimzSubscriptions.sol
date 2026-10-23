@@ -49,13 +49,6 @@ interface IStrimzSubscriptions {
         uint256 deadline;
     }
 
-    /// @notice ECDSA signature triple.
-    struct Sig {
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
-
     event SubscriptionCreated(
         uint256 indexed subscriptionId,
         uint256 indexed merchantId,
@@ -98,6 +91,8 @@ interface IStrimzSubscriptions {
     error Subscriptions__InvalidIntent();
     error Subscriptions__AlreadyCancelled(uint256 subscriptionId);
     error Subscriptions__IntentAlreadyUsed(bytes32 nonce);
+    /// @notice A payer without code sent a permit signature that isn't 65 bytes.
+    error Subscriptions__InvalidSignature();
 
     /// @param merchantId The merchant the subscription bills to.
     /// @param token ERC20 token address — must be whitelisted.
@@ -139,8 +134,8 @@ interface IStrimzSubscriptions {
         uint64 endAt,
         bytes32 nonce,
         PermitData calldata permitData,
-        Sig calldata permitSig,
-        Sig calldata intentSig
+        bytes calldata permitSig,
+        bytes calldata intentSig
     ) external returns (uint256 subscriptionId);
 
     /// @notice Callable by the payer, the merchant owner, or a CHARGER_ROLE holder cancelling for the merchant.

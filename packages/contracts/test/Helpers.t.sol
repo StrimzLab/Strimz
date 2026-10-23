@@ -4,6 +4,8 @@ pragma solidity ^0.8.28;
 import { Test } from "forge-std/Test.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import { SignatureChecker } from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 import { ProxyDeploy } from "../script/utils/ProxyDeploy.sol";
 import { TokenWhitelist } from "../src/tokens/TokenWhitelist.sol";
@@ -89,6 +91,67 @@ contract MockUsdc is ERC20Permit {
         _authorizationStates[from][nonce] = true;
         emit AuthorizationUsed(from, nonce);
         _transfer(from, to, value);
+    }
+
+    /// @dev FiatToken v2.2's `bytes` overload: ERC-1271 when `from` has code.
+    function receiveWithAuthorization(
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce,
+        bytes calldata signature
+    ) external {
+        if (to != msg.sender) revert MockUsdc__CallerNotPayee();
+        if (block.timestamp <= validAfter) revert MockUsdc__AuthorizationNotYetValid();
+        if (block.timestamp >= validBefore) revert MockUsdc__AuthorizationExpired();
+        if (_authorizationStates[from][nonce]) revert MockUsdc__AuthorizationAlreadyUsed();
+
+        bytes32 digest = _hashTypedDataV4(keccak256(
+            abi.encode(RECEIVE_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce)
+        ));
+        if (!SignatureChecker.isValidSignatureNow(from, digest, signature)) revert MockUsdc__InvalidSignature();
+
+        _authorizationStates[from][nonce] = true;
+        emit AuthorizationUsed(from, nonce);
+        _transfer(from, to, value);
+    }
+
+    function permit(address owner, address spender, uint256 value, uint256 deadline, bytes calldata signature)
+        external
+    {
+        if (block.timestamp > deadline) revert ERC2612ExpiredSignature(deadline);
+        bytes32 digest = _hashTypedDataV4(keccak256(
+            abi.encode(PERMIT_TYPEHASH, owner, spender, value, _useNonce(owner), deadline)
+        ));
+        if (!SignatureChecker.isValidSignatureNow(owner, digest, signature)) revert MockUsdc__InvalidSignature();
+        _approve(owner, spender, value);
+    }
+
+    bytes32 private constant PERMIT_TYPEHASH =
+        keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+}
+
+/// @dev Stand-in for a Safe: accepts its owner key's signature, or an
+///      empty signature for a hash it approved on-chain.
+contract MockErc1271Wallet {
+    address public immutable owner;
+    mapping(bytes32 hash => bool approved) public approvedHashes;
+
+    constructor(address owner_) {
+        require(owner_ != address(0), "zero owner");
+        owner = owner_;
+    }
+
+    function approveHash(bytes32 hash) external {
+        approvedHashes[hash] = true;
+    }
+
+    function isValidSignature(bytes32 hash, bytes calldata signature) external view returns (bytes4) {
+        if (signature.length == 0) return approvedHashes[hash] ? bytes4(0x1626ba7e) : bytes4(0xffffffff);
+        (address recovered, ECDSA.RecoverError err,) = ECDSA.tryRecoverCalldata(hash, signature);
+        return err == ECDSA.RecoverError.NoError && recovered == owner ? bytes4(0x1626ba7e) : bytes4(0xffffffff);
     }
 }
 

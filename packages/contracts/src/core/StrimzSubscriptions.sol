@@ -5,7 +5,6 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { LowLevelCall } from "@openzeppelin/contracts/utils/LowLevelCall.sol";
 
@@ -15,6 +14,7 @@ import { IFeeCollector } from "../interfaces/IFeeCollector.sol";
 import { ITokenWhitelist } from "../interfaces/ITokenWhitelist.sol";
 import { IERC2612 } from "../interfaces/IERC2612.sol";
 import { StrimzPausable } from "../access/Pausable.sol";
+import { PayerSignature } from "../libraries/PayerSignature.sol";
 
 /// @title StrimzSubscriptions
 /// @notice Recurring stablecoin billing. Enrol with `createSubscription`
@@ -182,8 +182,8 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         uint64 endAt,
         bytes32 nonce,
         PermitData calldata permitData,
-        IStrimzSubscriptions.Sig calldata permitSig,
-        IStrimzSubscriptions.Sig calldata intentSig
+        bytes calldata permitSig,
+        bytes calldata intentSig
     ) external override whenNotPaused returns (uint256 subscriptionId) {
         if (amount == 0) revert Subscriptions__InvalidAmount();
         if (interval < MIN_INTERVAL) revert Subscriptions__InvalidInterval();
@@ -233,9 +233,8 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         );
     }
 
-    /// @dev Recovers the intent signer and requires it to equal
-    ///      `permitData.owner`. Same key must authorise both the token
-    ///      allowance and the subscription parameters.
+    /// @dev `permitData.owner` must sign the subscription parameters as
+    ///      well as the token allowance.
     function _verifySubscriptionIntent(
         uint256 merchantId,
         address token,
@@ -245,7 +244,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         uint64 endAt,
         bytes32 nonce,
         PermitData calldata permitData,
-        IStrimzSubscriptions.Sig calldata intentSig
+        bytes calldata intentSig
     ) internal view {
         bytes32 structHash = keccak256(abi.encode(
             SUBSCRIPTION_INTENT_TYPEHASH,
@@ -259,25 +258,35 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
             nonce
         ));
         bytes32 digest = _hashTypedDataV4(structHash);
-        address recovered = ECDSA.recover(digest, intentSig.v, intentSig.r, intentSig.s);
-        if (recovered != permitData.owner) revert Subscriptions__InvalidIntent();
+        if (!PayerSignature.isValid(permitData.owner, digest, intentSig)) revert Subscriptions__InvalidIntent();
     }
 
-    function _permitOrRequireAllowance(
-        address token,
-        PermitData calldata permitData,
-        IStrimzSubscriptions.Sig calldata permitSig
-    ) private {
-        try IERC2612(token).permit(
-            permitData.owner,
-            address(this),
-            permitData.value,
-            permitData.deadline,
-            permitSig.v, permitSig.r, permitSig.s
-        ) { } catch (bytes memory reason) {
-            if (IERC20(token).allowance(permitData.owner, address(this)) < permitData.value) {
-                LowLevelCall.bubbleRevert(reason);
+    /// @dev A keyed owner keeps the `v, r, s` overload every ERC-2612 token
+    ///      has; an owner with code needs the `bytes` one for ERC-1271.
+    function _permitOrRequireAllowance(address token, PermitData calldata permitData, bytes calldata permitSig)
+        private
+    {
+        IERC2612 t = IERC2612(token);
+        if (permitData.owner.code.length != 0) {
+            try t.permit(permitData.owner, address(this), permitData.value, permitData.deadline, permitSig) { }
+            catch (bytes memory reason) {
+                _requireAllowance(token, permitData, reason);
             }
+            return;
+        }
+        (bool ok, uint8 v, bytes32 r, bytes32 s) = PayerSignature.split(permitSig);
+        if (!ok) revert Subscriptions__InvalidSignature();
+        try t.permit(permitData.owner, address(this), permitData.value, permitData.deadline, v, r, s) { }
+        catch (bytes memory reason) {
+            _requireAllowance(token, permitData, reason);
+        }
+    }
+
+    /// @dev A failed permit is fine when the allowance is already there
+    ///      (a front-run permit or an earlier approve).
+    function _requireAllowance(address token, PermitData calldata permitData, bytes memory reason) private view {
+        if (IERC20(token).allowance(permitData.owner, address(this)) < permitData.value) {
+            LowLevelCall.bubbleRevert(reason);
         }
     }
 

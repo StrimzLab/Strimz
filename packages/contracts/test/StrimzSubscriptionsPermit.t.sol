@@ -75,10 +75,10 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
     function _signPermitFor(IStrimzSubscriptions.PermitData memory pd, uint256 signerPk)
         internal
         view
-        returns (IStrimzSubscriptions.Sig memory)
+        returns (bytes memory)
     {
         (uint8 v, bytes32 r, bytes32 s) = _signPermit(usdc, signerPk, pd.owner, address(subs), pd.value, pd.deadline);
-        return IStrimzSubscriptions.Sig(v, r, s);
+        return abi.encodePacked(r, s, v);
     }
 
     function _signIntentFor(
@@ -90,11 +90,11 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         uint64 startAt,
         uint64 endAt,
         uint256 permitDeadline
-    ) internal view returns (IStrimzSubscriptions.Sig memory) {
+    ) internal view returns (bytes memory) {
         (uint8 v, bytes32 r, bytes32 s) = _signSubscriptionIntent(
             subs, signerPk, mid, token, amount, interval, startAt, endAt, permitDeadline, INTENT_NONCE
         );
-        return IStrimzSubscriptions.Sig(v, r, s);
+        return abi.encodePacked(r, s, v);
     }
 
     // ---------- Backdated startAt (audit M-02) ----------
@@ -108,8 +108,8 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         uint64 backdated = uint64(block.timestamp - 1);
 
         IStrimzSubscriptions.PermitData memory pd = _defaultPermit(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory permitSig = _signPermitFor(pd, payerPk);
-        IStrimzSubscriptions.Sig memory intentSig = _signIntentFor(
+        bytes memory permitSig = _signPermitFor(pd, payerPk);
+        bytes memory intentSig = _signIntentFor(
             payerPk, merchantId, address(usdc), AMOUNT, INTERVAL, backdated, 0, deadline
         );
 
@@ -130,8 +130,8 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
     function test_happyPath_grantsAllowanceAndCreates() public {
         uint256 deadline = block.timestamp + 24 hours;
         IStrimzSubscriptions.PermitData memory pd = _defaultPermit(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory permitSig = _signPermitFor(pd, payerPk);
-        IStrimzSubscriptions.Sig memory intentSig = _signIntentFor(
+        bytes memory permitSig = _signPermitFor(pd, payerPk);
+        bytes memory intentSig = _signIntentFor(
             payerPk, merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0, deadline
         );
 
@@ -153,8 +153,8 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
     function test_happyPath_scheduledChargeSettles() public {
         uint256 deadline = block.timestamp + 24 hours;
         IStrimzSubscriptions.PermitData memory pd = _defaultPermit(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory permitSig = _signPermitFor(pd, payerPk);
-        IStrimzSubscriptions.Sig memory intentSig = _signIntentFor(
+        bytes memory permitSig = _signPermitFor(pd, payerPk);
+        bytes memory intentSig = _signIntentFor(
             payerPk, merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0, deadline
         );
 
@@ -181,8 +181,8 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
     function test_payerCanCancelAfterRelayerCreated() public {
         uint256 deadline = block.timestamp + 24 hours;
         IStrimzSubscriptions.PermitData memory pd = _defaultPermit(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory permitSig = _signPermitFor(pd, payerPk);
-        IStrimzSubscriptions.Sig memory intentSig = _signIntentFor(
+        bytes memory permitSig = _signPermitFor(pd, payerPk);
+        bytes memory intentSig = _signIntentFor(
             payerPk, merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0, deadline
         );
 
@@ -215,9 +215,9 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
 
         uint256 deadline = block.timestamp + 24 hours;
         IStrimzSubscriptions.PermitData memory pd = _defaultPermit(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory permitSig = _signPermitFor(pd, payerPk);
+        bytes memory permitSig = _signPermitFor(pd, payerPk);
         // Payer signs the intent for the LEGITIMATE merchantId.
-        IStrimzSubscriptions.Sig memory intentSig = _signIntentFor(
+        bytes memory intentSig = _signIntentFor(
             payerPk, merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0, deadline
         );
 
@@ -237,8 +237,8 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
     function test_intent_tamperedAmount_reverts() public {
         uint256 deadline = block.timestamp + 24 hours;
         IStrimzSubscriptions.PermitData memory pd = _defaultPermit(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory permitSig = _signPermitFor(pd, payerPk);
-        IStrimzSubscriptions.Sig memory intentSig = _signIntentFor(
+        bytes memory permitSig = _signPermitFor(pd, payerPk);
+        bytes memory intentSig = _signIntentFor(
             payerPk, merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0, deadline
         );
 
@@ -254,8 +254,8 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
     function test_intent_tamperedInterval_reverts() public {
         uint256 deadline = block.timestamp + 24 hours;
         IStrimzSubscriptions.PermitData memory pd = _defaultPermit(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory permitSig = _signPermitFor(pd, payerPk);
-        IStrimzSubscriptions.Sig memory intentSig = _signIntentFor(
+        bytes memory permitSig = _signPermitFor(pd, payerPk);
+        bytes memory intentSig = _signIntentFor(
             payerPk, merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0, deadline
         );
 
@@ -272,8 +272,8 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         (, uint256 attackerPk) = makeAddrAndKey("attacker");
         uint256 deadline = block.timestamp + 24 hours;
         IStrimzSubscriptions.PermitData memory pd = _defaultPermit(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory permitSig = _signPermitFor(pd, payerPk);
-        IStrimzSubscriptions.Sig memory intentSig = _signIntentFor(
+        bytes memory permitSig = _signPermitFor(pd, payerPk);
+        bytes memory intentSig = _signIntentFor(
             attackerPk, merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0, deadline
         );
 
@@ -290,7 +290,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
     function test_zeroAmount_reverts() public {
         IStrimzSubscriptions.PermitData memory pd =
             _defaultPermit(type(uint256).max, block.timestamp + 24 hours);
-        IStrimzSubscriptions.Sig memory sig = IStrimzSubscriptions.Sig(27, bytes32(0), bytes32(0));
+        bytes memory sig = abi.encodePacked(bytes32(0), bytes32(0), uint8(27));
 
         vm.prank(relayer);
         vm.expectRevert(IStrimzSubscriptions.Subscriptions__InvalidAmount.selector);
@@ -302,7 +302,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
     function test_intervalTooShort_reverts() public {
         IStrimzSubscriptions.PermitData memory pd =
             _defaultPermit(type(uint256).max, block.timestamp + 24 hours);
-        IStrimzSubscriptions.Sig memory sig = IStrimzSubscriptions.Sig(27, bytes32(0), bytes32(0));
+        bytes memory sig = abi.encodePacked(bytes32(0), bytes32(0), uint8(27));
 
         vm.prank(relayer);
         vm.expectRevert(IStrimzSubscriptions.Subscriptions__InvalidInterval.selector);
@@ -315,7 +315,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         MockUsdc other = new MockUsdc();
         IStrimzSubscriptions.PermitData memory pd =
             _defaultPermit(type(uint256).max, block.timestamp + 24 hours);
-        IStrimzSubscriptions.Sig memory sig = IStrimzSubscriptions.Sig(27, bytes32(0), bytes32(0));
+        bytes memory sig = abi.encodePacked(bytes32(0), bytes32(0), uint8(27));
 
         vm.prank(relayer);
         vm.expectRevert(
@@ -332,7 +332,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         whitelist.add(address(plain));
         IStrimzSubscriptions.PermitData memory pd =
             _defaultPermit(type(uint256).max, block.timestamp + 24 hours);
-        IStrimzSubscriptions.Sig memory sig = IStrimzSubscriptions.Sig(27, bytes32(0), bytes32(0));
+        bytes memory sig = abi.encodePacked(bytes32(0), bytes32(0), uint8(27));
 
         vm.prank(relayer);
         vm.expectRevert(
@@ -350,8 +350,8 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         (, uint256 attackerPk) = makeAddrAndKey("attacker");
         uint256 deadline = block.timestamp + 24 hours;
         IStrimzSubscriptions.PermitData memory pd = _defaultPermit(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory badPermit = _signPermitFor(pd, attackerPk);
-        IStrimzSubscriptions.Sig memory intentSig = _signIntentFor(
+        bytes memory badPermit = _signPermitFor(pd, attackerPk);
+        bytes memory intentSig = _signIntentFor(
             payerPk, merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0, deadline
         );
 
@@ -366,8 +366,8 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
     function test_expiredPermitDeadline_reverts() public {
         IStrimzSubscriptions.PermitData memory pd = _defaultPermit(type(uint256).max, 1);
         vm.warp(100);
-        IStrimzSubscriptions.Sig memory permitSig = _signPermitFor(pd, payerPk);
-        IStrimzSubscriptions.Sig memory intentSig = _signIntentFor(
+        bytes memory permitSig = _signPermitFor(pd, payerPk);
+        bytes memory intentSig = _signIntentFor(
             payerPk, merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0, 1
         );
 
@@ -385,8 +385,8 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
 
         uint256 deadline = block.timestamp + 24 hours;
         IStrimzSubscriptions.PermitData memory pd = _defaultPermit(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory permitSig = _signPermitFor(pd, payerPk);
-        IStrimzSubscriptions.Sig memory intentSig = _signIntentFor(
+        bytes memory permitSig = _signPermitFor(pd, payerPk);
+        bytes memory intentSig = _signIntentFor(
             payerPk, merchantId, address(usdc), AMOUNT, INTERVAL, uint64(block.timestamp), 0, deadline
         );
 

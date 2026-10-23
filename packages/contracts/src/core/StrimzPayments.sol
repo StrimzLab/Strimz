@@ -5,7 +5,6 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { EIP712 } from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 import { IStrimzPayments } from "../interfaces/IStrimzPayments.sol";
 import { IStrimzRegistry } from "../interfaces/IStrimzRegistry.sol";
@@ -13,6 +12,7 @@ import { IFeeCollector } from "../interfaces/IFeeCollector.sol";
 import { ITokenWhitelist } from "../interfaces/ITokenWhitelist.sol";
 import { IERC3009 } from "../interfaces/IERC3009.sol";
 import { StrimzPausable } from "../access/Pausable.sol";
+import { PayerSignature } from "../libraries/PayerSignature.sol";
 
 /// @title StrimzPayments
 /// @notice One-shot payments. `pay` for classic ERC20 approve+pull;
@@ -145,8 +145,8 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, EIP
         address token,
         PayAuthorization calldata auth,
         bytes32 ref,
-        Sig calldata authSig,
-        Sig calldata intentSig
+        bytes calldata authSig,
+        bytes calldata intentSig
     ) external override whenNotPaused nonReentrant {
         if (auth.amount == 0) revert Payments__InvalidAmount();
 
@@ -165,15 +165,7 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, EIP
         // Pull the gross to this contract. The token verifies the sig,
         // checks the validity window, and burns the nonce.
         uint256 beforeSelf = IERC20(token).balanceOf(address(this));
-        IERC3009(token).receiveWithAuthorization(
-            auth.from,
-            address(this),
-            auth.amount,
-            auth.validAfter,
-            auth.validBefore,
-            auth.nonce,
-            authSig.v, authSig.r, authSig.s
-        );
+        _receive(IERC3009(token), auth, authSig);
         // Fee-on-transfer / rebase check: this contract must have
         // received exactly auth.amount.
         if (IERC20(token).balanceOf(address(this)) - beforeSelf != auth.amount) {
@@ -195,6 +187,22 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, EIP
         emit PaymentExecuted(merchantId, auth.from, token, auth.amount, feeAmount, netAmount, ref);
     }
 
+    /// @dev A keyed payer keeps the `v, r, s` overload every EIP-3009 token
+    ///      has; a payer with code needs the `bytes` one for ERC-1271.
+    function _receive(IERC3009 token, PayAuthorization calldata auth, bytes calldata authSig) private {
+        if (auth.from.code.length != 0) {
+            token.receiveWithAuthorization(
+                auth.from, address(this), auth.amount, auth.validAfter, auth.validBefore, auth.nonce, authSig
+            );
+            return;
+        }
+        (bool ok, uint8 v, bytes32 r, bytes32 s) = PayerSignature.split(authSig);
+        if (!ok) revert Payments__InvalidSignature();
+        token.receiveWithAuthorization(
+            auth.from, address(this), auth.amount, auth.validAfter, auth.validBefore, auth.nonce, v, r, s
+        );
+    }
+
     /// @dev Balance-delta guard around `safeTransferFrom`. If the token
     ///      delivers less than requested (fee-on-transfer, rebasing,
     ///      blocklist-in-flight), revert the whole call.
@@ -211,15 +219,14 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, EIP
         if (token.balanceOf(to) - before != amount) revert Payments__NonStandardTransfer();
     }
 
-    /// @dev Recovers the intent signer via EIP-712 and requires it to
-    ///      match `auth.from` — the same key that signed the EIP-3009
-    ///      authorization must also authorise the Strimz routing.
+    /// @dev `auth.from` must also sign the Strimz routing, not just the
+    ///      EIP-3009 authorization.
     function _verifyPayIntent(
         uint256 merchantId,
         address token,
         PayAuthorization calldata auth,
         bytes32 ref,
-        Sig calldata intentSig
+        bytes calldata intentSig
     ) internal view {
         bytes32 structHash = keccak256(abi.encode(
             PAY_INTENT_TYPEHASH,
@@ -231,8 +238,7 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, EIP
             ref
         ));
         bytes32 digest = _hashTypedDataV4(structHash);
-        address recovered = ECDSA.recover(digest, intentSig.v, intentSig.r, intentSig.s);
-        if (recovered != auth.from) revert Payments__InvalidIntent();
+        if (!PayerSignature.isValid(auth.from, digest, intentSig)) revert Payments__InvalidIntent();
     }
 
     /// @notice Exposed so off-chain SDKs can derive the same digest

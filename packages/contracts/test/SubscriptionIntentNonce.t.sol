@@ -9,6 +9,7 @@ import { StrimzSubscriptions } from "../src/core/StrimzSubscriptions.sol";
 import { StrimzAccessControl } from "../src/access/StrimzAccessControl.sol";
 import { IStrimzSubscriptions } from "../src/interfaces/IStrimzSubscriptions.sol";
 import { ERC20Permit } from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import { ECDSA } from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 contract SubscriptionIntentNonceTest is StrimzTestBase {
     StrimzRegistry internal registry;
@@ -52,14 +53,14 @@ contract SubscriptionIntentNonceTest is StrimzTestBase {
         uint256 deadline = block.timestamp + 24 hours;
         uint64 startAt = uint64(block.timestamp);
         IStrimzSubscriptions.PermitData memory pd = _permitData(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory intentSig = _intentSig(payerPk, startAt, deadline, NONCE);
+        bytes memory intentSig = _intentSig(payerPk, startAt, deadline, NONCE);
 
         vm.prank(relayer);
         subs.permitAndCreateSubscription(
             merchantId, address(usdc), AMOUNT, INTERVAL, startAt, 0, NONCE, pd, _permitSig(pd), intentSig
         );
 
-        IStrimzSubscriptions.Sig memory laterPermitSig = _permitSig(pd);
+        bytes memory laterPermitSig = _permitSig(pd);
 
         vm.expectRevert(abi.encodeWithSelector(IStrimzSubscriptions.Subscriptions__IntentAlreadyUsed.selector, NONCE));
         vm.prank(attacker);
@@ -72,11 +73,11 @@ contract SubscriptionIntentNonceTest is StrimzTestBase {
         uint256 deadline = block.timestamp + 24 hours;
         uint64 startAt = uint64(block.timestamp);
         IStrimzSubscriptions.PermitData memory pd = _permitData(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory permitSig = _permitSig(pd);
-        IStrimzSubscriptions.Sig memory intentSig = _intentSig(payerPk, startAt, deadline, NONCE);
+        bytes memory permitSig = _permitSig(pd);
+        bytes memory intentSig = _intentSig(payerPk, startAt, deadline, NONCE);
 
         vm.prank(attacker);
-        usdc.permit(payer, address(subs), pd.value, deadline, permitSig.v, permitSig.r, permitSig.s);
+        usdc.permit(payer, address(subs), pd.value, deadline, permitSig);
 
         vm.prank(relayer);
         uint256 subId = subs.permitAndCreateSubscription(
@@ -90,8 +91,8 @@ contract SubscriptionIntentNonceTest is StrimzTestBase {
         uint256 deadline = block.timestamp + 24 hours;
         uint64 startAt = uint64(block.timestamp);
         IStrimzSubscriptions.PermitData memory pd = _permitData(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory permitSig = _permitSig(pd);
-        IStrimzSubscriptions.Sig memory intentSig = _intentSig(payerPk, startAt, deadline, NONCE);
+        bytes memory permitSig = _permitSig(pd);
+        bytes memory intentSig = _intentSig(payerPk, startAt, deadline, NONCE);
 
         vm.prank(relayer);
         subs.permitAndCreateSubscription(
@@ -179,7 +180,7 @@ contract SubscriptionIntentNonceTest is StrimzTestBase {
             0,
             NONCE,
             otherPd,
-            IStrimzSubscriptions.Sig(pv, pr, ps),
+            abi.encodePacked(pr, ps, pv),
             _intentSig(otherPk, startAt, deadline, NONCE)
         );
 
@@ -190,11 +191,11 @@ contract SubscriptionIntentNonceTest is StrimzTestBase {
         uint256 deadline = block.timestamp + 24 hours;
         uint64 startAt = uint64(block.timestamp);
         IStrimzSubscriptions.PermitData memory pd = _permitData(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory permitSig = _permitSig(pd);
-        IStrimzSubscriptions.Sig memory intentSig = _intentSig(payerPk, startAt, deadline, NONCE);
+        bytes memory permitSig = _permitSig(pd);
+        bytes memory intentSig = _intentSig(payerPk, startAt, deadline, NONCE);
 
         vm.prank(attacker);
-        usdc.permit(payer, address(subs), pd.value, deadline, permitSig.v, permitSig.r, permitSig.s);
+        usdc.permit(payer, address(subs), pd.value, deadline, permitSig);
         vm.prank(payer);
         usdc.approve(address(subs), AMOUNT);
 
@@ -224,9 +225,8 @@ contract SubscriptionIntentNonceTest is StrimzTestBase {
         uint256 deadline = block.timestamp + 24 hours;
         uint64 startAt = uint64(block.timestamp);
         IStrimzSubscriptions.PermitData memory pd = _permitData(type(uint256).max, deadline);
-        IStrimzSubscriptions.Sig memory badPermitSig =
-            IStrimzSubscriptions.Sig(27, bytes32(uint256(1)), bytes32(uint256(2)));
-        IStrimzSubscriptions.Sig memory intentSig = _intentSig(payerPk, startAt, deadline, NONCE);
+        bytes memory badPermitSig = abi.encodePacked(bytes32(uint256(1)), bytes32(uint256(2)), uint8(27));
+        bytes memory intentSig = _intentSig(payerPk, startAt, deadline, NONCE);
 
         bytes memory tokenRevert = _tokenPermitRevert(pd, badPermitSig);
         assertGt(tokenRevert.length, 0, "token reverts with a reason");
@@ -282,18 +282,27 @@ contract SubscriptionIntentNonceTest is StrimzTestBase {
         return IStrimzSubscriptions.PermitData({ owner: payer, value: value, deadline: deadline });
     }
 
-    function _tokenPermitRevert(IStrimzSubscriptions.PermitData memory pd, IStrimzSubscriptions.Sig memory sig)
+    function _tokenPermitRevert(IStrimzSubscriptions.PermitData memory pd, bytes memory sig)
         internal
         returns (bytes memory)
     {
+        bytes32 r;
+        bytes32 s;
+        assembly {
+            r := mload(add(sig, 0x20))
+            s := mload(add(sig, 0x40))
+        }
         (bool ok, bytes memory ret) = address(usdc).call(
-            abi.encodeCall(usdc.permit, (pd.owner, address(subs), pd.value, pd.deadline, sig.v, sig.r, sig.s))
+            abi.encodeWithSignature(
+                "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)",
+                pd.owner, address(subs), pd.value, pd.deadline, uint8(sig[64]), r, s
+            )
         );
         assertFalse(ok, "token permit must fail");
         return ret;
     }
 
-    function _permitSigner(IStrimzSubscriptions.PermitData memory pd, IStrimzSubscriptions.Sig memory sig)
+    function _permitSigner(IStrimzSubscriptions.PermitData memory pd, bytes memory sig)
         internal
         view
         returns (address)
@@ -309,26 +318,26 @@ contract SubscriptionIntentNonceTest is StrimzTestBase {
             )
         );
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", usdc.DOMAIN_SEPARATOR(), structHash));
-        return ecrecover(digest, sig.v, sig.r, sig.s);
+        return ECDSA.recover(digest, sig);
     }
 
     function _permitSig(IStrimzSubscriptions.PermitData memory pd)
         internal
         view
-        returns (IStrimzSubscriptions.Sig memory)
+        returns (bytes memory)
     {
         (uint8 v, bytes32 r, bytes32 s) = _signPermit(usdc, payerPk, pd.owner, address(subs), pd.value, pd.deadline);
-        return IStrimzSubscriptions.Sig(v, r, s);
+        return abi.encodePacked(r, s, v);
     }
 
     function _intentSig(uint256 signerPk, uint64 startAt, uint256 deadline, bytes32 nonce)
         internal
         view
-        returns (IStrimzSubscriptions.Sig memory)
+        returns (bytes memory)
     {
         (uint8 v, bytes32 r, bytes32 s) = _signSubscriptionIntent(
             subs, signerPk, merchantId, address(usdc), AMOUNT, INTERVAL, startAt, 0, deadline, nonce
         );
-        return IStrimzSubscriptions.Sig(v, r, s);
+        return abi.encodePacked(r, s, v);
     }
 }

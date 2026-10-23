@@ -147,6 +147,9 @@ sign_via_forge() {
     printf '%s %s %s' "$v" "$r" "$s"
 }
 
+# The contracts take signatures as 65 packed bytes: r ‖ s ‖ v.
+packed_sig() { printf '%s%s%02x' "$2" "${3#0x}" "$1"; }
+
 # Read a specific line of cast's multi-field output (1-indexed) and strip
 # any trailing scientific annotation like " [2e7]" that cast tacks onto
 # large uints. The first whitespace-separated token is the raw value.
@@ -268,11 +271,11 @@ echo "  intent signature ok (v=$IV)"
 echo "  broadcasting payWithAuthorization as admin..."
 send_as "$STRIMZ_DEPLOYER_PRIVATE_KEY" \
     "$STRIMZ_PAYMENTS_ADDRESS" \
-    "payWithAuthorization(uint256,address,(address,uint256,uint256,uint256,bytes32),bytes32,(uint8,bytes32,bytes32),(uint8,bytes32,bytes32))" \
+    "payWithAuthorization(uint256,address,(address,uint256,uint256,uint256,bytes32),bytes32,bytes,bytes)" \
     "$MERCHANT_ID" "$ARC_USDC_ADDRESS" \
     "($PAYER,$ONE_USDC,$VALID_AFTER,$VALID_BEFORE,$AUTH_NONCE)" \
     "$PAY_REF" \
-    "($V,$R,$S)" "($IV,$IR,$IS)"
+    "$(packed_sig "$V" "$R" "$S")" "$(packed_sig "$IV" "$IR" "$IS")"
 
 USED=$("$CAST" call "$ARC_USDC_ADDRESS" "authorizationState(address,bytes32)(bool)" \
     "$PAYER" "$AUTH_NONCE" --rpc-url "$RPC")
@@ -314,11 +317,11 @@ echo "  broadcasting permitAndCreateSubscription as admin..."
 
 RECEIPT=$(send_as_capture "$STRIMZ_DEPLOYER_PRIVATE_KEY" \
     "$STRIMZ_SUBSCRIPTIONS_ADDRESS" \
-    "permitAndCreateSubscription(uint256,address,uint256,uint32,uint64,uint64,bytes32,(address,uint256,uint256),(uint8,bytes32,bytes32),(uint8,bytes32,bytes32))" \
+    "permitAndCreateSubscription(uint256,address,uint256,uint32,uint64,uint64,bytes32,(address,uint256,uint256),bytes,bytes)" \
     "$MERCHANT_ID" "$ARC_USDC_ADDRESS" "$ONE_USDC" "$INTERVAL" "$START_AT" "$END_AT" \
     "$SUB_NONCE" \
     "($PAYER,$PERMIT_VALUE,$DEADLINE)" \
-    "($PV,$PR,$PS)" "($SV,$SR,$SS)")
+    "$(packed_sig "$PV" "$PR" "$PS")" "$(packed_sig "$SV" "$SR" "$SS")")
 
 # SubscriptionCreated(subscriptionId indexed, merchantId indexed, payer indexed, token, amount, interval, endAt).
 # topic[0] = signature hash, topic[1] = subscriptionId. Pull it straight out

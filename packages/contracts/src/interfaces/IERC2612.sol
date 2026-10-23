@@ -34,6 +34,10 @@ interface IERC2612 {
         bytes32 s
     ) external;
 
+    /// @dev FiatToken v2.2 overload; runs ERC-1271 when `owner` has code.
+    function permit(address owner, address spender, uint256 value, uint256 deadline, bytes calldata signature)
+        external;
+
     /// @return The next nonce expected for `owner`'s permit signatures.
     function nonces(address owner) external view returns (uint256);
 

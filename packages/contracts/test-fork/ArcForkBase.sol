@@ -7,6 +7,8 @@ interface IArcUsdc {
     function balanceOf(address account) external view returns (uint256);
     function decimals() external view returns (uint8);
     function approve(address spender, uint256 value) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function nonces(address owner) external view returns (uint256);
     function DOMAIN_SEPARATOR() external view returns (bytes32);
     function authorizationState(address authorizer, bytes32 nonce) external view returns (bool);
 }
@@ -36,5 +38,19 @@ abstract contract ArcForkBase is StrimzTestBase {
             abi.encode(RECEIVE_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce)
         );
         (v, r, s) = vm.sign(signerPk, keccak256(abi.encodePacked("\x19\x01", ARC_USDC.DOMAIN_SEPARATOR(), structHash)));
+    }
+
+    function _signArcPermit(uint256 signerPk, address owner, address spender, uint256 value, uint256 deadline)
+        internal
+        view
+        returns (bytes memory)
+    {
+        bytes32 structHash = keccak256(abi.encode(
+            keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
+            owner, spender, value, ARC_USDC.nonces(owner), deadline
+        ));
+        (uint8 v, bytes32 r, bytes32 s) =
+            vm.sign(signerPk, keccak256(abi.encodePacked("\x19\x01", ARC_USDC.DOMAIN_SEPARATOR(), structHash)));
+        return abi.encodePacked(r, s, v);
     }
 }
