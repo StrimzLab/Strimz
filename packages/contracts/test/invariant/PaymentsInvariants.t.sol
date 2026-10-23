@@ -98,8 +98,8 @@ contract PaymentsHandler is Test {
             address(USDC),
             auth,
             bytes32(0),
-            IStrimzPayments.Sig(authV, authR, authS),
-            IStrimzPayments.Sig(intV, intR, intS)
+            abi.encodePacked(authR, authS, authV),
+            abi.encodePacked(intR, intS, intV)
         ) {
             ghostTotalIngressed += capped;
             ghostTotalExpectedFees += expectedFee;

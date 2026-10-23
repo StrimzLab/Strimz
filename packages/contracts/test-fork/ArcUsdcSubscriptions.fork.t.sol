@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { ArcForkBase } from "./ArcForkBase.sol";
+import { MockErc1271Wallet } from "../test/Helpers.t.sol";
 import { StrimzRegistry } from "../src/core/StrimzRegistry.sol";
 import { TokenWhitelist } from "../src/tokens/TokenWhitelist.sol";
 import { FeeCollector } from "../src/fees/FeeCollector.sol";
@@ -61,5 +62,38 @@ contract ArcUsdcSubscriptionsForkTest is ArcForkBase {
         uint256 fee = (AMOUNT * FEE_BPS) / 10_000;
         assertEq(ARC_USDC.balanceOf(merchantPayout), AMOUNT - fee, "good merchant paid");
         assertEq(ARC_USDC.balanceOf(payer), 100_000_000 - AMOUNT, "payer charged once");
+    }
+
+    function test_contractWalletSubscribesWithPermitAndIsCharged() public {
+        uint8 permitCap = whitelist.CAP_PERMIT_2612();
+        vm.prank(admin);
+        whitelist.setCapabilities(address(ARC_USDC), permitCap);
+        (address owner, uint256 ownerPk) = makeAddrAndKey("walletOwner");
+        MockErc1271Wallet wallet = new MockErc1271Wallet(owner);
+        vm.deal(address(wallet), 100 ether);
+
+        uint256 deadline = block.timestamp + 1 hours;
+        bytes32 nonce = keccak256("arc-fork-wallet-sub");
+        IStrimzSubscriptions.PermitData memory pd =
+            IStrimzSubscriptions.PermitData({ owner: address(wallet), value: type(uint256).max, deadline: deadline });
+        bytes memory permitSig = _signArcPermit(ownerPk, address(wallet), address(subs), pd.value, deadline);
+        (uint8 v, bytes32 r, bytes32 s) = _signSubscriptionIntent(
+            subs, ownerPk, merchantId, address(ARC_USDC), AMOUNT, 1 hours, 0, 0, deadline, nonce
+        );
+
+        uint256 id = subs.permitAndCreateSubscription(
+            merchantId, address(ARC_USDC), AMOUNT, 1 hours, 0, 0, nonce, pd, permitSig, abi.encodePacked(r, s, v)
+        );
+        assertEq(ARC_USDC.allowance(address(wallet), address(subs)), type(uint256).max, "permit set");
+
+        uint256[] memory ids = new uint256[](1);
+        bytes32[] memory attempts = new bytes32[](1);
+        ids[0] = id;
+        attempts[0] = keccak256("arc-fork-wallet-charge");
+        vm.prank(admin);
+        IStrimzSubscriptions.ChargeOutcome[] memory outcomes = subs.batchCharge(ids, attempts);
+
+        assertEq(uint256(outcomes[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Charged), "charged");
+        assertEq(ARC_USDC.balanceOf(address(wallet)), 100_000_000 - AMOUNT, "wallet debited");
     }
 }
