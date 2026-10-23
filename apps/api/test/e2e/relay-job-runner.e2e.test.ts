@@ -23,7 +23,7 @@ import { RelayBudgetService } from '../../src/modules/relay/relay-budget.service
 import { RelayJobRunner, type RelayJobHandle } from '../../src/modules/relay/relay-job-runner.js'
 import type { ChainService } from '../../src/infra/chain/chain.service.js'
 import type { NonceManager } from '../../src/modules/relay/nonce-manager.service.js'
-import type { GasPricingService } from '../../src/modules/relay/gas-pricing.service.js'
+import type { GasPrice, GasPricingService } from '../../src/modules/relay/gas-pricing.service.js'
 import type { TypedConfigService } from '../../src/config/index.js'
 
 const REGISTRY = '0x0000000000000000000000000000000000000a01' as const
@@ -44,6 +44,7 @@ interface FakeReceipt {
 
 class FakeChain {
   readonly sent: Array<{ hash: Hex; nonce: number }> = []
+  readonly signed: Hex[] = []
   readonly receipts = new Map<Hex, FakeReceipt>()
   readonly known = new Set<Hex>()
   latestNonce = 0
@@ -60,6 +61,7 @@ class FakeChain {
         this.failSends -= 1
         return Promise.reject(new Error('rpc unavailable'))
       }
+      this.signed.push(serializedTransaction)
       const hash = keccak256(serializedTransaction)
       const tx = parseTransaction(serializedTransaction)
       this.sent.push({ hash, nonce: must(tx.nonce) })
@@ -139,6 +141,15 @@ class FakeNonces {
   }
 }
 
+class FakeGas {
+  readonly calls: Array<{ retry?: boolean; previous?: GasPrice } | undefined> = []
+  compute(opts?: { retry?: boolean; previous?: GasPrice }): Promise<GasPrice> {
+    this.calls.push(opts)
+    const n = BigInt(this.calls.length)
+    return Promise.resolve({ maxFeePerGas: 40n + n, maxPriorityFeePerGas: n - 1n })
+  }
+}
+
 function handle(data: RelayJob, attemptsMade = 0): RelayJobHandle & { data: RelayJob } {
   const h = {
     id: data.idempotencyKey,
@@ -156,6 +167,7 @@ describe('relay job runner', () => {
   let t: TestApp
   let chain: FakeChain
   let nonces: FakeNonces
+  let gas: FakeGas
   let runner: RelayJobRunner
   let signer: SoftwareSigner
 
@@ -169,13 +181,12 @@ describe('relay job runner', () => {
     await truncateAll(t.prisma.db)
     chain = new FakeChain()
     nonces = new FakeNonces()
+    gas = new FakeGas()
     signer = new SoftwareSigner()
     runner = new RelayJobRunner(
       chain as unknown as ChainService,
       nonces as unknown as NonceManager,
-      {
-        compute: () => Promise.resolve({ maxFeePerGas: 30n, maxPriorityFeePerGas: 1n }),
-      } as unknown as GasPricingService,
+      gas as unknown as GasPricingService,
       t.prisma,
       signer,
       { env: { STRIMZ_REGISTRY_ADDRESS: REGISTRY } } as unknown as TypedConfigService,
@@ -206,7 +217,10 @@ describe('relay job runner', () => {
       txHash: must(chain.sent[0]).hash,
       nonce: '0',
       from: signer.address,
+      maxFeePerGas: '41',
+      maxPriorityFeePerGas: '0',
     })
+    expect(gas.calls).toEqual([{ retry: false, previous: undefined }])
     const row = await t.prisma.db.merchant.findUniqueOrThrow({ where: { id: m.id } })
     expect(row.onchainMerchantId).toBe(41)
     expect(row.onchainRegistrationTxHash).toBe(must(chain.sent[0]).hash)
@@ -241,6 +255,56 @@ describe('relay job runner', () => {
     expect(nonces.acquired).toEqual([0n])
     expect(nonces.resyncs).toBe(0)
     expect(await onchainId(m.id)).toBe(41)
+  })
+
+  it('prices a replacement of a pending transaction from the fees it replaces', async () => {
+    const m = await eligibleMerchant()
+    chain.mineOnSend = false
+    const job = handle(registerJob(m.id))
+    await expect(runner.run(job)).rejects.toBeInstanceOf(WaitForTransactionReceiptTimeoutError)
+    chain.forget(must(chain.sent[0]).hash)
+    chain.mineOnSend = true
+
+    await runner.run(handle(job.data, 1))
+    expect(gas.calls[1]).toEqual({
+      retry: true,
+      previous: { maxFeePerGas: 41n, maxPriorityFeePerGas: 0n },
+    })
+    expect(job.data.broadcast).toMatchObject({ maxFeePerGas: '41' })
+    const replaced = parseTransaction(must(chain.signed[1]))
+    expect(replaced.maxFeePerGas).toBe(42n)
+    expect(replaced.maxPriorityFeePerGas).toBe(1n)
+  })
+
+  it('prices a retry with no recorded fees as a fresh transaction', async () => {
+    const m = await eligibleMerchant()
+    chain.mineOnSend = false
+    const job = handle(registerJob(m.id))
+    await expect(runner.run(job)).rejects.toBeInstanceOf(WaitForTransactionReceiptTimeoutError)
+    chain.forget(must(chain.sent[0]).hash)
+    chain.mineOnSend = true
+    const broadcast = must(job.data.broadcast)
+    const legacy: RelayJob = {
+      ...job.data,
+      broadcast: { txHash: broadcast.txHash, nonce: broadcast.nonce, from: broadcast.from },
+    }
+
+    await runner.run(handle(legacy, 1))
+    expect(gas.calls[1]).toEqual({ retry: true, previous: undefined })
+    expect(chain.sent.map((s) => s.nonce)).toEqual([0, 0])
+  })
+
+  it('does not carry old fees onto a fresh nonce', async () => {
+    const m = await eligibleMerchant()
+    chain.mineOnSend = false
+    const job = handle(registerJob(m.id))
+    await expect(runner.run(job)).rejects.toBeInstanceOf(WaitForTransactionReceiptTimeoutError)
+    chain.forget(must(chain.sent[0]).hash)
+    chain.latestNonce = 1
+    chain.mineOnSend = true
+
+    await runner.run(handle(job.data, 1))
+    expect(gas.calls[1]).toEqual({ retry: true, previous: undefined })
   })
 
   it('re-signs with the same nonce when the first broadcast never reached the node', async () => {

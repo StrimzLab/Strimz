@@ -129,6 +129,8 @@ describe('relay retries across a relayer key change', () => {
       txHash: chain.sent[0]?.hash,
       nonce: '0',
       from: signer.address,
+      maxFeePerGas: '30',
+      maxPriorityFeePerGas: '1',
     })
   })
 

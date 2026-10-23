@@ -109,6 +109,8 @@ export const relayBroadcastSchema = z.object({
   txHash: txHashSchema,
   nonce: z.string().regex(/^\d+$/),
   from: addressSchema.optional(),
+  maxFeePerGas: z.string().regex(/^\d+$/).optional(),
+  maxPriorityFeePerGas: z.string().regex(/^\d+$/).optional(),
 })
 export type RelayBroadcast = z.infer<typeof relayBroadcastSchema>
 
