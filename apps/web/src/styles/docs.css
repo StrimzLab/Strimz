@@ -1,10 +1,12 @@
 /**
- * Strimz brand overrides for Fumadocs UI. Imported by the docs layout
- * after `fumadocs-ui/style.css` so these declarations win.
+ * Strimz brand overrides for Fumadocs UI. fumadocs is imported here, not in
+ * the layout, so these rules always come after it.
  *
  * Neutral surfaces in both themes, with Strimz green (#02C76A) as the
  * primary for links, active sidebar items and TOC indicators.
  */
+
+@import 'fumadocs-ui/style.css';
 
 :root {
   /* Surfaces */
@@ -60,36 +62,6 @@
   --fd-accent-foreground: 240 11.1% 96.5%;
 }
 
-/* Strimz fonts on docs surface (Sora for headings, Poppins for body). */
-.fd-page,
-[data-fd-content],
-article {
-  font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
-}
-.fd-page h1,
-.fd-page h2,
-.fd-page h3,
-.fd-page h4,
-.fd-page h5,
-.fd-page h6,
-[data-fd-content] h1,
-[data-fd-content] h2,
-[data-fd-content] h3,
-[data-fd-content] h4 {
-  font-family: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
-  letter-spacing: -0.015em;
-}
-
-/* Lift the headline weight on h1 to match the marketing pages. */
-[data-fd-content] h1 {
-  font-weight: 700;
-}
-
-/* Brand accent on the small "On this page" indicator. */
-[data-fd-toc] [data-active='true'] {
-  color: #02c76a;
-}
-
 /* Inline `code` chips */
 #nd-page .prose code:not(pre code) {
   background-color: rgb(243, 244, 246);
@@ -100,13 +72,13 @@ article {
   border: 1px solid rgb(229, 231, 235);
 }
 
-/* Soft top + bottom rule on h2s for quiet visual rhythm */
-[data-fd-content] h2 {
+/* Soft rule above each section */
+#nd-page .prose h2 {
   padding-top: 0.25rem;
   border-top: 1px solid rgb(229, 231, 235);
   margin-top: 2rem;
 }
-[data-fd-content] h2:first-of-type {
+#nd-page .prose h2:first-of-type {
   border-top: 0;
   padding-top: 0;
   margin-top: 1.5rem;
@@ -118,7 +90,7 @@ article {
   border-color: hsl(240 13.4% 19%);
 }
 
-.dark [data-fd-content] h2 {
+.dark #nd-page .prose h2 {
   border-top-color: hsl(240 13.4% 19%);
 }
 

@@ -74,6 +74,51 @@ describe('inline code renders as a chip without backticks', () => {
   })
 })
 
+function jsFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const path = join(dir, name)
+    if (statSync(path).isDirectory()) return jsFiles(path)
+    return name.endsWith('.js') ? [path] : []
+  })
+}
+
+describe('docs.css styles what fumadocs renders', () => {
+  const css = readFileSync(join(WEB_ROOT, 'src/styles/docs.css'), 'utf8')
+  const layout = readFileSync(join(WEB_ROOT, 'src/app/docs/layout.tsx'), 'utf8')
+  const fumadocs = ['fumadocs-ui', 'fumadocs-core']
+    .flatMap((pkg) => jsFiles(join(WEB_ROOT, 'node_modules', pkg, 'dist')))
+    .map((file) => readFileSync(file, 'utf8'))
+    .join('\n')
+  const selectors = (css.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}@;]+(?=\{)/g) ?? []).map((s) =>
+    s.replace(/\s+/g, ' ').trim(),
+  )
+  const OWN_CLASSES = ['dark', 'prose', 'docs-logo-light', 'docs-logo-dark']
+
+  // Next puts a layout's CSS imports in its own order, so fumadocs' theme came after ours.
+  it('loads the fumadocs stylesheet first, from docs.css', () => {
+    expect(layout).not.toContain('fumadocs-ui/style.css')
+    expect(css.replace(/^\/\*[\s\S]*?\*\/\s*/, '')).toMatch(/^@import 'fumadocs-ui\/style\.css';/)
+  })
+
+  it.each(selectors)('%s matches an id or attribute fumadocs renders', (selector) => {
+    for (const [, id] of selector.matchAll(/#([\w-]+)/g)) {
+      expect(fumadocs).toContain(`id: "${id}"`)
+    }
+    for (const [, attr] of selector.matchAll(/\[([\w-]+)/g)) {
+      expect(fumadocs).toContain(`"${attr}"`)
+    }
+    for (const [, cls] of selector.matchAll(/\.([\w-]+)/g)) {
+      expect(OWN_CLASSES).toContain(cls)
+    }
+  })
+
+  it('draws a rule above each docs section and keeps the brand primary', () => {
+    expect(css).toMatch(/^#nd-page \.prose h2\s*\{[^}]*border-top:/m)
+    expect(css).toMatch(/^\.dark #nd-page \.prose h2\s*\{[^}]*border-top-color:/m)
+    expect(css).toMatch(/^:root\s*\{[^}]*--fd-primary: 150 98% 40%;/m)
+  })
+})
+
 describe('the docs sidebar', () => {
   const root = join(WEB_ROOT, 'content/docs')
   const meta = JSON.parse(readFileSync(join(root, 'meta.json'), 'utf8')) as { pages: string[] }
