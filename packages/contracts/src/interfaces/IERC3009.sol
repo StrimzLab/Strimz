@@ -20,9 +20,8 @@ pragma solidity ^0.8.28;
 ///             bytes32 nonce;
 ///         }
 ///
-///         The signature `(v, r, s)` is produced over the EIP-712 hash of the
-///         above structure. The token contract recovers the signer and must
-///         match `from`; otherwise the call reverts.
+///         The token checks the signature over the EIP-712 hash of the
+///         above structure against `from`; otherwise the call reverts.
 interface IERC3009 {
     function receiveWithAuthorization(
         address from,
@@ -34,6 +33,17 @@ interface IERC3009 {
         uint8 v,
         bytes32 r,
         bytes32 s
+    ) external;
+
+    /// @dev FiatToken v2.2 overload; runs ERC-1271 when `from` has code.
+    function receiveWithAuthorization(
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce,
+        bytes calldata signature
     ) external;
 
     /// @return Whether the given `nonce` has already been used by `authorizer`.

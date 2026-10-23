@@ -20,13 +20,6 @@ interface IStrimzPayments {
         bytes32 nonce;
     }
 
-    /// @notice ECDSA signature triple.
-    struct Sig {
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
-
     event PaymentExecuted(
         uint256 indexed merchantId,
         address indexed payer,
@@ -44,6 +37,8 @@ interface IStrimzPayments {
     error Payments__UnsupportedCapability(address token);
     /// @notice PayIntent signature does not recover to `auth.from`.
     error Payments__InvalidIntent();
+    /// @notice A payer without code sent a token signature that isn't 65 bytes.
+    error Payments__InvalidSignature();
     /// @notice Token delivered less than requested — fee-on-transfer,
     ///         rebasing, blocklist. Refuse to book the payment.
     error Payments__NonStandardTransfer();
@@ -69,7 +64,7 @@ interface IStrimzPayments {
         address token,
         PayAuthorization calldata auth,
         bytes32 ref,
-        Sig calldata authSig,
-        Sig calldata intentSig
+        bytes calldata authSig,
+        bytes calldata intentSig
     ) external;
 }
