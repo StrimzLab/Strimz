@@ -45,6 +45,23 @@ describe('dashboard plans and subscriptions', () => {
     expect(read('src/app/(dashboard)/app/storefront/page.tsx')).toMatch(/href="\/app\/plans"/u)
   })
 
+  it('takes optional return URLs on a new plan', () => {
+    const dialog = read('src/components/dashboard/plans/new-plan-dialog.tsx')
+    expect(dialog).toContain('id="pl-success"')
+    expect(dialog).toContain('id="pl-cancel"')
+    expect(dialog).toContain('{SUBSCRIPTION_ID}')
+  })
+
+  it('edits return URLs on the plan page and shows a subscribe button snippet', () => {
+    const plan = read('src/app/(dashboard)/app/plans/[id]/page.tsx')
+    expect(plan).toContain('After checkout')
+    expect(plan).toMatch(/<EditReturnUrlsDialog/u)
+    expect(plan).toContain('StrimzSubscribeButton')
+    const dialog = read('src/components/dashboard/plans/edit-return-urls-dialog.tsx')
+    expect(dialog).toMatch(/buildReturnUrlsInput\(/u)
+    expect(dialog).toMatch(/useUpdateSubscriptionPlan\(/u)
+  })
+
   it('patches paginated plan lists when archiving', () => {
     expect(read('src/hooks/api/use-subscription-plans.ts')).toMatch(/patchListCacheRow\(/u)
   })

@@ -16,6 +16,8 @@ const plan: SubscriptionPlan = {
   intervalCount: 1,
   trialPeriodDays: null,
   status: 'active',
+  successUrl: null,
+  cancelUrl: null,
   metadata: {},
   createdAt: '2026-09-30T00:00:00.000Z',
   updatedAt: '2026-09-30T00:00:00.000Z',

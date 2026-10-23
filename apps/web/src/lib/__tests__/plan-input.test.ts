@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildPlanInput } from '@/lib/plan-input'
+import { buildPlanInput, buildReturnUrlsInput } from '@/lib/plan-input'
 
 const base = {
   name: 'Pro',
@@ -10,6 +10,8 @@ const base = {
   interval: 'monthly' as const,
   intervalCount: '',
   trialDays: '',
+  successUrl: '',
+  cancelUrl: '',
 }
 
 describe('buildPlanInput', () => {
@@ -88,6 +90,41 @@ describe('buildPlanInput', () => {
     expect(buildPlanInput({ ...base, description: 'x'.repeat(501) })).toEqual({
       ok: false,
       error: 'Description must be 500 characters or fewer',
+    })
+  })
+})
+
+describe('plan return URLs', () => {
+  const SUCCESS = 'https://app.example/welcome?sub={SUBSCRIPTION_ID}'
+
+  it('adds trimmed return URLs to a new plan, and leaves blank ones out', () => {
+    const out = buildPlanInput({ ...base, successUrl: ` ${SUCCESS} `, cancelUrl: '' })
+    expect(out).toMatchObject({ ok: true, input: { successUrl: SUCCESS } })
+    expect(out.ok && 'cancelUrl' in out.input).toBe(false)
+  })
+
+  it('refuses a return URL that is not http or https', () => {
+    expect(buildPlanInput({ ...base, cancelUrl: 'ftp://app.example' })).toEqual({
+      ok: false,
+      error: 'Cancel URL must start with https:// or http://',
+    })
+    expect(buildPlanInput({ ...base, successUrl: 'not a url' })).toEqual({
+      ok: false,
+      error: 'Success URL must start with https:// or http://',
+    })
+  })
+
+  it('turns blank fields into null when editing, so they clear', () => {
+    expect(buildReturnUrlsInput({ successUrl: SUCCESS, cancelUrl: ' ' })).toEqual({
+      ok: true,
+      input: { successUrl: SUCCESS, cancelUrl: null },
+    })
+  })
+
+  it('checks both URLs when editing', () => {
+    expect(buildReturnUrlsInput({ successUrl: 'javascript:alert(1)', cancelUrl: '' })).toEqual({
+      ok: false,
+      error: 'Success URL must start with https:// or http://',
     })
   })
 })

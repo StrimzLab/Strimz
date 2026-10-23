@@ -77,6 +77,7 @@ const serverCalls: ClientCalls<StrimzClient> = {
     create: [{ name: 'Pro', amount: '1000000', currency: 'USDC', interval: 'monthly' }],
     retrieve: [ID],
     list: [],
+    update: [ID, { successUrl: 'https://app.example/welcome' }],
     archive: [ID],
   },
   subscriptions: {
