@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -413,6 +414,105 @@ func TestE2E_Stream_ProjectsContractOperationsAsAdminAuditRows(t *testing.T) {
 	_, _, _, _, caps := auditRow(t, st, "token_whitelist.capabilities_set")
 	assert.Equal(t, strings.ToLower(usdcAddr.Hex()), caps["token"])
 	assert.EqualValues(t, 3, caps["capabilities"])
+}
+
+func registeredWithFee(t *testing.T, block uint64, tx common.Hash, onchainID int64, feeBps, maxFeeBps uint16) types.Log {
+	return eventLog(registryAddr, "MerchantRegistered(uint256,address,address,uint16,uint16,uint256)",
+		[]common.Hash{idTopic(onchainID), addrTopic("0xc1")},
+		pack(t, []string{"address", "uint16", "uint16", "uint256"}, common.HexToAddress(payoutAddr), feeBps, maxFeeBps, big.NewInt(0)),
+		block, 0, tx)
+}
+
+type onchainFee struct {
+	feeBps, maxFeeBps *int
+	txHash            *string
+	changedAt         *time.Time
+}
+
+func merchantFee(t *testing.T, st *store.Store, id string) onchainFee {
+	t.Helper()
+	var f onchainFee
+	require.NoError(t, st.Pool().QueryRow(context.Background(), `
+		SELECT "onchainFeeBps", "onchainMaxFeeBps", "onchainFeeTxHash", "onchainFeeChangedAt"
+		  FROM "Merchant" WHERE id = $1`, id).Scan(&f.feeBps, &f.maxFeeBps, &f.txHash, &f.changedAt))
+	return f
+}
+
+func TestE2E_Stream_ProjectsTheRegistryFeeOntoTheMerchant(t *testing.T) {
+	ctx := context.Background()
+	c := &rangeChain{head: 30}
+	r, st := newGovernanceRunner(t, c)
+	reg := txHash(0x71)
+	seedMerchant(t, st, "m_fee", reg.Hex(), nil)
+	c.logs = []types.Log{registeredWithFee(t, 11, reg, 9, 0, 50)}
+
+	require.NoError(t, r.Tick(ctx))
+	got := merchantFee(t, st, "m_fee")
+	require.NotNil(t, got.feeBps)
+	assert.Equal(t, 0, *got.feeBps)
+	require.NotNil(t, got.maxFeeBps)
+	assert.Equal(t, 50, *got.maxFeeBps)
+	require.NotNil(t, got.txHash)
+	assert.Equal(t, strings.ToLower(reg.Hex()), *got.txHash)
+	require.NotNil(t, got.changedAt)
+	assert.True(t, time.Unix(1_790_000_011, 0).Equal(*got.changedAt))
+
+	c.head = 40
+	c.logs = append(c.logs,
+		eventLog(registryAddr, "MerchantFeeBpsUpdated(uint256,uint16)",
+			[]common.Hash{idTopic(9)}, pack(t, []string{"uint16"}, uint16(40)), 31, 0, txHash(0x72)),
+		eventLog(registryAddr, "MerchantMaxFeeBpsLowered(uint256,uint16)",
+			[]common.Hash{idTopic(9)}, pack(t, []string{"uint16"}, uint16(45)), 32, 0, txHash(0x73)),
+	)
+	require.NoError(t, r.Tick(ctx))
+
+	got = merchantFee(t, st, "m_fee")
+	assert.Equal(t, 40, *got.feeBps)
+	assert.Equal(t, 45, *got.maxFeeBps)
+	assert.Equal(t, strings.ToLower(txHash(0x73).Hex()), *got.txHash)
+	assert.True(t, time.Unix(1_790_000_032, 0).Equal(*got.changedAt))
+	assert.Equal(t, 1, countRows(t, st,
+		`SELECT count(*) FROM "AuditLog" WHERE action = 'merchant.fee_bps_changed_onchain'`))
+	assert.Equal(t, 1, countRows(t, st,
+		`SELECT count(*) FROM "AuditLog" WHERE action = 'merchant.max_fee_bps_lowered_onchain'`))
+}
+
+func TestE2E_Stream_ReplayingFeeEventsLeavesTheProjectionUnchanged(t *testing.T) {
+	ctx := context.Background()
+	c := &rangeChain{head: 30}
+	r, st := newGovernanceRunner(t, c)
+	reg := txHash(0x74)
+	seedMerchant(t, st, "m_fee_replay", reg.Hex(), nil)
+	c.logs = []types.Log{
+		registeredWithFee(t, 11, reg, 10, 0, 50),
+		eventLog(registryAddr, "MerchantFeeBpsUpdated(uint256,uint16)",
+			[]common.Hash{idTopic(10)}, pack(t, []string{"uint16"}, uint16(50)), 12, 0, txHash(0x75)),
+	}
+
+	require.NoError(t, r.Tick(ctx))
+	first := merchantFee(t, st, "m_fee_replay")
+	_, err := st.Pool().Exec(ctx, `DELETE FROM "IndexerCursor" WHERE "contractAddress" = $1`, coreCursorKey)
+	require.NoError(t, err)
+	require.NoError(t, r.Tick(ctx))
+
+	again := merchantFee(t, st, "m_fee_replay")
+	require.NotNil(t, again.feeBps)
+	assert.Equal(t, 50, *again.feeBps)
+	assert.Equal(t, *first.txHash, *again.txHash)
+	assert.True(t, first.changedAt.Equal(*again.changedAt))
+}
+
+func TestE2E_Stream_FeeEventForAnUnknownMerchantIsNotParked(t *testing.T) {
+	c := &rangeChain{head: 30}
+	r, st := newGovernanceRunner(t, c)
+	c.logs = []types.Log{
+		eventLog(registryAddr, "MerchantFeeBpsUpdated(uint256,uint16)",
+			[]common.Hash{idTopic(404)}, pack(t, []string{"uint16"}, uint16(40)), 11, 0, txHash(0x76)),
+	}
+
+	require.NoError(t, r.Tick(context.Background()))
+	assert.Equal(t, 0, countRows(t, st, `SELECT count(*) FROM "IndexerDeadLetter"`))
+	assert.Equal(t, 0, countRows(t, st, `SELECT count(*) FROM "Merchant" WHERE "onchainFeeBps" IS NOT NULL`))
 }
 
 func TestE2E_Stream_ReplayingARangeDoesNotDuplicateGovernanceAuditRows(t *testing.T) {

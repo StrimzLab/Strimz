@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { ContractAlertEmail, renderToHtml, type ContractAlertEvent } from '@strimz/email-templates'
-import { getArcChain, getArcExplorerUrl } from '@strimz/shared-config'
+import { PLANS, getArcChain, getArcExplorerUrl, type MerchantTier } from '@strimz/shared-config'
 import { z } from 'zod'
 
 import { TypedConfigService } from '../../config/index.js'
@@ -27,6 +27,13 @@ const alertMetadataSchema = z.object({
   delay: z.string().optional(),
   oldDuration: z.string().optional(),
   newDuration: z.string().optional(),
+  merchantId: z.string().optional(),
+  businessName: z.string().nullish(),
+  tier: z.enum(Object.keys(PLANS) as [MerchantTier, ...MerchantTier[]]).optional(),
+  planFeeBps: z.number().int().optional(),
+  onchainFeeBps: z.number().int().optional(),
+  onchainMerchantId: z.string().optional(),
+  direction: z.enum(['below_plan', 'above_plan']).optional(),
 })
 
 type AlertMetadata = z.infer<typeof alertMetadataSchema>
@@ -120,6 +127,7 @@ export class ContractAlertService {
   }
 
   private describe(action: string, m: AlertMetadata, explorer: string): ContractAlertEvent {
+    if (action === 'merchant.fee_drift') return this.describeFeeDrift(m, explorer)
     const title = EVENT_TITLES[action]?.(m) ?? action
     const details: Array<[string, string]> = []
     const add = (label: string, value: string | undefined, labelled = false) => {
@@ -138,6 +146,30 @@ export class ContractAlertService {
     add('New delay (seconds)', m.newDuration)
     return {
       title: `${m.contractName ?? 'Unknown contract'}: ${title}`,
+      details,
+      txUrl: `${explorer}/tx/${m.transactionHash}`,
+    }
+  }
+
+  private describeFeeDrift(m: AlertMetadata, explorer: string): ContractAlertEvent {
+    const percent = (bps: number | undefined) => (bps === undefined ? 'unknown' : `${bps / 100}%`)
+    const details: Array<[string, string]> = [
+      [
+        'Merchant',
+        m.businessName ? `${m.businessName} (${m.merchantId})` : (m.merchantId ?? 'unknown'),
+      ],
+      ['On-chain merchant id', m.onchainMerchantId ?? 'unknown'],
+      ['Plan', m.tier ? `${PLANS[m.tier].name} (${percent(m.planFeeBps)})` : 'unknown'],
+      ['Fee on the chain', percent(m.onchainFeeBps)],
+      [
+        'Effect',
+        m.direction === 'above_plan'
+          ? 'The merchant pays more than their plan'
+          : 'Strimz collects less than the plan',
+      ],
+    ]
+    return {
+      title: 'Merchant fee differs from plan',
       details,
       txUrl: `${explorer}/tx/${m.transactionHash}`,
     }

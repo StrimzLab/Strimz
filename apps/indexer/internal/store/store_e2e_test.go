@@ -80,6 +80,8 @@ func seedMerchantOnchain(t *testing.T, s *Store, id, email, payout string, oncha
 	`, id, "did:privy:e2e:"+email, email, payout, onchainID.Int64())
 }
 
+var regFee = OnchainFee{FeeBps: 0, MaxFeeBps: 50, TxHash: "0x" + strings.Repeat("ab", 32), At: time.Unix(1_790_000_000, 0)}
+
 func repeatStr(s string, n int) string {
 	out := make([]byte, n*len(s))
 	for i := 0; i < n; i++ {
@@ -149,11 +151,11 @@ func TestE2E_LinkOnchainMerchant_MatchesRegistrationTxHash(t *testing.T) {
 		       ('m_theirs', 'did:privy:e2e:theirs', 't@x.io', $1, $3, NOW(), NOW())
 	`, payout, ours, theirs)
 
-	rows, err := s.LinkOnchainMerchant(ctx, big.NewInt(42), strings.ToUpper(ours[:2])+ours[2:])
+	rows, err := s.LinkOnchainMerchant(ctx, big.NewInt(42), strings.ToUpper(ours[:2])+ours[2:], regFee)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), rows)
 
-	rows, err = s.LinkOnchainMerchant(ctx, big.NewInt(42), ours)
+	rows, err = s.LinkOnchainMerchant(ctx, big.NewInt(42), ours, regFee)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), rows)
 
@@ -176,7 +178,7 @@ func TestE2E_LinkOnchainMerchant_UnknownTxHashLinksNothing(t *testing.T) {
 		VALUES ('m_none', 'did:privy:e2e:none', 'n@x.io', '0x000000000000000000000000000000000000beef', NOW(), NOW())
 	`)
 
-	rows, err := s.LinkOnchainMerchant(ctx, big.NewInt(43), "0x"+strings.Repeat("ef", 32))
+	rows, err := s.LinkOnchainMerchant(ctx, big.NewInt(43), "0x"+strings.Repeat("ef", 32), regFee)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), rows)
 }

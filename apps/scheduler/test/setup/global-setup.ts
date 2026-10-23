@@ -75,6 +75,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   process.env.INVOICE_OVERDUE_CRON = '0 0 0 1 1 *'
   process.env.PLAN_UPGRADE_CRON = '0 0 0 1 1 *'
   process.env.CONTRACT_ALERT_CRON = '0 0 0 1 1 *'
+  process.env.FEE_DRIFT_CRON = '0 0 0 1 1 *'
   process.env.MERCHANT_NOTIFICATION_CRON = '0 0 0 1 1 *'
   process.env.GAS_BALANCE_CRON = '0 0 0 1 1 *'
   process.env.WEBHOOK_RECOVERY_CRON = '0 0 0 1 1 *'

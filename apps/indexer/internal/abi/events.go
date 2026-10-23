@@ -285,6 +285,7 @@ type MerchantRegistered struct {
 	Owner         common.Address
 	PayoutAddress common.Address
 	FeeBps        uint16
+	MaxFeeBps     uint16
 }
 
 type MerchantPayoutAddressUpdated struct {
@@ -722,10 +723,11 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 		owner, e2 := addr("owner")
 		payout, e3 := addr("payoutAddress")
 		feeBps, e4 := u16("feeBps")
-		if err := firstErr(e1, e2, e3, e4); err != nil {
+		maxFeeBps, e5 := u16("maxFeeBps")
+		if err := firstErr(e1, e2, e3, e4, e5); err != nil {
 			return nil, err
 		}
-		return &MerchantRegistered{MerchantID: merchantID, Owner: owner, PayoutAddress: payout, FeeBps: feeBps}, nil
+		return &MerchantRegistered{MerchantID: merchantID, Owner: owner, PayoutAddress: payout, FeeBps: feeBps, MaxFeeBps: maxFeeBps}, nil
 
 	case EventMerchantPayoutAddressUpdated:
 		merchantID, e1 := bigint("merchantId")
