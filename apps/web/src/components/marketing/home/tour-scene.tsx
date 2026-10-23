@@ -656,7 +656,7 @@ function Field({
         <span data-typed={id} className="text-foreground" />
         <span
           data-caret={id}
-          className="bg-foreground invisible ml-px h-4 w-px animate-[tk-blink_1s_steps(1)_infinite] motion-reduce:animate-none"
+          className="bg-foreground invisible ml-px h-4 w-px animate-[caret-blink_1s_steps(1)_infinite] motion-reduce:animate-none"
         />
         <span data-placeholder={id} className="text-muted-foreground">
           {placeholder}

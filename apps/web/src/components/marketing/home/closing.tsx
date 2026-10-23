@@ -72,8 +72,8 @@ export function Closing({ startHref = '/signup' }: { startHref?: string }) {
             data-cta
             className="font-poppins text-ink-muted mx-auto mt-6 max-w-lg text-base leading-relaxed sm:text-lg"
           >
-            Start free with payments, subscriptions, refunds, invoices and webhooks. No monthly fee,
-            and nothing to pay on your first $1,000.
+            Start free with payments, subscriptions, refunds and invoices. No monthly fee, and
+            nothing to pay on your first $1,000.
           </p>
           <div data-cta className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <PopLink href={startHref} onInk className="px-8">
