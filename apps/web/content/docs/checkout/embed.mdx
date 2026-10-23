@@ -150,6 +150,6 @@ The state machine. The session statuses are driven entirely by Strimz's backend;
 
 ## Subscriptions, briefly
 
-The React SDK opens payment sessions only. For recurring billing, send the payer to the hosted plan link (`/sub/<planId>`). See [Plans](/docs/subscriptions/plans).
+For recurring billing, use `<StrimzSubscribeButton planId />` or `<StrimzSubscriptionEmbed planId />`. They open the hosted plan checkout (`/sub/<planId>`) and report `onSuccess({ subscriptionId, txHash })`. See [Subscription plans in the React SDK](/docs/sdks/react#subscription-plans).
 
 See [`@strimz/sdk-react`](/docs/sdks/react) for the full component and hook surface.

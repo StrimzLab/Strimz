@@ -1,8 +1,10 @@
 import { MINIMUM_PAYMENT_AMOUNT } from '@strimz/shared-config'
-import type {
-  CreateSubscriptionPlanInput,
-  PaymentCurrency,
-  SubscriptionInterval,
+import {
+  callbackUrlSchema,
+  type CreateSubscriptionPlanInput,
+  type PaymentCurrency,
+  type SubscriptionInterval,
+  type UpdateSubscriptionPlanInput,
 } from '@strimz/shared-types'
 
 import { formatTokenAmount } from '@/lib/format'
@@ -10,6 +12,10 @@ import { parseTokenAmountInput } from '@/lib/token-amount-input'
 
 export type PlanInputResult =
   | { ok: true; input: CreateSubscriptionPlanInput }
+  | { ok: false; error: string }
+
+export type ReturnUrlsInputResult =
+  | { ok: true; input: UpdateSubscriptionPlanInput }
   | { ok: false; error: string }
 
 const WHOLE = /^\d+$/u
@@ -28,6 +34,8 @@ export function buildPlanInput(args: {
   interval: SubscriptionInterval
   intervalCount: string
   trialDays: string
+  successUrl: string
+  cancelUrl: string
 }): PlanInputResult {
   const name = args.name.trim()
   if (!name) return { ok: false, error: 'Enter a plan name' }
@@ -59,6 +67,9 @@ export function buildPlanInput(args: {
     return { ok: false, error: 'Trial must be a whole number of days from 0 to 365' }
   }
 
+  const urls = readReturnUrls(args)
+  if (!urls.ok) return urls
+
   return {
     ok: true,
     input: {
@@ -69,6 +80,35 @@ export function buildPlanInput(args: {
       interval: args.interval,
       intervalCount,
       ...(trialDays > 0 ? { trialPeriodDays: trialDays } : {}),
+      ...(urls.successUrl ? { successUrl: urls.successUrl } : {}),
+      ...(urls.cancelUrl ? { cancelUrl: urls.cancelUrl } : {}),
     },
   }
+}
+
+/** For editing: a blank field becomes null, which clears it. */
+export function buildReturnUrlsInput(args: {
+  successUrl: string
+  cancelUrl: string
+}): ReturnUrlsInputResult {
+  const urls = readReturnUrls(args)
+  if (!urls.ok) return urls
+  return { ok: true, input: { successUrl: urls.successUrl, cancelUrl: urls.cancelUrl } }
+}
+
+function readReturnUrls(args: {
+  successUrl: string
+  cancelUrl: string
+}):
+  | { ok: true; successUrl: string | null; cancelUrl: string | null }
+  | { ok: false; error: string } {
+  const successUrl = args.successUrl.trim() || null
+  const cancelUrl = args.cancelUrl.trim() || null
+  if (successUrl && !callbackUrlSchema.safeParse(successUrl).success) {
+    return { ok: false, error: 'Success URL must start with https:// or http://' }
+  }
+  if (cancelUrl && !callbackUrlSchema.safeParse(cancelUrl).success) {
+    return { ok: false, error: 'Cancel URL must start with https:// or http://' }
+  }
+  return { ok: true, successUrl, cancelUrl }
 }

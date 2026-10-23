@@ -1,6 +1,6 @@
 ---
 title: Plans
-description: A SubscriptionPlan is the template. Name, amount, interval, optional trial. One plan, many subscribers. Plans are immutable after creation; that's an intentional choice.
+description: A SubscriptionPlan is the template. Name, amount, interval, optional trial and return URLs. One plan, many subscribers. A plan's terms are fixed after creation; that's an intentional choice.
 ---
 
 A plan is the thing your customers subscribe to. "Pro Monthly," "Team Annual," "Starter. 5 USDC/month." You create the plan once with `subscriptionPlans.create`; payers subscribe on the plan's hosted checkout link by signing an EIP-2612 permit and a Strimz `SubscriptionIntent`; each one becomes a `Subscription` row that points back at the plan.
@@ -16,6 +16,8 @@ const plan = await strimz.subscriptionPlans.create({
   interval: 'monthly',
   intervalCount: 1,
   trialPeriodDays: 14,
+  successUrl: 'https://your-app.com/welcome?subscription={SUBSCRIPTION_ID}',
+  cancelUrl: 'https://your-app.com/pricing',
 })
 ```
 
@@ -33,9 +35,11 @@ What each field does:
 
 `trialPeriodDays` is the free-trial length. The payer signs on day zero and the first charge is due `trialPeriodDays` later. The trial applies only to a payer's first subscription to the plan. Null or omitted means no trial: the first charge is due at enrolment and the scheduler takes it on its next run, within about 15 minutes. Enrolment itself moves no money.
 
-## Plans are immutable
+`successUrl` and `cancelUrl` are optional. See [Return URLs](#return-urls).
 
-You can't change a plan's amount, interval, name, or anything else after creation. This isn't a limitation; it's an intentional design choice.
+## Plan terms are fixed
+
+You can't change a plan's amount, interval, name, trial or description after creation. Only its [return URLs](#return-urls) can change. This isn't a limitation; it's an intentional design choice.
 
 The reason: existing subscribers signed an EIP-2612 permit against the plan's terms at the time they subscribed. If we let you mutate the plan, we'd either have to silently override their consent or maintain version history that nobody would actually look at.
 
@@ -84,7 +88,31 @@ You send this to anyone you want to subscribe. The page handles wallet connect, 
 
 There is no API or SDK call that creates a subscription. The hosted checkout flow handles it end-to-end. Payer signs, our relayer broadcasts `permitAndCreateSubscription(...)`, the indexer projects the resulting `Subscription`, and your `subscription.created` webhook fires.
 
-The React SDK does not have a subscription enrolment hook today. Its components open payment sessions only, so send payers to the plan link for subscriptions. See [Embedded checkout](/docs/checkout/embed).
+To start the checkout from your own page instead of a link, use `<StrimzSubscribeButton planId />` or `<StrimzSubscriptionEmbed planId />` from the [React SDK](/docs/sdks/react#subscription-plans).
+
+## Return URLs
+
+When a payer finishes on the full-page plan checkout, Strimz sends them to the plan's `successUrl` after a short countdown. If they cancel, it sends them to `cancelUrl`. Without these, the payer stays on the Strimz page.
+
+Two placeholders are filled in, URL-encoded:
+
+- `{SUBSCRIPTION_ID}`: the new subscription's id.
+- `{ON_CHAIN_TX_HASH}`: the enrolment transaction hash.
+
+Strimz records the subscription a few seconds after the enrolment confirms, so the checkout waits up to 30 seconds for its id. If it isn't recorded in time, `{SUBSCRIPTION_ID}` is left empty; use the `subscription.created` webhook. On cancel both placeholders are empty.
+
+A redirect is a convenience, not proof of payment. Confirm subscriptions with the webhook or the API.
+
+Change the URLs at any time, including on an archived plan. `null` clears one, and a field you leave out stays as it is:
+
+```ts
+await strimz.subscriptionPlans.update('cmq4wck6a0002je6lfmb5bgjp', {
+  successUrl: 'https://your-app.com/welcome?subscription={SUBSCRIPTION_ID}',
+  cancelUrl: null,
+})
+```
+
+The dashboard's plan page has the same fields under **After checkout**.
 
 ## The plan ↔ subscription relationship
 
@@ -93,6 +121,7 @@ The plan is the template; each `Subscription` is an instance. When a payer subsc
 ```
 SubscriptionPlan
   ├─ id, name, amount, currency, interval, intervalCount, trialPeriodDays
+  ├─ successUrl, cancelUrl
 
 Subscription
   ├─ id, planId (references the plan)

@@ -6,6 +6,13 @@ import { useAppKit } from '@reown/appkit/react'
 import { useRefreshWhile } from '@/hooks/use-refresh-while'
 import { trialCopy } from '@/lib/subscription-trial'
 import { isCancellable } from '@/lib/checkout-result'
+import {
+  buildSubscriptionReturnUrl,
+  subscriptionCancelDestination,
+  subscriptionResultForPhase,
+  waitForSubscriptionId,
+} from '@/lib/subscription-result'
+import { useSubscriptionHost } from '@/hooks/use-checkout-host'
 import { Loader2, Repeat, ShieldCheck, Wallet } from 'lucide-react'
 import { Badge, FieldLabel, Input } from '@strimz/ui'
 import type {
@@ -46,6 +53,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
   const { address, isConnected } = useAccount()
   const { open } = useAppKit()
   const { disconnect } = useDisconnect()
+  const { host, report } = useSubscriptionHost()
 
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null)
   const [tokenMeta, setTokenMeta] = useState<TokenMetadata | null>(null)
@@ -56,6 +64,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
   const [emailError, setEmailError] = useState<string | null>(null)
   const [attaching, setAttaching] = useState(false)
   const [cancelled, setCancelled] = useState(false)
+  const [subscriptionId, setSubscriptionId] = useState<string | null | undefined>(undefined)
   const [existingSub, setExistingSub] = useState<{
     active: boolean
     subscriptionId: string | null
@@ -178,6 +187,47 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
     if (rawError) console.error('[checkout]', rawError)
   }, [rawError])
 
+  const confirmed = phase === 'confirmed'
+  useEffect(() => {
+    if (!confirmed || !address) return
+    let stale = false
+    void waitForSubscriptionId(
+      () => strimzBrowserClient().checkout.subscriptionStatus(planId, address),
+      { intervalMs: SUBSCRIPTION_LOOKUP_INTERVAL_MS, timeoutMs: SUBSCRIPTION_LOOKUP_TIMEOUT_MS },
+    ).then((id) => {
+      if (!stale) setSubscriptionId(id)
+    })
+    return () => {
+      stale = true
+    }
+  }, [confirmed, address, planId])
+
+  useEffect(() => {
+    const message = subscriptionResultForPhase({
+      phase,
+      planId,
+      txHash: subscribe.txHash,
+      subscriptionId,
+      error: rawError,
+    })
+    if (message) report(message)
+  }, [phase, planId, subscribe.txHash, subscriptionId, rawError, report])
+
+  const cancel = () => {
+    const destination = subscriptionCancelDestination(host, plan?.cancelUrl ?? null)
+    if (destination) {
+      window.location.href = destination
+      return
+    }
+    report({ type: 'strimz:subscription:cancel', planId })
+    setCancelled(true)
+  }
+
+  const returnUrl =
+    host.mode === 'page' && plan?.successUrl && subscriptionId !== undefined
+      ? buildSubscriptionReturnUrl(plan.successUrl, { subscriptionId, txHash: subscribe.txHash })
+      : null
+
   const merchantName = brand?.businessName ?? null
   const error =
     phase === 'load_error' || phase === 'reverted' || phase === 'failed'
@@ -200,7 +250,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
         interval: plan?.interval,
         description: plan?.description ?? plan?.name,
       }}
-      onCancel={isCancellable(phase) ? () => setCancelled(true) : undefined}
+      onCancel={isCancellable(phase) ? cancel : undefined}
       cancelled={cancelled}
       flow="subscribe"
     >
@@ -347,11 +397,11 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
                 }),
               },
             ]}
-            note={copy?.confirmed ?? null}
+            note={subscriptionId === undefined ? 'Finishing up…' : (copy?.confirmed ?? null)}
             txHash={subscribe.txHash}
             merchantName={merchantName}
-            returnUrl={null}
-            hostMode="page"
+            returnUrl={returnUrl}
+            hostMode={host.mode}
           />
         )}
 
@@ -477,6 +527,8 @@ function BusyState({ phase }: { phase: 'loading' | 'signing' | 'submitting' | 'p
 }
 
 const MERCHANT_READY_POLL_MS = 3_000
+const SUBSCRIPTION_LOOKUP_INTERVAL_MS = 2_000
+const SUBSCRIPTION_LOOKUP_TIMEOUT_MS = 30_000
 
 const PLACEHOLDER_TOKEN: TokenMetadata = {
   address: '0x0000000000000000000000000000000000000000',

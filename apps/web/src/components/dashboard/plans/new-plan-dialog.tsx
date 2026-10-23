@@ -35,7 +35,15 @@ const INTERVALS: ReadonlyArray<[SubscriptionInterval, string]> = [
   ['yearly', 'Yearly'],
 ]
 
-const EMPTY = { name: '', description: '', amount: '', intervalCount: '', trialDays: '' }
+const EMPTY = {
+  name: '',
+  description: '',
+  amount: '',
+  intervalCount: '',
+  trialDays: '',
+  successUrl: '',
+  cancelUrl: '',
+}
 
 export function NewPlanDialog() {
   const router = useRouter()
@@ -92,8 +100,8 @@ export function NewPlanDialog() {
         <DialogHeader>
           <DialogTitle>New subscription plan</DialogTitle>
           <DialogDescription>
-            Plans cannot be edited after creation. To change the price, create a new plan and
-            archive the old one.
+            Price, interval and trial can&apos;t change after creation. To change them, create a new
+            plan and archive the old one. Return URLs can be changed later.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
@@ -188,6 +196,37 @@ export function NewPlanDialog() {
               value={fields.description}
               onChange={set('description')}
             />
+          </div>
+          <div className="grid gap-1.5">
+            <FieldLabel htmlFor="pl-success" required={false}>
+              Success URL
+            </FieldLabel>
+            <Input
+              id="pl-success"
+              type="url"
+              inputMode="url"
+              placeholder="https://your-app.com/welcome"
+              value={fields.successUrl}
+              onChange={set('successUrl')}
+            />
+            <p className="text-muted-foreground text-xs">
+              Where subscribers go after subscribing. {'{SUBSCRIPTION_ID}'} and{' '}
+              {'{ON_CHAIN_TX_HASH}'} are filled in.
+            </p>
+          </div>
+          <div className="grid gap-1.5">
+            <FieldLabel htmlFor="pl-cancel" required={false}>
+              Cancel URL
+            </FieldLabel>
+            <Input
+              id="pl-cancel"
+              type="url"
+              inputMode="url"
+              placeholder="https://your-app.com/pricing"
+              value={fields.cancelUrl}
+              onChange={set('cancelUrl')}
+            />
+            <p className="text-muted-foreground text-xs">Where they go if they cancel.</p>
           </div>
           {error ? <p className="text-xs text-rose-600">{error}</p> : null}
         </div>

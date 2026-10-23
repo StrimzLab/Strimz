@@ -3,8 +3,8 @@ title: '@strimz/sdk-react'
 description: React provider, components, and hooks for browser-side Strimz integrations.
 ---
 
-The React SDK gives you a provider, hooks, and two components that
-open Strimz hosted checkout from your own page. It uses publishable keys (`pk_test_…` and
+The React SDK gives you a provider, hooks, and components that
+open Strimz hosted checkout, for a payment session or a subscription plan, from your own page. It uses publishable keys (`pk_test_…` and
 `pk_live_…`), which are safe to ship in a browser bundle. A publishable key grants no
 access: the SDK reads test or live mode from its prefix and calls only the public
 `/v1/checkout` and `/v1/tokens` routes, which answer browsers on any origin. See
@@ -112,12 +112,57 @@ The popup and the embed report back to your page with `onSuccess(txHash)`, `onCa
 
 Your page only accepts a message from the checkout origin, from its own popup or iframe, and for the session it opened. These callbacks need version 0.3.0 or later; earlier versions never receive a result.
 
+## Subscription plans
+
+`<StrimzSubscribeButton />` and `<StrimzSubscriptionEmbed />` open the hosted checkout for a
+[plan](/docs/subscriptions/plans) instead of a payment session. There's no session to create:
+pass the plan id.
+
+```tsx
+'use client'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { StrimzSubscribeButton } from '@strimz/sdk-react'
+
+export function Subscribe({ planId }: { planId: string }) {
+  const router = useRouter()
+  return (
+    <StrimzSubscribeButton
+      planId={planId}
+      onSuccess={({ subscriptionId }) => router.push(`/welcome?sub=${subscriptionId ?? ''}`)}
+      onError={(err) => toast.error(err.message)}
+    />
+  )
+}
+```
+
+```tsx
+<StrimzSubscriptionEmbed planId={planId} className="rounded-xl border" onSuccess={onSubscribed} />
+```
+
+The button takes the same `mode`, `theme`, `size` and `label` props as `<StrimzPayButton />`.
+The embed takes the same `height` (default `640`), `theme`, `className` and `style` props as
+`<StrimzCheckoutEmbed />`.
+
+- `onSuccess({ subscriptionId, txHash })` fires once Strimz has recorded the subscription.
+  The checkout waits up to 30 seconds for that. If it takes longer, `subscriptionId` is `null`
+  and the `subscription.created` webhook carries it.
+- `onCancel()` fires when the payer cancels, or closes the popup.
+- `onError(error)` gets a `StrimzSubscriptionError` with `code` (`load_failed`,
+  `merchant_not_ready`, `payment_reverted` or `already_subscribed`), `planId` and `message`.
+  `already_subscribed` means the connected wallet already has a live subscription to the plan.
+
+As with payments, your page only accepts a message from the checkout origin, from its own
+popup or iframe, and for the plan it opened. Treat `onSuccess` as a UI signal and confirm
+with the webhook. These components need version 0.4.0 or later.
+
 ## Hooks
 
-The package exports three hooks. All of them must be used inside `<StrimzProvider>`.
+The package exports four hooks. All of them must be used inside `<StrimzProvider>`.
 
 - `useStrimzSession(sessionId, { pollIntervalMs? })` reads a payment session with the publishable key and polls until it reaches a terminal state (`confirmed`, `failed`, `expired`, or `cancelled`). It returns `{ session, loading, error, refresh }`.
 - `useStrimzCheckout({ mode?, onSuccess?, onCancel?, onError? })` is the imperative opener behind `<StrimzPayButton />`. It returns `{ open(sessionId), close(), status }`.
+- `useStrimzSubscribe({ mode?, onSuccess?, onCancel?, onError? })` is the opener behind `<StrimzSubscribeButton />`. It returns `{ open(planId), close(), status }`.
 - `useStrimzClient()` returns the provider's `StrimzBrowserClient`.
 
 ```tsx

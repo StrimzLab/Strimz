@@ -19,16 +19,18 @@ Click **New plan** and fill in:
 - **Bill every** (optional): bill every 2 weeks, every 3 months and so on; 1 if left empty, up to 365.
 - **Free trial** (optional): 0 to 365 days.
 - **Description** (optional): up to 500 characters.
+- **Success URL** and **Cancel URL** (optional): where the full-page checkout sends subscribers after they subscribe or cancel. `{SUBSCRIPTION_ID}` and `{ON_CHAIN_TX_HASH}` are filled in. See [Plans: return URLs](/docs/subscriptions/plans#return-urls).
 
 The dashboard opens the new plan's page when it is created.
 
-Plans cannot be edited after creation. To change the price, create a new plan and archive the old one. Existing subscribers stay on the plan they signed up for.
+A plan's price, interval and trial can't be edited after creation. To change them, create a new plan and archive the old one. Existing subscribers stay on the plan they signed up for. The return URLs can be changed at any time.
 
 ## A plan's page
 
 Each plan shows its price, billing interval, trial, description and ID, plus:
 
-- **Sign-up link:** `/sub/<plan id>` on your Strimz domain, with a copy button. Send it to customers; it opens the hosted subscription checkout.
+- **Sign-up link:** `/sub/<plan id>` on your Strimz domain, with a copy button. Send it to customers; it opens the hosted subscription checkout. Below it is a copyable `<StrimzSubscribeButton>` snippet for your own site.
+- **After checkout:** the plan's success and cancel URLs, or "Not set". **Edit** changes them; leave a field blank to clear it.
 - **Subscribers:** the subscriptions on this plan. Each opens the subscription's page.
 - **Archive:** stops new sign-ups. Existing subscribers keep being charged until they cancel. Archiving cannot be undone.
 
