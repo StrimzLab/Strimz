@@ -10,7 +10,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-02C76A.svg)](./LICENSE)
 
 A small surface of React building blocks for Strimz: a context
-provider, a drop-in payment button, an embedded checkout, and a few
+provider, drop-in payment and subscribe buttons, embedded checkouts, and a few
 typed hooks. Works with React 18 or 19, Next.js App Router
 (`'use client'`), Remix, and Vite. No CSS imports required.
 
@@ -128,12 +128,31 @@ page rather than in a popup.
 
 The embed has no theme toggle of its own; your page decides.
 
+### `<StrimzSubscribeButton />` and `<StrimzSubscriptionEmbed />`
+
+The same button and embed for a subscription plan. Pass the plan id; there's no session.
+
+```tsx
+<StrimzSubscribeButton
+  planId={plan.id}
+  onSuccess={({ subscriptionId }) => router.push(`/welcome?sub=${subscriptionId ?? ''}`)}
+/>
+<StrimzSubscriptionEmbed planId={plan.id} onSuccess={onSubscribed} />
+```
+
+- `onSuccess({ subscriptionId, txHash })`: `subscriptionId` is `null` if Strimz hadn't recorded the subscription within 30 seconds. The `subscription.created` webhook carries it.
+- `onCancel()`: the payer cancelled or closed the popup.
+- `onError(error)`: a `StrimzSubscriptionError` with `code` (`load_failed`, `merchant_not_ready`, `payment_reverted` or `already_subscribed`), `planId` and `message`.
+
+The button takes the `<StrimzPayButton />` props (`mode`, `theme`, `size`, `label`). The embed takes the `<StrimzCheckoutEmbed />` props, with `height` defaulting to `640`.
+
 ## Hooks
 
 - `useStrimzContext()`. Returns `{ client, checkoutOrigin }` from the provider. Throws outside a `<StrimzProvider />`.
 - `useStrimzClient()`. Returns the provider's `StrimzBrowserClient`.
 - `useStrimzSession(sessionId, { pollIntervalMs })`. Returns `{ session, loading, error, refresh }`. Polls every 3000 ms by default and stops once the session is `confirmed`, `failed`, `expired` or `cancelled`.
 - `useStrimzCheckout({ mode, onSuccess, onCancel, onError })`. Returns `{ open, close, status }` for a custom button. `status` is `idle`, `open`, `success`, `cancelled` or `error`.
+- `useStrimzSubscribe({ mode, onSuccess, onCancel, onError })`. The same for a plan: `open(planId)`.
 
 ```tsx
 import { useStrimzSession } from '@strimz/sdk-react'
@@ -152,8 +171,11 @@ function PaymentStatus({ sessionId }: { sessionId: string }) {
 `UseStrimzSessionOptions`, `UseStrimzCheckoutOptions`,
 `UseStrimzCheckoutResult`, `CheckoutMode`, `StrimzPayButtonProps`,
 `StrimzPayButtonTheme`, `StrimzPayButtonSize`,
-`StrimzCheckoutEmbedProps` and `StrimzCheckoutTheme` are exported, as
-is the `StrimzCheckoutError` class (`code`, `sessionId`, `message`).
+`StrimzCheckoutEmbedProps`, `StrimzCheckoutTheme`, `UseStrimzSubscribeOptions`,
+`UseStrimzSubscribeResult`, `StrimzSubscriptionResult`, `StrimzSubscribeButtonProps` and
+`StrimzSubscriptionEmbedProps` are exported, as are the `StrimzCheckoutError` class
+(`code`, `sessionId`, `message`) and the `StrimzSubscriptionError` class (`code`, `planId`,
+`message`).
 
 ## Security
 

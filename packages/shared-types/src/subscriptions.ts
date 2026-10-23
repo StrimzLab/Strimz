@@ -18,6 +18,7 @@ import {
   paymentCurrencySchema,
   tokenAmountSchema,
 } from './common.js'
+import { callbackUrlSchema } from './payment-sessions.js'
 
 // ---------- Plans ----------
 
@@ -65,6 +66,9 @@ export const subscriptionPlanSchema = z.object({
   intervalCount: z.number().int().min(1).max(365),
   trialPeriodDays: z.number().int().min(0).max(365).nullable(),
   status: subscriptionPlanStatusSchema,
+  /** `{SUBSCRIPTION_ID}` and `{ON_CHAIN_TX_HASH}` are filled in on redirect. */
+  successUrl: callbackUrlSchema.nullable(),
+  cancelUrl: callbackUrlSchema.nullable(),
   metadata: metadataSchema,
   createdAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema,
@@ -79,10 +83,55 @@ export const createSubscriptionPlanInputSchema = z.object({
   interval: subscriptionIntervalSchema,
   intervalCount: z.number().int().min(1).max(365).default(1),
   trialPeriodDays: z.number().int().min(0).max(365).optional(),
+  successUrl: callbackUrlSchema.optional(),
+  cancelUrl: callbackUrlSchema.optional(),
   metadata: metadataSchema.optional(),
 })
 export type CreateSubscriptionPlanInput = z.input<typeof createSubscriptionPlanInputSchema>
 export type CreateSubscriptionPlanParsed = z.output<typeof createSubscriptionPlanInputSchema>
+
+/** Price, interval and trial are fixed once a plan exists; only these change. */
+export const updateSubscriptionPlanInputSchema = z
+  .object({
+    successUrl: callbackUrlSchema.nullable().optional(),
+    cancelUrl: callbackUrlSchema.nullable().optional(),
+  })
+  .strict()
+  .refine((v) => v.successUrl !== undefined || v.cancelUrl !== undefined, {
+    message: 'set successUrl or cancelUrl',
+  })
+export type UpdateSubscriptionPlanInput = z.input<typeof updateSubscriptionPlanInputSchema>
+export type UpdateSubscriptionPlanParsed = z.output<typeof updateSubscriptionPlanInputSchema>
+
+export const subscriptionResultErrorCodes = [
+  'load_failed',
+  'merchant_not_ready',
+  'payment_reverted',
+  'already_subscribed',
+] as const
+export const subscriptionResultErrorCodeSchema = z.enum(subscriptionResultErrorCodes)
+export type SubscriptionResultErrorCode = z.infer<typeof subscriptionResultErrorCodeSchema>
+
+/** What `/sub/{planId}` posts to the page that embedded or opened it. */
+export const subscriptionResultMessageSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('strimz:subscription:success'),
+    planId: idSchema,
+    subscriptionId: idSchema.nullable(),
+    txHash: evmTxHashSchema,
+  }),
+  z.object({
+    type: z.literal('strimz:subscription:cancel'),
+    planId: idSchema,
+  }),
+  z.object({
+    type: z.literal('strimz:subscription:error'),
+    planId: idSchema,
+    code: subscriptionResultErrorCodeSchema,
+    message: z.string().min(1).max(500),
+  }),
+])
+export type SubscriptionResultMessage = z.infer<typeof subscriptionResultMessageSchema>
 
 // ---------- Subscriptions ----------
 

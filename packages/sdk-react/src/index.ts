@@ -36,4 +36,19 @@ export {
   type StrimzCheckoutEmbedProps,
   type StrimzCheckoutTheme,
 } from './components/StrimzCheckoutEmbed.js'
+export {
+  useStrimzSubscribe,
+  type UseStrimzSubscribeOptions,
+  type UseStrimzSubscribeResult,
+  type StrimzSubscriptionResult,
+} from './hooks/useStrimzSubscribe.js'
+export {
+  StrimzSubscribeButton,
+  type StrimzSubscribeButtonProps,
+} from './components/StrimzSubscribeButton.js'
+export {
+  StrimzSubscriptionEmbed,
+  type StrimzSubscriptionEmbedProps,
+} from './components/StrimzSubscriptionEmbed.js'
 export { StrimzCheckoutError } from './checkout-error.js'
+export { StrimzSubscriptionError } from './subscription-error.js'

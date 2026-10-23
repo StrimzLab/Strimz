@@ -1,8 +1,10 @@
 import {
   subscriptionPlanSchema,
   createSubscriptionPlanInputSchema,
+  updateSubscriptionPlanInputSchema,
   type SubscriptionPlan,
   type CreateSubscriptionPlanInput,
+  type UpdateSubscriptionPlanInput,
 } from '@strimz/shared-types'
 import type { PaginationParams, Page } from '../pagination.js'
 import { BaseResource, type RequestOptions } from './base-resource.js'
@@ -19,6 +21,16 @@ export class SubscriptionPlansResource extends BaseResource {
 
   list(params?: PaginationParams & { status?: string }): Promise<Page<SubscriptionPlan>> {
     return this.listPage('/v1/subscription-plans', subscriptionPlanSchema, params)
+  }
+
+  /** Only the return URLs can change. `null` clears one. */
+  update(id: string, input: UpdateSubscriptionPlanInput): Promise<SubscriptionPlan> {
+    updateSubscriptionPlanInputSchema.parse(input)
+    return this.patch(
+      `/v1/subscription-plans/${encodeURIComponent(id)}`,
+      input,
+      subscriptionPlanSchema,
+    )
   }
 
   archive(id: string, options?: RequestOptions): Promise<SubscriptionPlan> {
