@@ -5,7 +5,7 @@ description: Cron jobs and the webhook delivery queue.
 
 The scheduler is a Nest, Fastify, and BullMQ app. It owns the cron
 jobs (subscription sweeper, session expiry, invoice-overdue marker,
-subscription-lapsed transitions, plan upgrades, contract alerts, gas
+subscription-lapsed transitions, plan upgrades, fee-drift checks, contract alerts, gas
 balance and notification emails) and the webhook delivery queue. At
 boot it also warms the webhook-secret cache the delivery worker reads
 from.
@@ -68,6 +68,7 @@ SUBSCRIPTION_SWEEPER_CRON=0 */15 * * * *
 INVOICE_OVERDUE_CRON=0 0 * * * *
 PLAN_UPGRADE_CRON=0 */5 * * * *
 CONTRACT_ALERT_CRON=0 * * * * *
+FEE_DRIFT_CRON=0 */5 * * * *
 GAS_BALANCE_CRON=0 */15 * * * *
 MERCHANT_NOTIFICATION_CRON=*/30 * * * * *
 
