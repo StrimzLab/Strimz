@@ -90,7 +90,7 @@ signatures and response types come from
 | `customers`         | `retrieve`, `list`, `upsert`                                                                                     |
 | `paymentSessions`   | `create`, `retrieve`, `list`, `cancel`, `expire`                                                                 |
 | `transactions`      | `retrieve`, `list`                                                                                               |
-| `subscriptionPlans` | `create`, `retrieve`, `list`, `archive`                                                                          |
+| `subscriptionPlans` | `create`, `retrieve`, `list`, `update`, `archive`                                                                |
 | `subscriptions`     | `retrieve`, `list`, `cancel`                                                                                     |
 | `refunds`           | `create`, `retrieve`, `list`, `submitSignature`                                                                  |
 | `webhookEndpoints`  | `create`, `retrieve`, `list`, `enable`, `disable`, `rotateSecret`                                                |

@@ -13,6 +13,7 @@ import {
   ConfirmActionDialog,
   type PendingConfirm,
 } from '@/components/dashboard/confirm-action-dialog'
+import { EditReturnUrlsDialog } from '@/components/dashboard/plans/edit-return-urls-dialog'
 import { archivePlanConfirm } from '@/lib/destructive-actions'
 import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
 import { billingLabel, planPriceLabel } from '@/lib/plans-view'
@@ -49,6 +50,7 @@ export default function PlanDetailPage({ params }: { params: Promise<{ id: strin
   }
 
   const signUpUrl = `${origin}/sub/${plan.id}`
+  const buttonSnippet = `<StrimzSubscribeButton planId="${plan.id}" onSuccess={({ subscriptionId }) => {}} />`
   const subscriptions = subscriptionsQuery.data?.data ?? []
 
   return (
@@ -107,31 +109,39 @@ export default function PlanDetailPage({ params }: { params: Promise<{ id: strin
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="space-y-3 p-6 text-sm">
-            <div className="font-medium">Sign-up link</div>
-            {plan.status === 'active' ? (
-              <div className="border-border/60 bg-muted/30 flex items-center gap-2 rounded-md border p-2">
-                <code className="min-w-0 flex-1 truncate text-xs">{signUpUrl}</code>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    void navigator.clipboard
-                      .writeText(signUpUrl)
-                      .then(() => toast.success('Sign-up link copied'))
-                  }}
-                >
-                  <Copy className="size-3" />
-                </Button>
+        <div className="space-y-4">
+          <Card>
+            <CardContent className="space-y-3 p-6 text-sm">
+              <div className="font-medium">Sign-up link</div>
+              {plan.status === 'active' ? (
+                <>
+                  <CopyRow value={signUpUrl} copied="Sign-up link copied" />
+                  <div className="text-muted-foreground text-xs">Or add a button to your site:</div>
+                  <CopyRow value={buttonSnippet} copied="Button code copied" />
+                </>
+              ) : (
+                <p className="text-muted-foreground text-xs">
+                  Archived plans take no new subscribers.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="space-y-3 p-6 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <div className="font-medium">After checkout</div>
+                <EditReturnUrlsDialog plan={plan} />
               </div>
-            ) : (
-              <p className="text-muted-foreground text-xs">
-                Archived plans take no new subscribers.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+              <Row label="Success URL">
+                <UrlValue url={plan.successUrl} />
+              </Row>
+              <Row label="Cancel URL">
+                <UrlValue url={plan.cancelUrl} />
+              </Row>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <Card>
@@ -182,6 +192,29 @@ function BackLink() {
       </Link>
     </Button>
   )
+}
+
+function CopyRow({ value, copied }: { value: string; copied: string }) {
+  return (
+    <div className="border-border/60 bg-muted/30 flex items-center gap-2 rounded-md border p-2">
+      <code className="min-w-0 flex-1 truncate text-xs">{value}</code>
+      <Button
+        variant="outline"
+        size="sm"
+        aria-label="Copy"
+        onClick={() => {
+          void navigator.clipboard.writeText(value).then(() => toast.success(copied))
+        }}
+      >
+        <Copy className="size-3" />
+      </Button>
+    </div>
+  )
+}
+
+function UrlValue({ url }: { url: string | null }) {
+  if (!url) return <span className="text-muted-foreground">Not set</span>
+  return <span className="min-w-0 truncate font-mono text-xs">{url}</span>
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {

@@ -37,6 +37,20 @@ describe('hosted checkout result wiring', () => {
     expect(PAY).not.toMatch(/window\.location\.href = successUrl/u)
   })
 
+  it('sub reports its result to the page that opened it', () => {
+    expect(SUB).toContain('useSubscriptionHost(')
+    expect(SUB).toContain('subscriptionResultForPhase(')
+    expect(SUB).toContain("type: 'strimz:subscription:cancel'")
+    expect(SUB).toContain('waitForSubscriptionId(')
+  })
+
+  it('sub fills in the plan return URLs before redirecting', () => {
+    expect(SUB).toContain('buildSubscriptionReturnUrl(')
+    expect(SUB).toContain('subscriptionCancelDestination(')
+    expect(SUB).not.toContain('returnUrl={null}')
+    expect(SUB).not.toContain('hostMode="page"')
+  })
+
   it('pay checks the payer wallet before asking for a signature', () => {
     expect(PAY).toContain('isContractAccount(')
   })

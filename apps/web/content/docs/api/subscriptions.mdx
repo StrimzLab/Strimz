@@ -15,13 +15,26 @@ POST /v1/subscription-plans
   "currency": "USDC",
   "interval": "monthly",      // 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly'
   "intervalCount": 1,
-  "trialPeriodDays": 14
+  "trialPeriodDays": 14,
+  "successUrl": "https://your-app.com/welcome?sub={SUBSCRIPTION_ID}",  // optional
+  "cancelUrl": "https://your-app.com/pricing"                          // optional
 }
 ```
 
 ```http
 GET  /v1/subscription-plans/{id}
 GET  /v1/subscription-plans
+POST /v1/subscription-plans/{id}/archive
+```
+
+Only the return URLs can change after creation. `null` clears one; an omitted field stays the same. Any other field answers `400 invalid_request`. See [Plans: return URLs](/docs/subscriptions/plans#return-urls).
+
+```http
+PATCH /v1/subscription-plans/{id}
+{
+  "successUrl": "https://your-app.com/welcome?sub={SUBSCRIPTION_ID}",
+  "cancelUrl": null
+}
 ```
 
 ## Subscriptions

@@ -2,6 +2,7 @@ import type {
   CreateSubscriptionPlanInput,
   SubscriptionPlan,
   SubscriptionPlanStatus,
+  UpdateSubscriptionPlanInput,
 } from '@strimz/shared-types'
 
 import type { MerchantApiClient } from '../client'
@@ -33,6 +34,18 @@ export class SubscriptionPlansResource {
 
   create(input: CreateSubscriptionPlanInput, options?: CallOptions): Promise<SubscriptionPlan> {
     return this.client.post<SubscriptionPlan>('/v1/subscription-plans', input, options)
+  }
+
+  update(
+    id: string,
+    input: UpdateSubscriptionPlanInput,
+    options?: CallOptions,
+  ): Promise<SubscriptionPlan> {
+    return this.client.patch<SubscriptionPlan>(
+      `/v1/subscription-plans/${encodeURIComponent(id)}`,
+      input,
+      options,
+    )
   }
 
   archive(id: string, options?: CallOptions): Promise<SubscriptionPlan> {

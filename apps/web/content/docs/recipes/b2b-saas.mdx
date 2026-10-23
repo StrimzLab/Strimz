@@ -34,6 +34,8 @@ const plan = await strimz.subscriptionPlans.create({
   interval: 'monthly',
   intervalCount: 1,
   trialPeriodDays: 14,
+  successUrl: `${process.env.APP_URL}/welcome?subscription={SUBSCRIPTION_ID}`,
+  cancelUrl: `${process.env.APP_URL}/pricing`,
 })
 
 console.log('Plan id:', plan.id)
@@ -213,9 +215,11 @@ A cancel from your API keeps access until the paid period ends, as in the handle
 
 ## After checkout
 
-The subscription checkout page shows its own confirmation once the enrolment confirms. It does not redirect back to your site, so give customers a link back into your product from the page they started on.
+Once the enrolment confirms, the checkout sends the customer to the plan's `successUrl`, with `{SUBSCRIPTION_ID}` filled in. If they cancel, it sends them to `cancelUrl`.
 
-Grant access from the webhook handler, not from the browser. `subscription.created` usually arrives within a few seconds of the enrolment.
+To keep customers on your pricing page instead of redirecting, swap the form for `<StrimzSubscribeButton planId />` from [`@strimz/sdk-react`](/docs/sdks/react#subscription-plans). It opens the checkout in a popup and calls `onSuccess({ subscriptionId, txHash })` when it's done.
+
+Either way, grant access from the webhook handler, not from the browser. `subscription.created` usually arrives within a few seconds of the enrolment.
 
 ## What's not in this recipe
 

@@ -6,7 +6,11 @@ import {
   useQueryClient,
   type UseQueryOptions,
 } from '@tanstack/react-query'
-import type { CreateSubscriptionPlanInput, SubscriptionPlan } from '@strimz/shared-types'
+import type {
+  CreateSubscriptionPlanInput,
+  SubscriptionPlan,
+  UpdateSubscriptionPlanInput,
+} from '@strimz/shared-types'
 
 import type { ListSubscriptionPlansParams } from '@/lib/merchant-api/resources/subscription-plans'
 import type { Page } from '@/lib/merchant-api'
@@ -70,6 +74,22 @@ export function useCreateSubscriptionPlan() {
     messages: {
       loading: (input) => `Creating ${input.name}…`,
       success: (plan) => `Plan ${plan.name} created`,
+    },
+  })
+}
+
+export function useUpdateSubscriptionPlan(id: string) {
+  const api = useMerchantApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (input: UpdateSubscriptionPlanInput) => api.subscriptionPlans.update(id, input),
+    onSuccess: (updated) => {
+      qc.setQueryData(subscriptionPlanKeys.detail(updated.id), updated)
+      qc.invalidateQueries({ queryKey: subscriptionPlanKeys.lists() })
+    },
+    messages: {
+      loading: 'Saving return URLs…',
+      success: 'Return URLs saved',
     },
   })
 }

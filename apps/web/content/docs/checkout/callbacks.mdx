@@ -1,6 +1,6 @@
 ---
 title: Success and cancel URLs
-description: Where hosted checkout sends the payer after they pay or cancel, the placeholders you can use, and what the URLs must look like.
+description: Where hosted checkout sends the payer after they pay, subscribe or cancel, the placeholders you can use, and what the URLs must look like.
 ---
 
 When a payer completes a payment on the full-page hosted checkout, or hits its Cancel button, we send them back to you. You decide where by setting `successUrl` and `cancelUrl` on `paymentSessions.create`.
@@ -32,6 +32,10 @@ The substitution is a find-and-replace in the URL string. Values are URL-encoded
 successUrl: 'https://your-site.com/thanks?session={CHECKOUT_SESSION_ID}&tx={ON_CHAIN_TX_HASH}'
 // → https://your-site.com/thanks?session=cmq4wck6a0002je6lfmb5bgjp&tx=0x4d32...
 ```
+
+## Subscription plans
+
+Plans take the same two URLs, on `subscriptionPlans.create` or later with `subscriptionPlans.update`. Their placeholders are `{SUBSCRIPTION_ID}` and `{ON_CHAIN_TX_HASH}`. See [Plans: return URLs](/docs/subscriptions/plans#return-urls).
 
 ## Validation
 

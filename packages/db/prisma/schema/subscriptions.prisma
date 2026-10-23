@@ -11,6 +11,8 @@ model SubscriptionPlan {
   intervalCount    Int                    @default(1)
   trialPeriodDays  Int?
   status           SubscriptionPlanStatus @default(active)
+  successUrl       String?
+  cancelUrl        String?
   metadata         Json                   @default("{}")
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
