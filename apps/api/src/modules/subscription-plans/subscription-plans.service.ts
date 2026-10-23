@@ -3,6 +3,7 @@ import type {
   CreateSubscriptionPlanParsed,
   PaymentCurrency,
   SubscriptionPlan,
+  UpdateSubscriptionPlanParsed,
 } from '@strimz/shared-types'
 import { TypedConfigService } from '../../config/index.js'
 import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
@@ -67,6 +68,8 @@ export class SubscriptionPlansService {
         interval: input.interval,
         intervalCount: input.intervalCount,
         trialPeriodDays: input.trialPeriodDays ?? null,
+        successUrl: input.successUrl ?? null,
+        cancelUrl: input.cancelUrl ?? null,
         metadata: (input.metadata ?? {}) as never,
       },
       ...WITH_MERCHANT,
@@ -115,6 +118,20 @@ export class SubscriptionPlansService {
     const hasMore = rows.length > limit
     const data = rows.slice(0, limit).map((r) => this.serialise(r))
     return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
+  }
+
+  async updateReturnUrls(
+    merchantId: string,
+    id: string,
+    input: UpdateSubscriptionPlanParsed,
+  ): Promise<SubscriptionPlan> {
+    await this.retrieve(merchantId, id)
+    const row = await this.prisma.db.subscriptionPlan.update({
+      where: { id },
+      data: { successUrl: input.successUrl, cancelUrl: input.cancelUrl },
+      ...WITH_MERCHANT,
+    })
+    return this.serialise(row)
   }
 
   async archive(merchantId: string, id: string): Promise<SubscriptionPlan> {

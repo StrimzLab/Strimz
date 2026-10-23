@@ -1,6 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
-import { createSubscriptionPlanInputSchema } from '@strimz/shared-types'
-import type { CreateSubscriptionPlanParsed, SubscriptionPlan } from '@strimz/shared-types'
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common'
+import {
+  createSubscriptionPlanInputSchema,
+  updateSubscriptionPlanInputSchema,
+} from '@strimz/shared-types'
+import type {
+  CreateSubscriptionPlanParsed,
+  SubscriptionPlan,
+  UpdateSubscriptionPlanParsed,
+} from '@strimz/shared-types'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import {
   CurrentMerchant,
@@ -46,6 +53,17 @@ export class SubscriptionPlansController {
       cursor: q.cursor ?? null,
       status: q.status,
     })
+  }
+
+  @RequireScopes('subscriptions_write')
+  @Patch('/:id')
+  update(
+    @CurrentMerchant() ctx: CurrentMerchantPayload,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateSubscriptionPlanInputSchema))
+    input: UpdateSubscriptionPlanParsed,
+  ): Promise<SubscriptionPlan> {
+    return this.plans.updateReturnUrls(ctx.merchantId, id, input)
   }
 
   @RequireScopes('subscriptions_write')
