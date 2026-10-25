@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import postcss, { type AtRule, type Rule } from 'postcss'
 import { describe, expect, it } from 'vitest'
 
 const WEB_ROOT = fileURLToPath(new URL('../..', import.meta.url))
@@ -82,6 +83,35 @@ function jsFiles(dir: string): string[] {
   })
 }
 
+function cssRules(source: string): Rule[] {
+  const rules: Rule[] = []
+  postcss.parse(source).walkRules((rule) => {
+    rules.push(rule)
+  })
+  return rules
+}
+
+const mediaOf = (rule: Rule) =>
+  rule.parent?.type === 'atrule' ? (rule.parent as AtRule).params : undefined
+
+// fumadocs' selectors that move an element with the v3 `transform`, mapped to their media query.
+function fumadocsTransforms(): Map<string, string | undefined> {
+  const css = readFileSync(join(WEB_ROOT, 'node_modules/fumadocs-ui/dist/style.css'), 'utf8')
+  return new Map(
+    cssRules(css)
+      .filter((rule) =>
+        rule.nodes.some(
+          (node) =>
+            node.type === 'decl' &&
+            node.prop === 'transform' &&
+            node.value.startsWith('translate(var(--tw-translate-x)'),
+        ),
+      )
+      .flatMap((rule) => rule.selectors.map((selector) => [selector, mediaOf(rule)] as const))
+      .filter(([selector]) => selector !== '.transform'),
+  )
+}
+
 describe('docs.css styles what fumadocs renders', () => {
   const css = readFileSync(join(WEB_ROOT, 'src/styles/docs.css'), 'utf8')
   const layout = readFileSync(join(WEB_ROOT, 'src/app/docs/layout.tsx'), 'utf8')
@@ -89,9 +119,9 @@ describe('docs.css styles what fumadocs renders', () => {
     .flatMap((pkg) => jsFiles(join(WEB_ROOT, 'node_modules', pkg, 'dist')))
     .map((file) => readFileSync(file, 'utf8'))
     .join('\n')
-  const selectors = (css.replace(/\/\*[\s\S]*?\*\//g, '').match(/[^{}@;]+(?=\{)/g) ?? []).map((s) =>
-    s.replace(/\s+/g, ' ').trim(),
-  )
+  const selectors = cssRules(css)
+    .flatMap((rule) => rule.selectors)
+    .filter((selector) => !fumadocsTransforms().has(selector))
   const OWN_CLASSES = ['dark', 'prose', 'docs-logo-light', 'docs-logo-dark']
 
   // Next puts a layout's CSS imports in its own order, so fumadocs' theme came after ours.
@@ -116,6 +146,29 @@ describe('docs.css styles what fumadocs renders', () => {
     expect(css).toMatch(/^#nd-page \.prose h2\s*\{[^}]*border-top:/m)
     expect(css).toMatch(/^\.dark #nd-page \.prose h2\s*\{[^}]*border-top-color:/m)
     expect(css).toMatch(/^:root\s*\{[^}]*--fd-primary: 150 98% 40%;/m)
+  })
+})
+
+// Our v4 utilities of the same name set `translate`, `rotate` and `scale` as well, which
+// moved the search dialog off centre and turned the sidebar chevrons twice.
+describe('fumadocs transforms are not applied twice', () => {
+  const resets = cssRules(readFileSync(join(WEB_ROOT, 'src/styles/docs.css'), 'utf8')).filter(
+    (rule) =>
+      ['translate', 'rotate', 'scale'].every((prop) =>
+        rule.nodes.some(
+          (node) => node.type === 'decl' && node.prop === prop && node.value === 'none',
+        ),
+      ),
+  )
+
+  it('finds the transforms fumadocs ships', () => {
+    expect([...fumadocsTransforms().keys()]).toContain('.-translate-x-1\\/2')
+  })
+
+  it.each([...fumadocsTransforms()])('%s keeps only the fumadocs transform', (selector, media) => {
+    expect(
+      resets.some((rule) => rule.selectors.includes(selector) && mediaOf(rule) === media),
+    ).toBe(true)
   })
 })
 
