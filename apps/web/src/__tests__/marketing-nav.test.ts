@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { NAV_GROUPS, NAV_LINKS } from '@/components/marketing/nav-data'
+import { panelAnchor } from '@/components/marketing/nav-panel'
 import { USE_CASES } from '@/components/marketing/use-cases/data'
 
 const WEB_ROOT = join(__dirname, '..', '..')
@@ -89,5 +90,32 @@ describe('marketing nav', () => {
     expect(read(`${HOME}/billing-tools.tsx`)).toMatch(
       /id=\{`sheet-\$\{s\.key\}`\}\s+className="[^"]*\bscroll-mt-/u,
     )
+  })
+})
+
+describe('the desktop menu panel', () => {
+  const root = { left: 300, right: 1100 }
+  const bar = { left: 100, right: 1300 }
+
+  it('centres the panel under the trigger that opened it', () => {
+    expect(panelAnchor({ root, bar, trigger: { left: 950, right: 1050 } })).toEqual({
+      x: 700,
+      min: -192,
+      max: 992,
+    })
+  })
+
+  it('keeps the panel inside the nav bar', () => {
+    const { min, max } = panelAnchor({ root, bar, trigger: { left: 300, right: 400 } })
+    expect(min).toBe(bar.left - root.left + 8)
+    expect(max).toBe(bar.right - root.left - 8)
+  })
+
+  it('positions the viewport from the open trigger, not the middle of the menu', () => {
+    const nav = read('src/components/marketing/nav.tsx')
+    expect(nav).not.toMatch(/left-1\/2[^"]*-translate-x-1\/2[^"]*"\s*>\s*<NavigationMenuViewport/u)
+    expect(nav).toMatch(/<NavigationMenu\b[^>]*onValueChange=/u)
+    expect(nav).toMatch(/--panel-x/u)
+    expect(nav).toMatch(/clamp\(/u)
   })
 })
