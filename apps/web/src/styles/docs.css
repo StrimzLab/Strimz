@@ -94,6 +94,32 @@
   border-top-color: hsl(240 13.4% 19%);
 }
 
+/* fumadocs moves these with the Tailwind v3 `transform`. Our v4 classes of the same
+ * name add `translate`, `rotate` and `scale` on top, which doubled the move. */
+.-translate-x-1\/2,
+.-translate-y-1\/2,
+.-rotate-90,
+.scale-0,
+.group[data-state="closed"] .group-data-\[state\=closed\]\:-rotate-90,
+.group\/accordion[data-state="open"] .group-data-\[state\=open\]\/accordion\:rotate-90,
+.group[data-state="open"] .group-data-\[state\=open\]\:rotate-180,
+.rtl\:rotate-180:where([dir="rtl"], [dir="rtl"] *),
+.rtl\:-scale-x-100:where([dir="rtl"], [dir="rtl"] *) {
+  translate: none;
+  rotate: none;
+  scale: none;
+}
+
+@media (min-width: 768px) {
+  .md\:translate-x-0,
+  .md\:translate-x-\[calc\(var\(--fd-sidebar-offset\)\*-1\)\],
+  .rtl\:md\:translate-x-\[var\(--fd-sidebar-offset\)\]:where([dir="rtl"], [dir="rtl"] *) {
+    translate: none;
+    rotate: none;
+    scale: none;
+  }
+}
+
 .docs-logo-dark {
   display: none;
 }
