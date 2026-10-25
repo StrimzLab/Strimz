@@ -29,9 +29,18 @@ import { Logo } from '@/components/shared/logo'
 import { MkIcon } from './icon'
 import { PopLink } from './fx/pop-button'
 import { NAV_GROUPS, NAV_LINKS, type NavGroup, type NavItem } from './nav-data'
+import { panelAnchor } from './nav-panel'
 
 const TOP_ITEM =
   'font-poppins text-muted-foreground hover:text-foreground data-[state=open]:text-foreground aria-[current=page]:text-foreground focus-visible:ring-accent relative whitespace-nowrap rounded-full px-3 py-2 text-[15px] xl:px-4 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2'
+
+const VIEWPORT_WIDTH = 'var(--radix-navigation-menu-viewport-width)'
+const PANEL_LEFT = `clamp(var(--panel-min), calc(var(--panel-x) - ${VIEWPORT_WIDTH} / 2), calc(var(--panel-max) - ${VIEWPORT_WIDTH}))`
+const PANEL_DEFAULTS = {
+  '--panel-x': '50%',
+  '--panel-min': '0px',
+  '--panel-max': '100%',
+} as React.CSSProperties
 
 const STEPS = ['Create a link', 'Share it', 'Customer approves', 'Paid to your wallet']
 
@@ -45,6 +54,10 @@ export function MarketingNav() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const linksRef = useRef<HTMLUListElement>(null)
+  const barRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const openMenu = useRef('')
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24)
@@ -52,6 +65,32 @@ export function MarketingNav() {
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  const placePanel = () => {
+    const menu = menuRef.current
+    const trigger = menu?.querySelector(`[data-menu="${openMenu.current}"]`)
+    const bar = barRef.current
+    const panel = panelRef.current
+    if (!menu || !trigger || !bar || !panel) return
+    const { x, min, max } = panelAnchor({
+      root: menu.getBoundingClientRect(),
+      bar: bar.getBoundingClientRect(),
+      trigger: trigger.getBoundingClientRect(),
+    })
+    panel.style.setProperty('--panel-x', `${x}px`)
+    panel.style.setProperty('--panel-min', `${min}px`)
+    panel.style.setProperty('--panel-max', `${max}px`)
+  }
+
+  useEffect(() => {
+    window.addEventListener('resize', placePanel)
+    return () => window.removeEventListener('resize', placePanel)
+  })
+
+  const onMenuChange = (value: string) => {
+    openMenu.current = value
+    if (value) placePanel()
+  }
 
   // Spotlight hover adapted from Vengeance UI's Spotlight Navbar (MIT).
   const onMove = (e: React.PointerEvent<HTMLUListElement>) => {
@@ -70,6 +109,7 @@ export function MarketingNav() {
         Skip to content
       </a>
       <div
+        ref={barRef}
         className={cn(
           'mx-auto flex max-w-[1280px] items-center justify-between gap-4 rounded-[20px] border px-4 transition-[height,background-color,border-color,box-shadow] duration-300 sm:px-5',
           scrolled
@@ -78,7 +118,12 @@ export function MarketingNav() {
         )}
       >
         <Logo />
-        <NavigationMenu aria-label="Main" className="hidden lg:flex">
+        <NavigationMenu
+          ref={menuRef}
+          aria-label="Main"
+          className="hidden lg:flex"
+          onValueChange={onMenuChange}
+        >
           <NavigationMenuList
             ref={linksRef}
             onPointerMove={onMove}
@@ -99,8 +144,15 @@ export function MarketingNav() {
               </GroupMenu>
             ))}
           </NavigationMenuList>
-          <div className="absolute left-1/2 top-full flex -translate-x-1/2 justify-center pt-2">
-            <NavigationMenuViewport className="border-border bg-background rounded-[22px] border shadow-[0_24px_60px_-24px_rgb(5_0_32/0.45)]" />
+          <div
+            ref={panelRef}
+            className="absolute left-0 top-full w-full pt-2"
+            style={PANEL_DEFAULTS}
+          >
+            <NavigationMenuViewport
+              className="border-border bg-background rounded-[22px] border shadow-[0_24px_60px_-24px_rgb(5_0_32/0.45)] transition-[width,height,left]"
+              style={{ left: PANEL_LEFT }}
+            />
           </div>
         </NavigationMenu>
         <div className="flex items-center gap-2 sm:gap-3">
@@ -198,8 +250,12 @@ function GroupMenu({
   const active = group.items.some((item) => isCurrent(pathname, item.href))
   return (
     <>
-      <NavigationMenuItem className="relative">
-        <NavigationMenuTrigger className={TOP_ITEM} aria-current={active ? 'page' : undefined}>
+      <NavigationMenuItem value={group.label} className="relative">
+        <NavigationMenuTrigger
+          data-menu={group.label}
+          className={TOP_ITEM}
+          aria-current={active ? 'page' : undefined}
+        >
           {group.label}
         </NavigationMenuTrigger>
         <NavigationMenuContent>
