@@ -252,7 +252,7 @@ contract SubscriptionIntentNonceTest is StrimzTestBase {
 
     function test_intentDigestMatchesTypehash() public view {
         bytes32 typehash = keccak256(
-            "SubscriptionIntent(uint256 merchantId,address token,uint256 amount,uint32 interval,uint64 startAt,uint64 endAt,uint256 permitDeadline,bytes32 nonce)"
+            "SubscriptionIntent(uint256 merchantId,address token,uint256 amount,uint32 interval,uint64 startAt,uint64 endAt,uint256 permitDeadline,uint256 permitValue,bytes32 nonce)"
         );
         bytes32 domainSeparator = keccak256(
             abi.encode(
@@ -264,13 +264,15 @@ contract SubscriptionIntentNonceTest is StrimzTestBase {
             )
         );
         uint256 deadline = 1_000;
+        uint256 value = AMOUNT * 3;
         bytes32 structHash = keccak256(
-            abi.encode(typehash, merchantId, address(usdc), AMOUNT, INTERVAL, uint64(5), uint64(0), deadline, NONCE)
+            abi.encode(typehash, merchantId, address(usdc), AMOUNT, INTERVAL, uint64(5), uint64(0), deadline, value, NONCE)
         );
         bytes32 expected = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
 
         assertEq(
-            subs.subscriptionIntentDigest(merchantId, address(usdc), AMOUNT, INTERVAL, 5, 0, deadline, NONCE), expected
+            subs.subscriptionIntentDigest(merchantId, address(usdc), AMOUNT, INTERVAL, 5, 0, deadline, value, NONCE),
+            expected
         );
     }
 
@@ -335,8 +337,16 @@ contract SubscriptionIntentNonceTest is StrimzTestBase {
         view
         returns (bytes memory)
     {
+        return _intentSigFor(signerPk, startAt, deadline, type(uint256).max, nonce);
+    }
+
+    function _intentSigFor(uint256 signerPk, uint64 startAt, uint256 deadline, uint256 permitValue, bytes32 nonce)
+        internal
+        view
+        returns (bytes memory)
+    {
         (uint8 v, bytes32 r, bytes32 s) = _signSubscriptionIntent(
-            subs, signerPk, merchantId, address(usdc), AMOUNT, INTERVAL, startAt, 0, deadline, nonce
+            subs, signerPk, merchantId, address(usdc), AMOUNT, INTERVAL, startAt, 0, deadline, permitValue, nonce
         );
         return abi.encodePacked(r, s, v);
     }

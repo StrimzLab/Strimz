@@ -98,7 +98,7 @@ contract Erc1271PayersTest is StrimzTestBase {
 
     function _subIntentSig(uint256 pk, uint256 deadline) internal view returns (bytes memory) {
         (uint8 v, bytes32 r, bytes32 s) = _signSubscriptionIntent(
-            subs, pk, merchantId, address(usdc), AMOUNT, INTERVAL, 0, 0, deadline, INTENT_NONCE
+            subs, pk, merchantId, address(usdc), AMOUNT, INTERVAL, 0, 0, deadline, type(uint256).max, INTENT_NONCE
         );
         return abi.encodePacked(r, s, v);
     }

@@ -308,8 +308,8 @@ echo "  signature ok (v=$PV)"
 
 SUB_NONCE=$("$CAST" keccak "strimz.e2e.subIntent.$NOW")
 SUB_INTENT_OUT=$(sign_via_forge \
-    "signSubscriptionIntent(uint256,uint256,uint32,uint64,uint64,uint256,bytes32)" \
-    "$MERCHANT_ID" "$ONE_USDC" "$INTERVAL" "$START_AT" "$END_AT" "$DEADLINE" "$SUB_NONCE")
+    "signSubscriptionIntent(uint256,uint256,uint32,uint64,uint64,uint256,uint256,bytes32)" \
+    "$MERCHANT_ID" "$ONE_USDC" "$INTERVAL" "$START_AT" "$END_AT" "$DEADLINE" "$PERMIT_VALUE" "$SUB_NONCE")
 read -r SV SR SS <<<"$SUB_INTENT_OUT"
 [ -n "${SV:-}" ] || fail "stage 4: failed to obtain SubscriptionIntent signature"
 echo "  intent signature ok (v=$SV)"
