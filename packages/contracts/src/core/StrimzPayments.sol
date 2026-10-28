@@ -107,6 +107,14 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, EIP
         emit DependencyUpdated("tokenWhitelist", address(v));
     }
 
+    /// @inheritdoc IStrimzPayments
+    function rescue(address token, address to, uint256 amount) external override onlyRole(ADMIN_ROLE) nonReentrant {
+        if (to == address(0)) revert Payments__ZeroAddress();
+        if (amount == 0) revert Payments__InvalidAmount();
+        IERC20(token).safeTransfer(to, amount);
+        emit TokensRescued(token, to, amount, msg.sender);
+    }
+
     // ----- Core flow -----
 
     /// @inheritdoc IStrimzPayments
