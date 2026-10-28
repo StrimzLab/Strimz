@@ -80,7 +80,7 @@ contract StrimzAgentEscrow is
 
     function tokenWhitelist() external view returns (ITokenWhitelist) { return _s().tokenWhitelist; }
 
-    function setTokenWhitelist(ITokenWhitelist v) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTokenWhitelist(ITokenWhitelist v) external onlyRole(DEFAULT_ADMIN_ROLE) whenPaused {
         if (address(v) == address(0)) revert AgentEscrow__ZeroAddress();
         _s().tokenWhitelist = v;
         emit DependencyUpdated("tokenWhitelist", address(v));

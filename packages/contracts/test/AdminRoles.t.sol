@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import { Upgrades, Options } from "openzeppelin-foundry-upgrades/Upgrades.sol";
-
 import { StrimzTestBase } from "./Helpers.t.sol";
-import { StrimzRegistryV1 } from "./upgrades/StrimzRegistryV1.sol";
 import { StrimzPayments } from "../src/core/StrimzPayments.sol";
 import { StrimzSubscriptions } from "../src/core/StrimzSubscriptions.sol";
 import { StrimzAgentEscrow } from "../src/agent/StrimzAgentEscrow.sol";
@@ -24,7 +21,6 @@ interface IPausableAdmin {
 }
 
 interface IRoleAdmins {
-    function initializeRoleAdmins() external;
     function getRoleAdmin(bytes32 role) external view returns (bytes32);
 }
 
@@ -32,7 +28,6 @@ contract AdminRolesTest is StrimzTestBase {
     bytes32 internal constant PAUSER_ROLE = keccak256("STRIMZ_PAUSER_ROLE");
     bytes32 internal constant ADMIN_ROLE = keccak256("STRIMZ_ADMIN_ROLE");
     bytes32 internal constant CHARGER_ROLE = keccak256("STRIMZ_CHARGER_ROLE");
-    bytes32 internal constant MERCHANT_REGISTRAR_ROLE = keccak256("STRIMZ_MERCHANT_REGISTRAR_ROLE");
 
     StrimzRegistry internal registry;
     TokenWhitelist internal whitelist;
@@ -158,41 +153,5 @@ contract AdminRolesTest is StrimzTestBase {
 
     function test_subscriptionsChargerAdministeredByAdmin() public view {
         assertEq(IRoleAdmins(address(subs)).getRoleAdmin(CHARGER_ROLE), ADMIN_ROLE);
-    }
-
-    function test_registryInitializeRoleAdminsOnce() public {
-        vm.prank(admin);
-        IRoleAdmins(address(registry)).initializeRoleAdmins();
-        assertEq(IRoleAdmins(address(registry)).getRoleAdmin(MERCHANT_REGISTRAR_ROLE), ADMIN_ROLE);
-
-        vm.expectRevert();
-        vm.prank(admin);
-        IRoleAdmins(address(registry)).initializeRoleAdmins();
-    }
-
-    function test_registryInitializeRoleAdminsRequiresDefaultAdmin() public {
-        vm.prank(admin);
-        registry.grantRole(ADMIN_ROLE, operator);
-        vm.expectRevert();
-        vm.prank(operator);
-        IRoleAdmins(address(registry)).initializeRoleAdmins();
-    }
-
-    function test_registryUpgradeSetsRoleAdmins() public {
-        Options memory v1;
-        v1.unsafeAllow = "constructor";
-        address proxy = Upgrades.deployUUPSProxy(
-            "StrimzRegistryV1.sol:StrimzRegistryV1", abi.encodeCall(StrimzRegistryV1.initialize, (admin)), v1
-        );
-
-        Options memory opts;
-        opts.referenceContract = "StrimzRegistryV1.sol:StrimzRegistryV1";
-        vm.startPrank(admin);
-        Upgrades.upgradeProxy(
-            proxy, "StrimzRegistry.sol:StrimzRegistry", abi.encodeWithSignature("initializeRoleAdmins()"), opts
-        );
-        vm.stopPrank();
-
-        assertEq(IRoleAdmins(proxy).getRoleAdmin(MERCHANT_REGISTRAR_ROLE), ADMIN_ROLE);
     }
 }

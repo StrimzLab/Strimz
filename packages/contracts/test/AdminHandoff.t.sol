@@ -5,6 +5,8 @@ import { TimelockController } from "@openzeppelin/contracts/governance/TimelockC
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 import { StrimzTestBase } from "./Helpers.t.sol";
+import { StrimzRegistryV1 } from "./upgrades/StrimzRegistryV1.sol";
+import { ProxyDeploy } from "../script/utils/ProxyDeploy.sol";
 import { AdminHandoff } from "../script/utils/AdminHandoff.sol";
 import { StrimzRegistry } from "../src/core/StrimzRegistry.sol";
 import { TokenWhitelist } from "../src/tokens/TokenWhitelist.sol";
@@ -82,7 +84,6 @@ contract AdminHandoffTest is StrimzTestBase {
         escrow = _deployAgentEscrow(deployer, whitelist);
 
         vm.startPrank(deployer);
-        registry.initializeRoleAdmins();
         feeCollector.grantRole(FEE_ACCRUER_ROLE, address(payments));
         feeCollector.grantRole(FEE_ACCRUER_ROLE, address(subs));
         whitelist.add(address(usdc));
@@ -418,8 +419,12 @@ contract AdminHandoffTest is StrimzTestBase {
         runner.run(_contracts(), _holders(), 0);
     }
 
+    /// The registry deployed before #130 never made ADMIN_ROLE the registrar's admin.
     function test_refusesRegistryWithoutRoleAdmins() public {
-        registry = _deployRegistry(deployer);
+        address old = ProxyDeploy.deploy(
+            address(new StrimzRegistryV1()), abi.encodeCall(StrimzRegistryV1.initialize, (deployer))
+        );
+        registry = StrimzRegistry(old);
         vm.expectRevert(
             abi.encodeWithSelector(AdminHandoff.AdminHandoff__ServiceRoleAdminNotSet.selector, address(registry))
         );
