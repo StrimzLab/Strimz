@@ -29,6 +29,7 @@ interface IStrimzPayments {
         uint256 netAmount,
         bytes32 ref
     );
+    event TokensRescued(address indexed token, address indexed to, uint256 amount, address indexed by);
 
     error Payments__InvalidToken(address token);
     error Payments__InvalidAmount();
@@ -42,6 +43,7 @@ interface IStrimzPayments {
     /// @notice Token delivered less than requested — fee-on-transfer,
     ///         rebasing, blocklist. Refuse to book the payment.
     error Payments__NonStandardTransfer();
+    error Payments__ZeroAddress();
 
     /// @param merchantId The merchant receiving the payment.
     /// @param token ERC20 token — must be whitelisted.
@@ -67,4 +69,8 @@ interface IStrimzPayments {
         bytes calldata authSig,
         bytes calldata intentSig
     ) external;
+
+    /// @notice Returns tokens sent straight to this contract. It never holds
+    ///         payment funds between transactions.
+    function rescue(address token, address to, uint256 amount) external;
 }

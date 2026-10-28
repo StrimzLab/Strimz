@@ -76,6 +76,7 @@ interface IStrimzSubscriptions {
     );
 
     event SubscriptionCancelled(uint256 indexed subscriptionId, address indexed by);
+    event TokensRescued(address indexed token, address indexed to, uint256 amount, address indexed by);
 
     error Subscriptions__InvalidToken(address token);
     error Subscriptions__InvalidInterval();
@@ -149,4 +150,8 @@ interface IStrimzSubscriptions {
 
     function getSubscription(uint256 subscriptionId) external view returns (Subscription memory);
     function isAttemptUsed(bytes32 chargeAttemptId) external view returns (bool);
+
+    /// @notice Returns tokens sent straight to this contract. It never holds
+    ///         payment funds between transactions.
+    function rescue(address token, address to, uint256 amount) external;
 }
