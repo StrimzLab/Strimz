@@ -39,7 +39,8 @@ interface IStrimzSubscriptions {
         Duplicate,          // 7  chargeAttemptId already spent
         Unknown,            // 8  subscriptionId never existed
         MerchantInactive,   // 9  merchant frozen or unknown at charge time
-        TransferFailed      // 10 token transfer reverted (blocklist, etc.)
+        TransferFailed,     // 10 token transfer reverted (blocklist, etc.)
+        TokenNotAllowed     // 11 token removed from the whitelist
     }
 
     /// @notice EIP-2612 permit fields the payer signs for the token.
