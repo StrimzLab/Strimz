@@ -390,6 +390,10 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
             emit SubscriptionChargeSkipped(subscriptionId, chargeAttemptId, ChargeOutcome.Ended);
             return ChargeOutcome.Ended;
         }
+        if (!$.tokenWhitelist.isWhitelisted(sub.token)) {
+            emit SubscriptionChargeSkipped(subscriptionId, chargeAttemptId, ChargeOutcome.TokenNotAllowed);
+            return ChargeOutcome.TokenNotAllowed;
+        }
 
         address payer = sub.payer;
         uint256 amount = sub.amount;
