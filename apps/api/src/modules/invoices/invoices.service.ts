@@ -7,6 +7,7 @@ import { TypedConfigService } from '../../config/index.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
 import { MerchantChainService } from '../merchants/merchant-chain.service.js'
+import { feeSplit } from '../../common/money/fee-split.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -42,8 +43,7 @@ export class InvoicesService {
 
     const merchant = await this.prisma.db.merchant.findUniqueOrThrow({ where: { id: merchantId } })
     const feeBps = await this.merchantChain.feeBpsFor(merchant)
-    const feeAmount = (BigInt(total) * BigInt(feeBps)) / 10_000n
-    const netAmount = BigInt(total) - feeAmount
+    const { feeAmount, netAmount } = feeSplit(BigInt(total), feeBps)
 
     const invoice = await this.prisma.db.$transaction(async (tx) => {
       await tx.$queryRawUnsafe(`SELECT id FROM "Merchant" WHERE id = $1 FOR UPDATE`, merchantId)
