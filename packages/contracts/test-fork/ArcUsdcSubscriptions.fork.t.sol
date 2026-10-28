@@ -78,7 +78,7 @@ contract ArcUsdcSubscriptionsForkTest is ArcForkBase {
             IStrimzSubscriptions.PermitData({ owner: address(wallet), value: type(uint256).max, deadline: deadline });
         bytes memory permitSig = _signArcPermit(ownerPk, address(wallet), address(subs), pd.value, deadline);
         (uint8 v, bytes32 r, bytes32 s) = _signSubscriptionIntent(
-            subs, ownerPk, merchantId, address(ARC_USDC), AMOUNT, 1 hours, 0, 0, deadline, nonce
+            subs, ownerPk, merchantId, address(ARC_USDC), AMOUNT, 1 hours, 0, 0, deadline, pd.value, nonce
         );
 
         uint256 id = subs.permitAndCreateSubscription(

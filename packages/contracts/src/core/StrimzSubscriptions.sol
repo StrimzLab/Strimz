@@ -37,12 +37,11 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
     /// @dev Mirrors TokenWhitelist.CAP_PERMIT_2612.
     uint8 private constant CAP_PERMIT_2612 = 1 << 0; // 0x01
 
-    /// @dev Signed by the payer alongside the ERC-2612 permit. Binds
-    ///      every subscription parameter to the specific permit so a
-    ///      valid permit alone cannot enrol the payer in an arbitrary
-    ///      subscription.
+    /// @dev Signed by the payer alongside the ERC-2612 permit, so a permit
+    ///      alone can't enrol them in a plan they didn't pick, and the plan
+    ///      can't be paired with a different approval amount.
     bytes32 private constant SUBSCRIPTION_INTENT_TYPEHASH = keccak256(
-        "SubscriptionIntent(uint256 merchantId,address token,uint256 amount,uint32 interval,uint64 startAt,uint64 endAt,uint256 permitDeadline,bytes32 nonce)"
+        "SubscriptionIntent(uint256 merchantId,address token,uint256 amount,uint32 interval,uint64 startAt,uint64 endAt,uint256 permitDeadline,uint256 permitValue,bytes32 nonce)"
     );
 
     /// @custom:storage-location erc7201:strimz.storage.StrimzSubscriptions
@@ -198,6 +197,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
             revert Subscriptions__UnsupportedCapability(token);
         }
         $.registry.requireActiveMerchant(merchantId);
+        if (permitData.value < amount) revert Subscriptions__PermitBelowAmount(permitData.value, amount);
 
         // Verify the Strimz intent BEFORE calling permit — a bad intent
         // must not consume the permit's nonce on the token.
@@ -255,6 +255,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
             startAt,
             endAt,
             permitData.deadline,
+            permitData.value,
             nonce
         ));
         bytes32 digest = _hashTypedDataV4(structHash);
@@ -300,6 +301,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         uint64 startAt,
         uint64 endAt,
         uint256 permitDeadline,
+        uint256 permitValue,
         bytes32 nonce
     ) external view returns (bytes32) {
         bytes32 structHash = keccak256(abi.encode(
@@ -311,6 +313,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
             startAt,
             endAt,
             permitDeadline,
+            permitValue,
             nonce
         ));
         return _hashTypedDataV4(structHash);

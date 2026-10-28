@@ -33,6 +33,7 @@ interface ISubscriptionIntentDigest {
         uint64 startAt,
         uint64 endAt,
         uint256 permitDeadline,
+        uint256 permitValue,
         bytes32 nonce
     ) external view returns (bytes32);
 }
@@ -113,11 +114,12 @@ contract Digests is Script {
         uint64 startAt,
         uint64 endAt,
         uint256 permitDeadline,
+        uint256 permitValue,
         bytes32 nonce
     ) external view {
         bytes32 digest = ISubscriptionIntentDigest(vm.envAddress("STRIMZ_SUBSCRIPTIONS_ADDRESS"))
             .subscriptionIntentDigest(
-                merchantId, vm.envAddress("ARC_USDC_ADDRESS"), amount, interval, startAt, endAt, permitDeadline, nonce
+                merchantId, vm.envAddress("ARC_USDC_ADDRESS"), amount, interval, startAt, endAt, permitDeadline, permitValue, nonce
             );
         _emitSig(digest);
     }

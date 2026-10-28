@@ -6,7 +6,7 @@ pragma solidity ^0.8.28;
 ///         now: an EIP-2612 permit the token verifies, and a Strimz
 ///         SubscriptionIntent this contract verifies. The intent binds
 ///         merchantId + token + amount + interval + startAt + endAt +
-///         permitDeadline so a valid permit cannot be re-purposed to
+///         permitDeadline + permitValue so a valid permit cannot be re-purposed to
 ///         enrol the payer in a different subscription.
 ///
 ///         Invariants we prove:
@@ -92,7 +92,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         uint256 permitDeadline
     ) internal view returns (bytes memory) {
         (uint8 v, bytes32 r, bytes32 s) = _signSubscriptionIntent(
-            subs, signerPk, mid, token, amount, interval, startAt, endAt, permitDeadline, INTENT_NONCE
+            subs, signerPk, mid, token, amount, interval, startAt, endAt, permitDeadline, type(uint256).max, INTENT_NONCE
         );
         return abi.encodePacked(r, s, v);
     }

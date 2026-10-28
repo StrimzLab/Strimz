@@ -91,6 +91,7 @@ interface IStrimzSubscriptions {
     error Subscriptions__InvalidIntent();
     error Subscriptions__AlreadyCancelled(uint256 subscriptionId);
     error Subscriptions__IntentAlreadyUsed(bytes32 nonce);
+    error Subscriptions__PermitBelowAmount(uint256 value, uint256 amount);
     /// @notice A payer without code sent a permit signature that isn't 65 bytes.
     error Subscriptions__InvalidSignature();
 
