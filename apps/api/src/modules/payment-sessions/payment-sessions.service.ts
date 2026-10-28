@@ -17,6 +17,7 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
 import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { tokenAddressForCurrency } from './token-resolver.js'
+import { feeSplit } from '../../common/money/fee-split.js'
 
 /**
  * Always pull the merchant relation on session reads — the serialiser
@@ -65,8 +66,7 @@ export class PaymentSessionsService {
     const merchant = await db.merchant.findUniqueOrThrow({ where: { id: merchantId } })
     const feeBps = await this.merchantChain.feeBpsFor(merchant)
     const amount = BigInt(input.amount)
-    const feeAmount = (amount * BigInt(feeBps)) / 10_000n
-    const netAmount = amount - feeAmount
+    const { feeAmount, netAmount } = feeSplit(amount, feeBps)
     const expiresAt = new Date(Date.now() + input.expiresInMinutes * 60_000)
 
     const customer = input.customer?.walletAddress
