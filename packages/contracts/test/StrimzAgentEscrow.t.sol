@@ -17,9 +17,8 @@ pragma solidity ^0.8.28;
 ///                Funded past START_TIMEOUT       → client reclaims
 ///                InProgress past DELIVERY        → client reclaims
 ///                Delivered past APPROVAL         → vendor reclaims
-///                Disputed past DISPUTE_TIMEOUT   → client reclaims
-///              (Vendor cannot reclaim from Disputed — they benefit
-///              from a standstill so they don't get to end it early.)
+///                Disputed past DISPUTE_TIMEOUT   → the party the
+///                                                  pre-dispute status favoured
 ///           5. Dispute resolution splits between parties. Sum must
 ///              exactly equal the escrow — no dust trapped, no
 ///              cross-job draining.
@@ -270,9 +269,8 @@ contract StrimzAgentEscrowTest is StrimzTestBase {
         assertEq(usdc.balanceOf(vendor) - before, AMOUNT);
     }
 
-    // Vendor disputes preemptively hoping to trap client funds. After
-    // DISPUTE_TIMEOUT the client escapes. Vendor has NO reclaim path
-    // from Disputed — they benefit from the standstill.
+    // Vendor disputes before delivering, hoping to trap client funds.
+    // After DISPUTE_TIMEOUT the client escapes.
     function test_clientReclaimsDisputedAfterDisputeTimeout() public {
         uint256 jobId = _createInProgress();
         vm.prank(vendor);

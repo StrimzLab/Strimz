@@ -12,7 +12,8 @@ import { StrimzPausable } from "../access/Pausable.sol";
 
 /// @title StrimzAgentEscrow
 /// @notice ERC-8183 escrow. Timeouts + dispute resolution guarantee
-///         escrowed funds always have a path out.
+///         escrowed funds always have a path out. Pause only stops new
+///         jobs from being created or funded.
 /// @custom:oz-upgrades-unsafe-allow constructor
 contract StrimzAgentEscrow is
     IStrimzAgentEscrow,
@@ -40,6 +41,7 @@ contract StrimzAgentEscrow is
         ITokenWhitelist tokenWhitelist;
         uint256 nextJobId;
         mapping(uint256 jobId => Job data) jobs;
+        mapping(uint256 jobId => JobStatus status) disputedFrom;
     }
 
     // keccak256(abi.encode(uint256(keccak256("strimz.storage.StrimzAgentEscrow")) - 1)) & ~bytes32(uint256(0xff))
@@ -150,7 +152,7 @@ contract StrimzAgentEscrow is
     }
 
     /// @inheritdoc IStrimzAgentEscrow
-    function startJob(uint256 jobId) external override whenNotPaused {
+    function startJob(uint256 jobId) external override {
         Job storage job = _loadJob(jobId);
         if (msg.sender != job.vendor) revert AgentEscrow__NotVendor();
         if (job.status != JobStatus.Funded) revert AgentEscrow__InvalidState(jobId, job.status);
@@ -159,7 +161,7 @@ contract StrimzAgentEscrow is
     }
 
     /// @inheritdoc IStrimzAgentEscrow
-    function submitDeliverable(uint256 jobId, bytes32 deliverableHash) external override whenNotPaused {
+    function submitDeliverable(uint256 jobId, bytes32 deliverableHash) external override {
         Job storage job = _loadJob(jobId);
         if (msg.sender != job.vendor) revert AgentEscrow__NotVendor();
         if (job.status != JobStatus.InProgress) revert AgentEscrow__InvalidState(jobId, job.status);
@@ -169,7 +171,7 @@ contract StrimzAgentEscrow is
     }
 
     /// @inheritdoc IStrimzAgentEscrow
-    function approveAndRelease(uint256 jobId) external override whenNotPaused nonReentrant {
+    function approveAndRelease(uint256 jobId) external override nonReentrant {
         Job storage job = _loadJob(jobId);
         if (msg.sender != job.assessor) revert AgentEscrow__NotAssessor();
         if (job.status != JobStatus.Delivered) revert AgentEscrow__InvalidState(jobId, job.status);
@@ -184,18 +186,19 @@ contract StrimzAgentEscrow is
     }
 
     /// @inheritdoc IStrimzAgentEscrow
-    function dispute(uint256 jobId, string calldata reason) external override whenNotPaused {
+    function dispute(uint256 jobId, string calldata reason) external override {
         Job storage job = _loadJob(jobId);
         if (msg.sender != job.client && msg.sender != job.vendor) revert AgentEscrow__NotParty();
         if (job.status != JobStatus.Delivered && job.status != JobStatus.InProgress) {
             revert AgentEscrow__InvalidState(jobId, job.status);
         }
+        _s().disputedFrom[jobId] = job.status;
         _setStatus(job, JobStatus.Disputed);
         emit JobDisputed(jobId, msg.sender, reason);
     }
 
     /// @inheritdoc IStrimzAgentEscrow
-    function cancelJob(uint256 jobId, string calldata reason) external override whenNotPaused nonReentrant {
+    function cancelJob(uint256 jobId, string calldata reason) external override nonReentrant {
         Job storage job = _loadJob(jobId);
         if (msg.sender != job.client) revert AgentEscrow__NotClient();
         if (job.status != JobStatus.Proposed && job.status != JobStatus.Funded) {
@@ -218,7 +221,6 @@ contract StrimzAgentEscrow is
     function resolveDispute(uint256 jobId, uint256 toVendor, uint256 toClient)
         external
         override
-        whenNotPaused
         onlyRole(DISPUTE_RESOLVER_ROLE)
         nonReentrant
     {
@@ -244,9 +246,9 @@ contract StrimzAgentEscrow is
     ///        client → Funded past START_TIMEOUT
     ///        client → InProgress past DELIVERY_TIMEOUT
     ///        vendor → Delivered past APPROVAL_TIMEOUT
-    ///        client → Disputed past DISPUTE_TIMEOUT
+    ///        Disputed past DISPUTE_TIMEOUT → whoever the pre-dispute status favoured
     ///      Proposed jobs hold no escrow, so no reclaim.
-    function reclaimAfterTimeout(uint256 jobId) external override whenNotPaused nonReentrant {
+    function reclaimAfterTimeout(uint256 jobId) external override nonReentrant {
         Job storage job = _loadJob(jobId);
         JobStatus status = job.status;
         uint64 changedAt = job.statusChangedAt;
@@ -267,11 +269,16 @@ contract StrimzAgentEscrow is
             recipient = job.vendor;
             window = APPROVAL_TIMEOUT;
         } else if (status == JobStatus.Disputed) {
-            // Vendor benefits from a standstill, so only the client
-            // gets a reclaim path from Disputed.
-            if (msg.sender != job.client) revert AgentEscrow__NotClient();
-            recipient = job.client;
+            // A silent resolver mustn't change the outcome, so the job
+            // goes where it was heading before the dispute.
             window = DISPUTE_TIMEOUT;
+            if (_s().disputedFrom[jobId] == JobStatus.Delivered) {
+                if (msg.sender != job.vendor) revert AgentEscrow__NotVendor();
+                recipient = job.vendor;
+            } else {
+                if (msg.sender != job.client) revert AgentEscrow__NotClient();
+                recipient = job.client;
+            }
         } else {
             revert AgentEscrow__InvalidState(jobId, status);
         }
@@ -290,6 +297,11 @@ contract StrimzAgentEscrow is
     /// @inheritdoc IStrimzAgentEscrow
     function getJob(uint256 jobId) external view override returns (Job memory) {
         return _s().jobs[jobId];
+    }
+
+    /// @inheritdoc IStrimzAgentEscrow
+    function disputedFrom(uint256 jobId) external view override returns (JobStatus) {
+        return _s().disputedFrom[jobId];
     }
 
     // ---------- Internals ----------

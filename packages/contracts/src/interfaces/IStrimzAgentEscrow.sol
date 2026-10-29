@@ -89,9 +89,12 @@ interface IStrimzAgentEscrow {
     ///         DISPUTE_RESOLVER_ROLE only.
     function resolveDispute(uint256 jobId, uint256 toVendor, uint256 toClient) external;
 
-    /// @notice Timeout-based recovery. See the contract's `_reclaim`
-    ///         table for standing.
+    /// @notice Timeout-based recovery. See `reclaimAfterTimeout` in the
+    ///         contract for who can call it from each status.
     function reclaimAfterTimeout(uint256 jobId) external;
 
     function getJob(uint256 jobId) external view returns (Job memory);
+
+    /// @notice The status a Disputed job left: InProgress or Delivered.
+    function disputedFrom(uint256 jobId) external view returns (JobStatus);
 }
