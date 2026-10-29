@@ -76,6 +76,7 @@ interface IStrimzSubscriptions {
     );
 
     event SubscriptionCancelled(uint256 indexed subscriptionId, address indexed by);
+    event SubscriptionReinstated(uint256 indexed subscriptionId, address indexed by);
     event TokensRescued(address indexed token, address indexed to, uint256 amount, address indexed by);
 
     error Subscriptions__InvalidToken(address token);
@@ -94,6 +95,8 @@ interface IStrimzSubscriptions {
     error Subscriptions__AlreadyCancelled(uint256 subscriptionId);
     error Subscriptions__IntentAlreadyUsed(bytes32 nonce);
     error Subscriptions__PermitBelowAmount(uint256 value, uint256 amount);
+    error Subscriptions__NotReinstatable(uint256 subscriptionId);
+    error Subscriptions__ReinstateWindowClosed(uint256 subscriptionId);
     /// @notice A payer without code sent a permit signature that isn't 65 bytes.
     error Subscriptions__InvalidSignature();
 
@@ -141,8 +144,14 @@ interface IStrimzSubscriptions {
         bytes calldata intentSig
     ) external returns (uint256 subscriptionId);
 
-    /// @notice Callable by the payer, the merchant owner, or a CHARGER_ROLE holder cancelling for the merchant.
+    /// @notice Callable by the payer, the merchant owner, or a SUBSCRIPTION_CANCELLER_ROLE holder cancelling for the merchant.
     function cancel(uint256 subscriptionId) external;
+
+    /// @notice Undoes a SUBSCRIPTION_CANCELLER_ROLE cancel within `REINSTATE_WINDOW`. ADMIN_ROLE only.
+    function reinstate(uint256 subscriptionId) external;
+
+    /// @notice When a SUBSCRIPTION_CANCELLER_ROLE holder cancelled it, or 0.
+    function operatorCancelledAt(uint256 subscriptionId) external view returns (uint64);
 
     function batchCharge(uint256[] calldata subscriptionIds, bytes32[] calldata chargeAttemptIds)
         external

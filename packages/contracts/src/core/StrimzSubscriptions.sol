@@ -34,6 +34,9 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
     ///         keeps a safety margin below block gas.
     uint256 public constant MAX_BATCH_SIZE = 500;
 
+    /// @notice How long an admin has to undo a SUBSCRIPTION_CANCELLER_ROLE cancel.
+    uint64 public constant REINSTATE_WINDOW = 7 days;
+
     /// @dev Mirrors TokenWhitelist.CAP_PERMIT_2612.
     uint8 private constant CAP_PERMIT_2612 = 1 << 0; // 0x01
 
@@ -53,6 +56,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         mapping(uint256 subscriptionId => Subscription data) subscriptions;
         mapping(bytes32 chargeAttemptId => bool used) usedAttempts;
         mapping(address payer => mapping(bytes32 nonce => bool used)) usedIntentNonces;
+        mapping(uint256 subscriptionId => uint64 cancelledAt) operatorCancelledAt;
     }
 
     // keccak256(abi.encode(uint256(keccak256("strimz.storage.StrimzSubscriptions")) - 1)) & ~bytes32(uint256(0xff))
@@ -92,7 +96,9 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(PAUSER_ROLE, admin);
         _grantRole(CHARGER_ROLE, admin);
+        _grantRole(SUBSCRIPTION_CANCELLER_ROLE, admin);
         _setRoleAdmin(CHARGER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(SUBSCRIPTION_CANCELLER_ROLE, ADMIN_ROLE);
 
         Storage storage $ = _s();
         $.registry = registry_;
@@ -334,15 +340,29 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         if (sub.payer == address(0)) revert Subscriptions__UnknownSubscription(subscriptionId);
 
         IStrimzRegistry.Merchant memory m = $.registry.getMerchant(sub.merchantId);
-        if (msg.sender != sub.payer && msg.sender != m.owner && !hasRole(CHARGER_ROLE, msg.sender)) {
-            revert Subscriptions__NotSubscriptionParty();
-        }
+        bool party = msg.sender == sub.payer || msg.sender == m.owner;
+        if (!party && !hasRole(SUBSCRIPTION_CANCELLER_ROLE, msg.sender)) revert Subscriptions__NotSubscriptionParty();
         // The indexer rebuilds state from logs; a second SubscriptionCancelled
         // for the same id would be a state transition that never happened.
         if (sub.cancelled) revert Subscriptions__AlreadyCancelled(subscriptionId);
 
         sub.cancelled = true;
+        if (!party) $.operatorCancelledAt[subscriptionId] = uint64(block.timestamp);
         emit SubscriptionCancelled(subscriptionId, msg.sender);
+    }
+
+    /// @inheritdoc IStrimzSubscriptions
+    function reinstate(uint256 subscriptionId) external override onlyRole(ADMIN_ROLE) {
+        Storage storage $ = _s();
+        uint64 cancelledAt = $.operatorCancelledAt[subscriptionId];
+        Subscription storage sub = $.subscriptions[subscriptionId];
+        if (cancelledAt == 0 || !sub.cancelled) revert Subscriptions__NotReinstatable(subscriptionId);
+        if (block.timestamp > cancelledAt + REINSTATE_WINDOW) {
+            revert Subscriptions__ReinstateWindowClosed(subscriptionId);
+        }
+        sub.cancelled = false;
+        delete $.operatorCancelledAt[subscriptionId];
+        emit SubscriptionReinstated(subscriptionId, msg.sender);
     }
 
     /// @inheritdoc IStrimzSubscriptions
@@ -504,6 +524,11 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
     /// @inheritdoc IStrimzSubscriptions
     function getSubscription(uint256 subscriptionId) external view override returns (Subscription memory) {
         return _s().subscriptions[subscriptionId];
+    }
+
+    /// @inheritdoc IStrimzSubscriptions
+    function operatorCancelledAt(uint256 subscriptionId) external view override returns (uint64) {
+        return _s().operatorCancelledAt[subscriptionId];
     }
 
     /// @inheritdoc IStrimzSubscriptions

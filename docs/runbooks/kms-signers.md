@@ -8,10 +8,10 @@ never leave KMS. The server holds an access key for an IAM user that can only as
 two keys to sign, and only from the Lightsail static IP. With `NODE_ENV=production`
 neither service starts with a plaintext key.
 
-| Service   | Key alias                          | Contract role                      |
-| --------- | ---------------------------------- | ---------------------------------- |
-| API       | `alias/strimz-<network>-relayer`   | `MERCHANT_REGISTRAR_ROLE`          |
-| Scheduler | `alias/strimz-<network>-scheduler` | `CHARGER_ROLE`, `FEE_MANAGER_ROLE` |
+| Service   | Key alias                          | Contract role                                                     |
+| --------- | ---------------------------------- | ----------------------------------------------------------------- |
+| API       | `alias/strimz-<network>-relayer`   | `MERCHANT_REGISTRAR_ROLE`                                         |
+| Scheduler | `alias/strimz-<network>-scheduler` | `CHARGER_ROLE`, `SUBSCRIPTION_CANCELLER_ROLE`, `FEE_MANAGER_ROLE` |
 
 `<network>` is `testnet` or `mainnet`. Each network has its own two keys and its own
 IAM user. The commands below use the AWS CLI and Foundry's `cast`.
@@ -104,7 +104,10 @@ Role ids:
 ```bash
 REGISTRAR=$(cast keccak STRIMZ_MERCHANT_REGISTRAR_ROLE)
 CHARGER=$(cast keccak STRIMZ_CHARGER_ROLE)
+CANCELLER=$(cast keccak STRIMZ_SUBSCRIPTION_CANCELLER_ROLE)
 ```
+
+`SUBSCRIPTION_CANCELLER_ROLE` exists only on the Subscriptions contract deployed with #142.
 
 - **Before the admin handoff (#142):** the deployer still holds `ADMIN_ROLE` and grants
   directly.
@@ -114,9 +117,11 @@ CHARGER=$(cast keccak STRIMZ_CHARGER_ROLE)
     --private-key "$DEPLOYER_KEY" --rpc-url "$ARC_RPC_URL"
   cast send "$SUBSCRIPTIONS" "grantRole(bytes32,address)" "$CHARGER" "$NEW_SCHEDULER" \
     --private-key "$DEPLOYER_KEY" --rpc-url "$ARC_RPC_URL"
+  cast send "$SUBSCRIPTIONS" "grantRole(bytes32,address)" "$CANCELLER" "$NEW_SCHEDULER" \
+    --private-key "$DEPLOYER_KEY" --rpc-url "$ARC_RPC_URL"
   ```
 
-- **After the handoff:** the Safe holds `ADMIN_ROLE`. Propose the same two `grantRole`
+- **After the handoff:** the Safe holds `ADMIN_ROLE`. Propose the same `grantRole`
   calls as a Safe transaction. Better still, run the handoff with the KMS addresses as
   `STRIMZ_RELAYER_ADDRESS` and `STRIMZ_SCHEDULER_ADDRESS`, so it grants them directly.
 

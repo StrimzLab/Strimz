@@ -73,6 +73,21 @@ contract SubscriptionsHandler is Test {
         SUBS.cancel(id);
     }
 
+    function operatorCancel(uint8 idx) external {
+        if (subIds.length == 0) return;
+        uint256 id = subIds[idx % subIds.length];
+        if (SUBS.getSubscription(id).cancelled) return;
+        SUBS.cancel(id);
+    }
+
+    function reinstate(uint8 idx) external {
+        if (subIds.length == 0) return;
+        uint256 id = subIds[idx % subIds.length];
+        uint64 at = SUBS.operatorCancelledAt(id);
+        if (at == 0 || block.timestamp > at + SUBS.REINSTATE_WINDOW()) return;
+        SUBS.reinstate(id);
+    }
+
     function warp(uint32 secondsIn) external {
         vm.warp(block.timestamp + bound(secondsIn, 1, 60 days));
     }
@@ -101,8 +116,13 @@ contract SubscriptionsInvariantsTest is StdInvariant, StrimzTestBase {
 
         handler = new SubscriptionsHandler(subs, usdc, mid, FEE_BPS);
         bytes32 charger = subs.CHARGER_ROLE();
-        vm.prank(admin);
+        bytes32 cancellerRole = subs.SUBSCRIPTION_CANCELLER_ROLE();
+        bytes32 adminRole = subs.ADMIN_ROLE();
+        vm.startPrank(admin);
         subs.grantRole(charger, address(handler));
+        subs.grantRole(cancellerRole, address(handler));
+        subs.grantRole(adminRole, address(handler));
+        vm.stopPrank();
         targetContract(address(handler));
     }
 
