@@ -22,10 +22,10 @@ Refs #378 (epic #387). ADR: [ADR-2026-10-29-scheduler-key-limits](../adr/ADR-202
 
 ### Subscriptions
 
-- **`CANCELLER_ROLE`** (`keccak256("STRIMZ_CANCELLER_ROLE")` = `0x923a66ef…aa40`):
+- **`SUBSCRIPTION_CANCELLER_ROLE`** (`keccak256("STRIMZ_SUBSCRIPTION_CANCELLER_ROLE")` = `0xae12821e…5b00`):
   - `cancel` now needs this role. `CHARGER_ROLE` keeps only `batchCharge`.
   - The constructor grants the role to `admin` and makes `ADMIN_ROLE` its role admin.
-- **Operator cancels:** a cancel by `CANCELLER_ROLE` (not the payer or merchant owner) is recorded in `operatorCancelledAt(id)` (`0x6f26d708`). Payer and owner cancels stay final.
+- **Operator cancels:** a cancel by `SUBSCRIPTION_CANCELLER_ROLE` (not the payer or merchant owner) is recorded in `operatorCancelledAt(id)` (`0x6f26d708`). Payer and owner cancels stay final.
 - **`reinstate(uint256)`** (`0xb3100f99`):
   - only `ADMIN_ROLE` can call it, and it works while paused;
   - it undoes an operator cancel within `REINSTATE_WINDOW` (7 days);
@@ -45,8 +45,13 @@ Refs #378 (epic #387). ADR: [ADR-2026-10-29-scheduler-key-limits](../adr/ADR-202
 
 ### Handoff
 
-- The scheduler also gets `CANCELLER_ROLE`, so the role table grows to 36 grants, or 39 with a guardian.
+- The scheduler also gets `SUBSCRIPTION_CANCELLER_ROLE`, so the role table grows to 36 grants, or 39 with a guardian.
 - `renounceAll` and `verify` cover the new role, and the role-admin check includes it.
+
+### Indexer
+
+- `internal/abi/roles.go` names `SUBSCRIPTION_CANCELLER_ROLE` in role events. Its cross-check test reads the role constants from the contract sources, so it ships in this PR.
+- The name avoids the timelock's own `CANCELLER_ROLE`, which the indexer already reports.
 
 ### Docs
 
@@ -58,11 +63,10 @@ Refs #378 (epic #387). ADR: [ADR-2026-10-29-scheduler-key-limits](../adr/ADR-202
   - For a fee increase (Free to Starter), schedule it with `setFeeBps`, then call `commitFeeBps` on a later tick once `pendingFeeOf` shows it is due.
   - Move `Merchant.tier`, write `merchant.plan_upgraded` and email the merchant only after the fee on chain matches the plan.
   - Decreases are unchanged.
-- **Scheduler agent-action cancel:** no change, because the scheduler key holds `CANCELLER_ROLE` after the handoff.
+- **Scheduler agent-action cancel:** no change, because the scheduler key holds `SUBSCRIPTION_CANCELLER_ROLE` after the handoff.
 - **Indexer:**
   - `SubscriptionReinstated` moves the subscription back to `active`, with an audit row and an admin alert.
   - `MerchantFeeIncreaseScheduled` and `MerchantFeeIncreaseCancelled` get audit rows and admin alerts.
-  - Add `CANCELLER_ROLE` to `internal/abi/roles.go`, so role events name it.
 - **API:** fire `subscription.reactivated` to the merchant when a subscription is reinstated.
 - **Incident runbook:** for a leaked scheduler key:
   1. Revoke its roles from the Safe.
@@ -87,7 +91,7 @@ Refs #378 (epic #387). ADR: [ADR-2026-10-29-scheduler-key-limits](../adr/ADR-202
 - **Updated:**
   - `StrimzSubscriptions.t.sol`: `test_chargerCanCancel` is now `test_cancellerCanCancel`, and `test_chargerSecondCancelReverts` is now `test_cancellerSecondCancelReverts`. They use a scheduler that holds both roles and also check `operatorCancelledAt`.
   - `FeeManager.t.sol`: `test_feeManagerMovesAFreeMerchantToStarterThenGrowth` commits Free to Starter after the delay, and Starter to Growth still applies at once.
-  - `AdminHandoff.t.sol` checks that the scheduler holds `CANCELLER_ROLE`, the relayer doesn't, and `ADMIN_ROLE` administers it.
+  - `AdminHandoff.t.sol` checks that the scheduler holds `SUBSCRIPTION_CANCELLER_ROLE`, the relayer doesn't, and `ADMIN_ROLE` administers it.
   - `SubscriptionsInvariants` gains operator-cancel and reinstate actions. Its three invariants hold over 256 runs and 128,000 calls, with 0 reverts.
 - `./scripts/preflight.sh` passes in full.
 

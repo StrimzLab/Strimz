@@ -25,12 +25,14 @@ On the issue, the maintainer chose to make operator cancels undoable and to dela
 
 ### Subscriptions: a separate cancel role, and operator cancels the Safe can undo
 
-1. **New role** `CANCELLER_ROLE = keccak256("STRIMZ_CANCELLER_ROLE")` in `StrimzAccessControl`.
+1. **New role** `SUBSCRIPTION_CANCELLER_ROLE = keccak256("STRIMZ_SUBSCRIPTION_CANCELLER_ROLE")` in `StrimzAccessControl`.
    - The constructor grants it to `admin` and makes `ADMIN_ROLE` its role admin, the same as `CHARGER_ROLE`.
    - `CHARGER_ROLE` keeps `batchCharge` and loses `cancel`.
+   - The name avoids the timelock's own `CANCELLER_ROLE`, which the indexer already names in admin alerts.
+   - This replaces the call in ADR-2026-10-17-subscription-cancel-onchain not to add a separate cancel role. That ADR predates making operator cancels undoable.
 2. **`cancel`:**
    - The payer or the merchant owner cancels as today, and their cancel is final.
-   - A caller with `CANCELLER_ROLE` (and neither payer nor owner) also cancels, but the cancel is recorded in a new `mapping(uint256 => uint64) operatorCancelledAt`. It is appended to the ERC-7201 `Storage`.
+   - A caller with `SUBSCRIPTION_CANCELLER_ROLE` (and neither payer nor owner) also cancels, but the cancel is recorded in a new `mapping(uint256 => uint64) operatorCancelledAt`. It is appended to the ERC-7201 `Storage`.
    - `SubscriptionCancelled(subscriptionId, by)` is unchanged.
 3. **New `reinstate(uint256 subscriptionId)`:**
    - Only `ADMIN_ROLE` can call it, which is the Safe or the timelock. It works while paused.
@@ -57,9 +59,9 @@ On the issue, the maintainer chose to make operator cancels undoable and to dela
 ### Handoff
 
 11. **Role table:**
-    - The scheduler gets `CHARGER_ROLE` and `CANCELLER_ROLE` on Subscriptions, and keeps `FEE_MANAGER_ROLE` on the Registry.
-    - `_roles()` gains `CANCELLER_ROLE`, so `renounceAll` and `verify` cover it. The table grows from 35/38 grants to 36/39.
-    - `_checkServiceRoleAdmins` also checks that `CANCELLER_ROLE` is administered by `ADMIN_ROLE`.
+    - The scheduler gets `CHARGER_ROLE` and `SUBSCRIPTION_CANCELLER_ROLE` on Subscriptions, and keeps `FEE_MANAGER_ROLE` on the Registry.
+    - `_roles()` gains `SUBSCRIPTION_CANCELLER_ROLE`, so `renounceAll` and `verify` cover it. The table grows from 35/38 grants to 36/39.
+    - `_checkServiceRoleAdmins` also checks that `SUBSCRIPTION_CANCELLER_ROLE` is administered by `ADMIN_ROLE`.
 
 ### Ships with #142 (app switch)
 
@@ -67,7 +69,7 @@ On the issue, the maintainer chose to make operator cancels undoable and to dela
   - The plan-upgrade cron schedules an increase, then calls `commitFeeBps` on a later tick once it is due.
   - It moves `Merchant.tier`, writes the audit entry and emails the merchant only after the fee on chain matches the new plan.
   - Decreases work as today.
-  - The agent-action cancel worker needs no change, since the scheduler holds `CANCELLER_ROLE`.
+  - The agent-action cancel worker needs no change, since the scheduler holds `SUBSCRIPTION_CANCELLER_ROLE`.
 - **Indexer:**
   - `SubscriptionReinstated` sets the subscription back to `active` and writes an audit row.
   - `MerchantFeeIncreaseScheduled` and `MerchantFeeIncreaseCancelled` write audit rows.
@@ -82,7 +84,7 @@ sequenceDiagram
     participant S as Subscriptions
     participant R as Registry
     participant Safe
-    K->>S: cancel(id) [CANCELLER_ROLE]
+    K->>S: cancel(id) [SUBSCRIPTION_CANCELLER_ROLE]
     Note over S: cancelled, operatorCancelledAt = now
     Safe->>S: reinstate(id) within 7 days
     Note over S: active again; next charge covers the current period only
@@ -120,7 +122,7 @@ sequenceDiagram
   - Reinstate is refused for payer and owner cancels and after 7 days, and only `ADMIN_ROLE` can call it.
   - A decrease by the fee manager applies at once; an increase applies only via `commitFeeBps` after 24 hours, and the Safe can cancel it.
   - An admin `setFeeBps` is immediate.
-  - The handoff tests grant and verify `CANCELLER_ROLE`.
+  - The handoff tests grant and verify `SUBSCRIPTION_CANCELLER_ROLE`.
   - The existing tests pass.
 - **Invariant:** `SubscriptionsInvariants` gains operator cancel and reinstate actions, and its three invariants still hold.
 - `./scripts/preflight.sh` passes in full.

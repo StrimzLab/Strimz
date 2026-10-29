@@ -129,22 +129,22 @@ deploy is verified and smoke-tested, before any merchant registers (step 8 below
 
 No single key controls the contracts after the handoff.
 
-| Role                      | Contracts                                                | Holder                     |
-| ------------------------- | -------------------------------------------------------- | -------------------------- |
-| `DEFAULT_ADMIN_ROLE`      | all seven                                                | Timelock                   |
-| `UPGRADER_ROLE`           | Registry, Whitelist, FeeCollector, AgentRegistry, Escrow | Timelock                   |
-| `TOKEN_MANAGER_ROLE`      | TokenWhitelist                                           | Timelock                   |
-| `ADMIN_ROLE`              | Registry, Payments, Subscriptions, Escrow                | Safe and Timelock          |
-| `PAUSER_ROLE`             | Payments, Subscriptions, Escrow                          | Safe, Timelock, guardian   |
-| `TREASURY_ROLE`           | FeeCollector                                             | Safe                       |
-| `DISPUTE_RESOLVER_ROLE`   | Escrow                                                   | Safe                       |
-| `AGENT_ADMIN_ROLE`        | AgentRegistry                                            | Safe                       |
-| `MERCHANT_REGISTRAR_ROLE` | Registry                                                 | API relayer                |
-| `CHARGER_ROLE`            | Subscriptions (`batchCharge`)                            | Scheduler                  |
-| `CANCELLER_ROLE`          | Subscriptions (`cancel`; the Safe can `reinstate`)       | Scheduler                  |
-| `FEE_MANAGER_ROLE`        | Registry (`setFeeBps`; increases wait 24 hours)          | Scheduler                  |
-| `FEE_ACCRUER_ROLE`        | FeeCollector                                             | Payments and Subscriptions |
-| any role                  | any                                                      | Deployer: none (renounced) |
+| Role                          | Contracts                                                | Holder                     |
+| ----------------------------- | -------------------------------------------------------- | -------------------------- |
+| `DEFAULT_ADMIN_ROLE`          | all seven                                                | Timelock                   |
+| `UPGRADER_ROLE`               | Registry, Whitelist, FeeCollector, AgentRegistry, Escrow | Timelock                   |
+| `TOKEN_MANAGER_ROLE`          | TokenWhitelist                                           | Timelock                   |
+| `ADMIN_ROLE`                  | Registry, Payments, Subscriptions, Escrow                | Safe and Timelock          |
+| `PAUSER_ROLE`                 | Payments, Subscriptions, Escrow                          | Safe, Timelock, guardian   |
+| `TREASURY_ROLE`               | FeeCollector                                             | Safe                       |
+| `DISPUTE_RESOLVER_ROLE`       | Escrow                                                   | Safe                       |
+| `AGENT_ADMIN_ROLE`            | AgentRegistry                                            | Safe                       |
+| `MERCHANT_REGISTRAR_ROLE`     | Registry                                                 | API relayer                |
+| `CHARGER_ROLE`                | Subscriptions (`batchCharge`)                            | Scheduler                  |
+| `SUBSCRIPTION_CANCELLER_ROLE` | Subscriptions (`cancel`; the Safe can `reinstate`)       | Scheduler                  |
+| `FEE_MANAGER_ROLE`            | Registry (`setFeeBps`; increases wait 24 hours)          | Scheduler                  |
+| `FEE_ACCRUER_ROLE`            | FeeCollector                                             | Payments and Subscriptions |
+| any role                      | any                                                      | Deployer: none (renounced) |
 
 - **Slow, through the timelock:** upgrades, dependency rotation, the token whitelist and
   granting any role. The Safe proposes; anyone can execute once the delay has passed.
@@ -153,9 +153,9 @@ No single key controls the contracts after the handoff.
   `maxFeeBps`), `setActive`, `adminCancel*`, fee withdrawals, dispute resolution, agent
   reputation, `reinstate` of an operator cancel, `cancelFeeIncrease`, and revoking or
   rotating the two service keys. `ADMIN_ROLE` is the role admin of
-  `MERCHANT_REGISTRAR_ROLE`, `CHARGER_ROLE`, `CANCELLER_ROLE` and `FEE_MANAGER_ROLE`.
+  `MERCHANT_REGISTRAR_ROLE`, `CHARGER_ROLE`, `SUBSCRIPTION_CANCELLER_ROLE` and `FEE_MANAGER_ROLE`.
 - **Service keys:** the relayer holds `MERCHANT_REGISTRAR_ROLE`; the scheduler holds
-  `CHARGER_ROLE`, `CANCELLER_ROLE` and `FEE_MANAGER_ROLE`.
+  `CHARGER_ROLE`, `SUBSCRIPTION_CANCELLER_ROLE` and `FEE_MANAGER_ROLE`.
   - Its cancels can be reinstated by the Safe for 7 days (`REINSTATE_WINDOW`).
   - It moves merchants between plans with `setFeeBps` within each merchant's ceiling. A
     decrease applies at once; an increase applies through `commitFeeBps` after 24 hours
@@ -619,7 +619,7 @@ RPC=$ARC_TESTNET_RPC_URL
 ### Rotate a service key
 
 The handoff grants `MERCHANT_REGISTRAR_ROLE` on the Registry to the API relayer and
-`CHARGER_ROLE` and `CANCELLER_ROLE` on Subscriptions to the scheduler. To replace a leaked or retired key,
+`CHARGER_ROLE` and `SUBSCRIPTION_CANCELLER_ROLE` on Subscriptions to the scheduler. To replace a leaked or retired key,
 send two Safe transactions, with no delay:
 
 - `revokeRole(bytes32,address)` with the role and the old address;
@@ -627,7 +627,7 @@ send two Safe transactions, with no delay:
 
 The role ids are `cast keccak "STRIMZ_MERCHANT_REGISTRAR_ROLE"` (target
 `$STRIMZ_REGISTRY_ADDRESS`), and `cast keccak "STRIMZ_CHARGER_ROLE"` and
-`cast keccak "STRIMZ_CANCELLER_ROLE"` (target `$STRIMZ_SUBSCRIPTIONS_ADDRESS`). Update the service's env with the new key, and keep
+`cast keccak "STRIMZ_SUBSCRIPTION_CANCELLER_ROLE"` (target `$STRIMZ_SUBSCRIPTIONS_ADDRESS`). Update the service's env with the new key, and keep
 the relayer and the scheduler on different keys.
 
 ### Upgrade, rotate a dependency or change the token whitelist
@@ -718,25 +718,25 @@ are the same address — there is no proxy, only the direct deploy.
 
 Copy `.env.example` to `.env`:
 
-| Var                              | Purpose                                                                                               |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `ARC_TESTNET_RPC_URL`            | RPC for testnet deploys (`https://rpc.testnet.arc.io`)                                                |
-| `ARC_MAINNET_RPC_URL`            | RPC for mainnet deploys                                                                               |
-| `STRIMZ_DEPLOYER_PRIVATE_KEY`    | Funded deployer. Never commit. Get testnet gas at `https://faucet.circle.com`.                        |
-| `BLOCKSCOUT_API_KEY`             | Bearer token for `script/verify.sh`. Get one at `explorer.testnet.arc.io`.                            |
-| `ARC_TESTNET_VERIFIER_URL`       | Blockscout v2 base URL — `https://explorer.testnet.arc.io/api/`                                       |
-| `ARC_MAINNET_VERIFIER_URL`       | Mainnet equivalent — `https://explorer.arc.io/api/`                                                   |
-| `ARC_USDC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                                                     |
-| `ARC_EURC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                                                     |
-| `STRIMZ_TOKEN_WHITELIST_ADDRESS` | Whitelist proxy address. Required by `DeployAgent`.                                                   |
-| `STRIMZ_SAFE_ADDRESS`            | Safe that receives the fast admin roles. Required by `HandoffAdmin`.                                  |
-| `STRIMZ_GUARDIAN_ADDRESS`        | Optional pause-only key. Read by `HandoffAdmin`.                                                      |
-| `STRIMZ_RELAYER_ADDRESS`         | API relayer. Receives `MERCHANT_REGISTRAR_ROLE` in `HandoffAdmin`.                                    |
-| `STRIMZ_SCHEDULER_ADDRESS`       | Scheduler signer. Receives `CHARGER_ROLE`, `CANCELLER_ROLE` and `FEE_MANAGER_ROLE` in `HandoffAdmin`. |
-| `TIMELOCK_MIN_DELAY`             | Timelock delay in seconds. Required by `HandoffAdmin`.                                                |
-| `STRIMZ_VERIFY_PHASE`            | `deployed` or `handed-off`. Required by `Verify.s.sol`.                                               |
-| `STRIMZ_TIMELOCK_ADDRESS`        | TimelockController from the handoff. Read by `Verify.s.sol` (`handed-off`).                           |
-| `STRIMZ_DEPLOYER_ADDRESS`        | Deployer that must hold no role after the handoff. Read by `Verify.s.sol` (`handed-off`).             |
+| Var                              | Purpose                                                                                                            |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `ARC_TESTNET_RPC_URL`            | RPC for testnet deploys (`https://rpc.testnet.arc.io`)                                                             |
+| `ARC_MAINNET_RPC_URL`            | RPC for mainnet deploys                                                                                            |
+| `STRIMZ_DEPLOYER_PRIVATE_KEY`    | Funded deployer. Never commit. Get testnet gas at `https://faucet.circle.com`.                                     |
+| `BLOCKSCOUT_API_KEY`             | Bearer token for `script/verify.sh`. Get one at `explorer.testnet.arc.io`.                                         |
+| `ARC_TESTNET_VERIFIER_URL`       | Blockscout v2 base URL — `https://explorer.testnet.arc.io/api/`                                                    |
+| `ARC_MAINNET_VERIFIER_URL`       | Mainnet equivalent — `https://explorer.arc.io/api/`                                                                |
+| `ARC_USDC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                                                                  |
+| `ARC_EURC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                                                                  |
+| `STRIMZ_TOKEN_WHITELIST_ADDRESS` | Whitelist proxy address. Required by `DeployAgent`.                                                                |
+| `STRIMZ_SAFE_ADDRESS`            | Safe that receives the fast admin roles. Required by `HandoffAdmin`.                                               |
+| `STRIMZ_GUARDIAN_ADDRESS`        | Optional pause-only key. Read by `HandoffAdmin`.                                                                   |
+| `STRIMZ_RELAYER_ADDRESS`         | API relayer. Receives `MERCHANT_REGISTRAR_ROLE` in `HandoffAdmin`.                                                 |
+| `STRIMZ_SCHEDULER_ADDRESS`       | Scheduler signer. Receives `CHARGER_ROLE`, `SUBSCRIPTION_CANCELLER_ROLE` and `FEE_MANAGER_ROLE` in `HandoffAdmin`. |
+| `TIMELOCK_MIN_DELAY`             | Timelock delay in seconds. Required by `HandoffAdmin`.                                                             |
+| `STRIMZ_VERIFY_PHASE`            | `deployed` or `handed-off`. Required by `Verify.s.sol`.                                                            |
+| `STRIMZ_TIMELOCK_ADDRESS`        | TimelockController from the handoff. Read by `Verify.s.sol` (`handed-off`).                                        |
+| `STRIMZ_DEPLOYER_ADDRESS`        | Deployer that must hold no role after the handoff. Read by `Verify.s.sol` (`handed-off`).                          |
 
 ## Audit posture
 

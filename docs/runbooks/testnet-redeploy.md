@@ -88,7 +88,7 @@ STRIMZ_DEPLOYER_ADDRESS=$(arc-cast wallet address --private-key "$STRIMZ_DEPLOYE
 ```
 
 The deployer holds no role afterwards. The relayer's KMS address holds
-`MERCHANT_REGISTRAR_ROLE`; the scheduler's holds `CHARGER_ROLE`, `CANCELLER_ROLE` and
+`MERCHANT_REGISTRAR_ROLE`; the scheduler's holds `CHARGER_ROLE`, `SUBSCRIPTION_CANCELLER_ROLE` and
 `FEE_MANAGER_ROLE`.
 
 ## 5. Publish the source

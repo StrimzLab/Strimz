@@ -144,13 +144,13 @@ interface IStrimzSubscriptions {
         bytes calldata intentSig
     ) external returns (uint256 subscriptionId);
 
-    /// @notice Callable by the payer, the merchant owner, or a CANCELLER_ROLE holder cancelling for the merchant.
+    /// @notice Callable by the payer, the merchant owner, or a SUBSCRIPTION_CANCELLER_ROLE holder cancelling for the merchant.
     function cancel(uint256 subscriptionId) external;
 
-    /// @notice Undoes a CANCELLER_ROLE cancel within `REINSTATE_WINDOW`. ADMIN_ROLE only.
+    /// @notice Undoes a SUBSCRIPTION_CANCELLER_ROLE cancel within `REINSTATE_WINDOW`. ADMIN_ROLE only.
     function reinstate(uint256 subscriptionId) external;
 
-    /// @notice When a CANCELLER_ROLE holder cancelled it, or 0.
+    /// @notice When a SUBSCRIPTION_CANCELLER_ROLE holder cancelled it, or 0.
     function operatorCancelledAt(uint256 subscriptionId) external view returns (uint64);
 
     function batchCharge(uint256[] calldata subscriptionIds, bytes32[] calldata chargeAttemptIds)

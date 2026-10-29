@@ -8,10 +8,10 @@ never leave KMS. The server holds an access key for an IAM user that can only as
 two keys to sign, and only from the Lightsail static IP. With `NODE_ENV=production`
 neither service starts with a plaintext key.
 
-| Service   | Key alias                          | Contract role                                        |
-| --------- | ---------------------------------- | ---------------------------------------------------- |
-| API       | `alias/strimz-<network>-relayer`   | `MERCHANT_REGISTRAR_ROLE`                            |
-| Scheduler | `alias/strimz-<network>-scheduler` | `CHARGER_ROLE`, `CANCELLER_ROLE`, `FEE_MANAGER_ROLE` |
+| Service   | Key alias                          | Contract role                                                     |
+| --------- | ---------------------------------- | ----------------------------------------------------------------- |
+| API       | `alias/strimz-<network>-relayer`   | `MERCHANT_REGISTRAR_ROLE`                                         |
+| Scheduler | `alias/strimz-<network>-scheduler` | `CHARGER_ROLE`, `SUBSCRIPTION_CANCELLER_ROLE`, `FEE_MANAGER_ROLE` |
 
 `<network>` is `testnet` or `mainnet`. Each network has its own two keys and its own
 IAM user. The commands below use the AWS CLI and Foundry's `cast`.
@@ -104,10 +104,10 @@ Role ids:
 ```bash
 REGISTRAR=$(cast keccak STRIMZ_MERCHANT_REGISTRAR_ROLE)
 CHARGER=$(cast keccak STRIMZ_CHARGER_ROLE)
-CANCELLER=$(cast keccak STRIMZ_CANCELLER_ROLE)
+CANCELLER=$(cast keccak STRIMZ_SUBSCRIPTION_CANCELLER_ROLE)
 ```
 
-`CANCELLER_ROLE` exists only on the Subscriptions contract deployed with #142.
+`SUBSCRIPTION_CANCELLER_ROLE` exists only on the Subscriptions contract deployed with #142.
 
 - **Before the admin handoff (#142):** the deployer still holds `ADMIN_ROLE` and grants
   directly.

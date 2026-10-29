@@ -34,7 +34,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
     ///         keeps a safety margin below block gas.
     uint256 public constant MAX_BATCH_SIZE = 500;
 
-    /// @notice How long an admin has to undo a CANCELLER_ROLE cancel.
+    /// @notice How long an admin has to undo a SUBSCRIPTION_CANCELLER_ROLE cancel.
     uint64 public constant REINSTATE_WINDOW = 7 days;
 
     /// @dev Mirrors TokenWhitelist.CAP_PERMIT_2612.
@@ -96,9 +96,9 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         _grantRole(ADMIN_ROLE, admin);
         _grantRole(PAUSER_ROLE, admin);
         _grantRole(CHARGER_ROLE, admin);
-        _grantRole(CANCELLER_ROLE, admin);
+        _grantRole(SUBSCRIPTION_CANCELLER_ROLE, admin);
         _setRoleAdmin(CHARGER_ROLE, ADMIN_ROLE);
-        _setRoleAdmin(CANCELLER_ROLE, ADMIN_ROLE);
+        _setRoleAdmin(SUBSCRIPTION_CANCELLER_ROLE, ADMIN_ROLE);
 
         Storage storage $ = _s();
         $.registry = registry_;
@@ -341,7 +341,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
 
         IStrimzRegistry.Merchant memory m = $.registry.getMerchant(sub.merchantId);
         bool party = msg.sender == sub.payer || msg.sender == m.owner;
-        if (!party && !hasRole(CANCELLER_ROLE, msg.sender)) revert Subscriptions__NotSubscriptionParty();
+        if (!party && !hasRole(SUBSCRIPTION_CANCELLER_ROLE, msg.sender)) revert Subscriptions__NotSubscriptionParty();
         // The indexer rebuilds state from logs; a second SubscriptionCancelled
         // for the same id would be a state transition that never happened.
         if (sub.cancelled) revert Subscriptions__AlreadyCancelled(subscriptionId);

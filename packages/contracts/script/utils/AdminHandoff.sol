@@ -37,7 +37,7 @@ library AdminHandoff {
     bytes32 internal constant ADMIN_ROLE = keccak256("STRIMZ_ADMIN_ROLE");
     bytes32 internal constant UPGRADER_ROLE = keccak256("STRIMZ_UPGRADER_ROLE");
     bytes32 internal constant CHARGER_ROLE = keccak256("STRIMZ_CHARGER_ROLE");
-    bytes32 internal constant CANCELLER_ROLE = keccak256("STRIMZ_CANCELLER_ROLE");
+    bytes32 internal constant SUBSCRIPTION_CANCELLER_ROLE = keccak256("STRIMZ_SUBSCRIPTION_CANCELLER_ROLE");
     bytes32 internal constant TOKEN_MANAGER_ROLE = keccak256("STRIMZ_TOKEN_MANAGER_ROLE");
     bytes32 internal constant MERCHANT_REGISTRAR_ROLE = keccak256("STRIMZ_MERCHANT_REGISTRAR_ROLE");
     bytes32 internal constant FEE_ACCRUER_ROLE = keccak256("STRIMZ_FEE_ACCRUER_ROLE");
@@ -151,7 +151,7 @@ library AdminHandoff {
         n = _push(table, n, c.agentRegistry, AGENT_ADMIN_ROLE, h.safe);
         n = _push(table, n, c.registry, MERCHANT_REGISTRAR_ROLE, h.relayer);
         n = _push(table, n, c.subscriptions, CHARGER_ROLE, h.scheduler);
-        n = _push(table, n, c.subscriptions, CANCELLER_ROLE, h.scheduler);
+        n = _push(table, n, c.subscriptions, SUBSCRIPTION_CANCELLER_ROLE, h.scheduler);
         n = _push(table, n, c.registry, FEE_MANAGER_ROLE, h.scheduler);
         n = _push(table, n, c.feeCollector, FEE_ACCRUER_ROLE, c.payments);
         n = _push(table, n, c.feeCollector, FEE_ACCRUER_ROLE, c.subscriptions);
@@ -199,7 +199,7 @@ library AdminHandoff {
         if (IAccessControl(c.subscriptions).getRoleAdmin(CHARGER_ROLE) != ADMIN_ROLE) {
             revert AdminHandoff__ServiceRoleAdminNotSet(c.subscriptions);
         }
-        if (IAccessControl(c.subscriptions).getRoleAdmin(CANCELLER_ROLE) != ADMIN_ROLE) {
+        if (IAccessControl(c.subscriptions).getRoleAdmin(SUBSCRIPTION_CANCELLER_ROLE) != ADMIN_ROLE) {
             revert AdminHandoff__ServiceRoleAdminNotSet(c.subscriptions);
         }
         if (IAccessControl(c.registry).getRoleAdmin(FEE_MANAGER_ROLE) != ADMIN_ROLE) {
@@ -217,7 +217,7 @@ library AdminHandoff {
             ADMIN_ROLE,
             UPGRADER_ROLE,
             CHARGER_ROLE,
-            CANCELLER_ROLE,
+            SUBSCRIPTION_CANCELLER_ROLE,
             TOKEN_MANAGER_ROLE,
             MERCHANT_REGISTRAR_ROLE,
             FEE_ACCRUER_ROLE,

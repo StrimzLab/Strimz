@@ -18,7 +18,7 @@ abstract contract StrimzAccessControl is AccessControlUpgradeable {
     bytes32 public constant CHARGER_ROLE = keccak256("STRIMZ_CHARGER_ROLE");
 
     /// @notice Can cancel subscriptions for a merchant. Its cancels can be reinstated by an admin.
-    bytes32 public constant CANCELLER_ROLE = keccak256("STRIMZ_CANCELLER_ROLE");
+    bytes32 public constant SUBSCRIPTION_CANCELLER_ROLE = keccak256("STRIMZ_SUBSCRIPTION_CANCELLER_ROLE");
 
     /// @notice Can add/remove tokens from the payment whitelist.
     bytes32 public constant TOKEN_MANAGER_ROLE = keccak256("STRIMZ_TOKEN_MANAGER_ROLE");

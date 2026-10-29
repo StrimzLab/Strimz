@@ -29,7 +29,7 @@ contract SchedulerKeyLimitsTest is StrimzTestBase {
 
         bytes32 accruer = feeCollector.FEE_ACCRUER_ROLE();
         bytes32 charger = subs.CHARGER_ROLE();
-        bytes32 cancellerRole = subs.CANCELLER_ROLE();
+        bytes32 cancellerRole = subs.SUBSCRIPTION_CANCELLER_ROLE();
         bytes32 feeManager = registry.FEE_MANAGER_ROLE();
         vm.startPrank(admin);
         whitelist.add(address(usdc));

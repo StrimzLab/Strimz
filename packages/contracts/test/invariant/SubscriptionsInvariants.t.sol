@@ -116,7 +116,7 @@ contract SubscriptionsInvariantsTest is StdInvariant, StrimzTestBase {
 
         handler = new SubscriptionsHandler(subs, usdc, mid, FEE_BPS);
         bytes32 charger = subs.CHARGER_ROLE();
-        bytes32 cancellerRole = subs.CANCELLER_ROLE();
+        bytes32 cancellerRole = subs.SUBSCRIPTION_CANCELLER_ROLE();
         bytes32 adminRole = subs.ADMIN_ROLE();
         vm.startPrank(admin);
         subs.grantRole(charger, address(handler));

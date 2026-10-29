@@ -487,7 +487,7 @@ contract StrimzSubscriptionsTest is StrimzTestBase {
     function _scheduler() private returns (address scheduler) {
         scheduler = makeAddr("scheduler");
         bytes32 charger = subs.CHARGER_ROLE();
-        bytes32 canceller = subs.CANCELLER_ROLE();
+        bytes32 canceller = subs.SUBSCRIPTION_CANCELLER_ROLE();
         vm.startPrank(admin);
         subs.grantRole(charger, scheduler);
         subs.grantRole(canceller, scheduler);

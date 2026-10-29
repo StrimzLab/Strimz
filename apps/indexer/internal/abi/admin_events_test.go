@@ -105,7 +105,7 @@ func TestRoleName_MatchesEveryStrimzRoleConstant(t *testing.T) {
 			assert.Equal(t, m[1], RoleName(hash), "%s in %s", m[1], path)
 		}
 	}
-	assert.Equal(t, 11, found, "role constants found in the Strimz contract sources")
+	assert.Equal(t, 12, found, "role constants found in the Strimz contract sources")
 }
 
 func TestRoleName_NamesTheDefaultAdminAndTimelockRoles(t *testing.T) {
