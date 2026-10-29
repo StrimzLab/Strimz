@@ -57,8 +57,6 @@ contract DeployCore is Script {
         FeeCollector(feeCollector).grantRole(accruerRole, address(payments));
         FeeCollector(feeCollector).grantRole(accruerRole, address(subs));
 
-        StrimzRegistry(registry).initializeRoleAdmins();
-
         // Optional initial token allowlist seeding. USDC and EURC on Arc both
         // implement EIP-2612 (permit) and EIP-3009 (transfer-with-authorisation),
         // so the capability bitmap is the union of the two flags.

@@ -47,11 +47,8 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
         _grantRole(UPGRADER_ROLE, admin);
         _grantRole(MERCHANT_REGISTRAR_ROLE, admin);
         _setRoleAdmin(FEE_MANAGER_ROLE, ADMIN_ROLE);
-        _s().nextMerchantId = 1;
-    }
-
-    function initializeRoleAdmins() external reinitializer(2) onlyRole(DEFAULT_ADMIN_ROLE) {
         _setRoleAdmin(MERCHANT_REGISTRAR_ROLE, ADMIN_ROLE);
+        _s().nextMerchantId = 1;
     }
 
     function _authorizeUpgrade(address) internal override onlyRole(UPGRADER_ROLE) { }

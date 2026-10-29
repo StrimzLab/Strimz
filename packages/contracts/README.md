@@ -49,7 +49,7 @@ namespaced storage rather than from immutables. The
 endpoints let those references rotate without touching the
 value-moving logic. They need `DEFAULT_ADMIN_ROLE`, which the
 timelock holds after the handoff, and run only while the contract is
-paused.
+paused. The agent escrow's `setTokenWhitelist` follows the same rule.
 
 ## Layout
 
@@ -575,8 +575,8 @@ arc-forge script script/HandoffAdmin.s.sol --network arc --rpc-url arc_testnet -
 The script refuses to run when the Safe has no code or a threshold below 2, when two of
 the addresses are the same, when the delay is 0, when the deployer is not
 `DEFAULT_ADMIN_ROLE` on every contract, or when the Registry has not made `ADMIN_ROLE`
-the role admin of `MERCHANT_REGISTRAR_ROLE` (`initializeRoleAdmins()`, which
-`DeployCore` calls). It then deploys the `TimelockController`, grants the
+the role admin of `MERCHANT_REGISTRAR_ROLE` (a fresh Registry's `initialize` does this;
+the Registry deployed before #130 doesn't). It then deploys the `TimelockController`, grants the
 [role table](#admin-roles), renounces every deployer role, checks the result with
 `hasRole` and reverts on any difference. A `handoff` entry with the timelock address is
 appended to `deployments/<chainId>.json`.

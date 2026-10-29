@@ -64,6 +64,13 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, EIP
         IFeeCollector feeCollector_,
         ITokenWhitelist tokenWhitelist_
     ) EIP712("StrimzPayments", "1") initializer {
+        if (
+            admin == address(0)
+                || address(registry_) == address(0)
+                || address(feeCollector_) == address(0)
+                || address(tokenWhitelist_) == address(0)
+        ) revert Payments__ZeroAddress();
+
         __AccessControl_init();
         __Pausable_init();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
@@ -90,19 +97,19 @@ contract StrimzPayments is IStrimzPayments, StrimzPausable, ReentrancyGuard, EIP
     ///      Legitimate operator flow: pause → rotate → unpause.
 
     function setRegistry(IStrimzRegistry v) external onlyRole(DEFAULT_ADMIN_ROLE) whenPaused {
-        if (address(v) == address(0)) revert Payments__InvalidAmount();
+        if (address(v) == address(0)) revert Payments__ZeroAddress();
         _s().registry = v;
         emit DependencyUpdated("registry", address(v));
     }
 
     function setFeeCollector(IFeeCollector v) external onlyRole(DEFAULT_ADMIN_ROLE) whenPaused {
-        if (address(v) == address(0)) revert Payments__InvalidAmount();
+        if (address(v) == address(0)) revert Payments__ZeroAddress();
         _s().feeCollector = v;
         emit DependencyUpdated("feeCollector", address(v));
     }
 
     function setTokenWhitelist(ITokenWhitelist v) external onlyRole(DEFAULT_ADMIN_ROLE) whenPaused {
-        if (address(v) == address(0)) revert Payments__InvalidAmount();
+        if (address(v) == address(0)) revert Payments__ZeroAddress();
         _s().tokenWhitelist = v;
         emit DependencyUpdated("tokenWhitelist", address(v));
     }
