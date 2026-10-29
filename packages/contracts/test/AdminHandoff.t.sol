@@ -42,6 +42,7 @@ contract AdminHandoffTest is StrimzTestBase {
     bytes32 internal constant ADMIN_ROLE = keccak256("STRIMZ_ADMIN_ROLE");
     bytes32 internal constant UPGRADER_ROLE = keccak256("STRIMZ_UPGRADER_ROLE");
     bytes32 internal constant CHARGER_ROLE = keccak256("STRIMZ_CHARGER_ROLE");
+    bytes32 internal constant CANCELLER_ROLE = keccak256("STRIMZ_CANCELLER_ROLE");
     bytes32 internal constant TOKEN_MANAGER_ROLE = keccak256("STRIMZ_TOKEN_MANAGER_ROLE");
     bytes32 internal constant MERCHANT_REGISTRAR_ROLE = keccak256("STRIMZ_MERCHANT_REGISTRAR_ROLE");
     bytes32 internal constant FEE_ACCRUER_ROLE = keccak256("STRIMZ_FEE_ACCRUER_ROLE");
@@ -128,12 +129,13 @@ contract AdminHandoffTest is StrimzTestBase {
         ];
     }
 
-    function _roles() internal pure returns (bytes32[11] memory) {
+    function _roles() internal pure returns (bytes32[12] memory) {
         return [
             DEFAULT_ADMIN_ROLE,
             ADMIN_ROLE,
             UPGRADER_ROLE,
             CHARGER_ROLE,
+            CANCELLER_ROLE,
             TOKEN_MANAGER_ROLE,
             MERCHANT_REGISTRAR_ROLE,
             FEE_ACCRUER_ROLE,
@@ -151,7 +153,7 @@ contract AdminHandoffTest is StrimzTestBase {
     function test_deployerHoldsNoRoleAfterHandoff() public {
         _handoff();
         address[7] memory targets = _all();
-        bytes32[11] memory roles = _roles();
+        bytes32[12] memory roles = _roles();
         for (uint256 i; i < targets.length; ++i) {
             for (uint256 j; j < roles.length; ++j) {
                 assertFalse(_has(targets[i], roles[j], deployer), "deployer keeps a role");
@@ -216,6 +218,8 @@ contract AdminHandoffTest is StrimzTestBase {
         assertTrue(_has(address(registry), MERCHANT_REGISTRAR_ROLE, relayer), "relayer registrar");
         assertFalse(_has(address(subs), CHARGER_ROLE, relayer), "relayer charger");
         assertTrue(_has(address(subs), CHARGER_ROLE, scheduler), "scheduler charger");
+        assertTrue(_has(address(subs), CANCELLER_ROLE, scheduler), "scheduler canceller");
+        assertFalse(_has(address(subs), CANCELLER_ROLE, relayer), "relayer canceller");
         assertFalse(_has(address(registry), MERCHANT_REGISTRAR_ROLE, scheduler), "scheduler registrar");
 
         assertTrue(_has(address(feeCollector), FEE_ACCRUER_ROLE, address(payments)), "payments accrues");
@@ -223,6 +227,7 @@ contract AdminHandoffTest is StrimzTestBase {
 
         assertEq(registry.getRoleAdmin(MERCHANT_REGISTRAR_ROLE), ADMIN_ROLE, "registrar administered by admin");
         assertEq(subs.getRoleAdmin(CHARGER_ROLE), ADMIN_ROLE, "charger administered by admin");
+        assertEq(subs.getRoleAdmin(CANCELLER_ROLE), ADMIN_ROLE, "canceller administered by admin");
     }
 
     function test_timelockGovernsItself() public {

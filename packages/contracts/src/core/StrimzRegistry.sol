@@ -16,12 +16,21 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
     ///         key has this window to be noticed and revoked before
     ///         funds flow to the attacker.
     uint64 public constant override PAYOUT_CHANGE_DELAY = 24 hours;
+    /// @notice Delay on fee increases by FEE_MANAGER_ROLE, so a leaked
+    ///         scheduler key can't raise fees before the Safe can react.
+    uint64 public constant FEE_INCREASE_DELAY = 24 hours;
+
+    struct PendingFee {
+        uint16 feeBps;
+        uint64 effectiveAt;
+    }
 
     /// @custom:storage-location erc7201:strimz.storage.StrimzRegistry
     struct Storage {
         uint256 nextMerchantId;
         mapping(uint256 merchantId => Merchant data) merchants;
         mapping(uint256 merchantId => uint64 acceptableAt) ownershipAcceptableAt;
+        mapping(uint256 merchantId => PendingFee pending) pendingFees;
     }
 
     // keccak256(abi.encode(uint256(keccak256("strimz.storage.StrimzRegistry")) - 1)) & ~bytes32(uint256(0xff))
@@ -125,14 +134,52 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
 
     /// @inheritdoc IStrimzRegistry
     function setFeeBps(uint256 merchantId, uint16 newFeeBps) external override {
-        if (!hasRole(ADMIN_ROLE, msg.sender) && !hasRole(FEE_MANAGER_ROLE, msg.sender)) {
+        bool admin = hasRole(ADMIN_ROLE, msg.sender);
+        if (!admin && !hasRole(FEE_MANAGER_ROLE, msg.sender)) {
             revert AccessControlUnauthorizedAccount(msg.sender, FEE_MANAGER_ROLE);
         }
         if (newFeeBps > MAX_FEE_BPS) revert Registry__FeeTooHigh(newFeeBps);
         Merchant storage m = _load(merchantId);
         if (newFeeBps > m.maxFeeBps) revert Registry__FeeExceedsMax(newFeeBps, m.maxFeeBps);
+
+        Storage storage $ = _s();
+        if (!admin && newFeeBps > m.feeBps) {
+            uint64 effectiveAt = uint64(block.timestamp) + FEE_INCREASE_DELAY;
+            $.pendingFees[merchantId] = PendingFee({ feeBps: newFeeBps, effectiveAt: effectiveAt });
+            emit MerchantFeeIncreaseScheduled(merchantId, newFeeBps, effectiveAt);
+            return;
+        }
+        delete $.pendingFees[merchantId];
         m.feeBps = newFeeBps;
         emit MerchantFeeBpsUpdated(merchantId, newFeeBps);
+    }
+
+    /// @inheritdoc IStrimzRegistry
+    function commitFeeBps(uint256 merchantId) external override {
+        Merchant storage m = _load(merchantId);
+        Storage storage $ = _s();
+        PendingFee memory p = $.pendingFees[merchantId];
+        if (p.effectiveAt == 0) revert Registry__NoPendingFeeChange();
+        if (block.timestamp < p.effectiveAt) revert Registry__FeeChangeNotDue();
+        delete $.pendingFees[merchantId];
+        m.feeBps = p.feeBps;
+        emit MerchantFeeBpsUpdated(merchantId, p.feeBps);
+    }
+
+    /// @inheritdoc IStrimzRegistry
+    function cancelFeeIncrease(uint256 merchantId) external override onlyRole(ADMIN_ROLE) {
+        _load(merchantId);
+        Storage storage $ = _s();
+        if ($.pendingFees[merchantId].effectiveAt == 0) revert Registry__NoPendingFeeChange();
+        delete $.pendingFees[merchantId];
+        emit MerchantFeeIncreaseCancelled(merchantId);
+    }
+
+    /// @inheritdoc IStrimzRegistry
+    function pendingFeeOf(uint256 merchantId) external view override returns (uint16 feeBps, uint64 effectiveAt) {
+        _load(merchantId);
+        PendingFee memory p = _s().pendingFees[merchantId];
+        return (p.feeBps, p.effectiveAt);
     }
 
     // ---------- Active flag ----------

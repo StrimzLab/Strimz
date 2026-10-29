@@ -453,40 +453,45 @@ contract StrimzSubscriptionsTest is StrimzTestBase {
     }
 
     // The scheduler cancels for the merchant when the API cancel is called.
-    function test_chargerCanCancel() public {
+    function test_cancellerCanCancel() public {
         uint256 id = _createSub(50_000_000);
-        address charger = _charger();
+        address scheduler = _scheduler();
 
         vm.expectEmit(true, true, false, false, address(subs));
-        emit IStrimzSubscriptions.SubscriptionCancelled(id, charger);
-        vm.prank(charger);
+        emit IStrimzSubscriptions.SubscriptionCancelled(id, scheduler);
+        vm.prank(scheduler);
         subs.cancel(id);
         assertTrue(subs.getSubscription(id).cancelled);
+        assertEq(subs.operatorCancelledAt(id), uint64(block.timestamp));
 
-        (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "after-charger-cancel");
-        vm.prank(charger);
+        (uint256[] memory ids, bytes32[] memory attempts) = _oneRow(id, "after-operator-cancel");
+        vm.prank(scheduler);
         IStrimzSubscriptions.ChargeOutcome[] memory outcomes = subs.batchCharge(ids, attempts);
         assertEq(uint256(outcomes[0]), uint256(IStrimzSubscriptions.ChargeOutcome.Cancelled));
     }
 
-    function test_chargerSecondCancelReverts() public {
+    function test_cancellerSecondCancelReverts() public {
         uint256 id = _createSub(50_000_000);
-        address charger = _charger();
-        vm.prank(charger);
+        address scheduler = _scheduler();
+        vm.prank(scheduler);
         subs.cancel(id);
 
-        vm.prank(charger);
+        vm.prank(scheduler);
         vm.expectRevert(
             abi.encodeWithSelector(IStrimzSubscriptions.Subscriptions__AlreadyCancelled.selector, id)
         );
         subs.cancel(id);
     }
 
-    function _charger() private returns (address charger) {
-        charger = makeAddr("charger");
-        bytes32 role = subs.CHARGER_ROLE();
-        vm.prank(admin);
-        subs.grantRole(role, charger);
+    /// The scheduler key holds both roles after the handoff.
+    function _scheduler() private returns (address scheduler) {
+        scheduler = makeAddr("scheduler");
+        bytes32 charger = subs.CHARGER_ROLE();
+        bytes32 canceller = subs.CANCELLER_ROLE();
+        vm.startPrank(admin);
+        subs.grantRole(charger, scheduler);
+        subs.grantRole(canceller, scheduler);
+        vm.stopPrank();
     }
 
     // No one else can.

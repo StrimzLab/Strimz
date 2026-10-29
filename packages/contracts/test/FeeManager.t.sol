@@ -53,6 +53,9 @@ contract FeeManagerTest is StrimzTestBase {
         uint256 id = _registerFree();
         vm.prank(feeManager);
         registry.setFeeBps(id, STARTER_BPS);
+        assertEq(registry.getMerchant(id).feeBps, 0);
+        vm.warp(block.timestamp + registry.FEE_INCREASE_DELAY());
+        registry.commitFeeBps(id);
         assertEq(registry.getMerchant(id).feeBps, STARTER_BPS);
         vm.prank(feeManager);
         registry.setFeeBps(id, GROWTH_BPS);

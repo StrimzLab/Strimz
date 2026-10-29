@@ -37,6 +37,8 @@ interface IStrimzRegistry {
     );
     event MerchantPayoutChangeCancelled(uint256 indexed merchantId);
     event MerchantFeeBpsUpdated(uint256 indexed merchantId, uint16 newFeeBps);
+    event MerchantFeeIncreaseScheduled(uint256 indexed merchantId, uint16 feeBps, uint64 effectiveAt);
+    event MerchantFeeIncreaseCancelled(uint256 indexed merchantId);
     event MerchantActiveSet(uint256 indexed merchantId, bool active);
     event MerchantOwnershipTransferInitiated(
         uint256 indexed merchantId, address indexed currentOwner, address indexed pendingOwner
@@ -62,6 +64,8 @@ interface IStrimzRegistry {
     error Registry__NoPendingPayoutChange();
     error Registry__PayoutChangeNotDue();
     error Registry__OwnershipTransferNotDue();
+    error Registry__NoPendingFeeChange();
+    error Registry__FeeChangeNotDue();
 
     // solhint-disable-next-line func-name-mixedcase
     // forge-lint: disable-next-line(mixed-case-function)
@@ -83,11 +87,17 @@ interface IStrimzRegistry {
         uint256 parentMerchantId
     ) external returns (uint256 merchantId);
 
-    /// @notice Admin sets a new fee. Must be at or below the merchant's
-    ///         `maxFeeBps` — the ceiling the merchant consented to at
-    ///         registration. Prevents a compromised admin from hiking
-    ///         fees platform-wide.
+    /// @notice Sets a new fee, at or below the merchant's `maxFeeBps`. An
+    ///         admin's change applies at once. A FEE_MANAGER_ROLE increase
+    ///         waits `FEE_INCREASE_DELAY` and needs `commitFeeBps`.
     function setFeeBps(uint256 merchantId, uint16 newFeeBps) external;
+
+    /// @notice Permissionless once the delay has passed.
+    function commitFeeBps(uint256 merchantId) external;
+
+    function cancelFeeIncrease(uint256 merchantId) external;
+
+    function pendingFeeOf(uint256 merchantId) external view returns (uint16 feeBps, uint64 effectiveAt);
 
     function setActive(uint256 merchantId, bool active) external;
 
