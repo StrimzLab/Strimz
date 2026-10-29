@@ -144,9 +144,8 @@ contract Verify is Script {
 
         TimelockController tl = TimelockController(payable(timelock));
         require(tl.getMinDelay() == minDelay, "Timelock min delay mismatch");
-        require(tl.hasRole(tl.PROPOSER_ROLE(), h.safe), "Timelock: Safe is not the proposer");
-        require(tl.hasRole(tl.EXECUTOR_ROLE(), address(0)), "Timelock: execution is not open");
-        console2.log("[ok] timelock delay, proposer and executor");
+        AdminHandoff.verifyTimelock(tl, h);
+        console2.log("[ok] timelock delay floor, proposer, cancellers and executor; deployer holds no timelock role");
 
         AdminHandoff.verify(c, h, timelock, AdminHandoff.roleTable(c, h, timelock));
         console2.log("[ok] post-handoff role table; deployer holds no role");
