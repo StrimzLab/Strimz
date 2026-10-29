@@ -49,14 +49,21 @@ library AdminHandoff {
 
     uint256 internal constant MIN_SAFE_THRESHOLD = 2;
 
+    uint256 internal constant ARC_MAINNET_CHAIN_ID = 5042;
+    uint256 internal constant ARC_TESTNET_CHAIN_ID = 5042002;
+    uint256 internal constant LOCAL_CHAIN_ID = 31337;
+
     error AdminHandoff__ZeroAddress();
-    error AdminHandoff__ZeroDelay();
     error AdminHandoff__SafeHasNoCode(address safe);
     error AdminHandoff__SafeThresholdTooLow(uint256 threshold);
     error AdminHandoff__HoldersNotDistinct();
     error AdminHandoff__DeployerNotAdmin(address target);
     error AdminHandoff__ServiceRoleAdminNotSet(address target);
     error AdminHandoff__RoleMismatch(address target, bytes32 role, address account, bool expected);
+    error AdminHandoff__DelayBelowFloor(uint256 minDelay, uint256 floor);
+    error AdminHandoff__UnknownChain(uint256 chainId);
+    error AdminHandoff__GuardianRequired();
+    error AdminHandoff__TimelockRoleMismatch(bytes32 role, address account, bool expected);
 
     function run(Contracts memory c, Holders memory h, uint256 minDelay)
         internal
@@ -67,7 +74,10 @@ library AdminHandoff {
         address[] memory proposers = new address[](1);
         proposers[0] = h.safe;
         address[] memory executors = new address[](1);
-        timelock = new TimelockController(minDelay, proposers, executors, address(0));
+        // The deployer is admin only long enough to make the guardian a canceller.
+        timelock = new TimelockController(minDelay, proposers, executors, h.deployer);
+        if (h.guardian != address(0)) timelock.grantRole(timelock.CANCELLER_ROLE(), h.guardian);
+        timelock.renounceRole(timelock.DEFAULT_ADMIN_ROLE(), h.deployer);
 
         Grant[] memory table = roleTable(c, h, address(timelock));
         for (uint256 i; i < table.length; ++i) {
@@ -79,10 +89,53 @@ library AdminHandoff {
 
         renounceAll(c, h.deployer);
         verify(c, h, address(timelock), table);
+        verifyTimelock(timelock, h);
+    }
+
+    /// Lowest timelock delay the handoff accepts on each network.
+    function delayFloor(uint256 chainId) internal pure returns (uint256) {
+        if (chainId == ARC_MAINNET_CHAIN_ID) return 48 hours;
+        if (chainId == ARC_TESTNET_CHAIN_ID) return 300;
+        if (chainId == LOCAL_CHAIN_ID) return 1;
+        revert AdminHandoff__UnknownChain(chainId);
+    }
+
+    function verifyTimelock(TimelockController timelock, Holders memory h) internal view {
+        uint256 floor = delayFloor(block.chainid);
+        if (timelock.getMinDelay() < floor) revert AdminHandoff__DelayBelowFloor(timelock.getMinDelay(), floor);
+
+        bytes32 proposer = timelock.PROPOSER_ROLE();
+        bytes32 canceller = timelock.CANCELLER_ROLE();
+        bytes32 executor = timelock.EXECUTOR_ROLE();
+        bytes32 admin = timelock.DEFAULT_ADMIN_ROLE();
+
+        _expectTimelockRole(timelock, proposer, h.safe, true);
+        _expectTimelockRole(timelock, canceller, h.safe, true);
+        _expectTimelockRole(timelock, executor, address(0), true);
+        _expectTimelockRole(timelock, admin, address(timelock), true);
+        _expectTimelockRole(timelock, admin, h.deployer, false);
+        _expectTimelockRole(timelock, proposer, h.deployer, false);
+        _expectTimelockRole(timelock, canceller, h.deployer, false);
+        if (h.guardian != address(0)) {
+            _expectTimelockRole(timelock, canceller, h.guardian, true);
+            _expectTimelockRole(timelock, proposer, h.guardian, false);
+            _expectTimelockRole(timelock, admin, h.guardian, false);
+        }
+    }
+
+    function _expectTimelockRole(TimelockController timelock, bytes32 role, address account, bool expected)
+        private
+        view
+    {
+        if (timelock.hasRole(role, account) != expected) {
+            revert AdminHandoff__TimelockRoleMismatch(role, account, expected);
+        }
     }
 
     function check(Contracts memory c, Holders memory h, uint256 minDelay) internal view {
-        if (minDelay == 0) revert AdminHandoff__ZeroDelay();
+        uint256 floor = delayFloor(block.chainid);
+        if (minDelay < floor) revert AdminHandoff__DelayBelowFloor(minDelay, floor);
+        if (block.chainid == ARC_MAINNET_CHAIN_ID && h.guardian == address(0)) revert AdminHandoff__GuardianRequired();
 
         address[7] memory targets = _targets(c);
         for (uint256 i; i < targets.length; ++i) {

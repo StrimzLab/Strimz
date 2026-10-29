@@ -26,7 +26,9 @@ set -a && source .env && set +a
 | `TURNSTILE_SECRET_KEY` and Privy CAPTCHA, for the Lightsail redeploy (#133)                                                                                  | Lightsail `.env`, Privy                     |
 | `NEXT_PUBLIC_ARC_ENVIRONMENT=testnet` on Vercel (#138)                                                                                                       | Vercel                                      |
 
-`TIMELOCK_MIN_DELAY=300` on testnet (5 minutes, #129 H2); 172800 (48 hours) on mainnet.
+`TIMELOCK_MIN_DELAY=300` on testnet (5 minutes, #129 H2); 172800 (48 hours) on mainnet. The
+handoff refuses a lower delay, and on mainnet it refuses to run without
+`STRIMZ_GUARDIAN_ADDRESS`. The guardian can pause and cancel queued timelock operations.
 
 ## 1. Rehearse
 

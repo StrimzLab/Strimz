@@ -32,6 +32,10 @@ contract HandoffRunner {
     {
         return AdminHandoff.run(c, h, minDelay);
     }
+
+    function verifyTimelock(TimelockController timelock, AdminHandoff.Holders memory h) external view {
+        AdminHandoff.verifyTimelock(timelock, h);
+    }
 }
 
 contract AdminHandoffTest is StrimzTestBase {
@@ -420,7 +424,7 @@ contract AdminHandoffTest is StrimzTestBase {
     }
 
     function test_refusesZeroDelay() public {
-        vm.expectRevert(AdminHandoff.AdminHandoff__ZeroDelay.selector);
+        vm.expectRevert(abi.encodeWithSelector(AdminHandoff.AdminHandoff__DelayBelowFloor.selector, 0, 1));
         runner.run(_contracts(), _holders(), 0);
     }
 
@@ -442,5 +446,94 @@ contract AdminHandoffTest is StrimzTestBase {
             abi.encodeWithSelector(AdminHandoff.AdminHandoff__DeployerNotAdmin.selector, address(registry))
         );
         runner.run(_contracts(), _holders(), MIN_DELAY);
+    }
+
+    // ---------- Delay floor and guardian canceller ----------
+
+    function test_refusesTestnetDelayBelowFloor() public {
+        vm.chainId(5042002);
+        vm.expectRevert(abi.encodeWithSelector(AdminHandoff.AdminHandoff__DelayBelowFloor.selector, 299, 300));
+        runner.run(_contracts(), _holders(), 299);
+    }
+
+    function test_refusesMainnetDelayBelowFloor() public {
+        vm.chainId(5042);
+        vm.expectRevert(
+            abi.encodeWithSelector(AdminHandoff.AdminHandoff__DelayBelowFloor.selector, 48 hours - 1, 48 hours)
+        );
+        runner.run(_contracts(), _holders(), 48 hours - 1);
+    }
+
+    function test_acceptsTheNetworkFloors() public {
+        vm.chainId(5042);
+        assertEq(runner.run(_contracts(), _holders(), 48 hours).getMinDelay(), 48 hours);
+    }
+
+    function test_acceptsTestnetFloor() public {
+        vm.chainId(5042002);
+        assertEq(runner.run(_contracts(), _holders(), 300).getMinDelay(), 300);
+    }
+
+    function test_refusesUnknownChain() public {
+        vm.chainId(1);
+        vm.expectRevert(abi.encodeWithSelector(AdminHandoff.AdminHandoff__UnknownChain.selector, 1));
+        runner.run(_contracts(), _holders(), MIN_DELAY);
+    }
+
+    function test_mainnetRequiresAGuardian() public {
+        vm.chainId(5042);
+        AdminHandoff.Holders memory h = _holders();
+        h.guardian = address(0);
+        vm.expectRevert(AdminHandoff.AdminHandoff__GuardianRequired.selector);
+        runner.run(_contracts(), h, 48 hours);
+    }
+
+    function test_guardianCancelsAQueuedOperation() public {
+        _handoff();
+        bytes memory payload = abi.encodeWithSignature("pause()");
+        bytes32 salt = keccak256("hostile");
+        vm.prank(address(safe));
+        timelock.schedule(address(payments), 0, payload, bytes32(0), salt, MIN_DELAY);
+        bytes32 id = timelock.hashOperation(address(payments), 0, payload, bytes32(0), salt);
+
+        vm.prank(guardian);
+        timelock.cancel(id);
+        assertFalse(timelock.isOperation(id));
+
+        vm.warp(block.timestamp + MIN_DELAY);
+        vm.expectRevert();
+        timelock.execute(address(payments), 0, payload, bytes32(0), salt);
+    }
+
+    function test_guardianCannotSchedule() public {
+        _handoff();
+        bytes memory payload = abi.encodeWithSignature("pause()");
+        vm.prank(guardian);
+        vm.expectRevert();
+        timelock.schedule(address(payments), 0, payload, bytes32(0), bytes32(0), MIN_DELAY);
+    }
+
+    function test_timelockRolesAfterHandoff() public {
+        _handoff();
+        assertTrue(timelock.hasRole(timelock.CANCELLER_ROLE(), guardian), "guardian cancels");
+        assertFalse(timelock.hasRole(timelock.PROPOSER_ROLE(), guardian), "guardian proposes");
+        assertFalse(timelock.hasRole(DEFAULT_ADMIN_ROLE, guardian), "guardian admin");
+        assertFalse(timelock.hasRole(DEFAULT_ADMIN_ROLE, deployer), "deployer admin");
+        assertFalse(timelock.hasRole(timelock.PROPOSER_ROLE(), deployer), "deployer proposes");
+        assertFalse(timelock.hasRole(timelock.CANCELLER_ROLE(), deployer), "deployer cancels");
+        assertTrue(timelock.hasRole(DEFAULT_ADMIN_ROLE, address(timelock)), "timelock administers itself");
+    }
+
+    function test_verifyRejectsAGuardianThatCanPropose() public {
+        address[] memory proposers = new address[](2);
+        proposers[0] = address(safe);
+        proposers[1] = guardian;
+        TimelockController wrong = new TimelockController(MIN_DELAY, proposers, new address[](1), address(0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                AdminHandoff.AdminHandoff__TimelockRoleMismatch.selector, wrong.PROPOSER_ROLE(), guardian, false
+            )
+        );
+        runner.verifyTimelock(wrong, _holders());
     }
 }

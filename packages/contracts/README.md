@@ -136,6 +136,7 @@ No single key controls the contracts after the handoff.
 | `TOKEN_MANAGER_ROLE`          | TokenWhitelist                                           | Timelock                   |
 | `ADMIN_ROLE`                  | Registry, Payments, Subscriptions, Escrow                | Safe and Timelock          |
 | `PAUSER_ROLE`                 | Payments, Subscriptions, Escrow                          | Safe, Timelock, guardian   |
+| `CANCELLER_ROLE` (timelock)   | TimelockController                                       | Safe, guardian             |
 | `TREASURY_ROLE`               | FeeCollector                                             | Safe                       |
 | `DISPUTE_RESOLVER_ROLE`       | Escrow                                                   | Safe                       |
 | `AGENT_ADMIN_ROLE`            | AgentRegistry                                            | Safe                       |
@@ -556,7 +557,8 @@ Run step 7 first: the smoke test signs with the deployer key, which holds no rol
 the handoff.
 
 You need a Safe on the target network with a threshold of at least 2, the API relayer
-address, the scheduler address and, optionally, a guardian address you keep offline.
+address, the scheduler address and a guardian address you keep offline (optional on
+testnet, required on mainnet).
 All of them, and the deployer, must be different addresses.
 
 ```sh
@@ -574,16 +576,21 @@ set -a && source .env && set +a
 arc-forge script script/HandoffAdmin.s.sol --network arc --rpc-url arc_testnet --broadcast -vvv
 ```
 
-`TIMELOCK_MIN_DELAY` is in seconds and has no default: `300` on testnet, `172800`
-(48 hours) on mainnet. Leave `STRIMZ_GUARDIAN_ADDRESS` unset to run without a guardian.
+`TIMELOCK_MIN_DELAY` is in seconds and has no default. It must be at least `300` on
+testnet and `172800` (48 hours) on mainnet; the script refuses any other chain except a
+local one (31337). On testnet you can leave `STRIMZ_GUARDIAN_ADDRESS` unset to run without
+a guardian. The guardian can pause any contract and cancel any operation queued in the
+timelock, but can't queue one.
 
 The script refuses to run when the Safe has no code or a threshold below 2, when two of
-the addresses are the same, when the delay is 0, when the deployer is not
+the addresses are the same, when the delay is below the network's floor, when there is
+no guardian on mainnet, when the deployer is not
 `DEFAULT_ADMIN_ROLE` on every contract, or when the Registry has not made `ADMIN_ROLE`
 the role admin of `MERCHANT_REGISTRAR_ROLE` (a fresh Registry's `initialize` does this;
-the Registry deployed before #130 doesn't). It then deploys the `TimelockController`, grants the
-[role table](#admin-roles), renounces every deployer role, checks the result with
-`hasRole` and reverts on any difference. A `handoff` entry with the timelock address is
+the Registry deployed before #130 doesn't). It then deploys the `TimelockController`,
+makes the guardian a canceller, grants the [role table](#admin-roles), renounces every
+deployer role (on the timelock too), checks the result with `hasRole` and reverts on any
+difference. A `handoff` entry with the timelock address is
 appended to `deployments/<chainId>.json`.
 
 Before running `Verify.s.sol` again, set `STRIMZ_ADMIN_ADDRESS` to the timelock
@@ -730,10 +737,10 @@ Copy `.env.example` to `.env`:
 | `ARC_EURC_ADDRESS`               | Token whitelist seed. Auto-added by `DeployCore`.                                                                  |
 | `STRIMZ_TOKEN_WHITELIST_ADDRESS` | Whitelist proxy address. Required by `DeployAgent`.                                                                |
 | `STRIMZ_SAFE_ADDRESS`            | Safe that receives the fast admin roles. Required by `HandoffAdmin`.                                               |
-| `STRIMZ_GUARDIAN_ADDRESS`        | Optional pause-only key. Read by `HandoffAdmin`.                                                                   |
+| `STRIMZ_GUARDIAN_ADDRESS`        | Pause and timelock-cancel key. Optional on testnet, required on mainnet. Read by `HandoffAdmin`.                   |
 | `STRIMZ_RELAYER_ADDRESS`         | API relayer. Receives `MERCHANT_REGISTRAR_ROLE` in `HandoffAdmin`.                                                 |
 | `STRIMZ_SCHEDULER_ADDRESS`       | Scheduler signer. Receives `CHARGER_ROLE`, `SUBSCRIPTION_CANCELLER_ROLE` and `FEE_MANAGER_ROLE` in `HandoffAdmin`. |
-| `TIMELOCK_MIN_DELAY`             | Timelock delay in seconds. Required by `HandoffAdmin`.                                                             |
+| `TIMELOCK_MIN_DELAY`             | Timelock delay in seconds, at least 300 on testnet and 172800 on mainnet. Required by `HandoffAdmin`.              |
 | `STRIMZ_VERIFY_PHASE`            | `deployed` or `handed-off`. Required by `Verify.s.sol`.                                                            |
 | `STRIMZ_TIMELOCK_ADDRESS`        | TimelockController from the handoff. Read by `Verify.s.sol` (`handed-off`).                                        |
 | `STRIMZ_DEPLOYER_ADDRESS`        | Deployer that must hold no role after the handoff. Read by `Verify.s.sol` (`handed-off`).                          |
