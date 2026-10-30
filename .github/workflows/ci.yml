@@ -134,6 +134,11 @@ jobs:
       - name: Build
         run: arc-forge build --sizes
 
+      # Only this job has the build output the indexer ABIs come from.
+      - name: Indexer ABIs match the build
+        working-directory: .
+        run: scripts/generate-abis.sh --check
+
       - name: Test
         run: arc-forge test --network arc -vvv
         env:

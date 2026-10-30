@@ -3,8 +3,6 @@ SHELL := /bin/bash
 .PHONY: build dev lint test test-e2e clean tidy abi
 
 CONTRACTS_DIR := ../../packages/contracts
-ABI_DEST := internal/abi
-CONTRACTS := StrimzRegistry StrimzPayments StrimzSubscriptions StrimzAgentEscrow FeeCollector TokenWhitelist StrimzAgentRegistry TimelockController IERC20
 
 build:
 	go build -o bin/indexer ./cmd/indexer
@@ -30,20 +28,13 @@ test-e2e:
 	  CGO_ENABLED=0 go test -tags=e2e -count=1 -timeout=240s ./internal/store/...
 
 # `make abi` regenerates the embedded ABI JSON files from the Foundry build
-# output. Run after any contract change. The Go binary uses //go:embed to
-# bundle these into the indexer image — no runtime filesystem reads.
+# output. CI fails when they differ (scripts/generate-abis.sh --check).
 abi:
 	@if [ ! -d "$(CONTRACTS_DIR)/out" ]; then \
-	  echo "running forge build first"; \
-	  cd $(CONTRACTS_DIR) && forge build; \
+	  echo "running arc-forge build first"; \
+	  cd $(CONTRACTS_DIR) && arc-forge build; \
 	fi
-	@for c in $(CONTRACTS); do \
-	  src="$(CONTRACTS_DIR)/out/$$c.sol/$$c.json"; \
-	  dst="$(ABI_DEST)/$$c.abi.json"; \
-	  if [ ! -f "$$src" ]; then echo "missing $$src" >&2; exit 1; fi; \
-	  jq '[.abi[] | select(.type == "event")]' "$$src" > "$$dst"; \
-	  echo "$$c: $$(jq 'length' "$$dst") events → $$dst"; \
-	done
+	../../scripts/generate-abis.sh
 
 tidy:
 	go mod tidy
