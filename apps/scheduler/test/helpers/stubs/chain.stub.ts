@@ -2,6 +2,9 @@
 import type { Address } from 'viem'
 import type { ChainService } from '../../../src/infra/chain/chain.service.js'
 
+/** What the contract does with a charge attempt, for the stub's `chargeOutcomes` queue. */
+export type StubChargeOutcome = 'Charged' | 'TransferFailed' | 'InsufficientFunds'
+
 type Methods<T> = {
   [K in keyof T as T[K] extends (...args: never[]) => unknown ? K : never]: T[K]
 }
@@ -29,6 +32,12 @@ export class StubChainService implements Methods<ChainService> {
   public registryFees = new Map<bigint, number>()
   public registryFeeDefault = 0
   public feeWriteFailures = new Set<bigint>()
+  /**
+   * Outcomes for the next batchCharge calls, in order, applied like the
+   * contract: a transfer that ran burns the id, and only a successful
+   * one ends the period.
+   */
+  public chargeOutcomes: StubChargeOutcome[] = []
 
   onModuleInit(): Promise<void> {
     return Promise.resolve()
@@ -45,6 +54,7 @@ export class StubChainService implements Methods<ChainService> {
     this.registryFees.clear()
     this.registryFeeDefault = 0
     this.feeWriteFailures.clear()
+    this.chargeOutcomes.length = 0
   }
 
   private record(fn: string, args: unknown[]): `0x${string}` {
@@ -63,7 +73,15 @@ export class StubChainService implements Methods<ChainService> {
     return Promise.resolve(this.record('cancelSubscription', [subscriptionId]))
   }
   batchCharge(ids: readonly bigint[], attempts: readonly `0x${string}`[]): Promise<`0x${string}`> {
-    return Promise.resolve(this.record('batchCharge', [ids, attempts]))
+    const hash = this.record('batchCharge', [ids, attempts])
+    ids.forEach((id, i) => {
+      const outcome = this.chargeOutcomes.shift()
+      const attempt = attempts[i]
+      if (outcome === undefined || outcome === 'InsufficientFunds' || attempt === undefined) return
+      this.attemptUsedAnswers.set(attempt, true)
+      if (outcome === 'Charged') this.chargeDueAnswers.set(id, false)
+    })
+    return Promise.resolve(hash)
   }
   isAttemptUsed(id: `0x${string}`): Promise<boolean> {
     return Promise.resolve(this.attemptUsedAnswers.get(id) ?? this.attemptUsedDefault)
