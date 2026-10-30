@@ -137,7 +137,10 @@ internal/health        /healthz, /readyz, /metrics
 make abi    # rebuilds internal/abi/*.abi.json from packages/contracts/out/
 ```
 
-This runs `forge build` if needed, then extracts each contract's `events` array via `jq` into the embedded JSON files. The Go binary picks them up via `//go:embed` at build time, so there are no runtime filesystem reads.
+This runs `arc-forge build` if needed, then `scripts/generate-abis.sh`, which writes each contract's events into the embedded JSON files. The Go binary picks them up via `//go:embed` at build time, so there are no runtime filesystem reads.
+
+- **CI and preflight** run `scripts/generate-abis.sh --check` after the contracts build, and fail when the committed files differ from the build.
+- **`internal/abi/deployed-only/`** holds events the deployed testnet contracts still emit but the source has dropped. Today that is only `MerchantMaxFeeBpsLowered` on the Registry. The script appends them to the matching file. Delete the folder at the #142 redeploy and regenerate.
 
 The indexer is a derived view. Truncating `IndexerCursor` and
 reprocessing from genesis must produce identical Postgres state.

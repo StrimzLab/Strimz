@@ -1,0 +1,21 @@
+[
+  {
+    "type": "event",
+    "name": "MerchantMaxFeeBpsLowered",
+    "inputs": [
+      {
+        "name": "merchantId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newMaxFeeBps",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      }
+    ],
+    "anonymous": false
+  }
+]
