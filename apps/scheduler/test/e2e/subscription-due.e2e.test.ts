@@ -4,6 +4,7 @@ import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant, seedSubscription } from '../helpers/fixtures.js'
 import {
   deriveChargeAttemptId,
+  MAX_ATTEMPTS_PER_PERIOD,
   SubscriptionDueWorker,
 } from '../../src/workers/subscription-due/subscription-due.worker.js'
 import { must } from '../helpers/must.js'
@@ -147,5 +148,62 @@ describe('subscription-due worker e2e', () => {
     )
     const updated = await t.prisma.db.subscription.findUniqueOrThrow({ where: { id: sub.id } })
     expect(updated.chargeLock).toBe(false)
+  })
+
+  describe('retries against the contract model', () => {
+    async function dueSub() {
+      const merchant = await seedMerchant(t.prisma.db)
+      return seedSubscription(t.prisma.db, merchant.id, { onchainSubscriptionId: 7 })
+    }
+    const run = (subscriptionId: string) =>
+      t.app.get(SubscriptionDueWorker).process({ data: { subscriptionId } } as never)
+    const chargedIds = () =>
+      t.chain.callsFor('batchCharge').map((c) => must((c.args[1] as string[])[0]))
+
+    it('retries with the next attempt id after a TransferFailed and charges the period once', async () => {
+      const sub = await dueSub()
+      t.chain.chargeOutcomes.push('TransferFailed', 'Charged')
+
+      await run(sub.id)
+      await run(sub.id)
+      const third = await run(sub.id)
+
+      expect(chargedIds()).toEqual([
+        deriveChargeAttemptId(7, sub.currentPeriodEndAt, 0),
+        deriveChargeAttemptId(7, sub.currentPeriodEndAt, 1),
+      ])
+      expect(third).toEqual({ txHash: '0xnotdue', chargeAttemptId: '0x0' })
+    })
+
+    it('stops after the eighth burned attempt id in a period', async () => {
+      const sub = await dueSub()
+      t.chain.chargeOutcomes.push(
+        ...Array<'TransferFailed'>(MAX_ATTEMPTS_PER_PERIOD).fill('TransferFailed'),
+      )
+
+      for (let i = 0; i < MAX_ATTEMPTS_PER_PERIOD; i++) await run(sub.id)
+      const exhausted = await run(sub.id)
+
+      expect(MAX_ATTEMPTS_PER_PERIOD).toBe(8)
+      expect(chargedIds()).toEqual(
+        Array.from({ length: 8 }, (_, i) => deriveChargeAttemptId(7, sub.currentPeriodEndAt, i)),
+      )
+      expect(exhausted).toEqual({ txHash: '0xexhausted', chargeAttemptId: '0x0' })
+      expect(t.chain.callsFor('batchCharge')).toHaveLength(8)
+      const updated = await t.prisma.db.subscription.findUniqueOrThrow({ where: { id: sub.id } })
+      expect(updated.chargeLock).toBe(false)
+    })
+
+    it('reuses the same attempt id after a balance skip, which burns nothing', async () => {
+      const sub = await dueSub()
+      t.chain.chargeOutcomes.push('InsufficientFunds', 'Charged')
+
+      await run(sub.id)
+      await run(sub.id)
+
+      const first = deriveChargeAttemptId(7, sub.currentPeriodEndAt, 0)
+      expect(chargedIds()).toEqual([first, first])
+      expect(await run(sub.id)).toEqual({ txHash: '0xnotdue', chargeAttemptId: '0x0' })
+    })
   })
 })
