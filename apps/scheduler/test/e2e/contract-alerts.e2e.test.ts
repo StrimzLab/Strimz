@@ -82,6 +82,28 @@ describe('contract alerts e2e', () => {
     expect(await pending()).toBe(0)
   })
 
+  it('describes payout and ownership changes with the merchant, the address and when it takes effect', async () => {
+    await seedAlert('merchant.payout_change_initiated_onchain', {
+      onchainMerchantId: '7',
+      newPayoutAddress: '0x00000000000000000000000000000000000000d1',
+      commitAt: 1_793_534_400,
+    })
+    await seedAlert('merchant.ownership_transfer_initiated_onchain', {
+      onchainMerchantId: '7',
+      currentOwner: '0x00000000000000000000000000000000000000c1',
+      pendingOwner: '0x00000000000000000000000000000000000000c2',
+      acceptableAt: 1_793_534_400,
+    })
+
+    expect(await run()).toEqual({ sent: 2, failed: false })
+    const mail = must(t.email.sent[0])
+    expect(mail.html).toContain('Merchant payout address change started')
+    expect(mail.html).toContain('Merchant ownership transfer started')
+    expect(mail.html).toContain('0x00000000000000000000000000000000000000d1')
+    expect(mail.html).toContain('0x00000000000000000000000000000000000000c2')
+    expect(mail.html).toContain('1 Nov 2026, 12:00 UTC')
+  })
+
   it('leaves the events pending when the email fails, and sends them next time', async () => {
     await seedAlert('contract.paused', { contractName: 'StrimzPayments', account: ATTACKER })
     t.email.failNext = true
