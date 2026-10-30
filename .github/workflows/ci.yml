@@ -158,7 +158,7 @@ jobs:
       TURBO_TELEMETRY_DISABLED: '1'
       DOCKER_HOST: unix:///var/run/docker.sock
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
@@ -198,7 +198,7 @@ jobs:
     timeout-minutes: 5
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # check_release_notes.sh diffs the PR against its base.
           fetch-depth: 0
