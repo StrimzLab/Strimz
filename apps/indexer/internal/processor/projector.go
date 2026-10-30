@@ -126,9 +126,10 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 			"currentOwner", current,
 			"pendingOwner", pending,
 			"txHash", lg.TxHash.Hex())
-		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.ownership_transfer_initiated_onchain", map[string]any{
+		err = p.alertGovernance(ctx, lg, ev.MerchantID, "merchant.ownership_transfer_initiated_onchain", map[string]any{
 			"currentOwner": current,
 			"pendingOwner": pending,
+			"acceptableAt": blockTime.Add(registryChangeDelay).Unix(),
 		})
 
 	case indabi.EventMerchantOwnershipTransferAccepted:
@@ -150,7 +151,7 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 			"newPayoutAddress", newPayout,
 			"commitAt", ev.CommitAt,
 			"txHash", lg.TxHash.Hex())
-		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.payout_change_initiated_onchain", map[string]any{
+		err = p.alertGovernance(ctx, lg, ev.MerchantID, "merchant.payout_change_initiated_onchain", map[string]any{
 			"newPayoutAddress": newPayout,
 			"commitAt":         ev.CommitAt,
 		})
@@ -605,6 +606,21 @@ func (p *Projector) logGovernance(ctx context.Context, lg types.Log, onchainMerc
 		OnchainMerchantID: onchainMerchantID,
 		Action:            action,
 		Metadata:          metadata,
+	})
+}
+
+// registryChangeDelay matches StrimzRegistry.PAYOUT_CHANGE_DELAY, which also
+// gates ownership acceptance.
+const registryChangeDelay = 24 * time.Hour
+
+// alertGovernance also queues an admin alert and, for a linked merchant, an email.
+func (p *Projector) alertGovernance(ctx context.Context, lg types.Log, onchainMerchantID *big.Int, action string, metadata map[string]any) error {
+	return p.store.LogMerchantGovernance(ctx, store.MerchantGovernanceInput{
+		Log:               p.logRef(lg),
+		OnchainMerchantID: onchainMerchantID,
+		Action:            action,
+		Metadata:          metadata,
+		Alert:             true,
 	})
 }
 

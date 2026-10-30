@@ -14,6 +14,10 @@ export { GasBalanceAlertEmail } from './templates/GasBalanceAlertEmail.js'
 export { ContractAlertEmail, type ContractAlertEvent } from './templates/ContractAlertEmail.js'
 export { WelcomeEmail } from './templates/WelcomeEmail.js'
 export { PlanUpgradedEmail } from './templates/PlanUpgradedEmail.js'
+export {
+  MerchantSecurityAlertEmail,
+  type MerchantSecurityAlertKind,
+} from './templates/MerchantSecurityAlertEmail.js'
 export { SubscriptionStartedEmail } from './templates/SubscriptionStartedEmail.js'
 export { SubscriptionChargedEmail } from './templates/SubscriptionChargedEmail.js'
 export { AdminInviteEmail } from './templates/AdminInviteEmail.js'

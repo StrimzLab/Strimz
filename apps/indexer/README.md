@@ -24,18 +24,22 @@ When the on-chain merchant id is linked, `merchantId` and `targetId` are the `Me
 row's id; when it is not, `merchantId` is null and `targetId` is `onchain:<id>`. The log
 is never parked. No `Merchant` column changes.
 
-| Source                               | `action`                                        | Extra `metadata`                        |
-| ------------------------------------ | ----------------------------------------------- | --------------------------------------- |
-| `MerchantOwnershipTransferInitiated` | `merchant.ownership_transfer_initiated_onchain` | `currentOwner`, `pendingOwner`          |
-| `MerchantOwnershipTransferAccepted`  | `merchant.ownership_transfer_accepted_onchain`  | `previousOwner`, `newOwner`             |
-| `MerchantOwnershipTransferCancelled` | `merchant.ownership_transfer_cancelled_onchain` |                                         |
-| `MerchantPayoutChangeInitiated`      | `merchant.payout_change_initiated_onchain`      | `newPayoutAddress`, `commitAt` (unix s) |
-| `MerchantPayoutChangeCancelled`      | `merchant.payout_change_cancelled_onchain`      |                                         |
-| `MerchantMaxFeeBpsLowered`           | `merchant.max_fee_bps_lowered_onchain`          | `newMaxFeeBps`                          |
+| Source                               | `action`                                        | Extra `metadata`                                        |
+| ------------------------------------ | ----------------------------------------------- | ------------------------------------------------------- |
+| `MerchantOwnershipTransferInitiated` | `merchant.ownership_transfer_initiated_onchain` | `currentOwner`, `pendingOwner`, `acceptableAt` (unix s) |
+| `MerchantOwnershipTransferAccepted`  | `merchant.ownership_transfer_accepted_onchain`  | `previousOwner`, `newOwner`                             |
+| `MerchantOwnershipTransferCancelled` | `merchant.ownership_transfer_cancelled_onchain` |                                                         |
+| `MerchantPayoutChangeInitiated`      | `merchant.payout_change_initiated_onchain`      | `newPayoutAddress`, `commitAt` (unix s)                 |
+| `MerchantPayoutChangeCancelled`      | `merchant.payout_change_cancelled_onchain`      |                                                         |
+| `MerchantMaxFeeBpsLowered`           | `merchant.max_fee_bps_lowered_onchain`          | `newMaxFeeBps`                                          |
 
-Both `...Initiated` events also log a `warn` line with the on-chain merchant id and the
-new address, for log-based alerting on an unexpected change
-(`docs/runbooks/merchant-ownership-transfer.md`).
+Both `...Initiated` events also:
+
+- log a `warn` line with the on-chain merchant id and the new address;
+- write a pending `ContractAlert` row, so they reach the admin alert email;
+- for a linked merchant, write a pending `MerchantSecurityAlert` row. The scheduler then emails the merchant during the 24-hour window.
+
+`acceptableAt` is the block time plus 24 hours, the Registry's `PAYOUT_CHANGE_DELAY`. See `docs/runbooks/unexpected-admin-alert.md`.
 
 ### Payments (one-shot)
 
