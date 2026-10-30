@@ -20,6 +20,12 @@
   },
   {
     "type": "event",
+    "name": "EIP712DomainChanged",
+    "inputs": [],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "Initialized",
     "inputs": [
       {
@@ -170,12 +176,30 @@
   },
   {
     "type": "event",
-    "name": "Unpaused",
+    "name": "TokensRescued",
     "inputs": [
       {
-        "name": "account",
+        "name": "token",
         "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
         "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "by",
+        "type": "address",
+        "indexed": true,
         "internalType": "address"
       }
     ],
@@ -183,12 +207,12 @@
   },
   {
     "type": "event",
-    "name": "Upgraded",
+    "name": "Unpaused",
     "inputs": [
       {
-        "name": "implementation",
+        "name": "account",
         "type": "address",
-        "indexed": true,
+        "indexed": false,
         "internalType": "address"
       }
     ],
