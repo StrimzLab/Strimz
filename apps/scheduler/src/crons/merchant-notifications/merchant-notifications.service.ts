@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import {
+  MerchantSecurityAlertEmail,
   PaymentReceivedEmail,
   STRIMZ_ORIGIN,
   SubscriptionChargedEmail,
@@ -10,15 +11,25 @@ import {
 } from '@strimz/email-templates'
 import { formatUnits } from 'viem'
 import { getArcExplorerUrl } from '@strimz/shared-config'
+import { z } from 'zod'
 
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
+import { formatUtc } from '../../common/format-utc.js'
+
+const securityMetadataSchema = z.object({
+  transactionHash: z.string(),
+  newPayoutAddress: z.string().optional(),
+  commitAt: z.number().int().optional(),
+  pendingOwner: z.string().optional(),
+  acceptableAt: z.number().int().optional(),
+})
 
 /**
  * Single cron that owns every merchant-facing transactional email.
  *
- * Four polling lanes, all stamped via a `*NotifiedAt` column on the
+ * Five polling lanes, all stamped via a `*NotifiedAt` column on the
  * source row so each send is exactly-once. NULL = un-sent → pick up.
  * Non-NULL = sent → ignore. The partial index on each column keeps the
  * scan cost flat as the table grows.
@@ -31,6 +42,8 @@ import { EmailService } from '../../infra/email/email.service.js'
  *   4. Subscription charged
  *                        — SubscriptionCharge.status=succeeded
  *                          AND merchantNotifiedAt IS NULL
+ *   5. Payout or ownership change started on chain
+ *                        — MerchantSecurityAlert.notifiedAt IS NULL
  *
  * Why poll rather than fire from the indexer or auth/sync handler:
  *   - The indexer is Go; it doesn't speak Resend or React Email.
@@ -69,11 +82,12 @@ export class MerchantNotificationsService {
   }
 
   async tickNow(): Promise<TickResult> {
-    const [welcome, payment, subStarted, subCharged] = await Promise.all([
+    const [welcome, payment, subStarted, subCharged, security] = await Promise.all([
       this.runWelcomeLane(),
       this.runPaymentLane(),
       this.runSubscriptionStartedLane(),
       this.runSubscriptionChargedLane(),
+      this.runSecurityLane(),
     ])
 
     const totals: TickResult = {
@@ -81,14 +95,17 @@ export class MerchantNotificationsService {
       payment,
       subscriptionStarted: subStarted,
       subscriptionCharged: subCharged,
-      sent: welcome.sent + payment.sent + subStarted.sent + subCharged.sent,
-      failed: welcome.failed + payment.failed + subStarted.failed + subCharged.failed,
+      security,
+      sent: welcome.sent + payment.sent + subStarted.sent + subCharged.sent + security.sent,
+      failed:
+        welcome.failed + payment.failed + subStarted.failed + subCharged.failed + security.failed,
     }
     this.log.log(
       `merchant-notifications: welcome=${welcome.sent}/${welcome.failed} ` +
         `payment=${payment.sent}/${payment.failed} ` +
         `subStarted=${subStarted.sent}/${subStarted.failed} ` +
-        `subCharged=${subCharged.sent}/${subCharged.failed}`,
+        `subCharged=${subCharged.sent}/${subCharged.failed} ` +
+        `security=${security.sent}/${security.failed}`,
     )
     return totals
   }
@@ -339,6 +356,85 @@ export class MerchantNotificationsService {
   }
 
   // ------------------------------------------------------------------
+  // Lane 5: a payout or ownership change started on the Registry. Sent
+  // during the 24-hour window so the merchant can stop one they didn't make.
+  // ------------------------------------------------------------------
+  private async runSecurityLane(): Promise<LaneResult> {
+    const rows = await this.prisma.db.merchantSecurityAlert.findMany({
+      where: { notifiedAt: null },
+      include: {
+        auditLog: { select: { action: true, metadata: true } },
+        merchant: { select: { email: true, businessName: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+      take: this.cfg.env.MERCHANT_NOTIFICATION_BATCH_SIZE,
+    })
+    if (rows.length === 0) return { sent: 0, failed: 0 }
+
+    const { explorerBase } = this.networkContext()
+    let sent = 0
+    let failed = 0
+    for (const row of rows) {
+      try {
+        const m = securityMetadataSchema.parse(row.auditLog.metadata)
+        const notice = this.securityNotice(row.auditLog.action, m)
+        const html = await renderToHtml(
+          MerchantSecurityAlertEmail({
+            kind: notice.kind,
+            merchantBusinessName: row.merchant.businessName,
+            address: notice.address,
+            effectiveAtDisplay: formatUtc(notice.effectiveAt),
+            settingsUrl: `${this.dashboardOrigin()}/app/settings`,
+            explorerTxUrl: `${explorerBase}/tx/${m.transactionHash}`,
+          }),
+        )
+        await this.email.send({ to: row.merchant.email, subject: notice.subject, html })
+        await this.prisma.db.merchantSecurityAlert.update({
+          where: { id: row.id },
+          data: { notifiedAt: new Date() },
+        })
+        sent++
+      } catch (err) {
+        failed++
+        this.warn('security', row.id, err)
+      }
+    }
+    return { sent, failed }
+  }
+
+  private securityNotice(
+    action: string,
+    m: z.infer<typeof securityMetadataSchema>,
+  ): {
+    kind: 'payout_change' | 'ownership_transfer'
+    address: string
+    effectiveAt: number
+    subject: string
+  } {
+    if (action === 'merchant.payout_change_initiated_onchain' && m.newPayoutAddress && m.commitAt) {
+      return {
+        kind: 'payout_change',
+        address: m.newPayoutAddress,
+        effectiveAt: m.commitAt,
+        subject: 'Your Strimz payout address is changing',
+      }
+    }
+    if (
+      action === 'merchant.ownership_transfer_initiated_onchain' &&
+      m.pendingOwner &&
+      m.acceptableAt
+    ) {
+      return {
+        kind: 'ownership_transfer',
+        address: m.pendingOwner,
+        effectiveAt: m.acceptableAt,
+        subject: 'Your Strimz merchant account is being handed over',
+      }
+    }
+    throw new Error(`security alert for ${action} is missing the address or the time`)
+  }
+
+  // ------------------------------------------------------------------
   // Helpers
   // ------------------------------------------------------------------
 
@@ -422,4 +518,5 @@ export interface TickResult extends LaneResult {
   payment: LaneResult
   subscriptionStarted: LaneResult
   subscriptionCharged: LaneResult
+  security: LaneResult
 }

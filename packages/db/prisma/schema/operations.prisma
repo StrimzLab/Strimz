@@ -34,6 +34,7 @@ model AuditLog {
 
   merchant      Merchant?           @relation(fields: [merchantId], references: [id], onDelete: SetNull)
   contractAlert ContractAlert?
+  merchantSecurityAlert MerchantSecurityAlert?
 
   @@index([merchantId, createdAt])
   @@index([category, createdAt])
@@ -50,6 +51,21 @@ model ContractAlert {
   auditLog   AuditLog  @relation(fields: [auditLogId], references: [id], onDelete: Cascade)
 
   @@index([alertedAt, createdAt])
+}
+
+/// A payout or ownership change on the Registry the merchant is emailed about
+/// during the 24-hour window. The indexer writes it; the scheduler stamps notifiedAt.
+model MerchantSecurityAlert {
+  id         String    @id @default(cuid())
+  auditLogId String    @unique
+  merchantId String
+  createdAt  DateTime  @default(now())
+  notifiedAt DateTime?
+
+  auditLog   AuditLog  @relation(fields: [auditLogId], references: [id], onDelete: Cascade)
+  merchant   Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([notifiedAt, createdAt])
 }
 
 model IndexerDeadLetter {

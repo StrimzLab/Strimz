@@ -345,6 +345,63 @@ func TestE2E_Stream_ProjectsMerchantGovernanceEventsAsAuditRows(t *testing.T) {
 	assert.Equal(t, payoutAddr, payoutAddress, "an initiated payout change does not move the payout address")
 }
 
+func securityAlertCount(t *testing.T, st *store.Store, action, merchantID string) int {
+	t.Helper()
+	return countRows(t, st, `
+		SELECT count(*) FROM "MerchantSecurityAlert" a JOIN "AuditLog" l ON l.id = a."auditLogId"
+		 WHERE l.action = $1 AND a."merchantId" = $2 AND a."notifiedAt" IS NULL`, action, merchantID)
+}
+
+func TestE2E_Stream_PayoutAndOwnershipChangesAlertTheAdminAndTheMerchant(t *testing.T) {
+	ctx := context.Background()
+	c := &rangeChain{head: 30}
+	r, st := newGovernanceRunner(t, c)
+	id := int64(7)
+	seedMerchant(t, st, "m_alert", "0x"+fmt.Sprintf("%064x", 9), &id)
+	newPayout := "0x00000000000000000000000000000000000000d1"
+	c.logs = []types.Log{
+		eventLog(registryAddr, "MerchantOwnershipTransferInitiated(uint256,address,address)",
+			[]common.Hash{idTopic(7), addrTopic("0x00000000000000000000000000000000000000c1"), addrTopic("0x00000000000000000000000000000000000000c2")},
+			nil, 11, 0, txHash(0xa1)),
+		eventLog(registryAddr, "MerchantPayoutChangeInitiated(uint256,address,uint64)",
+			[]common.Hash{idTopic(7), addrTopic(newPayout)}, pack(t, []string{"uint64"}, uint64(1_790_086_400)), 12, 0, txHash(0xa2)),
+		eventLog(registryAddr, "MerchantPayoutChangeCancelled(uint256)", []common.Hash{idTopic(7)}, nil, 13, 0, txHash(0xa3)),
+	}
+
+	require.NoError(t, r.Tick(ctx))
+	_, err := st.Pool().Exec(ctx, `DELETE FROM "IndexerCursor" WHERE "contractAddress" = $1`, coreCursorKey)
+	require.NoError(t, err)
+	require.NoError(t, r.Tick(ctx))
+
+	for _, action := range []string{
+		"merchant.ownership_transfer_initiated_onchain",
+		"merchant.payout_change_initiated_onchain",
+	} {
+		assert.Equal(t, 1, alertCount(t, st, action), "admin alert for %s", action)
+		assert.Equal(t, 1, securityAlertCount(t, st, action, "m_alert"), "merchant alert for %s", action)
+	}
+	assert.Equal(t, 0, alertCount(t, st, "merchant.payout_change_cancelled_onchain"))
+	assert.Equal(t, 0, securityAlertCount(t, st, "merchant.payout_change_cancelled_onchain", "m_alert"))
+
+	_, _, _, _, initiated := auditRow(t, st, "merchant.ownership_transfer_initiated_onchain")
+	assert.NotEmpty(t, initiated["acceptableAt"], "ownership alert says when the nominee can accept")
+}
+
+func TestE2E_Stream_PayoutChangeForAnUnlinkedMerchantAlertsOnlyTheAdmin(t *testing.T) {
+	c := &rangeChain{head: 30}
+	r, st := newGovernanceRunner(t, c)
+	c.logs = []types.Log{
+		eventLog(registryAddr, "MerchantPayoutChangeInitiated(uint256,address,uint64)",
+			[]common.Hash{idTopic(8), addrTopic("0x00000000000000000000000000000000000000d2")},
+			pack(t, []string{"uint64"}, uint64(1_790_086_400)), 11, 0, txHash(0xa4)),
+	}
+
+	require.NoError(t, r.Tick(context.Background()))
+
+	assert.Equal(t, 1, alertCount(t, st, "merchant.payout_change_initiated_onchain"))
+	assert.Equal(t, 0, countRows(t, st, `SELECT count(*) FROM "MerchantSecurityAlert"`))
+}
+
 func TestE2E_Stream_GovernanceEventForAnUnlinkedMerchantIsRecordedNotParked(t *testing.T) {
 	c := &rangeChain{head: 30}
 	r, st := newGovernanceRunner(t, c)

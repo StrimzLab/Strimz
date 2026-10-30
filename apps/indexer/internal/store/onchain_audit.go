@@ -36,6 +36,7 @@ type MerchantGovernanceInput struct {
 	OnchainMerchantID *big.Int
 	Action            string
 	Metadata          map[string]any
+	Alert             bool
 }
 
 type ContractOperationInput struct {
@@ -70,13 +71,34 @@ func (s *Store) LogMerchantGovernance(ctx context.Context, in MerchantGovernance
 	}
 	metadata := in.Log.metadata(in.Metadata)
 	metadata["onchainMerchantId"] = in.OnchainMerchantID.String()
-	return s.insertOnchainAudit(ctx, in.Log.auditID(), merchantID, auditEntry{
+	auditID := in.Log.auditID()
+	if err := s.insertOnchainAudit(ctx, auditID, merchantID, auditEntry{
 		Category:   "merchant",
 		Action:     in.Action,
 		TargetType: "Merchant",
 		TargetID:   targetID,
 		Metadata:   metadata,
-	})
+	}); err != nil {
+		return err
+	}
+	if !in.Alert {
+		return nil
+	}
+	if err := s.insertContractAlert(ctx, auditID, in.Log.ChainID, in.Action); err != nil {
+		return err
+	}
+	if merchantID == nil {
+		return nil
+	}
+	_, err = s.db().Exec(ctx, `
+		INSERT INTO "MerchantSecurityAlert" (id, "auditLogId", "merchantId", "createdAt")
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT ("auditLogId") DO NOTHING
+	`, "secalert:"+auditID, auditID, *merchantID)
+	if err != nil {
+		return fmt.Errorf("insert %s merchant security alert: %w", in.Action, err)
+	}
+	return nil
 }
 
 func (s *Store) LogContractOperation(ctx context.Context, in ContractOperationInput) error {
@@ -93,13 +115,17 @@ func (s *Store) LogContractOperation(ctx context.Context, in ContractOperationIn
 	if !in.Alert {
 		return nil
 	}
+	return s.insertContractAlert(ctx, auditID, in.Log.ChainID, in.Action)
+}
+
+func (s *Store) insertContractAlert(ctx context.Context, auditID string, chainID int64, action string) error {
 	_, err := s.db().Exec(ctx, `
 		INSERT INTO "ContractAlert" (id, "auditLogId", "chainId", "createdAt")
 		VALUES ($1, $2, $3, NOW())
 		ON CONFLICT ("auditLogId") DO NOTHING
-	`, "alert:"+auditID, auditID, in.Log.ChainID)
+	`, "alert:"+auditID, auditID, chainID)
 	if err != nil {
-		return fmt.Errorf("insert %s contract alert: %w", in.Action, err)
+		return fmt.Errorf("insert %s contract alert: %w", action, err)
 	}
 	return nil
 }

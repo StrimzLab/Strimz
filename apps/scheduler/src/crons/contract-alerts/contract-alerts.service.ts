@@ -8,6 +8,7 @@ import { TypedConfigService } from '../../config/index.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { formatUtc } from '../../common/format-utc.js'
 
 const BATCH_LIMIT = 200
 
@@ -34,6 +35,11 @@ const alertMetadataSchema = z.object({
   onchainFeeBps: z.number().int().optional(),
   onchainMerchantId: z.string().optional(),
   direction: z.enum(['below_plan', 'above_plan']).optional(),
+  newPayoutAddress: z.string().optional(),
+  commitAt: z.number().int().optional(),
+  currentOwner: z.string().optional(),
+  pendingOwner: z.string().optional(),
+  acceptableAt: z.number().int().optional(),
 })
 
 type AlertMetadata = z.infer<typeof alertMetadataSchema>
@@ -128,6 +134,19 @@ export class ContractAlertService {
 
   private describe(action: string, m: AlertMetadata, explorer: string): ContractAlertEvent {
     if (action === 'merchant.fee_drift') return this.describeFeeDrift(m, explorer)
+    if (action === 'merchant.payout_change_initiated_onchain') {
+      return this.describeMerchantChange('Merchant payout address change started', m, explorer, [
+        ['New payout address', m.newPayoutAddress],
+        ['Takes effect', m.commitAt === undefined ? undefined : formatUtc(m.commitAt)],
+      ])
+    }
+    if (action === 'merchant.ownership_transfer_initiated_onchain') {
+      return this.describeMerchantChange('Merchant ownership transfer started', m, explorer, [
+        ['Current owner', m.currentOwner],
+        ['Nominated owner', m.pendingOwner],
+        ['Can accept from', m.acceptableAt === undefined ? undefined : formatUtc(m.acceptableAt)],
+      ])
+    }
     const title = EVENT_TITLES[action]?.(m) ?? action
     const details: Array<[string, string]> = []
     const add = (label: string, value: string | undefined, labelled = false) => {
@@ -173,6 +192,19 @@ export class ContractAlertService {
       details,
       txUrl: `${explorer}/tx/${m.transactionHash}`,
     }
+  }
+
+  private describeMerchantChange(
+    title: string,
+    m: AlertMetadata,
+    explorer: string,
+    rows: Array<[string, string | undefined]>,
+  ): ContractAlertEvent {
+    const details: Array<[string, string]> = [
+      ['On-chain merchant id', m.onchainMerchantId ?? 'unknown'],
+    ]
+    for (const [label, value] of rows) details.push([label, value ?? 'unknown'])
+    return { title, details, txUrl: `${explorer}/tx/${m.transactionHash}` }
   }
 
   private label(address: string): string {
