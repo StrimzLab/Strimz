@@ -26,6 +26,7 @@ const OWNER = '0x5555555555555555555555555555555555555555'
 const AUTH_SIG = { v: 27, r: padHex('0xab', { size: 32 }), s: padHex('0xcd', { size: 32 }) }
 const PERMIT_SIG = { v: 28, r: padHex('0xde', { size: 32 }), s: padHex('0xef', { size: 32 }) }
 const INTENT_SIG = { v: 27, r: padHex('0x1a', { size: 32 }), s: padHex('0x1b', { size: 32 }) }
+const packed = (sig: typeof AUTH_SIG) => `${sig.r}${sig.s.slice(2)}${sig.v.toString(16)}`
 
 const VIEW: RelaySubmissionView = {
   id: 'idem-1',
@@ -86,6 +87,7 @@ function parsedSubscriptionBody() {
     interval: 3600,
     startAt: '0',
     endAt: '0',
+    nonce: keccak256(toHex('intent-nonce')),
     permitData: {
       owner: OWNER,
       value: ((1n << 256n) - 1n).toString(),
@@ -118,8 +120,8 @@ describe('RelayController', () => {
       expect(arg.merchantId).toBe(7n) // bigint, not string
       expect(arg.auth.amount).toBe(100_000_000n)
       expect(arg.auth.from).toBe(PAYER)
-      expect(arg.authSignature.v).toBe(27)
-      expect(arg.intentSignature.v).toBe(27)
+      expect(arg.authSignature).toBe(packed(AUTH_SIG))
+      expect(arg.intentSignature).toBe(packed(INTENT_SIG))
       expect(arg.sessionId).toBe('ses_abc')
       expect(arg.merchantInternalId).toBe(ctx.merchantId)
     })
@@ -145,23 +147,23 @@ describe('RelayController', () => {
     })
 
     it('rejects v values outside {27, 28}', () => {
-      expect(() =>
-        submitPaymentInputSchema.parse({
-          idempotencyKey: 'k',
-          merchantId: '1',
-          token: TOKEN,
-          auth: {
-            from: PAYER,
-            amount: '1',
-            validAfter: '0',
-            validBefore: '1',
-            nonce: keccak256(toHex('n')),
-          },
-          ref: keccak256(toHex('r')),
-          authSignature: { v: 0, r: padHex('0x1', { size: 32 }), s: padHex('0x2', { size: 32 }) },
-          intentSignature: INTENT_SIG,
-        }),
-      ).toThrow(/27 or 28/)
+      const result = submitPaymentInputSchema.safeParse({
+        idempotencyKey: 'k',
+        merchantId: '1',
+        token: TOKEN,
+        auth: {
+          from: PAYER,
+          amount: '1',
+          validAfter: '0',
+          validBefore: '1',
+          nonce: keccak256(toHex('n')),
+        },
+        ref: keccak256(toHex('r')),
+        authSignature: { v: 0, r: padHex('0x1', { size: 32 }), s: padHex('0x2', { size: 32 }) },
+        intentSignature: INTENT_SIG,
+      })
+      expect(result.success).toBe(false)
+      expect(result.error?.issues.map((issue) => issue.path[0])).toContain('authSignature')
     })
 
     it('accepts a body without an idempotencyKey', () => {
@@ -240,8 +242,9 @@ describe('RelayController', () => {
       expect(arg.permitData.owner).toBe(OWNER)
       // type(uint256).max preserves through bigint coerce.
       expect(arg.permitData.value).toBe((1n << 256n) - 1n)
-      expect(arg.permitSignature.v).toBe(28)
-      expect(arg.intentSignature.v).toBe(28)
+      expect(arg.nonce).toBe(keccak256(toHex('intent-nonce')))
+      expect(arg.permitSignature).toBe(packed(PERMIT_SIG))
+      expect(arg.intentSignature).toBe(packed({ ...INTENT_SIG, v: 28 }))
       expect(arg.merchantInternalId).toBe(ctx.merchantId)
       expect(arg.subscriptionInternalId).toBe('sub_abc')
     })

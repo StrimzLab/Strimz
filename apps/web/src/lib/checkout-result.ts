@@ -75,7 +75,6 @@ export type ResultPhase =
   | 'loading'
   | 'load_error'
   | 'not_ready'
-  | 'unsupported_wallet'
   | 'connect'
   | 'ready'
   | 'signing'
@@ -85,18 +84,20 @@ export type ResultPhase =
   | 'reverted'
   | 'failed'
 
-const ERROR_CODE_FOR_PHASE: Partial<Record<ResultPhase, CheckoutResultErrorCode>> = {
+// `unsupported_wallet` stays in the published type for older handlers; the
+// checkout stopped sending it once smart-contract wallets could pay (#287).
+type SentErrorCode = Exclude<CheckoutResultErrorCode, 'unsupported_wallet'>
+
+const ERROR_CODE_FOR_PHASE: Partial<Record<ResultPhase, SentErrorCode>> = {
   load_error: 'load_failed',
   not_ready: 'merchant_not_ready',
   reverted: 'payment_reverted',
-  unsupported_wallet: 'unsupported_wallet',
 }
 
-const DEFAULT_ERROR_MESSAGE: Record<CheckoutResultErrorCode, string> = {
+const DEFAULT_ERROR_MESSAGE: Record<SentErrorCode, string> = {
   load_failed: 'The checkout could not load this payment.',
   merchant_not_ready: 'This merchant cannot take payments yet.',
   payment_reverted: 'The payment was rejected on-chain.',
-  unsupported_wallet: 'Smart-contract wallets cannot pay here yet.',
 }
 
 export function resultMessageForPhase(args: {

@@ -40,6 +40,13 @@ const alertMetadataSchema = z.object({
   currentOwner: z.string().optional(),
   pendingOwner: z.string().optional(),
   acceptableAt: z.number().int().optional(),
+  feeBps: z.number().int().optional(),
+  effectiveAt: z.number().int().optional(),
+  onchainSubscriptionId: z.string().optional(),
+  by: z.string().optional(),
+  token: z.string().optional(),
+  to: z.string().optional(),
+  amount: z.string().optional(),
 })
 
 type AlertMetadata = z.infer<typeof alertMetadataSchema>
@@ -56,6 +63,8 @@ const EVENT_TITLES: Record<string, (m: AlertMetadata) => string> = {
   'timelock.call_executed': () => 'call executed',
   'timelock.cancelled': () => 'scheduled call cancelled',
   'timelock.min_delay_changed': () => 'minimum delay changed',
+  'subscription.reinstated_onchain': () => 'subscription reinstated',
+  'contract.tokens_rescued': () => 'tokens rescued',
 }
 
 export interface ContractAlertResult {
@@ -147,13 +156,26 @@ export class ContractAlertService {
         ['Can accept from', m.acceptableAt === undefined ? undefined : formatUtc(m.acceptableAt)],
       ])
     }
+    if (action === 'merchant.fee_increase_scheduled_onchain') {
+      return this.describeMerchantChange('Merchant fee increase scheduled', m, explorer, [
+        ['New fee', m.feeBps === undefined ? undefined : `${m.feeBps / 100}%`],
+        ['Takes effect', m.effectiveAt === undefined ? undefined : formatUtc(m.effectiveAt)],
+      ])
+    }
+    if (action === 'merchant.fee_increase_cancelled_onchain') {
+      return this.describeMerchantChange('Merchant fee increase cancelled', m, explorer, [])
+    }
     const title = EVENT_TITLES[action]?.(m) ?? action
     const details: Array<[string, string]> = []
     const add = (label: string, value: string | undefined, labelled = false) => {
       if (value !== undefined) details.push([label, labelled ? this.label(value) : value])
     }
+    add('Subscription', m.onchainSubscriptionId)
+    add('Token', m.token)
+    add('Sent to', m.to)
+    add('Amount (base units)', m.amount)
     add('Account', m.account, true)
-    add('Sent by', m.sender, true)
+    add('Sent by', m.sender ?? m.by, true)
     add('Previous admin role', m.previousAdminRoleName)
     add('New implementation', m.implementation)
     add('Operation', m.operationId)

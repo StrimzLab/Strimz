@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { keccak256, padHex, stringToHex, toHex, type Hex } from 'viem'
+import { decodeFunctionData, keccak256, stringToHex, toHex, type Hex } from 'viem'
 import type { RelayJob } from '@strimz/queue-contracts'
-import { checkoutPaymentNonce } from '@strimz/shared-crypto/checkout'
+import { checkoutPaymentNonce, subscriptionIntentNonce } from '@strimz/shared-crypto/checkout'
+
+import { permitAndCreateSubscriptionAbi } from '../../../../src/modules/relay/generated/contracts.js'
 
 import { RelayService } from '../../../../src/modules/relay/relay.service.js'
 import {
@@ -91,10 +93,11 @@ function makeProbe() {
     simulated: 0,
   }
   const probe = {
-    simulate: () => {
+    estimateGas: () => {
       state.simulated += 1
-      return state.revert ? Promise.reject(new Error(state.revert)) : Promise.resolve()
+      return state.revert ? Promise.reject(new Error(state.revert)) : Promise.resolve(150_000n)
     },
+    permitNonce: () => Promise.resolve(PERMIT_NONCE),
     receiptStatus: (hash: Hex) => Promise.resolve(state.receipts.get(hash) ?? null),
     latestBlockTimestamp: () => Promise.resolve(CHAIN_NOW),
   } as unknown as RelayChainProbe
@@ -158,8 +161,10 @@ function makeBudget(): RelayBudgetService {
   return { consume: () => Promise.resolve() } as unknown as RelayBudgetService
 }
 
-function sig(tag: string) {
-  return { v: 27, r: keccak256(toHex(`r-${tag}`)), s: padHex(toHex(`s-${tag}`), { size: 32 }) }
+const PERMIT_NONCE = 2n
+
+function sig(tag: string): Hex {
+  return `${keccak256(toHex(`r-${tag}`))}${keccak256(toHex(`s-${tag}`)).slice(2)}1b`
 }
 
 function payment(tag: string, validBefore: bigint): PayWithAuthorizationInput {
@@ -189,6 +194,7 @@ function enrolment(tag: string): PermitAndCreateSubscriptionInput {
     interval: 86_400,
     startAt: 0n,
     endAt: 0n,
+    nonce: subscriptionIntentNonce(PLAN_ID, OWNER, PERMIT_NONCE),
     permitData: { owner: OWNER, value: (1n << 256n) - 1n, deadline: CHAIN_NOW + 86_400n },
     permitSignature: sig(`permit-${tag}`),
     intentSignature: sig(`sub-intent-${tag}`),
@@ -353,6 +359,13 @@ describe('RelayService live-attempt pointer', () => {
 
       expect(second.status).toBe('queued')
       expect(pointers.map.get(subscriptionAttemptScope(PLAN_ID, OWNER))).toBe(second.idempotencyKey)
+      // Both attempts spend the same intent nonce, so the contract lets only one land.
+      const nonceOf = (key: string) =>
+        decodeFunctionData({
+          abi: permitAndCreateSubscriptionAbi,
+          data: must(queue.jobs.get(key)).data.callData,
+        }).args[6]
+      expect(nonceOf(second.idempotencyKey)).toBe(nonceOf(first.idempotencyKey))
     })
 
     it('refuses with already_settled when the previous enrolment tx succeeded', async () => {
@@ -369,6 +382,7 @@ describe('RelayService live-attempt pointer', () => {
       await service.submitPermitAndCreateSubscription(enrolment('first'))
       const other = enrolment('other-wallet')
       other.permitData.owner = '0x6666666666666666666666666666666666666666'
+      other.nonce = subscriptionIntentNonce(PLAN_ID, other.permitData.owner, PERMIT_NONCE)
 
       const view = await service.submitPermitAndCreateSubscription(other)
 

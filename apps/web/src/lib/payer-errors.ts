@@ -7,6 +7,10 @@ export const PAYER_MESSAGES: Readonly<Record<string, string>> = {
     'This merchant cannot take more checkouts today. Please try again after 00:00 UTC.',
   rate_limited: 'Too many attempts from your network. Wait a minute and try again.',
   subscription_exists: 'This wallet already subscribes to this plan.',
+  intent_nonce_mismatch:
+    'Your wallet approved something that changed before it reached us. Try again.',
+  relay_gas_too_high:
+    'This wallet costs more to check than this checkout can cover. Try another wallet.',
 }
 
 export const PAYER_REFUSALS: Readonly<Record<string, string>> = {

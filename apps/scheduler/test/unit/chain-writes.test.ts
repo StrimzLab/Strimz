@@ -46,12 +46,27 @@ interface RpcRequest {
 }
 
 const REGISTRY = '0x0000000000000000000000000000000000000003'
-const registryAbi = parseAbi(['function setFeeBps(uint256 merchantId, uint16 newFeeBps)'])
+const WHITELIST = '0x0000000000000000000000000000000000000004'
+const TOKEN = '0x3600000000000000000000000000000000000000'
+const registryAbi = parseAbi([
+  'function setFeeBps(uint256 merchantId, uint16 newFeeBps)',
+  'function commitFeeBps(uint256 merchantId)',
+])
+const viewAbi = parseAbi([
+  'function getMerchant(uint256 merchantId)',
+  'function getSubscription(uint256 subscriptionId)',
+  'function tokenWhitelist()',
+  'function isWhitelisted(address token)',
+  'function pendingFeeOf(uint256 merchantId)',
+])
 
 class FakeArcRpc {
   chainId = 5042002
   receiptStatus: '0x1' | '0x0' = '0x1'
   registryFeeBps = 0
+  tokenWhitelisted = true
+  pendingFee = { feeBps: 0, effectiveAt: 0n }
+  blockTimestamp = 1n
   readonly sent: Hex[] = []
   readonly calls: { to: string; data: Hex }[] = []
   private server: Server | undefined
@@ -102,7 +117,11 @@ class FakeArcRpc {
       case 'eth_gasPrice':
         return toHex(parseGwei('20'))
       case 'eth_getBlockByNumber':
-        return { number: toHex(1), baseFeePerGas: toHex(parseGwei('20')), timestamp: toHex(1) }
+        return {
+          number: toHex(1),
+          baseFeePerGas: toHex(parseGwei('20')),
+          timestamp: toHex(this.blockTimestamp),
+        }
       case 'eth_blockNumber':
         return toHex(2)
       case 'eth_getTransactionReceipt': {
@@ -128,6 +147,37 @@ class FakeArcRpc {
         const call = req.params[0] as { to: string; data: Hex }
         this.calls.push(call)
         const zero = '0x0000000000000000000000000000000000000000'
+        const fn = decodeFunctionData({ abi: viewAbi, data: call.data }).functionName
+        if (fn === 'getSubscription') {
+          return encodeAbiParameters(
+            [
+              {
+                type: 'tuple',
+                components: [
+                  { type: 'address' },
+                  { type: 'uint64' },
+                  { type: 'uint32' },
+                  { type: 'address' },
+                  { type: 'uint96' },
+                  { type: 'uint256' },
+                  { type: 'uint64' },
+                  { type: 'bool' },
+                ],
+              },
+            ],
+            [[zero, 1n, 60, TOKEN, 7n, 10n, 0n, false]],
+          )
+        }
+        if (fn === 'tokenWhitelist') return encodeAbiParameters([{ type: 'address' }], [WHITELIST])
+        if (fn === 'isWhitelisted') {
+          return encodeAbiParameters([{ type: 'bool' }], [this.tokenWhitelisted])
+        }
+        if (fn === 'pendingFeeOf') {
+          return encodeAbiParameters(
+            [{ type: 'uint16' }, { type: 'uint64' }],
+            [this.pendingFee.feeBps, this.pendingFee.effectiveAt],
+          )
+        }
         return encodeAbiParameters(
           [
             {
@@ -174,6 +224,9 @@ beforeEach(() => {
   rpc.chainId = 5042002
   rpc.receiptStatus = '0x1'
   rpc.registryFeeBps = 0
+  rpc.tokenWhitelisted = true
+  rpc.pendingFee = { feeBps: 0, effectiveAt: 0n }
+  rpc.blockTimestamp = 1n
 })
 
 function chainService(): ChainService {
@@ -240,5 +293,44 @@ describe('scheduler chain writes', () => {
 
     expect(await chain.readMerchantFeeBps(7n)).toBe(40)
     expect(rpc.calls.map((c) => c.to.toLowerCase())).toEqual([REGISTRY])
+  })
+
+  it('does not call a charge due once its token is off the whitelist', async () => {
+    const chain = chainService()
+    expect(await chain.isChargeDue(4n)).toBe(true)
+
+    rpc.tokenWhitelisted = false
+    expect(await chain.isChargeDue(4n)).toBe(false)
+    const whitelistReads = rpc.calls.filter((c) => c.to.toLowerCase() === WHITELIST)
+    expect(
+      whitelistReads.map((c) => decodeFunctionData({ abi: viewAbi, data: c.data }).args),
+    ).toEqual([[TOKEN], [TOKEN]])
+  })
+
+  it('reads a pending fee increase from the registry', async () => {
+    rpc.pendingFee = { feeBps: 50, effectiveAt: 1_900_000_000n }
+    const chain = chainService()
+    expect(await chain.readPendingFee(7n)).toEqual({ feeBps: 50, effectiveAt: 1_900_000_000n })
+  })
+
+  it('commits a due fee increase and returns once the receipt succeeds', async () => {
+    const chain = chainService()
+
+    const hash = await chain.commitMerchantFeeBps(7n)
+
+    const tx = parseTransaction(must(rpc.sent[0]))
+    expect(tx.to).toBe(REGISTRY)
+    const call = decodeFunctionData({ abi: registryAbi, data: must(tx.data) })
+    expect(call.functionName).toBe('commitFeeBps')
+    expect(call.args).toEqual([7n])
+    expect(hash).toBe(keccak256(must(rpc.sent[0])))
+
+    rpc.receiptStatus = '0x0'
+    await expect(chain.commitMerchantFeeBps(7n)).rejects.toThrow(/reverted/u)
+  })
+
+  it('reads the latest block time', async () => {
+    rpc.blockTimestamp = 1_900_000_123n
+    expect(await chainService().latestBlockTimestamp()).toBe(1_900_000_123n)
   })
 })

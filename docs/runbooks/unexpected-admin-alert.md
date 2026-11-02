@@ -20,12 +20,12 @@ If nobody did, continue.
 
 ## 2. Stop what is still waiting
 
-| Alert                                            | Waiting for                      | Stop it with                                                         | From                     |
-| ------------------------------------------------ | -------------------------------- | -------------------------------------------------------------------- | ------------------------ |
-| `TimelockController: call scheduled`             | the timelock delay (48h mainnet) | `cancel(id)` on the timelock, with the `Operation` id from the alert | the guardian or the Safe |
-| `Merchant payout address change started`         | `Takes effect`                   | `adminCancelPayoutChange(merchantId)` on the Registry                | the Safe (`ADMIN_ROLE`)  |
-| `Merchant ownership transfer started`            | `Can accept from`                | `adminCancelOwnershipTransfer(merchantId)` on the Registry           | the Safe (`ADMIN_ROLE`)  |
-| a scheduled fee increase (alert added with #142) | 24 hours                         | `cancelFeeIncrease(merchantId)` on the Registry                      | the Safe (`ADMIN_ROLE`)  |
+| Alert                                    | Waiting for                      | Stop it with                                                         | From                     |
+| ---------------------------------------- | -------------------------------- | -------------------------------------------------------------------- | ------------------------ |
+| `TimelockController: call scheduled`     | the timelock delay (48h mainnet) | `cancel(id)` on the timelock, with the `Operation` id from the alert | the guardian or the Safe |
+| `Merchant payout address change started` | `Takes effect`                   | `adminCancelPayoutChange(merchantId)` on the Registry                | the Safe (`ADMIN_ROLE`)  |
+| `Merchant ownership transfer started`    | `Can accept from`                | `adminCancelOwnershipTransfer(merchantId)` on the Registry           | the Safe (`ADMIN_ROLE`)  |
+| `Merchant fee increase scheduled`        | `Takes effect`                   | `cancelFeeIncrease(merchantId)` on the Registry                      | the Safe (`ADMIN_ROLE`)  |
 
 **Merchant payout or ownership change:**
 
@@ -45,9 +45,9 @@ These take effect at once, so the alert arrives after the fact.
   - Revoke it from the Safe, or through the timelock for timelock-only roles.
   - Rotate any key that could have sent it.
 - **`paused`:** find out who paused and why before you unpause. Only `ADMIN_ROLE` can unpause.
-- **Many operator cancels from the scheduler key (after #142):**
-  - Revoke the scheduler's roles from the Safe.
-  - Reinstate the subscriptions the merchants didn't ask to cancel, within 7 days (`reinstate(id)` from the Safe).
+- **`tokens rescued` that nobody asked for:** only `ADMIN_ROLE` can rescue, so treat it as a compromised Safe or timelock. Follow section 4 for the Safe, and see `docs/runbooks/token-rescue.md` for what a planned rescue looks like.
+- **`subscription reinstated` that nobody asked for:** if the merchant or payer wanted it cancelled, they cancel it again; the Safe has no role that cancels subscriptions.
+- **Many operator cancels from the scheduler key:** see "Leaked scheduler key" below.
 
 ## 4. Rotate keys
 
@@ -55,6 +55,14 @@ Follow `docs/runbooks/kms-signers.md` for the relayer and the scheduler.
 
 - **Safe owner:** if a Safe owner key may be compromised, replace the owner in the Safe before anything else is signed.
 - **Guardian:** if the guardian key leaked, the timelock revokes its `CANCELLER_ROLE` and the Safe revokes its `PAUSER_ROLE`.
+
+### Leaked scheduler key
+
+1. Revoke its roles from the Safe: `CHARGER_ROLE` and `SUBSCRIPTION_CANCELLER_ROLE` on Subscriptions, `FEE_MANAGER_ROLE` on the Registry.
+2. List the operator cancels since the leak: `SubscriptionCancelled` events where `by` is the scheduler address.
+3. Reinstate the ones the merchant didn't request, within 7 days of each cancel: `reinstate(id)` from the Safe. Each one raises a `subscription reinstated` alert and sends the merchant `subscription.reactivated`.
+4. Cancel any pending fee increase the key scheduled: `cancelFeeIncrease(merchantId)` from the Safe.
+5. Rotate the key as `docs/runbooks/kms-signers.md` describes, and grant the roles to the new address.
 
 ## 5. Write it up
 

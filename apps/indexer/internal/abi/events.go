@@ -39,7 +39,6 @@ const (
 	EventMerchantOwnershipTransferCancelled EventName = "MerchantOwnershipTransferCancelled"
 	EventMerchantPayoutChangeInitiated      EventName = "MerchantPayoutChangeInitiated"
 	EventMerchantPayoutChangeCancelled      EventName = "MerchantPayoutChangeCancelled"
-	EventMerchantMaxFeeBpsLowered           EventName = "MerchantMaxFeeBpsLowered"
 
 	EventPaused            EventName = "Paused"
 	EventUnpaused          EventName = "Unpaused"
@@ -54,11 +53,15 @@ const (
 	EventPaymentExecuted EventName = "PaymentExecuted"
 
 	// Subscriptions
-	EventSubscriptionCreated        EventName = "SubscriptionCreated"
-	EventSubscriptionCharged        EventName = "SubscriptionCharged"
-	EventSubscriptionPeriodsSkipped EventName = "SubscriptionPeriodsSkipped"
-	EventSubscriptionChargeSkipped  EventName = "SubscriptionChargeSkipped"
-	EventSubscriptionCancelled      EventName = "SubscriptionCancelled"
+	EventSubscriptionCreated          EventName = "SubscriptionCreated"
+	EventSubscriptionCharged          EventName = "SubscriptionCharged"
+	EventSubscriptionPeriodsSkipped   EventName = "SubscriptionPeriodsSkipped"
+	EventSubscriptionChargeSkipped    EventName = "SubscriptionChargeSkipped"
+	EventSubscriptionCancelled        EventName = "SubscriptionCancelled"
+	EventSubscriptionReinstated       EventName = "SubscriptionReinstated"
+	EventTokensRescued                EventName = "TokensRescued"
+	EventMerchantFeeIncreaseScheduled EventName = "MerchantFeeIncreaseScheduled"
+	EventMerchantFeeIncreaseCancelled EventName = "MerchantFeeIncreaseCancelled"
 
 	// Agent escrow
 	EventJobCreated   EventName = "JobCreated"
@@ -106,10 +109,12 @@ var SubscribedEvents = []EventName{
 	EventMerchantActiveSet,
 	EventMerchantOwnershipTransferInitiated, EventMerchantOwnershipTransferAccepted,
 	EventMerchantOwnershipTransferCancelled, EventMerchantPayoutChangeInitiated,
-	EventMerchantPayoutChangeCancelled, EventMerchantMaxFeeBpsLowered,
+	EventMerchantPayoutChangeCancelled,
+	EventMerchantFeeIncreaseScheduled, EventMerchantFeeIncreaseCancelled,
 	EventPaymentExecuted,
 	EventSubscriptionCreated, EventSubscriptionCharged, EventSubscriptionPeriodsSkipped,
-	EventSubscriptionChargeSkipped, EventSubscriptionCancelled,
+	EventSubscriptionChargeSkipped, EventSubscriptionCancelled, EventSubscriptionReinstated,
+	EventTokensRescued,
 	EventJobCreated, EventJobFunded, EventJobStarted, EventJobDelivered,
 	EventJobApproved, EventJobReleased, EventJobDisputed, EventJobCancelled,
 	EventJobRefunded, EventJobResolved, EventJobReclaimed,
@@ -329,11 +334,6 @@ type MerchantPayoutChangeCancelled struct {
 	MerchantID *big.Int
 }
 
-type MerchantMaxFeeBpsLowered struct {
-	MerchantID   *big.Int
-	NewMaxFeeBps uint16
-}
-
 type RoleChanged struct {
 	Role    [32]byte
 	Account common.Address
@@ -413,6 +413,28 @@ type DependencyUpdated struct {
 	NewAddress common.Address
 }
 
+type SubscriptionReinstated struct {
+	SubscriptionID *big.Int
+	By             common.Address
+}
+
+type TokensRescued struct {
+	Token  common.Address
+	To     common.Address
+	Amount *big.Int
+	By     common.Address
+}
+
+type MerchantFeeIncreaseScheduled struct {
+	MerchantID  *big.Int
+	FeeBps      uint16
+	EffectiveAt uint64
+}
+
+type MerchantFeeIncreaseCancelled struct {
+	MerchantID *big.Int
+}
+
 type FeeWithdrawn struct {
 	Token  common.Address
 	To     common.Address
@@ -475,6 +497,7 @@ type SubscriptionCharged struct {
 //	8  Unknown           subscriptionId never existed
 //	9  MerchantInactive  merchant frozen/unknown at charge time
 //	10 TransferFailed    token transfer reverted mid-charge
+//	11 TokenNotAllowed   token removed from the whitelist; not the payer's fault
 type ChargeOutcome uint8
 
 const (
@@ -489,6 +512,7 @@ const (
 	ChargeOutcomeUnknown           ChargeOutcome = 8
 	ChargeOutcomeMerchantInactive  ChargeOutcome = 9
 	ChargeOutcomeTransferFailed    ChargeOutcome = 10
+	ChargeOutcomeTokenNotAllowed   ChargeOutcome = 11
 )
 
 // String returns the DB enum value (`SubscriptionChargeOutcome`) for the
@@ -515,6 +539,8 @@ func (c ChargeOutcome) DBString() string {
 		return "merchant_inactive"
 	case ChargeOutcomeTransferFailed:
 		return "transfer_failed"
+	case ChargeOutcomeTokenNotAllowed:
+		return "token_not_allowed"
 	default:
 		// ChargeOutcomeNone and anything a future contract appends.
 		return "skipped"
@@ -794,14 +820,6 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 		}
 		return &MerchantPayoutChangeCancelled{MerchantID: merchantID}, nil
 
-	case EventMerchantMaxFeeBpsLowered:
-		merchantID, e1 := bigint("merchantId")
-		maxFee, e2 := u16("newMaxFeeBps")
-		if err := firstErr(e1, e2); err != nil {
-			return nil, err
-		}
-		return &MerchantMaxFeeBpsLowered{MerchantID: merchantID, NewMaxFeeBps: maxFee}, nil
-
 	case EventPaymentExecuted:
 		merchantID, e1 := bigint("merchantId")
 		payer, e2 := addr("payer")
@@ -878,6 +896,40 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 			return nil, err
 		}
 		return &SubscriptionCancelled{SubscriptionID: subID, By: by}, nil
+
+	case EventSubscriptionReinstated:
+		subID, e1 := bigint("subscriptionId")
+		by, e2 := addr("by")
+		if err := firstErr(e1, e2); err != nil {
+			return nil, err
+		}
+		return &SubscriptionReinstated{SubscriptionID: subID, By: by}, nil
+
+	case EventTokensRescued:
+		token, e1 := addr("token")
+		to, e2 := addr("to")
+		amount, e3 := bigint("amount")
+		by, e4 := addr("by")
+		if err := firstErr(e1, e2, e3, e4); err != nil {
+			return nil, err
+		}
+		return &TokensRescued{Token: token, To: to, Amount: amount, By: by}, nil
+
+	case EventMerchantFeeIncreaseScheduled:
+		merchantID, e1 := bigint("merchantId")
+		feeBps, e2 := u16("feeBps")
+		effectiveAt, e3 := u64("effectiveAt")
+		if err := firstErr(e1, e2, e3); err != nil {
+			return nil, err
+		}
+		return &MerchantFeeIncreaseScheduled{MerchantID: merchantID, FeeBps: feeBps, EffectiveAt: effectiveAt}, nil
+
+	case EventMerchantFeeIncreaseCancelled:
+		merchantID, err := bigint("merchantId")
+		if err != nil {
+			return nil, err
+		}
+		return &MerchantFeeIncreaseCancelled{MerchantID: merchantID}, nil
 
 	case EventJobCreated:
 		jobID, e1 := bigint("jobId")

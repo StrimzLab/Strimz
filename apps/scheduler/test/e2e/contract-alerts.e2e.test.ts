@@ -104,6 +104,40 @@ describe('contract alerts e2e', () => {
     expect(mail.html).toContain('1 Nov 2026, 12:00 UTC')
   })
 
+  it('describes fee increases, reinstated subscriptions and rescued tokens', async () => {
+    await seedAlert('merchant.fee_increase_scheduled_onchain', {
+      onchainMerchantId: '7',
+      feeBps: 50,
+      effectiveAt: 1_793_534_400,
+    })
+    await seedAlert('merchant.fee_increase_cancelled_onchain', { onchainMerchantId: '7' })
+    await seedAlert('subscription.reinstated_onchain', {
+      contractName: 'StrimzSubscriptions',
+      onchainSubscriptionId: '21',
+      by: ATTACKER,
+    })
+    await seedAlert('contract.tokens_rescued', {
+      contractName: 'StrimzPayments',
+      token: '0x3600000000000000000000000000000000000000',
+      to: '0x00000000000000000000000000000000000000e4',
+      amount: '2500000',
+      by: RELAYER,
+    })
+
+    expect(await run()).toEqual({ sent: 4, failed: false })
+    const mail = must(t.email.sent[0])
+    expect(mail.html).toContain('Merchant fee increase scheduled')
+    expect(mail.html).toContain('0.5%')
+    expect(mail.html).toContain('1 Nov 2026, 12:00 UTC')
+    expect(mail.html).toContain('Merchant fee increase cancelled')
+    expect(mail.html).toContain('StrimzSubscriptions: subscription reinstated')
+    expect(mail.html).toContain('21')
+    expect(mail.html).toContain('StrimzPayments: tokens rescued')
+    expect(mail.html).toContain('0x00000000000000000000000000000000000000e4')
+    expect(mail.html).toContain('2500000')
+    expect(mail.html).toContain(`${RELAYER} (relayer)`)
+  })
+
   it('leaves the events pending when the email fails, and sends them next time', async () => {
     await seedAlert('contract.paused', { contractName: 'StrimzPayments', account: ATTACKER })
     t.email.failNext = true

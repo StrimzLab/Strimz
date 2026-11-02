@@ -170,6 +170,7 @@ enum SubscriptionChargeOutcome {
   merchant_inactive
   transfer_failed
   skipped
+  token_not_allowed
 }
 
 // ---------- Refunds ----------
@@ -203,6 +204,7 @@ enum WebhookEventName {
   subscription_recovery_attempt
   subscription_cancelled
   subscription_lapsed
+  subscription_reactivated
   refund_created
   refund_completed
   invoice_created

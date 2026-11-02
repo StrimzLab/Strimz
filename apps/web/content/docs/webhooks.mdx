@@ -41,6 +41,7 @@ The reference implementation lives in [`@strimz/sdk` → `verifyWebhookSignature
 | `subscription.recovery_attempt` | The recovery agent emailed the customer about a failed charge              | `{ subscription, attemptNumber }`       |
 | `subscription.cancelled`        | You cancelled through the API or dashboard                                 | the subscription                        |
 | `subscription.lapsed`           | The 48-hour grace window ran out without a successful charge               | the subscription                        |
+| `subscription.reactivated`      | Strimz restored a subscription its operator key cancelled by mistake       | the subscription                        |
 | `refund.created`                | A refund is created                                                        | the refund                              |
 | `refund.completed`              | The refund transaction confirmed on chain                                  | `{ refund, transaction }`               |
 | `invoice.created`               | An invoice is created                                                      | the invoice                             |

@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common'
-import { erc20Abi, TransactionReceiptNotFoundError, type Hex } from 'viem'
+import { erc20Abi, parseAbi, TransactionReceiptNotFoundError, type Hex } from 'viem'
 import type { KmsSigner } from '@strimz/signer'
 
 import { ChainService } from '../../infra/chain/chain.service.js'
@@ -8,6 +8,8 @@ import { revertReasonOf } from './relay-revert.js'
 
 export type RelayReceiptStatus = 'success' | 'reverted'
 
+const erc2612NoncesAbi = parseAbi(['function nonces(address owner) view returns (uint256)'])
+
 @Injectable()
 export class RelayChainProbe {
   constructor(
@@ -15,9 +17,14 @@ export class RelayChainProbe {
     @Inject(KMS_SIGNER) private readonly signer: KmsSigner,
   ) {}
 
-  async simulate(call: { to: Hex; data: Hex }): Promise<void> {
-    await this.chain.client
-      .call({ account: this.signer.address, to: call.to, data: call.data, blockTag: 'latest' })
+  estimateGas(call: { to: Hex; data: Hex }): Promise<bigint> {
+    return this.chain.client
+      .estimateGas({
+        account: this.signer.address,
+        to: call.to,
+        data: call.data,
+        blockTag: 'latest',
+      })
       .catch((err: unknown) => {
         const revert = revertReasonOf(err)
         if (revert === null) throw err
@@ -37,6 +44,15 @@ export class RelayChainProbe {
         throw err
       })
     return receipt ? receipt.status : null
+  }
+
+  permitNonce(token: Hex, owner: Hex): Promise<bigint> {
+    return this.chain.client.readContract({
+      address: token,
+      abi: erc2612NoncesAbi,
+      functionName: 'nonces',
+      args: [owner],
+    })
   }
 
   balanceOf(token: Hex, owner: Hex): Promise<bigint> {

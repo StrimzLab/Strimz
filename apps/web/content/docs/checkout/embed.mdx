@@ -116,7 +116,7 @@ export function CheckoutPanel({ sessionId }: { sessionId: string }) {
 }
 ```
 
-The embedded checkout never navigates, and it ignores the session's `successUrl` and `cancelUrl`. When the payer finishes, it tells your page: `onSuccess` gets the transaction hash, `onCancel` fires when they press Cancel, and `onError` gets a `StrimzCheckoutError` whose `code` is `load_failed`, `merchant_not_ready`, `payment_reverted` or `unsupported_wallet`. A failure the payer can retry, such as a rejected signature, stays inside the frame. These callbacks need `@strimz/sdk-react` 0.3.0 or later.
+The embedded checkout never navigates, and it ignores the session's `successUrl` and `cancelUrl`. When the payer finishes, it tells your page: `onSuccess` gets the transaction hash, `onCancel` fires when they press Cancel, and `onError` gets a `StrimzCheckoutError` whose `code` is `load_failed`, `merchant_not_ready` or `payment_reverted`. A failure the payer can retry, such as a rejected signature, stays inside the frame. These callbacks need `@strimz/sdk-react` 0.3.0 or later.
 
 The embedded checkout follows the payer's system light or dark preference and has no theme toggle of its own. To match your page, pass `theme="light"` or `theme="dark"`:
 

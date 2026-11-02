@@ -66,20 +66,6 @@ func (s *Store) SetMerchantOnchainFeeBps(ctx context.Context, onchainID *big.Int
 	return tag.RowsAffected(), nil
 }
 
-// SetMerchantOnchainMaxFeeBps mirrors `MerchantMaxFeeBpsLowered`, which only
-// the registry deployed before the fee-ceiling change emits.
-func (s *Store) SetMerchantOnchainMaxFeeBps(ctx context.Context, onchainID *big.Int, maxFeeBps uint16, txHash string, at time.Time) (int64, error) {
-	tag, err := s.db().Exec(ctx, `
-		UPDATE "Merchant"
-		   SET "onchainMaxFeeBps" = $2, "onchainFeeTxHash" = $3, "onchainFeeChangedAt" = $4
-		 WHERE "onchainMerchantId" = $1
-	`, onchainID.Int64(), int(maxFeeBps), strings.ToLower(txHash), at)
-	if err != nil {
-		return 0, fmt.Errorf("set onchain max fee: %w", err)
-	}
-	return tag.RowsAffected(), nil
-}
-
 // UpdateMerchantPayoutAddress mirrors `MerchantPayoutAddressUpdated` —
 // keeps the off-chain Merchant.payoutAddress in sync. Match by on-chain id.
 func (s *Store) UpdateMerchantPayoutAddress(ctx context.Context, onchainID *big.Int, newPayoutAddress string) (int64, error) {

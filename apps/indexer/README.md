@@ -31,7 +31,6 @@ is never parked. No `Merchant` column changes.
 | `MerchantOwnershipTransferCancelled` | `merchant.ownership_transfer_cancelled_onchain` |                                                         |
 | `MerchantPayoutChangeInitiated`      | `merchant.payout_change_initiated_onchain`      | `newPayoutAddress`, `commitAt` (unix s)                 |
 | `MerchantPayoutChangeCancelled`      | `merchant.payout_change_cancelled_onchain`      |                                                         |
-| `MerchantMaxFeeBpsLowered`           | `merchant.max_fee_bps_lowered_onchain`          | `newMaxFeeBps`                                          |
 
 Both `...Initiated` events also:
 
@@ -144,7 +143,7 @@ make abi    # rebuilds internal/abi/*.abi.json from packages/contracts/out/
 This runs `arc-forge build` if needed, then `scripts/generate-abis.sh`, which writes each contract's events into the embedded JSON files. The Go binary picks them up via `//go:embed` at build time, so there are no runtime filesystem reads.
 
 - **CI and preflight** run `scripts/generate-abis.sh --check` after the contracts build, and fail when the committed files differ from the build.
-- **`internal/abi/deployed-only/`** holds events the deployed testnet contracts still emit but the source has dropped. Today that is only `MerchantMaxFeeBpsLowered` on the Registry. The script appends them to the matching file. Delete the folder at the #142 redeploy and regenerate.
+- The same script writes the API relay's ABIs, `apps/api/src/modules/relay/generated/contracts.ts`.
 
 The indexer is a derived view. Truncating `IndexerCursor` and
 reprocessing from genesis must produce identical Postgres state.
