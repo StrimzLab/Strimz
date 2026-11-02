@@ -5,8 +5,10 @@ import type { Eip712TypedData } from './types.js'
  * alongside the ERC-2612 permit. Without it, a valid permit can be
  * used to enrol the payer in a plan they never picked.
  *
- * `permitDeadline` ties this intent to the accompanying permit —
- * they expire together.
+ * `permitDeadline` and `permitValue` tie this intent to the accompanying
+ * permit. `nonce` is spent once on chain; the Strimz API only accepts
+ * `subscriptionIntentNonce(planId, payer, the token's permit nonce)` from
+ * `@strimz/shared-crypto`, so a retried signup can't enrol twice.
  */
 export interface SubscriptionIntentParams {
   chainId: number
@@ -18,6 +20,8 @@ export interface SubscriptionIntentParams {
   startAt: bigint
   endAt: bigint
   permitDeadline: bigint
+  permitValue: bigint
+  nonce: `0x${string}`
 }
 
 /** Field order matches `SUBSCRIPTION_INTENT_TYPEHASH` in the contract. */
@@ -30,6 +34,8 @@ export const SUBSCRIPTION_INTENT_TYPES = {
     { name: 'startAt', type: 'uint64' },
     { name: 'endAt', type: 'uint64' },
     { name: 'permitDeadline', type: 'uint256' },
+    { name: 'permitValue', type: 'uint256' },
+    { name: 'nonce', type: 'bytes32' },
   ],
 } as const
 
@@ -54,6 +60,8 @@ export function buildSubscriptionIntentTypedData(
       startAt: params.startAt,
       endAt: params.endAt,
       permitDeadline: params.permitDeadline,
+      permitValue: params.permitValue,
+      nonce: params.nonce,
     },
   }
 }

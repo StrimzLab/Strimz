@@ -13,7 +13,7 @@ export function phaseLine(phase: string, flow: CheckoutFlow): string {
     case 'ready':
       return flow === 'pay'
         ? 'You approve once in your wallet. No extra fee for you.'
-        : 'You approve once in your wallet. Each charge after that is automatic.'
+        : 'You approve once in your wallet. Only the amount and schedule shown can be charged, and you can cancel at any time.'
     case 'signing':
       return flow === 'pay'
         ? 'Check your wallet and approve the payment.'

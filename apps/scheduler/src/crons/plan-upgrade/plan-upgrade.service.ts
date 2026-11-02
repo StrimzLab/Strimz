@@ -56,10 +56,13 @@ interface Upgrade {
 
 export interface PlanUpgradeResult {
   checked: number
+  scheduled: number
   upgraded: number
   failed: number
   emailFailed: number
 }
+
+type FeeStep = { kind: 'live'; txHash: `0x${string}` | null } | { kind: 'scheduled' | 'waiting' }
 
 @Injectable()
 export class PlanUpgradeService {
@@ -79,7 +82,13 @@ export class PlanUpgradeService {
   }
 
   async upgradeNow(): Promise<PlanUpgradeResult> {
-    const result: PlanUpgradeResult = { checked: 0, upgraded: 0, failed: 0, emailFailed: 0 }
+    const result: PlanUpgradeResult = {
+      checked: 0,
+      scheduled: 0,
+      upgraded: 0,
+      failed: 0,
+      emailFailed: 0,
+    }
     if (this.running) return result
     this.running = true
     try {
@@ -87,7 +96,7 @@ export class PlanUpgradeService {
         const next = planUpgradeFor(candidate.tier, candidate.volumes)
         if (!next) continue
         result.checked++
-        let upgrade: Upgrade | null
+        let upgrade: Upgrade | 'scheduled' | 'waiting' | null
         try {
           upgrade = await this.upgrade(candidate, next)
         } catch (err) {
@@ -97,7 +106,8 @@ export class PlanUpgradeService {
           )
           continue
         }
-        if (!upgrade) continue
+        if (upgrade === 'scheduled') result.scheduled++
+        if (!upgrade || upgrade === 'scheduled' || upgrade === 'waiting') continue
         result.upgraded++
         if (!(await this.notify(upgrade))) result.emailFailed++
       }
@@ -106,7 +116,7 @@ export class PlanUpgradeService {
     }
     if (result.checked > 0) {
       this.log.log(
-        `plan-upgrade: upgraded=${result.upgraded} failed=${result.failed} emailFailed=${result.emailFailed}`,
+        `plan-upgrade: scheduled=${result.scheduled} upgraded=${result.upgraded} failed=${result.failed} emailFailed=${result.emailFailed}`,
       )
     }
     return result
@@ -148,15 +158,16 @@ export class PlanUpgradeService {
     return [...byMerchant.values()]
   }
 
-  private async upgrade(candidate: Candidate, next: VolumePlan): Promise<Upgrade | null> {
+  private async upgrade(
+    candidate: Candidate,
+    next: VolumePlan,
+  ): Promise<Upgrade | 'scheduled' | 'waiting' | null> {
     const feeBps = planFeeBps(next)
     if (feeBps === null) throw new Error(`the ${next} plan has no fixed fee`)
 
-    const registryFeeBps = await this.chain.readMerchantFeeBps(candidate.onchainMerchantId)
-    const txHash =
-      registryFeeBps === feeBps
-        ? null
-        : await this.chain.setMerchantFeeBps(candidate.onchainMerchantId, feeBps)
+    const step = await this.applyFee(candidate.onchainMerchantId, feeBps)
+    if (step.kind !== 'live') return step.kind
+    const txHash = step.txHash
 
     const moved = await this.prisma.db.$transaction(async (tx) => {
       const { count } = await tx.merchant.updateMany({
@@ -187,6 +198,24 @@ export class PlanUpgradeService {
       return null
     }
     return { candidate, next, feeBps, txHash }
+  }
+
+  // The plan moves only once the registry charges its fee. A decrease applies
+  // at once; an increase from the scheduler key is scheduled, then committed
+  // on a later tick after FEE_INCREASE_DELAY.
+  private async applyFee(merchantId: bigint, feeBps: number): Promise<FeeStep> {
+    const current = await this.chain.readMerchantFeeBps(merchantId)
+    if (current === feeBps) return { kind: 'live', txHash: null }
+    if (feeBps < current) {
+      return { kind: 'live', txHash: await this.chain.setMerchantFeeBps(merchantId, feeBps) }
+    }
+    const pending = await this.chain.readPendingFee(merchantId)
+    if (pending.effectiveAt === 0n || pending.feeBps !== feeBps) {
+      await this.chain.setMerchantFeeBps(merchantId, feeBps)
+      return { kind: 'scheduled' }
+    }
+    if ((await this.chain.latestBlockTimestamp()) < pending.effectiveAt) return { kind: 'waiting' }
+    return { kind: 'live', txHash: await this.chain.commitMerchantFeeBps(merchantId) }
   }
 
   private async notify({ candidate, next, feeBps, txHash }: Upgrade): Promise<boolean> {

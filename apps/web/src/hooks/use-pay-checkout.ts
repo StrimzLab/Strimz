@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getAccount } from '@wagmi/core'
+import { getAccount, getBytecode } from '@wagmi/core'
 import { useAccount, useConfig, useSignTypedData, useSwitchChain } from 'wagmi'
 import { buildPayIntentTypedData, buildReceiveWithAuthorizationTypedData } from '@strimz/sdk/eip712'
 import type { TokenMetadata } from '@strimz/shared-types'
@@ -16,6 +16,7 @@ import {
 } from '@/lib/checkout-submission'
 import { prepareArcSigning } from '@/lib/arc-network'
 import { env } from '@/lib/env'
+import { walletSignature } from '@/lib/wallet-signature'
 
 /**
  * One-shot payment flow on the hosted checkout.
@@ -162,10 +163,13 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
         nonce,
       })
 
-      const authSigHex = (await signTypedDataAsync(
-        authTypedData as Parameters<typeof signTypedDataAsync>[0],
-      )) as `0x${string}`
-      const authSig = splitSignature(authSigHex)
+      const payerCode = await getBytecode(config, { address })
+      const authSig = walletSignature(
+        (await signTypedDataAsync(
+          authTypedData as Parameters<typeof signTypedDataAsync>[0],
+        )) as `0x${string}`,
+        payerCode,
+      )
 
       // Second sig: PayIntent. Blocks a redirect to a different
       // merchant if the auth sig leaks.
@@ -179,10 +183,12 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
         validBefore,
         ref,
       })
-      const intentSigHex = (await signTypedDataAsync(
-        intentTypedData as Parameters<typeof signTypedDataAsync>[0],
-      )) as `0x${string}`
-      const intentSig = splitSignature(intentSigHex)
+      const intentSig = walletSignature(
+        (await signTypedDataAsync(
+          intentTypedData as Parameters<typeof signTypedDataAsync>[0],
+        )) as `0x${string}`,
+        payerCode,
+      )
 
       setState((prev) => ({ ...prev, phase: 'submitting' }))
 
@@ -197,8 +203,8 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
           nonce,
         },
         ref,
-        authSignature: { v: authSig.v, r: authSig.r, s: authSig.s },
-        intentSignature: { v: intentSig.v, r: intentSig.r, s: intentSig.s },
+        authSignature: authSig,
+        intentSignature: intentSig,
       })
 
       const settled = mapTerminalPhase(submission.status)
@@ -244,18 +250,6 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
 // ---- helpers (intentionally local. These are coupling glue, not a
 // generic utility surface) ----
 
-function splitSignature(sigHex: `0x${string}`): { r: `0x${string}`; s: `0x${string}`; v: number } {
-  if (sigHex.length !== 132) {
-    throw new Error(`expected 65-byte signature hex, got ${sigHex.length} chars`)
-  }
-  const r = `0x${sigHex.slice(2, 66)}` as `0x${string}`
-  const s = `0x${sigHex.slice(66, 130)}` as `0x${string}`
-  const vRaw = parseInt(sigHex.slice(130, 132), 16)
-  // Some wallets return `v` as 0/1 (yParity) instead of 27/28. Normalise.
-  const v = vRaw < 27 ? vRaw + 27 : vRaw
-  return { r, s, v }
-}
-
 interface SubmitBody {
   merchantId: string
   token: `0x${string}`
@@ -267,8 +261,8 @@ interface SubmitBody {
     nonce: `0x${string}`
   }
   ref: `0x${string}`
-  authSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
-  intentSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
+  authSignature: `0x${string}`
+  intentSignature: `0x${string}`
 }
 
 function postSubmit(sessionId: string, body: SubmitBody): Promise<RelaySubmissionView> {

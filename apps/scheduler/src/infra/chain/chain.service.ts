@@ -20,6 +20,7 @@ import {
   StrimzAgentEscrowAbi,
   StrimzRegistryAbi,
   StrimzSubscriptionsAbi,
+  TokenWhitelistAbi,
 } from './abis.js'
 import { SCHEDULER_SIGNER } from './scheduler-signer.js'
 
@@ -159,7 +160,24 @@ export class ChainService implements OnModuleInit {
     if (sub.cancelled) return false
     const now = BigInt(Math.floor(Date.now() / 1000))
     if (sub.endAt !== 0n && now >= sub.endAt) return false
-    return now >= sub.nextChargeAt
+    if (now < sub.nextChargeAt) return false
+    // A delisted token is skipped on chain without spending the attempt id,
+    // so sending it would only cost gas every sweep.
+    const whitelist = await this.publicClient.readContract({
+      address: this.subscriptionsAddress,
+      abi: StrimzSubscriptionsAbi,
+      functionName: 'tokenWhitelist',
+    })
+    return this.publicClient.readContract({
+      address: whitelist,
+      abi: TokenWhitelistAbi,
+      functionName: 'isWhitelisted',
+      args: [sub.token],
+    })
+  }
+
+  latestBlockTimestamp(): Promise<bigint> {
+    return this.publicClient.getBlock({ blockTag: 'latest' }).then((block) => block.timestamp)
   }
 
   // ----- Registry -----
@@ -176,6 +194,34 @@ export class ChainService implements OnModuleInit {
     const receipt = await this.publicClient.waitForTransactionReceipt({ hash })
     if (receipt.status !== 'success') {
       throw new Error(`setFeeBps(${onchainMerchantId}, ${feeBps}) reverted in ${hash}`)
+    }
+    return hash
+  }
+
+  async readPendingFee(
+    onchainMerchantId: bigint,
+  ): Promise<{ feeBps: number; effectiveAt: bigint }> {
+    const [feeBps, effectiveAt] = await this.publicClient.readContract({
+      address: this.registryAddress,
+      abi: StrimzRegistryAbi,
+      functionName: 'pendingFeeOf',
+      args: [onchainMerchantId],
+    })
+    return { feeBps, effectiveAt }
+  }
+
+  async commitMerchantFeeBps(onchainMerchantId: bigint): Promise<Hash> {
+    const hash = await this.walletClient.writeContract({
+      account: this.account,
+      address: this.registryAddress,
+      abi: StrimzRegistryAbi,
+      functionName: 'commitFeeBps',
+      args: [onchainMerchantId],
+      chain: this.chain,
+    })
+    const receipt = await this.publicClient.waitForTransactionReceipt({ hash })
+    if (receipt.status !== 'success') {
+      throw new Error(`commitFeeBps(${onchainMerchantId}) reverted in ${hash}`)
     }
     return hash
   }

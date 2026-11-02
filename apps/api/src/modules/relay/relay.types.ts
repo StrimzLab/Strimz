@@ -22,16 +22,8 @@ export interface PermitData {
   deadline: bigint
 }
 
-/**
- * A canonical 65-byte secp256k1 signature decomposed into `v`, `r`, `s`
- * — what both the StrimzPayments and StrimzSubscriptions contracts
- * expect as the three trailing args of the meta-tx entrypoints.
- */
-export interface VRSSignature {
-  v: number // 27 or 28
-  r: `0x${string}` // bytes32
-  s: `0x${string}` // bytes32
-}
+/** A 65-byte ECDSA signature, or whatever a smart wallet's ERC-1271 check accepts. */
+export type RelaySignature = `0x${string}`
 
 /**
  * Caller-facing inputs for the one-shot EIP-3009 payment path.
@@ -47,10 +39,10 @@ export interface PayWithAuthorizationInput {
   auth: PayAuthorization
   ref: `0x${string}` // bytes32 — typically `keccak256(sessionId)`
   /** EIP-3009 sig — token verifies. */
-  authSignature: VRSSignature
+  authSignature: RelaySignature
   /** PayIntent sig — contract verifies. Binds merchantId, token,
    *  amount, nonce, validBefore, ref. */
-  intentSignature: VRSSignature
+  intentSignature: RelaySignature
   // Optional diagnostics for the operator dashboard. Not used on-chain.
   merchantInternalId: string
   sessionId: string
@@ -67,11 +59,13 @@ export interface PermitAndCreateSubscriptionInput {
   interval: number // seconds (uint32)
   startAt: bigint // uint64
   endAt: bigint // uint64, 0 = open-ended
+  /** subscriptionIntentNonce(planId, payer, permit nonce); the contract spends it once. */
+  nonce: `0x${string}`
   permitData: PermitData
   /** EIP-2612 permit sig — token verifies. */
-  permitSignature: VRSSignature
+  permitSignature: RelaySignature
   /** SubscriptionIntent sig — contract verifies. Binds every plan param. */
-  intentSignature: VRSSignature
+  intentSignature: RelaySignature
   merchantInternalId: string
   subscriptionInternalId: string
 }

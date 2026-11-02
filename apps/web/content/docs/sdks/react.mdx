@@ -108,7 +108,7 @@ Renders the hosted checkout inline in an iframe. Useful for cart-style flows whe
 
 The popup and the embed report back to your page with `onSuccess(txHash)`, `onCancel()` and `onError(error)`. Neither one navigates, so the session's `successUrl` and `cancelUrl` only apply to the full-page redirect. In the popup, `onCancel` also fires when the payer closes the window.
 
-`error` is a `StrimzCheckoutError` with `code` (`load_failed`, `merchant_not_ready`, `payment_reverted` or `unsupported_wallet`), `sessionId` and `message`. A failure the payer can retry stays inside the checkout and is not reported.
+`error` is a `StrimzCheckoutError` with `code` (`load_failed`, `merchant_not_ready` or `payment_reverted`), `sessionId` and `message`. A failure the payer can retry stays inside the checkout and is not reported.
 
 Your page only accepts a message from the checkout origin, from its own popup or iframe, and for the session it opened. These callbacks need version 0.3.0 or later; earlier versions never receive a result.
 

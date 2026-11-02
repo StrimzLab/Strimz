@@ -37,6 +37,9 @@ type MerchantGovernanceInput struct {
 	Action            string
 	Metadata          map[string]any
 	Alert             bool
+	// NotifyMerchant also queues the merchant's security email. Only payout
+	// and ownership changes have one.
+	NotifyMerchant bool
 }
 
 type ContractOperationInput struct {
@@ -87,7 +90,7 @@ func (s *Store) LogMerchantGovernance(ctx context.Context, in MerchantGovernance
 	if err := s.insertContractAlert(ctx, auditID, in.Log.ChainID, in.Action); err != nil {
 		return err
 	}
-	if merchantID == nil {
+	if merchantID == nil || !in.NotifyMerchant {
 		return nil
 	}
 	_, err = s.db().Exec(ctx, `
@@ -153,4 +156,65 @@ func (s *Store) insertOnchainAudit(ctx context.Context, id string, merchantID *s
 		return fmt.Errorf("insert %s audit row: %w", e.Action, err)
 	}
 	return nil
+}
+
+type SubscriptionReinstatedInput struct {
+	Log                   OnchainLogRef
+	OnchainSubscriptionID *big.Int
+	By                    string
+}
+
+// ReinstateSubscription mirrors `SubscriptionReinstated`: an operator cancel
+// undone within the reinstate window. The subscription is active again, the
+// admin is alerted and the merchant gets `subscription.reactivated`.
+func (s *Store) ReinstateSubscription(ctx context.Context, in SubscriptionReinstatedInput) error {
+	return s.RunBatch(ctx, func(txs *Store) error {
+		var subID, merchantID, mode string
+		reinstated := true
+		err := txs.db().QueryRow(ctx, `
+			UPDATE "Subscription"
+			   SET status = 'active'::"SubscriptionStatus",
+			       "cancelledAt" = NULL,
+			       "cancellationReason" = NULL,
+			       "updatedAt" = NOW()
+			 WHERE "onchainSubscriptionId" = $1 AND status = 'cancelled'::"SubscriptionStatus"
+			 RETURNING id, "merchantId", mode::text
+		`, in.OnchainSubscriptionID.Int64()).Scan(&subID, &merchantID, &mode)
+		if errors.Is(err, pgx.ErrNoRows) {
+			reinstated = false
+			err = txs.db().QueryRow(ctx,
+				`SELECT id, "merchantId" FROM "Subscription" WHERE "onchainSubscriptionId" = $1`,
+				in.OnchainSubscriptionID.Int64()).Scan(&subID, &merchantID)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("%w: SubscriptionReinstated for unknown subscription %s", ErrUnresolvable, in.OnchainSubscriptionID)
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("reinstate sub: %w", err)
+		}
+		auditID := in.Log.auditID()
+		if err := txs.insertOnchainAudit(ctx, auditID, &merchantID, auditEntry{
+			Category:   "subscription",
+			Action:     "subscription.reinstated_onchain",
+			TargetType: "Subscription",
+			TargetID:   subID,
+			Metadata: in.Log.metadata(map[string]any{
+				"onchainSubscriptionId": in.OnchainSubscriptionID.String(),
+				"by":                    in.By,
+			}),
+		}); err != nil {
+			return err
+		}
+		if err := txs.insertContractAlert(ctx, auditID, in.Log.ChainID, "subscription.reinstated_onchain"); err != nil {
+			return err
+		}
+		if !reinstated {
+			return nil
+		}
+		ref := fmt.Sprintf(`"subscriptionId":%q`, subID)
+		if err := insertOutboxEvent(ctx, txs.db(), "subscription_reactivated", "subscription.reactivated", merchantID, mode, ref); err != nil {
+			return fmt.Errorf("emit subscription.reactivated: %w", err)
+		}
+		return nil
+	})
 }

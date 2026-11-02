@@ -7,36 +7,21 @@ import {
   type Hex,
 } from 'viem'
 
-export const relayRevertAbi = parseAbi([
-  'error Error(string reason)',
-  'error Panic(uint256 code)',
-  'error Payments__InvalidToken(address token)',
-  'error Payments__InvalidAmount()',
-  'error Payments__MerchantInactive(uint256 merchantId)',
-  'error Payments__TransferFailed()',
-  'error Payments__UnsupportedCapability(address token)',
-  'error Payments__InvalidIntent()',
-  'error Payments__NonStandardTransfer()',
-  'error Subscriptions__InvalidToken(address token)',
-  'error Subscriptions__InvalidInterval()',
-  'error Subscriptions__InvalidAmount()',
-  'error Subscriptions__InvalidMerchantId()',
-  'error Subscriptions__InvalidEndAt()',
-  'error Subscriptions__InvalidStartAt()',
-  'error Subscriptions__UnsupportedCapability(address token)',
-  'error Subscriptions__InvalidIntent()',
-  'error Subscriptions__NonStandardTransfer()',
-  'error Registry__UnknownMerchant(uint256 merchantId)',
-  'error Registry__MerchantInactive(uint256 merchantId)',
-  'error TokenWhitelist__NotWhitelisted(address token)',
-  'error EnforcedPause()',
-  'error ReentrancyGuardReentrantCall()',
-  'error ECDSAInvalidSignature()',
-  'error ECDSAInvalidSignatureLength(uint256 length)',
-  'error ECDSAInvalidSignatureS(bytes32 s)',
-  'error ERC2612ExpiredSignature(uint256 deadline)',
-  'error ERC2612InvalidSigner(address signer, address owner)',
-])
+import { strimzErrorsAbi } from './generated/contracts.js'
+
+// The token's permit and signature errors bubble up through the contracts.
+export const relayRevertAbi = [
+  ...strimzErrorsAbi,
+  ...parseAbi([
+    'error Error(string reason)',
+    'error Panic(uint256 code)',
+    'error ECDSAInvalidSignature()',
+    'error ECDSAInvalidSignatureLength(uint256 length)',
+    'error ECDSAInvalidSignatureS(bytes32 s)',
+    'error ERC2612ExpiredSignature(uint256 deadline)',
+    'error ERC2612InvalidSigner(address signer, address owner)',
+  ]),
+] as const
 
 export function revertReasonOf(err: unknown): string | null {
   if (!(err instanceof BaseError)) return null

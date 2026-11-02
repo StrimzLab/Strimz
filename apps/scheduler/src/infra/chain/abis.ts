@@ -1,11 +1,6 @@
 /**
- * Function ABIs the scheduler signs against. Hand-curated from the
- * Solidity interface declarations — only includes what we *call* (write
- * methods); read paths use the indexer.
- *
- * Source-of-truth: `packages/contracts/src/interfaces/*.sol`. If a
- * signature drifts, the contract's chain-side revert message is the first
- * thing we'd see in failed-tx logs.
+ * The contract functions the scheduler reads and writes, hand-written from
+ * `packages/contracts/src/interfaces/*.sol`. Keep them in step with it.
  */
 
 export const StrimzSubscriptionsAbi = [
@@ -54,6 +49,23 @@ export const StrimzSubscriptionsAbi = [
         ],
       },
     ],
+  },
+  {
+    type: 'function',
+    name: 'tokenWhitelist',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ name: '', type: 'address' }],
+  },
+] as const
+
+export const TokenWhitelistAbi = [
+  {
+    type: 'function',
+    name: 'isWhitelisted',
+    stateMutability: 'view',
+    inputs: [{ name: 'token', type: 'address' }],
+    outputs: [{ name: '', type: 'bool' }],
   },
 ] as const
 
@@ -154,6 +166,23 @@ export const StrimzRegistryAbi = [
       { name: 'newFeeBps', type: 'uint16' },
     ],
     outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'commitFeeBps',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'merchantId', type: 'uint256' }],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'pendingFeeOf',
+    stateMutability: 'view',
+    inputs: [{ name: 'merchantId', type: 'uint256' }],
+    outputs: [
+      { name: 'feeBps', type: 'uint16' },
+      { name: 'effectiveAt', type: 'uint64' },
+    ],
   },
   {
     type: 'function',

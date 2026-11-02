@@ -1,11 +1,10 @@
 'use client'
 
 import { use, useEffect, useState } from 'react'
-import { useAccount, useBytecode, useDisconnect } from 'wagmi'
+import { useAccount, useDisconnect } from 'wagmi'
 import { useAppKit } from '@reown/appkit/react'
 import { useRefreshWhile } from '@/hooks/use-refresh-while'
 import { Loader2, ShieldCheck, Wallet } from 'lucide-react'
-import { getArcChain } from '@strimz/shared-config'
 import { Badge, FieldLabel, Input } from '@strimz/ui'
 import type { MerchantPublicBrand, PaymentSession, TokenMetadata } from '@strimz/shared-types'
 
@@ -33,7 +32,6 @@ import {
   buildReturnUrl,
   cancelDestination,
   isCancellable,
-  isContractAccount,
   resultMessageForPhase,
 } from '@/lib/checkout-result'
 
@@ -47,11 +45,6 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
   const { host, report } = useCheckoutHost()
 
   const { address, isConnected } = useAccount()
-  const payerCode = useBytecode({
-    address,
-    chainId: getArcChain(env.arcEnvironment).id,
-    query: { enabled: Boolean(address) },
-  })
   const { open } = useAppKit()
   const { disconnect } = useDisconnect()
 
@@ -125,7 +118,6 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
     tokenMeta,
     chainMerchantId,
     loadError,
-    payerIsContract: isContractAccount(payerCode.data),
   })
 
   const resultTxHash = pay.txHash ?? session?.onchainTxHash ?? null
@@ -204,7 +196,6 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
           phase !== 'loading' &&
           phase !== 'load_error' &&
           phase !== 'not_ready' &&
-          phase !== 'unsupported_wallet' &&
           phase !== 'confirmed' && <StepIndicator phase={phase} />}
 
         {phase === 'not_ready' && (
@@ -214,15 +205,6 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
           >
             This page will update by itself.
           </CheckoutNotice>
-        )}
-
-        {phase === 'unsupported_wallet' && (
-          <>
-            {address && <ConnectedRow address={address} onChange={disconnect} />}
-            <CheckoutNotice title="This wallet type can't pay here yet">
-              Connect a regular wallet such as MetaMask or Coinbase Wallet.
-            </CheckoutNotice>
-          </>
         )}
 
         {phase === 'loading' && <BusyState phase="loading" />}
@@ -278,7 +260,7 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
                   onReady: () => void pay.submit(),
                 })
               }
-              disabled={!env.paymentsAddress || attaching || payerCode.isLoading}
+              disabled={!env.paymentsAddress || attaching}
             >
               {attaching ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -373,7 +355,6 @@ type VisiblePhase =
   | 'loading'
   | 'load_error'
   | 'not_ready'
-  | 'unsupported_wallet'
   | 'connect'
   | 'ready'
   | 'signing'
@@ -390,17 +371,8 @@ function derivePhase(args: {
   tokenMeta: TokenMetadata | null
   chainMerchantId: string | null
   loadError: string | null
-  payerIsContract: boolean
 }): VisiblePhase {
-  const {
-    hookPhase,
-    isConnected,
-    session,
-    tokenMeta,
-    chainMerchantId,
-    loadError,
-    payerIsContract,
-  } = args
+  const { hookPhase, isConnected, session, tokenMeta, chainMerchantId, loadError } = args
   if (loadError) return 'load_error'
   if (!session || !tokenMeta) return 'loading'
   // Server-side already-paid short-circuit. A page reload after a
@@ -418,7 +390,6 @@ function derivePhase(args: {
   if (hookPhase === 'submitting') return 'submitting'
   if (hookPhase === 'polling') return 'polling'
   if (!isConnected) return 'connect'
-  if (payerIsContract) return 'unsupported_wallet'
   return 'ready'
 }
 

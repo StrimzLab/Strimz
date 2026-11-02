@@ -1,9 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getAccount } from '@wagmi/core'
+import { getAccount, getBytecode } from '@wagmi/core'
 import { useAccount, useConfig, useSignTypedData, useSwitchChain } from 'wagmi'
-import { buildPermitTypedData, buildSubscriptionIntentTypedData } from '@strimz/sdk/eip712'
 import type { TokenMetadata } from '@strimz/shared-types'
 
 import {
@@ -15,6 +14,8 @@ import {
 import { prepareArcSigning } from '@/lib/arc-network'
 import { env } from '@/lib/env'
 import { strimzBrowserClient } from '@/lib/strimz-browser'
+import { subscriptionSigningRequest, type SubscriptionRelayBody } from '@/lib/subscription-signing'
+import { walletSignature } from '@/lib/wallet-signature'
 
 /**
  * Subscription enrolment flow on the hosted checkout.
@@ -34,9 +35,7 @@ import { strimzBrowserClient } from '@/lib/strimz-browser'
  */
 
 export interface SubscriptionCheckoutInputs {
-  /** Hosted checkout session id (used as both the BFF path arg and
-   *  the BullMQ idempotency key. So resubmitting the same session
-   *  never creates a duplicate on-chain subscription). */
+  /** The plan id: the checkout relay path and the intent nonce's plan. */
   sessionId: string
   /** On-chain registry merchant id. From the session payload. For
    *  now hardcoded by the demo page until #68 lands. */
@@ -52,10 +51,10 @@ export interface SubscriptionCheckoutInputs {
   resolveStartAt?: () => Promise<bigint>
   /** Unix seconds after which the schedule stops; 0 = open-ended. */
   endAt?: bigint
-  /** Allowance value to grant via permit. Defaults to type(uint256).max,
-   *  the standard "unlimited allowance" pattern for recurring payments.
-   *  Future charges are constrained by the per-period `amount`, not the
-   *  allowance itself. */
+  /** Allowance to grant via permit, bound into the intent. Defaults to
+   *  type(uint256).max: a bounded permit runs out on open-ended plans and,
+   *  because a permit replaces the allowance, would shrink the payer's
+   *  other subscriptions in the same token (#384). */
   permitValue?: bigint
   /** Seconds the permit signature is valid for. Default 24h. Long
    *  enough to absorb a slow merchant submit pipeline, short enough
@@ -155,70 +154,49 @@ export function useSubscriptionCheckout(
       const tokenAddress = tokenMeta.address as `0x${string}`
       const signedStartAt = resolveStartAt ? await resolveStartAt() : startAt
 
-      // Read the payer's current permit nonce immediately before
-      // signing. The token contract rejects stale nonces, so racing
-      // with another permit on the same owner just fails predictably.
+      // Read the payer's permit nonce right before signing. The intent
+      // nonce is derived from it, so a retry while the first signup is
+      // still pending signs the same intent nonce and can't enrol twice.
       const nonceResp = await strimzBrowserClient().tokens.permitNonce(tokenAddress, address)
       const permitNonce = BigInt(nonceResp.nonce)
 
       const now = Math.floor(Date.now() / 1000)
       const deadline = BigInt(now + permitValidForSeconds)
 
-      const permitTypedData = buildPermitTypedData({
+      const request = subscriptionSigningRequest({
         chainId,
-        token: tokenAddress,
-        tokenName: tokenMeta.name,
-        tokenVersion: tokenMeta.version,
-        owner: address,
-        spender: env.subscriptionsAddress as `0x${string}`,
-        value: permitValue,
-        nonce: permitNonce,
-        deadline,
-      })
-
-      const permitSigHex = (await signTypedDataAsync(
-        permitTypedData as Parameters<typeof signTypedDataAsync>[0],
-      )) as `0x${string}`
-      const permitSig = splitSignature(permitSigHex)
-
-      // Second signature: SubscriptionIntent. Blocks enrolment in a
-      // plan the payer never picked.
-      const intentTypedData = buildSubscriptionIntentTypedData({
-        chainId,
-        verifyingContract: env.subscriptionsAddress as `0x${string}`,
+        subscriptionsAddress: env.subscriptionsAddress as `0x${string}`,
+        token: { address: tokenAddress, name: tokenMeta.name, version: tokenMeta.version },
+        payer: address,
+        planId: sessionId,
         merchantId,
-        token: tokenAddress,
         amount,
         interval: intervalSeconds,
         startAt: signedStartAt,
         endAt,
-        permitDeadline: deadline,
+        permitValue,
+        permitNonce,
+        deadline,
       })
-      const intentSigHex = (await signTypedDataAsync(
-        intentTypedData as Parameters<typeof signTypedDataAsync>[0],
-      )) as `0x${string}`
-      const intentSig = splitSignature(intentSigHex)
+      const payerCode = await getBytecode(config, { address })
+      const permitSig = walletSignature(
+        (await signTypedDataAsync(
+          request.permit as Parameters<typeof signTypedDataAsync>[0],
+        )) as `0x${string}`,
+        payerCode,
+      )
+      // Second signature: SubscriptionIntent. Blocks enrolment in a
+      // plan the payer never picked.
+      const intentSig = walletSignature(
+        (await signTypedDataAsync(
+          request.intent as Parameters<typeof signTypedDataAsync>[0],
+        )) as `0x${string}`,
+        payerCode,
+      )
 
       setState((prev) => ({ ...prev, phase: 'submitting' }))
 
-      // sessionId here is the shared planId, so scope the relay dedupe key by
-      // payer — otherwise a second wallet on the same plan collides with the
-      // first. BullMQ job ids can't contain ':', so join with '-'.
-      const submission = await postSubmit(sessionId, {
-        merchantId: merchantId.toString(),
-        token: tokenAddress,
-        amount: amount.toString(),
-        interval: intervalSeconds,
-        startAt: signedStartAt.toString(),
-        endAt: endAt.toString(),
-        permitData: {
-          owner: address,
-          value: permitValue.toString(),
-          deadline: deadline.toString(),
-        },
-        permitSignature: { v: permitSig.v, r: permitSig.r, s: permitSig.s },
-        intentSignature: { v: intentSig.v, r: intentSig.r, s: intentSig.s },
-      })
+      const submission = await postSubmit(sessionId, request.body(permitSig, intentSig))
 
       const settled = mapTerminalPhase(submission.status)
       if (settled) {
@@ -265,34 +243,7 @@ export function useSubscriptionCheckout(
 // ---- helpers (intentionally duplicated from use-pay-checkout. See
 // note on extraction at the top of this file) ----
 
-function splitSignature(sigHex: `0x${string}`): {
-  r: `0x${string}`
-  s: `0x${string}`
-  v: number
-} {
-  if (sigHex.length !== 132) {
-    throw new Error(`expected 65-byte signature hex, got ${sigHex.length} chars`)
-  }
-  const r = `0x${sigHex.slice(2, 66)}` as `0x${string}`
-  const s = `0x${sigHex.slice(66, 130)}` as `0x${string}`
-  const vRaw = parseInt(sigHex.slice(130, 132), 16)
-  const v = vRaw < 27 ? vRaw + 27 : vRaw
-  return { r, s, v }
-}
-
-interface SubmitBody {
-  merchantId: string
-  token: `0x${string}`
-  amount: string
-  interval: number
-  startAt: string
-  endAt: string
-  permitData: { owner: `0x${string}`; value: string; deadline: string }
-  permitSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
-  intentSignature: { v: number; r: `0x${string}`; s: `0x${string}` }
-}
-
-function postSubmit(sessionId: string, body: SubmitBody): Promise<RelaySubmissionView> {
+function postSubmit(sessionId: string, body: SubscriptionRelayBody): Promise<RelaySubmissionView> {
   return submitCheckoutRelay({ kind: 'plans', id: sessionId }, body)
 }
 
