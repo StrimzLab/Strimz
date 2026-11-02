@@ -37,6 +37,12 @@ describe('checkout copy', () => {
     expect(HOW_IT_WORKS[flow].join(' ')).not.toMatch(JARGON)
   })
 
+  it('says the one approval only covers the amount and schedule shown (#384)', () => {
+    expect(phaseLine('ready', 'subscribe')).toBe(
+      'You approve once in your wallet. Only the amount and schedule shown can be charged, and you can cancel at any time.',
+    )
+  })
+
   it('never promises a cancel from the wallet', () => {
     expect(phaseLine('ready', 'subscribe')).not.toMatch(/from your wallet/u)
   })

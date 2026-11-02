@@ -263,6 +263,7 @@ func TestChargeOutcome_DBStringMap(t *testing.T) {
 		ChargeOutcomeUnknown:           "unknown",
 		ChargeOutcomeMerchantInactive:  "merchant_inactive",
 		ChargeOutcomeTransferFailed:    "transfer_failed",
+		ChargeOutcome(11):              "token_not_allowed",
 		ChargeOutcomeNone:              "skipped", // defensive default
 	}
 	for outcome, want := range cases {
@@ -287,6 +288,7 @@ func TestChargeOutcome_IsPaymentFailure(t *testing.T) {
 		ChargeOutcomeEnded:     false,
 		ChargeOutcomeDuplicate: false,
 		ChargeOutcomeUnknown:   false,
+		ChargeOutcome(11):      false,
 		ChargeOutcomeNone:      false,
 	}
 	for outcome, want := range cases {

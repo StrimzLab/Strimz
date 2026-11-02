@@ -56,6 +56,15 @@ describe('payerError', () => {
     }
   })
 
+  it('explains the relay refusals added for the redeployed contracts', () => {
+    expect(PAYER_MESSAGES.intent_nonce_mismatch).toBe(
+      'Your wallet approved something that changed before it reached us. Try again.',
+    )
+    expect(PAYER_MESSAGES.relay_gas_too_high).toBe(
+      'This wallet costs more to check than this checkout can cover. Try another wallet.',
+    )
+  })
+
   it('never says nothing was charged once the payment was sent', () => {
     const e = payerError({
       raw: 'submission status check failed (403)',

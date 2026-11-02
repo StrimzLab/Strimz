@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { decodeFunctionData, encodeAbiParameters, keccak256, padHex, toHex } from 'viem'
 import type { RelayJob } from '@strimz/queue-contracts'
+import { subscriptionIntentNonce } from '@strimz/shared-crypto/checkout'
 
 import {
   payWithAuthorizationAbi,
   permitAndCreateSubscriptionAbi,
-} from '../../../../src/modules/relay/abi.js'
+} from '../../../../src/modules/relay/generated/contracts.js'
 import { RelayService } from '../../../../src/modules/relay/relay.service.js'
 import type { RelayAttemptPointers } from '../../../../src/modules/relay/relay-attempts.js'
 import type { RelayChainProbe } from '../../../../src/modules/relay/relay-chain-probe.js'
@@ -120,13 +121,11 @@ function makePrisma(sessionStatus: { current: string }): PrismaService {
   } as unknown as PrismaService
 }
 
-function sig(tag: string) {
-  return {
-    v: 27,
-    r: keccak256(toHex(`r-${tag}`)),
-    s: padHex(toHex(`s-${tag}`), { size: 32 }),
-  }
+function sig(tag: string): `0x${string}` {
+  return `${keccak256(toHex(`r-${tag}`))}${keccak256(toHex(`s-${tag}`)).slice(2)}1b`
 }
+
+const PERMIT_NONCE = 0n
 
 function payAttempt(
   tag: string,
@@ -161,6 +160,7 @@ function subscriptionAttempt(tag: string): PermitAndCreateSubscriptionInput {
     interval: 2_592_000,
     startAt: 0n,
     endAt: 0n,
+    nonce: subscriptionIntentNonce(PLAN_ID, OWNER, PERMIT_NONCE),
     permitData: {
       owner: OWNER,
       value: (1n << 256n) - 1n,
@@ -173,16 +173,17 @@ function subscriptionAttempt(tag: string): PermitAndCreateSubscriptionInput {
   }
 }
 
-const FORGED_SIGNATURES = new Set<string>([sig('auth-junk').r, sig('permit-junk').r])
+const FORGED_SIGNATURES = new Set<string>([sig('auth-junk'), sig('permit-junk')])
 
 function makeProbe(): RelayChainProbe {
   return {
-    simulate: ({ data }: { data: `0x${string}` }) => {
-      const forged = [...FORGED_SIGNATURES].some((r) => data.includes(r.slice(2)))
+    estimateGas: ({ data }: { data: `0x${string}` }) => {
+      const forged = [...FORGED_SIGNATURES].some((forgedSig) => data.includes(forgedSig.slice(2)))
       return forged
         ? Promise.reject(new Error('simulation reverted: invalid signature'))
-        : Promise.resolve()
+        : Promise.resolve(150_000n)
     },
+    permitNonce: () => Promise.resolve(PERMIT_NONCE),
     receiptStatus: () => Promise.resolve(null),
     latestBlockTimestamp: () => Promise.resolve(1_800_000_000n),
   } as unknown as RelayChainProbe
@@ -213,7 +214,7 @@ function makeBudget(): RelayBudgetService {
 
 function payAuthSignatureOf(job: FakeJob): string {
   const decoded = decodeFunctionData({ abi: payWithAuthorizationAbi, data: job.data.callData })
-  return (decoded.args[4] as { r: string }).r
+  return decoded.args[4]
 }
 
 function permitSignatureOf(job: FakeJob): string {
@@ -221,7 +222,7 @@ function permitSignatureOf(job: FakeJob): string {
     abi: permitAndCreateSubscriptionAbi,
     data: job.data.callData,
   })
-  return (decoded.args[7] as { r: string }).r
+  return decoded.args[8]
 }
 
 describe('RelayService checkout idempotency', () => {
@@ -252,7 +253,7 @@ describe('RelayService checkout idempotency', () => {
       const view = await service.submitPayWithAuthorization(real)
 
       const job = must(queue._jobs.get(view.idempotencyKey))
-      expect(payAuthSignatureOf(job)).toBe(real.authSignature.r)
+      expect(payAuthSignatureOf(job)).toBe(real.authSignature)
       expect(view.status).toBe('queued')
     })
 
@@ -277,7 +278,7 @@ describe('RelayService checkout idempotency', () => {
       expect(second.idempotencyKey).not.toBe(first.idempotencyKey)
       expect(queue._jobs.size).toBe(2)
       expect(payAuthSignatureOf(must(queue._jobs.get(second.idempotencyKey)))).toBe(
-        retry.authSignature.r,
+        retry.authSignature,
       )
     })
 
@@ -324,7 +325,7 @@ describe('RelayService checkout idempotency', () => {
       const view = await service.submitPermitAndCreateSubscription(real)
 
       const job = must(queue._jobs.get(view.idempotencyKey))
-      expect(permitSignatureOf(job)).toBe(real.permitSignature.r)
+      expect(permitSignatureOf(job)).toBe(real.permitSignature)
     })
 
     it('enqueues a new attempt after the previous enrolment attempt failed', async () => {
