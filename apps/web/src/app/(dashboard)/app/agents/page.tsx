@@ -17,6 +17,7 @@ import {
 import type { AgentActivityLog, AgentCapability, AgentMerchantConfig } from '@strimz/shared-types'
 import { AGENT_CAPABILITIES } from '@strimz/shared-config'
 
+import { ComingSoonBadge } from '@/components/dashboard/coming-soon-badge'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import {
@@ -32,7 +33,7 @@ type CapabilityMeta = {
   icon: React.ComponentType<{ className?: string }>
   desc: string
   configurable: 'recovery' | 'cashflow' | null
-  gate?: 'managed' | 'coming_soon'
+  gate?: 'coming_soon'
   gateHint?: string
 }
 
@@ -41,10 +42,10 @@ const CAPABILITIES: CapabilityMeta[] = [
     key: 'identity',
     icon: Shield,
     name: 'Identity',
-    desc: 'On-chain agent identity registration. Required for every other capability.',
+    desc: 'Registers your agent on-chain so other agents can find and pay it.',
     configurable: null,
-    gate: 'managed',
-    gateHint: 'Provisioned by Strimz when your merchant onboards.',
+    gate: 'coming_soon',
+    gateHint: 'Not available at launch.',
   },
   {
     key: 'recovery',
@@ -188,7 +189,7 @@ function CapabilitiesTab({
           <a className="text-accent" href="mailto:support@strimz.finance">
             support
           </a>{' '}
-          to provision the agent identity for your merchant.
+          to turn them on.
         </CardContent>
       </Card>
     )
@@ -200,7 +201,6 @@ function CapabilitiesTab({
         {CAPABILITIES.map((cap) => {
           const Icon = cap.icon
           const isEnabled = enabledSet.has(cap.key)
-          const isManaged = cap.gate === 'managed'
           const isComingSoon = cap.gate === 'coming_soon'
           return (
             <Card key={cap.key} className="border-border/60">
@@ -212,23 +212,8 @@ function CapabilitiesTab({
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-sm font-medium">{cap.name}</h3>
-                      {isManaged ? (
-                        <Badge
-                          variant="outline"
-                          className="border-border/60 text-muted-foreground text-[10px]"
-                        >
-                          Managed
-                        </Badge>
-                      ) : null}
-                      {isComingSoon ? (
-                        <Badge
-                          variant="outline"
-                          className="border-border/60 text-muted-foreground text-[10px]"
-                        >
-                          Coming soon
-                        </Badge>
-                      ) : null}
-                      {isEnabled && !isManaged && !isComingSoon ? (
+                      {isComingSoon ? <ComingSoonBadge /> : null}
+                      {isEnabled && !isComingSoon ? (
                         <Badge
                           variant="outline"
                           className="border-accent/40 bg-accent/10 text-accent text-[10px]"
@@ -260,21 +245,12 @@ function CapabilitiesTab({
                     </Button>
                   ) : null}
 
-                  {isManaged ? (
-                    <Badge
-                      variant="outline"
-                      className="border-accent/40 bg-accent/10 text-accent text-[10px]"
-                    >
-                      Active
-                    </Badge>
-                  ) : (
-                    <Switch
-                      checked={isEnabled}
-                      onCheckedChange={(v) => onToggle(cap.key, v)}
-                      disabled={isUpdating || isComingSoon}
-                      aria-label={`Toggle ${cap.name}`}
-                    />
-                  )}
+                  <Switch
+                    checked={isEnabled && !isComingSoon}
+                    onCheckedChange={(v) => onToggle(cap.key, v)}
+                    disabled={isUpdating || isComingSoon}
+                    aria-label={`Toggle ${cap.name}`}
+                  />
                 </div>
               </CardContent>
             </Card>
