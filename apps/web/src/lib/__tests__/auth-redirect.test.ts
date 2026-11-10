@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import { dashboardGate, safeNextPath, type DashboardGateInput } from '@/lib/auth-redirect'
+import {
+  adminGate,
+  dashboardGate,
+  safeNextPath,
+  type AdminGateInput,
+  type DashboardGateInput,
+} from '@/lib/auth-redirect'
 import {
   AuthenticationError,
+  ForbiddenError,
   MerchantNotSyncedError,
   StrimzApiError,
 } from '@/lib/merchant-api/errors'
@@ -123,5 +130,62 @@ describe('dashboardGate', () => {
         merchant: merchant({ data: synced }),
       }),
     ).toEqual({ kind: 'ready' })
+  })
+})
+
+describe('adminGate', () => {
+  const me = (
+    over: Partial<AdminGateInput<{ id: string }>['me']>,
+  ): AdminGateInput<{ id: string }>['me'] => ({
+    isPending: false,
+    error: null,
+    data: undefined,
+    ...over,
+  })
+  const denied = new ForbiddenError({
+    code: 'admin_access_denied',
+    message: 'no admin profile for this account',
+  })
+
+  it('waits while Privy hydrates', () => {
+    expect(adminGate({ privyReady: false, authenticated: false, me: me({}) })).toEqual({
+      kind: 'loading',
+    })
+  })
+
+  it('sends a signed-out visitor to the admin sign-in', () => {
+    expect(adminGate({ privyReady: true, authenticated: false, me: me({}) })).toEqual({
+      kind: 'login',
+    })
+  })
+
+  it('sends a session the API no longer accepts to the admin sign-in', () => {
+    expect(
+      adminGate({ privyReady: true, authenticated: true, me: me({ error: expired }) }),
+    ).toEqual({ kind: 'login' })
+  })
+
+  it('refuses an account without an admin profile', () => {
+    expect(adminGate({ privyReady: true, authenticated: true, me: me({ error: denied }) })).toEqual(
+      { kind: 'denied' },
+    )
+  })
+
+  it('reports an outage instead of calling it a refusal', () => {
+    expect(adminGate({ privyReady: true, authenticated: true, me: me({ error: broken }) })).toEqual(
+      { kind: 'error', message: 'boom' },
+    )
+  })
+
+  it('waits while the admin profile loads', () => {
+    expect(
+      adminGate({ privyReady: true, authenticated: true, me: me({ isPending: true }) }),
+    ).toEqual({ kind: 'loading' })
+  })
+
+  it('lets an admin in', () => {
+    expect(
+      adminGate({ privyReady: true, authenticated: true, me: me({ data: { id: 'adm_1' } }) }),
+    ).toEqual({ kind: 'ready', admin: { id: 'adm_1' } })
   })
 })
