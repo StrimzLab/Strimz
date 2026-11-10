@@ -151,7 +151,7 @@ export default function OnboardingPage() {
             value={form.logoUrl}
             onChange={(url) => setForm((f) => ({ ...f, logoUrl: url }))}
             aspect="square"
-            maxSizeLabel="up to 2MB"
+            maxSizeLabel="2MB"
             alt={form.businessName ? `${form.businessName} logo` : 'Merchant logo'}
             className="w-40"
           />
