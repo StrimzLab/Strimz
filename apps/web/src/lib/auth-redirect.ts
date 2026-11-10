@@ -1,5 +1,6 @@
 import {
   AuthenticationError,
+  ForbiddenError,
   MerchantNotSyncedError,
   StrimzApiError,
 } from '@/lib/merchant-api/errors'
@@ -65,4 +66,30 @@ export function dashboardGate({
   if (merchant.isPending || !merchant.data) return { kind: 'loading' }
   if (!merchant.data.onboardingCompleted) return { kind: 'onboarding' }
   return { kind: 'ready' }
+}
+
+export type AdminGate<T> =
+  | { kind: 'loading' }
+  | { kind: 'login' }
+  | { kind: 'denied' }
+  | { kind: 'error'; message: string }
+  | { kind: 'ready'; admin: T }
+
+export interface AdminGateInput<T> {
+  privyReady: boolean
+  authenticated: boolean
+  me: { isPending: boolean; error: unknown; data: T | undefined }
+}
+
+export function adminGate<T>({ privyReady, authenticated, me }: AdminGateInput<T>): AdminGate<T> {
+  if (!privyReady) return { kind: 'loading' }
+  if (!authenticated) return { kind: 'login' }
+  if (me.error instanceof AuthenticationError) return { kind: 'login' }
+  if (me.error instanceof ForbiddenError) return { kind: 'denied' }
+  if (me.error) {
+    const message = me.error instanceof Error ? me.error.message : 'Could not check admin access'
+    return { kind: 'error', message }
+  }
+  if (me.isPending || !me.data) return { kind: 'loading' }
+  return { kind: 'ready', admin: me.data }
 }

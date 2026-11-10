@@ -25,14 +25,9 @@ import { REQUIRED_ADMIN_ROLES_KEY } from '../decorators/admin-role.decorator.js'
  * user can be both (we eat our own dog food), and the two surfaces
  * stay isolated.
  *
- * Bootstrap path:
- *   The first super_admin row is seeded by migration with `privyUserId`
- *   set to NULL and just an `email`. When that operator signs in for
- *   the first time, the guard:
- *     1. Looks up by `privyUserId`. Not found (NULL).
- *     2. Falls back to `email` from the verified Privy claims.
- *     3. Stamps `privyUserId` on the matching row.
- *   From then on, lookup-by-privyUserId hits the cache hot path.
+ * The first super_admin comes from the `admin:bootstrap` CLI; everyone
+ * after that accepts an invite. Both store `privyUserId`, so lookup is
+ * by Privy user id only.
  *
  * Role enforcement:
  *   `@RequireAdminRoles('super_admin')` on a handler narrows to that
@@ -74,7 +69,6 @@ export class AdminAuthGuard implements CanActivate {
 
     const claims = await this.privy.verifyAccessToken(token)
 
-    // Path 1 — already-linked admin.
     const admin = await this.prisma.db.adminUser.findUnique({
       where: { privyUserId: claims.userId },
       select: {
@@ -84,13 +78,6 @@ export class AdminAuthGuard implements CanActivate {
         status: true,
       },
     })
-
-    // Path 2 — bootstrap. The Privy access-token claims don't include
-    // a verified email; we fetch the full Privy user to read the
-    // linked email address. If a matching row exists with
-    // `privyUserId IS NULL`, claim it.
-    // If Privy is unreachable, we can't bootstrap. Surface a clear
-    // failure rather than silently denying.
 
     if (!admin) {
       throw new ForbiddenException({
