@@ -155,8 +155,8 @@ func TestE2E_Runner_WatchesTheTokenWhitelistAndEveryEmittedEvent(t *testing.T) {
 
 	core := coreStreamCall(t, c)
 	assert.Contains(t, core.Addresses, whitelistAddr)
-	require.Len(t, core.Topics, 1)
-	topics := core.Topics[0]
+	assert.Empty(t, core.Topics, "topics are matched in the indexer, not by the RPC")
+	topics := r.subscribedTopics
 	for _, sig := range []string{
 		"MerchantPayoutChangeInitiated(uint256,address,uint64)",
 		"MerchantPayoutChangeCancelled(uint256)",

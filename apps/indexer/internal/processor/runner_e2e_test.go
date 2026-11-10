@@ -300,6 +300,51 @@ func TestE2E_Stream_CutoverSkipsWhatOldCursorsProcessed(t *testing.T) {
 	assert.Equal(t, uint64(30), coreCursor(t, st))
 }
 
+// Arc's RPC rejects a topic[0] list longer than about ten entries with
+// -32012 "requested range too large", whatever the block span.
+type topicCappedChain struct{ *rangeChain }
+
+func (c topicCappedChain) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
+	if len(q.Topics) > 0 && len(q.Topics[0]) > 10 {
+		c.mu.Lock()
+		c.calls = append(c.calls, q)
+		c.mu.Unlock()
+		return nil, fmt.Errorf("requested range too large")
+	}
+	return c.rangeChain.FilterLogs(ctx, q)
+}
+func (c topicCappedChain) Pin() chain.Client { return c }
+
+func TestE2E_Stream_AdvancesWhenTheRPCCapsTopicFilters(t *testing.T) {
+	regTx := txHash(0x41)
+	inner := &rangeChain{head: 20}
+	r, st := newTestRunner(t, inner, 1)
+	r.chain = topicCappedChain{inner}
+	seedMerchant(t, st, "m_capped", regTx.Hex(), nil)
+	initialized := types.Log{
+		Address:     paymentsAddr,
+		Topics:      []common.Hash{common.HexToHash("0xc7f505b2f371ae2175ee4913f4499e1f2633a7b5936321eed1cdaeb6115181d2")},
+		BlockNumber: 12, Index: 0, TxHash: txHash(0x42), BlockHash: common.HexToHash(fmt.Sprintf("0x%064x", 12)),
+	}
+	anonymous := types.Log{
+		Address: feesAddr, BlockNumber: 13, Index: 0, TxHash: txHash(0x43),
+		BlockHash: common.HexToHash(fmt.Sprintf("0x%064x", 13)),
+	}
+	inner.logs = []types.Log{
+		merchantRegistered(t, 10, 0, regTx, 9),
+		paymentExecuted(t, 11, 0, txHash(0x44), 9),
+		initialized,
+		anonymous,
+	}
+
+	require.NoError(t, r.Tick(context.Background()))
+
+	assert.Equal(t, uint64(20), coreCursor(t, st))
+	assert.Equal(t, 1, countRows(t, st, `SELECT count(*) FROM "Transaction" WHERE "merchantId" = 'm_capped'`))
+	assert.Equal(t, 0, countRows(t, st, `SELECT count(*) FROM "IndexerDeadLetter"`),
+		"events the indexer does not subscribe to are skipped, not parked")
+}
+
 func TestE2E_Stream_SortsWithinABlockByLogIndex(t *testing.T) {
 	logs := []types.Log{{BlockNumber: 2, Index: 0}, {BlockNumber: 1, Index: 5}, {BlockNumber: 1, Index: 2}}
 	sortLogs(logs)
