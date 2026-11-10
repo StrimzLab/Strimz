@@ -57,7 +57,7 @@ func TestE2E_Runner_WatchesTheAgentRegistryTimelockAndAdminEvents(t *testing.T) 
 	core := coreStreamCall(t, c)
 	assert.Contains(t, core.Addresses, agentRegistryAddr)
 	assert.Contains(t, core.Addresses, timelockAddr)
-	require.Len(t, core.Topics, 1)
+	assert.Empty(t, core.Topics, "topics are matched in the indexer, not by the RPC")
 	for _, sig := range []string{
 		"RoleGranted(bytes32,address,address)",
 		"RoleRevoked(bytes32,address,address)",
@@ -70,7 +70,7 @@ func TestE2E_Runner_WatchesTheAgentRegistryTimelockAndAdminEvents(t *testing.T) 
 		"AgentRegistered(address,address,bytes32,string,string)",
 		"AgentActivated(address)",
 	} {
-		assert.Contains(t, core.Topics[0], crypto.Keccak256Hash([]byte(sig)), sig)
+		assert.Contains(t, r.subscribedTopics, crypto.Keccak256Hash([]byte(sig)), sig)
 	}
 }
 

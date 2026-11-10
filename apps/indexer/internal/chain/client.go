@@ -283,10 +283,8 @@ func redactURL(url string) string {
 	return url
 }
 
-// FilterRange builds a `FilterQuery` for the given inclusive block range,
-// scoping by the contract addresses and topic[0] values the indexer cares
-// about. A nil/empty `topics` slice means "any topic" — used for ERC-20
-// Transfer scanning where we filter by address only.
+// FilterRange builds a `FilterQuery` for an inclusive block range. A nil
+// `topics` slice means any topic.
 func FilterRange(addresses []common.Address, topics []common.Hash, fromBlock, toBlock uint64) ethereum.FilterQuery {
 	q := ethereum.FilterQuery{
 		FromBlock: new(big.Int).SetUint64(fromBlock),

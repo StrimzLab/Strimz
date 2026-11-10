@@ -452,10 +452,12 @@ func (r *Runner) processCore(ctx context.Context, safeHead uint64) error {
 		}
 
 		client := r.chain.Pin()
-		logs, err := client.FilterLogs(ctx, chain.FilterRange(r.contractAddrs, r.subscribedTopics, from, to))
+		// Arc's RPC rejects a long topic list, so filter by address and match topics here.
+		logs, err := client.FilterLogs(ctx, chain.FilterRange(r.contractAddrs, nil, from, to))
 		if err != nil {
 			return fmt.Errorf("filter stream [%d-%d]: %w", from, to, err)
 		}
+		logs = withTopics(logs, r.subscribedTopics)
 		sortLogs(logs)
 		logs = dropCovered(logs, legacy)
 
@@ -600,6 +602,23 @@ func sortLogs(logs []types.Log) {
 		}
 		return logs[i].Index < logs[j].Index
 	})
+}
+
+func withTopics(logs []types.Log, topics []common.Hash) []types.Log {
+	want := make(map[common.Hash]struct{}, len(topics))
+	for _, t := range topics {
+		want[t] = struct{}{}
+	}
+	kept := logs[:0]
+	for _, lg := range logs {
+		if len(lg.Topics) == 0 {
+			continue
+		}
+		if _, ok := want[lg.Topics[0]]; ok {
+			kept = append(kept, lg)
+		}
+	}
+	return kept
 }
 
 func deadLetterFor(chainID int64, env string, lg types.Log, blockTime time.Time, cause error) store.DeadLetter {
