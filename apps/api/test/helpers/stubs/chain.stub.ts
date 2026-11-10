@@ -13,14 +13,16 @@ export class StubChainService {
   public environment: 'testnet' | 'mainnet' = 'testnet'
   public revertData: Hex | null = null
   public balance = DEFAULT_BALANCE
+  public gasEstimate = 150_000n
+  public permitNonce = 0n
   public readonly balanceReads: { token: Hex; owner: Hex }[] = []
   public readonly calls: { to: Hex; data: Hex }[] = []
   public readonly client = {
     getBlockNumber: () => Promise.resolve(1n),
     getBlock: () => Promise.resolve({ timestamp: BigInt(Math.floor(Date.now() / 1000)) }),
-    call: (args: { to: Hex; data: Hex }) => {
+    estimateGas: (args: { to: Hex; data: Hex }) => {
       this.calls.push({ to: args.to, data: args.data })
-      if (this.revertData === null) return Promise.resolve({ data: undefined })
+      if (this.revertData === null) return Promise.resolve(this.gasEstimate)
       return Promise.reject(
         new CallExecutionError(
           new ExecutionRevertedError({ cause: new RawContractError({ data: this.revertData }) }),
@@ -29,6 +31,7 @@ export class StubChainService {
       )
     },
     readContract: (args: { address: Hex; functionName: string; args: readonly unknown[] }) => {
+      if (args.functionName === 'nonces') return Promise.resolve(this.permitNonce)
       if (args.functionName !== 'balanceOf') {
         return Promise.reject(new Error(`StubChainService cannot read ${args.functionName}`))
       }
@@ -46,5 +49,7 @@ export class StubChainService {
     this.calls.length = 0
     this.balance = DEFAULT_BALANCE
     this.balanceReads.length = 0
+    this.gasEstimate = 150_000n
+    this.permitNonce = 0n
   }
 }

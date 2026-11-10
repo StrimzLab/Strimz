@@ -25,6 +25,15 @@ describe('plan upgrade by all-time volume e2e', () => {
   })
 
   const run = () => t.app.get(PlanUpgradeService).upgradeNow()
+  // A fee increase from the scheduler key waits FEE_INCREASE_DELAY on chain.
+  const passFeeDelay = () => {
+    t.chain.chainNow += 86_400n
+  }
+  const runPastFeeDelay = async () => {
+    await run()
+    passFeeDelay()
+    return run()
+  }
 
   async function merchantWith(
     tier: MerchantTier,
@@ -48,13 +57,23 @@ describe('plan upgrade by all-time volume e2e', () => {
   const tierOf = async (id: string) =>
     (await t.prisma.db.merchant.findUniqueOrThrow({ where: { id }, select: { tier: true } })).tier
 
-  it('moves a Free merchant to Starter at 1,000 USDC: on-chain first, then the database, then an email', async () => {
+  it('schedules the Free to Starter fee increase at 1,000 USDC and moves the plan once it is live', async () => {
     const m = await merchantWith('free', { USDC: 1_000n })
 
+    expect(await run()).toMatchObject({ scheduled: 1, upgraded: 0, failed: 0 })
+    expect(t.chain.callsFor('setMerchantFeeBps').map((c) => c.args)).toEqual([[m.onchainId, 50]])
+    expect(await tierOf(m.id)).toBe('free')
+    expect(t.email.sent).toHaveLength(0)
+
+    expect(await run()).toMatchObject({ scheduled: 0, upgraded: 0 })
+    expect(t.chain.callsFor('setMerchantFeeBps')).toHaveLength(1)
+    expect(t.chain.callsFor('commitMerchantFeeBps')).toHaveLength(0)
+
+    passFeeDelay()
     const result = await run()
 
-    expect(result).toMatchObject({ upgraded: 1, failed: 0 })
-    expect(t.chain.callsFor('setMerchantFeeBps').map((c) => c.args)).toEqual([[m.onchainId, 50]])
+    expect(result).toMatchObject({ scheduled: 0, upgraded: 1, failed: 0 })
+    expect(t.chain.callsFor('commitMerchantFeeBps').map((c) => c.args)).toEqual([[m.onchainId]])
     expect(await tierOf(m.id)).toBe('starter')
     expect(t.email.sent).toHaveLength(1)
     const mail = must(t.email.sent[0])
@@ -74,7 +93,7 @@ describe('plan upgrade by all-time volume e2e', () => {
 
   it('moves a Free merchant to Starter at 1,000 EURC', async () => {
     const m = await merchantWith('free', { EURC: 1_000n })
-    await run()
+    await runPastFeeDelay()
     expect(await tierOf(m.id)).toBe('starter')
   })
 
@@ -91,16 +110,19 @@ describe('plan upgrade by all-time volume e2e', () => {
 
   it('moves a Free merchant straight to Growth at 50,000', async () => {
     const m = await merchantWith('free', { EURC: 50_000n })
-    await run()
+    await runPastFeeDelay()
     expect(t.chain.callsFor('setMerchantFeeBps').map((c) => c.args)).toEqual([[m.onchainId, 40]])
     expect(await tierOf(m.id)).toBe('growth')
     expect(must(t.email.sent[0]).html).toContain('0.4%')
   })
 
-  it('moves a Starter merchant to Growth at 50,000 USDC', async () => {
+  it('moves a Starter merchant to Growth at 50,000 USDC in one run, since the fee goes down', async () => {
     const m = await merchantWith('starter', { USDC: 50_000n })
     t.chain.registryFees.set(m.onchainId, 50)
-    await run()
+
+    expect(await run()).toMatchObject({ scheduled: 0, upgraded: 1 })
+    expect(t.chain.callsFor('setMerchantFeeBps').map((c) => c.args)).toEqual([[m.onchainId, 40]])
+    expect(t.chain.callsFor('commitMerchantFeeBps')).toHaveLength(0)
     expect(await tierOf(m.id)).toBe('growth')
   })
 
@@ -125,7 +147,7 @@ describe('plan upgrade by all-time volume e2e', () => {
     await seedTransaction(t.prisma.db, m.id, { amount: big, status: 'failed' })
     await seedTransaction(t.prisma.db, m.id, { amount: big, kind: 'refund' })
 
-    await run()
+    await runPastFeeDelay()
 
     expect(await tierOf(m.id)).toBe('free')
   })
@@ -140,13 +162,13 @@ describe('plan upgrade by all-time volume e2e', () => {
     ] as const) {
       await seedTransaction(t.prisma.db, m.id, { kind, amount: String(250n * UNIT) })
     }
-    await run()
+    await runPastFeeDelay()
     expect(await tierOf(m.id)).toBe('starter')
   })
 
   it('skips a merchant that is not registered on-chain', async () => {
     const m = await merchantWith('free', { USDC: 1_000n }, false)
-    await run()
+    await runPastFeeDelay()
     expect(t.chain.callsFor('setMerchantFeeBps')).toHaveLength(0)
     expect(await tierOf(m.id)).toBe('free')
   })
@@ -156,15 +178,15 @@ describe('plan upgrade by all-time volume e2e', () => {
     const ok = await merchantWith('free', { USDC: 1_000n })
     t.chain.feeWriteFailures.add(failing.onchainId)
 
-    const result = await run()
-
-    expect(result).toMatchObject({ upgraded: 1, failed: 1 })
+    expect(await run()).toMatchObject({ scheduled: 1, failed: 1 })
+    passFeeDelay()
+    expect(await run()).toMatchObject({ upgraded: 1, failed: 1 })
     expect(await tierOf(failing.id)).toBe('free')
     expect(await tierOf(ok.id)).toBe('starter')
     expect(t.email.sent.map((e) => e.to)).toEqual([ok.email])
 
     t.chain.feeWriteFailures.clear()
-    await run()
+    await runPastFeeDelay()
     expect(await tierOf(failing.id)).toBe('starter')
   })
 
@@ -181,6 +203,8 @@ describe('plan upgrade by all-time volume e2e', () => {
 
   it('keeps the upgrade and reports it when the email fails', async () => {
     const m = await merchantWith('free', { USDC: 1_000n })
+    await run()
+    passFeeDelay()
     t.email.failNext = true
 
     const result = await run()
@@ -193,8 +217,13 @@ describe('plan upgrade by all-time volume e2e', () => {
     const m = await merchantWith('free', { USDC: 1_000n })
 
     await Promise.all([run(), run()])
+    expect(t.chain.callsFor('setMerchantFeeBps')).toHaveLength(1)
+
+    passFeeDelay()
+    await Promise.all([run(), run()])
 
     expect(t.chain.callsFor('setMerchantFeeBps')).toHaveLength(1)
+    expect(t.chain.callsFor('commitMerchantFeeBps')).toHaveLength(1)
     expect(await tierOf(m.id)).toBe('starter')
     expect(t.email.sent).toHaveLength(1)
   })

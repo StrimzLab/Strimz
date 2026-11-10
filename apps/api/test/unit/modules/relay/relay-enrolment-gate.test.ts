@@ -1,6 +1,5 @@
 import { BadRequestException } from '@nestjs/common'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { padHex } from 'viem'
 
 import type { RelayChainProbe } from '../../../../src/modules/relay/relay-chain-probe.js'
 import { RelayEnrolmentGate } from '../../../../src/modules/relay/relay-enrolment-gate.js'
@@ -10,7 +9,7 @@ import type { SubscriptionsService } from '../../../../src/modules/subscriptions
 
 const TOKEN = '0x3600000000000000000000000000000000000000'
 const OWNER = '0x5555555555555555555555555555555555555555'
-const SIG = { v: 27, r: padHex('0xab', { size: 32 }), s: padHex('0xcd', { size: 32 }) }
+const SIG: `0x${string}` = `0x${'ab'.repeat(64)}1b`
 
 function enrolment(
   over: Partial<PermitAndCreateSubscriptionInput> = {},
@@ -22,6 +21,7 @@ function enrolment(
     interval: 3600,
     startAt: 0n,
     endAt: 0n,
+    nonce: `0x${'00'.repeat(32)}`,
     permitData: { owner: OWNER, value: (1n << 256n) - 1n, deadline: 1_800_000_000n },
     permitSignature: SIG,
     intentSignature: SIG,

@@ -206,6 +206,7 @@ export const subscriptionChargeOutcomeSchema = z.enum([
   'merchant_inactive',
   'transfer_failed',
   'skipped',
+  'token_not_allowed',
 ])
 export type SubscriptionChargeOutcome = z.infer<typeof subscriptionChargeOutcomeSchema>
 

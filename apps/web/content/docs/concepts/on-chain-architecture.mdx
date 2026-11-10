@@ -130,8 +130,9 @@ repo is what runs in production.
 Every Strimz `Transaction` row carries an `onchainTxHash`. Drop it
 into Arc's block explorer and you can check, end to end:
 
-1. The signer recovered from the EIP-3009 or EIP-2612 signature is the
-   payer your dashboard claims it was.
+1. The EIP-3009 or EIP-2612 signature belongs to the payer your
+   dashboard claims it was. For a smart-contract wallet, the contract
+   checked it through the wallet's ERC-1271 `isValidSignature`.
 2. The fee split is consistent: `amount == feeAmount + netAmount`.
 3. The destination address matches the merchant's `payoutAddress`.
    (For the classic path that's the `to` field; for the

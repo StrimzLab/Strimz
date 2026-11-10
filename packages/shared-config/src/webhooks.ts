@@ -18,6 +18,7 @@ export const WEBHOOK_EVENTS = {
     recoveryAttempt: 'subscription.recovery_attempt',
     cancelled: 'subscription.cancelled',
     lapsed: 'subscription.lapsed',
+    reactivated: 'subscription.reactivated',
   },
   refund: {
     created: 'refund.created',

@@ -178,6 +178,12 @@ For a full hosted-checkout UX with components and hooks, use
 their `*_TYPES` constants. Hosted checkout uses them; you only need
 them if you build your own signing UI.
 
+A `SubscriptionIntent` carries the permit's `permitValue` and a `nonce`.
+When you relay an enrolment through Strimz, the nonce must be
+`subscriptionIntentNonce(planId, payer, permitNonce)` from
+`@strimz/shared-crypto`, where `permitNonce` is the token's
+`nonces(payer)` at signing time.
+
 ## Error handling
 
 Every error thrown by the SDK is a typed subclass of `StrimzError`.

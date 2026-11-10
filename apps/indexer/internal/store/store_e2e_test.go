@@ -616,6 +616,46 @@ func TestE2E_SubscriptionChargeSkip_NonPaymentFailureEmitsNoWebhook(t *testing.T
 	assert.NotEqual(t, "at_risk", status)
 }
 
+// A token removed from the whitelist isn't the payer's fault: the charge is
+// recorded as skipped and the subscription stays active.
+func TestE2E_SubscriptionChargeSkip_TokenNotAllowedKeepsTheSubscriptionActive(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	seedMerchantOnchain(t, s, "m_delist", "delist@x.io", "0x000000000000000000000000000000000000fe02", big.NewInt(403))
+
+	_, err := s.UpsertSubscriptionFromOnchain(ctx, SubscriptionCreatedInput{
+		OnchainSubscriptionID: big.NewInt(4),
+		MerchantOnchainID:     big.NewInt(403),
+		PayerAddress:          "0x000000000000000000000000000000000000aa23",
+		Currency:              "USDC", Amount: "20000000", Interval: "monthly", IntervalCount: 1,
+		StartAt:            time.Now().UTC(),
+		BlockTimestamp:     time.Now().UTC(),
+		CurrentPeriodEndAt: time.Now().Add(30 * 24 * time.Hour).UTC(),
+		NextChargeAt:       time.Now().Add(30 * 24 * time.Hour).UTC(),
+		Mode:               "live",
+	})
+	require.NoError(t, err)
+
+	rows, err := s.InsertSubscriptionChargeSkip(ctx, SubscriptionChargeSkippedInput{
+		OnchainSubscriptionID: big.NewInt(4),
+		ChargeAttemptID:       "0x" + repeatStr("e", 64),
+		Outcome:               "token_not_allowed",
+		IsPaymentFailure:      false,
+		BlockTimestamp:        time.Now().UTC(),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), rows)
+
+	var outcome, status string
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT c.outcome::text, s.status::text
+		   FROM "SubscriptionCharge" c JOIN "Subscription" s ON s.id = c."subscriptionId"
+		  WHERE s."onchainSubscriptionId" = 4`,
+	).Scan(&outcome, &status))
+	assert.Equal(t, "token_not_allowed", outcome)
+	assert.Equal(t, "active", status)
+}
+
 func TestE2E_SubscriptionChargeSkip_PaymentFailureAfterPaidCycles(t *testing.T) {
 	s := startTestPostgres(t)
 	ctx := context.Background()

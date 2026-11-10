@@ -8,7 +8,7 @@ import {
 import type { Job } from 'bullmq'
 import { decodeFunctionData, encodeFunctionData, keccak256, padHex, type Hex } from 'viem'
 import { relayJobSchema, type RelayJob } from '@strimz/queue-contracts'
-import { checkoutPaymentNonce } from '@strimz/shared-crypto/checkout'
+import { checkoutPaymentNonce, subscriptionIntentNonce } from '@strimz/shared-crypto/checkout'
 import type { PaymentCurrency } from '@strimz/shared-types'
 
 import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
@@ -16,7 +16,6 @@ import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QUEUE_NAMES, QueueService } from '../../infra/queue/queue.service.js'
 import { tokenAddressForCurrency } from '../payment-sessions/token-resolver.js'
-import { payWithAuthorizationAbi, permitAndCreateSubscriptionAbi } from './abi.js'
 import {
   paymentAttemptScope,
   RelayAttemptPointers,
@@ -25,6 +24,7 @@ import {
 import { RelayBudgetService } from './relay-budget.service.js'
 import { RelayChainProbe } from './relay-chain-probe.js'
 import { RelayEnrolmentGate } from './relay-enrolment-gate.js'
+import { payWithAuthorizationAbi, permitAndCreateSubscriptionAbi } from './generated/contracts.js'
 import type { RelayJobResult } from './relay.processor.js'
 import type {
   PayWithAuthorizationInput,
@@ -34,17 +34,14 @@ import type {
   RelaySubmissionView,
 } from './relay.types.js'
 
-/**
- * Default gas limits chosen with ~30% headroom over typical observed
- * gas usage in Foundry tests. The actual estimation could be done at
- * submission time via `estimateGas`, but pre-baked limits avoid an
- * extra RPC round-trip on the hot path and give predictable cost
- * accounting for the relay subsidy.
- */
+// Floors for an ordinary wallet. A smart wallet's ERC-1271 check can cost
+// more, so the limit follows the estimate up to MAX_RELAY_GAS.
 const GAS_LIMITS = {
   payWithAuthorization: 280_000n,
   permitAndCreateSubscription: 320_000n,
 } as const
+
+const MAX_RELAY_GAS = 600_000n
 
 type RelayCallReason = 'payWithAuthorization' | 'permitAndCreateSubscription'
 
@@ -135,16 +132,8 @@ export class RelayService {
           nonce: input.auth.nonce,
         },
         input.ref,
-        {
-          v: input.authSignature.v,
-          r: input.authSignature.r,
-          s: input.authSignature.s,
-        },
-        {
-          v: input.intentSignature.v,
-          r: input.intentSignature.r,
-          s: input.intentSignature.s,
-        },
+        input.authSignature,
+        input.intentSignature,
       ],
     })
     const key = relayKeyFor('payWithAuthorization', callData)
@@ -169,14 +158,14 @@ export class RelayService {
     )
     assertSessionNonce(input.sessionId, input.auth.nonce)
 
-    await this.probe.simulate({ to: this.paymentsAddress, data: callData })
+    const gasLimit = await this.gasLimitFor('payWithAuthorization', this.paymentsAddress, callData)
     return this.enqueue(
       {
         idempotencyKey: key,
         reason: 'payWithAuthorization',
         toAddress: this.paymentsAddress,
         callData,
-        gasLimit: GAS_LIMITS.payWithAuthorization.toString(),
+        gasLimit: gasLimit.toString(),
         merchantInternalId: input.merchantInternalId,
         sessionId: input.sessionId,
       },
@@ -201,21 +190,14 @@ export class RelayService {
         input.interval,
         input.startAt,
         input.endAt,
+        input.nonce,
         {
           owner: input.permitData.owner,
           value: input.permitData.value,
           deadline: input.permitData.deadline,
         },
-        {
-          v: input.permitSignature.v,
-          r: input.permitSignature.r,
-          s: input.permitSignature.s,
-        },
-        {
-          v: input.intentSignature.v,
-          r: input.intentSignature.r,
-          s: input.intentSignature.s,
-        },
+        input.permitSignature,
+        input.intentSignature,
       ],
     })
     const key = relayKeyFor('permitAndCreateSubscription', callData)
@@ -235,16 +217,21 @@ export class RelayService {
     const replay = await this.existingView(key)
     if (replay) return replay
     assertMinimumAmount(input.amount)
+    await this.assertIntentNonce(input)
     await this.enrolmentGate.assertFunded(input)
 
-    await this.probe.simulate({ to: this.subscriptionsAddress, data: callData })
+    const gasLimit = await this.gasLimitFor(
+      'permitAndCreateSubscription',
+      this.subscriptionsAddress,
+      callData,
+    )
     return this.enqueue(
       {
         idempotencyKey: key,
         reason: 'permitAndCreateSubscription',
         toAddress: this.subscriptionsAddress,
         callData,
-        gasLimit: GAS_LIMITS.permitAndCreateSubscription.toString(),
+        gasLimit: gasLimit.toString(),
         merchantInternalId: input.merchantInternalId,
         subscriptionInternalId: input.subscriptionInternalId,
       },
@@ -267,6 +254,34 @@ export class RelayService {
   }
 
   // ----- Internal -----
+
+  private async gasLimitFor(reason: RelayCallReason, to: Hex, data: Hex): Promise<bigint> {
+    const estimate = await this.probe.estimateGas({ to, data })
+    if (estimate > MAX_RELAY_GAS) {
+      throw new BadRequestException({
+        code: 'relay_gas_too_high',
+        message: `the signed call needs ${estimate} gas; the relayer pays up to ${MAX_RELAY_GAS}`,
+      })
+    }
+    const withHeadroom = (estimate * 13n + 9n) / 10n
+    return withHeadroom > GAS_LIMITS[reason] ? withHeadroom : GAS_LIMITS[reason]
+  }
+
+  private async assertIntentNonce(input: PermitAndCreateSubscriptionInput): Promise<void> {
+    const permitNonce = await this.probe.permitNonce(input.token, input.permitData.owner)
+    const expected = subscriptionIntentNonce(
+      input.subscriptionInternalId,
+      input.permitData.owner,
+      permitNonce,
+    )
+    if (input.nonce.toLowerCase() !== expected) {
+      throw new BadRequestException({
+        code: 'intent_nonce_mismatch',
+        message:
+          "the intent nonce must be subscriptionIntentNonce(planId, payer, the token's permit nonce)",
+      })
+    }
+  }
 
   private async findJob(key: string): Promise<Job<RelayJob, RelayJobResult> | null> {
     const queue = this.queue.queue(QUEUE_NAMES.relaySubmission)

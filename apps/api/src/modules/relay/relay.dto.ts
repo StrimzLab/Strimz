@@ -10,9 +10,9 @@ import { z } from 'zod'
  *    so service code never has to re-parse.
  *  - Addresses are validated as 20-byte hex. Bytes32 fields are
  *    validated as 32-byte hex.
- *  - `v` is constrained to {27, 28} — the canonical Ethereum
- *    parity-byte values that both StrimzPayments and StrimzSubscriptions
- *    expect (the contracts reject anything else via ecrecover).
+ *  - Signatures are `bytes` on chain, so a smart wallet's ERC-1271
+ *    signature passes as hex. A `{v, r, s}` object is packed as
+ *    r ‖ s ‖ v, with `v` 27 or 28.
  *  - `idempotencyKey` caps at 128 chars: the BullMQ job id length limit
  *    we settled on, plus headroom for prefixed scopes like
  *    `ses_<ulid>`.
@@ -33,14 +33,29 @@ const bigintStringSchema = z
 
 export const relayMerchantIdSchema = bigintStringSchema
 
-const vrsSignatureSchema = z.object({
-  v: z
-    .number()
-    .int()
-    .refine((v) => v === 27 || v === 28, 'must be 27 or 28'),
-  r: bytes32Schema,
-  s: bytes32Schema,
-})
+const MAX_SIGNATURE_BYTES = 4096
+
+const vrsSignatureSchema = z
+  .object({
+    v: z
+      .number()
+      .int()
+      .refine((v) => v === 27 || v === 28, 'must be 27 or 28'),
+    r: bytes32Schema,
+    s: bytes32Schema,
+  })
+  .transform(({ v, r, s }) => `${r}${s.slice(2)}${v.toString(16)}` as `0x${string}`)
+
+const hexSignatureSchema = z
+  .string()
+  .regex(/^0x(?:[0-9a-fA-F]{2})*$/u, 'must be 0x-prefixed hex with whole bytes')
+  .refine(
+    (sig) => (sig.length - 2) / 2 <= MAX_SIGNATURE_BYTES,
+    `may not exceed ${MAX_SIGNATURE_BYTES} bytes`,
+  )
+  .transform((sig) => sig as `0x${string}`)
+
+const signatureSchema = z.union([hexSignatureSchema, vrsSignatureSchema])
 
 const idempotencyKeySchema = z
   .string()
@@ -69,9 +84,9 @@ export const submitPaymentInputSchema = z.object({
   /** Off-chain reference (bytes32) — typically `keccak256(sessionId)`. */
   ref: bytes32Schema,
   /** EIP-3009 sig — token verifies. */
-  authSignature: vrsSignatureSchema,
+  authSignature: signatureSchema,
   /** PayIntent sig — contract verifies. Binds routing fields. */
-  intentSignature: vrsSignatureSchema,
+  intentSignature: signatureSchema,
   /** Diagnostic only — surfaces in operator dashboards. */
   sessionId: z.string().min(1).max(80),
 })
@@ -103,11 +118,13 @@ export const submitSubscriptionInputSchema = z.object({
   startAt: bigintStringSchema,
   /** Unix seconds after which charges stop; 0 = open-ended. */
   endAt: bigintStringSchema,
+  /** subscriptionIntentNonce(planId, payer, the token's permit nonce). */
+  nonce: bytes32Schema,
   permitData: permitDataSchema,
   /** EIP-2612 permit sig — token verifies. */
-  permitSignature: vrsSignatureSchema,
+  permitSignature: signatureSchema,
   /** SubscriptionIntent sig — contract verifies. Binds plan params. */
-  intentSignature: vrsSignatureSchema,
+  intentSignature: signatureSchema,
   subscriptionInternalId: z.string().min(1).max(80),
 })
 

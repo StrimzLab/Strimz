@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { decodeFunctionData, keccak256, padHex, toHex } from 'viem'
+import { BadRequestException } from '@nestjs/common'
+import { decodeFunctionData, keccak256, toFunctionSelector, toHex } from 'viem'
 
 import {
   payWithAuthorizationAbi,
   permitAndCreateSubscriptionAbi,
-} from '../../../../src/modules/relay/abi.js'
+} from '../../../../src/modules/relay/generated/contracts.js'
 import { RelayService } from '../../../../src/modules/relay/relay.service.js'
 import type { RelayAttemptPointers } from '../../../../src/modules/relay/relay-attempts.js'
 import type { RelayChainProbe } from '../../../../src/modules/relay/relay-chain-probe.js'
@@ -14,7 +15,7 @@ import type { QueueService } from '../../../../src/infra/queue/queue.service.js'
 import type { PrismaService } from '../../../../src/infra/prisma/prisma.service.js'
 import type { TypedConfigService } from '../../../../src/config/index.js'
 import type { RelayJob } from '@strimz/queue-contracts'
-import { checkoutPaymentNonce } from '@strimz/shared-crypto/checkout'
+import { checkoutPaymentNonce, subscriptionIntentNonce } from '@strimz/shared-crypto/checkout'
 import type {
   PayWithAuthorizationInput,
   PermitAndCreateSubscriptionInput,
@@ -108,11 +109,15 @@ function makeFakePrisma(): PrismaService {
   } as unknown as PrismaService
 }
 
-function makeFakeProbe(): RelayChainProbe {
+const PERMIT_NONCE = 4n
+
+function makeFakeProbe(over: Partial<Record<'estimateGas', () => Promise<bigint>>> = {}) {
   return {
-    simulate: () => Promise.resolve(),
+    estimateGas: () => Promise.resolve(150_000n),
+    permitNonce: () => Promise.resolve(PERMIT_NONCE),
     receiptStatus: () => Promise.resolve(null),
     latestBlockTimestamp: () => Promise.resolve(1_700_000_000n),
+    ...over,
   } as unknown as RelayChainProbe
 }
 
@@ -136,6 +141,8 @@ function makeBudget(): RelayBudgetService {
 
 const MERCHANT_INTERNAL_ID = 'merchant_1'
 const SESSION_ID = 'ses_1'
+const PAYER = '0x5555555555555555555555555555555555555555'
+const PLAN_ID = 'plan_1'
 
 function payInput(over: Partial<PayWithAuthorizationInput> = {}): PayWithAuthorizationInput {
   return {
@@ -150,8 +157,9 @@ function payInput(over: Partial<PayWithAuthorizationInput> = {}): PayWithAuthori
       nonce: checkoutPaymentNonce(SESSION_ID),
     },
     ref: keccak256(toHex('session-1')),
-    authSignature: { v: 27, r: padHex('0xab', { size: 32 }), s: padHex('0xcd', { size: 32 }) },
-    intentSignature: { v: 27, r: padHex('0x1a', { size: 32 }), s: padHex('0x1b', { size: 32 }) },
+    authSignature: `0x${'ab'.repeat(64)}1b`,
+    // A smart-wallet signature: any length the wallet's isValidSignature accepts.
+    intentSignature: `0x${'1a'.repeat(200)}`,
     merchantInternalId: MERCHANT_INTERNAL_ID,
     sessionId: SESSION_ID,
     ...over,
@@ -169,15 +177,16 @@ function subsInput(
     interval: 3600,
     startAt: 0n,
     endAt: 0n,
+    nonce: subscriptionIntentNonce(PLAN_ID, PAYER, PERMIT_NONCE),
     permitData: {
-      owner: '0x5555555555555555555555555555555555555555',
+      owner: PAYER,
       value: (1n << 256n) - 1n,
       deadline: 1_800_000_000n,
     },
-    permitSignature: { v: 28, r: padHex('0xde', { size: 32 }), s: padHex('0xef', { size: 32 }) },
-    intentSignature: { v: 28, r: padHex('0x2a', { size: 32 }), s: padHex('0x2b', { size: 32 }) },
+    permitSignature: `0x${'de'.repeat(64)}1c`,
+    intentSignature: `0x${'2a'.repeat(64)}1c`,
     merchantInternalId: MERCHANT_INTERNAL_ID,
-    subscriptionInternalId: 'plan_1',
+    subscriptionInternalId: PLAN_ID,
     ...over,
   }
 }
@@ -231,14 +240,9 @@ describe('RelayService', () => {
       expect(authArg.amount).toBe(input.auth.amount)
       expect(authArg.nonce).toBe(input.auth.nonce)
       expect(decoded.args[3]).toBe(input.ref)
-      const authSig = decoded.args[4] as { v: number; r: string; s: string }
-      expect(authSig.v).toBe(input.authSignature.v)
-      expect(authSig.r).toBe(input.authSignature.r)
-      expect(authSig.s).toBe(input.authSignature.s)
-      const intentSig = decoded.args[5] as { v: number; r: string; s: string }
-      expect(intentSig.v).toBe(input.intentSignature.v)
-      expect(intentSig.r).toBe(input.intentSignature.r)
-      expect(intentSig.s).toBe(input.intentSignature.s)
+      expect(job.data.callData.slice(0, 10)).toBe(toFunctionSelector(payWithAuthorizationAbi[0]))
+      expect(decoded.args[4]).toBe(input.authSignature)
+      expect(decoded.args[5]).toBe(input.intentSignature)
     })
 
     it('is idempotent on the signed payload', async () => {
@@ -295,10 +299,64 @@ describe('RelayService', () => {
       expect(decoded.args[3]).toBe(input.interval)
       expect(decoded.args[4]).toBe(input.startAt)
       expect(decoded.args[5]).toBe(input.endAt)
-      const permitArg = decoded.args[6] as { owner: string; value: bigint; deadline: bigint }
+      expect(decoded.args[6]).toBe(input.nonce)
+      const permitArg = decoded.args[7] as { owner: string; value: bigint; deadline: bigint }
       expect(permitArg.owner.toLowerCase()).toBe(input.permitData.owner.toLowerCase())
       expect(permitArg.value).toBe(input.permitData.value)
       expect(permitArg.deadline).toBe(input.permitData.deadline)
+      expect(decoded.args[8]).toBe(input.permitSignature)
+      expect(decoded.args[9]).toBe(input.intentSignature)
+    })
+
+    it('rejects a nonce that is not derived from the plan, payer and permit nonce', async () => {
+      const stale = subscriptionIntentNonce(PLAN_ID, PAYER, PERMIT_NONCE - 1n)
+      const err = await service
+        .submitPermitAndCreateSubscription(subsInput({ nonce: stale }))
+        .catch((e: unknown) => e)
+
+      expect(err).toBeInstanceOf(BadRequestException)
+      expect((err as BadRequestException).getResponse()).toMatchObject({
+        code: 'intent_nonce_mismatch',
+      })
+      expect(queue._jobs.size).toBe(0)
+    })
+  })
+
+  describe('gas limit', () => {
+    function serviceWithEstimate(estimate: bigint) {
+      const { svc, queue: q } = makeFakeQueueService()
+      const relay = new RelayService(
+        svc,
+        makeFakePrisma(),
+        makeCfg(),
+        makeFakeProbe({ estimateGas: () => Promise.resolve(estimate) }),
+        makeFakePointers(),
+        makeEnrolmentGate(),
+        makeBudget(),
+      )
+      return { relay, q }
+    }
+
+    it('keeps the fixed limit when the estimate leaves enough headroom', async () => {
+      const { relay, q } = serviceWithEstimate(150_000n)
+      const view = await relay.submitPayWithAuthorization(payInput())
+      expect(must(q._jobs.get(view.idempotencyKey)).data.gasLimit).toBe('280000')
+    })
+
+    it('raises the limit to the estimate plus 30% for a costly smart-wallet check', async () => {
+      const { relay, q } = serviceWithEstimate(400_001n)
+      const view = await relay.submitPermitAndCreateSubscription(subsInput())
+      expect(must(q._jobs.get(view.idempotencyKey)).data.gasLimit).toBe('520002')
+    })
+
+    it('rejects an estimate above 600,000 gas', async () => {
+      const { relay, q } = serviceWithEstimate(600_001n)
+      const err = await relay.submitPayWithAuthorization(payInput()).catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(BadRequestException)
+      expect((err as BadRequestException).getResponse()).toMatchObject({
+        code: 'relay_gas_too_high',
+      })
+      expect(q._jobs.size).toBe(0)
     })
   })
 
