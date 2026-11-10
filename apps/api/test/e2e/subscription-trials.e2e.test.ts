@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
+import { subscriptionIntentNonce } from '@strimz/shared-crypto/checkout'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedApiKey, seedMerchant, seedPlan, seedSubscription } from '../helpers/fixtures.js'
 
 const USDC = '0x3600000000000000000000000000000000000000'
-const PAYER = `0x${'d'.repeat(40)}`
+const PAYER: `0x${string}` = `0x${'d'.repeat(40)}`
 const DAY = 86_400
 const MONTH_SECONDS = 30 * DAY
 
@@ -24,7 +25,7 @@ describe('subscription trials', () => {
 
   const nowSeconds = () => Math.floor(Date.now() / 1000)
 
-  const terms = (planId: string, payer = PAYER) =>
+  const terms = (planId: string, payer: string = PAYER) =>
     t.inject({ method: 'GET', url: `/v1/checkout/plans/${planId}/terms?payer=${payer}` })
 
   async function setup(trialPeriodDays: number | null) {
@@ -49,6 +50,7 @@ describe('subscription trials', () => {
         interval: MONTH_SECONDS,
         startAt: '0',
         endAt: '0',
+        nonce: subscriptionIntentNonce(planId, PAYER, 0n),
         permitData: { owner: PAYER, value: '20000000', deadline: '9999999999' },
         permitSignature: { v: 27, r: `0x${'1'.repeat(64)}`, s: `0x${'2'.repeat(64)}` },
         intentSignature: { v: 27, r: `0x${'3'.repeat(64)}`, s: `0x${'4'.repeat(64)}` },

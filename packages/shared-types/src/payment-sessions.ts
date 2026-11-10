@@ -158,6 +158,7 @@ export const checkoutResultErrorCodes = [
   'load_failed',
   'merchant_not_ready',
   'payment_reverted',
+  // No longer sent: smart-contract wallets can pay since the #142 redeploy.
   'unsupported_wallet',
 ] as const
 export const checkoutResultErrorCodeSchema = z.enum(checkoutResultErrorCodes)

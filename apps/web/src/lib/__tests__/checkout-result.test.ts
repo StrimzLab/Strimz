@@ -154,7 +154,6 @@ describe('resultMessageForPhase', () => {
     ['load_error', 'load_failed'],
     ['not_ready', 'merchant_not_ready'],
     ['reverted', 'payment_reverted'],
-    ['unsupported_wallet', 'unsupported_wallet'],
   ] as const)('reports %s as %s', (phase, code) => {
     expect(resultMessageForPhase({ ...base, phase, error: 'details' })).toMatchObject({
       type: 'strimz:checkout:error',

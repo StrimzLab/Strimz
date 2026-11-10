@@ -137,6 +137,36 @@ describe('webhook outbox dispatcher e2e', () => {
     })
   })
 
+  it('builds subscription.reactivated from the ref the indexer writes on a reinstate', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const sub = await seedSubscription(t.prisma.db, merchant.id, { status: 'active' })
+    await seedWebhookEndpoint(t.prisma.db, merchant.id, {
+      url: 'https://example.com/reactivated',
+      events: ['subscription_reactivated'],
+    })
+    await t.prisma.db.webhookEvent.create({
+      data: {
+        id: 'evt_reactivated_1',
+        merchantId: merchant.id,
+        type: 'subscription_reactivated',
+        apiVersion: '2026-04-27',
+        mode: 'test',
+        payload: { ref: { kind: 'subscription.reactivated', subscriptionId: sub.id } },
+      },
+    })
+
+    const outbox = t.app.get(WebhookOutboxService)
+    expect(await outbox.tickNow()).toEqual({ dispatched: 1, deliveriesQueued: 1 })
+    const event = await t.prisma.db.webhookEvent.findUniqueOrThrow({
+      where: { id: 'evt_reactivated_1' },
+    })
+    expect(event.dispatchError).toBeNull()
+    expect(event.payload).toMatchObject({
+      type: 'subscription.reactivated',
+      data: { id: sub.id, status: 'active' },
+    })
+  })
+
   it('does not dispatch the same event twice', async () => {
     const merchant = await seedMerchant(t.prisma.db)
     const sub = await seedSubscription(t.prisma.db, merchant.id, { status: 'lapsed' })

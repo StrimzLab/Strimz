@@ -1,5 +1,19 @@
 # @strimz/sdk
 
+## 0.15.0
+
+### Minor Changes
+
+- af82359: Breaking: `SubscriptionIntentParams` gains two required fields, `permitValue` and `nonce`, and `SUBSCRIPTION_INTENT_TYPES` signs them, matching the redeployed `StrimzSubscriptions`. `@strimz/shared-crypto` adds `subscriptionIntentNonce(planId, payer, permitNonce)`, the nonce the Strimz relay accepts.
+
+### Patch Changes
+
+- Updated dependencies [af82359]
+- Updated dependencies [af82359]
+  - @strimz/shared-types@0.16.0
+  - @strimz/shared-config@0.9.0
+  - @strimz/shared-crypto@0.3.0
+
 ## 0.14.0
 
 ### Minor Changes

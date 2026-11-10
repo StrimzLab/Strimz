@@ -51,7 +51,8 @@ describe('hosted checkout result wiring', () => {
     expect(SUB).not.toContain('hostMode="page"')
   })
 
-  it('pay checks the payer wallet before asking for a signature', () => {
-    expect(PAY).toContain('isContractAccount(')
+  it('pay lets a smart-contract wallet pay (#287)', () => {
+    expect(PAY).not.toContain('unsupported_wallet')
+    expect(PAY).not.toContain('isContractAccount(')
   })
 })

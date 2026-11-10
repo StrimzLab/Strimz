@@ -67,6 +67,11 @@ export const subscriptionCancelledEventSchema = envelope(
   subscriptionSchema,
 )
 export const subscriptionLapsedEventSchema = envelope('subscription.lapsed', subscriptionSchema)
+// Sent when Strimz undoes an operator cancel within the reinstate window.
+export const subscriptionReactivatedEventSchema = envelope(
+  'subscription.reactivated',
+  subscriptionSchema,
+)
 
 // ---------- Refund ----------
 
@@ -114,6 +119,7 @@ export const webhookEventSchema = z.discriminatedUnion('type', [
   subscriptionRecoveryAttemptEventSchema,
   subscriptionCancelledEventSchema,
   subscriptionLapsedEventSchema,
+  subscriptionReactivatedEventSchema,
   refundCreatedEventSchema,
   refundCompletedEventSchema,
   invoiceCreatedEventSchema,
@@ -139,6 +145,7 @@ export type SubscriptionRecoveryAttemptEvent = z.infer<
 >
 export type SubscriptionCancelledEvent = z.infer<typeof subscriptionCancelledEventSchema>
 export type SubscriptionLapsedEvent = z.infer<typeof subscriptionLapsedEventSchema>
+export type SubscriptionReactivatedEvent = z.infer<typeof subscriptionReactivatedEventSchema>
 export type RefundCreatedEvent = z.infer<typeof refundCreatedEventSchema>
 export type RefundCompletedEvent = z.infer<typeof refundCompletedEventSchema>
 export type InvoiceCreatedEvent = z.infer<typeof invoiceCreatedEventSchema>

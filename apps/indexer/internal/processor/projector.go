@@ -130,7 +130,7 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 			"currentOwner": current,
 			"pendingOwner": pending,
 			"acceptableAt": blockTime.Add(registryChangeDelay).Unix(),
-		})
+		}, true)
 
 	case indabi.EventMerchantOwnershipTransferAccepted:
 		ev := payload.(*indabi.MerchantOwnershipTransferAccepted)
@@ -154,24 +154,22 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 		err = p.alertGovernance(ctx, lg, ev.MerchantID, "merchant.payout_change_initiated_onchain", map[string]any{
 			"newPayoutAddress": newPayout,
 			"commitAt":         ev.CommitAt,
-		})
+		}, true)
+
+	case indabi.EventMerchantFeeIncreaseScheduled:
+		ev := payload.(*indabi.MerchantFeeIncreaseScheduled)
+		err = p.alertGovernance(ctx, lg, ev.MerchantID, "merchant.fee_increase_scheduled_onchain", map[string]any{
+			"feeBps":      int(ev.FeeBps),
+			"effectiveAt": ev.EffectiveAt,
+		}, false)
+
+	case indabi.EventMerchantFeeIncreaseCancelled:
+		ev := payload.(*indabi.MerchantFeeIncreaseCancelled)
+		err = p.alertGovernance(ctx, lg, ev.MerchantID, "merchant.fee_increase_cancelled_onchain", nil, false)
 
 	case indabi.EventMerchantPayoutChangeCancelled:
 		ev := payload.(*indabi.MerchantPayoutChangeCancelled)
 		err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.payout_change_cancelled_onchain", nil)
-
-	case indabi.EventMerchantMaxFeeBpsLowered:
-		ev := payload.(*indabi.MerchantMaxFeeBpsLowered)
-		var set int64
-		set, err = p.store.SetMerchantOnchainMaxFeeBps(ctx, ev.MerchantID, ev.NewMaxFeeBps, lg.TxHash.Hex(), blockTime)
-		if err == nil && set == 0 {
-			p.warnUnlinkedFee(ev.MerchantID, lg)
-		}
-		if err == nil {
-			err = p.logGovernance(ctx, lg, ev.MerchantID, "merchant.max_fee_bps_lowered_onchain", map[string]any{
-				"newMaxFeeBps": int(ev.NewMaxFeeBps),
-			})
-		}
 
 	// ----- Payments -----
 	case indabi.EventPaymentExecuted:
@@ -264,6 +262,23 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 	case indabi.EventSubscriptionCancelled:
 		ev := payload.(*indabi.SubscriptionCancelled)
 		_, err = p.store.MarkSubscriptionCancelled(ctx, ev.SubscriptionID, strings.ToLower(ev.By.Hex()), lg.TxHash.Hex(), blockTime)
+
+	case indabi.EventSubscriptionReinstated:
+		ev := payload.(*indabi.SubscriptionReinstated)
+		err = p.store.ReinstateSubscription(ctx, store.SubscriptionReinstatedInput{
+			Log:                   p.logRef(lg),
+			OnchainSubscriptionID: ev.SubscriptionID,
+			By:                    lowerHex(ev.By),
+		})
+
+	case indabi.EventTokensRescued:
+		ev := payload.(*indabi.TokensRescued)
+		err = p.logAdminEvent(ctx, lg, "contract.tokens_rescued", map[string]any{
+			"token":  lowerHex(ev.Token),
+			"to":     lowerHex(ev.To),
+			"amount": ev.Amount.String(),
+			"by":     lowerHex(ev.By),
+		})
 
 	// ----- Refunds (via ERC-20 Transfer) -----
 	case indabi.EventERC20Transfer:
@@ -614,13 +629,14 @@ func (p *Projector) logGovernance(ctx context.Context, lg types.Log, onchainMerc
 const registryChangeDelay = 24 * time.Hour
 
 // alertGovernance also queues an admin alert and, for a linked merchant, an email.
-func (p *Projector) alertGovernance(ctx context.Context, lg types.Log, onchainMerchantID *big.Int, action string, metadata map[string]any) error {
+func (p *Projector) alertGovernance(ctx context.Context, lg types.Log, onchainMerchantID *big.Int, action string, metadata map[string]any, notifyMerchant bool) error {
 	return p.store.LogMerchantGovernance(ctx, store.MerchantGovernanceInput{
 		Log:               p.logRef(lg),
 		OnchainMerchantID: onchainMerchantID,
 		Action:            action,
 		Metadata:          metadata,
 		Alert:             true,
+		NotifyMerchant:    notifyMerchant,
 	})
 }
 

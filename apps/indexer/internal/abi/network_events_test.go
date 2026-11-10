@@ -13,7 +13,6 @@ import (
 var newlyIndexedSignatures = []string{
 	"MerchantPayoutChangeInitiated(uint256,address,uint64)",
 	"MerchantPayoutChangeCancelled(uint256)",
-	"MerchantMaxFeeBpsLowered(uint256,uint16)",
 	"MerchantOwnershipTransferInitiated(uint256,address,address)",
 	"MerchantOwnershipTransferAccepted(uint256,address,address)",
 	"MerchantOwnershipTransferCancelled(uint256)",
@@ -24,6 +23,10 @@ var newlyIndexedSignatures = []string{
 	"TokenAdded(address)",
 	"TokenRemoved(address)",
 	"TokenCapabilitiesSet(address,uint8)",
+	"SubscriptionReinstated(uint256,address)",
+	"MerchantFeeIncreaseScheduled(uint256,uint16,uint64)",
+	"MerchantFeeIncreaseCancelled(uint256)",
+	"TokensRescued(address,address,uint256,address)",
 }
 
 func containsTopic(topics []common.Hash, topic common.Hash) bool {

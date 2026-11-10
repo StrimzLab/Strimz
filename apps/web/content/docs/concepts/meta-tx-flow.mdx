@@ -37,10 +37,10 @@ routing field the token signature does not cover. Without it, an
 intercepted token signature could be replayed against a different
 merchant.
 
-| Flow                   | Token signature                         | Strimz intent            | Used for                   |
-| ---------------------- | --------------------------------------- | ------------------------ | -------------------------- |
-| One-shot payment       | **EIP-3009** `ReceiveWithAuthorization` | `PayIntent`              | `/pay/:sessionId` checkout |
-| Subscription enrolment | **EIP-2612** `Permit`                   | `SubscriptionIntent`     | `/sub/:planId` checkout    |
+| Flow                   | Token signature                         | Strimz intent        | Used for                   |
+| ---------------------- | --------------------------------------- | -------------------- | -------------------------- |
+| One-shot payment       | **EIP-3009** `ReceiveWithAuthorization` | `PayIntent`          | `/pay/:sessionId` checkout |
+| Subscription enrolment | **EIP-2612** `Permit`                   | `SubscriptionIntent` | `/sub/:planId` checkout    |
 
 The token standards are not a Strimz invention. Circle's USDC
 implements both natively. Strimz signs the token message and its own
@@ -78,23 +78,38 @@ StrimzPayments PayIntent
 
 Subscription enrolment shows the same two-prompt shape. First an
 EIP-2612 `Permit` in the token domain, then a `SubscriptionIntent` in
-the StrimzSubscriptions domain covering `merchantId`, `amount`,
-`interval`, `startAt`, `endAt`, and the permit's own `deadline`. Every
-modern EIP-712 wallet renders both prompts as human-readable fields.
+the StrimzSubscriptions domain covering `merchantId`, `token`, `amount`,
+`interval`, `startAt`, `endAt`, the permit's `deadline` and `value`, and
+a `nonce`. Every modern EIP-712 wallet renders both prompts as
+human-readable fields.
+
+The checkout's permit approves an unlimited amount, so one approval
+covers every future period, and so a second subscription in the same
+token doesn't shrink the first one's allowance. The contract still
+charges only the `amount` on the `interval` the intent names, and the
+payer can cancel at any time.
 
 ## The signature's security model
 
 Two independent checks run on-chain.
 
-1. **Token side.** The token contract recovers the signer from the
-   EIP-3009 or Permit signature and verifies it matches `auth.from` or
-   `permitData.owner`. Strimz has no way to bypass this. USDC and EURC
-   enforce it directly.
-2. **Strimz side.** `StrimzPayments` and `StrimzSubscriptions` recover
-   the signer from the intent signature and verify it matches the same
-   address the token signature came from. The intent's `nonce` is the
-   same nonce the token authorization burns, so the two signatures are
-   cryptographically bound.
+1. **Token side.** The token contract checks the EIP-3009 or Permit
+   signature against `auth.from` or `permitData.owner`. Strimz has no
+   way to bypass this. USDC and EURC enforce it directly.
+2. **Strimz side.** `StrimzPayments` and `StrimzSubscriptions` check
+   the intent signature against the same address the token signature
+   came from.
+   - For a payment, the intent's `nonce` is the same nonce the token
+     authorization burns, so the two signatures are bound together.
+   - For a subscription, the intent's `nonce` is spent once on chain.
+     The hosted checkout uses
+     `subscriptionIntentNonce(planId, payer, permitNonce)` from
+     `@strimz/shared-crypto`, so a signup retried while the first one
+     is still pending can't create a second subscription.
+
+Both checks accept an ordinary wallet's signature and a smart-contract
+wallet's: for a wallet with code, the contract asks the wallet itself
+through ERC-1271 (`isValidSignature`).
 
 This means:
 
@@ -113,8 +128,8 @@ This means:
   one-shot payments and 24 hours for subscription enrolment.
 - **The intent names the merchant.** `merchantId` is inside the
   intent's signed struct. An intercepted token signature paired with a
-  fabricated intent fails on-chain because the recovered signer will
-  not match the payer.
+  fabricated intent fails on-chain because its signer won't match the
+  payer.
 
 ## What Strimz does after the signatures
 

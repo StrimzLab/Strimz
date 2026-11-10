@@ -160,7 +160,6 @@ func TestE2E_Runner_WatchesTheTokenWhitelistAndEveryEmittedEvent(t *testing.T) {
 	for _, sig := range []string{
 		"MerchantPayoutChangeInitiated(uint256,address,uint64)",
 		"MerchantPayoutChangeCancelled(uint256)",
-		"MerchantMaxFeeBpsLowered(uint256,uint16)",
 		"MerchantOwnershipTransferInitiated(uint256,address,address)",
 		"MerchantOwnershipTransferAccepted(uint256,address,address)",
 		"MerchantOwnershipTransferCancelled(uint256)",
@@ -302,8 +301,6 @@ func TestE2E_Stream_ProjectsMerchantGovernanceEventsAsAuditRows(t *testing.T) {
 			[]common.Hash{idTopic(7), addrTopic(current), addrTopic(pending)}, nil, 13, 1, txHash(0x63)),
 		eventLog(registryAddr, "MerchantOwnershipTransferCancelled(uint256)",
 			[]common.Hash{idTopic(7)}, nil, 14, 0, txHash(0x64)),
-		eventLog(registryAddr, "MerchantMaxFeeBpsLowered(uint256,uint16)",
-			[]common.Hash{idTopic(7)}, pack(t, []string{"uint16"}, uint16(100)), 15, 0, txHash(0x65)),
 	}
 
 	require.NoError(t, r.Tick(context.Background()))
@@ -315,7 +312,6 @@ func TestE2E_Stream_ProjectsMerchantGovernanceEventsAsAuditRows(t *testing.T) {
 		"merchant.payout_change_cancelled_onchain",
 		"merchant.ownership_transfer_accepted_onchain",
 		"merchant.ownership_transfer_cancelled_onchain",
-		"merchant.max_fee_bps_lowered_onchain",
 	} {
 		category, merchantID, targetType, targetID, metadata := auditRow(t, st, action)
 		assert.Equal(t, "merchant", category, action)
@@ -336,8 +332,6 @@ func TestE2E_Stream_ProjectsMerchantGovernanceEventsAsAuditRows(t *testing.T) {
 	_, _, _, _, payout := auditRow(t, st, "merchant.payout_change_initiated_onchain")
 	assert.Equal(t, newPayout, payout["newPayoutAddress"])
 	assert.EqualValues(t, commitAt, payout["commitAt"])
-	_, _, _, _, maxFee := auditRow(t, st, "merchant.max_fee_bps_lowered_onchain")
-	assert.EqualValues(t, 100, maxFee["newMaxFeeBps"])
 
 	var payoutAddress string
 	require.NoError(t, st.Pool().QueryRow(context.Background(),
@@ -406,14 +400,14 @@ func TestE2E_Stream_GovernanceEventForAnUnlinkedMerchantIsRecordedNotParked(t *t
 	c := &rangeChain{head: 30}
 	r, st := newGovernanceRunner(t, c)
 	c.logs = []types.Log{
-		eventLog(registryAddr, "MerchantMaxFeeBpsLowered(uint256,uint16)",
-			[]common.Hash{idTopic(8)}, pack(t, []string{"uint16"}, uint16(50)), 11, 0, txHash(0x71)),
+		eventLog(registryAddr, "MerchantPayoutChangeCancelled(uint256)",
+			[]common.Hash{idTopic(8)}, nil, 11, 0, txHash(0x71)),
 	}
 
 	require.NoError(t, r.Tick(context.Background()))
 
 	assert.Equal(t, 0, countRows(t, st, `SELECT count(*) FROM "IndexerDeadLetter"`))
-	_, merchantID, targetType, targetID, _ := auditRow(t, st, "merchant.max_fee_bps_lowered_onchain")
+	_, merchantID, targetType, targetID, _ := auditRow(t, st, "merchant.payout_change_cancelled_onchain")
 	assert.Nil(t, merchantID)
 	assert.Equal(t, "Merchant", targetType)
 	assert.Equal(t, "onchain:8", targetID)
@@ -518,20 +512,16 @@ func TestE2E_Stream_ProjectsTheRegistryFeeOntoTheMerchant(t *testing.T) {
 	c.logs = append(c.logs,
 		eventLog(registryAddr, "MerchantFeeBpsUpdated(uint256,uint16)",
 			[]common.Hash{idTopic(9)}, pack(t, []string{"uint16"}, uint16(40)), 31, 0, txHash(0x72)),
-		eventLog(registryAddr, "MerchantMaxFeeBpsLowered(uint256,uint16)",
-			[]common.Hash{idTopic(9)}, pack(t, []string{"uint16"}, uint16(45)), 32, 0, txHash(0x73)),
 	)
 	require.NoError(t, r.Tick(ctx))
 
 	got = merchantFee(t, st, "m_fee")
 	assert.Equal(t, 40, *got.feeBps)
-	assert.Equal(t, 45, *got.maxFeeBps)
-	assert.Equal(t, strings.ToLower(txHash(0x73).Hex()), *got.txHash)
-	assert.True(t, time.Unix(1_790_000_032, 0).Equal(*got.changedAt))
+	assert.Equal(t, 50, *got.maxFeeBps)
+	assert.Equal(t, strings.ToLower(txHash(0x72).Hex()), *got.txHash)
+	assert.True(t, time.Unix(1_790_000_031, 0).Equal(*got.changedAt))
 	assert.Equal(t, 1, countRows(t, st,
 		`SELECT count(*) FROM "AuditLog" WHERE action = 'merchant.fee_bps_changed_onchain'`))
-	assert.Equal(t, 1, countRows(t, st,
-		`SELECT count(*) FROM "AuditLog" WHERE action = 'merchant.max_fee_bps_lowered_onchain'`))
 }
 
 func TestE2E_Stream_ReplayingFeeEventsLeavesTheProjectionUnchanged(t *testing.T) {

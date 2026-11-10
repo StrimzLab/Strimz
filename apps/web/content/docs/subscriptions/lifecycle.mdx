@@ -75,6 +75,7 @@ The row is `cancelled` at once and `subscription.cancelled` fires during the API
 - each failed charge (`active → at_risk`, `at_risk → at_risk`): `subscription.charge_failed`
 - `at_risk → lapsed`: `subscription.lapsed`
 - API cancel: `subscription.cancelled`
+- `cancelled → active`, when Strimz restores a subscription its operator key cancelled by mistake: `subscription.reactivated`
 
 The payloads are in [Webhooks](/docs/webhooks#events). Make your handler idempotent on `event.id`, since a delivery can arrive more than once.
 

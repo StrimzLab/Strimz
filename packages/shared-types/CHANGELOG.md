@@ -1,5 +1,16 @@
 # @strimz/shared-types
 
+## 0.16.0
+
+### Minor Changes
+
+- af82359: Add the `subscription.reactivated` webhook event, sent when Strimz restores a subscription its operator key cancelled, and the `token_not_allowed` subscription charge outcome, for a charge skipped because its token was removed from the whitelist. Hosted checkout no longer sends the `unsupported_wallet` checkout error, since smart-contract wallets can now pay; the code stays in `CheckoutResultErrorCode` so existing handlers still compile.
+
+### Patch Changes
+
+- Updated dependencies [af82359]
+  - @strimz/shared-config@0.9.0
+
 ## 0.15.0
 
 ### Minor Changes

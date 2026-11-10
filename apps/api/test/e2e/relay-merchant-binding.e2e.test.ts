@@ -1,14 +1,14 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { keccak256, stringToHex, toHex } from 'viem'
 import { QUEUE_NAMES, relayJobSchema } from '@strimz/queue-contracts'
-import { checkoutPaymentNonce } from '@strimz/shared-crypto/checkout'
+import { checkoutPaymentNonce, subscriptionIntentNonce } from '@strimz/shared-crypto/checkout'
 
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedApiKey, seedMerchant, seedPaymentSession } from '../helpers/fixtures.js'
 
 const USDC = '0x3600000000000000000000000000000000000000'
-const PAYER = `0x${'d'.repeat(40)}`
+const PAYER: `0x${string}` = `0x${'d'.repeat(40)}`
 const ATTACKER = `0x${'a'.repeat(40)}`
 const AMOUNT = '100000000'
 const MONTH_SECONDS = 30 * 86_400
@@ -84,7 +84,12 @@ describe('relay merchant binding e2e', () => {
       permitData: { owner: PAYER, value: amount, deadline: '9999999999' },
       permitSignature: { v: 27, r: `0x${'1'.repeat(64)}`, s: `0x${'2'.repeat(64)}` },
       intentSignature: { v: 27, r: `0x${'3'.repeat(64)}`, s: `0x${'4'.repeat(64)}` },
-      ...(over.planId ? { subscriptionInternalId: over.planId } : {}),
+      ...(over.planId
+        ? {
+            subscriptionInternalId: over.planId,
+            nonce: subscriptionIntentNonce(over.planId, PAYER, 0n),
+          }
+        : {}),
     }
   }
 

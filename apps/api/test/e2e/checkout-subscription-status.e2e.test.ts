@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
+import { subscriptionIntentNonce } from '@strimz/shared-crypto/checkout'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedApiKey, seedMerchant, seedSubscription } from '../helpers/fixtures.js'
 
@@ -102,6 +103,7 @@ describe('checkout subscription-status e2e', () => {
         interval: 2_592_000,
         startAt: '0',
         endAt: '0',
+        nonce: subscriptionIntentNonce(sub.planId, sub.payerAddress as `0x${string}`, 0n),
         permitData: { owner: sub.payerAddress, value: '5000000', deadline: '9999999999' },
         permitSignature: { v: 27, r: `0x${'1'.repeat(64)}`, s: `0x${'2'.repeat(64)}` },
         intentSignature: { v: 27, r: `0x${'3'.repeat(64)}`, s: `0x${'4'.repeat(64)}` },

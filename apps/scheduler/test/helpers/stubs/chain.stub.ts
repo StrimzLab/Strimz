@@ -32,6 +32,9 @@ export class StubChainService implements Methods<ChainService> {
   public registryFees = new Map<bigint, number>()
   public registryFeeDefault = 0
   public feeWriteFailures = new Set<bigint>()
+  /** Fee increases the scheduler key scheduled, as the Registry holds them. */
+  public pendingFees = new Map<bigint, { feeBps: number; effectiveAt: bigint }>()
+  public chainNow = BigInt(Math.floor(Date.now() / 1000))
   /**
    * Outcomes for the next batchCharge calls, in order, applied like the
    * contract: a transfer that ran burns the id, and only a successful
@@ -54,6 +57,8 @@ export class StubChainService implements Methods<ChainService> {
     this.registryFees.clear()
     this.registryFeeDefault = 0
     this.feeWriteFailures.clear()
+    this.pendingFees.clear()
+    this.chainNow = BigInt(Math.floor(Date.now() / 1000))
     this.chargeOutcomes.length = 0
   }
 
@@ -116,8 +121,33 @@ export class StubChainService implements Methods<ChainService> {
       return Promise.reject(new Error(`stub chain: setFeeBps(${onchainMerchantId}) reverted`))
     }
     const hash = this.record('setMerchantFeeBps', [onchainMerchantId, feeBps])
-    this.registryFees.set(onchainMerchantId, feeBps)
+    const current = this.registryFees.get(onchainMerchantId) ?? this.registryFeeDefault
+    if (feeBps > current) {
+      this.pendingFees.set(onchainMerchantId, { feeBps, effectiveAt: this.chainNow + 86_400n })
+    } else {
+      this.pendingFees.delete(onchainMerchantId)
+      this.registryFees.set(onchainMerchantId, feeBps)
+    }
     return Promise.resolve(hash)
+  }
+  readPendingFee(onchainMerchantId: bigint): Promise<{ feeBps: number; effectiveAt: bigint }> {
+    return Promise.resolve(
+      this.pendingFees.get(onchainMerchantId) ?? { feeBps: 0, effectiveAt: 0n },
+    )
+  }
+  commitMerchantFeeBps(onchainMerchantId: bigint): Promise<`0x${string}`> {
+    const pending = this.pendingFees.get(onchainMerchantId)
+    if (!pending) return Promise.reject(new Error('stub chain: Registry__NoPendingFeeChange'))
+    if (this.chainNow < pending.effectiveAt) {
+      return Promise.reject(new Error('stub chain: Registry__FeeChangeNotDue'))
+    }
+    const hash = this.record('commitMerchantFeeBps', [onchainMerchantId])
+    this.pendingFees.delete(onchainMerchantId)
+    this.registryFees.set(onchainMerchantId, pending.feeBps)
+    return Promise.resolve(hash)
+  }
+  latestBlockTimestamp(): Promise<bigint> {
+    return Promise.resolve(this.chainNow)
   }
 
   callsFor(fn: string) {
