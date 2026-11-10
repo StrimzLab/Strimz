@@ -7,11 +7,17 @@ import { useIdleLogout } from '@/hooks/use-idle-logout'
 
 /**
  * Signs a merchant or admin out of the dashboard after a stretch of
- * inactivity, then sends them to /login. Mounted inside the auth-walled
+ * inactivity, then sends them to their sign-in page. Mounted inside the auth-walled
  * layouts; renders nothing. The timer only arms once Privy reports an
  * authenticated session.
  */
-export function InactivityLogout({ timeoutMinutes = 15 }: { timeoutMinutes?: number }) {
+export function InactivityLogout({
+  timeoutMinutes = 15,
+  signInPath = '/login',
+}: {
+  timeoutMinutes?: number
+  signInPath?: string
+}) {
   const router = useRouter()
   const privy = usePrivyOrNull()
 
@@ -22,7 +28,7 @@ export function InactivityLogout({ timeoutMinutes = 15 }: { timeoutMinutes?: num
         try {
           await privy?.logout?.()
         } finally {
-          router.replace('/login')
+          router.replace(signInPath)
         }
       })()
     },

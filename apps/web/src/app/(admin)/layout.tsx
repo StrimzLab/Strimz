@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 export default function AdminLayoutRoot({ children }: { children: ReactNode }) {
   return (
     <>
-      <InactivityLogout />
+      <InactivityLogout signInPath="/admin/login" />
       <AdminShell>{children}</AdminShell>
     </>
   )

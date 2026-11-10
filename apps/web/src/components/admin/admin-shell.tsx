@@ -13,10 +13,11 @@ import {
   ShieldCheck,
   Users2,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { Button, ThemeToggle } from '@strimz/ui'
 
 import { useAdminMe } from '@/hooks/admin'
+import { adminGate, safeNextPath, withNext } from '@/lib/auth-redirect'
 import { BlockieAvatar } from '@/components/dashboard/blockie-avatar'
 
 const NAV = [
@@ -28,55 +29,35 @@ const NAV = [
   { href: '/admin/admins', label: 'Admins', icon: ShieldCheck },
 ] as const
 
-/**
- * Admin app shell. Sidebar + top bar + auth gate.
- *
- * Auth state machine:
- *   - Privy session loading → render a soft skeleton.
- *   - Privy unauthenticated → redirect to /login.
- *   - Privy authenticated, AdminAuthGuard rejects (forbidden) → render
- *     a NotAuthorized card; offer to sign out.
- *   - Authorized → render the shell + children.
- *
- * We deliberately don't catch the "merchant exists but no AdminUser"
- * case as a redirect to the merchant dashboard. An operator might
- * also be a merchant, but the admin surface is intentionally
- * inaccessible without an AdminUser row.
- */
+// Admin access is an active AdminUser row and nothing else. Signing in
+// here never creates a merchant; that only happens on the merchant login.
 export function AdminShell({ children }: { children: ReactNode }) {
   const { ready, authenticated, logout } = usePrivy()
   const router = useRouter()
   const pathname = usePathname()
 
   const meQuery = useAdminMe({ enabled: ready && authenticated })
+  const gate = adminGate({
+    privyReady: ready,
+    authenticated,
+    me: { isPending: meQuery.isPending, error: meQuery.error, data: meQuery.data },
+  })
+
+  useEffect(() => {
+    if (gate.kind === 'login') router.replace(withNext('/admin/login', safeNextPath(pathname)))
+  }, [gate.kind, pathname, router])
 
   async function handleSignOut() {
     try {
       await logout()
     } finally {
-      router.replace('/login')
+      router.replace('/admin/login')
     }
   }
 
-  // Privy still hydrating.
-  if (!ready) {
-    return (
-      <div className="bg-background flex min-h-screen items-center justify-center">
-        <div className="bg-muted/40 h-8 w-32 animate-pulse rounded" />
-      </div>
-    )
-  }
+  if (gate.kind === 'login') return null
 
-  // No session → kick to login.
-  if (!authenticated) {
-    if (typeof window !== 'undefined') {
-      router.replace('/login?next=' + encodeURIComponent(pathname))
-    }
-    return null
-  }
-
-  // Authorized fetch in flight.
-  if (meQuery.isLoading) {
+  if (gate.kind === 'loading') {
     return (
       <div className="bg-background flex min-h-screen items-center justify-center">
         <div className="text-muted-foreground text-sm">Checking admin access…</div>
@@ -84,20 +65,25 @@ export function AdminShell({ children }: { children: ReactNode }) {
     )
   }
 
-  // Backend says you're not an admin.
-  if (meQuery.isError || !meQuery.data) {
+  if (gate.kind === 'denied' || gate.kind === 'error') {
     return (
-      <div className="bg-background flex min-h-screen items-center justify-center p-6">
+      <div className="bg-background relative flex min-h-screen items-center justify-center p-6">
+        <ThemeToggle className="absolute right-4 top-4" />
         <div className="border-border/60 bg-card mx-auto max-w-md space-y-4 rounded-xl border p-6 text-center">
-          <h1 className="font-sora text-xl font-semibold">Not authorized</h1>
-          <p className="text-muted-foreground text-sm">
-            Your account isn’t a Strimz admin. If this is unexpected, reach out to the team for
-            access.
+          <h1 className="font-sora text-xl font-semibold">
+            {gate.kind === 'denied' ? 'Not authorized' : 'Could not check admin access'}
+          </h1>
+          <p className="text-muted-foreground text-sm" role="alert">
+            {gate.kind === 'denied'
+              ? 'This account isn’t a Strimz admin. Sign in with an admin account, or ask a super admin for an invite.'
+              : gate.message}
           </p>
           <div className="flex justify-center gap-2">
-            <Button asChild variant="outline">
-              <Link href="/app">Go to merchant dashboard</Link>
-            </Button>
+            {gate.kind === 'error' ? (
+              <Button variant="outline" onClick={() => void meQuery.refetch()}>
+                Try again
+              </Button>
+            ) : null}
             <Button onClick={handleSignOut}>Sign out</Button>
           </div>
         </div>
@@ -105,7 +91,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     )
   }
 
-  const admin = meQuery.data
+  const { admin } = gate
 
   return (
     <div className="bg-background flex min-h-screen">
