@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import { ExternalLink, Save } from 'lucide-react'
-import { toast } from 'sonner'
 import {
   Button,
   Badge,
@@ -12,7 +11,6 @@ import {
   Input,
   Label,
   Switch,
-  Textarea,
   Tabs,
   TabsContent,
   TabsList,
@@ -26,8 +24,10 @@ import {
 import type { Merchant, PaymentCurrency, UpdateMerchantInput } from '@strimz/shared-types'
 import { PLANS } from '@strimz/shared-config'
 
+import { SUPPORT_EMAIL, mailto } from '@/lib/contact-topics'
 import { nextPlanNotice, planFeeLabel } from '@/lib/pricing-plans'
 
+import { ComingSoonBadge } from '@/components/dashboard/coming-soon-badge'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { ImageUpload } from '@/components/dashboard/image-upload'
 import { OnchainPolicySection } from '@/components/dashboard/onchain-policy-section'
@@ -334,13 +334,6 @@ function PayoutSection({ merchant }: { merchant: Merchant }) {
   )
 }
 
-/**
- * Notifications, team, and billing sections render against fields
- * that aren't yet patchable via `UpdateMerchantInput`. The toggles
- * and form controls are wired locally so the IA feels right, but
- * `Save` currently surfaces a placeholder toast rather than hitting
- * a non-existent endpoint. Replace when the matching API ships.
- */
 function NotificationsSection() {
   const { data: merchant } = useMerchantMe()
   const updateMutation = useUpdateMerchant()
@@ -384,10 +377,13 @@ function NotificationsSection() {
 
 function TeamSection() {
   return (
-    <SettingsCard title="Team" description="Invite teammates with scoped roles.">
+    <SettingsCard
+      title="Team"
+      description="Invite teammates and give each one their own role."
+      badge={<ComingSoonBadge />}
+    >
       <div className="text-muted-foreground border-border/60 rounded-md border border-dashed p-4 text-xs">
-        Team management UI ships in the next iteration. Use the API directly via{' '}
-        <code className="bg-muted rounded px-1 py-0.5">POST /v1/merchants/me/members</code>.
+        Team invites aren&apos;t available yet.
       </div>
     </SettingsCard>
   )
@@ -420,16 +416,19 @@ function BillingSection({ merchant }: { merchant: Merchant }) {
 
       <SettingsCard
         title="Danger zone"
-        description="Deleting your account is permanent. Your live data, keys, and webhook endpoints will all be removed."
+        description="Deleting your account is permanent. Your data, keys, and webhook endpoints will all be removed."
+        badge={<ComingSoonBadge />}
       >
-        <Textarea rows={2} placeholder="Type DELETE to confirm" className="resize-none" />
-        <Button
-          variant="outline"
-          className="border-rose-500/40 text-rose-600 hover:bg-rose-500/10"
-          onClick={() => toast.error('Account deletion is API-only. Contact support.')}
-        >
-          Delete account
-        </Button>
+        <p className="text-muted-foreground text-xs">
+          Self-serve deletion isn&apos;t available yet. To delete your account, email{' '}
+          <a
+            href={mailto('Delete my Strimz account')}
+            className="text-foreground underline underline-offset-2"
+          >
+            {SUPPORT_EMAIL}
+          </a>
+          .
+        </p>
       </SettingsCard>
     </>
   )
@@ -438,17 +437,22 @@ function BillingSection({ merchant }: { merchant: Merchant }) {
 function SettingsCard({
   title,
   description,
+  badge,
   children,
 }: {
   title: string
   description?: string
+  badge?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <Card className="shadow-sub-card border-border/60">
       <CardContent className="space-y-4 p-6">
         <div>
-          <h3 className="font-sora text-base font-semibold">{title}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-sora text-base font-semibold">{title}</h3>
+            {badge}
+          </div>
           {description ? (
             <p className="text-muted-foreground mt-0.5 text-xs">{description}</p>
           ) : null}

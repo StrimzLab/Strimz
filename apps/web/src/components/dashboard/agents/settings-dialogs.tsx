@@ -24,6 +24,7 @@ import {
 
 import { planIncludes } from '@strimz/shared-config'
 
+import { ComingSoonBadge } from '@/components/dashboard/coming-soon-badge'
 import { PlanLockedNotice } from '@/components/dashboard/plan-locked-notice'
 import { useMerchantMe, useUpdateAgentConfig } from '@/hooks/api'
 
@@ -70,12 +71,16 @@ export function RecoverySettingsDialog({ open, onOpenChange, config }: DialogPro
 
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <FieldLabel required htmlFor="recovery-grace">
-              Grace period
-            </FieldLabel>
+            <div className="flex items-center gap-2">
+              <FieldLabel required={false} htmlFor="recovery-grace">
+                Grace period
+              </FieldLabel>
+              <ComingSoonBadge />
+            </div>
             <Select
               value={String(grace)}
               onValueChange={(v) => setGrace(Number(v) as 24 | 48 | 72)}
+              disabled
             >
               <SelectTrigger id="recovery-grace">
                 <SelectValue />
@@ -87,7 +92,8 @@ export function RecoverySettingsDialog({ open, onOpenChange, config }: DialogPro
               </SelectContent>
             </Select>
             <p className="text-muted-foreground text-xs">
-              Wait window between the first failed charge and abandoning the subscription.
+              Reminders follow a fixed schedule for now. Each plan&apos;s own grace period decides
+              when a subscription lapses.
             </p>
           </div>
 

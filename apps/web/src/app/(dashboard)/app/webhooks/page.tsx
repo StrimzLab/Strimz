@@ -44,7 +44,8 @@ import {
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
 import { downloadCsv } from '@/lib/csv-export'
-import { selectableWebhookEvents } from '@/lib/webhook-events'
+import { ComingSoonBadge } from '@/components/dashboard/coming-soon-badge'
+import { comingSoonWebhookEvents, selectableWebhookEvents } from '@/lib/webhook-events'
 import { useDashboardMode } from '@/lib/dashboard-mode'
 import { relativeTime } from '@/lib/format'
 import {
@@ -556,6 +557,16 @@ function NewEndpointDialog() {
                       onChange={() => toggle(e)}
                     />
                     <code>{e}</code>
+                  </label>
+                ))}
+                {comingSoonWebhookEvents.map((e) => (
+                  <label
+                    key={e}
+                    className="text-muted-foreground flex cursor-not-allowed items-center gap-2 rounded px-1.5 py-1"
+                  >
+                    <input type="checkbox" checked={false} disabled readOnly />
+                    <code>{e}</code>
+                    <ComingSoonBadge />
                   </label>
                 ))}
               </div>
