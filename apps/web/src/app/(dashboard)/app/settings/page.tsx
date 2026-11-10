@@ -218,7 +218,7 @@ function BusinessSection({ merchant }: { merchant: Merchant }) {
               value={(draft.value('logoUrl') as string | null | undefined) ?? null}
               onChange={(url) => draft.set('logoUrl', url)}
               aspect="square"
-              maxSizeLabel="up to 2MB"
+              maxSizeLabel="2MB"
               alt={(draft.value('businessName') as string | undefined) ?? 'Merchant logo'}
               className="w-40"
             />
