@@ -14,3 +14,7 @@ Nest deletes `dist` on start, but TypeScript's incremental cache
 (`tsconfig.build.tsbuildinfo`) sits outside `dist`. It said nothing had changed, so
 nothing was emitted. Both build configs now set `incremental: false`, the same as
 `apps/api`. Production images build once from clean, so they were never affected.
+
+`scripts/preflight.sh` now stops early with the fix when the contract submodules aren't
+checked out (a fresh worktree), instead of failing the forge build with hundreds of
+missing-import errors.

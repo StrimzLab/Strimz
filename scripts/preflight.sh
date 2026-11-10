@@ -25,6 +25,11 @@ for tool in pnpm go arc-forge; do
   fi
 done
 
+if git submodule status --recursive | grep -q '^-'; then
+  echo -e "${RED}Contract libraries are missing. Run: git submodule update --init --recursive${NC}"
+  exit 1
+fi
+
 # Contracts are built and tested with forge directly, as in CI.
 TS_ONLY='--filter=!@strimz/contracts'
 
