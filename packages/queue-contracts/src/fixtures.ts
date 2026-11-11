@@ -76,7 +76,7 @@ export const relayJobFixtures: { [R in RelayJob['reason']]: Extract<RelayJob, { 
   },
   registerMerchant: {
     reason: 'registerMerchant',
-    idempotencyKey: 'merchant-register:m_fixture',
+    idempotencyKey: 'merchant-register-m_fixture',
     merchantInternalId: 'm_fixture',
   },
 }
