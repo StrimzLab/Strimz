@@ -39,8 +39,11 @@ export class StubQueueService implements Pick<
     })
     return {
       add: (name: string, data: unknown, opts?: unknown) => {
+        const jobId = (opts as { jobId?: string } | undefined)?.jobId
+        // BullMQ refuses this at add time; the stub has to as well.
+        if (jobId?.includes(':')) return Promise.reject(new Error('Custom Id cannot contain :'))
         this.recorded.push({ queue: queueName, name, data, opts })
-        const id = (opts as { jobId?: string } | undefined)?.jobId ?? String(this.recorded.length)
+        const id = jobId ?? String(this.recorded.length)
         return Promise.resolve(view(id, data))
       },
       getJob: (id: string) => {
