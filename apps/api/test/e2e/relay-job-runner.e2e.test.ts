@@ -199,7 +199,7 @@ describe('relay job runner', () => {
 
   const registerJob = (merchantId: string): RelayJob => ({
     reason: 'registerMerchant',
-    idempotencyKey: `merchant-register:${merchantId}`,
+    idempotencyKey: `merchant-register-${merchantId}`,
     merchantInternalId: merchantId,
   })
 

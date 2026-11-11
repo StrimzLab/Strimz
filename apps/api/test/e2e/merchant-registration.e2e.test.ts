@@ -42,7 +42,7 @@ describe('merchant on-chain registration requests', () => {
     const jobs = relayJobs()
     expect(jobs.length).toBeGreaterThan(0)
     const jobIds = new Set(jobs.map((j) => (j.opts as { jobId?: string }).jobId))
-    expect([...jobIds]).toEqual([`merchant-register:${m.id}`])
+    expect([...jobIds]).toEqual([`merchant-register-${m.id}`])
     const parsed = relayJobSchema.parse(must(jobs[0]).data)
     expect(parsed).toMatchObject({ reason: 'registerMerchant', merchantInternalId: m.id })
 
@@ -111,7 +111,7 @@ describe('merchant on-chain registration requests', () => {
     expect(res.statusCode).toBe(201)
     const jobs = relayJobs()
     expect(jobs).toHaveLength(1)
-    expect((must(jobs[0]).opts as { jobId?: string }).jobId).toBe(`merchant-register:${m.id}`)
+    expect((must(jobs[0]).opts as { jobId?: string }).jobId).toBe(`merchant-register-${m.id}`)
   })
 
   it('finishes onboarding without a registration when the wallet is missing', async () => {

@@ -111,7 +111,7 @@ export class MerchantChainService {
   private async enqueueRegistration(merchantId: string): Promise<void> {
     await this.queue.addRelaySubmission({
       reason: 'registerMerchant',
-      idempotencyKey: `merchant-register:${merchantId}`,
+      idempotencyKey: `merchant-register-${merchantId}`,
       merchantInternalId: merchantId,
     })
     await this.prisma.db.merchant.update({
