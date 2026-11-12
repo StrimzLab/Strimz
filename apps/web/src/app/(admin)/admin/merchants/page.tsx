@@ -6,6 +6,12 @@ import { Card, CardContent, Input, Button } from '@strimz/ui'
 import { Search } from 'lucide-react'
 
 import { PageHeader } from '@/components/dashboard/page-header'
+import {
+  MultiSelectFilter,
+  filterOptions,
+  useTableFilters,
+} from '@/components/dashboard/filter-bar'
+import { multiFilter } from '@/lib/table-filters'
 import { relativeTime } from '@/lib/format'
 import type { MerchantStatus, MerchantTier } from '@/lib/admin-api'
 import { useAdminMerchants } from '@/hooks/admin'
@@ -23,25 +29,39 @@ const TIER_TINT: Record<MerchantTier, string> = {
   enterprise: 'border-accent/40 bg-accent/10 text-accent',
 }
 
-const STATUS_FILTERS: ReadonlyArray<MerchantStatus | 'all'> = [
-  'all',
-  'active',
-  'suspended',
-  'closed',
-]
+const STATUSES: readonly MerchantStatus[] = ['active', 'suspended', 'closed']
+const TIERS: readonly MerchantTier[] = ['free', 'starter', 'growth', 'enterprise']
+const STATUS_OPTIONS = filterOptions(STATUSES, {
+  active: 'positive',
+  suspended: 'warning',
+  closed: 'danger',
+})
+const TIER_OPTIONS = filterOptions(TIERS)
+const FILTERS = { status: multiFilter(STATUSES), tier: multiFilter(TIERS) }
 
 export default function AdminMerchantsPage() {
-  const [statusFilter, setStatusFilter] = React.useState<MerchantStatus | 'all'>('all')
+  return (
+    <React.Suspense>
+      <AdminMerchants />
+    </React.Suspense>
+  )
+}
+
+function AdminMerchants() {
+  const filters = useTableFilters(FILTERS)
+  const { status, tier } = filters.state
   const [search, setSearch] = React.useState('')
   const debounced = useDebounced(search, 250)
+  const narrowed = filters.active || debounced !== ''
 
   const params = React.useMemo(
     () => ({
-      status: statusFilter === 'all' ? undefined : statusFilter,
+      status: status.length > 0 ? status : undefined,
+      tier: tier.length > 0 ? tier : undefined,
       query: debounced || undefined,
       limit: 50,
     }),
-    [statusFilter, debounced],
+    [status, tier, debounced],
   )
 
   const { data, isLoading, isError, error, refetch } = useAdminMerchants(params)
@@ -55,32 +75,42 @@ export default function AdminMerchantsPage() {
         description="Every merchant on Strimz. Click through for the full record + admin actions."
       />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 sm:max-w-sm">
-          <Search className="text-muted-foreground absolute left-3 top-1/2 size-4 -translate-y-1/2" />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-72">
+          <Search className="text-muted-foreground pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2" />
           <Input
             placeholder="Search by email or business name…"
+            aria-label="Search by email or business name"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="h-9 pl-8"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-1">
-          {STATUS_FILTERS.map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={[
-                'h-8 rounded-md border px-2.5 text-xs font-medium transition-colors',
-                statusFilter === s
-                  ? 'border-accent bg-accent/10 text-accent'
-                  : 'border-border/60 hover:bg-muted',
-              ].join(' ')}
-            >
-              {s === 'all' ? 'All statuses' : s}
-            </button>
-          ))}
-        </div>
+        <MultiSelectFilter
+          label="Status"
+          options={STATUS_OPTIONS}
+          selected={status}
+          onChange={(next) => filters.set('status', next)}
+        />
+        <MultiSelectFilter
+          label="Tier"
+          options={TIER_OPTIONS}
+          selected={tier}
+          onChange={(next) => filters.set('tier', next)}
+        />
+        {narrowed ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 px-2.5 text-xs"
+            onClick={() => {
+              setSearch('')
+              filters.clear()
+            }}
+          >
+            Clear filters
+          </Button>
+        ) : null}
       </div>
 
       {isError ? (
@@ -113,7 +143,7 @@ export default function AdminMerchantsPage() {
               </div>
             ) : rows.length === 0 ? (
               <div className="text-muted-foreground py-12 text-center text-xs">
-                No merchants matched.
+                {narrowed ? 'No merchants match these filters.' : 'No merchants yet.'}
               </div>
             ) : (
               <div className="divide-y">
