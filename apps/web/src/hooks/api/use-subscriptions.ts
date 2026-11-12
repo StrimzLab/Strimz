@@ -15,7 +15,7 @@ import type { LoadedRows } from '@/lib/cursor-pages'
 import { useMerchantApi } from './merchant-api-context'
 import { useCursorList } from './use-cursor-list'
 import { useMutationWithToast } from './use-mutation-with-toast'
-import { subscriptionKeys } from './query-keys'
+import { analyticsKeys, subscriptionKeys } from './query-keys'
 
 type ListOptions<TData = Page<Subscription>> = Omit<
   UseQueryOptions<Page<Subscription>, Error, TData, ReturnType<typeof subscriptionKeys.list>>,
@@ -61,6 +61,7 @@ export function useCancelSubscription() {
     onSuccess: (updated) => {
       qc.setQueryData(subscriptionKeys.detail(updated.id), updated)
       qc.invalidateQueries({ queryKey: subscriptionKeys.lists() })
+      qc.invalidateQueries({ queryKey: analyticsKeys.all })
     },
     messages: {
       loading: 'Cancelling subscription…',
