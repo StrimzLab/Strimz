@@ -34,7 +34,12 @@ import { prepareArcSigning } from '@/lib/arc-network'
 import { env } from '@/lib/env'
 import { formatTokenAmount } from '@/lib/format'
 import { privySwitchableWallet } from '@/lib/privy-arc'
-import { checkWithdrawAmount, maxWithdrawable, type WithdrawCheck } from '@/lib/withdraw-gas'
+import {
+  checkWithdrawAmount,
+  feeQuoteMessage,
+  maxWithdrawable,
+  type WithdrawCheck,
+} from '@/lib/withdraw-gas'
 
 /**
  * Withdraw page.
@@ -81,6 +86,7 @@ export default function WithdrawPage() {
   const destinationAddress = destinationOk ? getAddress(destination.trim()) : null
   const usdcBalance = BigInt(balance?.balances.find((b) => b.currency === 'USDC')?.raw ?? '0')
   const signingWallet = balance?.canSignFromDashboard ? embeddedWallet : null
+  const selectedRaw = BigInt(selectedBalance?.raw ?? '0')
 
   const gasQuery = useWithdrawGasQuote({
     wallet: signingWallet,
@@ -90,6 +96,7 @@ export default function WithdrawPage() {
         ? selectedBalance.contractAddress
         : undefined,
     destination: destinationAddress,
+    hasBalance: selectedRaw > 0n,
   })
   const gasReserve = gasQuery.data?.reserve ?? null
 
@@ -153,11 +160,7 @@ export default function WithdrawPage() {
       await prepareArcSigning(privySwitchableWallet(embeddedWallet), env.arcEnvironment)
 
       const fresh = await gasQuery.refetch()
-      if (!fresh.data) {
-        throw new Error(
-          `Couldn't estimate the network fee: ${fresh.error?.message ?? 'no estimate returned'}`,
-        )
-      }
+      if (!fresh.data) throw new Error(feeQuoteMessage(fresh.error))
       const freshCheck = checkWithdrawAmount({
         currency,
         amount: wanted,
@@ -194,10 +197,9 @@ export default function WithdrawPage() {
       })
 
       setLastTx(hash as string)
+      setAmount('')
       toast.success('Transfer signed. Waiting for confirmation…')
-      // Refetch balance after ~13s (Arc block time) so the UI reflects
-      // the new balance without waiting for the poll interval.
-      setTimeout(() => balanceQuery.refetch(), 14_000)
+      setTimeout(() => balanceQuery.refetch(), 3_000)
     } catch (err) {
       const message = (err as Error).message?.split('\n')[0] ?? 'Failed to send transaction'
       toast.error(message)
@@ -361,7 +363,8 @@ export default function WithdrawPage() {
                       <NetworkFeeNote
                         destinationOk={destinationOk}
                         loading={gasQuery.isFetching && gasReserve === null}
-                        error={gasQuery.isError ? gasQuery.error.message : null}
+                        error={gasQuery.isError ? feeQuoteMessage(gasQuery.error) : null}
+                        empty={selectedRaw === 0n}
                         reserve={gasReserve}
                         currency={currency}
                         usdcBalance={usdcBalance}
@@ -377,7 +380,7 @@ export default function WithdrawPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
                       <Info className="size-3" />
-                      Settles in ~13s on {chain.name}
+                      Settles in under a second on {chain.name}
                     </div>
                     <Button type="submit" disabled={!canSubmit}>
                       {submitting ? (
@@ -465,6 +468,7 @@ function NetworkFeeNote({
   destinationOk,
   loading,
   error,
+  empty,
   reserve,
   currency,
   usdcBalance,
@@ -472,16 +476,20 @@ function NetworkFeeNote({
   destinationOk: boolean
   loading: boolean
   error: string | null
+  empty: boolean
   reserve: bigint | null
   currency: 'USDC' | 'EURC'
   usdcBalance: bigint
 }) {
-  if (error) {
+  if (empty) {
     return (
-      <p className="font-poppins mt-1 text-xs text-rose-600">
-        Couldn&apos;t estimate the network fee: {error}
+      <p className="font-poppins text-muted-foreground mt-1 text-[10px]">
+        You have no {currency} to withdraw.
       </p>
     )
+  }
+  if (error) {
+    return <p className="font-poppins mt-1 text-xs text-rose-600">{error}</p>
   }
   if (!destinationOk) {
     return (

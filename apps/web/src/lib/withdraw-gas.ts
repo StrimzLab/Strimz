@@ -45,3 +45,11 @@ export function checkWithdrawAmount(input: WithdrawBalances & { amount: bigint }
   if (usdcLeftForGas < input.reserve) return { ok: false, reason: 'insufficient_gas' }
   return { ok: true }
 }
+
+export function feeQuoteMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : ''
+  if (/exceeds balance/i.test(raw)) {
+    return "Couldn't estimate the network fee: this wallet doesn't hold enough of this token."
+  }
+  return "Couldn't estimate the network fee. Try again in a moment."
+}

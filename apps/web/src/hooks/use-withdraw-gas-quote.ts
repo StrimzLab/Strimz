@@ -16,11 +16,12 @@ export function useWithdrawGasQuote(input: {
   chainId: number
   token: `0x${string}` | undefined
   destination: `0x${string}` | null
+  hasBalance: boolean
 }) {
-  const { wallet, chainId, token, destination } = input
+  const { wallet, chainId, token, destination, hasBalance } = input
   return useQuery({
     queryKey: ['withdraw-gas-quote', chainId, wallet?.address, token, destination],
-    enabled: Boolean(wallet && token && destination),
+    enabled: Boolean(wallet && token && destination && hasBalance),
     refetchInterval: 15_000,
     queryFn: async (): Promise<WithdrawGasQuote> => {
       if (!wallet || !token || !destination) throw new Error('Withdraw gas quote needs a wallet')

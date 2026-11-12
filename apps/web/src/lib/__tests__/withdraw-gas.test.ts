@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   bufferedGasQuote,
   checkWithdrawAmount,
+  feeQuoteMessage,
   gasReserveUsdc,
   maxWithdrawable,
 } from '../withdraw-gas'
@@ -112,5 +113,24 @@ describe('checkWithdrawAmount', () => {
         reserve: 3_600n,
       }),
     ).toEqual({ ok: true })
+  })
+})
+
+describe('feeQuoteMessage', () => {
+  it('turns a balance revert into one short sentence', () => {
+    const err = new Error(
+      'Execution reverted with reason: processing response error (body="{\\"message\\":\\"ERC20: transfer amount exceeds balance\\"}", requestBody=...) Version: viem@2.48.11',
+    )
+    expect(feeQuoteMessage(err)).toBe(
+      "Couldn't estimate the network fee: this wallet doesn't hold enough of this token.",
+    )
+  })
+
+  it('never passes the raw RPC error through', () => {
+    const message = feeQuoteMessage(
+      new Error('HTTP request failed. URL: https://rpc.example\nbody'),
+    )
+    expect(message).toBe("Couldn't estimate the network fee. Try again in a moment.")
+    expect(feeQuoteMessage('weird')).toBe(message)
   })
 })
