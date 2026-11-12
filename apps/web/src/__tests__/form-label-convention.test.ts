@@ -29,8 +29,8 @@ describe('form label convention: every input says (required) * or (optional)', (
     ['src/app/(dashboard)/app/invoices/new/page.tsx', 'Qty', true],
     ['src/app/(dashboard)/app/invoices/new/page.tsx', 'Unit', true],
     ['src/components/store/buy-button.tsx', 'Email', false],
-    ['src/app/(dashboard)/app/transactions/page.tsx', 'From', false],
-    ['src/app/(dashboard)/app/transactions/page.tsx', 'To', false],
+    ['src/components/dashboard/filter-bar/date-filter.tsx', 'From', false],
+    ['src/components/dashboard/filter-bar/date-filter.tsx', 'To', false],
   ])('%s labels %s as required=%s', (path, text, required) => {
     expect(fieldLabel(read(path), required, text)).toBe(true)
   })

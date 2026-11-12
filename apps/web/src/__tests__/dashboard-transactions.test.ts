@@ -29,12 +29,22 @@ describe('dashboard transactions', () => {
 
   describe('date range filter', () => {
     const page = () => read('src/app/(dashboard)/app/transactions/page.tsx')
+    const dateFilter = () => read('src/components/dashboard/filter-bar/date-filter.tsx')
 
     it('offers the presets and a custom range', () => {
-      for (const label of ['Any time', 'Last 7 days', 'This month', 'Last month', 'Custom']) {
-        expect(page()).toContain(`'${label}'`)
+      for (const label of [
+        'Any time',
+        'Today',
+        'Last 7 days',
+        'Last 30 days',
+        'This month',
+        'Last month',
+        'Custom',
+      ]) {
+        expect(dateFilter()).toContain(`'${label}'`)
       }
-      expect(page()).toMatch(/type="date"/u)
+      expect(dateFilter()).toMatch(/type="date"/u)
+      expect(page()).toMatch(/<DateFilter/u)
     })
 
     it('the dashboard client sends from and to', async () => {
@@ -46,22 +56,25 @@ describe('dashboard transactions', () => {
     })
 
     it('sends from and to from the tested helper', () => {
-      expect(page()).toMatch(/resolveDateRange\(/u)
+      expect(read('src/components/dashboard/filter-bar/use-date-range.ts')).toMatch(
+        /resolveDateRange\(/u,
+      )
+      expect(page()).toMatch(/useDateRange\(/u)
       expect(page()).toMatch(/from: [^\n]*\.from/u)
       expect(page()).toMatch(/to: [^\n]*\.to/u)
     })
 
     it('names the time zone the dates use', () => {
-      expect(page()).toMatch(/timeZoneName\(\)/u)
+      expect(dateFilter()).toMatch(/timeZoneName\(\)/u)
     })
 
     it('shows the invalid range error with role="alert"', () => {
-      expect(page()).toMatch(/role="alert"/u)
+      expect(dateFilter()).toMatch(/role="alert"/u)
     })
 
     it('says when filters empty the list and offers to clear them', () => {
       expect(page()).toContain('No transactions match these filters')
-      expect(page()).toContain('Clear filters')
+      expect(read('src/components/dashboard/data-table.tsx')).toContain('Clear filters')
     })
 
     it('names the export after the range', () => {

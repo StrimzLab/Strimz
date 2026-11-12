@@ -24,6 +24,26 @@ const pick = (
 })
 
 describe('resolveDateRange', () => {
+  it('covers just today', () => {
+    expect(resolveDateRange(pick('today'), at('2026-10-22T15:30:00'))).toEqual({
+      ok: true,
+      from: '2026-10-22T00:00:00+01:00',
+      to: '2026-10-23T00:00:00+01:00',
+      firstDay: '2026-10-22',
+      lastDay: '2026-10-22',
+    })
+  })
+
+  it('covers today and the 29 days before it for last 30 days', () => {
+    expect(resolveDateRange(pick('last_30_days'), at('2026-10-22T15:30:00'))).toEqual({
+      ok: true,
+      from: '2026-09-23T00:00:00+01:00',
+      to: '2026-10-23T00:00:00+01:00',
+      firstDay: '2026-09-23',
+      lastDay: '2026-10-22',
+    })
+  })
+
   it('sends nothing for any time', () => {
     expect(resolveDateRange(pick('any'), at('2026-10-22T15:30:00'))).toEqual({ ok: true })
   })
