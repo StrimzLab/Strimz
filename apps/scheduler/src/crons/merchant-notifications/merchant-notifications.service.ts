@@ -439,10 +439,7 @@ export class MerchantNotificationsService {
   // ------------------------------------------------------------------
 
   private dashboardOrigin(): string {
-    // STRIMZ_DASHBOARD_URL is env-driven so dev points at localhost:3000
-    // and prod points at https://strimz-finance.vercel.app (later
-    // https://strimz.finance once the apex is wired). Defaults to the
-    // canonical origin so a forgotten env still produces working CTAs.
+    // Dev sets STRIMZ_DASHBOARD_URL to localhost:3000; prod falls back to strimz.finance.
     return process.env.STRIMZ_DASHBOARD_URL ?? STRIMZ_ORIGIN
   }
 

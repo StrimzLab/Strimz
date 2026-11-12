@@ -16,7 +16,7 @@ const poppins = Poppins({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://strimz-finance.vercel.app'),
+  metadataBase: new URL('https://strimz.finance'),
   title: {
     default: 'Strimz. Stablecoin billing infrastructure',
     template: '%s · Strimz',
