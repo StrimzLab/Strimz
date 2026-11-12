@@ -17,7 +17,15 @@ import {
 import type { Subscription, SubscriptionStatus } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
-import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { DataTable, StatusPill, type StatusTone } from '@/components/dashboard/data-table'
+import {
+  DateFilter,
+  MultiSelectFilter,
+  filterOptions,
+  useDateRange,
+  useTableFilters,
+} from '@/components/dashboard/filter-bar'
+import { dateFilter, multiFilter } from '@/lib/table-filters'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
@@ -37,10 +45,7 @@ import {
 import { SUBSCRIPTION_CARD_STATUSES, subscriptionCards, summaryValue } from '@/lib/stats-summary'
 import { EMPTY_STATES } from '@/lib/empty-states'
 
-const STATUS_TONE: Record<
-  SubscriptionStatus,
-  'positive' | 'warning' | 'danger' | 'info' | 'neutral'
-> = {
+const STATUS_TONE: Record<SubscriptionStatus, StatusTone> = {
   active: 'positive',
   trialing: 'info',
   at_risk: 'warning',
@@ -49,8 +54,7 @@ const STATUS_TONE: Record<
   lapsed: 'danger',
 }
 
-const FILTERS: ReadonlyArray<SubscriptionStatus | 'all'> = [
-  'all',
+const STATUSES: readonly SubscriptionStatus[] = [
   'active',
   'trialing',
   'at_risk',
@@ -58,6 +62,8 @@ const FILTERS: ReadonlyArray<SubscriptionStatus | 'all'> = [
   'cancelled',
   'lapsed',
 ]
+const STATUS_OPTIONS = filterOptions(STATUSES, STATUS_TONE)
+const FILTERS = { status: multiFilter(STATUSES), date: dateFilter() }
 
 /**
  * View-model returned by the `select` projection. Pre-computing the
@@ -74,11 +80,26 @@ function projectSubscriptions(loaded: LoadedRows<Subscription>): SubscriptionsVi
 }
 
 export default function SubscriptionsPage() {
-  const [statusFilter, setStatusFilter] = React.useState<SubscriptionStatus | 'all'>('all')
+  return (
+    <React.Suspense>
+      <Subscriptions />
+    </React.Suspense>
+  )
+}
+
+function Subscriptions() {
+  const filters = useTableFilters(FILTERS)
+  const { status, date } = filters.state
+  const { range, error: dateError } = useDateRange(date)
 
   const subscriptionsParams = React.useMemo(
-    () => ({ status: statusFilter === 'all' ? undefined : statusFilter, limit: 100 }),
-    [statusFilter],
+    () => ({
+      status: status.length > 0 ? status : undefined,
+      from: range.from,
+      to: range.to,
+      limit: 100,
+    }),
+    [status, range.from, range.to],
   )
   const subscriptionsQuery = useSubscriptionPages(subscriptionsParams, {
     select: projectSubscriptions,
@@ -281,27 +302,34 @@ export default function SubscriptionsPage() {
           data={data?.rows ?? []}
           loading={isLoading}
           searchPlaceholder="Search by subscriber wallet, plan…"
-          emptyTitle={EMPTY_STATES.subscriptions.title}
-          emptyDescription={EMPTY_STATES.subscriptions.description}
+          emptyTitle={
+            filters.active
+              ? 'No subscriptions match these filters'
+              : EMPTY_STATES.subscriptions.title
+          }
+          emptyDescription={
+            filters.active
+              ? 'Try another status or date range.'
+              : EMPTY_STATES.subscriptions.description
+          }
           emptyAction={EMPTY_STATES.subscriptions.action}
           serverRows={serverRowsOf(subscriptionsQuery)}
-          toolbar={
-            <div className="flex flex-wrap items-center gap-1">
-              {FILTERS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={[
-                    'h-8 rounded-md border px-2.5 text-xs font-medium transition-colors',
-                    statusFilter === s
-                      ? 'border-accent bg-accent/10 text-accent'
-                      : 'border-border/60 hover:bg-muted',
-                  ].join(' ')}
-                >
-                  {s === 'all' ? 'All' : s.replace(/_/g, ' ')}
-                </button>
-              ))}
-            </div>
+          onClearFilters={filters.active ? filters.clear : undefined}
+          filters={
+            <>
+              <MultiSelectFilter
+                label="Status"
+                options={STATUS_OPTIONS}
+                selected={status}
+                onChange={(next) => filters.set('status', next)}
+              />
+              <DateFilter
+                label="Created"
+                value={date}
+                error={dateError}
+                onChange={(next) => filters.set('date', next)}
+              />
+            </>
           }
         />
       )}

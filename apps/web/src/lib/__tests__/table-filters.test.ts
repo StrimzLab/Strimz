@@ -111,3 +111,29 @@ describe('hasActiveFilters', () => {
     ).toBe(true)
   })
 })
+
+describe('a filter with a default', () => {
+  const planSpec = { status: multiFilter(['active', 'archived'] as const, ['active']) }
+
+  it('starts on its default when the URL says nothing', () => {
+    expect(readFilters(planSpec, params('')).status).toEqual(['active'])
+    expect(emptyFilters(planSpec).status).toEqual(['active'])
+  })
+
+  it('is not counted as a filter while on its default', () => {
+    expect(hasActiveFilters(planSpec, { status: ['active'] })).toBe(false)
+    expect(hasActiveFilters(planSpec, { status: ['active', 'archived'] })).toBe(true)
+  })
+
+  it('keeps the default out of the URL', () => {
+    expect(
+      writeFilters(planSpec, { status: ['active'] }, params('status=archived')).has('status'),
+    ).toBe(false)
+  })
+
+  it('remembers that every value was cleared', () => {
+    const written = writeFilters(planSpec, { status: [] }, params(''))
+    expect(written.get('status')).toBe('')
+    expect(readFilters(planSpec, written).status).toEqual([])
+  })
+})

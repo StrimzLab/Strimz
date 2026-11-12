@@ -12,7 +12,8 @@ export function FilterButton({
   label: string
   /** What's chosen, e.g. "confirmed, pending". Empty when the filter is off. */
   summary: string
-  onClear: () => void
+  /** Left out when there is nothing to clear, e.g. a filter on its default. */
+  onClear?: () => void
 }) {
   const active = summary !== ''
   return (
@@ -40,7 +41,7 @@ export function FilterButton({
           <ChevronDown className="size-3.5 opacity-60" aria-hidden />
         </button>
       </PopoverTrigger>
-      {active ? (
+      {onClear ? (
         <button
           type="button"
           aria-label={`Clear ${label} filter`}

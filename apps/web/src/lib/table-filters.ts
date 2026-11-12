@@ -5,6 +5,7 @@ import { DATE_PRESETS, type DatePreset, type DateSelection } from '@/lib/date-ra
 export interface MultiFilter<V extends string> {
   type: 'multi'
   values: readonly V[]
+  initial: readonly V[]
 }
 
 export interface DateFilterSpec {
@@ -17,10 +18,14 @@ export type FilterState<S extends FilterSpec> = {
   [K in keyof S]: S[K] extends MultiFilter<infer V> ? readonly V[] : DateSelection
 }
 
-export const multiFilter = <V extends string>(values: readonly V[]): MultiFilter<V> => ({
-  type: 'multi',
-  values,
-})
+// `initial` is what the table shows with nothing in the URL, e.g. only active plans.
+export const multiFilter = <V extends string>(
+  values: readonly V[],
+  initial: readonly V[] = [],
+): MultiFilter<V> => ({ type: 'multi', values, initial })
+
+const sameValues = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((v) => b.includes(v))
 
 export const dateFilter = (): DateFilterSpec => ({ type: 'date' })
 
@@ -36,7 +41,7 @@ const isDay = (v: string | null): v is string =>
 export function emptyFilters<S extends FilterSpec>(spec: S): FilterState<S> {
   const state: Record<string, unknown> = {}
   for (const [key, filter] of Object.entries(spec)) {
-    state[key] = filter.type === 'multi' ? [] : NO_DATES
+    state[key] = filter.type === 'multi' ? filter.initial : NO_DATES
   }
   return state as FilterState<S>
 }
@@ -48,7 +53,12 @@ export function readFilters<S extends FilterSpec>(
   const state: Record<string, unknown> = {}
   for (const [key, filter] of Object.entries(spec)) {
     if (filter.type === 'multi') {
-      const picked = new Set((params.get(key) ?? '').split(','))
+      const raw = params.get(key)
+      if (raw === null) {
+        state[key] = filter.initial
+        continue
+      }
+      const picked = new Set(raw.split(','))
       state[key] = filter.values.filter((v) => picked.has(v))
     } else {
       const preset = params.get(key)
@@ -78,8 +88,9 @@ export function writeFilters<S extends FilterSpec>(
     const value = state[key as keyof S]
     if (filter.type === 'multi') {
       const values = value as readonly string[]
-      if (values.length > 0) next.set(key, values.join(','))
-      else next.delete(key)
+      // An empty value records "show everything" when the default is narrower.
+      if (sameValues(values, filter.initial)) next.delete(key)
+      else next.set(key, values.join(','))
     } else {
       const dates = value as DateSelection
       next.delete(FROM)
@@ -102,7 +113,7 @@ export function hasActiveFilters<S extends FilterSpec>(spec: S, state: FilterSta
   return Object.entries(spec).some(([key, filter]) => {
     const value = state[key as keyof S]
     return filter.type === 'multi'
-      ? (value as readonly string[]).length > 0
+      ? !sameValues(value as readonly string[], filter.initial)
       : (value as DateSelection).preset !== 'any'
   })
 }

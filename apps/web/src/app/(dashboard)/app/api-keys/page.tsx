@@ -23,7 +23,6 @@ import {
   DropdownMenuTrigger,
   Input,
   FieldLabel,
-  Label,
   Select,
   SelectContent,
   SelectItem,
@@ -39,6 +38,12 @@ import {
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import {
+  MultiSelectFilter,
+  filterOptions,
+  useTableFilters,
+} from '@/components/dashboard/filter-bar'
+import { multiFilter } from '@/lib/table-filters'
 import { useDashboardMode } from '@/lib/dashboard-mode'
 import { relativeTime } from '@/lib/format'
 import { revokeApiKeyConfirm } from '@/lib/destructive-actions'
@@ -58,18 +63,25 @@ const ALL_SCOPES: readonly ApiKeyScope[] = apiKeyScopeSchema.options
 
 const READ_SCOPES = ALL_SCOPES.filter((s) => s.endsWith('_read'))
 
-type RevokedFilter = 'active' | 'revoked' | 'all'
+const KEY_STATUSES = ['active', 'revoked'] as const
+const STATUS_OPTIONS = filterOptions(KEY_STATUSES, { active: 'positive', revoked: 'neutral' })
+const FILTERS = { status: multiFilter(KEY_STATUSES, ['active']) }
 
 export default function ApiKeysPage() {
-  const [filter, setFilter] = React.useState<RevokedFilter>('active')
-
-  const params = React.useMemo(
-    () => ({
-      limit: 100,
-      revoked: filter === 'active' ? false : filter === 'revoked' ? true : undefined,
-    }),
-    [filter],
+  return (
+    <React.Suspense>
+      <ApiKeys />
+    </React.Suspense>
   )
+}
+
+function ApiKeys() {
+  const filters = useTableFilters(FILTERS)
+  const { status } = filters.state
+  // The API filters on `revoked`, so one status narrows it and both or neither show all keys.
+  const revoked = status.length === 1 ? status[0] === 'revoked' : undefined
+
+  const params = React.useMemo(() => ({ limit: 100, revoked }), [revoked])
 
   const keysQuery = useApiKeyPages(params, {
     select: (loaded) => ({ rows: loaded.rows }),
@@ -230,27 +242,6 @@ export default function ApiKeysPage() {
 
       <KeyHygieneCallout />
 
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xs">
-          <Label className="text-muted-foreground">Show:</Label>
-          {(['active', 'revoked', 'all'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              onClick={() => setFilter(v)}
-              className={[
-                'h-7 rounded-md border px-2 capitalize transition-colors',
-                filter === v
-                  ? 'border-accent bg-accent/10 text-accent'
-                  : 'border-border/60 hover:bg-muted',
-              ].join(' ')}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {isError && !data ? (
         <ErrorBanner message={error?.message ?? 'Failed to load API keys'} onRetry={refetch} />
       ) : (
@@ -259,9 +250,21 @@ export default function ApiKeysPage() {
           data={data?.rows ?? []}
           loading={isLoading}
           searchPlaceholder="Search by name, prefix…"
-          emptyTitle="No API keys"
-          emptyDescription="Issue your first key to start integrating."
+          emptyTitle={filters.active ? 'No API keys match these filters' : 'No API keys'}
+          emptyDescription={
+            filters.active ? 'Try another status.' : 'Issue your first key to start integrating.'
+          }
           serverRows={serverRowsOf(keysQuery)}
+          onClearFilters={filters.active ? filters.clear : undefined}
+          filters={
+            <MultiSelectFilter
+              label="Status"
+              options={STATUS_OPTIONS}
+              selected={status}
+              initial={FILTERS.status.initial}
+              onChange={(next) => filters.set('status', next)}
+            />
+          }
         />
       )}
 
