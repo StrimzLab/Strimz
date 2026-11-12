@@ -201,9 +201,9 @@ describe('from / to on list routes', () => {
   })
 
   it('still refuses from on a list route that has no date filter', async () => {
-    const { k } = await merchantWithKey(['refunds_read'])
+    const { k } = await merchantWithKey(['subscriptions_read'])
 
-    const res = await get(k.secretKey, `/v1/refunds?from=${OCT_1}`)
+    const res = await get(k.secretKey, `/v1/subscription-plans?from=${OCT_1}`)
 
     expect(res.statusCode).toBe(400)
     expect(JSON.parse(res.body).error.code).toBe('invalid_request')
