@@ -1,21 +1,24 @@
 import type {
+  AgentActionOutcome,
   AgentActivityLog,
+  AgentCapability,
   AgentJob,
+  AgentJobStatus,
   AgentMerchantConfig,
   CreateAgentJobInput,
   UpdateAgentConfigInput,
 } from '@strimz/shared-types'
 
 import type { MerchantApiClient } from '../client'
-import type { CallOptions, Page, PaginationParams } from '../types'
+import type { CallOptions, DateRangeParams, OneOrMany, Page, PaginationParams } from '../types'
 
-export interface ListActivityParams extends PaginationParams {
-  capability?: string
-  outcome?: string
+export interface ListActivityParams extends PaginationParams, DateRangeParams {
+  capability?: OneOrMany<AgentCapability>
+  outcome?: OneOrMany<AgentActionOutcome>
 }
 
 export interface ListJobsParams extends PaginationParams {
-  status?: string
+  status?: OneOrMany<AgentJobStatus>
 }
 
 export class AgentsResource {
@@ -40,6 +43,8 @@ export class AgentsResource {
         limit: params.limit,
         capability: params.capability,
         outcome: params.outcome,
+        from: params.from,
+        to: params.to,
       },
     })
   }

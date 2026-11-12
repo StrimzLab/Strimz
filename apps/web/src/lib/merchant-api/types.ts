@@ -20,6 +20,15 @@ export interface PaginationParams {
   limit?: number
 }
 
+/** One value or several; several go on the wire as a comma list. */
+export type OneOrMany<T> = T | readonly T[]
+
+/** `from` is inclusive and `to` exclusive, both ISO-8601 with offset. */
+export interface DateRangeParams {
+  from?: string
+  to?: string
+}
+
 /**
  * Optional caller-side opts forwarded to the client's RequestOptions.
  * Resource methods don't need timeouts most of the time, but anything

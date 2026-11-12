@@ -5,10 +5,10 @@ import type {
 } from '@strimz/shared-types'
 
 import type { MerchantApiClient } from '../client'
-import type { CallOptions, Page, PaginationParams } from '../types'
+import type { CallOptions, DateRangeParams, OneOrMany, Page, PaginationParams } from '../types'
 
-export interface ListPaymentSessionsParams extends PaginationParams {
-  status?: PaymentSessionStatus
+export interface ListPaymentSessionsParams extends PaginationParams, DateRangeParams {
+  status?: OneOrMany<PaymentSessionStatus>
   customerId?: string
 }
 
@@ -32,6 +32,8 @@ export class PaymentSessionsResource {
         limit: params.limit,
         status: params.status,
         customerId: params.customerId,
+        from: params.from,
+        to: params.to,
       },
     })
   }

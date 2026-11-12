@@ -8,9 +8,25 @@ import {
 import { SkipIdempotency } from '../../common/decorators/skip-idempotency.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
-import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
+import type { z } from 'zod'
+import { WebhookDeliveryStatus, WebhookEventName } from '@strimz/db'
+import {
+  dateRange,
+  enumList,
+  listQuerySchema,
+  withDateRange,
+  type ListQuery,
+} from '../../common/schemas/list-query.js'
 import { WebhooksService } from './webhooks.service.js'
 import { CreateWebhookEndpointDto } from './webhooks.dto.js'
+
+// Event names are dotted on the wire (`payment.completed`) and underscored in the database.
+const deliveryListQuery = withDateRange(
+  listQuerySchema.extend({
+    status: enumList(WebhookDeliveryStatus).optional(),
+    eventName: enumList(WebhookEventName, (v) => v.replace(/\./g, '_')).optional(),
+  }),
+)
 
 @ApiTags('webhooks')
 @ApiBearerAuth()
@@ -82,7 +98,7 @@ export class WebhooksController {
   @Get('/webhook-deliveries')
   listDeliveries(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
+    @Query(new ZodValidationPipe(deliveryListQuery)) q: z.infer<typeof deliveryListQuery>,
   ) {
     return this.webhooks.listDeliveries(ctx.merchantId, {
       limit: q.limit,
@@ -90,6 +106,7 @@ export class WebhooksController {
       endpointId: q.endpointId,
       status: q.status,
       eventName: q.eventName,
+      createdAt: dateRange(q),
     })
   }
 

@@ -7,16 +7,25 @@ import {
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
+import type { z } from 'zod'
+import { AgentActionOutcome, AgentCapability, AgentJobStatus } from '@strimz/db'
 import {
   dateRange,
-  datedListQuerySchema,
+  enumList,
   listQuerySchema,
-  type DatedListQuery,
-  type ListQuery,
+  withDateRange,
 } from '../../common/schemas/list-query.js'
 import { AgentsService } from './agents.service.js'
 import { assertCapabilityAvailable } from './capability-availability.js'
 import { CreateAgentJobDto, UpdateAgentConfigDto } from './agents.dto.js'
+
+const activityListQuery = withDateRange(
+  listQuerySchema.extend({
+    capability: enumList(AgentCapability).optional(),
+    outcome: enumList(AgentActionOutcome).optional(),
+  }),
+)
+const jobListQuery = listQuerySchema.extend({ status: enumList(AgentJobStatus).optional() })
 
 @ApiTags('agents')
 @ApiBearerAuth()
@@ -46,7 +55,7 @@ export class AgentsController {
   @ApiOperation({ summary: 'Paginated activity log for AutoPay Agent.' })
   listActivity(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query(new ZodValidationPipe(datedListQuerySchema)) q: DatedListQuery,
+    @Query(new ZodValidationPipe(activityListQuery)) q: z.infer<typeof activityListQuery>,
   ) {
     return this.agents.listActivity(ctx.merchantId, {
       limit: q.limit,
@@ -61,7 +70,7 @@ export class AgentsController {
   @Get('/jobs')
   listJobs(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
+    @Query(new ZodValidationPipe(jobListQuery)) q: z.infer<typeof jobListQuery>,
   ) {
     return this.agents.listJobs(ctx.merchantId, {
       limit: q.limit,

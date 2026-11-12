@@ -6,8 +6,14 @@ import {
   type CurrentMerchantPayload,
 } from '../../common/decorators/current-merchant.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
-import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
+import type { z } from 'zod'
+import { ComplianceStatus } from '@strimz/db'
+import { enumList, listQuerySchema } from '../../common/schemas/list-query.js'
 import { ComplianceService } from './compliance.service.js'
+
+const complianceListQuery = listQuerySchema.extend({
+  status: enumList(ComplianceStatus).optional(),
+})
 
 @ApiTags('compliance')
 @ApiBearerAuth()
@@ -20,7 +26,7 @@ export class ComplianceController {
   @ApiOperation({ summary: 'List compliance screening results scoped to the current merchant.' })
   listLogs(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
+    @Query(new ZodValidationPipe(complianceListQuery)) q: z.infer<typeof complianceListQuery>,
   ) {
     return this.compliance.listLogs(ctx.merchantId, {
       limit: q.limit,

@@ -12,6 +12,8 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QueueService } from '../../infra/queue/queue.service.js'
 import { RedisService } from '../../infra/redis/redis.service.js'
 import { isPrivateOrLoopback } from './ssrf-guard.js'
+import type { WebhookDeliveryStatus, WebhookEventName } from '@strimz/db'
+import { anyOf } from '../../common/schemas/list-query.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -184,8 +186,9 @@ export class WebhooksService {
       limit?: number
       cursor?: string | null
       endpointId?: string
-      status?: string
-      eventName?: string
+      status?: WebhookDeliveryStatus[]
+      eventName?: WebhookEventName[]
+      createdAt?: { gte?: Date; lt?: Date }
     },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
@@ -193,8 +196,9 @@ export class WebhooksService {
       where: {
         merchantId,
         endpointId: params.endpointId ?? undefined,
-        status: (params.status as never) ?? undefined,
-        eventName: params.eventName ? (params.eventName.replace(/\./g, '_') as never) : undefined,
+        status: anyOf(params.status),
+        eventName: anyOf(params.eventName),
+        createdAt: params.createdAt,
       },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,

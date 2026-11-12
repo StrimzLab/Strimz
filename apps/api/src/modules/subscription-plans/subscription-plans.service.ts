@@ -10,6 +10,8 @@ import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { tokenAddressForCurrency } from '../payment-sessions/token-resolver.js'
+import type { SubscriptionPlanStatus } from '@strimz/db'
+import { anyOf } from '../../common/schemas/list-query.js'
 
 const WITH_MERCHANT = { include: { merchant: { select: { onchainMerchantId: true } } } } as const
 
@@ -105,11 +107,11 @@ export class SubscriptionPlansService {
 
   async list(
     merchantId: string,
-    params: { limit?: number; cursor?: string | null; status?: string },
+    params: { limit?: number; cursor?: string | null; status?: SubscriptionPlanStatus[] },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.subscriptionPlan.findMany({
-      where: { merchantId, status: (params.status as never) ?? undefined },
+      where: { merchantId, status: anyOf(params.status) },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,
       ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),

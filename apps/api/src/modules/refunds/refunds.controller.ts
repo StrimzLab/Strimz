@@ -7,9 +7,20 @@ import {
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
-import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
+import type { z } from 'zod'
+import { RefundStatus } from '@strimz/db'
+import {
+  dateRange,
+  enumList,
+  listQuerySchema,
+  withDateRange,
+} from '../../common/schemas/list-query.js'
 import { RefundsService } from './refunds.service.js'
 import { CreateRefundDto, SubmitRefundSignatureDto } from './refunds.dto.js'
+
+const refundListQuery = withDateRange(
+  listQuerySchema.extend({ status: enumList(RefundStatus).optional() }),
+)
 
 @ApiTags('refunds')
 @ApiBearerAuth()
@@ -40,13 +51,14 @@ export class RefundsController {
   @Get()
   list(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
+    @Query(new ZodValidationPipe(refundListQuery)) q: z.infer<typeof refundListQuery>,
   ) {
     return this.refunds.list(ctx.merchantId, ctx.mode, {
       limit: q.limit,
       cursor: q.cursor ?? null,
       status: q.status,
       customerId: q.customerId,
+      createdAt: dateRange(q),
     })
   }
 

@@ -7,7 +7,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common'
-import type { AdminRole, AdminUserStatus, MerchantTier } from '@strimz/db'
+import type { AdminRole, AdminUserStatus, MerchantStatus, MerchantTier } from '@strimz/db'
 import {
   AdminBroadcastEmail,
   AdminInviteEmail,
@@ -34,6 +34,7 @@ import { PrivyService } from '../../infra/privy/privy.service.js'
 import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { toCurrencyAmounts } from '../../common/money/currency-amounts.js'
 import { hashAdminInviteToken, issueAdminInviteToken } from './admin-invite-token.js'
+import { anyOf } from '../../common/schemas/list-query.js'
 
 interface DateRange {
   from?: string
@@ -165,16 +166,16 @@ export class AdminService {
   // Merchants
   // ------------------------------------------------------------------
   async listMerchants(params: {
-    status?: string
-    tier?: string
+    status?: MerchantStatus[]
+    tier?: MerchantTier[]
     query?: string
     limit?: number
     cursor?: string | null
   }) {
     const limit = Math.min(params.limit ?? 25, 100)
     const where: Record<string, unknown> = {}
-    if (params.status) where.status = params.status
-    if (params.tier) where.tier = params.tier
+    if (params.status) where.status = anyOf(params.status)
+    if (params.tier) where.tier = anyOf(params.tier)
     if (params.query) {
       where.OR = [
         { email: { contains: params.query, mode: 'insensitive' } },

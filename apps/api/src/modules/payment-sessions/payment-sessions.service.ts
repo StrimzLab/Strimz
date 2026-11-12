@@ -18,6 +18,7 @@ import { WebhookEventService } from '../../infra/events/webhook-event.service.js
 import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { tokenAddressForCurrency } from './token-resolver.js'
 import { feeSplit } from '../../common/money/fee-split.js'
+import { anyOf } from '../../common/schemas/list-query.js'
 
 /**
  * Always pull the merchant relation on session reads — the serialiser
@@ -225,15 +226,22 @@ export class PaymentSessionsService {
   async list(
     merchantId: string,
     mode: Mode,
-    params: { limit?: number; cursor?: string | null; status?: string; customerId?: string },
+    params: {
+      limit?: number
+      cursor?: string | null
+      status?: PaymentSessionStatus[]
+      customerId?: string
+      createdAt?: { gte?: Date; lt?: Date }
+    },
   ): Promise<{ data: PaymentSession[]; nextCursor: string | null; hasMore: boolean }> {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.paymentSession.findMany({
       where: {
         merchantId,
         mode,
-        status: (params.status as never) ?? undefined,
+        status: anyOf(params.status),
         customerId: params.customerId,
+        createdAt: params.createdAt,
       },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,

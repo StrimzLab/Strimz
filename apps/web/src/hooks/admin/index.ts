@@ -33,6 +33,7 @@ import type {
   VolumeSeriesResponse,
 } from '@/lib/admin-api'
 
+import type { AdminApiClient } from '@/lib/admin-api/client'
 import { useAdminApi } from './admin-context'
 
 export { AdminApiProvider, useAdminApi } from './admin-context'
@@ -94,13 +95,7 @@ export function useAdminOverview<TData = PlatformOverview>(
 }
 
 export function useAdminMerchants<TData = AdminMerchantListResponse>(
-  params: {
-    status?: string
-    tier?: string
-    query?: string
-    limit?: number
-    cursor?: string | null
-  } = {},
+  params: Parameters<AdminApiClient['listMerchants']>[0] = {},
   options?: Omit<
     UseQueryOptions<
       AdminMerchantListResponse,

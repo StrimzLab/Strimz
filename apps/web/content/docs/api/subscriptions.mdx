@@ -49,7 +49,7 @@ GET  /v1/subscriptions?status=active&planId=cmq4wjr3m0008je6l5t0w2yhb
 POST /v1/subscriptions/{id}/cancel    { "reason": "merchant initiated" }
 ```
 
-The list also takes `customerId` to show one customer's subscriptions.
+The list also takes `customerId` to show one customer's subscriptions, and `from` and `to` for subscriptions created in a range. See [List filters](/docs/api/overview#list-filters).
 
 Cancel marks the subscription `cancelled` in Strimz right away and queues the on-chain cancel.
 

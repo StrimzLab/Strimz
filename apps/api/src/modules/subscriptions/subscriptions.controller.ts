@@ -7,9 +7,20 @@ import {
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
-import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
+import type { z } from 'zod'
+import { SubscriptionStatus } from '@strimz/db'
+import {
+  dateRange,
+  enumList,
+  listQuerySchema,
+  withDateRange,
+} from '../../common/schemas/list-query.js'
 import { SubscriptionsService } from './subscriptions.service.js'
 import { CancelSubscriptionDto } from './subscriptions.dto.js'
+
+const subscriptionListQuery = withDateRange(
+  listQuerySchema.extend({ status: enumList(SubscriptionStatus).optional() }),
+)
 
 @ApiTags('subscriptions')
 @ApiBearerAuth()
@@ -28,7 +39,8 @@ export class SubscriptionsController {
   @Get()
   list(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
+    @Query(new ZodValidationPipe(subscriptionListQuery))
+    q: z.infer<typeof subscriptionListQuery>,
   ) {
     return this.subs.list(ctx.merchantId, ctx.mode, {
       limit: q.limit,
@@ -36,6 +48,7 @@ export class SubscriptionsController {
       status: q.status,
       planId: q.planId,
       customerId: q.customerId,
+      createdAt: dateRange(q),
     })
   }
 

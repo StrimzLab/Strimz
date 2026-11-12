@@ -15,8 +15,14 @@ import {
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
-import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
+import type { z } from 'zod'
+import { SubscriptionPlanStatus } from '@strimz/db'
+import { enumList, listQuerySchema } from '../../common/schemas/list-query.js'
 import { SubscriptionPlansService } from './subscription-plans.service.js'
+
+const planListQuery = listQuerySchema.extend({
+  status: enumList(SubscriptionPlanStatus).optional(),
+})
 
 @UseGuards(MerchantAuthGuard)
 @Controller('/v1/subscription-plans')
@@ -46,7 +52,7 @@ export class SubscriptionPlansController {
   @Get()
   list(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
+    @Query(new ZodValidationPipe(planListQuery)) q: z.infer<typeof planListQuery>,
   ) {
     return this.plans.list(ctx.merchantId, {
       limit: q.limit,

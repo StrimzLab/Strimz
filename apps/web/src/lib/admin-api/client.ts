@@ -1,7 +1,15 @@
 import { env } from '@/lib/env'
 import { type AccessTokenProvider, defaultAccessTokenProvider } from '@/lib/merchant-api/auth-token'
+import { queryParam, type QueryValue } from '@/lib/merchant-api/client'
 import { apiErrorFromResponse, AuthenticationError } from '@/lib/merchant-api/errors'
-import type { CreateBroadcastInput, Mode, PaymentCurrency } from '@strimz/shared-types'
+import type { OneOrMany } from '@/lib/merchant-api/types'
+import type {
+  CreateBroadcastInput,
+  MerchantStatus,
+  MerchantTier,
+  Mode,
+  PaymentCurrency,
+} from '@strimz/shared-types'
 
 import type {
   AdminMerchantDetail,
@@ -42,7 +50,7 @@ import type {
 
 interface RequestOptions {
   signal?: AbortSignal
-  query?: Record<string, string | number | undefined | null>
+  query?: Record<string, QueryValue>
   body?: unknown
 }
 
@@ -65,8 +73,8 @@ export class AdminApiClient {
     this.directGet<PlatformOverview>('/v1/admin/overview', { ...options, query: { mode } })
   listMerchants = (
     params: {
-      status?: string
-      tier?: string
+      status?: OneOrMany<MerchantStatus>
+      tier?: OneOrMany<MerchantTier>
       query?: string
       limit?: number
       cursor?: string | null
@@ -205,8 +213,8 @@ export class AdminApiClient {
     )
     if (options?.query) {
       for (const [k, v] of Object.entries(options.query)) {
-        if (v === undefined || v === null || v === '') continue
-        finalUrl.searchParams.set(k, String(v))
+        const value = queryParam(v)
+        if (value !== undefined && value !== '') finalUrl.searchParams.set(k, value)
       }
     }
 
