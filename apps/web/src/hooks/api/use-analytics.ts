@@ -61,6 +61,9 @@ type VolumeOptions<TData = StatsVolume> = Omit<
  */
 const LONG_STALE_TIME = 5 * 60_000
 
+// The stat cards sit beside live tables, and payments land on-chain without a click.
+const SUMMARY_REFRESH_MS = 30_000
+
 export function useConversion<TData = ConversionResponse>(
   range: DateRange = {},
   options?: ConversionOptions<TData>,
@@ -122,7 +125,8 @@ export function useStatsSummary<TData = StatsSummary>(options?: SummaryOptions<T
   return useQuery({
     queryKey: analyticsKeys.summary(),
     queryFn: ({ signal }) => api.analytics.summary({ signal }),
-    staleTime: LONG_STALE_TIME,
+    staleTime: SUMMARY_REFRESH_MS,
+    refetchInterval: SUMMARY_REFRESH_MS,
     ...options,
   })
 }

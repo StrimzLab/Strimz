@@ -16,7 +16,7 @@ import { patchListCacheRow, type ListCache, type LoadedRows } from '@/lib/cursor
 import { useMerchantApi } from './merchant-api-context'
 import { useCursorList } from './use-cursor-list'
 import { useMutationWithToast } from './use-mutation-with-toast'
-import { paymentSessionKeys } from './query-keys'
+import { analyticsKeys, paymentSessionKeys } from './query-keys'
 
 /**
  * Subset of the standard TanStack Query options we let consumers pass.
@@ -89,6 +89,7 @@ export function useCreatePaymentSession() {
     onSuccess: (created) => {
       qc.setQueryData(paymentSessionKeys.detail(created.id), created)
       qc.invalidateQueries({ queryKey: paymentSessionKeys.lists() })
+      qc.invalidateQueries({ queryKey: analyticsKeys.all })
     },
     messages: {
       loading: 'Creating payment link…',
@@ -157,6 +158,7 @@ export function useCancelPaymentSession() {
       // canceled-at timestamp etc. differ from our optimistic guess.
       qc.invalidateQueries({ queryKey: paymentSessionKeys.detail(id) })
       qc.invalidateQueries({ queryKey: paymentSessionKeys.lists() })
+      qc.invalidateQueries({ queryKey: analyticsKeys.all })
     },
   })
 }
