@@ -18,7 +18,15 @@ import {
 import type { Invoice, InvoiceStatus } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
-import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { DataTable, StatusPill, type StatusTone } from '@/components/dashboard/data-table'
+import {
+  DateFilter,
+  MultiSelectFilter,
+  filterOptions,
+  useDateRange,
+  useTableFilters,
+} from '@/components/dashboard/filter-bar'
+import { dateFilter, multiFilter } from '@/lib/table-filters'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { downloadInvoicePdf } from '@/lib/invoice-pdf'
@@ -40,13 +48,17 @@ import {
 } from '@/hooks/api'
 import { EMPTY_STATES } from '@/lib/empty-states'
 
-const STATUS_TONE: Record<InvoiceStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
+const STATUS_TONE: Record<InvoiceStatus, StatusTone> = {
   paid: 'positive',
   sent: 'info',
   draft: 'neutral',
   overdue: 'danger',
   void: 'neutral',
 }
+
+const STATUSES: readonly InvoiceStatus[] = ['draft', 'sent', 'paid', 'overdue', 'void']
+const STATUS_OPTIONS = filterOptions(STATUSES, STATUS_TONE)
+const FILTERS = { status: multiFilter(STATUSES), date: dateFilter() }
 
 interface InvoicesView {
   rows: Invoice[]
@@ -58,8 +70,28 @@ function projectInvoices(loaded: LoadedRows<Invoice>): InvoicesView {
 }
 
 export default function InvoicesPage() {
+  return (
+    <React.Suspense>
+      <Invoices />
+    </React.Suspense>
+  )
+}
+
+function Invoices() {
   const router = useRouter()
-  const invoicesQuery = useInvoicePages({ limit: 100 }, { select: projectInvoices })
+  const filters = useTableFilters(FILTERS)
+  const { status, date } = filters.state
+  const { range, error: dateError } = useDateRange(date)
+  const listParams = React.useMemo(
+    () => ({
+      status: status.length > 0 ? status : undefined,
+      from: range.from,
+      to: range.to,
+      limit: 100,
+    }),
+    [status, range.from, range.to],
+  )
+  const invoicesQuery = useInvoicePages(listParams, { select: projectInvoices })
   const { data, isLoading, isError, error, refetch } = invoicesQuery
   const summaryQuery = useStatsSummary({ select: (summary) => invoiceCards(summary.invoices) })
   const cards = summaryQuery.data
@@ -260,10 +292,31 @@ export default function InvoicesPage() {
           data={data?.rows ?? []}
           loading={isLoading}
           searchPlaceholder="Search by number, customer, email…"
-          emptyTitle={EMPTY_STATES.invoices.title}
-          emptyDescription={EMPTY_STATES.invoices.description}
+          emptyTitle={
+            filters.active ? 'No invoices match these filters' : EMPTY_STATES.invoices.title
+          }
+          emptyDescription={
+            filters.active ? 'Try another status or date range.' : EMPTY_STATES.invoices.description
+          }
           emptyAction={EMPTY_STATES.invoices.action}
           serverRows={serverRowsOf(invoicesQuery)}
+          onClearFilters={filters.active ? filters.clear : undefined}
+          filters={
+            <>
+              <MultiSelectFilter
+                label="Status"
+                options={STATUS_OPTIONS}
+                selected={status}
+                onChange={(next) => filters.set('status', next)}
+              />
+              <DateFilter
+                label="Created"
+                value={date}
+                error={dateError}
+                onChange={(next) => filters.set('date', next)}
+              />
+            </>
+          }
         />
       )}
 

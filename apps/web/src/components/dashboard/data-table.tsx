@@ -38,8 +38,6 @@ export interface DataTableProps<TData, TValue> {
   data: TData[]
   /** When provided, shows a search box that filters across all columns. */
   searchPlaceholder?: string
-  /** Optional toolbar slot (filter chips, action buttons). */
-  toolbar?: React.ReactNode
   /** Filter controls, shown between search and Columns. */
   filters?: React.ReactNode
   /** Set when any filter is on: shows "Clear filters" and a filtered empty state. */
@@ -64,7 +62,6 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   searchPlaceholder,
-  toolbar,
   filters,
   onClearFilters,
   emptyTitle = 'No results',
@@ -118,7 +115,6 @@ export function DataTable<TData, TValue>({
         ) : null}
 
         <div className="ml-auto flex items-center gap-2">
-          {toolbar}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-9 gap-1.5">

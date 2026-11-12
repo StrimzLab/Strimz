@@ -4,10 +4,15 @@ import * as React from 'react'
 import Link from 'next/link'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Button } from '@strimz/ui'
-import type { SubscriptionPlan } from '@strimz/shared-types'
+import type { SubscriptionPlan, SubscriptionPlanStatus } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import {
+  MultiSelectFilter,
+  filterOptions,
+  useTableFilters,
+} from '@/components/dashboard/filter-bar'
 import { NewPlanDialog } from '@/components/dashboard/plans/new-plan-dialog'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { relativeTime } from '@/lib/format'
@@ -15,9 +20,11 @@ import type { LoadedRows } from '@/lib/cursor-pages'
 import { planPriceLabel } from '@/lib/plans-view'
 import { serverRowsOf, useSubscriptionPlanPages } from '@/hooks/api'
 import { EMPTY_STATES } from '@/lib/empty-states'
+import { multiFilter } from '@/lib/table-filters'
 
-const FILTERS = ['active', 'archived', 'all'] as const
-type Filter = (typeof FILTERS)[number]
+const STATUSES: readonly SubscriptionPlanStatus[] = ['active', 'archived']
+const STATUS_OPTIONS = filterOptions(STATUSES, { active: 'positive', archived: 'neutral' })
+const FILTERS = { status: multiFilter(STATUSES, ['active']) }
 
 interface PlansView {
   rows: SubscriptionPlan[]
@@ -29,10 +36,19 @@ function project(loaded: LoadedRows<SubscriptionPlan>): PlansView {
 }
 
 export default function PlansPage() {
-  const [filter, setFilter] = React.useState<Filter>('active')
+  return (
+    <React.Suspense>
+      <Plans />
+    </React.Suspense>
+  )
+}
+
+function Plans() {
+  const filters = useTableFilters(FILTERS)
+  const { status } = filters.state
   const params = React.useMemo(
-    () => ({ status: filter === 'all' ? undefined : filter, limit: 100 }),
-    [filter],
+    () => ({ status: status.length > 0 ? status : undefined, limit: 100 }),
+    [status],
   )
   const plansQuery = useSubscriptionPlanPages(params, { select: project })
   const { data, isLoading, isError, error, refetch } = plansQuery
@@ -116,27 +132,19 @@ export default function PlansPage() {
           data={data?.rows ?? []}
           loading={isLoading}
           searchPlaceholder="Search plans…"
-          emptyTitle={filter === 'archived' ? 'No archived plans' : EMPTY_STATES.plans.title}
-          emptyDescription={EMPTY_STATES.plans.description}
-          emptyAction={filter === 'archived' ? undefined : EMPTY_STATES.plans.action}
+          emptyTitle={filters.active ? 'No plans match these filters' : EMPTY_STATES.plans.title}
+          emptyDescription={filters.active ? 'Try another status.' : EMPTY_STATES.plans.description}
+          emptyAction={EMPTY_STATES.plans.action}
           serverRows={serverRowsOf(plansQuery)}
-          toolbar={
-            <div className="flex flex-wrap items-center gap-1">
-              {FILTERS.map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={[
-                    'h-8 rounded-md border px-2.5 text-xs font-medium capitalize transition-colors',
-                    filter === f
-                      ? 'border-accent bg-accent/10 text-accent'
-                      : 'border-border/60 hover:bg-muted',
-                  ].join(' ')}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
+          onClearFilters={filters.active ? filters.clear : undefined}
+          filters={
+            <MultiSelectFilter
+              label="Status"
+              options={STATUS_OPTIONS}
+              selected={status}
+              initial={FILTERS.status.initial}
+              onChange={(next) => filters.set('status', next)}
+            />
           }
         />
       )}

@@ -20,7 +20,15 @@ import type { Refund, RefundStatus } from '@strimz/shared-types'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { NewRefundDialog } from '@/components/dashboard/refunds/new-refund-dialog'
 import { useRefundSigner } from '@/components/dashboard/refunds/use-refund-signer'
-import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { DataTable, StatusPill, type StatusTone } from '@/components/dashboard/data-table'
+import {
+  DateFilter,
+  MultiSelectFilter,
+  filterOptions,
+  useDateRange,
+  useTableFilters,
+} from '@/components/dashboard/filter-bar'
+import { dateFilter, multiFilter } from '@/lib/table-filters'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
@@ -29,7 +37,7 @@ import type { LoadedRows } from '@/lib/cursor-pages'
 import { serverRowsOf, useRefundPages, useStatsSummary } from '@/hooks/api'
 import { EMPTY_STATES } from '@/lib/empty-states'
 
-const STATUS_TONE: Record<RefundStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
+const STATUS_TONE: Record<RefundStatus, StatusTone> = {
   completed: 'positive',
   submitted: 'info',
   awaiting_signature: 'warning',
@@ -37,6 +45,17 @@ const STATUS_TONE: Record<RefundStatus, 'positive' | 'warning' | 'danger' | 'inf
   failed: 'danger',
   cancelled: 'neutral',
 }
+
+const STATUSES: readonly RefundStatus[] = [
+  'pending',
+  'awaiting_signature',
+  'submitted',
+  'completed',
+  'failed',
+  'cancelled',
+]
+const STATUS_OPTIONS = filterOptions(STATUSES, STATUS_TONE)
+const FILTERS = { status: multiFilter(STATUSES), date: dateFilter() }
 
 interface RefundsView {
   rows: Refund[]
@@ -48,7 +67,27 @@ function projectRefunds(loaded: LoadedRows<Refund>): RefundsView {
 }
 
 export default function RefundsPage() {
-  const refundsQuery = useRefundPages({ limit: 100 }, { select: projectRefunds })
+  return (
+    <React.Suspense>
+      <Refunds />
+    </React.Suspense>
+  )
+}
+
+function Refunds() {
+  const filters = useTableFilters(FILTERS)
+  const { status, date } = filters.state
+  const { range, error: dateError } = useDateRange(date)
+  const listParams = React.useMemo(
+    () => ({
+      status: status.length > 0 ? status : undefined,
+      from: range.from,
+      to: range.to,
+      limit: 100,
+    }),
+    [status, range.from, range.to],
+  )
+  const refundsQuery = useRefundPages(listParams, { select: projectRefunds })
   const { data, isLoading, isError, error, refetch } = refundsQuery
   const summaryQuery = useStatsSummary({ select: (summary) => refundCards(summary.refunds) })
   const cards = summaryQuery.data
@@ -262,10 +301,31 @@ export default function RefundsPage() {
           data={data?.rows ?? []}
           loading={isLoading}
           searchPlaceholder="Search by refund ID, original tx, wallet…"
-          emptyTitle={EMPTY_STATES.refunds.title}
-          emptyDescription={EMPTY_STATES.refunds.description}
+          emptyTitle={
+            filters.active ? 'No refunds match these filters' : EMPTY_STATES.refunds.title
+          }
+          emptyDescription={
+            filters.active ? 'Try another status or date range.' : EMPTY_STATES.refunds.description
+          }
           emptyAction={EMPTY_STATES.refunds.action}
           serverRows={serverRowsOf(refundsQuery)}
+          onClearFilters={filters.active ? filters.clear : undefined}
+          filters={
+            <>
+              <MultiSelectFilter
+                label="Status"
+                options={STATUS_OPTIONS}
+                selected={status}
+                onChange={(next) => filters.set('status', next)}
+              />
+              <DateFilter
+                label="Created"
+                value={date}
+                error={dateError}
+                onChange={(next) => filters.set('date', next)}
+              />
+            </>
+          }
         />
       )}
     </div>

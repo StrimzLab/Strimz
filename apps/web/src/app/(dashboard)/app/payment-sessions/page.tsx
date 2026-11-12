@@ -17,7 +17,15 @@ import type { PaymentSession, PaymentSessionStatus } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { NewPaymentSessionDialog } from '@/components/dashboard/payment-sessions/new-payment-session-dialog'
-import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { DataTable, StatusPill, type StatusTone } from '@/components/dashboard/data-table'
+import {
+  DateFilter,
+  MultiSelectFilter,
+  filterOptions,
+  useDateRange,
+  useTableFilters,
+} from '@/components/dashboard/filter-bar'
+import { dateFilter, multiFilter } from '@/lib/table-filters'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
@@ -43,10 +51,7 @@ import { EMPTY_STATES } from '@/lib/empty-states'
  * (transactions, subscriptions) can tone-map their own enums without
  * cross-contamination.
  */
-const STATUS_TONE: Record<
-  PaymentSessionStatus,
-  'positive' | 'warning' | 'danger' | 'info' | 'neutral'
-> = {
+const STATUS_TONE: Record<PaymentSessionStatus, StatusTone> = {
   confirmed: 'positive',
   created: 'info',
   awaiting_payment: 'info',
@@ -56,8 +61,7 @@ const STATUS_TONE: Record<
   cancelled: 'neutral',
 }
 
-const FILTER_OPTIONS: ReadonlyArray<PaymentSessionStatus | 'all'> = [
-  'all',
+const STATUSES: readonly PaymentSessionStatus[] = [
   'created',
   'awaiting_payment',
   'submitted',
@@ -66,6 +70,8 @@ const FILTER_OPTIONS: ReadonlyArray<PaymentSessionStatus | 'all'> = [
   'expired',
   'cancelled',
 ]
+const STATUS_OPTIONS = filterOptions(STATUSES, STATUS_TONE)
+const FILTERS = { status: multiFilter(STATUSES), date: dateFilter() }
 
 /**
  * Pre-computed view-model. What the page actually renders. Lives
@@ -82,14 +88,29 @@ function project(loaded: LoadedRows<PaymentSession>): PaymentSessionsView {
 }
 
 export default function PaymentSessionsPage() {
-  const [statusFilter, setStatusFilter] = React.useState<PaymentSessionStatus | 'all'>('all')
+  return (
+    <React.Suspense>
+      <PaymentSessions />
+    </React.Suspense>
+  )
+}
+
+function PaymentSessions() {
+  const filters = useTableFilters(FILTERS)
+  const { status, date } = filters.state
+  const { range, error: dateError } = useDateRange(date)
 
   // Query params object is memoised so the TanStack Query key stays
   // referentially stable. Otherwise every parent re-render bumps the
   // key and refetches.
   const queryParams = React.useMemo(
-    () => ({ status: statusFilter === 'all' ? undefined : statusFilter, limit: 100 }),
-    [statusFilter],
+    () => ({
+      status: status.length > 0 ? status : undefined,
+      from: range.from,
+      to: range.to,
+      limit: 100,
+    }),
+    [status, range.from, range.to],
   )
 
   const sessionsQuery = usePaymentSessionPages(queryParams, {
@@ -297,27 +318,34 @@ export default function PaymentSessionsPage() {
           data={data?.rows ?? []}
           loading={isLoading}
           searchPlaceholder="Search by ID, description, customer wallet…"
-          emptyTitle={EMPTY_STATES.paymentLinks.title}
-          emptyDescription={EMPTY_STATES.paymentLinks.description}
+          emptyTitle={
+            filters.active
+              ? 'No payment links match these filters'
+              : EMPTY_STATES.paymentLinks.title
+          }
+          emptyDescription={
+            filters.active
+              ? 'Try another status or date range.'
+              : EMPTY_STATES.paymentLinks.description
+          }
           emptyAction={EMPTY_STATES.paymentLinks.action}
           serverRows={serverRowsOf(sessionsQuery)}
-          toolbar={
-            <div className="flex flex-wrap items-center gap-1">
-              {FILTER_OPTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={[
-                    'h-8 rounded-md border px-2.5 text-xs font-medium transition-colors',
-                    statusFilter === s
-                      ? 'border-accent bg-accent/10 text-accent'
-                      : 'border-border/60 hover:bg-muted',
-                  ].join(' ')}
-                >
-                  {s === 'all' ? 'All' : s.replace(/_/g, ' ')}
-                </button>
-              ))}
-            </div>
+          onClearFilters={filters.active ? filters.clear : undefined}
+          filters={
+            <>
+              <MultiSelectFilter
+                label="Status"
+                options={STATUS_OPTIONS}
+                selected={status}
+                onChange={(next) => filters.set('status', next)}
+              />
+              <DateFilter
+                label="Created"
+                value={date}
+                error={dateError}
+                onChange={(next) => filters.set('date', next)}
+              />
+            </>
           }
         />
       )}

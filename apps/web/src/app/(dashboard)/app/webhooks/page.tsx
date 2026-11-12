@@ -42,7 +42,15 @@ import {
 } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
-import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { DataTable, StatusPill, type StatusTone } from '@/components/dashboard/data-table'
+import {
+  DateFilter,
+  MultiSelectFilter,
+  filterOptions,
+  useDateRange,
+  useTableFilters,
+} from '@/components/dashboard/filter-bar'
+import { dateFilter, multiFilter } from '@/lib/table-filters'
 import { downloadCsv } from '@/lib/csv-export'
 import { ComingSoonBadge } from '@/components/dashboard/coming-soon-badge'
 import { comingSoonWebhookEvents, selectableWebhookEvents } from '@/lib/webhook-events'
@@ -60,15 +68,21 @@ import {
 
 const ALL_EVENT_TYPES: readonly WebhookEventName[] = selectableWebhookEvents
 
-const DELIVERY_TONE: Record<
-  WebhookDeliveryStatus,
-  'positive' | 'warning' | 'danger' | 'info' | 'neutral'
-> = {
+const DELIVERY_TONE: Record<WebhookDeliveryStatus, StatusTone> = {
   delivered: 'positive',
   pending: 'info',
   retrying: 'warning',
   permanently_failed: 'danger',
 }
+
+const DELIVERY_STATUSES = Object.keys(DELIVERY_TONE) as WebhookDeliveryStatus[]
+const DELIVERY_FILTERS = {
+  status: multiFilter(DELIVERY_STATUSES),
+  event: multiFilter(ALL_EVENT_TYPES),
+  date: dateFilter(),
+}
+const STATUS_OPTIONS = filterOptions(DELIVERY_STATUSES, DELIVERY_TONE)
+const EVENT_OPTIONS = filterOptions(ALL_EVENT_TYPES, undefined, (e) => e)
 
 const EM_DASH = '—'
 
@@ -78,6 +92,14 @@ const EM_DASH = '—'
  * They're separate queries so a delivery tick doesn't flush endpoints.
  */
 export default function WebhooksPage() {
+  return (
+    <React.Suspense>
+      <Webhooks />
+    </React.Suspense>
+  )
+}
+
+function Webhooks() {
   const endpointsQuery = useWebhookEndpoints(
     { limit: 50 },
     {
@@ -98,6 +120,26 @@ export default function WebhooksPage() {
       }),
     },
   )
+  // The stat cards stay on the unfiltered feed; only the table follows the filters.
+  const filters = useTableFilters(DELIVERY_FILTERS)
+  const { status, event, date } = filters.state
+  const { range, error: dateError } = useDateRange(date)
+  const deliveryParams = React.useMemo(
+    () =>
+      filters.active
+        ? {
+            status: status.length > 0 ? status : undefined,
+            eventName: event.length > 0 ? event : undefined,
+            from: range.from,
+            to: range.to,
+            limit: 50,
+          }
+        : { limit: 50 },
+    [filters.active, status, event, range.from, range.to],
+  )
+  const deliveryRowsQuery = useWebhookDeliveries(deliveryParams, {
+    select: (page) => page.data,
+  })
 
   const disableMutation = useDisableWebhookEndpoint()
   const enableMutation = useEnableWebhookEndpoint()
@@ -341,10 +383,10 @@ export default function WebhooksPage() {
             <Button
               variant="outline"
               size="sm"
-              disabled={!deliveriesQuery.data || deliveriesQuery.data.rows.length === 0}
+              disabled={!deliveryRowsQuery.data || deliveryRowsQuery.data.length === 0}
               onClick={() => {
-                if (!deliveriesQuery.data) return
-                downloadCsv('webhook-deliveries.csv', deliveriesQuery.data.rows, [
+                if (!deliveryRowsQuery.data) return
+                downloadCsv('webhook-deliveries.csv', deliveryRowsQuery.data, [
                   { key: 'id', header: 'ID' },
                   { key: 'endpointId', header: 'Endpoint' },
                   { key: 'eventName', header: 'Event' },
@@ -403,19 +445,45 @@ export default function WebhooksPage() {
 
       <section className="space-y-2">
         <h2 className="font-sora text-base font-semibold">Recent deliveries</h2>
-        {deliveriesQuery.isError ? (
+        {deliveryRowsQuery.isError ? (
           <ErrorBanner
-            message={deliveriesQuery.error?.message ?? 'Failed to load deliveries'}
-            onRetry={deliveriesQuery.refetch}
+            message={deliveryRowsQuery.error?.message ?? 'Failed to load deliveries'}
+            onRetry={deliveryRowsQuery.refetch}
           />
         ) : (
           <DataTable
             columns={deliveryColumns}
-            data={deliveriesQuery.data?.rows ?? []}
-            loading={deliveriesQuery.isLoading}
+            data={deliveryRowsQuery.data ?? []}
+            loading={deliveryRowsQuery.isLoading}
             searchPlaceholder="Search deliveries…"
-            emptyTitle="No deliveries"
-            emptyDescription="Webhook deliveries will appear here as events fire."
+            emptyTitle={filters.active ? 'No deliveries match these filters' : 'No deliveries'}
+            emptyDescription={
+              filters.active
+                ? 'Try another status, event or date range.'
+                : 'Webhook deliveries will appear here as events fire.'
+            }
+            onClearFilters={filters.active ? filters.clear : undefined}
+            filters={
+              <>
+                <MultiSelectFilter
+                  label="Status"
+                  options={STATUS_OPTIONS}
+                  selected={status}
+                  onChange={(next) => filters.set('status', next)}
+                />
+                <MultiSelectFilter
+                  label="Event"
+                  options={EVENT_OPTIONS}
+                  selected={event}
+                  onChange={(next) => filters.set('event', next)}
+                />
+                <DateFilter
+                  value={date}
+                  error={dateError}
+                  onChange={(next) => filters.set('date', next)}
+                />
+              </>
+            }
           />
         )}
       </section>

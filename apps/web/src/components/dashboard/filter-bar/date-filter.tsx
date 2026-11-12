@@ -48,7 +48,11 @@ export function DateFilter({
 
   return (
     <Popover>
-      <FilterButton label={label} summary={summary} onClear={() => onChange(NO_DATES)} />
+      <FilterButton
+        label={label}
+        summary={summary}
+        onClear={value.preset === 'any' ? undefined : () => onChange(NO_DATES)}
+      />
       <PopoverContent className="w-72">
         <div role="group" aria-label={label} className="space-y-0.5">
           {DATE_PRESETS.map((preset) => {

@@ -14,12 +14,25 @@ import {
   TabsList,
   TabsTrigger,
 } from '@strimz/ui'
-import type { AgentActivityLog, AgentCapability, AgentMerchantConfig } from '@strimz/shared-types'
+import type {
+  AgentActionOutcome,
+  AgentActivityLog,
+  AgentCapability,
+  AgentMerchantConfig,
+} from '@strimz/shared-types'
 import { AGENT_CAPABILITIES } from '@strimz/shared-config'
 
 import { ComingSoonBadge } from '@/components/dashboard/coming-soon-badge'
 import { PageHeader } from '@/components/dashboard/page-header'
-import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { DataTable, StatusPill, type StatusTone } from '@/components/dashboard/data-table'
+import {
+  DateFilter,
+  MultiSelectFilter,
+  filterOptions,
+  useDateRange,
+  useTableFilters,
+} from '@/components/dashboard/filter-bar'
+import { dateFilter, multiFilter } from '@/lib/table-filters'
 import {
   CashflowSettingsDialog,
   RecoverySettingsDialog,
@@ -89,16 +102,51 @@ const CAPABILITIES: CapabilityMeta[] = [
   },
 ]
 
-const OUTCOME_TONE: Record<string, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
+const OUTCOME_TONE: Record<AgentActionOutcome, StatusTone> = {
   success: 'positive',
   pending: 'info',
   skipped: 'neutral',
   failure: 'danger',
 }
 
+const CAPABILITY_IDS = Object.keys(AGENT_CAPABILITIES) as AgentCapability[]
+const OUTCOMES: readonly AgentActionOutcome[] = ['success', 'pending', 'skipped', 'failure']
+const CAPABILITY_OPTIONS = filterOptions(
+  CAPABILITY_IDS,
+  undefined,
+  (c) => AGENT_CAPABILITIES[c].name,
+)
+const OUTCOME_OPTIONS = filterOptions(OUTCOMES, OUTCOME_TONE)
+const FILTERS = {
+  capability: multiFilter(CAPABILITY_IDS),
+  outcome: multiFilter(OUTCOMES),
+  date: dateFilter(),
+}
+
 export default function AgentsPage() {
+  return (
+    <React.Suspense>
+      <Agents />
+    </React.Suspense>
+  )
+}
+
+function Agents() {
   const configQuery = useAgentConfig()
-  const activityQuery = useAgentActivity({ limit: 50 })
+  const filters = useTableFilters(FILTERS)
+  const { capability, outcome, date } = filters.state
+  const { range, error: dateError } = useDateRange(date)
+  const activityParams = React.useMemo(
+    () => ({
+      capability: capability.length > 0 ? capability : undefined,
+      outcome: outcome.length > 0 ? outcome : undefined,
+      from: range.from,
+      to: range.to,
+      limit: 50,
+    }),
+    [capability, outcome, range.from, range.to],
+  )
+  const activityQuery = useAgentActivity(activityParams)
   const updateConfigMutation = useUpdateAgentConfig()
 
   const config = configQuery.data
@@ -146,6 +194,29 @@ export default function AgentsPage() {
             isError={activityQuery.isError}
             error={activityQuery.error}
             onRetry={activityQuery.refetch}
+            filtered={filters.active}
+            onClearFilters={filters.clear}
+            filters={
+              <>
+                <MultiSelectFilter
+                  label="Capability"
+                  options={CAPABILITY_OPTIONS}
+                  selected={capability}
+                  onChange={(next) => filters.set('capability', next)}
+                />
+                <MultiSelectFilter
+                  label="Outcome"
+                  options={OUTCOME_OPTIONS}
+                  selected={outcome}
+                  onChange={(next) => filters.set('outcome', next)}
+                />
+                <DateFilter
+                  value={date}
+                  error={dateError}
+                  onChange={(next) => filters.set('date', next)}
+                />
+              </>
+            }
           />
         </TabsContent>
       </Tabs>
@@ -278,7 +349,13 @@ function ActivityTab({
   isError,
   error,
   onRetry,
+  filtered,
+  onClearFilters,
+  filters,
 }: {
+  filtered: boolean
+  onClearFilters: () => void
+  filters: React.ReactNode
   data: AgentActivityLog[]
   isLoading: boolean
   isError: boolean
@@ -305,9 +382,7 @@ function ActivityTab({
         accessorKey: 'outcome',
         header: 'Outcome',
         cell: ({ row }) => (
-          <StatusPill tone={OUTCOME_TONE[row.original.outcome] ?? 'neutral'}>
-            {row.original.outcome}
-          </StatusPill>
+          <StatusPill tone={OUTCOME_TONE[row.original.outcome]}>{row.original.outcome}</StatusPill>
         ),
       },
       {
@@ -333,8 +408,14 @@ function ActivityTab({
       data={data}
       loading={isLoading}
       searchPlaceholder="Search activity…"
-      emptyTitle="No agent activity yet"
-      emptyDescription="When you enable a capability and it runs, you'll see the log here."
+      emptyTitle={filtered ? 'No activity matches these filters' : 'No agent activity yet'}
+      emptyDescription={
+        filtered
+          ? 'Try another capability, outcome or date range.'
+          : "When you enable a capability and it runs, you'll see the log here."
+      }
+      filters={filters}
+      onClearFilters={filtered ? onClearFilters : undefined}
     />
   )
 }

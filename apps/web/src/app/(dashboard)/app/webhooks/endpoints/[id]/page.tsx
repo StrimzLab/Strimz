@@ -21,7 +21,16 @@ import {
 import type { WebhookDelivery, WebhookDeliveryStatus } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
-import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { DataTable, StatusPill, type StatusTone } from '@/components/dashboard/data-table'
+import {
+  DateFilter,
+  MultiSelectFilter,
+  filterOptions,
+  useDateRange,
+  useTableFilters,
+} from '@/components/dashboard/filter-bar'
+import { dateFilter, multiFilter } from '@/lib/table-filters'
+import { selectableWebhookEvents } from '@/lib/webhook-events'
 import { relativeTime } from '@/lib/format'
 import {
   useDisableWebhookEndpoint,
@@ -32,20 +41,52 @@ import {
   useWebhookEndpoint,
 } from '@/hooks/api'
 
-const DELIVERY_TONE: Record<
-  WebhookDeliveryStatus,
-  'positive' | 'warning' | 'danger' | 'info' | 'neutral'
-> = {
+const DELIVERY_TONE: Record<WebhookDeliveryStatus, StatusTone> = {
   delivered: 'positive',
   pending: 'info',
   retrying: 'warning',
   permanently_failed: 'danger',
 }
 
+const DELIVERY_STATUSES = Object.keys(DELIVERY_TONE) as WebhookDeliveryStatus[]
+const STATUS_OPTIONS = filterOptions(DELIVERY_STATUSES, DELIVERY_TONE)
+const FILTERS = {
+  status: multiFilter(DELIVERY_STATUSES),
+  event: multiFilter(selectableWebhookEvents),
+  date: dateFilter(),
+}
+
 export default function EndpointDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  return (
+    <React.Suspense>
+      <EndpointDetail id={id} />
+    </React.Suspense>
+  )
+}
+
+function EndpointDetail({ id }: { id: string }) {
   const endpointQuery = useWebhookEndpoint(id)
-  const deliveriesQuery = useWebhookDeliveries({ limit: 50, endpointId: id })
+  const filters = useTableFilters(FILTERS)
+  const { status, event, date } = filters.state
+  const { range, error: dateError } = useDateRange(date)
+  const deliveryParams = React.useMemo(
+    () => ({
+      endpointId: id,
+      status: status.length > 0 ? status : undefined,
+      eventName: event.length > 0 ? event : undefined,
+      from: range.from,
+      to: range.to,
+      limit: 50,
+    }),
+    [id, status, event, range.from, range.to],
+  )
+  const deliveriesQuery = useWebhookDeliveries(deliveryParams)
+  const endpointEvents = endpointQuery.data?.events
+  const eventOptions = React.useMemo(
+    () => filterOptions(endpointEvents ?? selectableWebhookEvents, undefined, (e) => e),
+    [endpointEvents],
+  )
   const disableMutation = useDisableWebhookEndpoint()
   const enableMutation = useEnableWebhookEndpoint()
   const rotateMutation = useRotateWebhookSecret()
@@ -277,8 +318,34 @@ export default function EndpointDetailPage({ params }: { params: Promise<{ id: s
           data={deliveriesQuery.data?.data ?? []}
           loading={deliveriesQuery.isLoading}
           searchPlaceholder="Search deliveries…"
-          emptyTitle="No deliveries yet"
-          emptyDescription="Deliveries to this endpoint will appear here as events fire."
+          emptyTitle={filters.active ? 'No deliveries match these filters' : 'No deliveries yet'}
+          emptyDescription={
+            filters.active
+              ? 'Try another status, event or date range.'
+              : 'Deliveries to this endpoint will appear here as events fire.'
+          }
+          onClearFilters={filters.active ? filters.clear : undefined}
+          filters={
+            <>
+              <MultiSelectFilter
+                label="Status"
+                options={STATUS_OPTIONS}
+                selected={status}
+                onChange={(next) => filters.set('status', next)}
+              />
+              <MultiSelectFilter
+                label="Event"
+                options={eventOptions}
+                selected={event}
+                onChange={(next) => filters.set('event', next)}
+              />
+              <DateFilter
+                value={date}
+                error={dateError}
+                onChange={(next) => filters.set('date', next)}
+              />
+            </>
+          }
         />
       </section>
 

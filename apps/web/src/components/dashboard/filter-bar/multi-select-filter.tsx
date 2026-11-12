@@ -18,20 +18,27 @@ export function MultiSelectFilter<V extends string>({
   label,
   options,
   selected,
+  initial = [],
   onChange,
 }: {
   label: string
   options: readonly FilterOption<V>[]
   selected: readonly V[]
+  /** What the filter falls back to when cleared. */
+  initial?: readonly V[]
   onChange: (next: V[]) => void
 }) {
   const chosen = options.filter((o) => selected.includes(o.value))
+  const changed = selected.length !== initial.length || selected.some((v) => !initial.includes(v))
   const summary =
     chosen.length === 0
-      ? ''
+      ? initial.length > 0
+        ? 'All'
+        : ''
       : chosen.length <= 2
         ? chosen.map((o) => o.label).join(', ')
         : `${chosen.length} selected`
+  const reset = () => onChange([...initial])
 
   const toggle = (value: V) =>
     onChange(
@@ -42,9 +49,9 @@ export function MultiSelectFilter<V extends string>({
 
   return (
     <Popover>
-      <FilterButton label={label} summary={summary} onClear={() => onChange([])} />
-      <PopoverContent className="w-56">
-        <div role="group" aria-label={label} className="space-y-0.5">
+      <FilterButton label={label} summary={summary} onClear={changed ? reset : undefined} />
+      <PopoverContent className="w-60">
+        <div role="group" aria-label={label} className="max-h-72 space-y-0.5 overflow-y-auto">
           {options.map((option) => {
             const on = selected.includes(option.value)
             return (
@@ -72,12 +79,12 @@ export function MultiSelectFilter<V extends string>({
             )
           })}
         </div>
-        {selected.length > 0 ? (
+        {changed ? (
           <>
             <div className="bg-border my-1 h-px" />
             <button
               type="button"
-              onClick={() => onChange([])}
+              onClick={reset}
               className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:bg-muted w-full rounded-md px-2.5 py-2 text-left text-sm outline-none"
             >
               Clear
@@ -87,4 +94,12 @@ export function MultiSelectFilter<V extends string>({
       </PopoverContent>
     </Popover>
   )
+}
+
+export function filterOptions<V extends string>(
+  values: readonly V[],
+  tones?: Partial<Record<V, StatusTone>>,
+  label: (value: V) => string = (v) => v.replace(/_/g, ' '),
+): FilterOption<V>[] {
+  return values.map((value) => ({ value, label: label(value), tone: tones?.[value] }))
 }
