@@ -10,6 +10,9 @@ const API_VERSION = '2026-04-27'
  * `payment.failed` outbox event. Only `created`/`awaiting_payment`
  * expire — a `submitted` session already has a broadcast tx and may
  * still confirm.
+ *
+ * Prisma stores UTC in timestamp-without-zone columns, so compare and write
+ * in UTC; plain NOW() follows the server's time zone.
  */
 @Injectable()
 export class SessionExpiryService {
@@ -29,11 +32,11 @@ export class SessionExpiryService {
           SELECT id, "merchantId", mode
             FROM "PaymentSession"
            WHERE status IN ('created'::"PaymentSessionStatus", 'awaiting_payment'::"PaymentSessionStatus")
-             AND "expiresAt" < NOW()
+             AND "expiresAt" < (NOW() AT TIME ZONE 'UTC')
         )
         UPDATE "PaymentSession"
            SET status = 'expired'::"PaymentSessionStatus",
-               "updatedAt" = NOW()
+               "updatedAt" = NOW() AT TIME ZONE 'UTC'
           FROM due
          WHERE "PaymentSession".id = due.id
          RETURNING "PaymentSession".id,
