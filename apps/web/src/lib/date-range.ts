@@ -10,7 +10,24 @@ import {
   subMonths,
 } from 'date-fns'
 
-export type DatePreset = 'any' | 'last_7_days' | 'this_month' | 'last_month' | 'custom'
+export type DatePreset =
+  | 'any'
+  | 'today'
+  | 'last_7_days'
+  | 'last_30_days'
+  | 'this_month'
+  | 'last_month'
+  | 'custom'
+
+export const DATE_PRESETS: readonly DatePreset[] = [
+  'any',
+  'today',
+  'last_7_days',
+  'last_30_days',
+  'this_month',
+  'last_month',
+  'custom',
+]
 
 export interface DateSelection {
   preset: DatePreset
@@ -53,8 +70,12 @@ export function resolveDateRange(selection: DateSelection, now: Date): DateRange
   switch (selection.preset) {
     case 'any':
       return { ok: true }
+    case 'today':
+      return bounds(today, addDays(today, 1))
     case 'last_7_days':
       return bounds(subDays(today, 6), addDays(today, 1))
+    case 'last_30_days':
+      return bounds(subDays(today, 29), addDays(today, 1))
     case 'this_month':
       return bounds(startOfMonth(today), addDays(today, 1))
     case 'last_month':

@@ -40,6 +40,10 @@ export interface DataTableProps<TData, TValue> {
   searchPlaceholder?: string
   /** Optional toolbar slot (filter chips, action buttons). */
   toolbar?: React.ReactNode
+  /** Filter controls, shown between search and Columns. */
+  filters?: React.ReactNode
+  /** Set when any filter is on: shows "Clear filters" and a filtered empty state. */
+  onClearFilters?: () => void
   /** Empty-state copy when the source list is empty. */
   emptyTitle?: string
   emptyDescription?: string
@@ -61,6 +65,8 @@ export function DataTable<TData, TValue>({
   data,
   searchPlaceholder,
   toolbar,
+  filters,
+  onClearFilters,
   emptyTitle = 'No results',
   emptyDescription = 'Nothing here yet. Adjust your filters or check back later.',
   emptyAction,
@@ -91,22 +97,27 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         {searchPlaceholder ? (
-          <div className="relative w-full sm:max-w-xs">
+          <div className="relative w-full sm:w-64">
             <Search className="text-muted-foreground pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2" />
             <Input
               value={globalFilter ?? ''}
               onChange={(e) => setGlobalFilter(e.target.value)}
               placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder}
               className="h-9 pl-8"
             />
           </div>
-        ) : (
-          <span />
-        )}
+        ) : null}
+        {filters}
+        {onClearFilters ? (
+          <Button variant="ghost" size="sm" className="h-9 px-2.5 text-xs" onClick={onClearFilters}>
+            Clear filters
+          </Button>
+        ) : null}
 
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           {toolbar}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -123,9 +134,8 @@ export function DataTable<TData, TValue>({
                     key={column.id}
                     checked={column.getIsVisible()}
                     onCheckedChange={(v) => column.toggleVisibility(Boolean(v))}
-                    className="capitalize"
                   >
-                    {column.id.replace(/_/g, ' ')}
+                    {columnLabel(column.id, column.columnDef.header)}
                   </DropdownMenuCheckboxItem>
                 ))}
             </DropdownMenuContent>
@@ -187,7 +197,11 @@ export function DataTable<TData, TValue>({
                   <div className="flex flex-col items-center justify-center gap-1.5 py-6 text-center">
                     <div className="text-sm font-medium">{emptyTitle}</div>
                     <div className="text-muted-foreground max-w-md text-xs">{emptyDescription}</div>
-                    {emptyAction && !globalFilter ? (
+                    {onClearFilters ? (
+                      <Button size="sm" variant="outline" className="mt-3" onClick={onClearFilters}>
+                        Clear filters
+                      </Button>
+                    ) : emptyAction && !globalFilter ? (
                       'href' in emptyAction ? (
                         <Button asChild size="sm" className="mt-3">
                           <Link href={emptyAction.href}>{emptyAction.label}</Link>
@@ -260,14 +274,27 @@ export function DataTable<TData, TValue>({
   )
 }
 
-export function StatusPill({
-  tone,
-  children,
-}: {
-  tone: 'positive' | 'warning' | 'danger' | 'info' | 'neutral'
-  children: React.ReactNode
-}) {
-  const tones: Record<typeof tone, string> = {
+function columnLabel(id: string, header: unknown): string {
+  if (typeof header === 'string' && header.trim() !== '') return header
+  const words = id
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+export type StatusTone = 'positive' | 'warning' | 'danger' | 'info' | 'neutral'
+
+export const TONE_DOT: Record<StatusTone, string> = {
+  positive: 'bg-accent',
+  warning: 'bg-amber-500',
+  danger: 'bg-rose-500',
+  info: 'bg-sky-500',
+  neutral: 'bg-muted-foreground/50',
+}
+
+export function StatusPill({ tone, children }: { tone: StatusTone; children: React.ReactNode }) {
+  const tones: Record<StatusTone, string> = {
     positive: 'bg-accent/10 text-accent border-accent/20',
     warning: 'bg-amber-500/10  text-amber-600  border-amber-500/20',
     danger: 'bg-rose-500/10   text-rose-600   border-rose-500/20',

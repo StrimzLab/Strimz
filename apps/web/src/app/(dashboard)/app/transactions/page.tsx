@@ -5,35 +5,36 @@ import Link from 'next/link'
 import { Download } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
-import { Button, FieldLabel, Input } from '@strimz/ui'
+import { Button } from '@strimz/ui'
 import type { Transaction, TransactionKind, TransactionStatus } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
-import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { DataTable, StatusPill, type StatusTone } from '@/components/dashboard/data-table'
+import {
+  DateFilter,
+  MultiSelectFilter,
+  useDateRange,
+  useTableFilters,
+  type FilterOption,
+} from '@/components/dashboard/filter-bar'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
-import {
-  rangeFileName,
-  resolveDateRange,
-  timeZoneName,
-  type DatePreset,
-  type DateSelection,
-  type ValidRange,
-} from '@/lib/date-range'
+import { rangeFileName } from '@/lib/date-range'
+import { dateFilter, multiFilter } from '@/lib/table-filters'
 import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
 import type { LoadedRows } from '@/lib/cursor-pages'
 import { transactionKindLabel } from '@/lib/transactions-view'
 import { serverRowsOf, useTransactionPages } from '@/hooks/api'
 import { EMPTY_STATES } from '@/lib/empty-states'
 
-const STATUS_TONE: Record<TransactionStatus, 'positive' | 'warning' | 'danger'> = {
+const STATUS_TONE: Record<TransactionStatus, StatusTone> = {
   confirmed: 'positive',
   pending: 'warning',
   failed: 'danger',
 }
 
-const KIND_FILTERS: ReadonlyArray<TransactionKind | 'all'> = [
-  'all',
+const STATUSES: readonly TransactionStatus[] = ['confirmed', 'pending', 'failed']
+const KINDS: readonly TransactionKind[] = [
   'one_shot',
   'subscription_charge',
   'invoice_payment',
@@ -41,30 +42,21 @@ const KIND_FILTERS: ReadonlyArray<TransactionKind | 'all'> = [
   'refund',
 ]
 
-const STATUS_FILTERS: ReadonlyArray<TransactionStatus | 'all'> = [
-  'all',
-  'confirmed',
-  'pending',
-  'failed',
-]
+const STATUS_OPTIONS: readonly FilterOption<TransactionStatus>[] = STATUSES.map((value) => ({
+  value,
+  label: value,
+  tone: STATUS_TONE[value],
+}))
+const KIND_OPTIONS: readonly FilterOption<TransactionKind>[] = KINDS.map((value) => ({
+  value,
+  label: transactionKindLabel(value),
+}))
 
-const DATE_PRESETS: ReadonlyArray<DatePreset> = [
-  'any',
-  'last_7_days',
-  'this_month',
-  'last_month',
-  'custom',
-]
-
-const DATE_PRESET_LABEL: Record<DatePreset, string> = {
-  any: 'Any time',
-  last_7_days: 'Last 7 days',
-  this_month: 'This month',
-  last_month: 'Last month',
-  custom: 'Custom',
+const FILTERS = {
+  status: multiFilter(STATUSES),
+  kind: multiFilter(KINDS),
+  date: dateFilter(),
 }
-
-const NO_DATES: DateSelection = { preset: 'any', fromDay: '', toDay: '' }
 
 interface TransactionsView {
   rows: Transaction[]
@@ -76,26 +68,23 @@ function project(loaded: LoadedRows<Transaction>): TransactionsView {
 }
 
 export default function TransactionsPage() {
-  const [kind, setKind] = React.useState<TransactionKind | 'all'>('all')
-  const [status, setStatus] = React.useState<TransactionStatus | 'all'>('all')
-  const [dates, setDates] = React.useState<DateSelection>(NO_DATES)
+  return (
+    <React.Suspense>
+      <Transactions />
+    </React.Suspense>
+  )
+}
 
-  const resolved = React.useMemo(() => resolveDateRange(dates, new Date()), [dates])
-  // An invalid custom range keeps the last valid one on screen.
-  const [range, setRange] = React.useState<ValidRange>({ ok: true })
-  if (resolved.ok && resolved !== range) setRange(resolved)
-
-  const filtered = kind !== 'all' || status !== 'all' || dates.preset !== 'any'
-  const clearFilters = () => {
-    setKind('all')
-    setStatus('all')
-    setDates(NO_DATES)
-  }
+function Transactions() {
+  const filters = useTableFilters(FILTERS)
+  const { status, kind, date } = filters.state
+  const { range, error: dateError } = useDateRange(date)
+  const filtered = filters.active
 
   const queryParams = React.useMemo(
     () => ({
-      kind: kind === 'all' ? undefined : kind,
-      status: status === 'all' ? undefined : status,
+      kind: kind.length > 0 ? kind : undefined,
+      status: status.length > 0 ? status : undefined,
       from: range.from,
       to: range.to,
       limit: 100,
@@ -234,133 +223,32 @@ export default function TransactionsPage() {
               ? 'Try another date range, kind or status.'
               : EMPTY_STATES.transactions.description
           }
-          emptyAction={
-            filtered
-              ? { label: 'Clear filters', onClick: clearFilters }
-              : EMPTY_STATES.transactions.action
-          }
+          emptyAction={EMPTY_STATES.transactions.action}
           serverRows={serverRowsOf(transactionsQuery)}
-          toolbar={
-            <div className="flex flex-wrap items-center gap-3">
-              <FilterChips
-                options={KIND_FILTERS}
-                value={kind}
-                onChange={setKind}
-                label={kindLabel}
+          onClearFilters={filtered ? filters.clear : undefined}
+          filters={
+            <>
+              <MultiSelectFilter
+                label="Status"
+                options={STATUS_OPTIONS}
+                selected={status}
+                onChange={(next) => filters.set('status', next)}
               />
-              <FilterChips
-                options={STATUS_FILTERS}
-                value={status}
-                onChange={setStatus}
-                label={(s) => (s === 'all' ? 'Any status' : s)}
+              <MultiSelectFilter
+                label="Kind"
+                options={KIND_OPTIONS}
+                selected={kind}
+                onChange={(next) => filters.set('kind', next)}
               />
-              <FilterChips
-                options={DATE_PRESETS}
-                value={dates.preset}
-                onChange={(preset) => setDates((prev) => ({ ...prev, preset }))}
-                label={(preset) => DATE_PRESET_LABEL[preset]}
+              <DateFilter
+                value={date}
+                error={dateError}
+                onChange={(next) => filters.set('date', next)}
               />
-              {dates.preset === 'custom' ? (
-                <CustomDates
-                  dates={dates}
-                  error={resolved.ok ? null : resolved.error}
-                  onChange={setDates}
-                />
-              ) : null}
-            </div>
+            </>
           }
         />
       )}
-    </div>
-  )
-}
-
-function kindLabel(kind: TransactionKind | 'all'): string {
-  return kind === 'all' ? 'All kinds' : transactionKindLabel(kind)
-}
-
-function FilterChips<T extends string>({
-  options,
-  value,
-  onChange,
-  label,
-}: {
-  options: ReadonlyArray<T>
-  value: T
-  onChange: (next: T) => void
-  label: (option: T) => string
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-1">
-      {options.map((option) => (
-        <button
-          key={option}
-          onClick={() => onChange(option)}
-          className={[
-            'h-8 rounded-md border px-2.5 text-xs font-medium transition-colors',
-            value === option
-              ? 'border-accent bg-accent/10 text-accent'
-              : 'border-border/60 hover:bg-muted',
-          ].join(' ')}
-        >
-          {label(option)}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function CustomDates({
-  dates,
-  error,
-  onChange,
-}: {
-  dates: DateSelection
-  error: string | null
-  onChange: (next: DateSelection) => void
-}) {
-  return (
-    <div className="basis-full space-y-1.5">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <FieldLabel htmlFor="transactions-from" required={false}>
-            From
-          </FieldLabel>
-          <Input
-            id="transactions-from"
-            type="date"
-            value={dates.fromDay}
-            max={dates.toDay || undefined}
-            aria-invalid={error ? true : undefined}
-            aria-describedby="transactions-dates-note"
-            onChange={(e) => onChange({ ...dates, fromDay: e.target.value })}
-            className="h-9 w-44 [color-scheme:light] dark:[color-scheme:dark]"
-          />
-        </div>
-        <div className="space-y-1">
-          <FieldLabel htmlFor="transactions-to" required={false}>
-            To
-          </FieldLabel>
-          <Input
-            id="transactions-to"
-            type="date"
-            value={dates.toDay}
-            min={dates.fromDay || undefined}
-            aria-invalid={error ? true : undefined}
-            aria-describedby="transactions-dates-note"
-            onChange={(e) => onChange({ ...dates, toDay: e.target.value })}
-            className="h-9 w-44 [color-scheme:light] dark:[color-scheme:dark]"
-          />
-        </div>
-      </div>
-      {error ? (
-        <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">
-          {error}
-        </p>
-      ) : null}
-      <p id="transactions-dates-note" className="text-muted-foreground text-xs">
-        Both days are included. Dates are in your time zone ({timeZoneName()}).
-      </p>
     </div>
   )
 }
