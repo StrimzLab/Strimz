@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedMerchant } from '../helpers/fixtures.js'
@@ -93,5 +93,42 @@ describe('session-expiry cron e2e', () => {
       where: { id: finite.id },
     })
     expect(finiteAgain.stock).toBe(2)
+  })
+
+  describe('on a database that is not set to UTC', () => {
+    const setDatabaseTimeZone = async (zone: string) => {
+      await t.prisma.db.$executeRawUnsafe(
+        `DO $$ BEGIN EXECUTE format('ALTER DATABASE %I SET timezone TO %L', current_database(), '${zone}'); END $$`,
+      )
+      // The setting applies to new connections only.
+      await t.prisma.db.$disconnect()
+    }
+
+    beforeEach(() => setDatabaseTimeZone('Asia/Tokyo'))
+    afterEach(() => setDatabaseTimeZone('UTC'))
+
+    it('keeps a session open until its expiry', async () => {
+      const merchant = await seedMerchant(t.prisma.db)
+      const open = await seedSession(merchant.id, {
+        expiresAt: new Date(Date.now() + 30 * 60_000),
+      })
+
+      const result = await t.app.get(SessionExpiryService).sweepNow()
+
+      expect(result.expired).toBe(0)
+      const row = await t.prisma.db.paymentSession.findUniqueOrThrow({ where: { id: open.id } })
+      expect(row.status).toBe('awaiting_payment')
+    })
+
+    it('stamps updatedAt with the real time when it expires a session', async () => {
+      const merchant = await seedMerchant(t.prisma.db)
+      const due = await seedSession(merchant.id, { expiresAt: new Date(Date.now() - 60_000) })
+
+      const result = await t.app.get(SessionExpiryService).sweepNow()
+
+      expect(result.expired).toBe(1)
+      const row = await t.prisma.db.paymentSession.findUniqueOrThrow({ where: { id: due.id } })
+      expect(Math.abs(row.updatedAt.getTime() - Date.now())).toBeLessThan(60_000)
+    })
   })
 })
