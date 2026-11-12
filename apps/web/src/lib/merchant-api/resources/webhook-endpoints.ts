@@ -3,15 +3,18 @@ import type {
   CreateWebhookEndpointOutput,
   WebhookDelivery,
   WebhookDeliveryDetail,
+  WebhookDeliveryStatus,
   WebhookEndpoint,
+  WebhookEventName,
 } from '@strimz/shared-types'
 
 import type { MerchantApiClient } from '../client'
-import type { CallOptions, Page, PaginationParams } from '../types'
+import type { CallOptions, DateRangeParams, OneOrMany, Page, PaginationParams } from '../types'
 
-export interface ListWebhookDeliveriesParams extends PaginationParams {
+export interface ListWebhookDeliveriesParams extends PaginationParams, DateRangeParams {
   endpointId?: string
-  eventName?: string
+  status?: OneOrMany<WebhookDeliveryStatus>
+  eventName?: OneOrMany<WebhookEventName>
 }
 
 export class WebhookEndpointsResource {
@@ -82,7 +85,10 @@ export class WebhookEndpointsResource {
         cursor: params.cursor,
         limit: params.limit,
         endpointId: params.endpointId,
+        status: params.status,
         eventName: params.eventName,
+        from: params.from,
+        to: params.to,
       },
     })
   }

@@ -1,10 +1,10 @@
 import type { CreateInvoiceInput, Invoice, InvoiceStatus } from '@strimz/shared-types'
 
 import type { MerchantApiClient } from '../client'
-import type { CallOptions, Page, PaginationParams } from '../types'
+import type { CallOptions, DateRangeParams, OneOrMany, Page, PaginationParams } from '../types'
 
-export interface ListInvoicesParams extends PaginationParams {
-  status?: InvoiceStatus
+export interface ListInvoicesParams extends PaginationParams, DateRangeParams {
+  status?: OneOrMany<InvoiceStatus>
   customerId?: string
 }
 
@@ -19,6 +19,8 @@ export class InvoicesResource {
         limit: params.limit,
         status: params.status,
         customerId: params.customerId,
+        from: params.from,
+        to: params.to,
       },
     })
   }

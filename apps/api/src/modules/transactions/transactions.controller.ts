@@ -7,12 +7,22 @@ import {
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
+import type { z } from 'zod'
+import { TransactionKind, TransactionStatus } from '@strimz/db'
 import {
   dateRange,
-  datedListQuerySchema,
-  type DatedListQuery,
+  enumList,
+  listQuerySchema,
+  withDateRange,
 } from '../../common/schemas/list-query.js'
 import { TransactionsService } from './transactions.service.js'
+
+const transactionListQuery = withDateRange(
+  listQuerySchema.extend({
+    kind: enumList(TransactionKind).optional(),
+    status: enumList(TransactionStatus).optional(),
+  }),
+)
 
 @UseGuards(MerchantAuthGuard)
 @RequireScopes('transactions_read')
@@ -31,7 +41,7 @@ export class TransactionsController {
   @Get()
   list(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query(new ZodValidationPipe(datedListQuerySchema)) q: DatedListQuery,
+    @Query(new ZodValidationPipe(transactionListQuery)) q: z.infer<typeof transactionListQuery>,
   ) {
     return this.transactions.list(ctx.merchantId, ctx.mode, {
       limit: q.limit,

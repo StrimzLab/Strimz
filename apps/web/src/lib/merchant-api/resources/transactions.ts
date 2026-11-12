@@ -1,18 +1,14 @@
 import type { Transaction, TransactionKind, TransactionStatus } from '@strimz/shared-types'
 
 import type { MerchantApiClient } from '../client'
-import type { CallOptions, Page, PaginationParams } from '../types'
+import type { CallOptions, DateRangeParams, OneOrMany, Page, PaginationParams } from '../types'
 
-export interface ListTransactionsParams extends PaginationParams {
-  status?: TransactionStatus
-  kind?: TransactionKind
+export interface ListTransactionsParams extends PaginationParams, DateRangeParams {
+  status?: OneOrMany<TransactionStatus>
+  kind?: OneOrMany<TransactionKind>
   sessionId?: string
   subscriptionId?: string
   customerId?: string
-  /** ISO-8601 with offset, inclusive. */
-  from?: string
-  /** ISO-8601 with offset, exclusive. */
-  to?: string
 }
 
 export class TransactionsResource {

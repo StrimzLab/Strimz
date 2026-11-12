@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import type { CreateInvoiceParsed, Invoice, Mode } from '@strimz/shared-types'
-import type { Prisma } from '@strimz/db'
+import type { InvoiceStatus, Prisma } from '@strimz/db'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { assertMinimumAmount } from '../../common/money/minimum-amount.js'
 import { TypedConfigService } from '../../config/index.js'
@@ -8,6 +8,7 @@ import { EmailService } from '../../infra/email/email.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
 import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { feeSplit } from '../../common/money/fee-split.js'
+import { anyOf } from '../../common/schemas/list-query.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -106,14 +107,21 @@ export class InvoicesService {
   async list(
     merchantId: string,
     mode: Mode,
-    params: { limit?: number; cursor?: string | null; status?: string; customerId?: string },
+    params: {
+      limit?: number
+      cursor?: string | null
+      status?: InvoiceStatus[]
+      customerId?: string
+      createdAt?: { gte?: Date; lt?: Date }
+    },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.invoice.findMany({
       where: {
         merchantId,
         mode,
-        status: (params.status as never) ?? undefined,
+        status: anyOf(params.status),
+        createdAt: params.createdAt,
         ...(params.customerId ? { session: { customerId: params.customerId } } : {}),
       },
       orderBy: { createdAt: 'desc' },

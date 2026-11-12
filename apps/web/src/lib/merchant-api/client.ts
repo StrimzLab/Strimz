@@ -40,7 +40,7 @@ export interface RequestOptions {
   /** Pre-built `AbortSignal` for cancellation. TanStack Query passes one in. */
   signal?: AbortSignal
   /** Query-string params, serialised with stable ordering. */
-  query?: Record<string, string | number | boolean | undefined | null>
+  query?: Record<string, QueryValue>
   /** JSON body for POST/PATCH/PUT. */
   body?: unknown
   /**
@@ -164,11 +164,18 @@ export class MerchantApiClient {
       // repeat calls. Helps with TanStack Query's request dedup and
       // makes server-side logs easier to diff across replays.
       for (const key of Object.keys(query).sort()) {
-        const value = query[key]
-        if (value === undefined || value === null) continue
-        url.searchParams.set(key, String(value))
+        const value = queryParam(query[key])
+        if (value !== undefined) url.searchParams.set(key, value)
       }
     }
     return url.toString()
   }
+}
+
+export type QueryValue = string | number | boolean | readonly string[] | undefined | null
+
+export function queryParam(value: QueryValue): string | undefined {
+  if (value === undefined || value === null) return undefined
+  if (Array.isArray(value)) return value.length > 0 ? value.join(',') : undefined
+  return String(value)
 }

@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import type { Mode, Transaction } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import type { TransactionKind, TransactionStatus } from '@strimz/db'
+import { anyOf } from '../../common/schemas/list-query.js'
 
 @Injectable()
 export class TransactionsService {
@@ -18,8 +20,8 @@ export class TransactionsService {
     params: {
       limit?: number
       cursor?: string | null
-      kind?: string
-      status?: string
+      kind?: TransactionKind[]
+      status?: TransactionStatus[]
       sessionId?: string
       subscriptionId?: string
       customerId?: string
@@ -31,8 +33,8 @@ export class TransactionsService {
       where: {
         merchantId,
         mode,
-        kind: (params.kind as never) ?? undefined,
-        status: (params.status as never) ?? undefined,
+        kind: anyOf(params.kind),
+        status: anyOf(params.status),
         sessionId: params.sessionId,
         subscriptionId: params.subscriptionId,
         customerId: params.customerId,

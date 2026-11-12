@@ -58,6 +58,22 @@ List endpoints return:
 
 Pass `?cursor=<nextCursor>` on the next call. `limit` defaults to 25, max 100.
 
+## List filters
+
+Filters like `status`, `kind`, `outcome` and `eventName` take one value or a comma-separated list of up to 20. A list matches any of its values:
+
+```http
+GET /v1/payment-sessions?status=confirmed,expired
+```
+
+An unknown value returns `400 invalid_request`.
+
+Transactions, payment sessions, subscriptions, invoices, refunds, webhook deliveries and agent activity also take `from` and `to`: ISO-8601 timestamps with a time zone, where `from` is included and `to` is not. Transactions filter on when the payment settled; the others on when the record was created.
+
+```http
+GET /v1/invoices?from=2026-10-01T00:00:00Z&to=2026-11-01T00:00:00Z
+```
+
 ## Idempotency
 
 Send an `X-Strimz-Idempotency-Key` header on a `POST` or `PATCH` and the API replays the first response for that key for 24 hours. The SDK sends one on every write. See [Idempotency](/docs/concepts/idempotency).

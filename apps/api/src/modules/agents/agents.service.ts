@@ -18,6 +18,8 @@ import { QueueService } from '../../infra/queue/queue.service.js'
 import { assertPlanIncludes } from '../../common/plans/plan-access.js'
 import { mergeAgentConfig } from './agent-config-merge.js'
 import { assertNewCapabilitiesAvailable } from './capability-availability.js'
+import type { AgentActionOutcome, AgentCapability, AgentJobStatus } from '@strimz/db'
+import { anyOf } from '../../common/schemas/list-query.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -100,8 +102,8 @@ export class AgentsService {
     params: {
       limit?: number
       cursor?: string | null
-      capability?: string
-      outcome?: string
+      capability?: AgentCapability[]
+      outcome?: AgentActionOutcome[]
       createdAt?: { gte?: Date; lt?: Date }
     },
   ) {
@@ -109,8 +111,8 @@ export class AgentsService {
     const rows = await this.prisma.db.agentActivityLog.findMany({
       where: {
         merchantId,
-        capability: (params.capability as never) ?? undefined,
-        outcome: (params.outcome as never) ?? undefined,
+        capability: anyOf(params.capability),
+        outcome: anyOf(params.outcome),
         createdAt: params.createdAt,
       },
       orderBy: { createdAt: 'desc' },
@@ -126,11 +128,11 @@ export class AgentsService {
 
   async listJobs(
     merchantId: string,
-    params: { limit?: number; cursor?: string | null; status?: string },
+    params: { limit?: number; cursor?: string | null; status?: AgentJobStatus[] },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.agentJob.findMany({
-      where: { merchantId, status: (params.status as never) ?? undefined },
+      where: { merchantId, status: anyOf(params.status) },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,
       ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),

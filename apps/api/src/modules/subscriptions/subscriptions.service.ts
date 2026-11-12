@@ -3,6 +3,8 @@ import type { CancelSubscriptionParsed, Mode, Subscription } from '@strimz/share
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QueueService } from '../../infra/queue/queue.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
+import type { SubscriptionStatus } from '@strimz/db'
+import { anyOf } from '../../common/schemas/list-query.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -51,9 +53,10 @@ export class SubscriptionsService {
     params: {
       limit?: number
       cursor?: string | null
-      status?: string
+      status?: SubscriptionStatus[]
       planId?: string
       customerId?: string
+      createdAt?: { gte?: Date; lt?: Date }
     },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
@@ -61,9 +64,10 @@ export class SubscriptionsService {
       where: {
         merchantId,
         mode,
-        status: (params.status as never) ?? undefined,
+        status: anyOf(params.status),
         planId: params.planId ?? undefined,
         customerId: params.customerId,
+        createdAt: params.createdAt,
       },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,

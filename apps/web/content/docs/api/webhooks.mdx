@@ -47,8 +47,10 @@ POST /v1/webhook-endpoints/{id}/rotate-secret
 
 ```http
 GET /v1/webhook-deliveries/{id}
-GET /v1/webhook-deliveries?endpointId=cmq4wsb5n000dje6l4y8k2rzc&status=permanently_failed
+GET /v1/webhook-deliveries?endpointId=cmq4wsb5n000dje6l4y8k2rzc&status=retrying,permanently_failed
 ```
+
+Deliveries also filter by `eventName` (for example `payment.completed`) and by `from` and `to`. See [List filters](/docs/api/overview#list-filters).
 
 ```http
 POST /v1/webhook-deliveries/{id}/replay

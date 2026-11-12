@@ -17,7 +17,9 @@ import { PrivySessionGuard } from '../../common/guards/privy-session.guard.js'
 import { RequireAdminRoles } from '../../common/decorators/admin-role.decorator.js'
 import { RateLimit } from '../../common/decorators/rate-limit.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
-import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
+import type { z } from 'zod'
+import { MerchantStatus, MerchantTier } from '@strimz/db'
+import { enumList, listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
 import {
   CurrentAdmin,
   type CurrentAdminPayload,
@@ -56,6 +58,11 @@ import {
  * shape as the merchant API; write paths are explicit verbs
  * (`/:id/suspend`, `/:id/role`) so the audit log reads naturally.
  */
+const merchantListQuery = listQuerySchema.extend({
+  status: enumList(MerchantStatus).optional(),
+  tier: enumList(MerchantTier).optional(),
+})
+
 @ApiTags('admin')
 @ApiBearerAuth()
 @UseGuards(AdminAuthGuard)
@@ -86,7 +93,9 @@ export class AdminController {
   // ------------------------------------------------------------------
   @Get('/merchants')
   @ApiOperation({ summary: 'List merchants with filters + pagination.' })
-  listMerchants(@Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery) {
+  listMerchants(
+    @Query(new ZodValidationPipe(merchantListQuery)) q: z.infer<typeof merchantListQuery>,
+  ) {
     return this.admin.listMerchants({
       status: q.status,
       tier: q.tier,

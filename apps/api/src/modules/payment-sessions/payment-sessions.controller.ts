@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
+import type { z } from 'zod'
 import { createPaymentSessionInputSchema } from '@strimz/shared-types'
 import type { CreatePaymentSessionParsed, PaymentSession } from '@strimz/shared-types'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
@@ -8,8 +9,18 @@ import {
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
-import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
+import { PaymentSessionStatus } from '@strimz/db'
+import {
+  dateRange,
+  enumList,
+  listQuerySchema,
+  withDateRange,
+} from '../../common/schemas/list-query.js'
 import { PaymentSessionsService } from './payment-sessions.service.js'
+
+const sessionListQuery = withDateRange(
+  listQuerySchema.extend({ status: enumList(PaymentSessionStatus).optional() }),
+)
 
 @UseGuards(MerchantAuthGuard)
 @Controller('/v1/payment-sessions')
@@ -38,13 +49,14 @@ export class PaymentSessionsController {
   @Get()
   list(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
+    @Query(new ZodValidationPipe(sessionListQuery)) q: z.infer<typeof sessionListQuery>,
   ) {
     return this.sessions.list(ctx.merchantId, ctx.mode, {
       limit: q.limit,
       cursor: q.cursor ?? null,
       status: q.status,
       customerId: q.customerId,
+      createdAt: dateRange(q),
     })
   }
 

@@ -7,6 +7,7 @@ import type {
 } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { TypedConfigService } from '../../config/index.js'
+import { anyOf } from '../../common/schemas/list-query.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -85,13 +86,13 @@ export class ComplianceService {
 
   async listLogs(
     merchantId: string,
-    params: { limit?: number; cursor?: string | null; status?: string },
+    params: { limit?: number; cursor?: string | null; status?: ComplianceStatus[] },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
     const rows = await this.prisma.db.complianceLog.findMany({
       where: {
         merchantId,
-        status: (params.status as never) ?? undefined,
+        status: anyOf(params.status),
       },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,

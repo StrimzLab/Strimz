@@ -15,6 +15,8 @@ import type {
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
+import type { RefundStatus } from '@strimz/db'
+import { anyOf } from '../../common/schemas/list-query.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -129,7 +131,13 @@ export class RefundsService {
   async list(
     merchantId: string,
     mode: Mode,
-    params: { limit?: number; cursor?: string | null; status?: string; customerId?: string },
+    params: {
+      limit?: number
+      cursor?: string | null
+      status?: RefundStatus[]
+      customerId?: string
+      createdAt?: { gte?: Date; lt?: Date }
+    },
   ) {
     const limit = Math.min(params.limit ?? 25, 100)
     // Refunds don't store the customer; they point at the payment being refunded.
@@ -144,7 +152,13 @@ export class RefundsService {
         }
       : undefined
     const rows = await this.prisma.db.refund.findMany({
-      where: { merchantId, mode, status: (params.status as never) ?? undefined, transactionId },
+      where: {
+        merchantId,
+        mode,
+        status: anyOf(params.status),
+        transactionId,
+        createdAt: params.createdAt,
+      },
       orderBy: { createdAt: 'desc' },
       take: limit + 1,
       ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),

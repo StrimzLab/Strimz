@@ -7,9 +7,20 @@ import {
 } from '../../common/decorators/current-merchant.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
-import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
+import type { z } from 'zod'
+import { InvoiceStatus } from '@strimz/db'
+import {
+  dateRange,
+  enumList,
+  listQuerySchema,
+  withDateRange,
+} from '../../common/schemas/list-query.js'
 import { InvoicesService } from './invoices.service.js'
 import { CreateInvoiceDto } from './invoices.dto.js'
+
+const invoiceListQuery = withDateRange(
+  listQuerySchema.extend({ status: enumList(InvoiceStatus).optional() }),
+)
 
 @ApiTags('invoices')
 @ApiBearerAuth()
@@ -35,13 +46,14 @@ export class InvoicesController {
   @Get()
   list(
     @CurrentMerchant() ctx: CurrentMerchantPayload,
-    @Query(new ZodValidationPipe(listQuerySchema)) q: ListQuery,
+    @Query(new ZodValidationPipe(invoiceListQuery)) q: z.infer<typeof invoiceListQuery>,
   ) {
     return this.invoices.list(ctx.merchantId, ctx.mode, {
       limit: q.limit,
       cursor: q.cursor ?? null,
       status: q.status,
       customerId: q.customerId,
+      createdAt: dateRange(q),
     })
   }
 

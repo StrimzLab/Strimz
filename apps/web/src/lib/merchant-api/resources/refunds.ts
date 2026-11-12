@@ -7,10 +7,10 @@ import type {
 } from '@strimz/shared-types'
 
 import type { MerchantApiClient } from '../client'
-import type { CallOptions, Page, PaginationParams } from '../types'
+import type { CallOptions, DateRangeParams, OneOrMany, Page, PaginationParams } from '../types'
 
-export interface ListRefundsParams extends PaginationParams {
-  status?: RefundStatus
+export interface ListRefundsParams extends PaginationParams, DateRangeParams {
+  status?: OneOrMany<RefundStatus>
   customerId?: string
 }
 
@@ -25,6 +25,8 @@ export class RefundsResource {
         limit: params.limit,
         status: params.status,
         customerId: params.customerId,
+        from: params.from,
+        to: params.to,
       },
     })
   }
