@@ -79,7 +79,7 @@ PaymentReceivedEmail.PreviewProps = {
   network: 'Arc Testnet',
   explorerTxUrl:
     'https://explorer.testnet.arc.io/tx/0x4d328b9b2590614e51c9401a06b3b643e401965972a2494ce593edf71b251907',
-  dashboardUrl: 'https://strimz-finance.vercel.app/app/transactions',
+  dashboardUrl: 'https://strimz.finance/app/transactions',
 } as PaymentReceivedEmailProps
 
 export default PaymentReceivedEmail
