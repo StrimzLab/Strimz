@@ -4,15 +4,7 @@ import { cn } from '@strimz/ui'
 
 import { useDashboardMode } from '@/lib/dashboard-mode'
 
-/**
- * Stripe-style Test / Live toggle. Persists to localStorage so the
- * choice survives reloads and shares across tabs. Switching triggers
- * a full reload so every TanStack Query invalidates cleanly against
- * the new `x-strimz-mode` header.
- *
- * Live mode is currently locked because Arc mainnet is not deployed.
- * When mainnet ships, drop the `disabled` flag on the Live button.
- */
+// Read-only badge: "Test" on Arc testnet, "Live" on mainnet, from NEXT_PUBLIC_ARC_ENVIRONMENT.
 export function ModeToggle() {
   const mode = useDashboardMode()
   return (
