@@ -52,47 +52,17 @@ export const fonts = {
   mono: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
 } as const
 
-/**
- * Absolute logo URL. Hosted by the marketing site so the email image
- * stays in sync with the brand without a separate asset pipeline.
- *
- * Pointed at `blueLogo.png` because the Shell renders on a light
- * card — the dark logo reads cleanly. When a dedicated `emailLogo.png`
- * (wider with extra padding) ships in `apps/web/public/logo/`, swap
- * this constant.
- *
- * NOTE: emails are static at send time — if the marketing host moves,
- * old emails will show a broken image. Cheap to fix (logo lives at a
- * known path) but worth knowing.
- */
-export const LOGO_URL = 'https://strimz-finance.vercel.app/logo/blueLogo.png'
+// Sent emails keep this URL, so the logo must stay at this path on the site.
+export const LOGO_URL = 'https://strimz.finance/logo/blueLogo.png'
 
 /** Where reply-to / contact links go. The Strimz operations mailbox. */
 export const SUPPORT_EMAIL = 'support@strimz.finance'
 
-/**
- * The brand-facing URL shown in email footers and signature lines.
- *
- * Distinct from {@link STRIMZ_ORIGIN}: BRAND_URL represents Strimz to
- * the recipient — it reads `strimz.finance` even before the apex is
- * pointed at Vercel, so emails don't telegraph "this is a free-tier
- * preview deploy" to merchants. `STRIMZ_ORIGIN` is the *operational*
- * URL we actually navigate users to (Vercel preview today, the apex
- * once it's plugged in).
- *
- * When the custom domain is wired, BRAND_URL and STRIMZ_ORIGIN
- * collapse into the same value — but until then, keeping them split
- * lets brand display read cleanly without breaking real CTAs.
- */
+/** The brand-facing URL shown in email footers and signature lines. */
 export const STRIMZ_BRAND_URL = 'https://strimz.finance'
 
 /** Human-readable brand-display host (no scheme), e.g. for footer text. */
 export const STRIMZ_BRAND_DISPLAY = 'strimz.finance'
 
-/**
- * Canonical *operational* origin — used as the fallback for CTA links
- * when no per-env override (`STRIMZ_DASHBOARD_URL`) is set. Currently
- * the Vercel preview because the apex isn't live yet. Update once
- * `strimz.finance` is pointed at the deployment.
- */
-export const STRIMZ_ORIGIN = 'https://strimz-finance.vercel.app'
+/** Fallback origin for CTA links when `STRIMZ_DASHBOARD_URL` isn't set. */
+export const STRIMZ_ORIGIN = 'https://strimz.finance'
