@@ -53,8 +53,6 @@ The list also takes `customerId` to show one customer's subscriptions, and `from
 
 Cancel marks the subscription `cancelled` in Strimz right away and queues the on-chain cancel.
 
-That on-chain cancel works with the subscriptions contract from the next testnet redeploy ([#142](https://github.com/StrimzLab/strimz/issues/142)). On the current deployment it reverts, so the subscription stays active on-chain.
-
 ## Status enum
 
 ```
@@ -65,7 +63,20 @@ Only `cancelled` and `lapsed` are terminal; `at_risk` is recoverable if the cust
 
 ## Charges
 
-Charges are written by the indexer from on-chain events. There are no charge routes in the API. Follow charges through the `subscription.charged` and `subscription.charge_failed` webhooks, or in the dashboard.
+The indexer records every charge attempt from on-chain events: successful, failed and skipped. List them for one subscription, newest first:
+
+```http
+GET /v1/subscriptions/{id}/charges?limit=25
+```
+
+It needs the `subscriptions_read` scope and pages like every other list (`limit` up to 100, `cursor`). Each item has a `status` and an `outcome`. For example, `insufficient_funds` is a payment failure, and `token_not_allowed` means the subscriber's token was delisted. Neither is a fault in your integration.
+
+```ts
+const page = await strimz.subscriptions.charges('sub_123', { limit: 25 })
+for (const attempt of page.data) console.log(attempt.outcome, attempt.executedAt)
+```
+
+Successful charges also fire `subscription.charged`, and payment failures fire `subscription.charge_failed`.
 
 ## Webhook events
 
