@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Strimz contract verification on Arcscan (Blockscout v2 under the hood).
+# Strimz contract verification on the Arc explorer (Blockscout v2).
 #
 # Why curl instead of `forge verify-contract`:
 # `forge verify-contract` always performs a chain-name → URL lookup before
@@ -23,9 +23,9 @@
 #   MAINNET=1 ./script/verify.sh       # use mainnet RPC + verifier
 #
 # Required env:
-#   BLOCKSCOUT_API_KEY          API key from https://testnet.arcscan.app/account/api-keys
+#   BLOCKSCOUT_API_KEY          API key from https://explorer.testnet.arc.io/account/api-keys
 #   ARC_TESTNET_RPC_URL         RPC (used only to discover chain id)
-#   ARC_TESTNET_VERIFIER_URL    https://testnet.arcscan.app/api/
+#   ARC_TESTNET_VERIFIER_URL    https://explorer.testnet.arc.io/api/
 
 set -euo pipefail
 
@@ -42,7 +42,7 @@ API_KEY=${BLOCKSCOUT_API_KEY:?BLOCKSCOUT_API_KEY not set in .env}
 
 # Trim trailing slashes; path joins are explicit below.
 VERIFIER=${VERIFIER%/}
-API_BASE=${VERIFIER%/api}   # https://testnet.arcscan.app
+API_BASE=${VERIFIER%/api}
 
 CHAIN_ID=${CHAIN_ID:-$("${CAST:-arc-cast}" chain-id --rpc-url "$RPC")}
 LOG="deployments/${CHAIN_ID}.json"
