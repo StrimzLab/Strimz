@@ -35,7 +35,7 @@ const base: ProductFormState = {
 
 describe('buildProductInput', () => {
   it('sends a one-time product without a plan', () => {
-    const result = buildProductInput(base)
+    const result = buildProductInput(base, 'USDC')
     expect(result).toMatchObject({
       ok: true,
       input: { price: '99000000', currency: 'USDC', type: 'one_time', interval: null, stock: null },
@@ -44,14 +44,14 @@ describe('buildProductInput', () => {
   })
 
   it('refuses a subscription product until a plan is chosen', () => {
-    expect(buildProductInput({ ...base, type: 'subscription' })).toEqual({
+    expect(buildProductInput({ ...base, type: 'subscription' }, 'USDC')).toEqual({
       ok: false,
       reason: 'incomplete',
     })
   })
 
   it('takes price, currency and interval from the chosen plan', () => {
-    const result = buildProductInput({ ...base, type: 'subscription', price: '1', plan })
+    const result = buildProductInput({ ...base, type: 'subscription', price: '1', plan }, 'USDC')
     expect(result).toEqual({
       ok: true,
       input: {
@@ -71,7 +71,7 @@ describe('buildProductInput', () => {
   })
 
   it('rejects an unparseable price', () => {
-    expect(buildProductInput({ ...base, price: 'abc' })).toEqual({
+    expect(buildProductInput({ ...base, price: 'abc' }, 'USDC')).toEqual({
       ok: false,
       reason: 'invalid_price',
     })
