@@ -232,12 +232,10 @@ func TestE2E_LogMerchantFeeBpsChange_WritesAuditLog(t *testing.T) {
 
 // ===== Refunds =====
 
-func TestE2E_CompleteRefundByTxHash_OnlyCompletesSubmitted(t *testing.T) {
-	s := startTestPostgres(t)
+func seedSubmittedRefund(t *testing.T, s *Store, txHash string) {
+	t.Helper()
 	ctx := context.Background()
 	payout := "0x000000000000000000000000000000000000cafe"
-	txHash := "0x" + repeatStr("a", 64)
-
 	seedMerchantOnchain(t, s, "m_r", "r@x.io", payout, big.NewInt(200))
 	mustExec(t, s, ctx, `
 		INSERT INTO "Transaction" ("id", "merchantId", kind, status, amount, "feeAmount", "netAmount", currency,
@@ -249,16 +247,71 @@ func TestE2E_CompleteRefundByTxHash_OnlyCompletesSubmitted(t *testing.T) {
 		INSERT INTO "Refund" ("id", "merchantId", "transactionId", amount, currency, reason, status,
 		  "payerAddress", "refundTxHash", "initiatedById", mode, "createdAt")
 		VALUES ('rf_1', 'm_r', 'tx_r', '500', 'USDC', 'customer_request', 'submitted',
-		  '0x000000000000000000000000000000000000bbbb', $1, 'm_r', 'live', NOW())
+		  '0x000000000000000000000000000000000000BbBb', $1, 'm_r', 'live', NOW())
 	`, txHash)
+}
 
-	rows, err := s.CompleteRefundByTxHash(ctx, txHash, time.Now().UTC())
+func refundState(t *testing.T, s *Store) (status string, outbox int) {
+	t.Helper()
+	ctx := context.Background()
+	require.NoError(t, s.pool.QueryRow(ctx, `SELECT status::text FROM "Refund" WHERE id = 'rf_1'`).Scan(&status))
+	require.NoError(t, s.pool.QueryRow(ctx,
+		`SELECT count(*) FROM "WebhookEvent" WHERE type = 'refund_completed'`).Scan(&outbox))
+	return status, outbox
+}
+
+func TestE2E_CompleteRefund_MatchingTransferCompletesOnce(t *testing.T) {
+	s := startTestPostgres(t)
+	ctx := context.Background()
+	txHash := "0x" + repeatStr("a", 64)
+	seedSubmittedRefund(t, s, txHash)
+
+	in := RefundTransfer{
+		TxHash:   txHash,
+		Currency: "USDC",
+		To:       "0x000000000000000000000000000000000000bbbb",
+		Amount:   big.NewInt(500),
+	}
+	rows, err := s.CompleteRefund(ctx, in, time.Now().UTC())
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), rows)
 
-	rows, err = s.CompleteRefundByTxHash(ctx, txHash, time.Now().UTC())
+	rows, err = s.CompleteRefund(ctx, in, time.Now().UTC())
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), rows)
+
+	status, outbox := refundState(t, s)
+	assert.Equal(t, "completed", status)
+	assert.Equal(t, 1, outbox)
+}
+
+func TestE2E_CompleteRefund_MismatchedTransferLeavesSubmitted(t *testing.T) {
+	txHash := "0x" + repeatStr("a", 64)
+	good := RefundTransfer{
+		TxHash:   txHash,
+		Currency: "USDC",
+		To:       "0x000000000000000000000000000000000000bbbb",
+		Amount:   big.NewInt(500),
+	}
+	cases := map[string]func(RefundTransfer) RefundTransfer{
+		"wrong token":     func(r RefundTransfer) RefundTransfer { r.Currency = "EURC"; return r },
+		"wrong recipient": func(r RefundTransfer) RefundTransfer { r.To = "0x000000000000000000000000000000000000cccc"; return r },
+		"wrong amount":    func(r RefundTransfer) RefundTransfer { r.Amount = big.NewInt(499); return r },
+	}
+	for name, mutate := range cases {
+		t.Run(name, func(t *testing.T) {
+			s := startTestPostgres(t)
+			seedSubmittedRefund(t, s, txHash)
+
+			rows, err := s.CompleteRefund(context.Background(), mutate(good), time.Now().UTC())
+			require.NoError(t, err)
+			assert.Equal(t, int64(0), rows)
+
+			status, outbox := refundState(t, s)
+			assert.Equal(t, "submitted", status)
+			assert.Equal(t, 0, outbox)
+		})
+	}
 }
 
 // ===== Payments =====
