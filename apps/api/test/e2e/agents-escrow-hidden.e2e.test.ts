@@ -53,12 +53,16 @@ describe('agent escrow is unavailable for launch', () => {
     expect(stored?.enabledCapabilities ?? []).toEqual([])
   })
 
-  it('still turns on routing, which this change leaves alone', async () => {
-    const { key } = await merchantWithKey()
+  // Cross-chain routing comes with the Whisk integration; the bridge worker has no producer yet (#406).
+  it('refuses to turn on CCTP routing and stores nothing', async () => {
+    const { merchantId, key } = await merchantWithKey()
     const res = await call(key, 'PATCH', '/v1/agents/config', {
       enabledCapabilities: ['routing'],
     })
-    expect(res.statusCode).toBe(200)
+    expect(res.statusCode).toBe(403)
+    expect(errorCode(res.body)).toBe('capability_unavailable')
+    const stored = await t.prisma.db.agentMerchantConfig.findUnique({ where: { merchantId } })
+    expect(stored?.enabledCapabilities ?? []).toEqual([])
   })
 
   it('lets a merchant with commerce already stored save other settings and turn it off', async () => {
