@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Address } from 'viem'
-import type { ChainService } from '../../../src/infra/chain/chain.service.js'
+import type { ChainService, TransferReceipt } from '../../../src/infra/chain/chain.service.js'
 
 /** What the contract does with a charge attempt, for the stub's `chargeOutcomes` queue. */
 export type StubChargeOutcome = 'Charged' | 'TransferFailed' | 'InsufficientFunds'
@@ -41,6 +41,8 @@ export class StubChainService implements Methods<ChainService> {
    * one ends the period.
    */
   public chargeOutcomes: StubChargeOutcome[] = []
+  /** Receipts by tx hash; an Error makes the lookup throw, a missing hash means not mined. */
+  public receipts = new Map<string, TransferReceipt | Error>()
 
   onModuleInit(): Promise<void> {
     return Promise.resolve()
@@ -60,6 +62,7 @@ export class StubChainService implements Methods<ChainService> {
     this.pendingFees.clear()
     this.chainNow = BigInt(Math.floor(Date.now() / 1000))
     this.chargeOutcomes.length = 0
+    this.receipts.clear()
   }
 
   private record(fn: string, args: unknown[]): `0x${string}` {
@@ -148,6 +151,11 @@ export class StubChainService implements Methods<ChainService> {
   }
   latestBlockTimestamp(): Promise<bigint> {
     return Promise.resolve(this.chainNow)
+  }
+  readTransferReceipt(hash: `0x${string}`): Promise<TransferReceipt | null> {
+    const r = this.receipts.get(hash.toLowerCase())
+    if (r instanceof Error) return Promise.reject(r)
+    return Promise.resolve(r ?? null)
   }
 
   callsFor(fn: string) {

@@ -282,9 +282,16 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 
 	// ----- Refunds (via ERC-20 Transfer) -----
 	case indabi.EventERC20Transfer:
-		_, err = p.store.CompleteRefundByTxHash(ctx, lg.TxHash.Hex(), blockTime)
-		// Most ERC-20 Transfers won't match any pending refund — that's
-		// fine. CompleteRefundByTxHash returns 0 rows in that case.
+		ev := payload.(*indabi.ERC20Transfer)
+		var currency string
+		if currency, err = p.tokenSymbol(lg.Address); err == nil {
+			_, err = p.store.CompleteRefund(ctx, store.RefundTransfer{
+				TxHash:   lg.TxHash.Hex(),
+				Currency: currency,
+				To:       lowerHex(ev.To),
+				Amount:   ev.Value,
+			}, blockTime)
+		}
 
 	// ----- Agent escrow (full lifecycle) -----
 	case indabi.EventJobCreated:
@@ -679,8 +686,8 @@ func lowerHex(a common.Address) string {
 	return strings.ToLower(a.Hex())
 }
 
-// tokenSymbol resolves a token contract address to its display symbol via
-// the configured token map. Falls back to "USDC" when unknown.
+// tokenSymbol resolves a token contract address to its symbol via the
+// configured token map.
 func (p *Projector) tokenSymbol(token common.Address) (string, error) {
 	addr := strings.ToLower(token.Hex())
 	if sym, ok := p.tokens[addr]; ok {

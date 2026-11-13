@@ -3,7 +3,10 @@ import {
   createNonceManager,
   createPublicClient,
   createWalletClient,
+  erc20Abi,
   http,
+  parseEventLogs,
+  TransactionReceiptNotFoundError,
   type Address,
   type Chain,
   type Hash,
@@ -23,6 +26,12 @@ import {
   TokenWhitelistAbi,
 } from './abis.js'
 import { SCHEDULER_SIGNER } from './scheduler-signer.js'
+
+export interface TransferReceipt {
+  status: 'success' | 'reverted'
+  blockTime: Date
+  transfers: { token: Address; to: Address; value: bigint }[]
+}
 
 /**
  * Chain access for the scheduler.
@@ -178,6 +187,24 @@ export class ChainService implements OnModuleInit {
 
   latestBlockTimestamp(): Promise<bigint> {
     return this.publicClient.getBlock({ blockTag: 'latest' }).then((block) => block.timestamp)
+  }
+
+  /** Null while the tx has no receipt. */
+  async readTransferReceipt(hash: Hash): Promise<TransferReceipt | null> {
+    let receipt
+    try {
+      receipt = await this.publicClient.getTransactionReceipt({ hash })
+    } catch (err) {
+      if (err instanceof TransactionReceiptNotFoundError) return null
+      throw err
+    }
+    const block = await this.publicClient.getBlock({ blockNumber: receipt.blockNumber })
+    const transfers = parseEventLogs({ abi: erc20Abi, eventName: 'Transfer', logs: receipt.logs })
+    return {
+      status: receipt.status,
+      blockTime: new Date(Number(block.timestamp) * 1000),
+      transfers: transfers.map((l) => ({ token: l.address, to: l.args.to, value: l.args.value })),
+    }
   }
 
   // ----- Registry -----

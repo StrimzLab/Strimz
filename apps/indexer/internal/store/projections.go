@@ -831,10 +831,18 @@ func (s *Store) MarkSubscriptionCancelled(ctx context.Context, onchainSubID *big
 
 // ----- Refunds -----
 
-// CompleteRefundByTxHash flips a Refund from `submitted` → `completed` once
-// the on-chain ERC-20 Transfer is observed. Match is done by `refundTxHash`
-// the merchant submitted via `POST /v1/refunds/:id/signature`.
-func (s *Store) CompleteRefundByTxHash(ctx context.Context, refundTxHash string, blockTimestamp time.Time) (int64, error) {
+// RefundTransfer is one stablecoin Transfer log seen in a candidate refund tx.
+type RefundTransfer struct {
+	TxHash   string
+	Currency string
+	To       string
+	Amount   *big.Int
+}
+
+// CompleteRefund flips a submitted refund to completed when the log pays its
+// payer the exact amount in its currency. A non-matching log is a no-op:
+// another log in the same tx may still match.
+func (s *Store) CompleteRefund(ctx context.Context, in RefundTransfer, blockTimestamp time.Time) (int64, error) {
 	var rows int64
 	err := s.inTx(ctx, func(tx pgxTxLike) error {
 		var refundID, merchantID, mode string
@@ -842,9 +850,13 @@ func (s *Store) CompleteRefundByTxHash(ctx context.Context, refundTxHash string,
 			UPDATE "Refund"
 			   SET status = 'completed'::"RefundStatus",
 			       "completedAt" = $2
-			 WHERE "refundTxHash" = $1 AND status = 'submitted'::"RefundStatus"
+			 WHERE "refundTxHash" = $1
+			   AND status = 'submitted'::"RefundStatus"
+			   AND currency::text = $3
+			   AND lower("payerAddress") = lower($4)
+			   AND amount::numeric = $5::numeric
 			 RETURNING id, "merchantId", mode::text
-		`, refundTxHash, blockTimestamp).Scan(&refundID, &merchantID, &mode)
+		`, in.TxHash, blockTimestamp, in.Currency, in.To, in.Amount.String()).Scan(&refundID, &merchantID, &mode)
 		if errors.Is(err, pgx.ErrNoRows) {
 			rows = 0
 			return nil
