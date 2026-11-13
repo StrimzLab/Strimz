@@ -1,5 +1,16 @@
 # @strimz/shared-types
 
+## 0.18.0
+
+### Minor Changes
+
+- 6d9edfb: Add the `refund.failed` webhook event: `refundFailedEventSchema` and `RefundFailedEvent` in shared-types, and `WEBHOOK_EVENTS.refund.failed` in shared-config. The payload is the refund, with `failureReason`.
+
+### Patch Changes
+
+- Updated dependencies [6d9edfb]
+  - @strimz/shared-config@0.10.0
+
 ## 0.17.0
 
 ### Minor Changes
