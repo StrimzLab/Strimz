@@ -304,17 +304,19 @@ checkout on Arc testnet.
 
 ### Deployed contracts (Arc testnet)
 
-Every address is source-verified on [ArcScan](https://explorer.testnet.arc.io).
+Deployed 2026-11-09 from block 71161770. View them on the [Arc testnet explorer](https://explorer.testnet.arc.io).
 
 | Contract            | Address                                      |
 | ------------------- | -------------------------------------------- |
-| StrimzRegistry      | `0x23Bb25315107BF7463a84913eCCD450A43F71ae3` |
-| TokenWhitelist      | `0xC907412e31a35fCFac9336285a34c0007425066c` |
-| FeeCollector        | `0x1aB0e7f7C787B9474488e615096Ec3E1BAE5cfE2` |
-| StrimzPayments      | `0x2dfA72f9564BdfEb1b32e77C2fdf7040c69bDc7B` |
-| StrimzSubscriptions | `0xed374f8B4d22361D2487404dE34224f74F85Fb4C` |
-| StrimzAgentRegistry | `0x2a498efB64256235E3cc622daA4a3553dC332451` |
-| StrimzAgentEscrow   | `0x3e3407650c22cD982D36C429d262403106F49b1e` |
+| StrimzRegistry      | `0xac3C2632457D76C3752907ADD8daD06AFA7ce681` |
+| TokenWhitelist      | `0xD857043f2d1D96b53e096e175605907507b2B853` |
+| FeeCollector        | `0x20b8461c268F000c6C62a1dd313E8EB511Fe2920` |
+| StrimzPayments      | `0xaC238787C7B1375529C48274Dc382868DD26f3Aa` |
+| StrimzSubscriptions | `0x5B1aca9f3A4A75952D60E9dB5Bb8617737916104` |
+| StrimzAgentRegistry | `0x4EDe74db581De6C31138A6145b7A62F99527B3Ca` |
+| StrimzAgentEscrow   | `0x02a0ceB2d93224E5F3e775B22e30c0241591Cccf` |
+| TimelockController  | `0x2CdbAF2dcDb2128422EDb10D1b81f7eB8d95066d` |
+| Admin Safe (2-of-2) | `0xe38788AFB172c1a7BB01FEEC5DB0e3b21df301D7` |
 
 Shipped so far: the smart contract suite (Payments, Subscriptions,
 Registry, FeeCollector, AgentRegistry, AgentEscrow), the Go indexer, the

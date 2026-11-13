@@ -316,5 +316,69 @@
         "implementation": "0x17b77b7c0522aafa89434e043ff6ed4e8d13b724"
       }
     ]
+  },
+  {
+    "timestamp": 1794036182,
+    "chainId": 5042002,
+    "deployer": "0xd9dbe0daa503caa6e061f1902a7af22af096e645",
+    "label": "core",
+    "contracts": [
+      {
+        "name": "StrimzRegistry",
+        "proxy": "0xac3c2632457d76c3752907add8dad06afa7ce681",
+        "implementation": "0x76ad8b95279285ba4d16fc847f5da96477a8e403"
+      },
+      {
+        "name": "TokenWhitelist",
+        "proxy": "0xd857043f2d1d96b53e096e175605907507b2b853",
+        "implementation": "0xda1b4a7ce68b72a8a969ea5ec331085472ef1341"
+      },
+      {
+        "name": "FeeCollector",
+        "proxy": "0x20b8461c268f000c6c62a1dd313e8eb511fe2920",
+        "implementation": "0x00431918aa7beaa52ea6554b29b5883a860fc2db"
+      },
+      {
+        "name": "StrimzPayments",
+        "proxy": "0xac238787c7b1375529c48274dc382868dd26f3aa",
+        "implementation": "0xac238787c7b1375529c48274dc382868dd26f3aa"
+      },
+      {
+        "name": "StrimzSubscriptions",
+        "proxy": "0x5b1aca9f3a4a75952d60e9db5bb8617737916104",
+        "implementation": "0x5b1aca9f3a4a75952d60e9db5bb8617737916104"
+      }
+    ]
+  },
+  {
+    "timestamp": 1794036225,
+    "chainId": 5042002,
+    "deployer": "0xd9dbe0daa503caa6e061f1902a7af22af096e645",
+    "label": "agent",
+    "contracts": [
+      {
+        "name": "StrimzAgentRegistry",
+        "proxy": "0x4ede74db581de6c31138a6145b7a62f99527b3ca",
+        "implementation": "0x95846615faaecc204c8fe2b694faa489b853453b"
+      },
+      {
+        "name": "StrimzAgentEscrow",
+        "proxy": "0x02a0ceb2d93224e5f3e775b22e30c0241591cccf",
+        "implementation": "0x7780b05c7a313d8253e7f208f1e42f5f8ac3c0f4"
+      }
+    ]
+  },
+  {
+    "timestamp": 1794037074,
+    "chainId": 5042002,
+    "deployer": "0xd9dbe0daa503caa6e061f1902a7af22af096e645",
+    "label": "handoff",
+    "contracts": [
+      {
+        "name": "TimelockController",
+        "proxy": "0x2cdbaf2dcdb2128422edb10d1b81f7eb8d95066d",
+        "implementation": "0x2cdbaf2dcdb2128422edb10d1b81f7eb8d95066d"
+      }
+    ]
   }
 ]
