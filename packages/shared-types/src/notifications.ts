@@ -17,6 +17,8 @@ export const notificationKindSchema = z.enum([
   'refund_processed',
   /** Message an admin broadcast to this merchant (or all merchants). */
   'admin_broadcast',
+  /** A subscriber's token approval covers fewer than two more charges. */
+  'allowance_low',
 ])
 export type NotificationKind = z.infer<typeof notificationKindSchema>
 

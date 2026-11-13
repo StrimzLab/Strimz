@@ -6,14 +6,14 @@ export interface RelaySubmissionView {
   idempotencyKey: string
   status: 'queued' | 'signing' | 'broadcast' | 'confirmed' | 'reverted' | 'failed'
   txHash: string | null
-  reason: 'payWithAuthorization' | 'permitAndCreateSubscription'
+  reason: 'payWithAuthorization' | 'permitAndCreateSubscription' | 'permitAllowance'
   errorReason: string | null
   attemptCount: number
   enqueuedAt: string
 }
 
 export interface CheckoutRelayTarget {
-  kind: 'sessions' | 'plans'
+  kind: 'sessions' | 'plans' | 'subscriptions'
   id: string
 }
 
@@ -67,8 +67,9 @@ async function errorBody(res: Response): Promise<unknown> {
 export async function submitCheckoutRelay(
   target: CheckoutRelayTarget,
   body: unknown,
+  action: 'relay' | 'allowance' = 'relay',
 ): Promise<RelaySubmissionView> {
-  const res = await fetch(`${checkoutPath(target)}/relay`, {
+  const res = await fetch(`${checkoutPath(target)}/${action}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),

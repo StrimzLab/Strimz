@@ -46,7 +46,7 @@ export class NotificationsService {
     // any one queue starving the others when we merge. Broadcasts are
     // fetched via an OR so we get platform-wide announcements + any
     // merchant-specific messages targeted at this merchant.
-    const [confirmedSessions, activeSubs, refunds, broadcasts] = await Promise.all([
+    const [confirmedSessions, activeSubs, refunds, broadcasts, liveSubs] = await Promise.all([
       this.prisma.db.paymentSession.findMany({
         where: { merchantId, status: 'confirmed' },
         orderBy: { createdAt: 'desc' },
@@ -96,6 +96,13 @@ export class NotificationsService {
           body: true,
           createdAt: true,
         },
+      }),
+      // Set by the scheduler before a charge when the payer's approval runs low.
+      this.prisma.db.subscription.findMany({
+        where: { merchantId, status: { in: ['trialing', 'active', 'at_risk'] } },
+        orderBy: { updatedAt: 'desc' },
+        take: PER_SOURCE_LIMIT,
+        select: { id: true, amount: true, currency: true, metadata: true },
       }),
     ])
 
@@ -152,6 +159,21 @@ export class NotificationsService {
         createdAt: b.createdAt.toISOString(),
         read: lastRead != null && b.createdAt <= lastRead,
         sourceId: b.id,
+      })
+    }
+
+    for (const sub of liveSubs) {
+      const lowAt = (sub.metadata as Record<string, unknown> | null)?.allowanceLowAt
+      if (typeof lowAt !== 'string') continue
+      items.push({
+        id: `allowance_low:${sub.id}`,
+        kind: 'allowance_low' satisfies NotificationKind,
+        title: 'Subscriber approval running low',
+        detail: `${formatUnit(sub.amount, sub.currency)} ${sub.currency} subscription. We asked the payer to renew.`,
+        href: `/app/subscriptions/${sub.id}`,
+        createdAt: lowAt,
+        read: lastRead != null && new Date(lowAt) <= lastRead,
+        sourceId: sub.id,
       })
     }
 

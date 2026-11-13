@@ -143,3 +143,14 @@ export const submissionQuerySchema = z.object({
 })
 
 export type SubmissionQuery = z.infer<typeof submissionQuerySchema>
+
+// ---- POST /v1/checkout/subscriptions/:id/allowance ----
+
+export const checkoutAllowanceRelaySchema = z.object({
+  owner: addressSchema,
+  value: bigintStringSchema,
+  deadline: bigintStringSchema,
+  signature: signatureSchema,
+})
+export type CheckoutAllowanceRelay = z.output<typeof checkoutAllowanceRelaySchema>
+export class CheckoutAllowanceRelayDto extends createZodDto(checkoutAllowanceRelaySchema) {}

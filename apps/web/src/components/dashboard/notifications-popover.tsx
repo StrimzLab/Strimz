@@ -2,7 +2,15 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
-import { Bell, CheckCircle2, CreditCard, Megaphone, RefreshCcw, Repeat } from 'lucide-react'
+import {
+  Bell,
+  CheckCircle2,
+  CreditCard,
+  Megaphone,
+  RefreshCcw,
+  Repeat,
+  ShieldAlert,
+} from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import {
   Button,
@@ -20,6 +28,7 @@ const KIND_ICON: Record<NotificationKind, typeof Bell> = {
   subscription_started: Repeat,
   refund_processed: RefreshCcw,
   admin_broadcast: Megaphone,
+  allowance_low: ShieldAlert,
 }
 
 /**

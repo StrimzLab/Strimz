@@ -70,6 +70,17 @@ export interface PermitAndCreateSubscriptionInput {
   subscriptionInternalId: string
 }
 
+/** A payer's EIP-2612 permit renewing their allowance to Subscriptions. */
+export interface PermitAllowanceInput {
+  token: `0x${string}`
+  owner: `0x${string}`
+  value: bigint
+  deadline: bigint
+  signature: RelaySignature
+  merchantInternalId: string
+  subscriptionInternalId: string
+}
+
 /**
  * Lifecycle states a submission moves through. Mirrors what BullMQ
  * job state surfaces but in a payments-domain vocabulary.

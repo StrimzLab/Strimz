@@ -1,7 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getAccount, getBytecode } from '@wagmi/core'
+import { getAccount, getBytecode, readContract } from '@wagmi/core'
+import { erc20Abi } from 'viem'
 import { useAccount, useConfig, useSignTypedData, useSwitchChain } from 'wagmi'
 import type { TokenMetadata } from '@strimz/shared-types'
 
@@ -14,6 +15,7 @@ import {
 import { prepareArcSigning } from '@/lib/arc-network'
 import { env } from '@/lib/env'
 import { strimzBrowserClient } from '@/lib/strimz-browser'
+import { allowanceCap, topUpAllowance } from '@/lib/subscription-allowance'
 import { subscriptionSigningRequest, type SubscriptionRelayBody } from '@/lib/subscription-signing'
 import { walletSignature } from '@/lib/wallet-signature'
 
@@ -51,10 +53,8 @@ export interface SubscriptionCheckoutInputs {
   resolveStartAt?: () => Promise<bigint>
   /** Unix seconds after which the schedule stops; 0 = open-ended. */
   endAt?: bigint
-  /** Allowance to grant via permit, bound into the intent. Defaults to
-   *  type(uint256).max: a bounded permit runs out on open-ended plans and,
-   *  because a permit replaces the allowance, would shrink the payer's
-   *  other subscriptions in the same token (#384). */
+  /** Allowance to grant via permit, bound into the intent. Defaults to the
+   *  current allowance plus 12 charges (or the charges until endAt). */
   permitValue?: bigint
   /** Seconds the permit signature is valid for. Default 24h. Long
    *  enough to absorb a slow merchant submit pipeline, short enough
@@ -81,11 +81,12 @@ export interface SubscriptionCheckoutState {
 
 interface UseSubscriptionCheckoutResult extends SubscriptionCheckoutState {
   submit: () => Promise<void>
+  /** What this subscription adds to the payer's approval. */
+  approval: { value: bigint; charges: number }
 }
 
 const POLL_INTERVAL_MS = 1500
 const POLL_TIMEOUT_MS = 120_000
-const UINT256_MAX = (1n << 256n) - 1n
 
 export function useSubscriptionCheckout(
   inputs: SubscriptionCheckoutInputs,
@@ -100,7 +101,6 @@ export function useSubscriptionCheckout(
     endAt = 0n,
   } = inputs
   const resolveStartAt = inputs.resolveStartAt
-  const permitValue = inputs.permitValue ?? UINT256_MAX
   const permitValidForSeconds = inputs.permitValidForSeconds ?? 24 * 60 * 60
 
   const { address } = useAccount()
@@ -162,6 +162,19 @@ export function useSubscriptionCheckout(
 
       const now = Math.floor(Date.now() / 1000)
       const deadline = BigInt(now + permitValidForSeconds)
+      const cap = allowanceCap({
+        amount,
+        interval: intervalSeconds,
+        firstChargeAt: signedStartAt > 0n ? signedStartAt : BigInt(now),
+        endAt,
+      }).value
+      const current = await readContract(config, {
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: 'allowance',
+        args: [address, env.subscriptionsAddress as `0x${string}`],
+      })
+      const permitValue = inputs.permitValue ?? topUpAllowance(current, cap)
 
       const request = subscriptionSigningRequest({
         chainId,
@@ -228,7 +241,7 @@ export function useSubscriptionCheckout(
     startAt,
     resolveStartAt,
     endAt,
-    permitValue,
+    inputs.permitValue,
     permitValidForSeconds,
     signTypedDataAsync,
   ])
@@ -237,7 +250,10 @@ export function useSubscriptionCheckout(
     setState({ phase: 'idle', error: null, txHash: null, submission: null })
   }, [sessionId])
 
-  return { ...state, submit }
+  // What the payer approves, for the copy beside the button. Trials don't change it.
+  const approval = allowanceCap({ amount, interval: intervalSeconds, firstChargeAt: 0n, endAt })
+
+  return { ...state, submit, approval }
 }
 
 // ---- helpers (intentionally duplicated from use-pay-checkout. See

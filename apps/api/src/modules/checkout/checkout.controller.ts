@@ -12,7 +12,11 @@ import { Public } from '../../common/decorators/public.decorator.js'
 import { RateLimit } from '../../common/decorators/rate-limit.decorator.js'
 import { MerchantsService } from '../merchants/merchants.service.js'
 import { PaymentSessionsService } from '../payment-sessions/payment-sessions.service.js'
-import { CheckoutEnrolmentRelayDto, CheckoutPaymentRelayDto } from '../relay/relay.dto.js'
+import {
+  CheckoutAllowanceRelayDto,
+  CheckoutEnrolmentRelayDto,
+  CheckoutPaymentRelayDto,
+} from '../relay/relay.dto.js'
 import { enrolmentRelayInput, paymentRelayInput } from '../relay/relay-inputs.js'
 import { RelayService } from '../relay/relay.service.js'
 import type { RelaySubmissionView } from '../relay/relay.types.js'
@@ -20,6 +24,7 @@ import { SubscriptionPlansService } from '../subscription-plans/subscription-pla
 import { EnrolmentTermsService } from '../subscription-plans/enrolment-terms.service.js'
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
 import { CheckoutPayerService } from './checkout-payer.service.js'
+import { CheckoutRenewalService, type SubscriptionRenewalView } from './checkout-renewal.service.js'
 import { PayerIdentityDto } from './checkout.dto.js'
 
 /**
@@ -53,6 +58,7 @@ export class CheckoutController {
     private readonly terms: EnrolmentTermsService,
     private readonly relay: RelayService,
     private readonly payers: CheckoutPayerService,
+    private readonly renewals: CheckoutRenewalService,
   ) {}
 
   @ApiOperation({
@@ -257,6 +263,50 @@ export class CheckoutController {
   ): Promise<RelaySubmissionView> {
     const plan = await this.plans.retrievePublic(planId)
     return this.submission(key, plan.merchantId, planId)
+  }
+
+  @ApiOperation({
+    summary: 'A subscription as its payer sees it on the renewal page (public)',
+    description:
+      'Plan, amount, token, the payer wallet and the spender, so the payer can sign a new ' +
+      'allowance. The suggested allowance is added to what the wallet has already approved.',
+  })
+  @Public()
+  @RateLimit({ max: 60, windowMs: 60_000, keyBy: 'ip', label: 'checkout.subscription_renewal' })
+  @Get('/subscriptions/:id/renewal')
+  subscriptionRenewal(@Param('id') id: string): Promise<SubscriptionRenewalView> {
+    return this.renewals.details(id)
+  }
+
+  @ApiOperation({
+    summary: 'Relay a payer-signed allowance renewal for a subscription (public)',
+    description:
+      'Submits the payer-signed EIP-2612 permit to the Subscriptions contract through the ' +
+      'Strimz relayer. Only the subscription payer, for its token, at least one charge, while ' +
+      'the subscription is trialing, active or at risk. Idempotent on the signed payload.',
+  })
+  @Public()
+  @RateLimit({ max: 20, windowMs: 60_000, keyBy: 'ip', label: 'checkout.subscription_allowance' })
+  @Post('/subscriptions/:id/allowance')
+  renewAllowance(
+    @Param('id') id: string,
+    @Body() body: CheckoutAllowanceRelayDto,
+  ): Promise<RelaySubmissionView> {
+    return this.renewals.renew(id, body)
+  }
+
+  @ApiOperation({
+    summary: 'Look up a relayed allowance renewal for a subscription (public)',
+    description: 'Returns the state of a renewal relayed for this subscription. 404 otherwise.',
+  })
+  @Public()
+  @RateLimit({ max: 120, windowMs: 60_000, keyBy: 'ip', label: 'checkout.subscription_submission' })
+  @Get('/subscriptions/:id/submissions/:key')
+  async subscriptionSubmission(
+    @Param('id') id: string,
+    @Param('key') key: string,
+  ): Promise<RelaySubmissionView> {
+    return this.submission(key, await this.renewals.merchantOf(id), id)
   }
 
   private async submission(
