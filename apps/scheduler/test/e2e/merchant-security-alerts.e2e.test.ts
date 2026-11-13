@@ -87,7 +87,7 @@ describe('merchant security alerts e2e', () => {
     expect(securityEmails(m.email)).toHaveLength(1)
   })
 
-  it('emails the merchant about an ownership hand-over with the nominee and a support contact', async () => {
+  it('emails the merchant about an ownership hand-over with the nominee and a cancel link', async () => {
     const m = await seedMerchant(t.prisma.db, { id: 'm_owner', onchainMerchantId: 7 })
     await seedSecurityAlert(m.id, 'merchant.ownership_transfer_initiated_onchain', {
       currentOwner: '0x00000000000000000000000000000000000000c1',
@@ -103,7 +103,10 @@ describe('merchant security alerts e2e', () => {
     expect(mail.subject).toBe('Your Strimz merchant account is being handed over')
     expect(mail.html).toContain(NOMINEE)
     expect(mail.html).toContain('1 Nov 2026, 12:00 UTC')
-    expect(mail.html).toContain('support@strimz.finance')
+    // Since #397 the merchant cancels the nomination in Settings, like a payout change.
+    expect(mail.html).toContain('/app/settings')
+    expect(mail.html).toContain('Review and cancel')
+    expect(mail.html).not.toContain('straight away')
   })
 
   it('leaves the alert pending when the email fails, and sends it next time', async () => {
