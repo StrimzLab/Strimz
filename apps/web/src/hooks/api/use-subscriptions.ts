@@ -40,6 +40,15 @@ export function useSubscriptions<TData = Page<Subscription>>(
   })
 }
 
+export function useSubscriptionCharges(id: string) {
+  const api = useMerchantApi()
+  return useCursorList(
+    [...subscriptionKeys.detail(id), 'charges'],
+    (cursor, signal) => api.subscriptions.charges(id, { cursor, limit: 25 }, { signal }),
+    { select: (loaded) => loaded },
+  )
+}
+
 export function useSubscription<TData = Subscription>(
   id: string | null | undefined,
   options?: DetailOptions<TData>,
