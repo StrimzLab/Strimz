@@ -21,6 +21,8 @@ import type {
   BroadcastListResponse,
   HealthResponse,
   AdminInviteResult,
+  AuditCategory,
+  AuditLogResponse,
   InviteAdminInput,
   PlatformOverview,
   SetAdminRoleInput,
@@ -160,6 +162,28 @@ export class AdminApiClient {
       options,
     )
   }
+  listAuditLog = (
+    params: {
+      category?: OneOrMany<AuditCategory>
+      onchain?: boolean
+      from?: string
+      to?: string
+      limit?: number
+      cursor?: string | null
+    } = {},
+    options?: RequestOptions,
+  ) =>
+    this.directGet<AuditLogResponse>('/v1/admin/audit-log', {
+      ...options,
+      query: {
+        category: params.category,
+        onchain: params.onchain === undefined ? undefined : String(params.onchain),
+        from: params.from,
+        to: params.to,
+        limit: params.limit,
+        cursor: params.cursor ?? undefined,
+      },
+    })
   createBroadcast = (input: CreateBroadcastInput) =>
     this.bff<Broadcast>('/api/admin/broadcasts', input)
 

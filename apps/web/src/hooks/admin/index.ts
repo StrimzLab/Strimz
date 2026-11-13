@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  useInfiniteQuery,
   keepPreviousData,
   useQuery,
   useQueryClient,
@@ -91,6 +92,19 @@ export function useAdminOverview<TData = PlatformOverview>(
     placeholderData: keepPreviousData,
     staleTime: 60_000,
     ...options,
+  })
+}
+
+export function useAdminAuditLog(
+  params: Omit<Parameters<AdminApiClient['listAuditLog']>[0] & object, 'cursor'>,
+) {
+  const api = useAdminApi()
+  return useInfiniteQuery({
+    queryKey: [...adminKeys.all, 'audit-log', params] as const,
+    queryFn: ({ pageParam, signal }) =>
+      api.listAuditLog({ ...params, cursor: pageParam }, { signal }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => (last.hasMore ? last.nextCursor : null),
   })
 }
 

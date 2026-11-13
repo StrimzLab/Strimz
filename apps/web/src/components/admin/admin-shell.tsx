@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Megaphone,
+  ScrollText,
   Server,
   ShieldCheck,
   Users2,
@@ -17,16 +18,29 @@ import { useEffect, type ReactNode } from 'react'
 import { Button, ThemeToggle } from '@strimz/ui'
 
 import { useAdminMe } from '@/hooks/admin'
+import type { AdminRole } from '@/lib/admin-api'
 import { adminGate, safeNextPath, withNext } from '@/lib/auth-redirect'
 import { BlockieAvatar } from '@/components/dashboard/blockie-avatar'
 
-const NAV = [
+const NAV: {
+  href: string
+  label: string
+  icon: typeof Activity
+  roles?: readonly AdminRole[]
+}[] = [
   { href: '/admin', label: 'Overview', icon: LayoutDashboard },
   { href: '/admin/merchants', label: 'Merchants', icon: Users2 },
   { href: '/admin/broadcasts', label: 'Broadcasts', icon: Megaphone },
   { href: '/admin/analytics', label: 'Analytics', icon: Activity },
   { href: '/admin/health', label: 'Health', icon: Server },
   { href: '/admin/admins', label: 'Admins', icon: ShieldCheck },
+  // Rows include admins' IP addresses.
+  {
+    href: '/admin/audit-log',
+    label: 'Audit log',
+    icon: ScrollText,
+    roles: ['super_admin', 'admin'],
+  },
 ] as const
 
 // Admin access is an active AdminUser row and nothing else. Signing in
@@ -101,7 +115,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <span className="font-display font-semibold">Strimz Admin</span>
         </Link>
         <nav className="flex flex-1 flex-col gap-1">
-          {NAV.map((item) => {
+          {NAV.filter((item) => !item.roles || item.roles.includes(admin.role)).map((item) => {
             const active =
               pathname === item.href ||
               (item.href !== '/admin' && pathname?.startsWith(item.href + '/'))

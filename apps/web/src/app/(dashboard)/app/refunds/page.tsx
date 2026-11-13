@@ -161,9 +161,16 @@ function Refunds() {
         accessorKey: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <StatusPill tone={STATUS_TONE[row.original.status]}>
-            {row.original.status.replace(/_/g, ' ')}
-          </StatusPill>
+          <div className="space-y-1">
+            <StatusPill tone={STATUS_TONE[row.original.status]}>
+              {row.original.status.replace(/_/g, ' ')}
+            </StatusPill>
+            {row.original.status === 'failed' && row.original.failureReason ? (
+              <p className="max-w-[16rem] text-xs text-rose-600 dark:text-rose-400">
+                {row.original.failureReason}
+              </p>
+            ) : null}
+          </div>
         ),
       },
       {
@@ -264,6 +271,7 @@ function Refunds() {
                   { key: 'currency', header: 'Currency' },
                   { key: 'reason', header: 'Reason' },
                   { key: 'status', header: 'Status' },
+                  { key: 'failureReason', header: 'Failure reason' },
                   { key: 'refundTxHash', header: 'On-chain tx' },
                   { key: 'createdAt', header: 'Created' },
                   { key: 'completedAt', header: 'Completed' },

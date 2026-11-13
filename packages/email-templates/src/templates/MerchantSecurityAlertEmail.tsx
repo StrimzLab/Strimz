@@ -3,7 +3,7 @@ import * as React from 'react'
 
 import { DetailRow } from '../components/DetailRow.js'
 import { Shell } from '../components/Shell.js'
-import { STRIMZ_ORIGIN, SUPPORT_EMAIL, colors, fonts, radii } from '../theme.js'
+import { STRIMZ_ORIGIN, colors, fonts, radii } from '../theme.js'
 
 export type MerchantSecurityAlertKind = 'payout_change' | 'ownership_transfer'
 
@@ -58,26 +58,14 @@ export function MerchantSecurityAlertEmail({
 
       <Text style={leadStyle}>If this was you, there is nothing to do.</Text>
 
-      {kind === 'payout_change' ? (
-        <>
-          <Text style={leadStyle}>
-            If this wasn&apos;t you, cancel it before then under Settings, On-chain policy.
-          </Text>
-          <Section style={{ textAlign: 'center', margin: '8px 0 8px' }}>
-            <Button href={settingsUrl} style={primaryButtonStyle}>
-              Review and cancel
-            </Button>
-          </Section>
-        </>
-      ) : (
-        <Text style={leadStyle}>
-          If this wasn&apos;t you, email{' '}
-          <Link href={`mailto:${SUPPORT_EMAIL}`} style={{ color: colors.link }}>
-            {SUPPORT_EMAIL}
-          </Link>{' '}
-          straight away so we can cancel it before then.
-        </Text>
-      )}
+      <Text style={leadStyle}>
+        If this wasn&apos;t you, cancel it before then under Settings, On-chain policy.
+      </Text>
+      <Section style={{ textAlign: 'center', margin: '8px 0 8px' }}>
+        <Button href={settingsUrl} style={primaryButtonStyle}>
+          Review and cancel
+        </Button>
+      </Section>
 
       <Text style={secondaryLinkRowStyle}>
         Transaction:{' '}

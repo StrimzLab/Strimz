@@ -29,10 +29,8 @@ interface RichTextEditorProps {
  * email. Heading H1 lives in the email template's title; anything
  * heavier (images, tables, colour) would fight the template design.
  *
- * The editor stores TipTap-flavoured HTML on the parent state. The
- * `AdminBroadcastEmail` template renders this HTML directly (with a
- * light sanitiser) so operators see what they wrote in the merchant's
- * inbox.
+ * The editor stores TipTap-flavoured HTML on the parent state. The API
+ * cleans it with one allowlist for both the email and the dashboard page.
  */
 export function RichTextEditor({
   value,

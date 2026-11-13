@@ -17,9 +17,15 @@ import { PrivySessionGuard } from '../../common/guards/privy-session.guard.js'
 import { RequireAdminRoles } from '../../common/decorators/admin-role.decorator.js'
 import { RateLimit } from '../../common/decorators/rate-limit.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
-import type { z } from 'zod'
-import { MerchantStatus, MerchantTier } from '@strimz/db'
-import { enumList, listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
+import { z } from 'zod'
+import { AuditActionCategory, MerchantStatus, MerchantTier } from '@strimz/db'
+import {
+  dateRange,
+  enumList,
+  listQuerySchema,
+  withDateRange,
+  type ListQuery,
+} from '../../common/schemas/list-query.js'
 import {
   CurrentAdmin,
   type CurrentAdminPayload,
@@ -62,6 +68,26 @@ const merchantListQuery = listQuerySchema.extend({
   status: enumList(MerchantStatus).optional(),
   tier: enumList(MerchantTier).optional(),
 })
+
+const auditToken = z
+  .string()
+  .max(100)
+  .regex(/^[a-zA-Z0-9._:-]+$/u, 'invalid value')
+
+const auditLogQuery = withDateRange(
+  z
+    .object({
+      limit: z.coerce.number().int().min(1).max(100).optional(),
+      cursor: z.string().max(200).optional(),
+      category: enumList(AuditActionCategory).optional(),
+      action: auditToken.optional(),
+      targetType: auditToken.optional(),
+      targetId: auditToken.optional(),
+      merchantId: auditToken.optional(),
+      onchain: z.enum(['true', 'false']).optional(),
+    })
+    .strict(),
+)
 
 @ApiTags('admin')
 @ApiBearerAuth()
@@ -279,6 +305,26 @@ export class AdminController {
   })
   createBroadcast(@CurrentAdmin() ctx: CurrentAdminPayload, @Body() dto: CreateBroadcastDto) {
     return this.admin.createBroadcast(dto, ctx.adminId)
+  }
+
+  @RequireAdminRoles('super_admin', 'admin')
+  @Get('/audit-log')
+  @ApiOperation({
+    summary:
+      'Recorded admin and on-chain actions, newest first. Not for read_only admins: rows include IP addresses.',
+  })
+  listAuditLog(@Query(new ZodValidationPipe(auditLogQuery)) q: z.infer<typeof auditLogQuery>) {
+    return this.admin.listAuditLog({
+      limit: q.limit,
+      cursor: q.cursor ?? null,
+      category: q.category,
+      action: q.action,
+      targetType: q.targetType,
+      targetId: q.targetId,
+      merchantId: q.merchantId,
+      onchain: q.onchain === undefined ? undefined : q.onchain === 'true',
+      createdAt: dateRange(q),
+    })
   }
 
   @Get('/broadcasts')

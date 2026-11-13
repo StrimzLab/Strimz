@@ -206,3 +206,40 @@ export interface Broadcast {
 export interface BroadcastListResponse {
   data: Broadcast[]
 }
+
+export type AuditCategory =
+  | 'merchant'
+  | 'api_key'
+  | 'webhook'
+  | 'payment'
+  | 'subscription'
+  | 'refund'
+  | 'agent'
+  | 'compliance'
+  | 'auth'
+  | 'member'
+  | 'settings'
+  | 'admin'
+
+export interface AuditLogEntry {
+  id: string
+  category: AuditCategory
+  action: string
+  targetType: string
+  targetId: string
+  merchantId: string | null
+  actorEmail: string | null
+  ipAddress: string | null
+  metadata: Record<string, unknown>
+  createdAt: string
+  /** Written by the indexer from a chain event. */
+  onchain: boolean
+  /** Present for alerting rows; `alertedAt` is null until the email goes out. */
+  alert: { alertedAt: string | null } | null
+}
+
+export interface AuditLogResponse {
+  data: AuditLogEntry[]
+  nextCursor: string | null
+  hasMore: boolean
+}
