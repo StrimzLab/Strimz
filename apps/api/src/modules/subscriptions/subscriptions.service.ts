@@ -1,9 +1,14 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common'
-import type { CancelSubscriptionParsed, Mode, Subscription } from '@strimz/shared-types'
+import type {
+  CancelSubscriptionParsed,
+  Mode,
+  Subscription,
+  SubscriptionCharge,
+} from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { QueueService } from '../../infra/queue/queue.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
-import type { SubscriptionStatus } from '@strimz/db'
+import type { SubscriptionCharge as SubscriptionChargeRow, SubscriptionStatus } from '@strimz/db'
 import { anyOf } from '../../common/schemas/list-query.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -75,6 +80,33 @@ export class SubscriptionsService {
     })
     const hasMore = rows.length > limit
     const data = rows.slice(0, limit).map(serialise)
+    return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
+  }
+
+  async charges(
+    merchantId: string,
+    mode: Mode,
+    id: string,
+    params: { limit?: number; cursor?: string | null },
+  ) {
+    const sub = await this.prisma.db.subscription.findFirst({
+      where: { id, merchantId, mode },
+      select: { id: true },
+    })
+    if (!sub) throw new NotFoundException({ code: 'not_found', message: 'subscription not found' })
+    const limit = Math.min(params.limit ?? 25, 100)
+    const rows = await this.prisma.db.subscriptionCharge.findMany({
+      where: { subscriptionId: sub.id },
+      orderBy: [
+        { executedAt: { sort: 'desc', nulls: 'first' } },
+        { createdAt: 'desc' },
+        { id: 'desc' },
+      ],
+      take: limit + 1,
+      ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
+    })
+    const hasMore = rows.length > limit
+    const data = rows.slice(0, limit).map(serialiseCharge)
     return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
   }
 
@@ -163,4 +195,26 @@ function serialise(row: any): Subscription {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   } as Subscription
+}
+
+function serialiseCharge(row: SubscriptionChargeRow): SubscriptionCharge {
+  return {
+    id: row.id,
+    subscriptionId: row.subscriptionId,
+    merchantId: row.merchantId,
+    chargeAttemptId: row.chargeAttemptId,
+    periodStartAt: row.periodStartAt.toISOString(),
+    periodEndAt: row.periodEndAt.toISOString(),
+    amount: row.amount,
+    currency: row.currency,
+    status: row.status,
+    outcome: row.outcome,
+    attemptNumber: row.attemptNumber,
+    scheduledAt: row.scheduledAt.toISOString(),
+    executedAt: row.executedAt?.toISOString() ?? null,
+    onchainTxHash: row.onchainTxHash,
+    failureReason: row.failureReason,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  }
 }
