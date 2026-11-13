@@ -147,7 +147,7 @@ export default function NewInvoicePage() {
           </Card>
 
           <Card>
-            <CardContent className="space-y-3 p-6">
+            <CardContent className="@container space-y-3 p-6">
               <div className="flex items-center justify-between">
                 <h3 className="font-sora text-sm font-semibold">Line items</h3>
                 <Button variant="outline" size="sm" onClick={addLine}>
@@ -156,17 +156,17 @@ export default function NewInvoicePage() {
                 </Button>
               </div>
 
-              <div className="border-border/60 text-muted-foreground hidden grid-cols-[minmax(0,4fr)_80px_120px_120px_40px] gap-2 border-b px-2 pb-2 text-[10px] uppercase tracking-wider sm:grid">
-                <FieldLabel required className="text-[10px] uppercase tracking-wider">
+              <div className="border-border/60 @2xl:grid @2xl:grid-cols-[minmax(0,1fr)_7.5rem_10.5rem_7rem_2rem] hidden items-end gap-2 border-b px-2 pb-2 text-xs">
+                <FieldLabel required className="whitespace-nowrap text-xs">
                   Description
                 </FieldLabel>
-                <FieldLabel required className="justify-end text-[10px] uppercase tracking-wider">
+                <FieldLabel required className="justify-end whitespace-nowrap text-xs">
                   Qty
                 </FieldLabel>
-                <FieldLabel required className="justify-end text-[10px] uppercase tracking-wider">
+                <FieldLabel required className="justify-end whitespace-nowrap text-xs">
                   Unit ({currency})
                 </FieldLabel>
-                <span className="text-right">Amount</span>
+                <span className="text-muted-foreground whitespace-nowrap text-right">Amount</span>
                 <span />
               </div>
 
@@ -178,12 +178,12 @@ export default function NewInvoicePage() {
                   return (
                     <div
                       key={idx}
-                      className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,4fr)_80px_120px_120px_40px] sm:items-center"
+                      className="@2xl:grid-cols-[minmax(0,1fr)_7.5rem_10.5rem_7rem_2rem] @2xl:items-center grid grid-cols-1 gap-2"
                     >
                       <FieldLabel
                         htmlFor={`iv-line-${idx}-description`}
                         required
-                        className="sm:hidden"
+                        className="@2xl:hidden"
                       >
                         Description
                       </FieldLabel>
@@ -195,7 +195,7 @@ export default function NewInvoicePage() {
                         placeholder="Annual licence renewal"
                         className="h-9"
                       />
-                      <FieldLabel htmlFor={`iv-line-${idx}-qty`} required className="sm:hidden">
+                      <FieldLabel htmlFor={`iv-line-${idx}-qty`} required className="@2xl:hidden">
                         Qty
                       </FieldLabel>
                       <Input
@@ -207,7 +207,7 @@ export default function NewInvoicePage() {
                         onChange={(e) => updateLine(idx, { quantity: e.target.value })}
                         className="h-9 text-right"
                       />
-                      <FieldLabel htmlFor={`iv-line-${idx}-unit`} required className="sm:hidden">
+                      <FieldLabel htmlFor={`iv-line-${idx}-unit`} required className="@2xl:hidden">
                         Unit ({currency})
                       </FieldLabel>
                       <Input
