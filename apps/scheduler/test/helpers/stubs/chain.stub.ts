@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Address } from 'viem'
-import type { ChainService, TransferReceipt } from '../../../src/infra/chain/chain.service.js'
+import type {
+  ChainService,
+  SentTransaction,
+  TransferReceipt,
+} from '../../../src/infra/chain/chain.service.js'
 
 /** What the contract does with a charge attempt, for the stub's `chargeOutcomes` queue. */
 export type StubChargeOutcome = 'Charged' | 'TransferFailed' | 'InsufficientFunds'
@@ -43,6 +47,10 @@ export class StubChainService implements Methods<ChainService> {
   public chargeOutcomes: StubChargeOutcome[] = []
   /** Receipts by tx hash; an Error makes the lookup throw, a missing hash means not mined. */
   public receipts = new Map<string, TransferReceipt | Error>()
+  /** Sent transactions by hash; a missing hash means no node has seen it. */
+  public sentTxs = new Map<string, SentTransaction>()
+  /** Confirmed nonce by lower-case sender address; defaults to 0. */
+  public confirmedNonces = new Map<string, number>()
 
   onModuleInit(): Promise<void> {
     return Promise.resolve()
@@ -63,6 +71,8 @@ export class StubChainService implements Methods<ChainService> {
     this.chainNow = BigInt(Math.floor(Date.now() / 1000))
     this.chargeOutcomes.length = 0
     this.receipts.clear()
+    this.sentTxs.clear()
+    this.confirmedNonces.clear()
   }
 
   private record(fn: string, args: unknown[]): `0x${string}` {
@@ -151,6 +161,12 @@ export class StubChainService implements Methods<ChainService> {
   }
   latestBlockTimestamp(): Promise<bigint> {
     return Promise.resolve(this.chainNow)
+  }
+  readSentTransaction(hash: `0x${string}`): Promise<SentTransaction | null> {
+    return Promise.resolve(this.sentTxs.get(hash.toLowerCase()) ?? null)
+  }
+  confirmedNonce(address: `0x${string}`): Promise<number> {
+    return Promise.resolve(this.confirmedNonces.get(address.toLowerCase()) ?? 0)
   }
   readTransferReceipt(hash: `0x${string}`): Promise<TransferReceipt | null> {
     const r = this.receipts.get(hash.toLowerCase())

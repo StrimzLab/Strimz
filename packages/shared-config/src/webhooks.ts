@@ -23,6 +23,7 @@ export const WEBHOOK_EVENTS = {
   refund: {
     created: 'refund.created',
     completed: 'refund.completed',
+    failed: 'refund.failed',
   },
   invoice: {
     created: 'invoice.created',

@@ -180,6 +180,12 @@ export class WebhookOutboxService {
         ])
         return { subscription: serialiseSubscription(sub), charge: serialiseCharge(charge) }
       }
+      case 'refund.failed': {
+        const refund = await this.prisma.db.refund.findUniqueOrThrow({
+          where: { id: ref.refundId },
+        })
+        return serialiseRefund(refund)
+      }
       case 'refund.completed': {
         const refund = await this.prisma.db.refund.findUniqueOrThrow({
           where: { id: ref.refundId },

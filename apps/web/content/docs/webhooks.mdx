@@ -44,6 +44,7 @@ The reference implementation lives in [`@strimz/sdk` → `verifyWebhookSignature
 | `subscription.reactivated`      | Strimz restored a subscription its operator key cancelled by mistake       | the subscription                        |
 | `refund.created`                | A refund is created                                                        | the refund                              |
 | `refund.completed`              | The refund transaction confirmed on chain                                  | `{ refund, transaction }`               |
+| `refund.failed`                 | The refund failed; `failureReason` says why                                | the refund                              |
 | `invoice.created`               | An invoice is created                                                      | the invoice                             |
 | `invoice.paid`                  | An invoice's payment confirmed                                             | `{ invoice, transaction }`              |
 | `invoice.overdue`               | An hourly cron finds the invoice past its due date                         | the invoice                             |

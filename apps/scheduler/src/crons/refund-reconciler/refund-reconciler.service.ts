@@ -3,7 +3,8 @@ import { Cron } from '@nestjs/schedule'
 import type { Refund } from '@strimz/db'
 import { getTokenAddress } from '@strimz/shared-config'
 import { uuid } from '@strimz/shared-crypto'
-import type { Hash } from 'viem'
+import type { Address, Hash } from 'viem'
+import { z } from 'zod'
 
 import { TypedConfigService } from '../../config/index.js'
 import { ChainService, type TransferReceipt } from '../../infra/chain/chain.service.js'
@@ -11,6 +12,11 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js'
 
 const API_VERSION = '2026-04-27'
 const BATCH = 50
+
+const sentTxSchema = z.object({
+  from: z.string().regex(/^0x[0-9a-f]{40}$/u),
+  nonce: z.number().int().min(0),
+})
 
 export interface RefundReconcileResult {
   checked: number
@@ -21,7 +27,8 @@ export interface RefundReconcileResult {
 }
 
 // Completes refunds whose transfer the indexer missed (it can land before the
-// hash is saved) and fails ones that reverted or paid the wrong thing.
+// hash is saved), and fails ones that reverted, paid the wrong thing, or can
+// never be mined.
 @Injectable()
 export class RefundReconcilerService {
   private readonly log = new Logger(RefundReconcilerService.name)
@@ -68,15 +75,29 @@ export class RefundReconcilerService {
           continue
         }
         if (!receipt) {
-          result.pending++
-          this.log.warn(`refund ${row.id}: no receipt yet for ${hash}`)
+          let dead: boolean
+          try {
+            dead = await this.cannotBeMined(row, hash)
+          } catch (err) {
+            result.errors++
+            this.log.error(
+              `refund ${row.id}: nonce check for ${hash} failed: ${(err as Error).message}`,
+            )
+            continue
+          }
+          if (dead) {
+            if (await this.fail(row, 'transaction was replaced or dropped')) result.failed++
+          } else {
+            result.pending++
+            this.log.warn(`refund ${row.id}: no receipt yet for ${hash}`)
+          }
           continue
         }
         if (receipt.status === 'reverted') {
-          if (await this.fail(row.id, 'transaction reverted')) result.failed++
+          if (await this.fail(row, 'transaction reverted')) result.failed++
         } else if (this.matches(row, receipt)) {
           if (await this.complete(row, receipt.blockTime)) result.completed++
-        } else if (await this.fail(row.id, 'transfer did not match token, recipient or amount')) {
+        } else if (await this.fail(row, 'transfer did not match token, recipient or amount')) {
           result.failed++
         }
       }
@@ -119,11 +140,41 @@ export class RefundReconcilerService {
     })
   }
 
-  private async fail(id: string, failureReason: string): Promise<boolean> {
-    const { count } = await this.prisma.db.refund.updateMany({
-      where: { id, status: 'submitted' },
-      data: { status: 'failed', failureReason },
+  // A transaction can only land with its sender's next nonce. Once another
+  // transaction has used that nonce, this one never will, so it's safe to free
+  // the amount. Without a known nonce we wait: a late broadcast would pay twice.
+  private async cannotBeMined(refund: Refund, hash: Hash): Promise<boolean> {
+    let sent = sentTxSchema.safeParse((refund.metadata as Record<string, unknown>).refundTx).data
+    if (!sent) {
+      const seen = await this.chain.readSentTransaction(hash)
+      if (!seen) return false
+      sent = { from: seen.from.toLowerCase(), nonce: seen.nonce }
+      await this.prisma.db.refund.update({
+        where: { id: refund.id },
+        data: { metadata: { ...(refund.metadata as object), refundTx: sent } },
+      })
+    }
+    return (await this.chain.confirmedNonce(sent.from as Address)) > sent.nonce
+  }
+
+  private fail(refund: Refund, failureReason: string): Promise<boolean> {
+    return this.prisma.db.$transaction(async (tx) => {
+      const { count } = await tx.refund.updateMany({
+        where: { id: refund.id, status: 'submitted' },
+        data: { status: 'failed', failureReason },
+      })
+      if (count === 0) return false
+      await tx.webhookEvent.create({
+        data: {
+          id: `evt_${uuid()}`,
+          merchantId: refund.merchantId,
+          type: 'refund_failed',
+          apiVersion: API_VERSION,
+          mode: refund.mode,
+          payload: { ref: { kind: 'refund.failed', refundId: refund.id } } as never,
+        },
+      })
+      return true
     })
-    return count > 0
   }
 }

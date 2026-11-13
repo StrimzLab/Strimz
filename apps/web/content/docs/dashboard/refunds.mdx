@@ -38,7 +38,9 @@ The amount must be above 0 and no more than the original payment. Across several
 
 **Completed.** The transfer confirmed. The `refund.completed` webhook fires, and the payer gets a receipt email if they left an email at checkout.
 
-The API also defines `pending`, `failed` and `cancelled`. The dashboard shows them if a refund ever has one.
+**Failed.** The transfer reverted, paid the wrong thing, or was replaced in your wallet. The reason shows under the status, the `refund.failed` webhook fires, and you can refund the payer again.
+
+The API also defines `pending` and `cancelled`. The dashboard shows them if a refund ever has one.
 
 ## Common workflows
 

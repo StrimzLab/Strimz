@@ -80,6 +80,8 @@ export const refundCompletedEventSchema = envelope(
   'refund.completed',
   z.object({ refund: refundSchema, transaction: transactionSchema }),
 )
+/** The refund's transfer reverted, paid the wrong thing, or can never be mined. */
+export const refundFailedEventSchema = envelope('refund.failed', refundSchema)
 
 // ---------- Invoice ----------
 
@@ -122,6 +124,7 @@ export const webhookEventSchema = z.discriminatedUnion('type', [
   subscriptionReactivatedEventSchema,
   refundCreatedEventSchema,
   refundCompletedEventSchema,
+  refundFailedEventSchema,
   invoiceCreatedEventSchema,
   invoicePaidEventSchema,
   invoiceOverdueEventSchema,
@@ -148,6 +151,7 @@ export type SubscriptionLapsedEvent = z.infer<typeof subscriptionLapsedEventSche
 export type SubscriptionReactivatedEvent = z.infer<typeof subscriptionReactivatedEventSchema>
 export type RefundCreatedEvent = z.infer<typeof refundCreatedEventSchema>
 export type RefundCompletedEvent = z.infer<typeof refundCompletedEventSchema>
+export type RefundFailedEvent = z.infer<typeof refundFailedEventSchema>
 export type InvoiceCreatedEvent = z.infer<typeof invoiceCreatedEventSchema>
 export type InvoicePaidEvent = z.infer<typeof invoicePaidEventSchema>
 export type InvoiceOverdueEvent = z.infer<typeof invoiceOverdueEventSchema>

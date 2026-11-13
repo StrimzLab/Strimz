@@ -3,7 +3,12 @@ import { getQueueToken } from '@nestjs/bullmq'
 import type { Queue } from 'bullmq'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
-import { seedMerchant, seedSubscription, seedWebhookEndpoint } from '../helpers/fixtures.js'
+import {
+  seedMerchant,
+  seedSubscription,
+  seedTransaction,
+  seedWebhookEndpoint,
+} from '../helpers/fixtures.js'
 import { WebhookOutboxService } from '../../src/infra/webhook-outbox/webhook-outbox.service.js'
 import { QUEUE_NAMES } from '@strimz/queue-contracts'
 import { must } from '../helpers/must.js'
@@ -164,6 +169,55 @@ describe('webhook outbox dispatcher e2e', () => {
     expect(event.payload).toMatchObject({
       type: 'subscription.reactivated',
       data: { id: sub.id, status: 'active' },
+    })
+  })
+
+  // ADR-2026-11-13-refund-failures (#440).
+  it('builds refund.failed with the refund and its failure reason', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const tx = await seedTransaction(t.prisma.db, merchant.id)
+    const refund = await t.prisma.db.refund.create({
+      data: {
+        merchantId: merchant.id,
+        transactionId: tx.id,
+        amount: '500000',
+        currency: 'USDC',
+        reason: 'customer_request',
+        status: 'failed',
+        failureReason: 'transaction was replaced or dropped',
+        payerAddress: '0x000000000000000000000000000000000000cafe',
+        refundTxHash: `0x${'d'.repeat(64)}`,
+        initiatedById: merchant.id,
+      },
+    })
+    await seedWebhookEndpoint(t.prisma.db, merchant.id, {
+      url: 'https://example.com/refund-failed',
+      events: ['refund_failed'],
+    })
+    await t.prisma.db.webhookEvent.create({
+      data: {
+        id: 'evt_refund_failed_1',
+        merchantId: merchant.id,
+        type: 'refund_failed',
+        apiVersion: '2026-04-27',
+        mode: 'test',
+        payload: { ref: { kind: 'refund.failed', refundId: refund.id } },
+      },
+    })
+
+    const outbox = t.app.get(WebhookOutboxService)
+    expect(await outbox.tickNow()).toEqual({ dispatched: 1, deliveriesQueued: 1 })
+    const event = await t.prisma.db.webhookEvent.findUniqueOrThrow({
+      where: { id: 'evt_refund_failed_1' },
+    })
+    expect(event.dispatchError).toBeNull()
+    expect(event.payload).toMatchObject({
+      type: 'refund.failed',
+      data: {
+        id: refund.id,
+        status: 'failed',
+        failureReason: 'transaction was replaced or dropped',
+      },
     })
   })
 
