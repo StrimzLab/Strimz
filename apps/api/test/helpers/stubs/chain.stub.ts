@@ -2,6 +2,7 @@ import {
   CallExecutionError,
   ExecutionRevertedError,
   RawContractError,
+  TransactionNotFoundError,
   TransactionReceiptNotFoundError,
   type Hex,
 } from 'viem'
@@ -17,6 +18,8 @@ export class StubChainService {
   public permitNonce = 0n
   public readonly balanceReads: { token: Hex; owner: Hex }[] = []
   public readonly calls: { to: Hex; data: Hex }[] = []
+  /** Transactions a node knows about, by lower-case hash. */
+  public readonly sentTxs = new Map<string, { from: Hex; nonce: number }>()
   public readonly client = {
     getBlockNumber: () => Promise.resolve(1n),
     getBlock: () => Promise.resolve({ timestamp: BigInt(Math.floor(Date.now() / 1000)) }),
@@ -38,6 +41,12 @@ export class StubChainService {
       this.balanceReads.push({ token: args.address, owner: args.args[0] as Hex })
       return Promise.resolve(this.balance)
     },
+    getTransaction: ({ hash }: { hash: Hex }) => {
+      const tx = this.sentTxs.get(hash.toLowerCase())
+      return tx
+        ? Promise.resolve({ hash, ...tx })
+        : Promise.reject(new TransactionNotFoundError({ hash }))
+    },
     getTransactionReceipt: ({ hash }: { hash: Hex }) =>
       Promise.reject(new TransactionReceiptNotFoundError({ hash })),
   } as never
@@ -51,5 +60,6 @@ export class StubChainService {
     this.balanceReads.length = 0
     this.gasEstimate = 150_000n
     this.permitNonce = 0n
+    this.sentTxs.clear()
   }
 }

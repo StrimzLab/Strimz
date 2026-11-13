@@ -149,4 +149,33 @@ describe('refunds e2e', () => {
     expect(body.status).toBe('submitted')
     expect(body.refundTxHash).toBe('0x' + 'b'.repeat(64))
   })
+
+  // ADR-2026-11-13-refund-failures (#439): the reconciler needs the sender and nonce.
+  it('stores the transaction sender and nonce when the chain knows the hash', async () => {
+    const m = await seedMerchant(t.prisma.db)
+    const tx = await seedTransaction(t.prisma.db, m.id)
+    const k = await seedApiKey(t.prisma.db, m.id)
+    const hash = `0x${'c'.repeat(64)}`
+    t.chain.sentTxs.set(hash, { from: `0x${'A'.repeat(40)}`, nonce: 12 })
+
+    const create = await t.inject({
+      method: 'POST',
+      url: '/v1/refunds',
+      headers: { authorization: `Bearer ${k.secretKey}` },
+      payload: { transactionId: tx.id, amount: '10000000', reason: 'customer_request' },
+    })
+    const refundId = JSON.parse(create.body).refund.id as string
+
+    const sig = await t.inject({
+      method: 'POST',
+      url: `/v1/refunds/${refundId}/signature`,
+      headers: { authorization: `Bearer ${k.secretKey}` },
+      payload: { refundTxHash: hash },
+    })
+
+    expect(sig.statusCode).toBe(201)
+    const row = await t.prisma.db.refund.findUniqueOrThrow({ where: { id: refundId } })
+    expect(row.metadata).toMatchObject({ refundTx: { from: `0x${'a'.repeat(40)}`, nonce: 12 } })
+    t.chain.reset()
+  })
 })

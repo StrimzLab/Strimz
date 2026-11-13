@@ -63,6 +63,7 @@ describe('refund reconciler e2e', () => {
 
   const completedEvents = () =>
     t.prisma.db.webhookEvent.findMany({ where: { type: 'refund_completed' } })
+  const failedEvents = () => t.prisma.db.webhookEvent.findMany({ where: { type: 'refund_failed' } })
 
   it('completes a refund the indexer missed and queues one refund.completed', async () => {
     const r = await refund()
@@ -90,6 +91,9 @@ describe('refund reconciler e2e', () => {
     expect(row.status).toBe('failed')
     expect(row.failureReason).toBe('transaction reverted')
     expect(await completedEvents()).toHaveLength(0)
+    const failed = await failedEvents()
+    expect(failed).toHaveLength(1)
+    expect(failed[0]?.payload).toEqual({ ref: { kind: 'refund.failed', refundId: r.id } })
   })
 
   it.each([
@@ -107,6 +111,7 @@ describe('refund reconciler e2e', () => {
     const row = await t.prisma.db.refund.findUniqueOrThrow({ where: { id: r.id } })
     expect(row.status).toBe('failed')
     expect(row.failureReason).toBe('transfer did not match token, recipient or amount')
+    expect(await failedEvents()).toHaveLength(1)
   })
 
   it('leaves a refund with no receipt yet as submitted', async () => {
@@ -115,6 +120,50 @@ describe('refund reconciler e2e', () => {
     expect(await run()).toMatchObject({ checked: 1, pending: 1 })
     const row = await t.prisma.db.refund.findUniqueOrThrow({ where: { id: r.id } })
     expect(row.status).toBe('submitted')
+  })
+
+  // ADR-2026-11-13-refund-failures (#439): fail only once the transaction can never be mined.
+  describe('a refund whose transaction has no receipt', () => {
+    const SENDER = '0x00000000000000000000000000000000000000Aa'
+
+    it('remembers the sender and nonce and waits while the nonce is unused', async () => {
+      const r = await refund()
+      t.chain.sentTxs.set(r.hash, { from: SENDER, nonce: 7 })
+      t.chain.confirmedNonces.set(SENDER.toLowerCase(), 7)
+
+      expect(await run()).toMatchObject({ pending: 1, failed: 0 })
+      const row = await t.prisma.db.refund.findUniqueOrThrow({ where: { id: r.id } })
+      expect(row.status).toBe('submitted')
+      expect(row.metadata).toMatchObject({ refundTx: { from: SENDER.toLowerCase(), nonce: 7 } })
+    })
+
+    it('fails it once another transaction has used the nonce, and tells the merchant once', async () => {
+      const r = await refund()
+      t.chain.sentTxs.set(r.hash, { from: SENDER, nonce: 7 })
+      t.chain.confirmedNonces.set(SENDER.toLowerCase(), 7)
+      await run()
+
+      t.chain.sentTxs.clear()
+      t.chain.confirmedNonces.set(SENDER.toLowerCase(), 8)
+      expect(await run()).toMatchObject({ failed: 1 })
+
+      const row = await t.prisma.db.refund.findUniqueOrThrow({ where: { id: r.id } })
+      expect(row.status).toBe('failed')
+      expect(row.failureReason).toBe('transaction was replaced or dropped')
+      expect(await failedEvents()).toHaveLength(1)
+      expect(await run()).toMatchObject({ checked: 0 })
+      expect(await failedEvents()).toHaveLength(1)
+    })
+
+    it('keeps a transaction no node has seen as submitted, however old', async () => {
+      const r = await refund()
+      t.chain.confirmedNonces.set(SENDER.toLowerCase(), 50)
+
+      expect(await run()).toMatchObject({ pending: 1, failed: 0 })
+      const row = await t.prisma.db.refund.findUniqueOrThrow({ where: { id: r.id } })
+      expect(row.status).toBe('submitted')
+      expect(await failedEvents()).toHaveLength(0)
+    })
   })
 
   it('does not touch refunds that are not submitted', async () => {

@@ -83,6 +83,7 @@ const serverCalls: ClientCalls<StrimzClient> = {
   subscriptions: {
     retrieve: [ID],
     list: [],
+    charges: [ID],
     cancel: [{ id: ID }],
   },
   refunds: {
