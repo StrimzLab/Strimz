@@ -149,11 +149,12 @@ const separatedSignersSchema = envSchema.superRefine((env, ctx) => {
   }
 
   if (env.SCHEDULER_SIGNER_PROVIDER === 'software') {
-    if (env.NODE_ENV === 'production') {
+    // Testnet only: ADR-2026-11-13-testnet-software-signer. Mainnet waits on #455.
+    if (env.NODE_ENV === 'production' && env.ARC_ENVIRONMENT !== 'testnet') {
       issue(
         ctx,
         'SCHEDULER_SIGNER_PROVIDER',
-        'software keeps the scheduler key in process memory and is refused in production; set aws-kms',
+        'software keeps the scheduler key in process memory and is refused in production on mainnet; set aws-kms',
       )
     }
     if (!env.SCHEDULER_PRIVATE_KEY) {
