@@ -6,7 +6,7 @@ import {
   Logger,
 } from '@nestjs/common'
 import type { Job } from 'bullmq'
-import { decodeFunctionData, encodeFunctionData, keccak256, padHex, type Hex } from 'viem'
+import { decodeFunctionData, encodeFunctionData, keccak256, padHex, parseAbi, type Hex } from 'viem'
 import { relayJobSchema, type RelayJob } from '@strimz/queue-contracts'
 import { checkoutPaymentNonce, subscriptionIntentNonce } from '@strimz/shared-crypto/checkout'
 import type { PaymentCurrency } from '@strimz/shared-types'
@@ -28,6 +28,7 @@ import { payWithAuthorizationAbi, permitAndCreateSubscriptionAbi } from './gener
 import type { RelayJobResult } from './relay.processor.js'
 import type {
   PayWithAuthorizationInput,
+  PermitAllowanceInput,
   PermitAndCreateSubscriptionInput,
   RelaySubmissionScope,
   RelaySubmissionStatus,
@@ -39,11 +40,17 @@ import type {
 const GAS_LIMITS = {
   payWithAuthorization: 280_000n,
   permitAndCreateSubscription: 320_000n,
+  permitAllowance: 120_000n,
 } as const
 
 const MAX_RELAY_GAS = 600_000n
 
-type RelayCallReason = 'payWithAuthorization' | 'permitAndCreateSubscription'
+// FiatToken's bytes overload, so smart-wallet (ERC-1271) payers can renew too.
+const tokenPermitAbi = parseAbi([
+  'function permit(address owner, address spender, uint256 value, uint256 deadline, bytes signature)',
+])
+
+type RelayCallReason = 'payWithAuthorization' | 'permitAndCreateSubscription' | 'permitAllowance'
 
 type RelayCallJob = Exclude<RelayJob, { reason: 'registerMerchant' }> & {
   merchantInternalId: string
@@ -52,6 +59,7 @@ type RelayCallJob = Exclude<RelayJob, { reason: 'registerMerchant' }> & {
 const RELAY_KEY_PREFIX: Record<RelayCallReason, string> = {
   payWithAuthorization: 'relay-pay-',
   permitAndCreateSubscription: 'relay-sub-',
+  permitAllowance: 'relay-allow-',
 }
 
 export function relayKeyFor(reason: RelayCallReason, callData: Hex): string {
@@ -239,6 +247,34 @@ export class RelayService {
     )
   }
 
+  /** Relays a payer's EIP-2612 permit that renews their allowance to Subscriptions. */
+  async submitPermitAllowance(input: PermitAllowanceInput): Promise<RelaySubmissionView> {
+    if (!this.subscriptionsAddress) {
+      throw new Error('STRIMZ_SUBSCRIPTIONS_ADDRESS is not configured')
+    }
+    const callData = encodeFunctionData({
+      abi: tokenPermitAbi,
+      functionName: 'permit',
+      args: [input.owner, this.subscriptionsAddress, input.value, input.deadline, input.signature],
+    })
+    const key = relayKeyFor('permitAllowance', callData)
+    const replay = await this.existingView(key)
+    if (replay) return replay
+    const gasLimit = await this.gasLimitFor('permitAllowance', input.token, callData)
+    return this.enqueue(
+      {
+        idempotencyKey: key,
+        reason: 'permitAllowance',
+        toAddress: input.token,
+        callData,
+        gasLimit: gasLimit.toString(),
+        merchantInternalId: input.merchantInternalId,
+        subscriptionInternalId: input.subscriptionInternalId,
+      },
+      `allowance:${input.subscriptionInternalId}:${input.owner.toLowerCase()}`,
+    )
+  }
+
   /**
    * Look up a previously enqueued submission by its idempotency key.
    * Returns `null` if no job is found (i.e. it was never submitted,
@@ -318,7 +354,7 @@ export class RelayService {
     const receipt = await this.probe.receiptStatus(data.broadcast.txHash)
     if (receipt === 'success') throw alreadySettled(await this.viewFromJob(job))
     if (receipt === 'reverted') return
-    if (data.reason === 'permitAndCreateSubscription') return
+    if (data.reason === 'permitAndCreateSubscription' || data.reason === 'permitAllowance') return
     const validBefore = authorizationValidBefore(data.callData)
     if (validBefore <= (await this.probe.latestBlockTimestamp())) return
     throw attemptInProgress(await this.viewFromJob(job))

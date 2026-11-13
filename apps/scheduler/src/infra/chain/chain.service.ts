@@ -195,6 +195,16 @@ export class ChainService implements OnModuleInit {
     return this.publicClient.getBlock({ blockTag: 'latest' }).then((block) => block.timestamp)
   }
 
+  /** What `owner` has approved the Subscriptions contract to pull of `token`. */
+  readSubscriptionAllowance(token: Address, owner: Address): Promise<bigint> {
+    return this.publicClient.readContract({
+      address: token,
+      abi: erc20Abi,
+      functionName: 'allowance',
+      args: [owner, this.subscriptionsAddress],
+    })
+  }
+
   /** Null when no node we ask knows the transaction. */
   async readSentTransaction(hash: Hash): Promise<SentTransaction | null> {
     try {

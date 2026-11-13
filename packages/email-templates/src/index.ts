@@ -27,6 +27,7 @@ export { AdminBroadcastEmail } from './templates/AdminBroadcastEmail.js'
 export { PayerPaymentReceiptEmail } from './templates/PayerPaymentReceiptEmail.js'
 export { PayerSubscriptionStartedEmail } from './templates/PayerSubscriptionStartedEmail.js'
 export { PayerSubscriptionChargedEmail } from './templates/PayerSubscriptionChargedEmail.js'
+export { PayerAllowanceRenewalEmail } from './templates/PayerAllowanceRenewalEmail.js'
 export { PayerRefundReceiptEmail } from './templates/PayerRefundReceiptEmail.js'
 
 // Theme + primitives (exported for tests and future templates).

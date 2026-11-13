@@ -193,13 +193,14 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 		var txID string
 		err = tx.QueryRow(ctx, `
 			INSERT INTO "Transaction" (
-			  id, "merchantId", kind, status, "sessionId",
+			  id, "merchantId", kind, status, "sessionId", "customerId",
 			  amount, "feeAmount", "netAmount", currency,
 			  "payerAddress", "merchantAddress",
 			  "onchainTxHash", "blockNumber", "blockTimestamp", "logIndex",
 			  mode, "createdAt"
 			) VALUES (
 			  gen_random_uuid()::text, $1, 'one_shot'::"TransactionKind", 'confirmed'::"TransactionStatus", $2,
+			  (SELECT "customerId" FROM "PaymentSession" WHERE id = $2),
 			  $3, $4, $5, $6::"PaymentCurrency",
 			  $7, $8,
 			  $9, $10, $11, $12,
@@ -266,6 +267,15 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 				    AND status != 'confirmed'`,
 				*sessionID, in.OnchainTxHash, in.PayerAddress); err != nil {
 				return fmt.Errorf("confirm session: %w", err)
+			}
+			// Checkout can bind the customer while this transaction is open; the
+			// confirm above holds the session lock, so read it again now.
+			if _, err := tx.Exec(ctx, `
+				UPDATE "Transaction"
+				   SET "customerId" = (SELECT "customerId" FROM "PaymentSession" WHERE id = $1)
+				 WHERE id = $2 AND "customerId" IS NULL`,
+				*sessionID, txID); err != nil {
+				return fmt.Errorf("link transaction customer: %w", err)
 			}
 
 			ref := fmt.Sprintf(`"sessionId":%q,"transactionId":%q`, *sessionID, txID)
@@ -551,7 +561,7 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 		var txID string
 		err = tx.QueryRow(ctx, `
 			INSERT INTO "Transaction" (
-			  id, "merchantId", kind, status, "subscriptionId", "subscriptionChargeId",
+			  id, "merchantId", kind, status, "subscriptionId", "subscriptionChargeId", "customerId",
 			  amount, "feeAmount", "netAmount", currency,
 			  "payerAddress", "merchantAddress",
 			  "onchainTxHash", "blockNumber", "blockTimestamp", "logIndex",
@@ -559,6 +569,7 @@ func (s *Store) InsertSubscriptionCharge(ctx context.Context, in SubscriptionCha
 			) VALUES (
 			  gen_random_uuid()::text, $1, 'subscription_charge'::"TransactionKind",
 			  'confirmed'::"TransactionStatus", $2, $3,
+			  (SELECT "customerId" FROM "Subscription" WHERE id = $2),
 			  $4, $5, $6, $7::"PaymentCurrency",
 			  $8, $14,
 			  $9, $10, $11, $12,

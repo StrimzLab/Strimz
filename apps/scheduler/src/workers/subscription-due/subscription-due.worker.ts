@@ -4,6 +4,7 @@ import type { Job } from 'bullmq'
 import { keccak256 } from 'viem'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { AllowanceReminderService } from './allowance-reminder.service.js'
 import { QUEUE_NAMES } from '@strimz/queue-contracts'
 import { subscriptionDueJobSchema, type SubscriptionDueJob } from '@strimz/queue-contracts'
 
@@ -34,6 +35,7 @@ export class SubscriptionDueWorker extends WorkerHost {
   constructor(
     private readonly prisma: PrismaService,
     private readonly chain: ChainService,
+    private readonly allowance: AllowanceReminderService,
   ) {
     super()
   }
@@ -86,6 +88,8 @@ export class SubscriptionDueWorker extends WorkerHost {
       await this.releaseLock(sub.id)
       return { txHash: '0xexhausted', chargeAttemptId: '0x0' }
     }
+
+    await this.allowance.check(sub)
 
     let txHash: `0x${string}`
     try {

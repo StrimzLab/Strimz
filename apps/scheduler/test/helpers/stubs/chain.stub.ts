@@ -47,6 +47,8 @@ export class StubChainService implements Methods<ChainService> {
   public chargeOutcomes: StubChargeOutcome[] = []
   /** Receipts by tx hash; an Error makes the lookup throw, a missing hash means not mined. */
   public receipts = new Map<string, TransferReceipt | Error>()
+  /** Token allowance to Subscriptions by lower-case owner; unlimited when unset. */
+  public allowances = new Map<string, bigint>()
   /** Sent transactions by hash; a missing hash means no node has seen it. */
   public sentTxs = new Map<string, SentTransaction>()
   /** Confirmed nonce by lower-case sender address; defaults to 0. */
@@ -71,6 +73,7 @@ export class StubChainService implements Methods<ChainService> {
     this.chainNow = BigInt(Math.floor(Date.now() / 1000))
     this.chargeOutcomes.length = 0
     this.receipts.clear()
+    this.allowances.clear()
     this.sentTxs.clear()
     this.confirmedNonces.clear()
   }
@@ -161,6 +164,9 @@ export class StubChainService implements Methods<ChainService> {
   }
   latestBlockTimestamp(): Promise<bigint> {
     return Promise.resolve(this.chainNow)
+  }
+  readSubscriptionAllowance(_token: `0x${string}`, owner: `0x${string}`): Promise<bigint> {
+    return Promise.resolve(this.allowances.get(owner.toLowerCase()) ?? 2n ** 256n - 1n)
   }
   readSentTransaction(hash: `0x${string}`): Promise<SentTransaction | null> {
     return Promise.resolve(this.sentTxs.get(hash.toLowerCase()) ?? null)

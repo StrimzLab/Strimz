@@ -1,4 +1,6 @@
 export const PAYER_MESSAGES: Readonly<Record<string, string>> = {
+  payer_mismatch: "This wallet isn't the one that subscribed. Connect that wallet and try again.",
+  subscription_not_active: 'This subscription has ended, so there is nothing to renew.',
   insufficient_balance:
     'There is not enough of this token in your wallet to cover the first charge. Add funds and try again.',
   amount_below_minimum:

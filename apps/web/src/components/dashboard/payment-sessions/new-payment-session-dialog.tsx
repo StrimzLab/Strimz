@@ -24,7 +24,7 @@ import {
 } from '@strimz/ui'
 import type { PaymentCurrency, PaymentSession } from '@strimz/shared-types'
 
-import { useCreatePaymentSession } from '@/hooks/api'
+import { useCreatePaymentSession, useDefaultCurrency } from '@/hooks/api'
 import { formatTokenAmount } from '@/lib/format'
 import { buildPaymentSessionInput } from '@/lib/payment-session-input'
 import { OpenOnNewParam } from '@/components/dashboard/open-on-new-param'
@@ -42,7 +42,9 @@ export function NewPaymentSessionDialog() {
   const [open, setOpen] = React.useState(false)
   const openFromLink = React.useCallback(() => setOpen(true), [])
   const [fields, setFields] = React.useState(EMPTY)
-  const [currency, setCurrency] = React.useState<PaymentCurrency>('USDC')
+  const defaultCurrency = useDefaultCurrency()
+  const [picked, setCurrency] = React.useState<PaymentCurrency | null>(null)
+  const currency = picked ?? defaultCurrency
   const [error, setError] = React.useState<string | null>(null)
   const [created, setCreated] = React.useState<PaymentSession | null>(null)
   const createMutation = useCreatePaymentSession()
@@ -53,7 +55,7 @@ export function NewPaymentSessionDialog() {
 
   const reset = () => {
     setFields(EMPTY)
-    setCurrency('USDC')
+    setCurrency(null)
     setError(null)
     setCreated(null)
   }

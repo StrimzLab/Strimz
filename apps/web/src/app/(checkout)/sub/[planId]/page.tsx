@@ -336,6 +336,12 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
               )}
             </div>
             {copy && <p className="text-foreground text-sm">{copy.notice}</p>}
+            <p className="text-muted-foreground text-xs">
+              You&apos;re approving up to{' '}
+              {formatAmount(subscribe.approval.value, tokenMeta?.decimals ?? 6)} {symbol} (
+              {subscribe.approval.charges} charges) for this subscription. We&apos;ll email you to
+              renew before it runs out.
+            </p>
             <SubmitButton
               type="button"
               onClick={() =>

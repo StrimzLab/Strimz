@@ -22,7 +22,7 @@ import {
 } from '@strimz/ui'
 
 import { PageHeader } from '@/components/dashboard/page-header'
-import { useCreateInvoice } from '@/hooks/api'
+import { useCreateInvoice, useDefaultCurrency } from '@/hooks/api'
 
 interface LineItemDraft {
   description: string
@@ -38,7 +38,9 @@ export default function NewInvoicePage() {
 
   const [customerName, setCustomerName] = React.useState('')
   const [customerEmail, setCustomerEmail] = React.useState('')
-  const [currency, setCurrency] = React.useState<PaymentCurrency>('USDC')
+  const defaultCurrency = useDefaultCurrency()
+  const [picked, setCurrency] = React.useState<PaymentCurrency | null>(null)
+  const currency = picked ?? defaultCurrency
   const [dueDays, setDueDays] = React.useState('14')
   const [note, setNote] = React.useState('')
   const [lines, setLines] = React.useState<LineItemDraft[]>([emptyLine()])

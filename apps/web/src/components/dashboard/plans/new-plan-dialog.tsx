@@ -23,7 +23,7 @@ import {
 } from '@strimz/ui'
 import type { PaymentCurrency, SubscriptionInterval } from '@strimz/shared-types'
 
-import { useCreateSubscriptionPlan } from '@/hooks/api'
+import { useCreateSubscriptionPlan, useDefaultCurrency } from '@/hooks/api'
 import { buildPlanInput } from '@/lib/plan-input'
 import { OpenOnNewParam } from '@/components/dashboard/open-on-new-param'
 
@@ -50,7 +50,9 @@ export function NewPlanDialog() {
   const [open, setOpen] = React.useState(false)
   const openFromLink = React.useCallback(() => setOpen(true), [])
   const [fields, setFields] = React.useState(EMPTY)
-  const [currency, setCurrency] = React.useState<PaymentCurrency>('USDC')
+  const defaultCurrency = useDefaultCurrency()
+  const [picked, setCurrency] = React.useState<PaymentCurrency | null>(null)
+  const currency = picked ?? defaultCurrency
   const [interval, setInterval] = React.useState<SubscriptionInterval>('monthly')
   const [error, setError] = React.useState<string | null>(null)
   const createMutation = useCreateSubscriptionPlan()
@@ -61,7 +63,7 @@ export function NewPlanDialog() {
 
   const reset = () => {
     setFields(EMPTY)
-    setCurrency('USDC')
+    setCurrency(null)
     setInterval('monthly')
     setError(null)
   }
