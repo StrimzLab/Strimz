@@ -1,5 +1,16 @@
 # @strimz/shared-types
 
+## 0.17.0
+
+### Minor Changes
+
+- f6e511a: Add `notificationBroadcastSchema` and `NotificationBroadcast` for `GET /v1/notifications/broadcasts/:id`, which returns one admin broadcast with sanitized HTML.
+
+### Patch Changes
+
+- Updated dependencies [f6e511a]
+  - @strimz/shared-config@0.9.1
+
 ## 0.16.0
 
 ### Minor Changes
