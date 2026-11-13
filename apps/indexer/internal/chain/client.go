@@ -7,16 +7,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/big"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/andybalholm/brotli"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 // Client is the read-only chain interface used by the processor. It is
@@ -44,11 +48,32 @@ type EthClient struct {
 
 // Dial connects to an Ethereum-compatible RPC URL and returns an `EthClient`.
 func Dial(ctx context.Context, rpcURL string) (*EthClient, error) {
-	c, err := ethclient.DialContext(ctx, rpcURL)
+	rc, err := rpc.DialOptions(ctx, rpcURL, rpc.WithHTTPClient(&http.Client{Transport: brotliTransport{http.DefaultTransport}}))
 	if err != nil {
 		return nil, fmt.Errorf("dial %s: %w", rpcURL, err)
 	}
-	return &EthClient{c: c}, nil
+	return &EthClient{c: ethclient.NewClient(rc)}, nil
+}
+
+// Some providers (Blockdaemon) send Brotli even when asked for identity, and
+// net/http only decodes gzip.
+type brotliTransport struct{ base http.RoundTripper }
+
+func (t brotliTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	res, err := t.base.RoundTrip(req)
+	if err != nil || !strings.EqualFold(res.Header.Get("Content-Encoding"), "br") {
+		return res, err
+	}
+	res.Body = brotliBody{Reader: brotli.NewReader(res.Body), Closer: res.Body}
+	res.Header.Del("Content-Encoding")
+	res.Header.Del("Content-Length")
+	res.ContentLength = -1
+	return res, nil
+}
+
+type brotliBody struct {
+	io.Reader
+	io.Closer
 }
 
 func (e *EthClient) BlockNumber(ctx context.Context) (uint64, error) {

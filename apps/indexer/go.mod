@@ -3,6 +3,7 @@ module github.com/StrimzLab/strimz/apps/indexer
 go 1.26.0
 
 require (
+	github.com/andybalholm/brotli v1.1.1
 	github.com/ethereum/go-ethereum v1.17.5
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
