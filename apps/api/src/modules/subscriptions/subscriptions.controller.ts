@@ -52,6 +52,23 @@ export class SubscriptionsController {
     })
   }
 
+  @RequireScopes('subscriptions_read')
+  @Get('/:id/charges')
+  @ApiOperation({
+    summary:
+      'Every charge attempt for a subscription, newest first, including failed and skipped ones.',
+  })
+  charges(
+    @CurrentMerchant() ctx: CurrentMerchantPayload,
+    @Param('id') id: string,
+    @Query(new ZodValidationPipe(listQuerySchema)) q: z.infer<typeof listQuerySchema>,
+  ) {
+    return this.subs.charges(ctx.merchantId, ctx.mode, id, {
+      limit: q.limit,
+      cursor: q.cursor ?? null,
+    })
+  }
+
   @RequireScopes('subscriptions_write')
   @Post('/:id/cancel')
   @ApiOperation({

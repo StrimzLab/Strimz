@@ -5,6 +5,7 @@ import { use } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Ban, Loader2 } from 'lucide-react'
 import { Button, Card, CardContent } from '@strimz/ui'
+import { arcExplorerTxUrl } from '@strimz/shared-config'
 import type { SubscriptionStatus } from '@strimz/shared-types'
 
 import { PageHeader } from '@/components/dashboard/page-header'
@@ -13,12 +14,15 @@ import {
   ConfirmActionDialog,
   type PendingConfirm,
 } from '@/components/dashboard/confirm-action-dialog'
+import { chargeOutcomeView } from '@/lib/charge-outcome'
 import { cancelSubscriptionConfirm } from '@/lib/destructive-actions'
+import { env } from '@/lib/env'
 import { formatTokenAmount, relativeTime } from '@/lib/format'
 import { billingLabel } from '@/lib/plans-view'
 import {
   useCancelSubscription,
   useSubscription,
+  useSubscriptionCharges,
   useSubscriptionPlan,
   useTransactions,
 } from '@/hooks/api'
@@ -129,9 +133,11 @@ export default function SubscriptionDetailPage({ params }: { params: Promise<{ i
         </CardContent>
       </Card>
 
+      <ChargeAttemptsCard subscriptionId={sub.id} />
+
       <Card>
         <CardContent className="space-y-3 p-6 text-sm">
-          <div className="font-medium">Charges</div>
+          <div className="font-medium">Payments received</div>
           {chargesQuery.isPending ? (
             <p className="text-muted-foreground text-xs">Loading…</p>
           ) : chargesQuery.isError ? (
@@ -161,6 +167,82 @@ export default function SubscriptionDetailPage({ params }: { params: Promise<{ i
 
       <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
     </div>
+  )
+}
+
+function ChargeAttemptsCard({ subscriptionId }: { subscriptionId: string }) {
+  const query = useSubscriptionCharges(subscriptionId)
+  const attempts = query.data?.rows ?? []
+
+  return (
+    <Card>
+      <CardContent className="space-y-3 p-6 text-sm">
+        <div className="font-medium">Charge attempts</div>
+        {query.isPending ? (
+          <p className="text-muted-foreground text-xs">Loading…</p>
+        ) : query.isError && attempts.length === 0 ? (
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-rose-600">Couldn&apos;t load charge attempts.</p>
+            <Button variant="outline" size="sm" onClick={() => query.refetch()}>
+              Try again
+            </Button>
+          </div>
+        ) : attempts.length === 0 ? (
+          <p className="text-muted-foreground text-xs">No charge attempts yet.</p>
+        ) : (
+          <ul className="divide-border/60 divide-y">
+            {attempts.map((c) => {
+              const view = chargeOutcomeView(c.outcome, c.status)
+              return (
+                <li
+                  key={c.id}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2 text-xs"
+                >
+                  <div className="min-w-0">
+                    <div>
+                      {new Date(c.periodStartAt).toLocaleDateString()} –{' '}
+                      {new Date(c.periodEndAt).toLocaleDateString()}
+                      {c.attemptNumber > 1 ? (
+                        <span className="text-muted-foreground"> · attempt {c.attemptNumber}</span>
+                      ) : null}
+                    </div>
+                    <div className="text-muted-foreground">
+                      {relativeTime(c.executedAt ?? c.scheduledAt)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <StatusPill tone={view.tone}>{view.label}</StatusPill>
+                    {c.onchainTxHash ? (
+                      <a
+                        href={arcExplorerTxUrl(env.arcEnvironment, c.onchainTxHash)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-accent hover:underline"
+                      >
+                        View tx
+                      </a>
+                    ) : null}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        {query.hasNextPage ? (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={query.isFetchingNextPage}
+            onClick={() => void query.fetchNextPage()}
+          >
+            {query.isFetchingNextPage ? 'Loading…' : 'Load more'}
+          </Button>
+        ) : null}
+        {query.isFetchNextPageError ? (
+          <p className="text-xs text-rose-600">Couldn&apos;t load more attempts. Try again.</p>
+        ) : null}
+      </CardContent>
+    </Card>
   )
 }
 

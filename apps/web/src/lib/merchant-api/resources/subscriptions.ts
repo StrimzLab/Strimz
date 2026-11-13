@@ -1,6 +1,7 @@
 import type {
   CancelSubscriptionInput,
   Subscription,
+  SubscriptionCharge,
   SubscriptionStatus,
 } from '@strimz/shared-types'
 
@@ -33,6 +34,18 @@ export class SubscriptionsResource {
 
   retrieve(id: string, options?: CallOptions): Promise<Subscription> {
     return this.client.get<Subscription>(`/v1/subscriptions/${encodeURIComponent(id)}`, options)
+  }
+
+  /** Every charge attempt, newest first, including failed and skipped ones. */
+  charges(
+    id: string,
+    params: PaginationParams = {},
+    options?: CallOptions,
+  ): Promise<Page<SubscriptionCharge>> {
+    return this.client.get<Page<SubscriptionCharge>>(
+      `/v1/subscriptions/${encodeURIComponent(id)}/charges`,
+      { ...options, query: { limit: params.limit, cursor: params.cursor } },
+    )
   }
 
   cancel(input: CancelSubscriptionInput, options?: CallOptions): Promise<Subscription> {
