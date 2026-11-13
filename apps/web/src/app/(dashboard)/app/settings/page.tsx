@@ -277,8 +277,12 @@ function PayoutSection({ merchant }: { merchant: Merchant }) {
         </div>
         <div className="grid gap-1.5">
           <FieldLabel htmlFor="payout-currency" required>
-            Settlement currency
+            Default currency
           </FieldLabel>
+          <p className="text-muted-foreground text-xs">
+            Pre-selected when you create payment links, plans, invoices and products. Payments still
+            settle in the token the customer pays with.
+          </p>
           <Select
             value={draft.value('defaultCurrency') ?? merchant.defaultCurrency}
             onValueChange={(v) => draft.set('defaultCurrency', v as PaymentCurrency)}

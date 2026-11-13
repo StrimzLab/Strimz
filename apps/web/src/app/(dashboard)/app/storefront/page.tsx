@@ -53,6 +53,7 @@ import {
   useStorefrontProducts,
   useSubscriptionPlans,
   useUpsertStorefront,
+  useDefaultCurrency,
 } from '@/hooks/api'
 
 const STORE_URL = `${env.appUrl}/store`
@@ -476,8 +477,9 @@ function AddProductDialog() {
     if (next === 'one_time') setPlan(null)
   }
 
+  const defaultCurrency = useDefaultCurrency()
   const form = { name, description, imageUrl, price, type, stock, plan }
-  const built = buildProductInput(form)
+  const built = buildProductInput(form, defaultCurrency)
   const canSubmit = built.ok || built.reason === 'invalid_price'
 
   const onSubmit = () => {
@@ -540,7 +542,7 @@ function AddProductDialog() {
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <FieldLabel htmlFor="p-price" required>
-                Price ({plan ? plan.currency : 'USDC'})
+                Price ({plan ? plan.currency : defaultCurrency})
               </FieldLabel>
               <Input
                 id="p-price"

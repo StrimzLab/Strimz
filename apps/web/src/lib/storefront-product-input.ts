@@ -1,6 +1,7 @@
 import { parseUnits } from 'viem'
 import type {
   CreateStorefrontProductInput,
+  PaymentCurrency,
   StorefrontProductType,
   SubscriptionPlan,
 } from '@strimz/shared-types'
@@ -19,7 +20,10 @@ export type ProductFormResult =
   | { ok: true; input: CreateStorefrontProductInput }
   | { ok: false; reason: 'incomplete' | 'invalid_price' }
 
-export function buildProductInput(form: ProductFormState): ProductFormResult {
+export function buildProductInput(
+  form: ProductFormState,
+  currency: PaymentCurrency,
+): ProductFormResult {
   if (!form.name) return { ok: false, reason: 'incomplete' }
   if (form.type === 'subscription' && !form.plan) return { ok: false, reason: 'incomplete' }
 
@@ -42,7 +46,7 @@ export function buildProductInput(form: ProductFormState): ProductFormResult {
       description: form.description || null,
       ...(form.imageUrl ? { imageUrl: form.imageUrl } : {}),
       price,
-      currency: form.plan ? form.plan.currency : 'USDC',
+      currency: form.plan ? form.plan.currency : currency,
       type: form.type,
       interval: form.plan ? form.plan.interval : null,
       intervalCount: form.plan ? form.plan.intervalCount : null,
