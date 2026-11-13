@@ -1,5 +1,15 @@
 # @strimz/sdk
 
+## 0.15.1
+
+### Patch Changes
+
+- Updated dependencies [f6e511a]
+- Updated dependencies [f6e511a]
+  - @strimz/shared-types@0.17.0
+  - @strimz/shared-config@0.9.1
+  - @strimz/shared-crypto@0.3.1
+
 ## 0.15.0
 
 ### Minor Changes

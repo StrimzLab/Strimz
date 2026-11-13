@@ -1,5 +1,11 @@
 # @strimz/shared-config
 
+## 0.9.1
+
+### Patch Changes
+
+- f6e511a: Mark the Cross-Chain Payment Routing agent capability as unavailable (`AGENT_CAPABILITIES.routing.available` is now `false`). It arrives with the Whisk integration.
+
 ## 0.9.0
 
 ### Minor Changes
