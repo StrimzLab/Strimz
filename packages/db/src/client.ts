@@ -46,6 +46,12 @@ export function buildPrismaOptions(options: CreatePrismaClientOptions = {}): {
     )
   }
 
-  const adapter = new PrismaPg({ connectionString, ...options.poolOptions })
+  // Prisma stores UTC in timestamp-without-time-zone columns, so raw SQL
+  // comparing them with NOW() is only right in a UTC session.
+  const adapter = new PrismaPg({
+    connectionString,
+    options: '-c TimeZone=UTC',
+    ...options.poolOptions,
+  })
   return { adapter, log }
 }
