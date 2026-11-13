@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Copy, Download, ExternalLink, Loader2, MoreHorizontal, PenLine } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
@@ -76,6 +77,7 @@ export default function RefundsPage() {
 
 function Refunds() {
   const filters = useTableFilters(FILTERS)
+  const searchParams = useSearchParams()
   const { status, date } = filters.state
   const { range, error: dateError } = useDateRange(date)
   const listParams = React.useMemo(
@@ -300,6 +302,8 @@ function Refunds() {
           columns={columns}
           data={data?.rows ?? []}
           loading={isLoading}
+          getRowId={(row) => row.id}
+          highlightRowId={searchParams.get('highlight')}
           searchPlaceholder="Search by refund ID, original tx, wallet…"
           emptyTitle={
             filters.active ? 'No refunds match these filters' : EMPTY_STATES.refunds.title

@@ -52,7 +52,7 @@ export function firstRunSteps({ created, paid }: FirstRunProgress): FirstRunPath
       steps: [
         {
           title: 'Issue your first API key',
-          body: 'Test mode is free. Live mode unlocks after MFA and email verification.',
+          body: 'Keys match this deployment: test keys on Arc testnet, live keys on mainnet.',
           href: '/app/api-keys',
           done: false,
         },

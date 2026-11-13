@@ -6,7 +6,12 @@ describe('agent capability availability', () => {
     expect(AGENT_CAPABILITIES.commerce.available).toBe(false)
   })
 
-  it.each<AgentCapability>(['identity', 'recovery', 'routing', 'cashflow', 'pricing_intelligence'])(
+  // Cross-chain routing arrives with the Whisk integration (#406).
+  it('hides CCTP routing for launch', () => {
+    expect(AGENT_CAPABILITIES.routing.available).toBe(false)
+  })
+
+  it.each<AgentCapability>(['identity', 'recovery', 'cashflow', 'pricing_intelligence'])(
     'leaves %s as it is',
     (id) => {
       expect(AGENT_CAPABILITIES[id].available).toBe(true)

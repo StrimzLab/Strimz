@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Download, MoreHorizontal, ExternalLink, Copy, Ban } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -97,6 +98,7 @@ export default function PaymentSessionsPage() {
 
 function PaymentSessions() {
   const filters = useTableFilters(FILTERS)
+  const searchParams = useSearchParams()
   const { status, date } = filters.state
   const { range, error: dateError } = useDateRange(date)
 
@@ -317,6 +319,8 @@ function PaymentSessions() {
           columns={columns}
           data={data?.rows ?? []}
           loading={isLoading}
+          getRowId={(row) => row.id}
+          highlightRowId={searchParams.get('highlight')}
           searchPlaceholder="Search by ID, description, customer wallet…"
           emptyTitle={
             filters.active

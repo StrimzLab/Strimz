@@ -28,6 +28,16 @@ export function useNotifications(limit = 20) {
   })
 }
 
+// Kept outside notificationKeys.all: mark-read rewrites every query under that key as a list.
+export function useNotificationBroadcast(id: string) {
+  const api = useMerchantApi()
+  return useQuery({
+    queryKey: ['notification-broadcast', id] as const,
+    queryFn: ({ signal }) => api.notifications.broadcast(id, { signal }),
+    staleTime: 5 * 60_000,
+  })
+}
+
 /**
  * Marks all notifications read. The mutation optimistically flips
  * `unreadCount → 0` + every item's `read → true` so the badge and pip

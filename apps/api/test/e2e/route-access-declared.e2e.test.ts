@@ -89,6 +89,7 @@ describe('api key route access declarations', () => {
     expect(sessionOnly).toEqual([
       'MerchantsController.onboard',
       'MerchantsController.update',
+      'NotificationsController.broadcast',
       'NotificationsController.list',
       'NotificationsController.markAllRead',
     ])

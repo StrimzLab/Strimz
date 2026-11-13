@@ -20,6 +20,7 @@ import type {
   BroadcastAudience,
   BroadcastListResponse,
   HealthResponse,
+  AdminInviteResult,
   InviteAdminInput,
   PlatformOverview,
   SetAdminRoleInput,
@@ -133,7 +134,7 @@ export class AdminApiClient {
   setMerchantTier = (id: string, input: SetMerchantTierInput) =>
     this.bffPatch<AdminMerchantDetail>(`/api/admin/merchants/${encodeURIComponent(id)}/tier`, input)
 
-  inviteAdmin = (input: InviteAdminInput) => this.bff<AdminListItem>('/api/admin/admins', input)
+  inviteAdmin = (input: InviteAdminInput) => this.bff<AdminInviteResult>('/api/admin/admins', input)
   setAdminRole = (id: string, input: SetAdminRoleInput) =>
     this.bffPatch<AdminListItem>(`/api/admin/admins/${encodeURIComponent(id)}/role`, input)
   setAdminStatus = (id: string, input: SetAdminStatusInput) =>
@@ -141,7 +142,7 @@ export class AdminApiClient {
   removeAdmin = (id: string) =>
     this.bffDelete<AdminListItem>(`/api/admin/admins/${encodeURIComponent(id)}`)
   resendAdminInvite = (id: string) =>
-    this.bff<AdminListItem>(`/api/admin/admins/${encodeURIComponent(id)}/invite`, {})
+    this.bff<AdminInviteResult>(`/api/admin/admins/${encodeURIComponent(id)}/invite`, {})
   acceptAdminInvite = (token: string) =>
     this.bff<AdminProfile>('/api/admin/invites/accept', { token })
 

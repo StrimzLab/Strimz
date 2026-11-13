@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import type {
+  NotificationBroadcast,
   NotificationKind,
   NotificationListResponse,
   NotificationView,
 } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { sanitizeBroadcastHtml } from './broadcast-html.js'
 
 /** Snippet length for the broadcast preview in the tray. */
 const BROADCAST_SNIPPET_MAX = 140
@@ -136,9 +138,7 @@ export class NotificationsService {
       })
     }
     for (const b of broadcasts) {
-      // Bodies come in as HTML (the admin composer is a rich-text
-      // editor). The tray previews plain text so we strip tags for the
-      // snippet; the full HTML is still available on the detail page.
+      // The tray previews plain text; the detail page shows the sanitized HTML.
       const plain = stripHtml(b.body)
       items.push({
         id: `broadcast:${b.id}`,
@@ -164,6 +164,20 @@ export class NotificationsService {
       data: capped,
       unreadCount,
       lastReadAt: lastRead ? lastRead.toISOString() : null,
+    }
+  }
+
+  async broadcast(merchantId: string, id: string): Promise<NotificationBroadcast> {
+    const row = await this.prisma.db.adminBroadcast.findFirst({
+      where: { id, OR: [{ audience: 'all' }, { audience: 'merchant', merchantId }] },
+      select: { id: true, title: true, body: true, createdAt: true },
+    })
+    if (!row) throw new NotFoundException({ code: 'not_found', message: 'broadcast not found' })
+    return {
+      id: row.id,
+      title: row.title,
+      html: sanitizeBroadcastHtml(row.body),
+      createdAt: row.createdAt.toISOString(),
     }
   }
 

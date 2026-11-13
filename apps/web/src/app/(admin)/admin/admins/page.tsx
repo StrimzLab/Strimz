@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { MoreHorizontal, Plus } from 'lucide-react'
+import { Copy, MoreHorizontal, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Badge,
@@ -32,7 +32,7 @@ import {
 
 import { PageHeader } from '@/components/dashboard/page-header'
 import { relativeTime } from '@/lib/format'
-import type { AdminRole } from '@/lib/admin-api'
+import type { AdminInviteResult, AdminRole } from '@/lib/admin-api'
 import { removeAdminConfirm, suspendAdminConfirm } from '@/lib/destructive-actions'
 import {
   ConfirmActionDialog,
@@ -74,13 +74,17 @@ export default function AdminAdminsPage() {
   const statusMutation = useSetAdminStatus()
   const resendMutation = useResendAdminInvite()
   const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
+  const [inviteLink, setInviteLink] = React.useState<{ email: string; url: string } | null>(null)
+  const showInviteLink = (res: AdminInviteResult) => {
+    if (res.acceptUrl) setInviteLink({ email: res.email, url: res.acceptUrl })
+  }
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Admin users"
         description="Strimz operators with access to /admin. Roles gate what each one can do."
-        action={isSuper ? <InviteAdminDialog /> : null}
+        action={isSuper ? <InviteAdminDialog onInvited={showInviteLink} /> : null}
       />
 
       {!isSuper ? (
@@ -156,7 +160,9 @@ export default function AdminAdminsPage() {
                             <>
                               <DropdownMenuItem
                                 disabled={resendMutation.isPending}
-                                onClick={() => resendMutation.mutate(a.id)}
+                                onClick={() =>
+                                  resendMutation.mutate(a.id, { onSuccess: showInviteLink })
+                                }
                               >
                                 Resend invite
                               </DropdownMenuItem>
@@ -224,6 +230,7 @@ export default function AdminAdminsPage() {
       )}
 
       <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
+      <InviteLinkDialog link={inviteLink} onClose={() => setInviteLink(null)} />
     </div>
   )
 }
@@ -234,7 +241,7 @@ function inviteStateLabel(expiresAt: string | null): string {
   return `Invite pending, expires ${relativeTime(expiresAt)}`
 }
 
-function InviteAdminDialog() {
+function InviteAdminDialog({ onInvited }: { onInvited: (res: AdminInviteResult) => void }) {
   const [open, setOpen] = React.useState(false)
   const [email, setEmail] = React.useState('')
   const [name, setName] = React.useState('')
@@ -256,9 +263,10 @@ function InviteAdminDialog() {
     invite.mutate(
       { email, name: name || undefined, role },
       {
-        onSuccess: () => {
+        onSuccess: (res) => {
           setOpen(false)
           reset()
+          onInvited(res)
         },
       },
     )
@@ -334,6 +342,44 @@ function InviteAdminDialog() {
           </Button>
           <Button onClick={onSubmit} disabled={invite.isPending || !email}>
             {invite.isPending ? 'Inviting…' : 'Invite'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function InviteLinkDialog({
+  link,
+  onClose,
+}: {
+  link: { email: string; url: string } | null
+  onClose: () => void
+}) {
+  const copy = () => {
+    if (!link) return
+    navigator.clipboard.writeText(link.url).then(
+      () => toast.success('Invite link copied'),
+      () => toast.error("Couldn't copy. Select the link and copy it by hand."),
+    )
+  }
+  return (
+    <Dialog open={link !== null} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Invite link</DialogTitle>
+          <DialogDescription>
+            Send this to {link?.email}. It&apos;s shown here because this isn&apos;t a production
+            deployment; in production the link only goes by email.
+          </DialogDescription>
+        </DialogHeader>
+        <code className="bg-muted block break-all rounded-md p-3 text-xs">{link?.url}</code>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Done
+          </Button>
+          <Button onClick={copy}>
+            <Copy className="mr-1.5 size-4" /> Copy link
           </Button>
         </DialogFooter>
       </DialogContent>

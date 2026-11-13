@@ -41,6 +41,7 @@ import { PlanLockedNotice } from '@/components/dashboard/plan-locked-notice'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { TokenLogo } from '@/components/shared/token-logo'
 import { formatTokenAmount } from '@/lib/format'
+import { env } from '@/lib/env'
 import { buildProductInput } from '@/lib/storefront-product-input'
 import {
   useAddStorefrontProduct,
@@ -53,6 +54,9 @@ import {
   useSubscriptionPlans,
   useUpsertStorefront,
 } from '@/hooks/api'
+
+const STORE_URL = `${env.appUrl}/store`
+const STORE_PATH = STORE_URL.replace(/^https?:\/\//u, '')
 
 export default function StorefrontPage() {
   const storefrontQuery = useStorefront()
@@ -69,11 +73,7 @@ export default function StorefrontPage() {
         action={
           storefront ? (
             <Button variant="outline" asChild>
-              <a
-                href={`https://strimz.finance/store/${storefront.slug}`}
-                target="_blank"
-                rel="noreferrer"
-              >
+              <a href={`${STORE_URL}/${storefront.slug}`} target="_blank" rel="noreferrer">
                 <ExternalLink className="mr-1.5 size-4" /> View live
               </a>
             </Button>
@@ -156,7 +156,7 @@ function StorefrontDetails({ storefront }: { storefront: Storefront }) {
                 {storefront.description ?? 'No description set.'}
               </p>
               <code className="text-muted-foreground mt-2 inline-block text-xs">
-                strimz.finance/store/{storefront.slug}
+                {STORE_PATH}/{storefront.slug}
               </code>
             </div>
             <div className="flex items-center gap-2">
@@ -363,7 +363,7 @@ function UpsertStorefrontDialog({
           <DialogDescription>
             Your public URL will be{' '}
             <code className="bg-muted rounded px-1 py-0.5 text-xs">
-              strimz.finance/store/<strong>{slug || 'your-slug'}</strong>
+              {STORE_PATH}/<strong>{slug || 'your-slug'}</strong>
             </code>
             .
           </DialogDescription>

@@ -91,6 +91,22 @@ describe('admin invites: accepted with a one-time token', () => {
     expect(expiresAt).toBeLessThanOrEqual(Date.now() + SEVEN_DAYS_MS)
   })
 
+  it('returns the accept link outside production so invites work without email', async () => {
+    await createSuperAdmin()
+    const created = (await invite('owner@strimz.test', 'invitee@strimz.test')) as {
+      id: string
+      acceptUrl?: string
+    }
+    const first = lastInviteToken('invitee@strimz.test')
+    expect(created.acceptUrl).toMatch(new RegExp(`/admin/accept-invite\\?token=${first}$`))
+
+    const res = await resend('owner@strimz.test', created.id)
+    const renewed = JSON.parse(res.body) as { acceptUrl?: string }
+    const second = lastInviteToken('invitee@strimz.test')
+    expect(second).not.toBe(first)
+    expect(renewed.acceptUrl).toMatch(new RegExp(`/admin/accept-invite\\?token=${second}$`))
+  })
+
   it('binds the caller DID when the token is valid and the verified email matches', async () => {
     await createSuperAdmin()
     const created = await invite('owner@strimz.test', 'invitee@strimz.test')

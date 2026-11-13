@@ -9,6 +9,7 @@ import { Badge, Button, Card, CardContent } from '@strimz/ui'
 import { PageHeader } from '@/components/dashboard/page-header'
 import type { Mode } from '@strimz/shared-types'
 import { SegmentedToggle } from '@/components/shared/segmented-toggle'
+import { useDashboardMode } from '@/lib/dashboard-mode'
 import { relativeTime, shortAddress } from '@/lib/format'
 import { formatCurrencyAmounts } from '@/lib/currency-totals'
 import { MODE_OPTIONS } from '@/lib/admin-volume'
@@ -27,7 +28,7 @@ import {
 
 export default function AdminMerchantDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const [mode, setMode] = React.useState<Mode>('live')
+  const [mode, setMode] = React.useState<Mode>(useDashboardMode())
   const { data: merchant, isLoading, isError, error, refetch } = useAdminMerchantDetail(id, mode)
 
   const suspendMutation = useSuspendMerchant()

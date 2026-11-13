@@ -95,6 +95,7 @@ const sessionOnlyRoutes: RouteCase[] = [
   },
   { method: 'GET', url: '/v1/notifications' },
   { method: 'POST', url: '/v1/notifications/mark-all-read' },
+  { method: 'GET', url: '/v1/notifications/broadcasts/brd_missing' },
 ]
 
 const backfillSql = readFileSync(

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { ExternalLink, Save } from 'lucide-react'
+import { Save } from 'lucide-react'
 import {
   Button,
   Badge,
@@ -238,24 +238,15 @@ function BusinessSection({ merchant }: { merchant: Merchant }) {
 
       <SettingsCard
         title="Security"
-        description="Two-factor authentication is enforced by Privy. Strimz never sees or stores the secret."
+        description="You sign in through Privy, which also holds your embedded wallet's key. Strimz never sees that key."
       >
-        <div className="border-border/60 flex items-center justify-between rounded-md border p-3">
-          <div className="text-sm">
-            <div className="font-medium">2FA</div>
-            <div className="text-muted-foreground text-xs">
-              Managed by Privy. Required to issue or rotate live-mode keys.
-            </div>
+        <div className="border-border/60 rounded-md border p-3 text-sm">
+          <div className="font-medium">Sign-in</div>
+          <div className="text-muted-foreground text-xs">
+            Email, Google or wallet login, managed by Privy. Two-step verification isn&apos;t
+            available yet.
           </div>
-          <Badge variant="outline" className="border-accent/40 bg-accent/10 text-accent">
-            Managed by Privy
-          </Badge>
         </div>
-        <Button variant="outline" asChild>
-          <a href="https://privy.io" target="_blank" rel="noreferrer">
-            Manage 2FA in Privy <ExternalLink className="ml-1.5 size-3.5" />
-          </a>
-        </Button>
       </SettingsCard>
     </>
   )
