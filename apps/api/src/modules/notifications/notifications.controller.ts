@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common'
+import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import { SessionOnly } from '../../common/decorators/session-only.decorator.js'
@@ -23,6 +23,15 @@ export class NotificationsController {
   })
   list(@CurrentMerchant() ctx: CurrentMerchantPayload, @Query('limit') limit?: string) {
     return this.notifications.list(ctx.merchantId, limit ? Number(limit) : 20)
+  }
+
+  @SessionOnly()
+  @Get('/broadcasts/:id')
+  @ApiOperation({
+    summary: 'One admin broadcast sent to this merchant or to everyone, with sanitized HTML.',
+  })
+  broadcast(@CurrentMerchant() ctx: CurrentMerchantPayload, @Param('id') id: string) {
+    return this.notifications.broadcast(ctx.merchantId, id)
   }
 
   @SessionOnly()

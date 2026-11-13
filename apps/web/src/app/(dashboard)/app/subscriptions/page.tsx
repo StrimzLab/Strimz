@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Download, MoreHorizontal, Ban } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -89,6 +90,7 @@ export default function SubscriptionsPage() {
 
 function Subscriptions() {
   const filters = useTableFilters(FILTERS)
+  const searchParams = useSearchParams()
   const { status, date } = filters.state
   const { range, error: dateError } = useDateRange(date)
 
@@ -301,6 +303,8 @@ function Subscriptions() {
           columns={columns}
           data={data?.rows ?? []}
           loading={isLoading}
+          getRowId={(row) => row.id}
+          highlightRowId={searchParams.get('highlight')}
           searchPlaceholder="Search by subscriber wallet, plan…"
           emptyTitle={
             filters.active

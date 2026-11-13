@@ -17,6 +17,7 @@ import { Card, CardContent } from '@strimz/ui'
 import { PageHeader } from '@/components/dashboard/page-header'
 import type { Mode, PaymentCurrency } from '@strimz/shared-types'
 import { SegmentedToggle } from '@/components/shared/segmented-toggle'
+import { useDashboardMode } from '@/lib/dashboard-mode'
 import { formatTokenAmount } from '@/lib/format'
 import { formatCurrencyAmounts } from '@/lib/currency-totals'
 import { CURRENCY_OPTIONS, MODE_OPTIONS, pivotVolumeByCurrency } from '@/lib/admin-volume'
@@ -28,7 +29,7 @@ import {
 } from '@/hooks/admin'
 
 export default function AdminAnalyticsPage() {
-  const [mode, setMode] = React.useState<Mode>('live')
+  const [mode, setMode] = React.useState<Mode>(useDashboardMode())
   const [topCurrency, setTopCurrency] = React.useState<PaymentCurrency>('USDC')
   const overviewQuery = useAdminOverview(mode)
   const volumeQuery = useAdminVolume({ mode })

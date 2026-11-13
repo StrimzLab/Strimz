@@ -56,6 +56,9 @@ export interface DataTableProps<TData, TValue> {
    */
   loading?: boolean
   serverRows?: ServerRows
+  /** Row to jump to and outline, e.g. from a notification's `?highlight=`. Needs `getRowId`. */
+  highlightRowId?: string | null
+  getRowId?: (row: TData) => string
 }
 
 export function DataTable<TData, TValue>({
@@ -70,6 +73,8 @@ export function DataTable<TData, TValue>({
   pageSize = 10,
   loading = false,
   serverRows,
+  highlightRowId,
+  getRowId,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -90,7 +95,28 @@ export function DataTable<TData, TValue>({
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize } },
+    ...(getRowId ? { getRowId: (row: TData) => getRowId(row) } : {}),
   })
+
+  const [outlined, setOutlined] = React.useState<string | null>(null)
+  const handledHighlight = React.useRef<string | null>(null)
+  React.useEffect(() => {
+    if (!highlightRowId || handledHighlight.current === highlightRowId) return
+    const index = table.getPrePaginationRowModel().rows.findIndex((r) => r.id === highlightRowId)
+    if (index === -1) return
+    handledHighlight.current = highlightRowId
+    table.setPageIndex(Math.floor(index / table.getState().pagination.pageSize))
+    setOutlined(highlightRowId)
+    const timer = window.setTimeout(() => setOutlined(null), 4000)
+    return () => window.clearTimeout(timer)
+  }, [highlightRowId, table, data])
+
+  React.useEffect(() => {
+    if (!outlined) return
+    document
+      .querySelector(`[data-row-id="${CSS.escape(outlined)}"]`)
+      ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [outlined])
 
   return (
     <div className="space-y-3">
@@ -179,7 +205,14 @@ export function DataTable<TData, TValue>({
               ))
             ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className="hover:bg-muted/40 transition-colors">
+                <TableRow
+                  key={row.id}
+                  data-row-id={row.id}
+                  className={cn(
+                    'hover:bg-muted/40 transition-colors',
+                    outlined === row.id && 'bg-accent/10 ring-accent ring-2 ring-inset',
+                  )}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="py-3 text-sm">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

@@ -34,13 +34,8 @@ const STATUS_TONE: Record<TransactionStatus, StatusTone> = {
 }
 
 const STATUSES: readonly TransactionStatus[] = ['confirmed', 'pending', 'failed']
-const KINDS: readonly TransactionKind[] = [
-  'one_shot',
-  'subscription_charge',
-  'invoice_payment',
-  'storefront_purchase',
-  'refund',
-]
+// Invoice, storefront and refund rows aren't recorded as transactions yet.
+const KINDS: readonly TransactionKind[] = ['one_shot', 'subscription_charge']
 
 const STATUS_OPTIONS: readonly FilterOption<TransactionStatus>[] = STATUSES.map((value) => ({
   value,

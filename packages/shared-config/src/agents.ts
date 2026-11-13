@@ -44,7 +44,7 @@ export const AGENT_CAPABILITIES: Record<AgentCapability, AgentCapabilityDescript
     name: 'Cross-Chain Payment Routing',
     valueMoving: true,
     defaultEnabled: false,
-    available: true,
+    available: false,
   },
   cashflow: {
     id: 'cashflow',

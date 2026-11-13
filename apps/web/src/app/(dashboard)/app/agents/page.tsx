@@ -97,8 +97,12 @@ const CAPABILITIES: CapabilityMeta[] = [
     name: 'CCTP routing',
     desc: 'Cross-chain USDC settlement so customers can pay from any chain.',
     configurable: null,
-    gate: 'coming_soon',
-    gateHint: 'Coming with the Whisk cross-chain integration.',
+    ...(AGENT_CAPABILITIES.routing.available
+      ? {}
+      : {
+          gate: 'coming_soon' as const,
+          gateHint: 'Coming with the Whisk cross-chain integration.',
+        }),
   },
 ]
 

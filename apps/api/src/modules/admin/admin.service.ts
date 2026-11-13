@@ -34,6 +34,7 @@ import { PrivyService } from '../../infra/privy/privy.service.js'
 import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { toCurrencyAmounts } from '../../common/money/currency-amounts.js'
 import { hashAdminInviteToken, issueAdminInviteToken } from './admin-invite-token.js'
+import { inviteAcceptUrl, inviteAcceptUrlForResponse } from './admin-invite-url.js'
 import { anyOf } from '../../common/schemas/list-query.js'
 
 interface DateRange {
@@ -589,7 +590,7 @@ export class AdminService {
       )
     }
 
-    return admin
+    return { ...admin, acceptUrl: this.acceptUrlForResponse(invite.token) }
   }
 
   async resendInvite(adminId: string, actorId: string) {
@@ -662,7 +663,15 @@ export class AdminService {
       `admin invite re-sent: to=${admin.email} resendId=${result.id ?? 'stub'} queued=${result.queued}`,
     )
 
-    return admin
+    return { ...admin, acceptUrl: this.acceptUrlForResponse(invite.token) }
+  }
+
+  private acceptUrlForResponse(token: string): string | undefined {
+    return inviteAcceptUrlForResponse(
+      this.cfg.env.NODE_ENV,
+      this.cfg.env.STRIMZ_DASHBOARD_URL,
+      token,
+    )
   }
 
   async acceptInvite(input: { token: string; privyUserId: string }) {
@@ -752,7 +761,7 @@ export class AdminService {
     inviter: { name: string | null; email: string } | null,
     token: string,
   ) {
-    const acceptUrl = `${this.cfg.env.STRIMZ_DASHBOARD_URL.replace(/\/+$/, '')}/admin/accept-invite?token=${encodeURIComponent(token)}`
+    const acceptUrl = inviteAcceptUrl(this.cfg.env.STRIMZ_DASHBOARD_URL, token)
     const html = await renderToHtml(
       AdminInviteEmail({
         inviteeName: admin.name,

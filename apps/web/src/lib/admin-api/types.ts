@@ -30,6 +30,11 @@ export interface AdminListItem extends AdminProfile {
   inviteExpiresAt: string | null
 }
 
+export interface AdminInviteResult extends AdminProfile {
+  /** Only outside production, so invites can be accepted without email. */
+  acceptUrl?: string
+}
+
 export interface PlatformOverview {
   mode: Mode
   merchants: {

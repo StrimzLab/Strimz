@@ -1,4 +1,8 @@
-import type { MarkNotificationsReadResponse, NotificationListResponse } from '@strimz/shared-types'
+import type {
+  MarkNotificationsReadResponse,
+  NotificationBroadcast,
+  NotificationListResponse,
+} from '@strimz/shared-types'
 
 import type { MerchantApiClient } from '../client'
 import type { CallOptions } from '../types'
@@ -18,6 +22,14 @@ export class NotificationsResource {
       ...options,
       query: { limit },
     })
+  }
+
+  /** GET /v1/notifications/broadcasts/:id */
+  broadcast(id: string, options?: CallOptions): Promise<NotificationBroadcast> {
+    return this.client.get<NotificationBroadcast>(
+      `/v1/notifications/broadcasts/${encodeURIComponent(id)}`,
+      options,
+    )
   }
 
   /** POST /v1/notifications/mark-all-read */

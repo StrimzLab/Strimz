@@ -59,6 +59,15 @@ export const broadcastListResponseSchema = z.object({
 })
 export type BroadcastListResponse = z.infer<typeof broadcastListResponseSchema>
 
+/** One broadcast as a merchant reads it. `html` is already sanitized by the API. */
+export const notificationBroadcastSchema = z.object({
+  id: idSchema,
+  title: z.string(),
+  html: z.string(),
+  createdAt: isoTimestampSchema,
+})
+export type NotificationBroadcast = z.infer<typeof notificationBroadcastSchema>
+
 export const notificationSchema = z.object({
   /** Deterministic client id — `{kind}:{sourceId}`. Safe for React keys. */
   id: z.string().min(1),
