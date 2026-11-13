@@ -169,9 +169,8 @@ export class RefundsService {
   }
 
   /**
-   * Merchant has signed and broadcast the on-chain refund tx; record the
-   * tx hash and transition the refund. Final `completed` status is written
-   * by the indexer when the on-chain ERC20 Transfer is observed.
+   * Records the broadcast refund tx. The indexer or the scheduler's
+   * refund-reconciler later completes or fails it from the receipt.
    */
   async submitSignature(
     merchantId: string,

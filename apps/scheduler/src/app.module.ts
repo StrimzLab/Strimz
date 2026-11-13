@@ -20,6 +20,7 @@ import { GasBalanceMonitorModule } from './crons/gas-balance-monitor/gas-balance
 import { MerchantNotificationsModule } from './crons/merchant-notifications/merchant-notifications.module.js'
 import { PayerNotificationsModule } from './crons/payer-notifications/payer-notifications.module.js'
 import { SessionExpiryModule } from './crons/session-expiry/session-expiry.module.js'
+import { RefundReconcilerModule } from './crons/refund-reconciler/refund-reconciler.module.js'
 import { WebhookRecoveryModule } from './crons/webhook-recovery/webhook-recovery.module.js'
 import { WebhookOutboxModule } from './infra/webhook-outbox/webhook-outbox.module.js'
 import { HealthModule } from './common/health/health.module.js'
@@ -53,6 +54,7 @@ import { AdminModule } from './common/admin/admin.module.js'
     PayerNotificationsModule,
     SessionExpiryModule,
     WebhookRecoveryModule,
+    RefundReconcilerModule,
     WebhookOutboxModule,
 
     // Public surface
