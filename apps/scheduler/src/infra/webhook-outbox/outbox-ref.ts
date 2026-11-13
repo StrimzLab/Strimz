@@ -33,6 +33,7 @@ export const outboxRefSchema = z.discriminatedUnion('kind', [
     attemptNumber: z.number().int().min(1),
   }),
   z.object({ kind: z.literal('refund.completed'), refundId: z.string() }),
+  z.object({ kind: z.literal('refund.failed'), refundId: z.string() }),
 ])
 
 export type OutboxRef = z.infer<typeof outboxRefSchema>

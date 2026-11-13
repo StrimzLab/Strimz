@@ -28,6 +28,7 @@ export const webhookEventNameSchema = z.enum([
   'subscription.reactivated',
   'refund.created',
   'refund.completed',
+  'refund.failed',
   'invoice.created',
   'invoice.paid',
   'invoice.overdue',

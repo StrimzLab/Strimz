@@ -63,9 +63,12 @@ You can submit a signature only while the refund is `awaiting_signature`. Any ot
 
 ## Webhook events
 
-| Event              | Fires when                                  |
-| ------------------ | ------------------------------------------- |
-| `refund.created`   | The refund row was created                  |
-| `refund.completed` | The indexer confirmed the on-chain Transfer |
+| Event              | Fires when                                                                          |
+| ------------------ | ----------------------------------------------------------------------------------- |
+| `refund.created`   | The refund row was created                                                          |
+| `refund.completed` | The transfer confirmed on-chain with the right token, recipient and amount          |
+| `refund.failed`    | The transfer reverted, paid the wrong token, recipient or amount, or can never land |
 
-There is no failure event. A refund whose transfer is never sent or reverts stays in `awaiting_signature` or `submitted`.
+`refund.failed` carries the refund, and its `failureReason` says which. A failed refund no longer counts toward the refundable total, so you can refund the payer again.
+
+A transfer counts as never landing once your wallet has used its nonce for another transaction. If no node ever saw the transfer, Strimz can't prove that, and the refund stays `submitted` rather than risk refunding the payer twice.

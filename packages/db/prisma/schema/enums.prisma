@@ -207,6 +207,7 @@ enum WebhookEventName {
   subscription_reactivated
   refund_created
   refund_completed
+  refund_failed
   invoice_created
   invoice_paid
   invoice_overdue

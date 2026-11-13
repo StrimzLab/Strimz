@@ -32,6 +32,7 @@ export {
   type SubscriptionLapsedEvent,
   type RefundCreatedEvent,
   type RefundCompletedEvent,
+  type RefundFailedEvent,
   type InvoiceCreatedEvent,
   type InvoicePaidEvent,
   type InvoiceOverdueEvent,
