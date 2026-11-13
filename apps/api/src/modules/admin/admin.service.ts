@@ -7,7 +7,13 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common'
-import type { AdminRole, AdminUserStatus, MerchantStatus, MerchantTier } from '@strimz/db'
+import type {
+  AdminRole,
+  AdminUserStatus,
+  AuditActionCategory,
+  MerchantStatus,
+  MerchantTier,
+} from '@strimz/db'
 import {
   AdminBroadcastEmail,
   AdminInviteEmail,
@@ -35,6 +41,7 @@ import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { toCurrencyAmounts } from '../../common/money/currency-amounts.js'
 import { hashAdminInviteToken, issueAdminInviteToken } from './admin-invite-token.js'
 import { inviteAcceptUrl, inviteAcceptUrlForResponse } from './admin-invite-url.js'
+import { sanitizeBroadcastHtml } from '../notifications/broadcast-html.js'
 import { anyOf } from '../../common/schemas/list-query.js'
 
 interface DateRange {
@@ -1033,7 +1040,7 @@ export class AdminService {
             AdminBroadcastEmail({
               recipientName: r.businessName,
               title: input.title,
-              body: input.body,
+              body: sanitizeBroadcastHtml(input.body),
               senderDisplay,
               senderEmail: sender.email,
               dashboardUrl,
@@ -1085,6 +1092,58 @@ export class AdminService {
    * dashboard's "Broadcasts" table so operators can see what they've
    * sent, when, and to whom.
    */
+  async listAuditLog(params: {
+    limit?: number
+    cursor?: string | null
+    category?: AuditActionCategory[]
+    action?: string
+    targetType?: string
+    targetId?: string
+    merchantId?: string
+    onchain?: boolean
+    createdAt?: { gte?: Date; lt?: Date }
+  }) {
+    const limit = Math.min(params.limit ?? 50, 100)
+    const rows = await this.prisma.db.auditLog.findMany({
+      where: {
+        category: params.category ? { in: params.category } : undefined,
+        action: params.action,
+        targetType: params.targetType,
+        targetId: params.targetId,
+        merchantId: params.merchantId,
+        createdAt: params.createdAt,
+        // The indexer writes on-chain rows with ids `onchain:<chainId>:<tx>:<logIndex>`.
+        ...(params.onchain === undefined
+          ? {}
+          : params.onchain
+            ? { id: { startsWith: 'onchain:' } }
+            : { NOT: { id: { startsWith: 'onchain:' } } }),
+      },
+      include: { contractAlert: { select: { alertedAt: true } } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
+    })
+    const hasMore = rows.length > limit
+    const data = rows.slice(0, limit).map((r) => ({
+      id: r.id,
+      category: r.category,
+      action: r.action,
+      targetType: r.targetType,
+      targetId: r.targetId,
+      merchantId: r.merchantId,
+      actorEmail: r.actorEmail,
+      ipAddress: r.ipAddress,
+      metadata: r.metadata,
+      createdAt: r.createdAt.toISOString(),
+      onchain: r.id.startsWith('onchain:'),
+      alert: r.contractAlert
+        ? { alertedAt: r.contractAlert.alertedAt?.toISOString() ?? null }
+        : null,
+    }))
+    return { data, nextCursor: hasMore ? (data[data.length - 1]?.id ?? null) : null, hasMore }
+  }
+
   async listBroadcasts(params: { audience?: BroadcastAudience; limit?: number }) {
     // 100 max, matching every other list endpoint. Callers that need
     // deep history should paginate.

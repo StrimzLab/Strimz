@@ -9,7 +9,7 @@ interface AdminBroadcastEmailProps {
   recipientName: string | null
   /** Broadcast subject; used as the email subject too. */
   title: string
-  /** Broadcast body. Rendered verbatim; whitespace preserved. */
+  /** Broadcast body as HTML, already sanitized by the caller. */
   body: string
   /** Human display for the sender (name, else email). */
   senderDisplay: string
@@ -21,17 +21,7 @@ interface AdminBroadcastEmailProps {
   audience: 'all' | 'merchant'
 }
 
-/**
- * Email delivery for an admin-triggered broadcast. Sent to every
- * affected merchant when `AdminService.createBroadcast` fans out.
- *
- * The broadcast content is treated as short-form transactional copy:
- * a paragraph of context plus a CTA that deep-links back to the
- * dashboard notification tray. We deliberately do NOT render an HTML
- * body from a rich source — brands who want rich formatting should
- * build a follow-up template. This is the "hey, something we need to
- * tell you" pattern.
- */
+/** Sent to every affected merchant when `AdminService.createBroadcast` fans out. */
 export function AdminBroadcastEmail({
   recipientName,
   title,
@@ -41,7 +31,11 @@ export function AdminBroadcastEmail({
   dashboardUrl,
   audience,
 }: AdminBroadcastEmailProps) {
-  const preview = body.length > 90 ? `${body.slice(0, 87)}...` : body
+  const text = body
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const preview = text.length > 90 ? `${text.slice(0, 87)}...` : text
   const greeting = recipientName ? `Hi ${recipientName},` : 'Hi there,'
 
   return (
@@ -55,14 +49,9 @@ export function AdminBroadcastEmail({
         </Text>
       </Section>
 
-      {/* The admin composer produces sanitised TipTap HTML (paragraphs,
-         bold, italic, lists, links). Emailing it verbatim preserves the
-         formatting operators wrote; React Email + Tailwind-safe inline
-         styles don't cover this so we drop into a hand-styled block. */}
-      <Section
-        style={panelStyle}
-        dangerouslySetInnerHTML={{ __html: sanitiseBroadcastHtml(body) }}
-      />
+      <Section style={panelStyle}>
+        <div dangerouslySetInnerHTML={{ __html: body }} />
+      </Section>
 
       <Section style={{ marginTop: 20, textAlign: 'center' }}>
         <Button href={dashboardUrl} style={buttonStyle}>
@@ -115,27 +104,4 @@ const muted: React.CSSProperties = {
   fontSize: 12,
   lineHeight: 1.55,
   color: colors.muted,
-}
-
-/**
- * Cheap allow-list sanitiser for the broadcast HTML we receive from
- * the admin composer. The composer only emits a fixed set of tags
- * (paragraphs, bold, italic, ordered / unordered lists, headings, and
- * links). This is a belt-and-braces strip of anything else that might
- * slip through — script tags, iframe, style, on* handlers — so the
- * email never renders anything unexpected. We DON'T aim for OWASP-
- * grade sanitisation because the input is admin-authored, not user-
- * authored; this is defensive rather than security-critical.
- */
-function sanitiseBroadcastHtml(html: string): string {
-  // Strip any script / iframe / style / object / embed blocks and any
-  // inline `on*` event-handler attributes. Uses per-tag alternates so
-  // we avoid backreferences (tsup's dts pass doesn't like them).
-  const dangerousTagRe =
-    /<\s*(script|iframe|style|object|embed)\b[^>]*>[\s\S]*?<\s*\/\s*(?:script|iframe|style|object|embed)\s*>/gi
-  return html
-    .replace(dangerousTagRe, '')
-    .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '')
-    .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '')
-    .replace(/javascript:/gi, '')
 }
