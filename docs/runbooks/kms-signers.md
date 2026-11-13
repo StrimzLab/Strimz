@@ -8,6 +8,12 @@ never leave KMS. The server holds an access key for an IAM user that can only as
 two keys to sign, and only from the Lightsail static IP. With `NODE_ENV=production`
 neither service starts with a plaintext key.
 
+> **Testnet without AWS.** Since the AWS account was suspended, the testnet server
+> signs with plain keys instead (`KMS_PROVIDER=software`, `SCHEDULER_SIGNER_PROVIDER=software`,
+> see `infra/lightsail/env.example` and ADR-2026-11-13-testnet-software-signer). This is
+> refused on mainnet. Choosing a mainnet signer is #455. The rest of this runbook
+> applies when AWS KMS is in use.
+
 | Service   | Key alias                          | Contract role                                                     |
 | --------- | ---------------------------------- | ----------------------------------------------------------------- |
 | API       | `alias/strimz-<network>-relayer`   | `MERCHANT_REGISTRAR_ROLE`                                         |
