@@ -1,5 +1,18 @@
 # @strimz/sdk
 
+## 0.16.0
+
+### Minor Changes
+
+- 6d9edfb: Add `subscriptions.charges(id, { limit, cursor })`, which lists every charge attempt for a subscription (successful, failed and skipped), and export the `RefundFailedEvent` webhook type.
+
+### Patch Changes
+
+- Updated dependencies [6d9edfb]
+  - @strimz/shared-types@0.18.0
+  - @strimz/shared-config@0.10.0
+  - @strimz/shared-crypto@0.3.2
+
 ## 0.15.1
 
 ### Patch Changes
