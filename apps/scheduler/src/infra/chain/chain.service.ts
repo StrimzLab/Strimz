@@ -6,6 +6,7 @@ import {
   erc20Abi,
   http,
   parseEventLogs,
+  TransactionNotFoundError,
   TransactionReceiptNotFoundError,
   type Address,
   type Chain,
@@ -26,6 +27,11 @@ import {
   TokenWhitelistAbi,
 } from './abis.js'
 import { SCHEDULER_SIGNER } from './scheduler-signer.js'
+
+export interface SentTransaction {
+  from: Address
+  nonce: number
+}
 
 export interface TransferReceipt {
   status: 'success' | 'reverted'
@@ -187,6 +193,21 @@ export class ChainService implements OnModuleInit {
 
   latestBlockTimestamp(): Promise<bigint> {
     return this.publicClient.getBlock({ blockTag: 'latest' }).then((block) => block.timestamp)
+  }
+
+  /** Null when no node we ask knows the transaction. */
+  async readSentTransaction(hash: Hash): Promise<SentTransaction | null> {
+    try {
+      const tx = await this.publicClient.getTransaction({ hash })
+      return { from: tx.from, nonce: tx.nonce }
+    } catch (err) {
+      if (err instanceof TransactionNotFoundError) return null
+      throw err
+    }
+  }
+
+  confirmedNonce(address: Address): Promise<number> {
+    return this.publicClient.getTransactionCount({ address, blockTag: 'latest' })
   }
 
   /** Null while the tx has no receipt. */

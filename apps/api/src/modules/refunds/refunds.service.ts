@@ -13,10 +13,12 @@ import type {
   SubmitRefundSignatureParsed,
 } from '@strimz/shared-types'
 import { TypedConfigService } from '../../config/index.js'
+import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
 import type { RefundStatus } from '@strimz/db'
 import { anyOf } from '../../common/schemas/list-query.js'
+import { TransactionNotFoundError, type Hash } from 'viem'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -28,6 +30,7 @@ export class RefundsService {
     private readonly prisma: PrismaService,
     private readonly events: WebhookEventService,
     private readonly cfg: TypedConfigService,
+    private readonly chain: ChainService,
   ) {}
 
   private tokenAddressFor(currency: string): string {
@@ -192,7 +195,27 @@ export class RefundsService {
       where: { id: refund.id },
       data: { status: 'submitted', refundTxHash: input.refundTxHash },
     })
-    return serialise(updated)
+    const refundTx = await this.sentTransaction(input.refundTxHash as Hash)
+    if (!refundTx) return serialise(updated)
+    const withTx = await this.prisma.db.refund.update({
+      where: { id: refund.id },
+      data: { metadata: { ...(updated.metadata as object), refundTx } },
+    })
+    return serialise(withTx)
+  }
+
+  // The reconciler needs the sender and nonce to tell a dropped transaction
+  // from a slow one. It looks them up itself if this misses.
+  private async sentTransaction(hash: Hash): Promise<{ from: string; nonce: number } | null> {
+    try {
+      const tx = await this.chain.client.getTransaction({ hash })
+      return { from: tx.from.toLowerCase(), nonce: tx.nonce }
+    } catch (err) {
+      if (!(err instanceof TransactionNotFoundError)) {
+        this.log.warn(`refund tx lookup for ${hash} failed: ${(err as Error).message}`)
+      }
+      return null
+    }
   }
 }
 
