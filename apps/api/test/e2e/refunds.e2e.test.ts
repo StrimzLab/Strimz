@@ -53,6 +53,79 @@ describe('refunds e2e', () => {
     expect(JSON.parse(res.body).error.code).toBe('session_invalid_state')
   })
 
+  it('enforces the cumulative cap when refunds arrive at the same time', async () => {
+    const m = await seedMerchant(t.prisma.db)
+    const tx = await seedTransaction(t.prisma.db, m.id, { amount: '100000000' })
+    const k = await seedApiKey(t.prisma.db, m.id)
+
+    const responses = await Promise.all(
+      Array.from({ length: 10 }, () =>
+        t.inject({
+          method: 'POST',
+          url: '/v1/refunds',
+          headers: { authorization: `Bearer ${k.secretKey}` },
+          payload: { transactionId: tx.id, amount: '60000000', reason: 'customer_request' },
+        }),
+      ),
+    )
+    expect(responses.filter((r) => r.statusCode === 201)).toHaveLength(1)
+    expect(responses.filter((r) => r.statusCode === 400)).toHaveLength(9)
+    const reserved = await t.prisma.db.refund.findMany({ where: { transactionId: tx.id } })
+    expect(reserved.reduce((a, r) => a + BigInt(r.amount), 0n)).toBe(60000000n)
+  })
+
+  it('refunds of different transactions do not wait for each other', async () => {
+    const m = await seedMerchant(t.prisma.db)
+    const a = await seedTransaction(t.prisma.db, m.id, { amount: '100000000' })
+    const b = await seedTransaction(t.prisma.db, m.id, { amount: '100000000' })
+    const k = await seedApiKey(t.prisma.db, m.id)
+
+    const responses = await Promise.all(
+      [a, b].map((tx) =>
+        t.inject({
+          method: 'POST',
+          url: '/v1/refunds',
+          headers: { authorization: `Bearer ${k.secretKey}` },
+          payload: { transactionId: tx.id, amount: '60000000', reason: 'customer_request' },
+        }),
+      ),
+    )
+    expect(responses.map((r) => r.statusCode)).toEqual([201, 201])
+  })
+
+  it('answers refund_in_progress when another refund holds the transaction too long', async () => {
+    const m = await seedMerchant(t.prisma.db)
+    const tx = await seedTransaction(t.prisma.db, m.id, { amount: '100000000' })
+    const k = await seedApiKey(t.prisma.db, m.id)
+
+    let release!: () => void
+    const held = new Promise<void>((resolve) => (release = resolve))
+    let locked!: () => void
+    const isLocked = new Promise<void>((resolve) => (locked = resolve))
+    const holder = t.prisma.db.$transaction(
+      async (db) => {
+        await db.$queryRaw`SELECT id FROM "Transaction" WHERE id = ${tx.id} FOR UPDATE`
+        locked()
+        await held
+      },
+      { timeout: 15_000 },
+    )
+    await isLocked
+
+    const res = await t.inject({
+      method: 'POST',
+      url: '/v1/refunds',
+      headers: { authorization: `Bearer ${k.secretKey}` },
+      payload: { transactionId: tx.id, amount: '60000000', reason: 'customer_request' },
+    })
+    release()
+    await holder
+
+    expect(res.statusCode).toBe(409)
+    expect(JSON.parse(res.body).error.code).toBe('refund_in_progress')
+    expect(await t.prisma.db.refund.count({ where: { transactionId: tx.id } })).toBe(0)
+  }, 15_000)
+
   it('enforces cumulative refund cap', async () => {
     const m = await seedMerchant(t.prisma.db)
     const tx = await seedTransaction(t.prisma.db, m.id, { amount: '100000000' })

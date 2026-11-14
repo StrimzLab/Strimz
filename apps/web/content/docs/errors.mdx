@@ -73,6 +73,7 @@ The common codes. The tables below cover the ones you're most likely to see; a f
 | `capability_unavailable`  | 403  | The agent capability isn't available yet, such as agent escrow                                      |
 | `capability_disabled`     | 403  | The agent capability is turned off in your agent config                                             |
 | `merchant_not_registered` | 409  | The merchant isn't registered on-chain yet                                                          |
+| `refund_in_progress`      | 409  | Another refund of the same transaction is being created; retry in a few seconds                     |
 
 ## Examples
 
@@ -246,6 +247,7 @@ Wait 30 seconds, then retry. The `@strimz/sdk` retries a `429` that carries `Ret
 
 - **5xx errors.** Yes, with exponential backoff. The SDK handles this.
 - **`rate_limited`.** Yes, after `Retry-After`. The SDK handles this.
+- **`refund_in_progress`.** Yes, after a few seconds. The retry is checked against the refunds that were created meanwhile.
 - **`authentication_error`.** No. Your key needs to be fixed.
 - **`permission_denied`.** No. Your scope needs to change, or the route needs a dashboard session.
 - **`live_mode_ineligible`.** No. Complete the steps in `details.reasons` first.

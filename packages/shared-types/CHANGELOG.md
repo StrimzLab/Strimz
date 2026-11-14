@@ -1,5 +1,11 @@
 # @strimz/shared-types
 
+## 0.19.0
+
+### Minor Changes
+
+- 663e0d9: Add the `allowance_low` notification kind: a subscriber's token approval covers fewer than two more charges and they have been asked to renew.
+
 ## 0.18.0
 
 ### Minor Changes
