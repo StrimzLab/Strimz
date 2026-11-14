@@ -4,8 +4,14 @@ import { useId, useRef, useState } from 'react'
 import { cn } from '@strimz/ui'
 import { PLANS } from '@strimz/shared-config'
 import { firstYearFees, planAfterYear } from '@/lib/fee-estimate'
-import { Odometer } from '../motion/odometer'
-import { EASE_OUT, MOTION_OK, PLAY_ONCE, gsap, useGSAP } from '../motion/gsap'
+import { Odometer } from '@strimz/web-shared/components/marketing/motion/odometer'
+import {
+  EASE_OUT,
+  MOTION_OK,
+  PLAY_ONCE,
+  gsap,
+  useGSAP,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 
 const VOLUMES = [500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000]
 

@@ -5,7 +5,14 @@ import { useRef } from 'react'
 import strimzVector from '@/../public/logoIcons/StrimzVector.svg'
 import { GooeyTextReveal } from '../fx/gooey-reveal'
 import { PopLink } from '../fx/pop-button'
-import { EASE_OUT, MOTION_OK, gsap, useGSAP, PLAY_ONCE } from '../motion/gsap'
+import { siteUrls } from '@strimz/web-shared/lib/site-urls'
+import {
+  EASE_OUT,
+  MOTION_OK,
+  gsap,
+  useGSAP,
+  PLAY_ONCE,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 
 // The two routes of the original ctaPattern.svg, traced to centre-lines; the right half mirrors them.
 const ROUTES = [
@@ -13,7 +20,7 @@ const ROUTES = [
   'M -27 93 L 150 93 L 211 149 L 399 149 L 485 61 L 651 60 L 676 76 L 725 76',
 ]
 
-export function Closing({ startHref = '/signup' }: { startHref?: string }) {
+export function Closing({ startHref = `${siteUrls.dashboard}/signup` }: { startHref?: string }) {
   const scope = useRef<HTMLElement>(null)
 
   useGSAP(

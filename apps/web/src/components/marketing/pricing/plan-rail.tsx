@@ -6,7 +6,13 @@ import graphIcon from '@iconify-icons/solar/graph-up-linear'
 import transferIcon from '@iconify-icons/solar/transfer-horizontal-linear'
 import { PLANS } from '@strimz/shared-config'
 import { MkIcon } from '../icon'
-import { EASE_OUT, MOTION_OK, PLAY_ONCE, gsap, useGSAP } from '../motion/gsap'
+import {
+  EASE_OUT,
+  MOTION_OK,
+  PLAY_ONCE,
+  gsap,
+  useGSAP,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 
 const STOPS = (['free', 'starter', 'growth'] as const).map((id) => {
   const plan = PLANS[id]

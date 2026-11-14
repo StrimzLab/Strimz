@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import Lenis from 'lenis'
-import { gsap, ScrollTrigger } from './gsap'
+import { gsap, ScrollTrigger } from '@strimz/web-shared/components/marketing/motion/gsap'
 import { startSmoothScroll } from './scroll-engine'
 
 export function SmoothScroll() {

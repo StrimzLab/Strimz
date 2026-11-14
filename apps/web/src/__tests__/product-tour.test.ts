@@ -16,7 +16,7 @@ const DASHBOARD = [
   'src/app/(dashboard)/app/plans/page.tsx',
   'src/app/(dashboard)/app/plans/[id]/page.tsx',
 ]
-  .map(read)
+  .map((path) => readFileSync(join(WEB_ROOT, '../dashboard', path), 'utf8'))
   .join('\n')
 
 describe('homepage product tour (#276)', () => {

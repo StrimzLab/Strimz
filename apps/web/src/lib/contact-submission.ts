@@ -1,5 +1,5 @@
 import type { ContactRequestInput } from '@strimz/shared-types'
-import { env } from './env'
+import { env } from '@strimz/web-shared/lib/env'
 
 const CONTACT_REFUSALS: Record<string, string> = {
   bot_check_failed: 'We could not confirm you are a person. Complete the check again, then send.',

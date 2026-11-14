@@ -1,0 +1,50 @@
+import { describe, expect, it } from 'vitest'
+import { readWeb } from './web-source'
+
+function read(path: string): string {
+  return readWeb(path)
+}
+
+describe('marketing contact form', () => {
+  const form = read('src/components/marketing/contact-form.tsx')
+
+  it('renders the Turnstile widget for the contact action', () => {
+    expect(form).toMatch(/<TurnstileWidget\b[^>]*\baction="contact"/u)
+  })
+
+  it('submits through the client that sends the Turnstile token', () => {
+    expect(form).toMatch(/submitContact\(/u)
+    expect(form).not.toMatch(/fetch\(/u)
+  })
+
+  it('shows a refused submission inline', () => {
+    expect(form).toMatch(/role="alert"/u)
+  })
+
+  it.each(['name', 'email', 'message'])('labels the %s field as required', (id) => {
+    expect(form).toMatch(new RegExp(`<Field\\s+id="${id}"\\s+required\\s`, 'u'))
+  })
+
+  it('labels the company field as optional', () => {
+    expect(form).toMatch(/<Field\s+id="company"\s+required=\{false\}/u)
+  })
+
+  it('labels every field with the shared required / optional label', () => {
+    expect(form).toMatch(/<FieldLabel htmlFor=\{id\}[^>]*required=\{required\}/u)
+    expect(form).not.toMatch(/<Label\b/u)
+  })
+
+  it('validates with the form schema and its plain-language messages', () => {
+    expect(form).toMatch(/zodResolver\(contactFormSchema, \{ errorMap: contactErrorMap \}\)/u)
+  })
+
+  it.each(['name', 'email', 'company', 'message'])('ties the %s error to its field', (id) => {
+    expect(form).toMatch(new RegExp(`\\{\\.\\.\\.errorProps\\('${id}', errors\\.${id}\\)\\}`, 'u'))
+  })
+
+  it('gives each error an id the field points at', () => {
+    expect(form).toMatch(/<p id=\{`\$\{id\}-error`\}/u)
+    expect(form).toMatch(/'aria-describedby': error \? `\$\{id\}-error` : undefined/u)
+    expect(form).toMatch(/'aria-invalid': error \? true : undefined/u)
+  })
+})

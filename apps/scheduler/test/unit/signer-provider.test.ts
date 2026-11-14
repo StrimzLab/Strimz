@@ -19,6 +19,7 @@ function env(overrides: Record<string, string | undefined>): Record<string, stri
     WEBHOOK_SECRET_ENCRYPTION_KEY: 'ab'.repeat(32),
     RELAYER_ADDRESS: RELAYER,
     STRIMZ_ADMIN_ALERT_EMAIL: 'ops@strimz.test',
+    CHECKOUT_ORIGIN: 'http://localhost:3002',
     ...overrides,
   }
 }

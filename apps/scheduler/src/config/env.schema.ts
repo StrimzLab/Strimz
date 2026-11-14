@@ -103,6 +103,8 @@ export const envSchema = z.object({
    * recipient for non-merchant alerts.
    */
   STRIMZ_ADMIN_ALERT_EMAIL: z.string().email(),
+  /** Hosted checkout origin. Payer links (allowance renewal) point here. */
+  CHECKOUT_ORIGIN: z.string().url(),
 
   RESEND_API_KEY: z.string().optional(),
   /**

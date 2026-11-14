@@ -1,0 +1,48 @@
+{
+  "name": "@strimz/web-shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Code shared by the Strimz web apps. Source only; apps map @strimz/web-shared/* to src/* in tsconfig paths.",
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@gsap/react": "2.1.2",
+    "@privy-io/react-auth": "^1.97.0",
+    "@strimz/shared-config": "workspace:*",
+    "@strimz/shared-types": "workspace:*",
+    "@strimz/ui": "workspace:*",
+    "@tailwindcss/typography": "0.5.20",
+    "@tanstack/react-query": "^5.62.16",
+    "@tanstack/react-table": "^8.21.3",
+    "date-fns": "^4.1.0",
+    "gsap": "3.15.0",
+    "lucide-react": "^0.469.0",
+    "next": "^15.5.29",
+    "react": "^19.2.5",
+    "react-blockies": "^1.4.1",
+    "react-dom": "^19.2.5",
+    "sonner": "^1.7.1",
+    "tailwindcss": "^4.0.0",
+    "viem": "^2.45.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@strimz/eslint-config": "workspace:*",
+    "@strimz/sdk": "workspace:*",
+    "@strimz/sdk-react": "workspace:*",
+    "@strimz/shared-crypto": "workspace:*",
+    "@strimz/tsconfig": "workspace:*",
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.0",
+    "@types/react-blockies": "^1.4.4",
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^9.18.0",
+    "postcss": "^8.4.49",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

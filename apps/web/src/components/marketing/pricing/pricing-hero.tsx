@@ -2,7 +2,12 @@
 
 import { useRef } from 'react'
 import { PLANS } from '@strimz/shared-config'
-import { EASE_OUT, MOTION_OK, gsap, useGSAP } from '../motion/gsap'
+import {
+  EASE_OUT,
+  MOTION_OK,
+  gsap,
+  useGSAP,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 import { markMotionReady } from '../motion/gate'
 
 const usd = (n: number | null) => `$${(n ?? 0).toLocaleString('en-US')}`

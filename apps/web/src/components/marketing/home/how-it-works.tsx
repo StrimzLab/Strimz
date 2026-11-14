@@ -7,7 +7,13 @@ import shieldIcon from '@iconify-icons/solar/shield-check-linear'
 import moneyIcon from '@iconify-icons/solar/hand-money-linear'
 import { cn } from '@strimz/ui'
 import { MkIcon } from '../icon'
-import { EASE_OUT, MOTION_OK, gsap, useGSAP, PLAY_ONCE } from '../motion/gsap'
+import {
+  EASE_OUT,
+  MOTION_OK,
+  gsap,
+  useGSAP,
+  PLAY_ONCE,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 import { ApproveScene, CreateScene, PaidScene, ShareScene } from './flow-scenes'
 
 const STEPS = [

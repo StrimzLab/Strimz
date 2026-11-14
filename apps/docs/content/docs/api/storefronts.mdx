@@ -1,0 +1,78 @@
+---
+title: Storefronts
+description: A hosted page that lists your products.
+---
+
+## Storefront
+
+The storefront builder starts on the Starter plan. On Free, creating or updating a storefront, publishing it and adding products answer `403 plan_required`. Archiving and reading still work.
+
+```http
+POST /v1/storefront
+{
+  "slug": "acme",
+  "name": "Acme Inc.",
+  "description": "Premium widgets, settled in USDC.",
+  "accentColor": "#02C76A",
+  "logoUrl": "https://acme.com/logo.png",
+  "socialLinks": ["https://x.com/acme"]
+}
+```
+
+Each merchant has one storefront. A slug that another merchant already uses returns an error.
+
+```http
+GET   /v1/storefront
+POST  /v1/storefront/publish
+POST  /v1/storefront/archive
+```
+
+## Products
+
+```http
+POST /v1/storefront/products
+{
+  "name": "Pro Widget",
+  "price": "50000000",
+  "currency": "USDC",
+  "type": "one_time",
+  "description": "Our flagship.",
+  "imageUrl": "https://...",
+  "stock": 100
+}
+```
+
+For subscription products, create the [subscription plan](/docs/api/subscriptions) first and pass its id:
+
+```json
+{
+  "type": "subscription",
+  "planId": "cmq4wjr3m0008je6l5t0w2yhb",
+  "price": "20000000",
+  "currency": "USDC",
+  "interval": "monthly",
+  "intervalCount": 1
+}
+```
+
+No plan is created for you. The plan must be active, and the product's `price`, `currency`, `interval` and `intervalCount` must match it, or the request returns `400 invalid_request`. A `one_time` product can't carry a `planId`.
+
+```http
+GET  /v1/storefront/products
+GET  /v1/storefront/products/{id}
+POST /v1/storefront/products/{id}/archive
+```
+
+## Public read
+
+The hosted storefront page is accessible without auth at:
+
+```http
+GET /store/{slug}
+```
+
+Returns the storefront + products with `isActive=true`. Your customers go directly to this URL.
+
+## Custom domains
+
+Not supported yet. Storefronts live under `https://checkout.strimz.finance/store/<slug>`.

@@ -4,6 +4,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
+      "@strimz/web-shared/*": ["../../packages/web-shared/src/*"],
       "react": ["./node_modules/@types/react"],
       "react/*": ["./node_modules/@types/react/*"],
       "react-dom": ["./node_modules/@types/react-dom"],
@@ -11,6 +12,6 @@
     },
     "plugins": [{ "name": "next" }]
   },
-  "include": ["src/**/*", "next-env.d.ts", ".next/types/**/*.ts", "source.config.ts"],
-  "exclude": ["node_modules", ".next", "dist"]
+  "include": ["src/**/*", "next-env.d.ts", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", ".next", ".open-next", "dist"]
 }

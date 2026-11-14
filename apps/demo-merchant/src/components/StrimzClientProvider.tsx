@@ -15,7 +15,7 @@ interface Props {
 }
 
 export function StrimzClientProvider({ children }: Props) {
-  const origin = process.env.NEXT_PUBLIC_STRIMZ_CHECKOUT_ORIGIN ?? 'http://localhost:3000'
+  const origin = process.env.NEXT_PUBLIC_STRIMZ_CHECKOUT_ORIGIN ?? 'http://localhost:3002'
   const key = process.env.NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY
   if (!key && typeof window !== 'undefined') {
     // Real demo run in the browser with no key — fail loudly instead of

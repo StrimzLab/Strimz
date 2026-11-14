@@ -2,7 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@strimz/ui'
-import { EASE_OUT, MOTION_OK, gsap, useGSAP } from '../motion/gsap'
+import {
+  EASE_OUT,
+  MOTION_OK,
+  gsap,
+  useGSAP,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 import { markMotionReady } from '../motion/gate'
 import { USE_CASES, type UseCaseId } from './data'
 

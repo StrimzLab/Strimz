@@ -42,7 +42,7 @@ export interface StrimzClientOptions {
 const DEFAULT_BASE_URL = 'https://api.strimz.finance'
 
 const SECRET_KEY_IN_BROWSER_MESSAGE =
-  'StrimzClient cannot run in a browser: secret keys must stay on your server. Create payment sessions from a server route and pass the session id to the browser. See https://strimz.finance/docs/checkout/server-sessions'
+  'StrimzClient cannot run in a browser: secret keys must stay on your server. Create payment sessions from a server route and pass the session id to the browser. See https://docs.strimz.finance/docs/checkout/server-sessions'
 
 export class StrimzClient {
   /** Resolved mode, either `test` or `live`. Derived from the API key prefix. */

@@ -15,8 +15,8 @@ import {
   PRIORITY_SUPPORT_PLANS,
   SUPPORT_EMAIL,
   mailto,
-} from '@/lib/contact-topics'
-import { OG_IMAGE } from '@/lib/seo'
+} from '@strimz/web-shared/lib/contact-topics'
+import { OG_IMAGE } from '@strimz/web-shared/lib/seo'
 
 export const metadata: Metadata = {
   title: 'Contact',
