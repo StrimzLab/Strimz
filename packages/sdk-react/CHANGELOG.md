@@ -1,5 +1,16 @@
 # @strimz/sdk-react
 
+## 0.5.0
+
+### Minor Changes
+
+- ff356c8: The hosted checkout moved to its own host. `StrimzProvider`'s `checkoutOrigin` now defaults to `https://checkout.strimz.finance`, and only results from that origin are accepted unless you pass another one. Old `www.strimz.finance/pay/...` links redirect there. The README docs links, and the link in the browser-use error, point to `docs.strimz.finance`.
+
+### Patch Changes
+
+- Updated dependencies [ff356c8]
+  - @strimz/sdk@0.16.2
+
 ## 0.4.4
 
 ### Patch Changes
