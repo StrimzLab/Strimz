@@ -50,7 +50,9 @@ jobs:
       - name: Build (turbo, TS only)
         env:
           NEXT_PUBLIC_ARC_ENVIRONMENT: testnet
-        run: pnpm exec turbo run build --filter=!@strimz/contracts
+        # Two at a time: six Next.js builds at once ran the runner out of memory,
+        # which GitHub reports as a cancelled job.
+        run: pnpm exec turbo run build --filter=!@strimz/contracts --concurrency=2
 
       - name: Format check
         run: pnpm format:check

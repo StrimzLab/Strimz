@@ -20,10 +20,7 @@ export const envSchema = z.object({
   ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).optional(),
   ARC_RPC_URL: z.string().url(),
 
-  /**
-   * Service-wallet private key. The ONLY process that holds one. Must be a
-   * 0x-prefixed 32-byte hex string. Loaded from a secret manager in prod.
-   */
+  // Plain key. Production allows it only on testnet (ADR-2026-11-13-testnet-software-signer).
   SCHEDULER_PRIVATE_KEY: unsetWhenEmpty(
     z.string().regex(/^0x[0-9a-fA-F]{64}$/, 'must be a 0x-prefixed 32-byte hex private key'),
   ),
