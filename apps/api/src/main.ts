@@ -3,13 +3,12 @@ import { NestFactory } from '@nestjs/core'
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify'
 import { Logger } from '@nestjs/common'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
-import helmet from '@fastify/helmet'
-import rateLimit from '@fastify/rate-limit'
 import { patchNestJsSwagger } from 'nestjs-zod'
 
 import { AppModule } from './app.module.js'
 import { TypedConfigService } from './config/index.js'
 import { corsPolicy } from './common/http/cors-policy.js'
+import { registerHttpPlugins } from './common/http/http-plugins.js'
 import { TRUSTED_PROXIES } from './common/http/trust-proxy.js'
 
 // Patches `@nestjs/swagger` so it understands DTOs created via
@@ -41,8 +40,7 @@ async function bootstrap(): Promise<void> {
     })
   const cfg = app.get(TypedConfigService)
 
-  await app.register(helmet, { contentSecurityPolicy: false })
-  await app.register(rateLimit, { max: 600, timeWindow: '1 minute' })
+  await registerHttpPlugins(app)
 
   // `*` is a footgun in prod — it disables credentialed CORS (browsers
   // reject `Access-Control-Allow-Origin: *` with `credentials: true`)
