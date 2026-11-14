@@ -43,6 +43,17 @@ describe('Fanline demo (#469)', () => {
     expect(read('wrangler.jsonc')).toMatch(/"keep_names":\s*false/u)
   })
 
+  it('keeps the API URL in wrangler config so a redeploy does not drop it', () => {
+    expect(read('wrangler.jsonc')).toMatch(/"STRIMZ_API_URL":\s*"https:\/\/api\.strimz\.finance"/u)
+  })
+
+  it('shows the Pro error in a colour that reads on the card in both themes', () => {
+    const pro = read('src/components/ProCard.tsx')
+    const alert = pro.match(/role="alert"\s+className="([^"]+)"/u)?.[1] ?? ''
+    expect(alert).toMatch(/\bdark:text-/u)
+    expect(alert).not.toMatch(/text-red-300/u)
+  })
+
   it('serves a favicon, robots.txt and a sitemap', () => {
     expect(existsSync(join(APP, 'src', 'app', 'icon.svg'))).toBe(true)
     expect(existsSync(join(APP, 'src', 'app', 'robots.ts'))).toBe(true)
