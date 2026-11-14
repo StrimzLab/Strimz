@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -16,11 +17,24 @@ import { TypedConfigService } from '../../config/index.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { WebhookEventService } from '../../infra/events/webhook-event.service.js'
-import type { RefundStatus } from '@strimz/db'
+import { Prisma, type RefundStatus } from '@strimz/db'
+import { z } from 'zod'
 import { anyOf } from '../../common/schemas/list-query.js'
 import { TransactionNotFoundError, type Hash } from 'viem'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+const lockTimeoutCause = z.object({
+  driverAdapterError: z.object({ cause: z.object({ originalCode: z.literal('55P03') }) }),
+})
+
+function isLockTimeout(err: unknown): boolean {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    err.code === 'P2010' &&
+    lockTimeoutCause.safeParse(err.meta).success
+  )
+}
 
 @Injectable()
 export class RefundsService {
@@ -50,60 +64,79 @@ export class RefundsService {
     actorId: string,
     input: CreateRefundParsed,
   ): Promise<RefundCreateOutput> {
-    const tx = await this.prisma.db.transaction.findFirst({
-      where: { id: input.transactionId, merchantId, mode },
-    })
-    if (!tx) {
-      throw new NotFoundException({ code: 'not_found', message: 'transaction not found' })
-    }
-    if (tx.status !== 'confirmed') {
-      throw new ForbiddenException({
-        code: 'session_invalid_state',
-        message: `cannot refund a transaction in status ${tx.status}`,
-      })
-    }
+    const { tx, refund, token } = await this.prisma.db
+      .$transaction(
+        async (db) => {
+          await db.$executeRaw`SET LOCAL lock_timeout = '5s'`
+          // Refunds of one transaction run one at a time, or concurrent requests all pass the cap.
+          await db.$queryRaw`SELECT id FROM "Transaction" WHERE id = ${input.transactionId} AND "merchantId" = ${merchantId} FOR UPDATE`
 
-    // Cumulative refund check: existing refunds + this one cannot exceed
-    // the original amount. Refund.amount is `varchar(78)` so we sum as
-    // BigInt in JS instead of Prisma `_sum` (which only supports numeric).
-    const priorRefunds = await this.prisma.db.refund.findMany({
-      where: {
-        transactionId: tx.id,
-        status: { in: ['pending', 'awaiting_signature', 'submitted', 'completed'] },
-      },
-      select: { amount: true },
-    })
-    const priorTotal = priorRefunds.reduce((acc, r) => acc + BigInt(r.amount), 0n)
-    const requested = BigInt(input.amount)
-    const original = BigInt(tx.amount)
-    if (priorTotal + requested > original) {
-      throw new BadRequestException({
-        code: 'invalid_request',
-        message: 'refund amount exceeds remaining refundable balance',
-        details: {
-          originalAmount: original.toString(),
-          priorRefundedTotal: priorTotal.toString(),
-          requested: requested.toString(),
+          const tx = await db.transaction.findFirst({
+            where: { id: input.transactionId, merchantId, mode },
+          })
+          if (!tx) {
+            throw new NotFoundException({ code: 'not_found', message: 'transaction not found' })
+          }
+          if (tx.status !== 'confirmed') {
+            throw new ForbiddenException({
+              code: 'session_invalid_state',
+              message: `cannot refund a transaction in status ${tx.status}`,
+            })
+          }
+
+          // Refund.amount is varchar(78), which Prisma's _sum can't add, so it's summed as BigInt.
+          const priorRefunds = await db.refund.findMany({
+            where: {
+              transactionId: tx.id,
+              status: { in: ['pending', 'awaiting_signature', 'submitted', 'completed'] },
+            },
+            select: { amount: true },
+          })
+          const priorTotal = priorRefunds.reduce((acc, r) => acc + BigInt(r.amount), 0n)
+          const requested = BigInt(input.amount)
+          const original = BigInt(tx.amount)
+          if (priorTotal + requested > original) {
+            throw new BadRequestException({
+              code: 'invalid_request',
+              message: 'refund amount exceeds remaining refundable balance',
+              details: {
+                originalAmount: original.toString(),
+                priorRefundedTotal: priorTotal.toString(),
+                requested: requested.toString(),
+              },
+            })
+          }
+
+          const token = this.tokenAddressFor(tx.currency)
+
+          const refund = await db.refund.create({
+            data: {
+              merchantId,
+              transactionId: tx.id,
+              amount: input.amount,
+              currency: tx.currency,
+              reason: input.reason,
+              note: input.note ?? null,
+              status: 'awaiting_signature',
+              payerAddress: tx.payerAddress,
+              initiatedById: actorId,
+              mode: tx.mode,
+            },
+          })
+          return { tx, refund, token }
         },
+        // Longer than lock_timeout, so a lock wait ends as refund_in_progress, not a timeout.
+        { timeout: 10_000 },
+      )
+      .catch((err: unknown) => {
+        if (isLockTimeout(err)) {
+          throw new ConflictException({
+            code: 'refund_in_progress',
+            message: 'another refund of this transaction is being created; retry shortly',
+          })
+        }
+        throw err
       })
-    }
-
-    const token = this.tokenAddressFor(tx.currency)
-
-    const refund = await this.prisma.db.refund.create({
-      data: {
-        merchantId,
-        transactionId: tx.id,
-        amount: input.amount,
-        currency: tx.currency,
-        reason: input.reason,
-        note: input.note ?? null,
-        status: 'awaiting_signature',
-        payerAddress: tx.payerAddress,
-        initiatedById: actorId,
-        mode: tx.mode,
-      },
-    })
 
     void this.events
       .fire({
