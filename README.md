@@ -48,13 +48,15 @@ Strimz is the thing they wished existed.
 Three product surfaces, plus the infrastructure to make them work.
 
 **Hosted checkout.** Redirect the customer to a Strimz URL. They connect a
-wallet, sign once (EIP-3009), and the relayer broadcasts the on-chain
-transaction. The customer doesn't pay gas and doesn't confirm twice. The
-merchant gets `payment.completed` over a signed webhook within seconds of
-the transaction landing.
+wallet and approve two signature prompts in it: an EIP-3009 transfer
+authorization, and a payment intent that binds it to the merchant, amount
+and session. The relayer broadcasts the on-chain transaction. The customer
+doesn't pay gas. The merchant gets `payment.completed` over a signed
+webhook within seconds of the transaction landing.
 
 **Subscriptions.** Plans, intervals, grace periods, dunning. Enrolment is
-one EIP-2612 permit signature; the scheduler does the rest, period after
+two signature prompts: an EIP-2612 permit and a subscription intent that
+names the plan. The scheduler does the rest, period after
 period, using a deterministic charge ID that the contract refuses to
 honour twice. No chargebacks — the chain doesn't have them. No
 expired-card retries — there are no cards.
@@ -73,9 +75,9 @@ finance people uncomfortable.
 Server-side, after issuing an `sk_test_` key in the dashboard:
 
 ```ts
-import { Strimz } from '@strimz/sdk'
+import { StrimzClient } from '@strimz/sdk'
 
-const strimz = new Strimz({ apiKey: process.env.STRIMZ_KEY! })
+const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_KEY! })
 
 const session = await strimz.paymentSessions.create({
   amount: '50000000', // 50 USDC, 6 decimals
@@ -147,11 +149,15 @@ The "we accidentally double-charged because the cron retried" failure mode
 isn't reachable. We didn't build that in the database layer; we built it
 in Solidity, because billing systems should fail closed.
 
-Only one process holds a signing key — the relayer inside `apps/api`. The
-scheduler and the agent push jobs to the API when they want a transaction
-broadcast; they sign nothing themselves. The key is KMS-backed in
-production. A bug in the scheduler can corrupt scheduling, but it can't
-move money. That separation was deliberate.
+Two processes hold a signing key, each with narrow on-chain roles. The
+relayer inside `apps/api` submits payer-signed payments and enrolments and
+registers merchants. The scheduler charges due subscriptions, cancels them,
+and moves merchants between fee tiers inside the cap fixed at registration.
+On mainnet both refuse to start without a hardware-backed signer. On
+testnet they run with plain keys kept in the server's `.env` (mode 600).
+Neither key can redirect a payment, change what a
+payer signed, pause a contract or withdraw fees: those sit with the Safe.
+The agent holds no key at all.
 
 ---
 
@@ -170,17 +176,17 @@ EURC is native on Arc. A merchant can bill in EUR without picking up
 bridge risk or holding a wrapped asset. We've debugged enough
 multi-chain stablecoin flows to value the absence.
 
-Payers don't have to be on Arc. If they're on Ethereum, Base, Polygon, or
-OP Mainnet, the bridge runs through Circle CCTP v2 — the agent watches for
-the burn, polls Circle for the attestation, queues the Arc settle. From
-the merchant's side it lands as USDC.
+Paying from other chains is coming, not live. Today every payer pays on
+Arc. The plan is to bring USDC from Ethereum, Base, Polygon and OP Mainnet
+through Circle CCTP v2, so it lands with the merchant as USDC on Arc.
 
 ---
 
 ## The AutoPay Agent
 
-Once a merchant turns it on, the agent handles seven separate things. Each
-one is independently toggleable from the dashboard.
+Once a merchant turns it on, the agent handles the jobs below. Each one is
+toggled separately from the dashboard. `commerce` and `routing` are coming,
+not live; the rest run today.
 
 `recovery` — when a subscription enters `at_risk` because the customer
 was short on funds, the agent emails them on a schedule the merchant
@@ -202,7 +208,7 @@ above the reserve floor they configured, the agent flags the idle surplus
 so the merchant can decide where to put it. The agent never moves funds
 and holds no custody.
 
-`commerce` — outbound payments to a merchant-approved vendor allowlist.
+`commerce` (coming) — outbound payments to a merchant-approved vendor allowlist.
 Below the merchant's threshold the agent auto-approves; above it, the job
 sits in the dashboard until a human clicks approve. Monthly summary by
 vendor.
@@ -211,9 +217,8 @@ vendor.
 forecast from a linear regression over the last quarter. The numbers
 we'd want to see ourselves if we ran a SaaS off Strimz, which we do.
 
-`routing` — the CCTP bridge worker. Reads bridge jobs from a queue, polls
-Circle's attestation API on a 30-second loop, queues the Arc settle action
-when attestation completes.
+`routing` (coming) — the CCTP bridge worker for payers on other chains. The
+worker exists, but nothing in checkout starts a bridge yet.
 
 Two trust properties that make this work for a finance team.
 
@@ -243,9 +248,10 @@ the relationship is over. We've taken that seriously.
   short-circuits a second relay submission; the checkout page polls
   status before showing the sign prompt. Any one would catch a duplicate.
   All three together make it impossible.
-- Every value-moving function on every contract respects a single
-  `Pausable` modifier. If something is wrong, transfers halt across the
-  platform at once.
+- Payments, Subscriptions and the agent escrow each have a pause switch
+  held by the Safe. Pausing them stops every payment, charge and escrow
+  transfer. Fee withdrawals are not pausable, but only the Safe can make
+  them.
 - Fees accrue in a separate `FeeCollector` contract that the treasury
   pulls from on a schedule. Pull, not push — less reentrancy surface,
   simpler accounting.
@@ -256,8 +262,10 @@ the relationship is over. We've taken that seriously.
   signature comes from the merchant's or the payer's own wallet.
 - Mainnet deploy is gated on a third-party audit. Until that's done, this
   is testnet, and we're not pretending otherwise.
-- Address screening at signup and at first payer interaction. Application
-  to Circle Compliance Engine is in flight.
+- Strimz does not run its own wallet screening yet. Arc enforces Circle's
+  USDC blocklist in the protocol, and the relayer simulates every payment
+  first, so a blocklisted payer is refused before anything is broadcast.
+  Third-party screening is coming.
 
 The longer writeup — indexer race-condition guards, the sweeper's
 stale-lock reclaim, the dual-mode merchant auth guard — lives in the docs.
@@ -297,7 +305,7 @@ refund, webhook. We use it ourselves.
 
 ### Live demo
 
-[Fanline](https://strimz-fanline.vercel.app) is a sample creator platform
+[Fanline](https://fanline.strimz.finance) is a sample creator platform
 (`apps/demo-merchant`) wired to Strimz end to end: tip a creator with a
 one-shot payment, or subscribe to a tier — both hand off to Strimz hosted
 checkout on Arc testnet.
@@ -319,9 +327,10 @@ Deployed 2026-11-09 from block 71161770. View them on the [Arc testnet explorer]
 | Admin Safe (2-of-2) | `0xe38788AFB172c1a7BB01FEEC5DB0e3b21df301D7` |
 
 Shipped so far: the smart contract suite (Payments, Subscriptions,
-Registry, FeeCollector, AgentRegistry, AgentEscrow), the Go indexer, the
-BullMQ scheduler, the merchant dashboard, hosted checkout, the seven
-AutoPay Agent capabilities, the server SDK, the React SDK, transactional
+Registry, FeeCollector, AgentRegistry, and AgentEscrow, deployed paused
+until it is finished), the Go indexer, the BullMQ scheduler, the merchant
+dashboard, hosted checkout, the AutoPay Agent's recovery, cash-flow and
+pricing jobs, the server SDK, the React SDK, transactional
 and operational email on the verified `mail.strimz.finance` domain,
 gas-balance monitoring, audit logging.
 
@@ -333,19 +342,25 @@ production merchants.
 
 ## Repo layout
 
-Turborepo monorepo. Apps under `apps/` — `web` (Next.js dashboard,
-checkout, marketing), `api` (NestJS HTTP), `indexer` (Go), `scheduler`
-(NestJS workers), `agent` (NestJS), and `demo-merchant` (a sample dApp) —
-plus a `packages/contracts` Foundry workspace. Shared SDKs and brand UI
-live under `packages/`. Each app has its own README with run instructions.
+Turborepo monorepo. Apps under `apps/`:
+
+- Next.js frontends, each its own Cloudflare Worker: `web` (marketing),
+  `docs`, `dashboard` (merchants), `admin` and `checkout`
+  (`docs/runbooks/cloudflare-workers.md`).
+- `api` (NestJS HTTP), `indexer` (Go), `scheduler` (NestJS workers),
+  `agent` (NestJS).
+- `demo-merchant`, a sample dApp.
+
+`packages/contracts` is the Foundry workspace. Shared SDKs, brand UI and
+code the frontends share (`web-shared`) live under `packages/`.
 
 ---
 
 ## Links
 
 - Marketing: [strimz.finance](https://strimz.finance)
-- Docs: [strimz docs](https://strimz.finance/docs)
-- Live demo: [Fanline](https://strimz-fanline.vercel.app) (sample integration)
+- Docs: [strimz docs](https://docs.strimz.finance/docs)
+- Live demo: [Fanline](https://fanline.strimz.finance) (sample integration)
 - Email: support@strimz.finance
 
 ---
