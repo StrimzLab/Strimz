@@ -10,6 +10,7 @@ const base = {
   DATABASE_URL: 'postgres://strimz:strimz@localhost:5432/strimz',
   REDIS_URL: 'redis://localhost:6379',
   PRIVY_APP_ID: 'test-privy-app',
+  STRIMZ_ADMIN_URL: 'http://localhost:3004',
   PRIVY_APP_SECRET: 'test-privy-secret-16',
   STRIMZ_WEBHOOK_SIGNING_SECRET: 'test-webhook-secret-at-least-32-chars-long',
   WEBHOOK_SECRET_ENCRYPTION_KEY: 'ab'.repeat(32),

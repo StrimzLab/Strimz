@@ -47,7 +47,9 @@ describe('admin invites: accepted with a one-time token', () => {
       [...t.email.sent].reverse().find((m) => m.to === to),
       `invite email to ${to}`,
     )
-    const match = mail.html.match(/\/admin\/accept-invite\?token=([A-Za-z0-9_-]+)/)
+    const match = mail.html.match(
+      /http:\/\/localhost:3004\/admin\/accept-invite\?token=([A-Za-z0-9_-]+)/,
+    )
     return must(match?.[1], 'invite token in email')
   }
 
@@ -98,13 +100,17 @@ describe('admin invites: accepted with a one-time token', () => {
       acceptUrl?: string
     }
     const first = lastInviteToken('invitee@strimz.test')
-    expect(created.acceptUrl).toMatch(new RegExp(`/admin/accept-invite\\?token=${first}$`))
+    expect(created.acceptUrl).toMatch(
+      new RegExp(`^http://localhost:3004/admin/accept-invite\\?token=${first}$`),
+    )
 
     const res = await resend('owner@strimz.test', created.id)
     const renewed = JSON.parse(res.body) as { acceptUrl?: string }
     const second = lastInviteToken('invitee@strimz.test')
     expect(second).not.toBe(first)
-    expect(renewed.acceptUrl).toMatch(new RegExp(`/admin/accept-invite\\?token=${second}$`))
+    expect(renewed.acceptUrl).toMatch(
+      new RegExp(`^http://localhost:3004/admin/accept-invite\\?token=${second}$`),
+    )
   })
 
   it('binds the caller DID when the token is valid and the verified email matches', async () => {
