@@ -15,6 +15,7 @@ const TOC = [
   { id: 'collect', label: 'Data we collect' },
   { id: 'not-collect', label: 'Data we never collect' },
   { id: 'use', label: 'How we use it' },
+  { id: 'storage', label: 'Cookies and local storage' },
   { id: 'share', label: 'Data sharing' },
   { id: 'retention', label: 'Retention' },
   { id: 'rights', label: 'Your rights' },
@@ -30,7 +31,7 @@ export default function PrivacyPage() {
       title="Privacy Policy"
       description="What data Strimz collects, what we do with it, and the rights you have over it."
       effectiveDate="1 May 2026"
-      lastUpdated="1 May 2026"
+      lastUpdated="14 November 2026"
       toc={TOC}
     >
       <h2 id="overview">Overview</h2>
@@ -73,8 +74,8 @@ export default function PrivacyPage() {
       </ul>
       <p>
         We also collect technical information automatically: IP address, browser user agent, locale,
-        and the URLs you visit on our marketing site. We use a self-hosted analytics setup that
-        anonymises IP addresses at ingestion.
+        and the URLs you request, in our server and Cloudflare logs. We use them to keep the Service
+        running and secure. We do not run analytics or advertising scripts.
       </p>
 
       <h2 id="not-collect">Data we never collect</h2>
@@ -106,6 +107,65 @@ export default function PrivacyPage() {
         <li>Comply with legal obligations and respond to lawful requests.</li>
       </ul>
 
+      <h2 id="storage">Cookies and local storage</h2>
+      <p>
+        Strimz stores only what a page needs in order to work. We use no analytics, advertising or
+        cross-site tracking cookies, so there is nothing to opt in to and no consent banner. If we
+        ever add an optional tool of that kind, we will ask before it loads.
+      </p>
+      <div className="overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>What</th>
+              <th>Where</th>
+              <th>Why</th>
+              <th>How long</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <code>strimz-theme</code> (local storage)
+              </td>
+              <td>Every Strimz site</td>
+              <td>Remembers light or dark mode.</td>
+              <td>Until you clear it</td>
+            </tr>
+            <tr>
+              <td>Privy sign-in session (cookies and local storage)</td>
+              <td>Merchant dashboard, admin console and checkout</td>
+              <td>Keeps you signed in and connects your wallet.</td>
+              <td>Until you sign out or the session expires</td>
+            </tr>
+            <tr>
+              <td>
+                <code>strimz.tour.completed</code> (local storage)
+              </td>
+              <td>Merchant dashboard</td>
+              <td>Stops the dashboard tour from showing again.</td>
+              <td>Until you clear it</td>
+            </tr>
+            <tr>
+              <td>
+                <code>strimz.refund.broadcast.*</code> (local storage)
+              </td>
+              <td>Merchant dashboard</td>
+              <td>
+                Remembers a refund transaction you sent, so it is not sent twice if the page
+                reloads.
+              </td>
+              <td>Removed once the refund is recorded</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Cloudflare may set a short-lived security cookie when it checks for automated traffic, and
+        Turnstile runs a bot check on the contact form. Both are part of keeping the Service safe.
+        You can clear any of these in your browser settings; you may then need to sign in again.
+      </p>
+
       <h2 id="share">Data sharing</h2>
       <p>We share data only with infrastructure providers necessary to operate the Service:</p>
       <ul>
@@ -116,10 +176,10 @@ export default function PrivacyPage() {
           <strong>Resend</strong>. Transactional email delivery.
         </li>
         <li>
-          <strong>Cloudflare</strong>. Bot protection (Turnstile) on signup and checkout.
+          <strong>Cloudflare</strong>. DNS, hosting of our websites, and bot protection (Turnstile).
         </li>
         <li>
-          <strong>Render</strong> + <strong>Vercel</strong>. Application hosting.
+          <strong>OVHcloud</strong>. Hosting of our API and database.
         </li>
         <li>
           <strong>Circle</strong>. CCTP V2 attestation API, only once cross-chain payments launch
@@ -144,7 +204,13 @@ export default function PrivacyPage() {
       </p>
 
       <h2 id="rights">Your rights</h2>
-      <p>Depending on where you are located, you have the right to:</p>
+      <p>
+        We serve merchants and their customers across East and West Africa and beyond. Depending on
+        where you are, laws such as the Nigeria Data Protection Act 2023, Kenya's Data Protection
+        Act 2019, Ghana's Data Protection Act 2012 (Act 843), Uganda's Data Protection and Privacy
+        Act 2019, Tanzania's Personal Data Protection Act 2022, Rwanda's Law No. 058/2021, and the
+        UK and EU GDPR give you the right to:
+      </p>
       <ul>
         <li>Access the personal data we hold about you.</li>
         <li>Correct inaccurate data.</li>
@@ -154,7 +220,9 @@ export default function PrivacyPage() {
         <li>Withdraw consent for marketing communications at any time.</li>
       </ul>
       <p>
-        Exercise any of these by emailing{' '}
+        You can also complain to your data protection authority, such as the Nigeria Data Protection
+        Commission, Kenya's Office of the Data Protection Commissioner or Ghana's Data Protection
+        Commission. Exercise any of these rights by emailing{' '}
         <a href="mailto:support@strimz.finance">support@strimz.finance</a>. We respond to all
         requests within thirty (30) days.
       </p>
@@ -167,8 +235,9 @@ export default function PrivacyPage() {
 
       <h2 id="transfers">International transfers</h2>
       <p>
-        Our infrastructure providers operate globally. Where personal data is transferred outside
-        the UK or EEA, we rely on Standard Contractual Clauses or equivalent safeguards.
+        Our infrastructure providers operate globally, so your data may be processed outside your
+        country. Where a law requires it, we rely on Standard Contractual Clauses or equivalent
+        safeguards for these transfers, including transfers out of Nigeria, Kenya and Ghana.
       </p>
 
       <h2 id="security">Security</h2>

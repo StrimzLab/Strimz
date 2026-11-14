@@ -31,3 +31,9 @@ app.post('/webhooks/strimz', async (req, res) => {
 })`,
   },
 ] as const
+
+export const KEYBOARD_SCRIPT = `$ node create-session.ts
+session created
+waiting for payment...
+payment.completed
++49.00 USDC to your wallet`

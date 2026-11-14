@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@strimz/ui'
 import { MkIcon } from '../icon'
 import { CopyButton } from '../fx/copy-button'
 import dynamic from 'next/dynamic'
-import { PlaceholderLine } from '../fx/placeholder'
+import { PlaceholderBlock, PlaceholderLine } from '../fx/placeholder'
 import {
   EASE_OUT,
   MOTION_OK,
@@ -15,8 +15,21 @@ import {
   useGSAP,
   PLAY_ONCE,
 } from '@strimz/web-shared/components/marketing/motion/gsap'
-import { CODE_TABS, DEV_LINKS } from './developers-data'
+import { CODE_TABS, DEV_LINKS, KEYBOARD_SCRIPT } from './developers-data'
 import { siteUrls } from '@strimz/web-shared/lib/site-urls'
+
+const TypingKeyboard = dynamic(
+  () => import('../fx/typing-keyboard').then((m) => m.TypingKeyboard),
+  {
+    ssr: false,
+    loading: () => (
+      <div role="status" className="grid h-[300px] place-items-center sm:h-[420px]">
+        <span className="sr-only">Loading the keyboard animation</span>
+        <PlaceholderBlock className="h-[55%] w-[70%] -rotate-12 skew-x-12 rounded-3xl opacity-60" />
+      </div>
+    ),
+  },
+)
 
 const CodeBlock = dynamic(() => import('@/components/shared/code-block').then((m) => m.CodeBlock), {
   ssr: false,
@@ -45,6 +58,21 @@ export function Developers() {
           ease: EASE_OUT,
           scrollTrigger: { trigger: scope.current, start: 'top 70%', ...PLAY_ONCE },
         })
+        gsap.fromTo(
+          '[data-keyboard]',
+          { y: 80, rotate: -4 },
+          {
+            y: -40,
+            rotate: 2,
+            ease: 'none',
+            scrollTrigger: {
+              trigger: scope.current,
+              start: 'top bottom',
+              end: 'bottom top',
+              scrub: true,
+            },
+          },
+        )
       })
       return () => mm.revert()
     },
@@ -106,35 +134,40 @@ export function Developers() {
           </Link>
         </div>
 
-        <Tabs
-          defaultValue="checkout"
-          data-dev-item
-          className="bg-ink border-border relative min-w-0 overflow-hidden rounded-[24px] border shadow-[0_40px_80px_-40px_rgb(5_0_32/0.6)]"
-        >
-          <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
-            <TabsList className="h-9 bg-white/5 p-1">
-              {CODE_TABS.map((s) => (
-                <TabsTrigger
-                  key={s.value}
-                  value={s.value}
-                  className="font-mono text-xs text-white/60 data-[state=active]:bg-white/10 data-[state=active]:text-white"
-                >
-                  {s.file}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+        <div className="relative min-w-0">
+          <div data-keyboard className="relative -mb-4 lg:-mb-6">
+            <TypingKeyboard script={KEYBOARD_SCRIPT} />
           </div>
-          {CODE_TABS.map((s) => (
-            <TabsContent key={s.value} value={s.value} className="relative mt-0 p-5 pr-10">
-              <CopyButton
-                text={s.code}
-                label={`The ${s.file} example`}
-                className="absolute right-3 top-3 text-white/60 hover:bg-white/10 hover:text-white"
-              />
-              <CodeBlock code={s.code} language={s.language} tone="dark" />
-            </TabsContent>
-          ))}
-        </Tabs>
+          <Tabs
+            defaultValue="checkout"
+            data-dev-item
+            className="bg-ink border-border relative min-w-0 overflow-hidden rounded-[24px] border shadow-[0_40px_80px_-40px_rgb(5_0_32/0.6)]"
+          >
+            <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
+              <TabsList className="h-9 bg-white/5 p-1">
+                {CODE_TABS.map((s) => (
+                  <TabsTrigger
+                    key={s.value}
+                    value={s.value}
+                    className="font-mono text-xs text-white/60 data-[state=active]:bg-white/10 data-[state=active]:text-white"
+                  >
+                    {s.file}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+            {CODE_TABS.map((s) => (
+              <TabsContent key={s.value} value={s.value} className="relative mt-0 p-5 pr-10">
+                <CopyButton
+                  text={s.code}
+                  label={`The ${s.file} example`}
+                  className="absolute right-3 top-3 text-white/60 hover:bg-white/10 hover:text-white"
+                />
+                <CodeBlock code={s.code} language={s.language} tone="dark" />
+              </TabsContent>
+            ))}
+          </Tabs>
+        </div>
       </div>
     </section>
   )

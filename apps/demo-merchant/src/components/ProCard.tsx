@@ -1,14 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowRightIcon, StarIcon } from './Icons'
+import { ArrowRightIcon } from './Icons'
+import { SoundLine } from './SoundLine'
 
 const BENEFITS = [
-  'Ad-free listening across every creator',
-  'Unlimited high-fidelity streams',
-  '48-hour early access to new drops',
-  'VIP DMs — reach any creator, direct',
-  'Cancel any time. No renegotiation.',
+  'Members-only posts, mixes and episodes',
+  'Early access to new releases and show tickets',
+  'A Pro badge in every creator’s comments',
+  'Cancel any time, straight from Fanline',
 ] as const
 
 /**
@@ -38,59 +38,49 @@ export function ProCard() {
   }
 
   return (
-    <section id="pro" className="border-t border-[hsl(var(--border))] py-24">
-      <div className="mx-auto max-w-4xl px-6">
-        <div className="grid gap-0 overflow-hidden rounded-3xl border border-[hsl(var(--border))] md:grid-cols-2">
-          <div className="from-brand-500 via-brand-600 bg-gradient-to-br to-purple-600 p-10 text-white">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium uppercase tracking-wider">
-              <StarIcon className="h-3 w-3" />
-              Fanline Pro
-            </span>
-            <h2 className="font-display mt-6 text-4xl font-semibold tracking-tight">
-              Get closer to your creators.
+    <section id="pro" className="scroll-mt-28 py-24">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="bg-ink text-paper grid overflow-hidden rounded-[2rem] lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="relative p-8 sm:p-12">
+            <p className="text-gold text-sm font-semibold">Fanline Pro</p>
+            <h2 className="font-display mt-4 text-4xl font-extrabold tracking-[-0.03em] sm:text-5xl">
+              Back them every month, not just once.
             </h2>
-            <p className="mt-4 leading-7 text-white/80">
-              Recurring support that the creator actually keeps. No 30% platform cut, no card
-              processor holding your funds. One monthly signature is all it takes.
+            <p className="mt-5 max-w-md leading-7 opacity-75">
+              One monthly subscription, shared between the creators you follow. Approve it once in
+              your wallet and it renews by itself.
             </p>
-            <div className="mt-8 flex items-baseline gap-2">
-              <span className="font-display text-5xl font-semibold">$5</span>
-              <span className="text-white/70">/month · USDC</span>
-            </div>
+            <p className="mt-10 flex items-baseline gap-2">
+              <span className="font-display text-6xl font-extrabold">$5</span>
+              <span className="opacity-70">a month, in USDC</span>
+            </p>
+            <SoundLine bars={28} className="mt-10 h-14 max-w-sm opacity-90" />
           </div>
-          <div className="bg-[hsl(var(--card))] p-10">
-            <ul className="space-y-3 text-sm">
+          <div className="bg-paper/[0.04] border-paper/10 flex flex-col justify-center border-t p-8 sm:p-12 lg:border-l lg:border-t-0">
+            <ul className="space-y-4">
               {BENEFITS.map((b) => (
                 <li key={b} className="flex items-start gap-3">
-                  <span className="bg-brand-500/10 text-brand-500 mt-1 grid h-4 w-4 place-items-center rounded-full">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                      className="h-2.5 w-2.5"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 12l5 5L20 7" />
-                    </svg>
-                  </span>
+                  <span className="bg-brand-500 mt-1.5 h-2 w-2 shrink-0 rounded-full" />
                   {b}
                 </li>
               ))}
             </ul>
             {error && (
-              <p className="mt-4 rounded-lg bg-red-500/10 p-2 text-xs text-red-500">{error}</p>
+              <p role="alert" className="mt-6 rounded-lg bg-red-500/15 p-2 text-xs text-red-300">
+                {error}
+              </p>
             )}
             <button
               type="button"
               onClick={goPro}
               disabled={loading}
-              className="bg-brand-500 hover:bg-brand-600 mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn btn-primary mt-8 w-full"
             >
-              {loading ? 'Opening checkout…' : 'Go Pro'}
+              {loading ? 'Opening checkout…' : 'Join Pro'}
               {!loading && <ArrowRightIcon className="h-4 w-4" />}
             </button>
-            <p className="muted mt-3 text-center text-xs">
-              You&rsquo;ll sign one EIP-2612 permit + subscription setup. Cancel any time.
+            <p className="mt-3 text-center text-xs opacity-60">
+              One approval sets up the monthly charge. Cancel any time.
             </p>
           </div>
         </div>

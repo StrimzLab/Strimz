@@ -7,7 +7,7 @@ export default function CancelledPage() {
     <>
       <Nav />
       <main className="mx-auto max-w-3xl px-6 py-24 text-center">
-        <h1 className="font-display text-4xl font-semibold tracking-tight">
+        <h1 className="font-display text-5xl font-extrabold tracking-[-0.03em]">
           No worries. Nothing was charged.
         </h1>
         <p className="muted mx-auto mt-4 max-w-xl text-lg leading-8">

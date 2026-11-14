@@ -1,63 +1,15 @@
 import type { SVGProps } from 'react'
 
-export function FanlineWordmark(props: SVGProps<SVGSVGElement>) {
+export function FanlineMark(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 140 24" fill="none" {...props}>
-      <text
-        x="0"
-        y="17"
-        fontFamily="var(--font-display), Georgia, serif"
-        fontSize="20"
-        fontWeight={600}
-        fill="currentColor"
-        letterSpacing="-0.02em"
-      >
-        fanline
-      </text>
-      <circle cx="112" cy="12" r="3" fill="#ff2b62" />
-    </svg>
-  )
-}
-
-export function BoltIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} {...props}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13 3L4 14h7l-1 7 9-11h-7l1-7z" />
-    </svg>
-  )
-}
-
-export function GlobeIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} {...props}>
-      <circle cx="12" cy="12" r="9" />
-      <path strokeLinecap="round" d="M3 12h18M12 3a13 13 0 010 18M12 3a13 13 0 000 18" />
-    </svg>
-  )
-}
-
-export function CoinIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} {...props}>
-      <circle cx="12" cy="12" r="9" />
-      <path strokeLinecap="round" d="M8 12h8M12 8a4 4 0 010 8" />
-    </svg>
-  )
-}
-
-export function LockIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} {...props}>
-      <rect x="4" y="10" width="16" height="10" rx="2" />
-      <path strokeLinecap="round" d="M8 10V7a4 4 0 018 0v3" />
-    </svg>
-  )
-}
-
-export function StarIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M12 2l2.9 6.3 6.9.7-5.2 4.7 1.5 6.8L12 17l-6.1 3.5 1.5-6.8L2.2 9l6.9-.7L12 2z" />
+    <svg viewBox="0 0 64 64" aria-hidden {...props}>
+      <rect width="64" height="64" rx="16" fill="#1e1033" />
+      <g fill="#ff2b62">
+        <rect x="13" y="26" width="6" height="16" rx="3" />
+        <rect x="23" y="18" width="6" height="28" rx="3" />
+        <rect x="35" y="22" width="6" height="22" rx="3" />
+      </g>
+      <rect x="45" y="30" width="6" height="10" rx="3" fill="#ffb020" />
     </svg>
   )
 }
