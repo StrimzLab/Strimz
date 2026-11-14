@@ -12,10 +12,13 @@ import { Pricing } from '@/components/marketing/home/pricing'
 import { Faq } from '@/components/marketing/home/faq'
 import { Closing } from '@/components/marketing/home/closing'
 import { SectionBoundary } from '@/components/marketing/fx/section-boundary'
+import { FAQS } from '@/components/marketing/home/faq-data'
+import { JsonLd } from '@strimz/web-shared/components/json-ld'
+import { faqPageLd, softwareApplicationLd } from '@strimz/web-shared/lib/structured-data'
 
 const TITLE = 'Strimz. Get paid in USDC and EURC, in seconds'
 const DESCRIPTION =
-  'Take one time and subscription payments in USDC and EURC. Every payment lands in your own wallet in seconds. 0% on your first $1,000.'
+  'Take one-time and subscription payments in USDC and EURC, from customers anywhere. Built for businesses in Nigeria, Kenya, Ghana and across Africa. Paid into your own wallet in seconds.'
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -28,6 +31,7 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <>
+      <JsonLd data={[softwareApplicationLd(), faqPageLd(FAQS)]} />
       <SectionBoundary name="introduction">
         <Hero />
       </SectionBoundary>

@@ -8,6 +8,10 @@ export const FAQS = [
     a: 'Strimz lets your business take payments in stablecoins. You can charge a customer once, or set up a subscription that charges them every period. You get paid in USDC or EURC; we handle the on-chain side, refunds, webhooks, dashboards, and everything in between.',
   },
   {
+    q: 'Can businesses in Nigeria, Kenya and Ghana use Strimz?',
+    a: "Yes. Strimz is built for businesses in East and West Africa, and works anywhere your customers hold USDC or EURC. Payments land in your own wallet, not a bank account, so there's no local bank to wait on. Strimz doesn't convert to naira, shillings or cedis; you cash out through the exchange or off-ramp you already use.",
+  },
+  {
     q: 'Do my customers need to understand crypto?',
     a: "A little. They pay from a wallet that holds USDC or EURC. They don't need gas: they approve the payment with a signature in their wallet and Strimz submits it for them.",
   },
@@ -41,7 +45,7 @@ export const FAQS = [
   },
   {
     q: 'Where can I find the technical details?',
-    a: 'In the docs at strimz.finance/docs: the API, SDKs, webhook signatures, contract architecture and error codes, from a 5-minute quickstart to self-hosting.',
+    a: 'In the docs at docs.strimz.finance: the API, SDKs, webhook signatures, contract architecture and error codes, from a 5-minute quickstart to self-hosting.',
   },
 ] as const
 

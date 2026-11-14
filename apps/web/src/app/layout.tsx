@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import { preconnect } from 'react-dom'
 import { RootShell } from '@strimz/web-shared/components/root-shell'
 import { OG_IMAGE, TWITTER_IMAGE } from '@strimz/web-shared/lib/seo'
+import { JsonLd } from '@strimz/web-shared/components/json-ld'
+import { organizationLd, websiteLd } from '@strimz/web-shared/lib/structured-data'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://strimz.finance'),
@@ -19,7 +21,17 @@ export const metadata: Metadata = {
     'EURC',
     'b2b payments',
     'crypto billing',
+    'stablecoin payment gateway',
+    'accept USDC payments',
+    'USDC payments Nigeria',
+    'USDC payments Kenya',
+    'USDC payments Ghana',
+    'stablecoin payments Africa',
+    'crypto payment gateway Africa',
+    'recurring payments in USDC',
   ],
+  alternates: { canonical: '/' },
+  formatDetection: { telephone: false, address: false, email: false },
   openGraph: {
     type: 'website',
     siteName: 'Strimz',
@@ -47,5 +59,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   // Turnstile on the contact form.
   preconnect('https://challenges.cloudflare.com')
-  return <RootShell>{children}</RootShell>
+  return (
+    <RootShell>
+      <JsonLd data={[organizationLd(), websiteLd()]} />
+      {children}
+    </RootShell>
+  )
 }

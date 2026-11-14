@@ -32,14 +32,14 @@ export default async function ThanksPage({
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 12l5 5L20 7" />
           </svg>
         </div>
-        <h1 className="font-display mt-6 text-4xl font-semibold tracking-tight">
-          {isSubscription ? 'Welcome to Fanline Pro!' : 'Tip received.'}
+        <h1 className="font-display mt-6 text-5xl font-extrabold tracking-[-0.03em]">
+          {isSubscription ? 'Welcome to Fanline Pro' : 'Tip received.'}
         </h1>
         <p className="muted mx-auto mt-4 max-w-xl text-lg leading-8">
           {isSubscription ? (
             <>You&rsquo;re now supporting your favourite creators every month.</>
           ) : (
-            <>Your ${params.amount ?? ''} USDC just landed in the creator&rsquo;s wallet.</>
+            <>Your tip just landed in the creator&rsquo;s wallet, in test USDC.</>
           )}
         </p>
         <Link

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-import { CODE_TABS, DEV_LINKS } from '@/components/marketing/home/developers-data'
+import { CODE_TABS, DEV_LINKS, KEYBOARD_SCRIPT } from '@/components/marketing/home/developers-data'
 import { FOOTER_COLUMNS } from '@/components/marketing/footer-data'
 import { NAV_GROUPS } from '@/components/marketing/nav-data'
 import { appLink, dashboardRouteExists, docExists } from './app-links'
@@ -22,11 +22,19 @@ function resolves(href: string) {
 describe('compact developer band (#279)', () => {
   const source = read('src/components/marketing/home/developers.tsx')
 
-  it('drops install commands and the keyboard', () => {
+  it('drops the install commands', () => {
     expect(source).not.toMatch(/pnpm add|curl /u)
-    expect(source).not.toMatch(/TypingKeyboard/u)
-    expect(existsSync(join(WEB_ROOT, 'src/components/marketing/fx/typing-keyboard.tsx'))).toBe(
-      false,
+  })
+
+  it('types a terminal script on the keyboard above the code card (#467)', () => {
+    expect(source).toMatch(/<TypingKeyboard script=\{KEYBOARD_SCRIPT\}/u)
+    expect(source.indexOf('<TypingKeyboard')).toBeLessThan(source.indexOf('<Tabs'))
+    expect(KEYBOARD_SCRIPT).toMatch(/payment\.completed/u)
+  })
+
+  it('keeps the keyboard styles out of the shared stylesheet', () => {
+    expect(read('src/components/marketing/fx/typing-keyboard.tsx')).toMatch(
+      /import '\.\/typing-keyboard\.css'/u,
     )
     expect(
       readFileSync(join(WEB_ROOT, '../../packages/web-shared/src/styles/globals.css'), 'utf8'),

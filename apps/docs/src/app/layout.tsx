@@ -5,7 +5,9 @@ import { OG_IMAGE, TWITTER_IMAGE } from '@strimz/web-shared/lib/seo'
 export const metadata: Metadata = {
   metadataBase: new URL('https://docs.strimz.finance'),
   title: { default: 'Strimz Docs', template: '%s · Strimz Docs' },
-  description: 'Guides and API reference for taking USDC and EURC payments with Strimz.',
+  description:
+    'Guides and API reference for taking USDC and EURC payments with Strimz: hosted checkout, subscriptions, payment links, webhooks and SDKs.',
+  alternates: { canonical: '/docs' },
   openGraph: { type: 'website', siteName: 'Strimz Docs', images: [OG_IMAGE] },
   twitter: { card: 'summary_large_image', images: [TWITTER_IMAGE] },
 }
