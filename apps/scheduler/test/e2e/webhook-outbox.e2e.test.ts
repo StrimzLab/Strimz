@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import { getQueueToken } from '@nestjs/bullmq'
 import type { Queue } from 'bullmq'
@@ -25,6 +27,7 @@ describe('webhook outbox dispatcher e2e', () => {
     await truncateAll(t.prisma.db)
     const q: Queue = t.app.get(getQueueToken(QUEUE_NAMES.webhookDelivery))
     await q.drain(true)
+    await q.resume()
   })
 
   function seedRefEvent(merchantId: string, ref: Record<string, unknown>, id: string) {
@@ -219,6 +222,165 @@ describe('webhook outbox dispatcher e2e', () => {
         failureReason: 'transaction was replaced or dropped',
       },
     })
+  })
+
+  it('commits no claim while the event is still being hydrated, so a crash there loses nothing', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const sub = await seedSubscription(t.prisma.db, merchant.id, { status: 'lapsed' })
+    await seedWebhookEndpoint(t.prisma.db, merchant.id, {
+      url: 'https://example.com/hook',
+      events: ['subscription_lapsed'],
+    })
+    await seedRefEvent(
+      merchant.id,
+      { kind: 'subscription.lapsed', subscriptionId: sub.id },
+      'evt_mid_dispatch',
+    )
+
+    const outbox = t.app.get(WebhookOutboxService)
+    const target = outbox as unknown as { hydrate: (ref: unknown) => Promise<unknown> }
+    const realHydrate = target.hydrate.bind(outbox)
+    let release!: () => void
+    const released = new Promise<void>((resolve) => (release = resolve))
+    let entered!: () => void
+    const hydrating = new Promise<void>((resolve) => (entered = resolve))
+    const spy = vi.spyOn(target, 'hydrate').mockImplementationOnce(async (ref) => {
+      entered()
+      await released
+      return realHydrate(ref)
+    })
+
+    const tick = outbox.tickNow()
+    await hydrating
+    const midway = await t.prisma.db.webhookEvent.findUniqueOrThrow({
+      where: { id: 'evt_mid_dispatch' },
+    })
+    release()
+    expect(await tick).toEqual({ dispatched: 1, deliveriesQueued: 1 })
+    spy.mockRestore()
+
+    expect(midway.dispatchedAt).toBeNull()
+    expect(
+      await t.prisma.db.webhookDelivery.count({ where: { eventId: 'evt_mid_dispatch' } }),
+    ).toBe(1)
+  })
+
+  it('leaves a fresh claim to the scheduler that holds it', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const sub = await seedSubscription(t.prisma.db, merchant.id, { status: 'lapsed' })
+    await seedWebhookEndpoint(t.prisma.db, merchant.id, {
+      url: 'https://example.com/hook',
+      events: ['subscription_lapsed'],
+    })
+    await seedRefEvent(
+      merchant.id,
+      { kind: 'subscription.lapsed', subscriptionId: sub.id },
+      'evt_in_flight',
+    )
+    await t.prisma.db.webhookEvent.update({
+      where: { id: 'evt_in_flight' },
+      data: { dispatchedAt: new Date() },
+    })
+
+    const outbox = t.app.get(WebhookOutboxService)
+    expect(await outbox.tickNow()).toEqual({ dispatched: 0, deliveriesQueued: 0 })
+    expect(await t.prisma.db.webhookDelivery.count({ where: { eventId: 'evt_in_flight' } })).toBe(0)
+  })
+
+  it('two dispatchers ticking at once deliver every event once', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const sub = await seedSubscription(t.prisma.db, merchant.id, { status: 'lapsed' })
+    await seedWebhookEndpoint(t.prisma.db, merchant.id, {
+      url: 'https://example.com/hook',
+      events: ['subscription_lapsed'],
+    })
+    for (let i = 0; i < 50; i++) {
+      await seedRefEvent(
+        merchant.id,
+        { kind: 'subscription.lapsed', subscriptionId: sub.id },
+        `evt_race_${i}`,
+      )
+    }
+
+    // Held back so failed sends can't auto-disable the endpoint partway through.
+    const q: Queue = t.app.get(getQueueToken(QUEUE_NAMES.webhookDelivery))
+    await q.pause()
+    const outbox = t.app.get(WebhookOutboxService)
+    const [a, b] = await Promise.all([outbox.tickNow(), outbox.tickNow()])
+    const c = await outbox.tickNow()
+    expect(a.dispatched + b.dispatched + c.dispatched).toBe(50)
+    expect(a.deliveriesQueued + b.deliveriesQueued + c.deliveriesQueued).toBe(50)
+    expect(await outbox.tickNow()).toEqual({ dispatched: 0, deliveriesQueued: 0 })
+    const perEvent = await t.prisma.db.webhookDelivery.groupBy({
+      by: ['eventId'],
+      _count: { _all: true },
+    })
+    expect(perEvent).toHaveLength(50)
+    expect(perEvent.every((row) => row._count._all === 1)).toBe(true)
+    expect(await q.getWaitingCount()).toBe(50)
+    await q.drain(true)
+    await q.resume()
+  })
+
+  function runbookSql(name: string): string {
+    return readFileSync(
+      fileURLToPath(new URL(`../../../../docs/runbooks/${name}`, import.meta.url)),
+      'utf8',
+    )
+  }
+
+  async function seedRepairFixture() {
+    const merchant = await seedMerchant(t.prisma.db)
+    const sub = await seedSubscription(t.prisma.db, merchant.id, { status: 'lapsed' })
+    const ref = { kind: 'subscription.lapsed', subscriptionId: sub.id }
+    await seedRefEvent(merchant.id, ref, 'evt_stranded')
+    await seedRefEvent(merchant.id, ref, 'evt_stranded_old')
+    await seedRefEvent(merchant.id, ref, 'evt_no_subscribers')
+    await seedRefEvent(merchant.id, ref, 'evt_quarantined')
+    await t.app.get(WebhookOutboxService).tickNow()
+    for (const id of ['evt_stranded', 'evt_stranded_old']) {
+      await t.prisma.db.webhookEvent.update({ where: { id }, data: { payload: { ref } as never } })
+    }
+    await t.prisma.db.webhookEvent.update({
+      where: { id: 'evt_stranded_old' },
+      data: { createdAt: new Date(Date.now() - 30 * 86_400_000) },
+    })
+    await t.prisma.db.webhookEvent.update({
+      where: { id: 'evt_quarantined' },
+      data: { payload: { ref } as never, dispatchError: 'bad ref' },
+    })
+  }
+
+  async function released(): Promise<string[]> {
+    const rows = await t.prisma.db.webhookEvent.findMany({
+      where: { dispatchedAt: null },
+      orderBy: { id: 'asc' },
+    })
+    return rows.map((e) => e.id)
+  }
+
+  it('the count query counts only events stranded before hydration', async () => {
+    await seedRepairFixture()
+    const rows = await t.prisma.db.$queryRawUnsafe<{ type: string; stranded: bigint }[]>(
+      runbookSql('webhook-outbox-stranded-count.sql'),
+    )
+    expect(rows.map((r) => [r.type, Number(r.stranded)])).toEqual([['subscription_lapsed', 2]])
+  })
+
+  it('the repair query releases only events stranded before hydration', async () => {
+    await seedRepairFixture()
+    expect(await t.prisma.db.$executeRawUnsafe(runbookSql('webhook-outbox-repair.sql'))).toBe(2)
+    expect(await released()).toEqual(['evt_stranded', 'evt_stranded_old'])
+  })
+
+  it('the repair query with an age limit leaves older stranded events alone', async () => {
+    await seedRepairFixture()
+    const count = await t.prisma.db.$transaction(async (db) => {
+      await db.$executeRaw`SET LOCAL strimz.repair_max_age = '7 days'`
+      return db.$executeRawUnsafe(runbookSql('webhook-outbox-repair.sql'))
+    })
+    expect(count).toBe(1)
+    expect(await released()).toEqual(['evt_stranded'])
   })
 
   it('does not dispatch the same event twice', async () => {
