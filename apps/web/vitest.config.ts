@@ -1,20 +1,23 @@
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
-/**
- * Vitest only runs unit / integration tests.
- *
- * Playwright end-to-end specs live in `tests/e2e/**` and are driven by
- * `pnpm test:e2e` (which invokes `playwright test`). Vitest's default
- * glob would otherwise pick them up because they share the `*.spec.ts`
- * suffix and immediately fail with "Playwright Test did not expect
- * test() to be called here".
- */
+// Playwright specs live in tests/e2e and run with `pnpm test:e2e`.
 export default defineConfig({
   resolve: {
-    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    alias: {
+      '@strimz/web-shared': fileURLToPath(
+        new URL('../../packages/web-shared/src', import.meta.url),
+      ),
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
   },
   test: {
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**', 'tests/e2e/**'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.next/**',
+      '**/.open-next/**',
+      'tests/e2e/**',
+    ],
   },
 })

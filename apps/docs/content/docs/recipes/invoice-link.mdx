@@ -1,0 +1,117 @@
+---
+title: Send a payment link
+description: The simplest possible flow. A one-time payment you email to a customer. Useful for invoices, consulting fees, custom enterprise deals.
+---
+
+You owe a customer a payment link. They open the email, they click, they pay. That's the whole flow.
+
+For most one-shot payment cases, you don't need a backend integration. You just need a session URL. This recipe is the shortest path from "I want money from someone" to "they paid me."
+
+## The script
+
+```ts title="scripts/send-invoice.ts"
+import { StrimzClient } from '@strimz/sdk'
+
+const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_API_KEY! })
+
+async function main() {
+  const session = await strimz.paymentSessions.create({
+    amount: '500000000', // 500 USDC in 6-decimal raw
+    currency: 'USDC',
+    description: 'Q3 consulting engagement',
+    successUrl: 'https://your-site.com/thanks',
+    metadata: {
+      customerName: 'Acme Inc.',
+      invoiceNumber: 'INV-0042',
+    },
+  })
+
+  console.log('Checkout URL:', session.checkoutUrl)
+  console.log('Session id:', session.id)
+}
+
+main()
+```
+
+Run it. You get a `checkoutUrl` like `https://checkout.strimz.finance/pay/cmq4wck6a0002je6lfmb5bgjp`. The session expires after 30 minutes by default; pass `expiresInMinutes` (up to 1440, one day) if the customer needs longer. Email that URL to the customer with whatever copy fits your business.
+
+## Sending the email yourself
+
+The straightforward case:
+
+```ts
+import { Resend } from 'resend'
+
+const resend = new Resend(process.env.RESEND_API_KEY!)
+
+await resend.emails.send({
+  from: 'invoices@yourdomain.com',
+  to: 'ap@acme.com',
+  subject: 'Invoice INV-0042, 500 USDC',
+  html: `
+    <p>Hi Acme team,</p>
+    <p>Your invoice for Q3 consulting is ready. Total: 500 USDC.</p>
+    <p><a href="${session.checkoutUrl}">Pay invoice →</a></p>
+    <p>If you have questions, just reply to this email.</p>
+  `,
+})
+```
+
+The customer clicks Pay, gets to the hosted checkout, signs once, the payment confirms.
+
+## When the payment lands
+
+Set up a webhook for `payment.completed` (see [Webhooks](/docs/webhooks)). When the customer pays, your handler runs.
+
+```ts title="app/api/webhooks/strimz/route.ts"
+case 'payment.completed': {
+  const { session, transaction } = event.data
+  const invoiceNumber = session.metadata?.invoiceNumber
+
+  // Mark the invoice paid in your books.
+  await db.invoice.update({
+    where: { number: invoiceNumber },
+    data: {
+      status: 'paid',
+      paidAt: new Date(),
+      paidAmount: session.amount,
+      onchainTxHash: transaction.onchainTxHash,
+    },
+  })
+
+  // Email the customer a receipt.
+  await sendReceipt(session)
+  break
+}
+```
+
+That's the integration.
+
+## Using Strimz's Invoices instead
+
+If you want Strimz to track the invoice (number, line items, customer, due date) and email it for you, use the Invoices API:
+
+```ts
+const invoice = await strimz.invoices.create({
+  customerName: 'Acme Inc.',
+  customerEmail: 'ap@acme.com',
+  lineItems: [{ description: 'Q3 consulting engagement', quantity: 1, unitAmount: '500000000' }],
+  currency: 'USDC',
+  dueInDays: 14,
+  note: 'Net 14',
+})
+
+await strimz.invoices.send(invoice.id)
+```
+
+`strimz.invoices.send` emails the customer the line items, the total and a pay link. The link opens the hosted checkout for the invoice's backing payment session, `https://checkout.strimz.finance/pay/<sessionId>`. There is no hosted invoice page. A PDF of the invoice can be downloaded from the dashboard only.
+
+To email it yourself with your own copy, skip `send` and link to `https://checkout.strimz.finance/pay/${invoice.sessionId}`.
+
+When the customer pays, you get an `invoice.paid` webhook (in addition to the `payment.completed` for the backing session). Use whichever is most convenient.
+
+## Why this is short
+
+Most B2B payment flows are short. You wanted to send a link, you sent a link, the customer paid. You don't need a complicated integration; you need a session URL.
+
+The pieces above scale up to handle more. Line items, multiple invoices per customer, automatic dunning emails. But the floor is one API call.

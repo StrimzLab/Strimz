@@ -48,9 +48,19 @@
       "@types/react": "19.1.0",
       "@types/react-dom": "19.1.0"
     },
-    "_onlyBuiltDependenciesNote": "Lefthook ships a Go binary that pnpm post-install fetches into node_modules — that's a build script, and pnpm@10 blocks them by default for safety. We explicitly opt this in so `pnpm install` wires the git hooks via the root `prepare` script.",
+    "_onlyBuiltDependenciesNote": "Lefthook ships a Go binary that pnpm post-install fetches into node_modules — that's a build script, and pnpm@10 blocks them by default for safety. We explicitly opt this in so `pnpm install` wires the git hooks via the root `prepare` script. esbuild and workerd run install scripts the Cloudflare Workers build (OpenNext, wrangler) needs.",
     "onlyBuiltDependencies": [
-      "lefthook"
-    ]
+      "esbuild",
+      "lefthook",
+      "workerd"
+    ],
+    "_packageExtensionsNote": "@hookform/resolvers imports zod without declaring it, so it used whichever zod pnpm hoisted (3 or 4). Declaring the peer makes it use the importing app's zod.",
+    "packageExtensions": {
+      "@hookform/resolvers@3": {
+        "peerDependencies": {
+          "zod": "^3.22.0"
+        }
+      }
+    }
   }
 }

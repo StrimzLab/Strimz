@@ -4,11 +4,17 @@ import { useRef } from 'react'
 import checkIcon from '@iconify-icons/solar/check-circle-linear'
 import minusIcon from '@iconify-icons/solar/minus-circle-linear'
 import { cn } from '@strimz/ui'
-import { PRICING_PLANS } from '@/lib/pricing-plans'
+import { PRICING_PLANS } from '@strimz/web-shared/lib/pricing-plans'
 import { MkIcon } from '../icon'
 import { BorderBeam } from '../fx/border-beam'
 import { PopLink } from '../fx/pop-button'
-import { EASE_OUT, MOTION_OK, PLAY_ONCE, gsap, useGSAP } from '../motion/gsap'
+import {
+  EASE_OUT,
+  MOTION_OK,
+  PLAY_ONCE,
+  gsap,
+  useGSAP,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 
 function spotlight(e: React.PointerEvent<HTMLElement>) {
   const r = e.currentTarget.getBoundingClientRect()

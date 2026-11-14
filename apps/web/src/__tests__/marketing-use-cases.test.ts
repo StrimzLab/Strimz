@@ -6,6 +6,7 @@ import config from '../../next.config.mjs'
 import { CASE_STUDIES, namedCaseStudies } from '@/components/marketing/use-cases/case-studies'
 import { USE_CASES, sampleCost } from '@/components/marketing/use-cases/data'
 import { firstYearFees } from '@/lib/fee-estimate'
+import { appLink, docExists } from './app-links'
 
 const WEB_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
@@ -31,7 +32,11 @@ describe('use cases', () => {
   it('names three features per audience, each linked to a guide', () => {
     for (const useCase of USE_CASES) {
       expect(useCase.features).toHaveLength(3)
-      for (const feature of useCase.features) expect(feature.href).toMatch(/^\/docs\//u)
+      for (const feature of useCase.features) {
+        const link = appLink(feature.href)
+        expect(link.app, feature.href).toBe('docs')
+        expect(docExists(link.path), feature.href).toBe(true)
+      }
     }
   })
 

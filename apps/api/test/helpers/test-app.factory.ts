@@ -12,6 +12,10 @@ import { RelayProcessor } from '../../src/modules/relay/relay.processor.js'
 import { PrismaService } from '../../src/infra/prisma/prisma.service.js'
 import { TypedConfigService } from '../../src/config/index.js'
 import { corsPolicy } from '../../src/common/http/cors-policy.js'
+import {
+  registerHttpPlugins,
+  type HttpPluginOverrides,
+} from '../../src/common/http/http-plugins.js'
 
 import { StubPrivyService } from './stubs/privy.stub.js'
 import { StubTurnstileService } from './stubs/turnstile.stub.js'
@@ -45,7 +49,11 @@ export interface TestApp {
  *
  * or use the provided `withTestApp(fn)` helper to handle teardown.
  */
-export async function createTestApp(): Promise<TestApp> {
+export interface TestAppOptions {
+  httpPlugins?: HttpPluginOverrides
+}
+
+export async function createTestApp(options: TestAppOptions = {}): Promise<TestApp> {
   const stubPrivy = new StubPrivyService()
   const stubTurnstile = new StubTurnstileService()
   const stubQueue = new StubQueueService()
@@ -75,6 +83,7 @@ export async function createTestApp(): Promise<TestApp> {
 
   const app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter())
   app.enableCors(corsPolicy(app.get(TypedConfigService).env))
+  await registerHttpPlugins(app, options.httpPlugins)
   await app.init()
   await app.getHttpAdapter().getInstance().ready()
 

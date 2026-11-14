@@ -5,7 +5,7 @@ import {
   type SubscriptionResultMessage,
 } from '@strimz/shared-types'
 
-export const DEFAULT_CHECKOUT_ORIGIN = 'https://www.strimz.finance'
+export const DEFAULT_CHECKOUT_ORIGIN = 'https://checkout.strimz.finance'
 
 export function checkoutOriginOf(checkoutOrigin: string): string {
   let url: URL

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { ScrollTrigger } from './gsap'
+import { ScrollTrigger } from '@strimz/web-shared/components/marketing/motion/gsap'
 
 /** Lazy sections, fonts and images change the page height after ScrollTrigger has measured it. */
 export function ScrollRefresh() {

@@ -65,12 +65,10 @@ export const envSchema = z.object({
    * human inbox rather than bouncing off the noreply alias.
    */
   RESEND_REPLY_TO: z.string().email().default('support@strimz.finance'),
-  /**
-   * Where admin-facing links in emails point. Defaults to the brand
-   * URL; deployments override per-env (localhost in dev, the Vercel
-   * URL in staging, the apex once it's wired).
-   */
-  STRIMZ_DASHBOARD_URL: z.string().url().default('https://strimz.finance'),
+  /** Merchant dashboard origin, for merchant-facing links in emails. */
+  STRIMZ_DASHBOARD_URL: z.string().url().default('https://app.strimz.finance'),
+  /** Admin app origin, for admin invite and admin email links. */
+  STRIMZ_ADMIN_URL: z.string().url(),
   OPS_ALERT_EMAIL: z.preprocess(
     (value) => (value === '' ? undefined : value),
     z.string().email().optional(),

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { LegalDoc } from '@/components/marketing/legal-doc'
-import { OG_IMAGE } from '@/lib/seo'
+import { OG_IMAGE } from '@strimz/web-shared/lib/seo'
 
 export const metadata: Metadata = {
   title: 'Acceptable Use Policy',
