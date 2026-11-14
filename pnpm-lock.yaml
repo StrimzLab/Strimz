@@ -681,6 +681,54 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.19.17)(jsdom@25.0.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(lightningcss@1.32.0)(terser@5.46.2)
 
+  e2e/full-stack:
+    devDependencies:
+      '@strimz/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@strimz/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
+      '@strimz/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@strimz/shared-config':
+        specifier: workspace:*
+        version: link:../../packages/shared-config
+      '@strimz/shared-crypto':
+        specifier: workspace:*
+        version: link:../../packages/shared-crypto
+      '@strimz/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
+      '@testcontainers/postgresql':
+        specifier: ^10.16.0
+        version: 10.28.0
+      '@testcontainers/redis':
+        specifier: ^10.16.0
+        version: 10.28.0
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.17
+      eslint:
+        specifier: ^9.18.0
+        version: 9.39.4(jiti@2.6.1)
+      testcontainers:
+        specifier: ^10.16.0
+        version: 10.28.0
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      viem:
+        specifier: ^2.22.6
+        version: 2.48.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@3.25.76)
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.17)(jsdom@25.0.1(bufferutil@4.1.0)(utf-8-validate@6.0.6))(lightningcss@1.32.0)(terser@5.46.2)
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+
   packages/contracts:
     devDependencies:
       '@openzeppelin/upgrades-core':

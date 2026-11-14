@@ -1,0 +1,16 @@
+{
+  "extends": "@strimz/tsconfig/node.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*",
+    "test/**/*",
+    "stress/**/*",
+    "chaos/**/*",
+    "vitest.config.ts",
+    "vitest.stress.config.ts",
+    "vitest.chaos.config.ts"
+  ]
+}
