@@ -51,7 +51,7 @@ import {
 const ROLES: AdminRole[] = ['super_admin', 'admin', 'read_only']
 
 const ROLE_TINT: Record<AdminRole, string> = {
-  super_admin: 'border-accent/40 bg-accent/10 text-accent',
+  super_admin: 'border-accent/40 bg-accent/10 text-brand-text',
   admin: 'border-sky-400/40 bg-sky-50 text-sky-700',
   read_only: 'border-border/60',
 }
@@ -208,7 +208,7 @@ export default function AdminAdminsPage() {
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem
-                            className="text-rose-600 focus:text-rose-600"
+                            className="text-danger focus:text-danger"
                             onClick={() =>
                               setPendingConfirm({
                                 copy: removeAdminConfirm(a),

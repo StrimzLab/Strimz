@@ -146,7 +146,7 @@ function StorefrontDetails({ storefront }: { storefront: Storefront }) {
                   variant="outline"
                   className={
                     storefront.status === 'published'
-                      ? 'border-accent/40 bg-accent/10 text-accent text-[10px]'
+                      ? 'border-accent/40 bg-accent/10 text-brand-text text-[10px]'
                       : 'text-[10px]'
                   }
                 >
@@ -269,7 +269,7 @@ function ProductCard({
             ) : null}
           </div>
           {!product.isActive ? (
-            <Badge variant="outline" className="text-[10px] text-rose-600">
+            <Badge variant="outline" className="text-danger text-[10px]">
               Archived
             </Badge>
           ) : null}
@@ -289,7 +289,7 @@ function ProductCard({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2 text-xs text-rose-600 hover:text-rose-600"
+              className="text-danger hover:text-danger h-7 px-2 text-xs"
               onClick={onArchive}
               disabled={isArchiving}
             >
@@ -577,7 +577,7 @@ function AddProductDialog() {
                 className={[
                   'h-7 rounded-md border px-2 capitalize transition-colors',
                   type === t
-                    ? 'border-accent bg-accent/10 text-accent'
+                    ? 'border-accent bg-accent/10 text-brand-text'
                     : 'border-border/60 hover:bg-muted',
                 ].join(' ')}
               >
@@ -616,7 +616,7 @@ function AddProductDialog() {
               {!plansQuery.isPending && !plansQuery.isError && plans.length === 0 && (
                 <p className="text-muted-foreground text-xs">
                   Create one on the{' '}
-                  <Link href="/app/plans" className="text-accent hover:underline">
+                  <Link href="/app/plans" className="text-brand-text hover:underline">
                     Plans page
                   </Link>
                   .

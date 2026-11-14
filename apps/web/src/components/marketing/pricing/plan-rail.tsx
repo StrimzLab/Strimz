@@ -172,7 +172,7 @@ export function PlanRail() {
               data-fact
               className="border-border bg-card rounded-[22px] border p-6"
             >
-              <span className="bg-accent/10 text-accent-ink dark:text-accent grid size-10 place-items-center rounded-xl">
+              <span className="bg-accent/10 text-accent-ink dark:text-brand-text grid size-10 place-items-center rounded-xl">
                 <MkIcon icon={fact.icon} className="size-5" />
               </span>
               <h3 className="font-sora text-foreground mt-5 text-lg font-semibold tracking-[-0.02em]">

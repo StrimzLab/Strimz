@@ -17,7 +17,6 @@ import {
 } from '@strimz/web-shared/components/marketing/motion/gsap'
 import { markMotionReady } from '../motion/gate'
 import { DashboardPreview } from './dashboard-preview'
-import { StreamField } from './stream-field'
 import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 
 const AUDIENCES = ['SaaS teams.', 'marketplaces.', 'creators.', 'agencies.', 'global B2B.'] as const
@@ -31,7 +30,6 @@ const FACTS = [
 
 export function Hero() {
   const scope = useRef<HTMLElement>(null)
-  const sinkRef = useRef<HTMLDivElement>(null)
 
   useGSAP(
     () => {
@@ -106,18 +104,8 @@ export function Hero() {
   )
 
   return (
-    <section ref={scope} aria-labelledby="hero-title" className="px-2 sm:px-3">
-      <div className="bg-muted ring-border dark:bg-ink grain relative isolate overflow-hidden rounded-[28px] ring-1 sm:rounded-[36px] dark:ring-white/10">
-        <div
-          aria-hidden
-          className="absolute -right-40 top-1/4 -z-10 size-[720px] rounded-full bg-[radial-gradient(closest-side,rgb(2_199_106/0.16),transparent)] blur-2xl dark:bg-[radial-gradient(closest-side,rgb(2_199_106/0.28),transparent)]"
-        />
-        <div
-          aria-hidden
-          className="absolute -left-60 -top-60 -z-10 size-[640px] rounded-full bg-[radial-gradient(closest-side,rgb(149_254_204/0.12),transparent)] blur-2xl"
-        />
-        <StreamField sinkRef={sinkRef} />
-
+    <section ref={scope} aria-labelledby="hero-title">
+      <div className="relative isolate overflow-hidden">
         <div className="relative mx-auto grid max-w-[1280px] items-center gap-14 px-5 pb-10 pt-16 sm:px-10 sm:pt-24 lg:min-h-[calc(100svh-96px)] lg:grid-cols-[1.2fr_1fr] lg:gap-10 lg:pb-16 lg:pt-20">
           <div data-copy>
             <h1
@@ -168,7 +156,6 @@ export function Hero() {
 
           <div data-dash-wrap className="flex justify-center [perspective:1400px] lg:justify-end">
             <div
-              ref={sinkRef}
               data-intro
               data-dash
               className="relative w-full max-w-[560px] [transform-style:preserve-3d]"
@@ -189,7 +176,7 @@ export function Hero() {
               data-fact
               className="font-poppins text-muted-foreground flex items-center gap-2.5 text-[13px] sm:text-sm dark:text-white/70"
             >
-              <MkIcon icon={f.icon} className="text-accent size-5 shrink-0" />
+              <MkIcon icon={f.icon} className="text-brand-text size-5 shrink-0" />
               {f.label}
             </li>
           ))}

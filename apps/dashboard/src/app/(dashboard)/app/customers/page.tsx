@@ -104,7 +104,7 @@ export default function CustomersPage() {
             <div className="flex flex-col leading-tight">
               <Link
                 href={`/app/customers/${row.original.id}`}
-                className="hover:text-accent font-medium hover:underline"
+                className="hover:text-brand-text font-medium hover:underline"
               >
                 {row.original.displayName ?? row.original.email ?? 'Anonymous'}
               </Link>
@@ -119,7 +119,7 @@ export default function CustomersPage() {
                         <button
                           type="button"
                           onClick={() => setHistoryCustomer(row.original)}
-                          className="border-accent/30 bg-accent/10 text-accent hover:bg-accent/15 inline-flex items-center rounded-full border px-1.5 text-[10px] font-medium"
+                          className="border-accent/30 bg-accent/10 text-brand-text hover:bg-accent/15 inline-flex items-center rounded-full border px-1.5 text-[10px] font-medium"
                         >
                           +{extraCount} more
                         </button>
@@ -142,7 +142,7 @@ export default function CustomersPage() {
         cell: ({ row }) => (
           <Link
             href={`/app/customers/${row.original.id}`}
-            className="hover:text-accent text-xs hover:underline"
+            className="hover:text-brand-text text-xs hover:underline"
           >
             <code>{shortAddress(row.original.walletAddress)}</code>
           </Link>
@@ -323,7 +323,7 @@ function EmailHistoryDialog({
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-medium">{entry.email}</span>
                         {idx === 0 ? (
-                          <span className="border-accent/30 bg-accent/10 text-accent inline-flex items-center rounded-full border px-1.5 text-[10px] font-medium">
+                          <span className="border-accent/30 bg-accent/10 text-brand-text inline-flex items-center rounded-full border px-1.5 text-[10px] font-medium">
                             current
                           </span>
                         ) : null}

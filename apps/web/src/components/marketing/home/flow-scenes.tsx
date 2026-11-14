@@ -28,7 +28,7 @@ export function CreateScene() {
     <div data-scene="create" className="space-y-4 p-5 sm:p-6">
       <div className="flex items-center justify-between">
         <p className="font-sora text-foreground text-[15px] font-semibold">New plan</p>
-        <span className="font-poppins bg-accent/10 text-accent-ink dark:text-accent rounded-full px-2.5 py-0.5 text-[11px] font-medium">
+        <span className="font-poppins bg-accent/10 text-accent-ink dark:text-brand-text rounded-full px-2.5 py-0.5 text-[11px] font-medium">
           Draft
         </span>
       </div>
@@ -137,7 +137,7 @@ export function ShareScene() {
         </div>
         <span
           data-copied
-          className="font-poppins text-accent-ink dark:text-accent text-xs font-medium"
+          className="font-poppins text-accent-ink dark:text-brand-text text-xs font-medium"
         >
           Copied
         </span>
@@ -150,7 +150,7 @@ export function ShareScene() {
               data-channel
               className="border-border bg-background font-poppins text-foreground flex h-11 items-center gap-2.5 whitespace-nowrap rounded-xl border px-3 text-[13px] sm:text-sm"
             >
-              <MkIcon icon={c.icon} className="text-accent size-[18px]" />
+              <MkIcon icon={c.icon} className="text-brand-text size-[18px]" />
               {c.label}
             </li>
           ))}
@@ -187,7 +187,7 @@ export function ApproveScene() {
         className="border-border bg-background w-full max-w-[320px] rounded-[26px] border p-5 shadow-[0_30px_60px_-30px_rgb(5_0_32/0.45)]"
       >
         <div className="flex items-center gap-2">
-          <span className="bg-ink text-accent grid size-8 place-items-center rounded-full">
+          <span className="bg-ink text-brand-text grid size-8 place-items-center rounded-full">
             <MkIcon icon={walletIcon} className="size-[18px]" />
           </span>
           <p className="font-poppins text-foreground text-sm font-medium">
@@ -205,7 +205,7 @@ export function ApproveScene() {
           </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">Network fee</dt>
-            <dd className="text-accent-ink dark:text-accent font-medium">Paid by Strimz</dd>
+            <dd className="text-accent-ink dark:text-brand-text font-medium">Paid by Strimz</dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-muted-foreground">Cancel</dt>
@@ -285,7 +285,9 @@ export function PaidScene() {
             <span
               className={cn(
                 'font-poppins text-xs',
-                r.done ? 'text-accent-ink dark:text-accent font-medium' : 'text-muted-foreground',
+                r.done
+                  ? 'text-accent-ink dark:text-brand-text font-medium'
+                  : 'text-muted-foreground',
               )}
             >
               {r.status}
@@ -298,14 +300,14 @@ export function PaidScene() {
           data-notify
           className="border-border bg-background font-poppins text-foreground flex h-10 items-center gap-2 rounded-xl border px-3 text-xs"
         >
-          <MkIcon icon={letterIcon} className="text-accent size-4" />
+          <MkIcon icon={letterIcon} className="text-brand-text size-4" />
           Receipt emailed
         </span>
         <span
           data-notify
           className="border-border bg-background font-poppins text-foreground flex h-10 items-center gap-2 rounded-xl border px-3 text-xs"
         >
-          <MkIcon icon={repeatIcon} className="text-accent size-4" />
+          <MkIcon icon={repeatIcon} className="text-brand-text size-4" />
           Renews monthly
         </span>
       </div>

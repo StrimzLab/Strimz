@@ -136,7 +136,7 @@ export function Assurances() {
                       <ArtImage
                         src={item.art}
                         size={96}
-                        fallback={<MkIcon icon={item.icon} className="text-accent size-12" />}
+                        fallback={<MkIcon icon={item.icon} className="text-brand-text size-12" />}
                       />
                     </div>
                   </div>
@@ -151,8 +151,8 @@ export function Assurances() {
             ))}
           </ul>
         </div>
+        <PaddedLines className="absolute inset-x-0 bottom-0 [&>div]:h-[6px]" />
       </div>
-      <PaddedLines className="mx-auto mt-2 max-w-[calc(100%-8px)] overflow-hidden rounded-full [&>div]:h-[6px]" />
     </section>
   )
 }

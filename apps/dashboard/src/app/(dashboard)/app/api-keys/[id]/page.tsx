@@ -88,7 +88,7 @@ export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: str
               <Button
                 variant="outline"
                 size="sm"
-                className="text-rose-600"
+                className="text-danger"
                 onClick={() =>
                   setPendingConfirm({
                     copy: revokeApiKeyConfirm(key),

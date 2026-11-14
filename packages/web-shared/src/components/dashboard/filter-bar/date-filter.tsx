@@ -71,7 +71,7 @@ export function DateFilter({
                 className="font-poppins text-foreground hover:bg-muted focus-visible:bg-muted flex w-full items-center justify-between rounded-md px-2.5 py-2 text-left text-sm outline-none"
               >
                 {PRESET_LABEL[preset]}
-                {on ? <Check className="text-accent size-4" aria-hidden /> : null}
+                {on ? <Check className="text-brand-text size-4" aria-hidden /> : null}
               </button>
             )
           })}
@@ -111,7 +111,7 @@ export function DateFilter({
               </div>
             </div>
             {error ? (
-              <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">
+              <p role="alert" className="text-danger text-xs">
                 {error}
               </p>
             ) : null}

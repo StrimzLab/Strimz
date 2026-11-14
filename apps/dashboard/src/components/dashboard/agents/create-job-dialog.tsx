@@ -186,7 +186,7 @@ export function CreateAgentJobDialog({
             </p>
           </div>
 
-          {err ? <p className="text-xs text-red-500">{err}</p> : null}
+          {err ? <p className="text-danger text-xs">{err}</p> : null}
         </div>
 
         <DialogFooter>

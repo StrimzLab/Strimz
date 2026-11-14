@@ -66,9 +66,9 @@ function AuthCallback() {
     <AuthCard title="Signing you in" description={error ?? 'Hold on a moment.'}>
       <div className="flex justify-center py-4">
         {error ? (
-          <p className="font-poppins text-sm text-rose-600">{error}</p>
+          <p className="font-poppins text-danger text-sm">{error}</p>
         ) : (
-          <Loader2 className="text-accent size-6 animate-spin" />
+          <Loader2 className="text-brand-text size-6 animate-spin" />
         )}
       </div>
     </AuthCard>

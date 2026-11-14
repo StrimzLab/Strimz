@@ -24,7 +24,7 @@ function PaymentReceivedCard() {
     <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-sm">
       <div className="flex items-center justify-between">
         <span className="font-poppins flex items-center gap-2 text-sm text-white">
-          <Icon icon={checkIcon} aria-hidden className="text-accent size-5" />
+          <Icon icon={checkIcon} aria-hidden className="text-brand-text size-5" />
           {card.title}
         </span>
       </div>
@@ -104,7 +104,7 @@ export function AuthPanel() {
           <ul className="space-y-4">
             {AUTH_COPY.new.benefits.map((b, i) => (
               <li key={b.title} data-panel-line className="flex gap-3">
-                <span className="bg-accent/15 text-accent grid size-9 shrink-0 place-items-center rounded-xl">
+                <span className="bg-accent/15 text-brand-text grid size-9 shrink-0 place-items-center rounded-xl">
                   <Icon icon={BENEFIT_ICONS[i] ?? checkIcon} aria-hidden className="size-5" />
                 </span>
                 <span>
@@ -160,7 +160,7 @@ export function AuthBenefitsRow() {
           <Icon
             icon={BENEFIT_ICONS[i] ?? checkIcon}
             aria-hidden
-            className="text-accent-ink dark:text-accent size-4"
+            className="text-accent-ink dark:text-brand-text size-4"
           />
           {b.title}
         </li>

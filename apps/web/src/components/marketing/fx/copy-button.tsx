@@ -59,7 +59,7 @@ export function CopyButton({
       aria-label={`${LABELS[state.status]}: ${label}`}
       className={cn(
         'focus-visible:ring-accent grid size-9 place-items-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 disabled:opacity-60',
-        state.status === 'copied' && 'text-accent',
+        state.status === 'copied' && 'text-brand-text',
         state.status === 'failed' && 'text-destructive',
         className,
       )}

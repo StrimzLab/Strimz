@@ -53,7 +53,7 @@ export function DashboardShell({ children, title }: { children: React.ReactNode;
   if (gate.kind !== 'ready') {
     return (
       <div className="bg-background flex min-h-screen items-center justify-center">
-        <Loader2 className="text-accent size-6 animate-spin" />
+        <Loader2 className="text-brand-text size-6 animate-spin" />
       </div>
     )
   }

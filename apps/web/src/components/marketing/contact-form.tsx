@@ -76,7 +76,7 @@ export function ContactForm() {
         <button
           type="button"
           onClick={() => setSubmitted(false)}
-          className="font-poppins text-accent mt-3 text-sm font-[500] hover:underline"
+          className="font-poppins text-brand-text mt-3 text-sm font-[500] hover:underline"
         >
           Send another message →
         </button>
@@ -183,7 +183,7 @@ export function ContactForm() {
       {submitError ? (
         <p
           role="alert"
-          className="font-poppins rounded-[8px] border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-[13px] text-rose-600 dark:text-rose-400"
+          className="font-poppins border-danger-border bg-danger-surface text-danger rounded-[8px] border px-3 py-2 text-[13px]"
         >
           {submitError}
         </p>
@@ -221,7 +221,7 @@ function Field({
       </FieldLabel>
       {input}
       {error ? (
-        <p id={`${id}-error`} className="font-poppins text-[12px] text-rose-600 dark:text-rose-400">
+        <p id={`${id}-error`} className="font-poppins text-danger text-[12px]">
           {error}
         </p>
       ) : null}

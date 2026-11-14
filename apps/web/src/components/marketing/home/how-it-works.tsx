@@ -19,7 +19,7 @@ import { ApproveScene, CreateScene, PaidScene, ShareScene } from './flow-scenes'
 const STEPS = [
   {
     icon: widgetIcon,
-    tone: 'bg-accent/10 text-accent',
+    tone: 'bg-accent/10 text-brand-text',
     title: 'Create a plan or a link',
     body: 'Set a price in USDC or EURC, choose one-time or monthly, and add a trial if you want one. No code needed.',
     Scene: CreateScene,

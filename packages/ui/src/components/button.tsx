@@ -27,8 +27,8 @@ const buttonVariants = cva(
           'border-border bg-muted text-foreground hover:border-primary hover:bg-card border',
         outline: 'border-border bg-card text-foreground hover:border-primary hover:bg-card border',
         ghost: 'text-foreground hover:bg-muted',
-        link: 'text-accent underline-offset-4 hover:underline',
-        destructive: 'bg-rose-600 text-white hover:bg-rose-700',
+        link: 'text-brand-text underline-offset-4 hover:underline',
+        destructive: 'bg-destructive hover:bg-destructive/90 text-white',
       },
       size: {
         default: 'h-10 px-4 py-2',

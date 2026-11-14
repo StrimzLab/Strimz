@@ -20,7 +20,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           'file:text-foreground file:border-0 file:bg-transparent file:text-sm file:font-medium',
           'focus-visible:border-accent focus-visible:ring-accent/15 focus-visible:outline-none focus-visible:ring-4',
           'disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-50',
-          'aria-invalid:border-rose-500 aria-invalid:ring-rose-500/15',
+          'aria-invalid:border-danger aria-invalid:ring-danger-border',
           className,
         )}
         ref={ref}

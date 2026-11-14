@@ -61,7 +61,7 @@ function Plans() {
         cell: ({ row }) => (
           <Link
             href={`/app/plans/${row.original.id}`}
-            className="text-accent font-medium hover:underline"
+            className="text-brand-text font-medium hover:underline"
           >
             {row.original.name}
           </Link>

@@ -35,7 +35,7 @@ export function WhoItsFor() {
               >
                 <MkIcon
                   icon={USE_CASE_ICON[u.id]}
-                  className="group-data-[state=active]:text-accent size-[18px]"
+                  className="group-data-[state=active]:text-brand-text size-[18px]"
                 />
                 {u.label}
               </TabsTrigger>
@@ -64,7 +64,7 @@ export function WhoItsFor() {
                         </dd>
                       </div>
                       <div className="border-accent border-l-2 pl-4">
-                        <dt className="font-poppins text-accent-ink dark:text-accent text-sm font-medium">
+                        <dt className="font-poppins text-accent-ink dark:text-brand-text text-sm font-medium">
                           With Strimz
                         </dt>
                         <dd className="font-poppins text-foreground mt-1.5 text-[17px] leading-relaxed">

@@ -145,7 +145,8 @@ describe('docs.css styles what fumadocs renders', () => {
   it('draws a rule above each docs section and keeps the brand primary', () => {
     expect(css).toMatch(/^#nd-page \.prose h2\s*\{[^}]*border-top:/m)
     expect(css).toMatch(/^\.dark #nd-page \.prose h2\s*\{[^}]*border-top-color:/m)
-    expect(css).toMatch(/^:root\s*\{[^}]*--fd-primary: 150 98% 40%;/m)
+    // Green text is Primary 80 in light mode (#471).
+    expect(css).toMatch(/^:root\s*\{[^}]*--fd-primary: 151.5 97.2% 28%;/m)
   })
 })
 

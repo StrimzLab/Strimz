@@ -324,7 +324,7 @@ function PanelLink({ item, current }: { item: NavItem; current: boolean }) {
           className={cn(
             'mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-[10px] transition-colors duration-150',
             item.icon
-              ? 'bg-accent/10 text-accent-ink dark:text-accent group-hover/item:bg-accent/20'
+              ? 'bg-accent/10 text-accent-ink dark:text-brand-text group-hover/item:bg-accent/20'
               : 'text-muted-foreground',
           )}
         >
@@ -377,7 +377,7 @@ function Feature({ item }: { item: NavItem }) {
           <span className="font-poppins mt-2 block text-[13px] leading-snug text-white/70">
             {item.description}
           </span>
-          <span className="font-poppins text-accent mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium">
+          <span className="font-poppins text-brand-text mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium">
             See how it works
             <MkIcon
               icon={arrowIcon}

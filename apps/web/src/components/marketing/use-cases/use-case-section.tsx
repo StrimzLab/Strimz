@@ -60,7 +60,7 @@ export function UseCaseSection({ useCase, flip }: { useCase: UseCase; flip: bool
     >
       <div className="mx-auto grid max-w-[1280px] items-center gap-12 px-5 sm:px-10 lg:grid-cols-2 lg:gap-16">
         <div data-uc-copy className={cn(flip && 'lg:order-2')}>
-          <p className="font-poppins bg-accent/10 text-accent-ink dark:text-accent inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-medium">
+          <p className="font-poppins bg-accent/10 text-accent-ink dark:text-brand-text inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-medium">
             <span className="bg-accent size-1.5 rounded-full" />
             {useCase.label}
           </p>
@@ -76,7 +76,7 @@ export function UseCaseSection({ useCase, flip }: { useCase: UseCase; flip: bool
           <ul className="mt-7 space-y-4">
             {useCase.features.map((f) => (
               <li key={f.title} className="flex gap-3">
-                <MkIcon icon={checkIcon} className="text-accent mt-0.5 size-5 shrink-0" />
+                <MkIcon icon={checkIcon} className="text-brand-text mt-0.5 size-5 shrink-0" />
                 <div>
                   <Link
                     href={f.href}

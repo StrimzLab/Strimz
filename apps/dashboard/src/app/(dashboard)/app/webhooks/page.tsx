@@ -314,7 +314,7 @@ function Webhooks() {
             <code
               className={[
                 'text-xs',
-                row.original.responseCode >= 400 ? 'text-rose-600' : 'text-muted-foreground',
+                row.original.responseCode >= 400 ? 'text-danger' : 'text-muted-foreground',
               ].join(' ')}
             >
               HTTP {row.original.responseCode}
@@ -509,7 +509,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'da
       <div
         className={[
           'font-sora mt-1 text-2xl font-semibold',
-          tone === 'danger' ? 'text-rose-600' : '',
+          tone === 'danger' ? 'text-danger' : '',
         ].join(' ')}
       >
         {value}
@@ -611,7 +611,7 @@ function NewEndpointDialog() {
             </div>
             <div className="flex items-center gap-2 text-xs">
               <Label>Mode:</Label>
-              <span className="border-accent bg-accent/10 text-accent inline-flex h-7 items-center rounded-md border px-2 capitalize">
+              <span className="border-accent bg-accent/10 text-brand-text inline-flex h-7 items-center rounded-md border px-2 capitalize">
                 {mode}
               </span>
             </div>

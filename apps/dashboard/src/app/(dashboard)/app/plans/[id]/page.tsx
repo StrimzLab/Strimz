@@ -34,7 +34,7 @@ export default function PlanDetailPage({ params }: { params: Promise<{ id: strin
   if (isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="text-accent size-6 animate-spin" />
+        <Loader2 className="text-brand-text size-6 animate-spin" />
       </div>
     )
   }
@@ -43,7 +43,7 @@ export default function PlanDetailPage({ params }: { params: Promise<{ id: strin
       <div className="space-y-4">
         <BackLink />
         <Card>
-          <CardContent className="p-6 text-sm text-rose-600">Plan not found.</CardContent>
+          <CardContent className="text-danger p-6 text-sm">Plan not found.</CardContent>
         </Card>
       </div>
     )
@@ -151,7 +151,7 @@ export default function PlanDetailPage({ params }: { params: Promise<{ id: strin
             <p className="text-muted-foreground text-xs">Loading…</p>
           ) : subscriptionsQuery.isError ? (
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs text-rose-600">Couldn’t load subscribers.</p>
+              <p className="text-danger text-xs">Couldn’t load subscribers.</p>
               <Button variant="outline" size="sm" onClick={() => subscriptionsQuery.refetch()}>
                 Try again
               </Button>
@@ -172,7 +172,7 @@ export default function PlanDetailPage({ params }: { params: Promise<{ id: strin
             ))
           )}
           {subscriptionsQuery.data?.hasMore ? (
-            <Link href="/app/subscriptions" className="text-accent text-xs hover:underline">
+            <Link href="/app/subscriptions" className="text-brand-text text-xs hover:underline">
               See all subscriptions
             </Link>
           ) : null}

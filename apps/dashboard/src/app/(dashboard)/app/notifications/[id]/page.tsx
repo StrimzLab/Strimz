@@ -17,7 +17,7 @@ export default function BroadcastPage({ params }: { params: Promise<{ id: string
   if (isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="text-accent size-6 animate-spin" />
+        <Loader2 className="text-brand-text size-6 animate-spin" />
       </div>
     )
   }
@@ -31,7 +31,7 @@ export default function BroadcastPage({ params }: { params: Promise<{ id: string
               <span className="text-muted-foreground">This message isn&apos;t available.</span>
             ) : (
               <>
-                <span className="text-rose-600">Couldn&apos;t load this message.</span>
+                <span className="text-danger">Couldn&apos;t load this message.</span>
                 <Button variant="outline" size="sm" onClick={() => refetch()}>
                   Try again
                 </Button>

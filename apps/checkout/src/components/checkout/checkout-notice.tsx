@@ -2,8 +2,8 @@ import type { ReactNode } from 'react'
 import type { PayerError } from '@/lib/payer-errors'
 
 const TONES = {
-  error: 'border-red-500/30 bg-red-500/5 text-red-700 dark:text-red-300',
-  info: 'border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300',
+  error: 'border-danger-border bg-danger-surface text-danger',
+  info: 'border-warning-border bg-warning-surface text-warning',
 } as const
 
 export function CheckoutNotice({

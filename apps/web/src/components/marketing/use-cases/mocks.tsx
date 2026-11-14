@@ -21,7 +21,7 @@ export function OrderMock() {
             key={s.title}
             className="border-border bg-background flex items-center gap-3 rounded-xl border p-3"
           >
-            <MkIcon icon={s.icon} className="text-accent size-5 shrink-0" />
+            <MkIcon icon={s.icon} className="text-brand-text size-5 shrink-0" />
             <div className="min-w-0">
               <p className="font-poppins text-foreground text-[13px] font-medium">{s.title}</p>
               <p className="font-poppins text-muted-foreground text-[11px]">{s.meta}</p>
@@ -43,7 +43,7 @@ export function StorefrontMock() {
   return (
     <Window title="strimz.finance/store/studio-ade" badge={<Pill tone="muted">Storefront</Pill>}>
       <div className="flex items-center gap-3">
-        <span className="bg-accent/15 text-accent-ink dark:text-accent font-sora grid size-10 place-items-center rounded-full text-sm font-semibold">
+        <span className="bg-accent/15 text-accent-ink dark:text-brand-text font-sora grid size-10 place-items-center rounded-full text-sm font-semibold">
           SA
         </span>
         <div>
@@ -89,7 +89,7 @@ export function EurcLinkMock() {
         </p>
       </div>
       <div className="border-border mt-3 flex items-center gap-3 rounded-xl border p-3">
-        <MkIcon icon={walletIcon} className="text-accent size-5 shrink-0" />
+        <MkIcon icon={walletIcon} className="text-brand-text size-5 shrink-0" />
         <p className="font-poppins text-muted-foreground text-[12px]">
           Settled to your wallet. Your client paid no gas.
         </p>

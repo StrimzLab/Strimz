@@ -50,7 +50,7 @@ export default function PaymentSessionDetailPage({ params }: { params: Promise<{
   if (isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="text-accent size-6 animate-spin" />
+        <Loader2 className="text-brand-text size-6 animate-spin" />
       </div>
     )
   }
@@ -59,9 +59,7 @@ export default function PaymentSessionDetailPage({ params }: { params: Promise<{
       <div className="space-y-4">
         <BackLink />
         <Card>
-          <CardContent className="p-6 text-sm text-rose-600">
-            Payment session not found.
-          </CardContent>
+          <CardContent className="text-danger p-6 text-sm">Payment session not found.</CardContent>
         </Card>
       </div>
     )
@@ -187,7 +185,7 @@ export default function PaymentSessionDetailPage({ params }: { params: Promise<{
                   href={`${explorer}/tx/${session.onchainTxHash}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-accent inline-flex items-center gap-1 font-mono text-xs hover:underline"
+                  className="text-brand-text inline-flex items-center gap-1 font-mono text-xs hover:underline"
                 >
                   {session.onchainTxHash.slice(0, 18)}… <ExternalLink className="size-3" />
                 </a>
@@ -202,7 +200,7 @@ export default function PaymentSessionDetailPage({ params }: { params: Promise<{
                 <p className="text-muted-foreground text-xs">Loading…</p>
               ) : transactionsQuery.isError ? (
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-rose-600">Couldn’t load transactions.</p>
+                  <p className="text-danger text-xs">Couldn’t load transactions.</p>
                   <Button variant="outline" size="sm" onClick={() => transactionsQuery.refetch()}>
                     Try again
                   </Button>
@@ -255,7 +253,7 @@ function CopyValue({ value }: { value: string }) {
   return (
     <button
       type="button"
-      className="hover:text-accent inline-flex items-center gap-1 font-mono text-xs"
+      className="hover:text-brand-text inline-flex items-center gap-1 font-mono text-xs"
       onClick={() => {
         void navigator.clipboard.writeText(value).then(() => toast.success('Copied'))
       }}

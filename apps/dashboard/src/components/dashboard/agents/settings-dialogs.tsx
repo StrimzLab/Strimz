@@ -252,7 +252,7 @@ export function CashflowSettingsDialog({ open, onOpenChange, config }: DialogPro
                   }}
                 />
                 {reserveErr ? (
-                  <p className="text-xs text-red-500">{reserveErr}</p>
+                  <p className="text-danger text-xs">{reserveErr}</p>
                 ) : (
                   <p className="text-muted-foreground text-xs">
                     Cashflow will never sweep balance below this floor into yield.
@@ -425,7 +425,7 @@ export function CommerceSettingsDialog({ open, onOpenChange, config }: DialogPro
             </p>
           </div>
 
-          {err ? <p className="text-xs text-red-500">{err}</p> : null}
+          {err ? <p className="text-danger text-xs">{err}</p> : null}
         </div>
 
         <DialogFooter>

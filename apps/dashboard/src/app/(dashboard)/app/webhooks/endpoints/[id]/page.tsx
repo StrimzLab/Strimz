@@ -129,7 +129,7 @@ function EndpointDetail({ id }: { id: string }) {
             <code
               className={
                 row.original.responseCode >= 400
-                  ? 'text-xs text-rose-600'
+                  ? 'text-danger text-xs'
                   : 'text-muted-foreground text-xs'
               }
             >

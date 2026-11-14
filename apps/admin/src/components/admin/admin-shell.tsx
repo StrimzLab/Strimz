@@ -127,7 +127,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 className={[
                   'group flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
                   active
-                    ? 'bg-accent/10 text-accent font-medium'
+                    ? 'bg-accent/10 text-brand-text font-medium'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 ].join(' ')}
               >

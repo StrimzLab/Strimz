@@ -18,7 +18,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           'placeholder:text-muted-foreground',
           'focus-visible:border-accent focus-visible:ring-accent/15 focus-visible:outline-none focus-visible:ring-4',
           'disabled:bg-muted disabled:cursor-not-allowed disabled:opacity-50',
-          'aria-invalid:border-rose-500 aria-invalid:ring-rose-500/15',
+          'aria-invalid:border-danger aria-invalid:ring-danger-border',
           className,
         )}
         ref={ref}

@@ -86,7 +86,7 @@ export function NotificationsPopover() {
       <DropdownMenuContent align="end" sideOffset={8} className="w-[380px] p-0">
         <DropdownMenuLabel className="border-border/60 flex items-center justify-between border-b p-4">
           <span className="font-poppins flex items-center gap-2 text-sm font-medium">
-            <Bell className="text-accent size-4" />
+            <Bell className="text-brand-text size-4" />
             Notifications
           </span>
           <span className="font-poppins text-muted-foreground text-[10px] font-normal">
@@ -100,7 +100,7 @@ export function NotificationsPopover() {
               Loading…
             </div>
           ) : query.isError ? (
-            <div className="font-poppins p-8 text-center text-sm text-rose-600">
+            <div className="font-poppins text-danger p-8 text-center text-sm">
               Couldn&apos;t load notifications.
             </div>
           ) : items.length === 0 ? (
@@ -119,7 +119,7 @@ export function NotificationsPopover() {
                       className="hover:bg-muted/40 flex items-start gap-3 p-4 transition-colors"
                     >
                       <div
-                        className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full ${!n.read ? 'bg-accent/15 text-accent' : 'bg-muted text-muted-foreground'}`}
+                        className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full ${!n.read ? 'bg-accent/15 text-brand-text' : 'bg-muted text-muted-foreground'}`}
                       >
                         <Icon className="size-4" />
                       </div>
@@ -152,7 +152,7 @@ export function NotificationsPopover() {
           <span className="font-poppins text-muted-foreground text-[10px]">
             {items.length} recent activity item{items.length === 1 ? '' : 's'}
           </span>
-          <span className="text-accent flex items-center gap-1.5">
+          <span className="text-brand-text flex items-center gap-1.5">
             <CheckCircle2 className="size-3" />
             <span className="font-poppins text-[10px] font-medium">
               {unread === 0 ? 'All caught up' : `${unread} unread`}

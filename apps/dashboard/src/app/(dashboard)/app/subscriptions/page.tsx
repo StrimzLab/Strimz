@@ -132,7 +132,7 @@ function Subscriptions() {
           <div className="flex flex-col leading-tight">
             <Link
               href={`/app/subscriptions/${row.original.id}`}
-              className="text-accent font-mono text-xs hover:underline"
+              className="text-brand-text font-mono text-xs hover:underline"
             >
               {shortAddress(row.original.payerAddress)}
             </Link>
@@ -226,7 +226,7 @@ function Subscriptions() {
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      className="text-rose-600 focus:text-rose-600"
+                      className="text-danger focus:text-danger"
                       onClick={() =>
                         setPendingConfirm({
                           copy: cancelSubscriptionConfirm(sub),

@@ -93,7 +93,7 @@ export function EditReturnUrlsDialog({ plan }: { plan: SubscriptionPlan }) {
               onChange={(e) => setCancelUrl(e.target.value)}
             />
           </div>
-          {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+          {error ? <p className="text-danger text-xs">{error}</p> : null}
         </div>
         <DialogFooter>
           <Button

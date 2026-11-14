@@ -215,7 +215,7 @@ export function NewPaymentSessionDialog() {
                   onChange={set('cancelUrl')}
                 />
               </div>
-              {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+              {error ? <p className="text-danger text-xs">{error}</p> : null}
             </div>
             <DialogFooter>
               <Button

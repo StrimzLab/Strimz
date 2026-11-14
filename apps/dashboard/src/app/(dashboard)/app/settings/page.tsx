@@ -397,7 +397,7 @@ function BillingSection({ merchant }: { merchant: Merchant }) {
               <div className="text-sm font-medium">{PLANS[merchant.tier].name}</div>
               <div className="text-muted-foreground text-xs">{planFeeLabel(merchant.tier)}</div>
             </div>
-            <Badge variant="outline" className="border-accent/40 bg-accent/10 text-accent">
+            <Badge variant="outline" className="border-accent/40 bg-accent/10 text-brand-text">
               Current
             </Badge>
           </div>

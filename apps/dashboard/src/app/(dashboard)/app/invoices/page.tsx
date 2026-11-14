@@ -123,7 +123,7 @@ function Invoices() {
         cell: ({ row }) => (
           <Link
             href={`/app/invoices/${row.original.id}`}
-            className="hover:text-accent font-mono text-sm font-medium hover:underline"
+            className="hover:text-brand-text font-mono text-sm font-medium hover:underline"
           >
             {row.original.number}
           </Link>
@@ -165,7 +165,7 @@ function Invoices() {
           <span
             className={
               row.original.status === 'overdue'
-                ? 'font-medium text-rose-600'
+                ? 'text-danger font-medium'
                 : 'text-muted-foreground'
             }
           >
@@ -209,7 +209,7 @@ function Invoices() {
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      className="text-rose-600 focus:text-rose-600"
+                      className="text-danger focus:text-danger"
                       onClick={() =>
                         setPendingConfirm({
                           copy: voidInvoiceConfirm(inv),
@@ -344,7 +344,7 @@ function Stat({
     <div className="shadow-sub-card border-border/60 bg-background rounded-xl border p-4">
       <div className="text-muted-foreground text-xs">{label}</div>
       <div
-        className={`font-sora mt-1 text-2xl font-semibold ${tone === 'danger' ? 'text-rose-600' : ''}`}
+        className={`font-sora mt-1 text-2xl font-semibold ${tone === 'danger' ? 'text-danger' : ''}`}
       >
         {value}
       </div>

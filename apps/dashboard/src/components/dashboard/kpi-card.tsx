@@ -39,7 +39,7 @@ export function KpiCard({
               <Odometer value={shown} />
             </div>
             {subtle && <div className="text-muted-foreground mt-1 text-xs">{subtle}</div>}
-            <div className="text-accent mt-4 inline-flex items-center text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="text-brand-text mt-4 inline-flex items-center text-xs font-medium opacity-0 transition-opacity group-hover:opacity-100">
               View details <ArrowUpRight className="ml-1 size-3" />
             </div>
           </CardContent>

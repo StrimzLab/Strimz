@@ -265,7 +265,7 @@ function CapabilitiesTab({
       <Card className="border-border/60">
         <CardContent className="p-6 text-center text-sm">
           Agents aren't enabled for this account yet. Contact{' '}
-          <a className="text-accent" href="mailto:support@strimz.finance">
+          <a className="text-brand-text" href="mailto:support@strimz.finance">
             support
           </a>{' '}
           to turn them on.
@@ -285,7 +285,7 @@ function CapabilitiesTab({
             <Card key={cap.key} className="border-border/60">
               <CardContent className="flex items-start justify-between gap-4 p-4">
                 <div className="flex flex-1 items-start gap-3">
-                  <div className="bg-accent/10 text-accent flex h-9 w-9 items-center justify-center rounded-md">
+                  <div className="bg-accent/10 text-brand-text flex h-9 w-9 items-center justify-center rounded-md">
                     <Icon className="size-4" />
                   </div>
                   <div>
@@ -295,7 +295,7 @@ function CapabilitiesTab({
                       {isEnabled && !isComingSoon ? (
                         <Badge
                           variant="outline"
-                          className="border-accent/40 bg-accent/10 text-accent text-[10px]"
+                          className="border-accent/40 bg-accent/10 text-brand-text text-[10px]"
                         >
                           Enabled
                         </Badge>

@@ -53,7 +53,7 @@ export default function ContactPage() {
           <div className="mx-auto max-w-[1280px] px-5 sm:px-10">
             <RiseIn className="border-border bg-card grid gap-10 rounded-[28px] border p-6 sm:p-10 lg:grid-cols-[1fr_1.2fr]">
               <div data-rise>
-                <span className="bg-accent/10 text-accent-ink dark:text-accent grid size-11 place-items-center rounded-xl">
+                <span className="bg-accent/10 text-accent-ink dark:text-brand-text grid size-11 place-items-center rounded-xl">
                   <MkIcon icon={letterIcon} className="size-5" />
                 </span>
                 <h2
@@ -95,7 +95,7 @@ export default function ContactPage() {
                             {topic.body}
                           </span>
                         </span>
-                        <span className="font-poppins text-accent-ink dark:text-accent shrink-0 text-sm font-medium group-hover:underline">
+                        <span className="font-poppins text-accent-ink dark:text-brand-text shrink-0 text-sm font-medium group-hover:underline">
                           Email
                         </span>
                       </a>
@@ -127,7 +127,7 @@ export default function ContactPage() {
 
             <aside className="space-y-4">
               <div className="border-border bg-card rounded-[24px] border p-6">
-                <span className="bg-accent/10 text-accent-ink dark:text-accent grid size-10 place-items-center rounded-xl">
+                <span className="bg-accent/10 text-accent-ink dark:text-brand-text grid size-10 place-items-center rounded-xl">
                   <MkIcon icon={shieldIcon} className="size-5" />
                 </span>
                 <h3 className="font-sora text-foreground mt-5 text-lg font-semibold">
@@ -142,7 +142,7 @@ export default function ContactPage() {
                 </PopLink>
               </div>
               <div className="border-border bg-card rounded-[24px] border p-6">
-                <span className="bg-accent/10 text-accent-ink dark:text-accent grid size-10 place-items-center rounded-xl">
+                <span className="bg-accent/10 text-accent-ink dark:text-brand-text grid size-10 place-items-center rounded-xl">
                   <MkIcon icon={clockIcon} className="size-5" />
                 </span>
                 <h3 className="font-sora text-foreground mt-5 text-lg font-semibold">

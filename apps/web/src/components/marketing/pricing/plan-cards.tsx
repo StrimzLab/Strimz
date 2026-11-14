@@ -91,7 +91,7 @@ export function PlanCards({
                 key={f}
                 className="font-poppins text-muted-foreground flex items-start gap-2 text-[13px]"
               >
-                <MkIcon icon={checkIcon} className="text-accent mt-px size-4 shrink-0" />
+                <MkIcon icon={checkIcon} className="text-brand-text mt-px size-4 shrink-0" />
                 {f}
               </li>
             ))}

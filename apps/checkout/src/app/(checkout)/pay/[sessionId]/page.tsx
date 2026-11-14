@@ -177,7 +177,7 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
       <div className="space-y-6">
         <div>
           <Badge variant="outline" className="mb-3 gap-1.5">
-            <ShieldCheck className="text-accent size-3" />
+            <ShieldCheck className="text-brand-text size-3" />
             Secured by Strimz
           </Badge>
           <h2 className="font-poppins text-2xl font-semibold tracking-tight">
@@ -241,7 +241,7 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
                 aria-describedby={emailError ? 'payer-email-error' : undefined}
               />
               {emailError ? (
-                <p id="payer-email-error" className="text-xs text-red-600 dark:text-red-400">
+                <p id="payer-email-error" className="text-danger text-xs">
                   {emailError}
                 </p>
               ) : (
@@ -410,7 +410,7 @@ function formatAmount(baseUnits: bigint, decimals: number): string {
 function BusyState({ phase }: { phase: 'loading' | 'signing' | 'submitting' | 'polling' }) {
   return (
     <div className="bg-muted/30 flex items-center gap-3 rounded-md px-3 py-3 text-sm" role="status">
-      <Loader2 className="text-accent size-4 animate-spin" />
+      <Loader2 className="text-brand-text size-4 animate-spin" />
       <span>{busyLabel(phase)}</span>
     </div>
   )

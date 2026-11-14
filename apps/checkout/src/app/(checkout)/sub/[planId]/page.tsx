@@ -258,11 +258,11 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
       <div className="space-y-6">
         <div>
           <Badge variant="outline" className="mb-3 gap-1.5">
-            <ShieldCheck className="text-accent size-3" />
+            <ShieldCheck className="text-brand-text size-3" />
             Secured by Strimz
           </Badge>
           <h2 className="font-poppins flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <Repeat className="text-accent size-5 shrink-0" />
+            <Repeat className="text-brand-text size-5 shrink-0" />
             {phase === 'confirmed'
               ? 'Subscription active'
               : phase === 'already_subscribed'
@@ -326,7 +326,7 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
                 aria-describedby={emailError ? 'payer-email-error' : undefined}
               />
               {emailError ? (
-                <p id="payer-email-error" className="text-xs text-red-600 dark:text-red-400">
+                <p id="payer-email-error" className="text-danger text-xs">
                   {emailError}
                 </p>
               ) : (
@@ -526,7 +526,7 @@ function formatAmount(baseUnits: bigint, decimals: number): string {
 function BusyState({ phase }: { phase: 'loading' | 'signing' | 'submitting' | 'polling' }) {
   return (
     <div className="bg-muted/30 flex items-center gap-3 rounded-md px-3 py-3 text-sm" role="status">
-      <Loader2 className="text-accent size-4 animate-spin" />
+      <Loader2 className="text-brand-text size-4 animate-spin" />
       <span>{busyLabel(phase)}</span>
     </div>
   )

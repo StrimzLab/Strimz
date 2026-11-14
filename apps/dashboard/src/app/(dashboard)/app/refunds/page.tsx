@@ -170,9 +170,7 @@ function Refunds() {
               {row.original.status.replace(/_/g, ' ')}
             </StatusPill>
             {row.original.status === 'failed' && row.original.failureReason ? (
-              <p className="max-w-[16rem] text-xs text-rose-600 dark:text-rose-400">
-                {row.original.failureReason}
-              </p>
+              <p className="text-danger max-w-[16rem] text-xs">{row.original.failureReason}</p>
             ) : null}
           </div>
         ),
@@ -365,7 +363,7 @@ function Stat({
       <div
         className={[
           'font-sora mt-1 text-2xl font-semibold',
-          tone === 'danger' ? 'text-rose-600' : '',
+          tone === 'danger' ? 'text-danger' : '',
         ].join(' ')}
       >
         {value}

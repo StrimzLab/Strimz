@@ -427,7 +427,7 @@ function Sidebar({ active }: { active: string }) {
                       : 'text-muted-foreground border-transparent',
                   )}
                 >
-                  <Icon className={cn('size-3.5', label === active && 'text-accent')} />
+                  <Icon className={cn('size-3.5', label === active && 'text-brand-text')} />
                   {label}
                 </div>
               ))}
@@ -452,7 +452,7 @@ function PageTitle({ title, description }: { title: string; description: string 
 
 function ActivePill() {
   return (
-    <span className="bg-accent/10 text-accent-ink dark:text-accent rounded-full px-2 py-0.5 text-[11px] font-medium">
+    <span className="bg-accent/10 text-accent-ink dark:text-brand-text rounded-full px-2 py-0.5 text-[11px] font-medium">
       active
     </span>
   )
@@ -591,7 +591,7 @@ function HomePage() {
       >
         <div className="mb-3 flex items-center justify-between">
           <h4 className="text-foreground text-sm font-semibold">{L.recent}</h4>
-          <span className="text-accent text-xs font-medium">View all →</span>
+          <span className="text-brand-text text-xs font-medium">View all →</span>
         </div>
         <div data-new-payment className="overflow-hidden">
           <div className="pb-2">
@@ -721,7 +721,7 @@ function Toast() {
       data-toast
       className="border-border bg-card font-poppins text-foreground absolute bottom-6 right-6 flex items-center gap-2 rounded-lg border px-4 py-3 text-sm opacity-0 shadow-lg"
     >
-      <Check className="text-accent size-4" />
+      <Check className="text-brand-text size-4" />
       {L.copied}
     </div>
   )

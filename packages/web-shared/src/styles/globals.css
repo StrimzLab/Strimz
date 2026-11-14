@@ -279,10 +279,10 @@
 }
 .dark .pop-button[data-tone='neutral'],
 .pop-button[data-tone='neutral'][data-on-ink] {
-  --pop-face: hsl(240 18% 13%);
-  --pop-face-hover: hsl(240 17% 17%);
-  --pop-side: hsl(240 16% 9%);
-  --pop-edge: hsl(240 12% 28%);
+  --pop-face: #13102d;
+  --pop-face-hover: #1b1736;
+  --pop-side: #0d0a27;
+  --pop-edge: #34314c;
   --pop-floor: rgb(0 0 0 / 0.35);
   --pop-shine: rgb(255 255 255 / 0.08);
   color: #fff;
@@ -432,7 +432,7 @@ html.lenis body {
 
 /* Long-form text (legal pages, the broadcast editor) on theme tokens, so it follows the light/dark toggle. */
 :root {
-  --prose-link: #027a43;
+  --prose-link: #028d4b;
 }
 .dark {
   --prose-link: #02c76a;
