@@ -22,7 +22,9 @@ describe("homepage 'Who it's for' section", () => {
     expect(home).not.toContain('Sectors')
     expect(existsSync(join(WEB_ROOT, 'src/components/marketing/home/sectors.tsx'))).toBe(false)
     expect(existsSync(join(WEB_ROOT, 'src/components/marketing/fx/marquee.tsx'))).toBe(false)
-    expect(read('src/styles/globals.css')).not.toMatch(/marquee/u)
+    expect(
+      readFileSync(join(WEB_ROOT, '../../packages/web-shared/src/styles/globals.css'), 'utf8'),
+    ).not.toMatch(/marquee/u)
   })
 
   it('links each audience to its use-case story', () => {

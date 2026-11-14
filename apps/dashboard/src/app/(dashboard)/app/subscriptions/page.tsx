@@ -1,0 +1,368 @@
+'use client'
+
+import * as React from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import { Download, MoreHorizontal, Ban } from 'lucide-react'
+import type { ColumnDef } from '@tanstack/react-table'
+import { toast } from 'sonner'
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@strimz/ui'
+import type { Subscription, SubscriptionStatus } from '@strimz/shared-types'
+
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import {
+  DataTable,
+  StatusPill,
+  type StatusTone,
+} from '@strimz/web-shared/components/dashboard/data-table'
+import {
+  DateFilter,
+  MultiSelectFilter,
+  filterOptions,
+  useDateRange,
+  useTableFilters,
+} from '@strimz/web-shared/components/dashboard/filter-bar'
+import { dateFilter, multiFilter } from '@strimz/web-shared/lib/table-filters'
+import { TokenLogo } from '@strimz/web-shared/components/shared/token-logo'
+import { downloadCsv } from '@/lib/csv-export'
+import { formatTokenAmount, relativeTime, shortAddress } from '@strimz/web-shared/lib/format'
+import type { LoadedRows } from '@strimz/web-shared/lib/cursor-pages'
+import { cancelSubscriptionConfirm } from '@strimz/web-shared/lib/destructive-actions'
+import {
+  ConfirmActionDialog,
+  type PendingConfirm,
+} from '@strimz/web-shared/components/dashboard/confirm-action-dialog'
+import {
+  serverRowsOf,
+  useCancelSubscription,
+  useStatsSummary,
+  useSubscriptionPages,
+  useSubscriptionPlans,
+} from '@/hooks/api'
+import { SUBSCRIPTION_CARD_STATUSES, subscriptionCards, summaryValue } from '@/lib/stats-summary'
+import { EMPTY_STATES } from '@/lib/empty-states'
+
+const STATUS_TONE: Record<SubscriptionStatus, StatusTone> = {
+  active: 'positive',
+  trialing: 'info',
+  at_risk: 'warning',
+  paused: 'neutral',
+  cancelled: 'neutral',
+  lapsed: 'danger',
+}
+
+const STATUSES: readonly SubscriptionStatus[] = [
+  'active',
+  'trialing',
+  'at_risk',
+  'paused',
+  'cancelled',
+  'lapsed',
+]
+const STATUS_OPTIONS = filterOptions(STATUSES, STATUS_TONE)
+const FILTERS = { status: multiFilter(STATUSES), date: dateFilter() }
+
+/**
+ * View-model returned by the `select` projection. Pre-computing the
+ * status-bucket counts here means the page's stat cards render from
+ * memoised data. The per-row mapping happens once per query result.
+ */
+interface SubscriptionsView {
+  rows: Subscription[]
+  hasMore: boolean
+}
+
+function projectSubscriptions(loaded: LoadedRows<Subscription>): SubscriptionsView {
+  return { rows: loaded.rows, hasMore: loaded.hasMore }
+}
+
+export default function SubscriptionsPage() {
+  return (
+    <React.Suspense>
+      <Subscriptions />
+    </React.Suspense>
+  )
+}
+
+function Subscriptions() {
+  const filters = useTableFilters(FILTERS)
+  const searchParams = useSearchParams()
+  const { status, date } = filters.state
+  const { range, error: dateError } = useDateRange(date)
+
+  const subscriptionsParams = React.useMemo(
+    () => ({
+      status: status.length > 0 ? status : undefined,
+      from: range.from,
+      to: range.to,
+      limit: 100,
+    }),
+    [status, range.from, range.to],
+  )
+  const subscriptionsQuery = useSubscriptionPages(subscriptionsParams, {
+    select: projectSubscriptions,
+  })
+  const { data, isLoading, isError, error, refetch } = subscriptionsQuery
+  const summaryQuery = useStatsSummary({
+    select: (summary) => subscriptionCards(summary.subscriptions),
+  })
+  const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
+
+  const cancelMutation = useCancelSubscription()
+  const plansQuery = useSubscriptionPlans({ limit: 100 })
+  const planNames = React.useMemo(
+    () => new Map((plansQuery.data?.data ?? []).map((plan) => [plan.id, plan.name])),
+    [plansQuery.data],
+  )
+
+  const columns = React.useMemo<ColumnDef<Subscription>[]>(
+    () => [
+      {
+        accessorKey: 'payerAddress',
+        header: 'Subscriber',
+        cell: ({ row }) => (
+          <div className="flex flex-col leading-tight">
+            <Link
+              href={`/app/subscriptions/${row.original.id}`}
+              className="text-accent font-mono text-xs hover:underline"
+            >
+              {shortAddress(row.original.payerAddress)}
+            </Link>
+            <span className="text-muted-foreground text-[11px]">{row.original.customerId}</span>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'planId',
+        header: 'Plan',
+        cell: ({ row }) => (
+          <Link href={`/app/plans/${row.original.planId}`} className="text-xs hover:underline">
+            {planNames.get(row.original.planId) ?? `${row.original.planId.slice(0, 14)}…`}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: 'amount',
+        header: 'Amount',
+        cell: ({ row }) => (
+          <span className="inline-flex items-center gap-1.5 font-mono">
+            <TokenLogo symbol={row.original.currency} size={14} />
+            {formatTokenAmount(row.original.amount, row.original.currency)}
+            <span className="text-muted-foreground text-xs">/{intervalShort(row.original)}</span>
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'status',
+        header: 'Status',
+        cell: ({ row }) => (
+          <StatusPill tone={STATUS_TONE[row.original.status]}>
+            {row.original.status.replace(/_/g, ' ')}
+          </StatusPill>
+        ),
+      },
+      {
+        accessorKey: 'currentPeriodEndAt',
+        header: 'Period ends',
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">
+            {relativeTime(row.original.currentPeriodEndAt)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'nextChargeAt',
+        header: 'Next charge',
+        cell: ({ row }) => {
+          const sub = row.original
+          if (sub.status === 'cancelled' || sub.status === 'lapsed') {
+            return <span className="text-muted-foreground">—</span>
+          }
+          if (!sub.nextChargeAt) return <span>pending</span>
+          // A due-or-overdue charge on an active sub is the first charge
+          // being collected — showing "2 minutes ago" reads like a bug.
+          if (new Date(sub.nextChargeAt).getTime() <= Date.now()) {
+            return <span className="text-muted-foreground">processing…</span>
+          }
+          return <span>{relativeTime(sub.nextChargeAt)}</span>
+        },
+      },
+      {
+        id: 'actions',
+        header: '',
+        enableHiding: false,
+        enableSorting: false,
+        cell: ({ row }) => {
+          const sub = row.original
+          const cancellable =
+            sub.status === 'active' || sub.status === 'trialing' || sub.status === 'at_risk'
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="size-8 p-0">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuItem
+                  onClick={() =>
+                    navigator.clipboard
+                      .writeText(sub.id)
+                      .then(() => toast.success('Subscription ID copied'))
+                  }
+                >
+                  Copy ID
+                </DropdownMenuItem>
+                {cancellable ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-rose-600 focus:text-rose-600"
+                      onClick={() =>
+                        setPendingConfirm({
+                          copy: cancelSubscriptionConfirm(sub),
+                          run: () => cancelMutation.mutate({ id: sub.id }),
+                        })
+                      }
+                      disabled={cancelMutation.isPending}
+                    >
+                      <Ban className="mr-2 size-4" /> Cancel subscription
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        },
+      },
+    ],
+    [cancelMutation, planNames],
+  )
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Subscriptions"
+        docsSlug="subscriptions"
+        description="Every customer signed up to a recurring plan. Each row tracks one subscription."
+        action={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!data || data.rows.length === 0}
+              onClick={() => {
+                if (!data) return
+                downloadCsv('subscriptions.csv', data.rows, [
+                  { key: 'id', header: 'ID' },
+                  { key: 'planId', header: 'Plan' },
+                  { key: 'payerAddress', header: 'Subscriber wallet' },
+                  { key: 'amount', header: 'Amount (raw)' },
+                  { key: 'currency', header: 'Currency' },
+                  { key: 'interval', header: 'Interval' },
+                  { key: 'status', header: 'Status' },
+                  { key: 'currentPeriodEndAt', header: 'Period ends' },
+                  { key: 'nextChargeAt', header: 'Next charge' },
+                  { key: 'createdAt', header: 'Created' },
+                ])
+                toast.success('Exported subscriptions.csv')
+              }}
+            >
+              <Download className="mr-1.5 size-4" /> Export CSV
+            </Button>
+          </div>
+        }
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {SUBSCRIPTION_CARD_STATUSES.map((s) => (
+          <div
+            key={s}
+            className="shadow-sub-card border-border/60 bg-background rounded-xl border p-4"
+          >
+            <div className="text-muted-foreground text-xs capitalize">{s.replace(/_/g, ' ')}</div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="font-sora text-2xl font-semibold">
+                {summaryValue(summaryQuery, (cards) => cards[s])}
+              </span>
+              <span className="text-muted-foreground text-xs">subscriptions</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {isError && !data ? (
+        <ErrorBanner message={error?.message ?? 'Failed to load subscriptions'} onRetry={refetch} />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={data?.rows ?? []}
+          loading={isLoading}
+          getRowId={(row) => row.id}
+          highlightRowId={searchParams.get('highlight')}
+          searchPlaceholder="Search by subscriber wallet, plan…"
+          emptyTitle={
+            filters.active
+              ? 'No subscriptions match these filters'
+              : EMPTY_STATES.subscriptions.title
+          }
+          emptyDescription={
+            filters.active
+              ? 'Try another status or date range.'
+              : EMPTY_STATES.subscriptions.description
+          }
+          emptyAction={EMPTY_STATES.subscriptions.action}
+          serverRows={serverRowsOf(subscriptionsQuery)}
+          onClearFilters={filters.active ? filters.clear : undefined}
+          filters={
+            <>
+              <MultiSelectFilter
+                label="Status"
+                options={STATUS_OPTIONS}
+                selected={status}
+                onChange={(next) => filters.set('status', next)}
+              />
+              <DateFilter
+                label="Created"
+                value={date}
+                error={dateError}
+                onChange={(next) => filters.set('date', next)}
+              />
+            </>
+          }
+        />
+      )}
+
+      <ConfirmActionDialog pending={pendingConfirm} onClose={() => setPendingConfirm(null)} />
+    </div>
+  )
+}
+
+function intervalShort(sub: Subscription): string {
+  // "monthly" → "month", "weekly" → "week", etc. Adds the count when > 1.
+  const base = sub.interval.replace(/ly$/, '')
+  return sub.intervalCount > 1 ? `${sub.intervalCount} ${base}s` : base
+}
+
+function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="border-border/60 bg-background flex items-center justify-between rounded-xl border p-4">
+      <div>
+        <div className="text-sm font-medium">Couldn’t load subscriptions</div>
+        <div className="text-muted-foreground text-xs">{message}</div>
+      </div>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        Try again
+      </Button>
+    </div>
+  )
+}

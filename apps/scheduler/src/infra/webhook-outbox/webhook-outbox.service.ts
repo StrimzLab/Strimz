@@ -8,7 +8,11 @@ import { webhookEventSchema } from '@strimz/shared-types'
 import { ZodError } from 'zod'
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../prisma/prisma.service.js'
-import { QUEUE_NAMES, webhookDeliveryJobSchema } from '@strimz/queue-contracts'
+import {
+  QUEUE_NAMES,
+  webhookDeliveryJobSchema,
+  type WebhookDeliveryJob,
+} from '@strimz/queue-contracts'
 import { outboxRefSchema, readOutboxRef, type OutboxRef } from './outbox-ref.js'
 import {
   serialiseCharge,
@@ -41,9 +45,9 @@ function isPermanentDispatchFailure(err: unknown): boolean {
  * Transactional-outbox dispatcher.
  *
  * Producers (apps/api, the Go indexer, other crons) write a WebhookEvent
- * with `dispatchedAt` NULL. This claims undispatched events, hydrates
- * ref-payloads into full envelopes, validates against the shared schema,
- * creates WebhookDelivery rows, and enqueues the delivery jobs.
+ * with `dispatchedAt` NULL. Each event is claimed, hydrated, validated and
+ * given its WebhookDelivery rows in one transaction; the delivery jobs are
+ * enqueued after it commits.
  *
  * One dispatch path for every event source, so a payload can never be
  * "written but never delivered" again.
@@ -65,49 +69,84 @@ export class WebhookOutboxService {
   }
 
   async tickNow(): Promise<{ dispatched: number; deliveriesQueued: number }> {
-    // Claim a batch atomically so multiple replicas never grab the same row.
-    const claimed = (await this.prisma.db.$queryRawUnsafe(
-      `UPDATE "WebhookEvent" SET "dispatchedAt" = NOW()
-         WHERE id IN (
-           SELECT id FROM "WebhookEvent"
-            WHERE "dispatchedAt" IS NULL
-            ORDER BY "createdAt"
-            LIMIT ${BATCH}
-            FOR UPDATE SKIP LOCKED
-         )
-       RETURNING id, "merchantId", type::text AS type, mode::text AS mode, payload, "createdAt"`,
-    )) as EventRow[]
-
-    if (claimed.length === 0) return { dispatched: 0, deliveriesQueued: 0 }
-
+    const attempted: string[] = []
     let deliveriesQueued = 0
-    for (const ev of claimed) {
-      try {
-        const envelope = await this.buildEnvelope(ev)
-        const { type: wireType } = webhookEventSchema.parse(envelope)
-        // Persist the final envelope so the delivery worker sends it verbatim.
-        await this.prisma.db.webhookEvent.update({
-          where: { id: ev.id },
-          data: { payload: envelope as never, dispatchError: null },
-        })
-        deliveriesQueued += await this.createDeliveries(ev, wireType)
-      } catch (err) {
-        const message = (err as Error).message.slice(0, 1_000)
-        const permanent = isPermanentDispatchFailure(err)
-        this.log.error(
-          `event ${ev.id} (${ev.type}) failed to dispatch (${permanent ? 'quarantined' : 'will retry'}): ${message}`,
-        )
-        await this.prisma.db.webhookEvent.update({
-          where: { id: ev.id },
-          data: permanent
-            ? { dispatchError: message }
-            : { dispatchError: message, dispatchedAt: null },
-        })
-      }
+    while (attempted.length < BATCH) {
+      const outcome = await this.dispatchNext(attempted)
+      if (!outcome) break
+      attempted.push(outcome.eventId)
+      deliveriesQueued += outcome.deliveriesQueued
     }
 
-    this.log.log(`dispatched ${claimed.length} events, queued ${deliveriesQueued} deliveries`)
-    return { dispatched: claimed.length, deliveriesQueued }
+    if (attempted.length === 0) return { dispatched: 0, deliveriesQueued: 0 }
+    this.log.log(`dispatched ${attempted.length} events, queued ${deliveriesQueued} deliveries`)
+    return { dispatched: attempted.length, deliveriesQueued }
+  }
+
+  // The claim commits together with the envelope and delivery rows, so a scheduler that
+  // dies mid-dispatch leaves the event unclaimed. Jobs are queued after the commit; if the
+  // process dies before that, webhook-recovery re-queues the pending deliveries.
+  private async dispatchNext(
+    skip: string[],
+  ): Promise<{ eventId: string; deliveriesQueued: number } | null> {
+    const claim: { event?: EventRow } = {}
+    let jobs: WebhookDeliveryJob[]
+    try {
+      jobs = await this.prisma.db.$transaction(async (db) => {
+        // A row another dispatcher committed after this statement's snapshot fails the
+        // recheck and empties the LIMIT 1 result, so an empty read is retried once.
+        const event = (await this.lockNext(db, skip)) ?? (await this.lockNext(db, skip))
+        if (!event) return []
+        claim.event = event
+        const envelope = await this.buildEnvelope(event)
+        const { type: wireType } = webhookEventSchema.parse(envelope)
+        await db.webhookEvent.update({
+          where: { id: event.id },
+          data: { payload: envelope as never, dispatchError: null, dispatchedAt: new Date() },
+        })
+        return this.createDeliveries(db, event, wireType)
+      })
+    } catch (err) {
+      const event = claim.event
+      if (!event) throw err
+      const message = (err as Error).message.slice(0, 1_000)
+      const permanent = isPermanentDispatchFailure(err)
+      this.log.error(
+        `event ${event.id} (${event.type}) failed to dispatch (${permanent ? 'quarantined' : 'will retry'}): ${message}`,
+      )
+      await this.prisma.db.webhookEvent.update({
+        where: { id: event.id },
+        data: permanent
+          ? { dispatchError: message, dispatchedAt: new Date() }
+          : { dispatchError: message },
+      })
+      return { eventId: event.id, deliveriesQueued: 0 }
+    }
+
+    const event = claim.event
+    if (!event) return null
+    for (const job of jobs) {
+      await this.deliveryQueue.add('deliver', job, {
+        attempts: 1,
+        removeOnComplete: 1_000,
+        removeOnFail: 1_000,
+      })
+    }
+    return { eventId: event.id, deliveriesQueued: jobs.length }
+  }
+
+  private async lockNext(
+    db: Prisma.TransactionClient,
+    skip: string[],
+  ): Promise<EventRow | undefined> {
+    const rows = await db.$queryRaw<EventRow[]>`
+      SELECT id, "merchantId", type::text AS type, mode::text AS mode, payload, "createdAt"
+        FROM "WebhookEvent"
+       WHERE "dispatchedAt" IS NULL AND id <> ALL(${skip}::text[])
+       ORDER BY "createdAt"
+       LIMIT 1
+       FOR UPDATE SKIP LOCKED`
+    return rows[0]
   }
 
   /** Build the final envelope: hydrate ref-payloads, pass full ones through. */
@@ -224,9 +263,13 @@ export class WebhookOutboxService {
     }
   }
 
-  private async createDeliveries(ev: EventRow, wireType: string): Promise<number> {
+  private async createDeliveries(
+    db: Prisma.TransactionClient,
+    ev: EventRow,
+    wireType: string,
+  ): Promise<WebhookDeliveryJob[]> {
     const prismaEventName = wireType.replace(/\./g, '_')
-    const endpoints = await this.prisma.db.merchantWebhookEndpoint.findMany({
+    const endpoints = await db.merchantWebhookEndpoint.findMany({
       where: {
         merchantId: ev.merchantId,
         mode: ev.mode,
@@ -234,9 +277,10 @@ export class WebhookOutboxService {
         events: { has: prismaEventName as never },
       },
     })
+    const jobs: WebhookDeliveryJob[] = []
     for (const ep of endpoints) {
       const deliveryId = `whdl_${uuid()}`
-      await this.prisma.db.webhookDelivery.create({
+      await db.webhookDelivery.create({
         data: {
           id: deliveryId,
           deliveryId,
@@ -248,8 +292,7 @@ export class WebhookOutboxService {
           attempt: 1,
         },
       })
-      await this.deliveryQueue.add(
-        'deliver',
+      jobs.push(
         webhookDeliveryJobSchema.parse({
           deliveryId,
           endpointId: ep.id,
@@ -257,9 +300,8 @@ export class WebhookOutboxService {
           signingSecretHash: ep.signingSecretHash,
           eventId: ev.id,
         }),
-        { attempts: 1, removeOnComplete: 1_000, removeOnFail: 1_000 },
       )
     }
-    return endpoints.length
+    return jobs
   }
 }

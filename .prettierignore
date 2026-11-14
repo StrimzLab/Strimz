@@ -23,7 +23,7 @@ apps/indexer/tmp
 packages/db/generated
 
 # Fumadocs codegen (regenerated on build; carries `// @ts-nocheck`)
-apps/web/.source
+apps/docs/.source
 
 # Lockfiles
 pnpm-lock.yaml

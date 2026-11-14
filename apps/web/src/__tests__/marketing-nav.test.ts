@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { NAV_GROUPS, NAV_LINKS } from '@/components/marketing/nav-data'
 import { panelAnchor } from '@/components/marketing/nav-panel'
 import { USE_CASES } from '@/components/marketing/use-cases/data'
+import { appLink, docExists } from './app-links'
 
 const WEB_ROOT = join(__dirname, '..', '..')
 const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
@@ -20,20 +21,16 @@ const allItems = [
 ]
 
 function resolves(href: string): boolean {
-  const [path = '', hash] = href.split('#')
+  const link = appLink(href)
+  if (link.app === 'docs') return docExists(link.path)
+  if (link.app !== 'web') return false
+  const [path = '', hash] = link.path.split('#')
   if (path === '/' && hash) {
     const sheet = /^sheet-(.+)$/u.exec(hash)
     if (sheet) return read(`${HOME}/billing-tools.tsx`).includes(`key: '${sheet[1]}'`)
     return homeSource.includes(`id="${hash}"`)
   }
   if (path === '/use-cases' && hash) return USE_CASES.some((u) => u.id === hash)
-  if (path.startsWith('/docs')) {
-    const rest = path.replace(/^\/docs\/?/u, '')
-    const base = join(WEB_ROOT, 'content/docs', rest)
-    return rest === ''
-      ? existsSync(join(base, 'index.mdx'))
-      : existsSync(`${base}.mdx`) || existsSync(join(base, 'index.mdx'))
-  }
   return existsSync(join(WEB_ROOT, 'src/app/(marketing)', path, 'page.tsx'))
 }
 

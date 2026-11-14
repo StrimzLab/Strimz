@@ -16,6 +16,11 @@
     "@strimz/db",
     "@strimz/ui",
     "@strimz/tsconfig",
-    "@strimz/eslint-config"
+    "@strimz/eslint-config",
+    "@strimz/dashboard",
+    "@strimz/admin",
+    "@strimz/checkout",
+    "@strimz/docs",
+    "@strimz/web-shared"
   ]
 }

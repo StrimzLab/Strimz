@@ -1,0 +1,93 @@
+---
+title: Getting Started
+description: From zero to your first stablecoin payment in five minutes.
+---
+
+## 1. Sign up
+
+Go to [app.strimz.finance/signup](https://app.strimz.finance/signup) and sign in with email, an
+existing wallet, or Google. Your test-mode account is ready as soon
+as you land in the dashboard.
+
+## 2. Issue a test API key
+
+Inside the dashboard, open **API keys** and click **Issue key**.
+Test-mode keys (prefixed `sk_test_…`) are free to create. Live-mode
+keys (prefixed `sk_live_…`) unlock after you complete onboarding and
+enable 2FA.
+
+## 3. Send a test payment
+
+Run this on your server. The secret key never belongs in browser code.
+
+```ts title="server.ts"
+import { StrimzClient } from '@strimz/sdk'
+
+const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_KEY! })
+
+const session = await strimz.paymentSessions.create({
+  amount: '50000000', // 50 USDC (6 decimals)
+  currency: 'USDC',
+  description: 'Pro plan, August',
+  successUrl: 'https://your-site.com/thanks',
+  cancelUrl: 'https://your-site.com/cancelled',
+})
+
+console.log(session.checkoutUrl)
+// → https://checkout.strimz.finance/pay/cmq4wck6a0002je6lfmb5bgjp
+```
+
+Open `session.checkoutUrl`, connect a wallet, and finish the payment.
+
+The customer signs two typed-data messages. The first is an EIP-3009
+`ReceiveWithAuthorization` that the token verifies. The second is a
+Strimz `PayIntent` that binds the payment to your specific merchant
+id. Two prompts, one on-chain transaction.
+Strimz's relayer turns those signatures into the on-chain transaction
+and pays the gas. The customer never sees a separate approval prompt
+and never has gas in their wallet. The
+[meta-tx flow page](/docs/concepts/meta-tx-flow) covers the security
+model in more detail.
+
+Refresh **Payment sessions** in your dashboard and you'll see the
+new session show up in a few seconds.
+
+## 4. Wire a webhook
+
+Open **Webhooks**, click **Add endpoint**, and paste in an HTTPS URL.
+Strimz signs every delivery with HMAC-SHA256.
+
+The signing secret comes back exactly once, on the response to the
+create-endpoint call. Save it in your secrets manager immediately. On
+our side it lives only as an AES-256-GCM ciphertext in Postgres, so
+we cannot read it back to you later.
+
+Verify the signature on receipt, on your server, against the raw
+request body. `verifyWebhookSignature` is async, so `await` it and check
+`result.valid`:
+
+```ts title="receiver.ts"
+import express from 'express'
+import { verifyWebhookSignature } from '@strimz/sdk'
+
+const app = express()
+
+app.post('/webhooks/strimz', express.raw({ type: 'application/json' }), async (req, res) => {
+  const result = await verifyWebhookSignature(
+    req.body.toString('utf8'),
+    req.get('strimz-signature') ?? '',
+    process.env.STRIMZ_WEBHOOK_SECRET!,
+  )
+  if (!result.valid) return res.status(401).end()
+  // ... handle event
+  res.status(200).end()
+})
+```
+
+## What's next?
+
+- [Subscriptions](/docs/api-reference#subscriptions). Recurring revenue with a single payer signature.
+- [Refunds](/docs/api-reference#refunds). Server-side intent, wallet-signed transfer.
+- [Webhooks](/docs/webhooks). The full event list and retry behaviour.
+- [Meta-tx flow](/docs/concepts/meta-tx-flow). The security model behind the gasless, signature-based checkout.
+- [On-chain architecture](/docs/concepts/on-chain-architecture). Which contracts are immutable, which are upgradeable, and the reasoning.

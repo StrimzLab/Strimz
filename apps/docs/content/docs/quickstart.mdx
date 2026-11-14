@@ -1,0 +1,239 @@
+---
+title: Quickstart
+description: Sign up, get a key, send a test payment, wire a webhook. About five minutes.
+---
+
+This page takes you from zero to a confirmed test transaction in your
+dashboard. Every command here works as written. No placeholders.
+
+<Callout title="Prerequisites" type="info">
+  - Node.js 18+ or Bun 1.0+ (or any HTTP client) - A wallet with Arc-testnet USDC. See
+  [Modes](/docs/modes) for the faucet.
+</Callout>
+
+<Steps>
+
+<Step>
+
+### Create your account
+
+Go to [app.strimz.finance/signup](https://app.strimz.finance/signup). You can sign in with email, an existing
+wallet, or Google. Strimz uses [Privy](https://privy.io) under the hood. If you
+sign in with email, Privy creates an embedded Arc wallet for you in the
+background.
+
+You don't need to do anything with the embedded wallet right now. It's
+useful later if you want to receive payouts without connecting an external
+wallet.
+
+</Step>
+
+<Step>
+
+### Issue a test API key
+
+In the dashboard, open **API keys** and click **Issue key**. Pick **Test
+mode** for now. You'll get a string that starts with `sk_test_`. Copy it
+straight away. The full key is only shown once. If you lose it, revoke it
+and issue a new one.
+
+```bash
+export STRIMZ_KEY=sk_test_xxxxxxxxxxxxxxxxxxxx
+```
+
+<Callout title="Test mode is fully isolated" type="info">
+  Test-mode keys can never charge a live customer. Each Strimz deployment runs in one mode, on its
+  own chain and contracts, and refuses keys of the other mode. See [Modes](/docs/modes).
+</Callout>
+
+</Step>
+
+<Step>
+
+### Install the SDK
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
+  <Tab value="pnpm">
+
+```bash
+pnpm add @strimz/sdk
+```
+
+  </Tab>
+  <Tab value="npm">
+
+```bash
+npm install @strimz/sdk
+```
+
+  </Tab>
+  <Tab value="yarn">
+
+```bash
+yarn add @strimz/sdk
+```
+
+  </Tab>
+  <Tab value="bun">
+
+```bash
+bun add @strimz/sdk
+```
+
+  </Tab>
+</Tabs>
+
+If you'd rather not add a Node dependency, skip ahead to step 4 and use
+plain HTTPS. Every endpoint is documented in the
+[API reference](/docs/api/overview).
+
+</Step>
+
+<Step>
+
+### Create your first payment session
+
+A **payment session** is a hosted checkout. You create one on the server
+and send your customer to the `checkoutUrl` it returns. They connect a
+wallet, sign the payment, and Strimz fires a webhook once it confirms
+on-chain.
+
+<Tabs items={['TypeScript', 'curl']}>
+  <Tab value="TypeScript">
+    ```ts title="server.ts"
+    import { StrimzClient } from '@strimz/sdk'
+
+    const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_KEY! })
+
+    const session = await strimz.paymentSessions.create({
+      amount: '50000000',          // 50 USDC, expressed in 6-decimal units
+      currency: 'USDC',
+      description: 'Pro plan, August',
+      successUrl: 'https://your-site.com/thanks',
+      cancelUrl:  'https://your-site.com/cancelled',
+    })
+
+    console.log(session.checkoutUrl)
+    ```
+
+  </Tab>
+  <Tab value="curl">
+    ```bash
+    curl https://api.strimz.finance/v1/payment-sessions \
+      -H "Authorization: Bearer $STRIMZ_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "amount": "50000000",
+        "currency": "USDC",
+        "description": "Pro plan, August",
+        "successUrl": "https://your-site.com/thanks",
+        "cancelUrl":  "https://your-site.com/cancelled"
+      }'
+    ```
+  </Tab>
+</Tabs>
+
+Open the printed `checkoutUrl` in a browser, connect any test-mode wallet
+that has Arc-testnet USDC, and complete the payment. Now refresh the
+**Payment sessions** page in your dashboard. You'll see the new session,
+and within a few seconds its status moves from `created` to `confirmed`.
+
+<Callout title="Where do I get test USDC?" type="info">
+  Visit [Circle's faucet](https://faucet.circle.com) and choose **Arc testnet**. You'll need an
+  Arc-testnet RPC in your wallet. See [Modes](/docs/modes) for the URL.
+</Callout>
+
+</Step>
+
+<Step>
+
+### Receive your first webhook
+
+Polling for state changes works but it gets old fast. A webhook
+endpoint is the right shape. Register it from your server with the same
+`StrimzClient`. Your secret key never belongs in browser code:
+
+```ts title="server.ts"
+const endpoint = await strimz.webhookEndpoints.create({
+  url: 'https://your-site.com/webhooks/strimz',
+  events: ['payment.completed', 'payment.failed'],
+  mode: 'test',
+})
+
+console.log(endpoint.signingSecret) // shown ONCE. Store it now.
+```
+
+Now wire the receiver. It runs on your server and must verify the raw
+request body, exactly as received, before anything parses it. This
+Express example uses `express.raw` so `req.body` is the unparsed bytes:
+
+```ts title="receiver.ts"
+import express from 'express'
+import { verifyWebhookSignature } from '@strimz/sdk'
+
+const app = express()
+
+app.post('/webhooks/strimz', express.raw({ type: 'application/json' }), async (req, res) => {
+  const payload = req.body.toString('utf8')
+  const result = await verifyWebhookSignature(
+    payload,
+    req.get('strimz-signature') ?? '',
+    process.env.STRIMZ_WEBHOOK_SECRET!,
+  )
+  if (!result.valid) return res.status(401).end()
+
+  const event = JSON.parse(payload)
+  switch (event.type) {
+    case 'payment.completed':
+      console.log('payment confirmed:', event.data.session.id, event.data.session.amount)
+      break
+    case 'payment.failed':
+      console.error('payment failed:', event.data.session.id)
+      break
+  }
+  res.status(200).end()
+})
+```
+
+`verifyWebhookSignature(payload, signatureHeader, secret)` is async. It
+resolves to `{ valid: true }` or `{ valid: false, reason }`, so always
+`await` it and check `result.valid`: the unawaited Promise is always
+truthy. It does a timing-safe equality check and rejects anything older
+than 300 seconds. The signature format and the algorithm
+itself are documented on [Verifying webhooks](/docs/guides/webhooks).
+
+</Step>
+
+</Steps>
+
+## What you just did
+
+You signed up, issued an API key, created a hosted checkout, took a
+real test payment, and wired a webhook to react to it. The production
+version of this code is identical. Swap `sk_test_` for `sk_live_` and
+point the webhook at your real URL.
+
+## Next steps
+
+<Cards>
+  <Card
+    title="Subscriptions guide"
+    href="/docs/guides/subscriptions"
+    description="Recurring revenue, one customer signature."
+  />
+  <Card
+    title="Refunds guide"
+    href="/docs/guides/refunds"
+    description="Full or partial, with on-chain audit trail."
+  />
+  <Card
+    title="The AutoPay Agent"
+    href="/docs/guides/agent"
+    description="Recovery emails, cashflow digests, anomaly detection."
+  />
+  <Card
+    title="API reference"
+    href="/docs/api/overview"
+    description="Every endpoint, every parameter."
+  />
+</Cards>

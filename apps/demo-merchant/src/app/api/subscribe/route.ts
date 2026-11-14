@@ -43,7 +43,7 @@ async function findOrCreatePlan() {
 }
 
 export async function POST(_req: Request) {
-  const checkoutOrigin = process.env.NEXT_PUBLIC_STRIMZ_CHECKOUT_ORIGIN || 'http://localhost:3000'
+  const checkoutOrigin = process.env.NEXT_PUBLIC_STRIMZ_CHECKOUT_ORIGIN || 'http://localhost:3002'
 
   try {
     const plan = await findOrCreatePlan()

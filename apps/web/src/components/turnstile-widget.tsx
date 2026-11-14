@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 import { useResolvedTheme } from '@strimz/ui'
-import { env } from '@/lib/env'
-import { turnstileTheme, type TurnstileTheme } from '@/lib/theme'
+import { env } from '@strimz/web-shared/lib/env'
+import { turnstileTheme, type TurnstileTheme } from '@strimz/web-shared/lib/theme'
 
 const SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
 

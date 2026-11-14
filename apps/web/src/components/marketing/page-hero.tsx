@@ -1,7 +1,12 @@
 'use client'
 
 import { useRef } from 'react'
-import { EASE_OUT, MOTION_OK, gsap, useGSAP } from './motion/gsap'
+import {
+  EASE_OUT,
+  MOTION_OK,
+  gsap,
+  useGSAP,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 import { markMotionReady } from './motion/gate'
 
 export function PageHero({

@@ -6,7 +6,13 @@ import checkIcon from '@iconify-icons/solar/check-circle-linear'
 import arrowIcon from '@iconify-icons/solar/arrow-right-linear'
 import { cn } from '@strimz/ui'
 import { MkIcon } from '../icon'
-import { EASE_OUT, MOTION_OK, gsap, useGSAP, PLAY_ONCE } from '../motion/gsap'
+import {
+  EASE_OUT,
+  MOTION_OK,
+  gsap,
+  useGSAP,
+  PLAY_ONCE,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 import {
   AnalyticsMock,
   InvoicesMock,
@@ -14,6 +20,7 @@ import {
   RefundsMock,
   SubscriptionsMock,
 } from './billing-mocks'
+import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 
 const SHEETS = [
   {
@@ -26,7 +33,7 @@ const SHEETS = [
       'Customers can cancel from their own wallet',
       'Strimz pays the network fee on every charge',
     ],
-    href: '/docs/guides/subscriptions',
+    href: `${siteUrls.docs}/docs/guides/subscriptions`,
     cta: 'How subscriptions work',
     Mock: SubscriptionsMock,
   },
@@ -40,7 +47,7 @@ const SHEETS = [
       'Optional reminder emails, sent for you',
       'You hear about it either way',
     ],
-    href: '/docs/subscriptions/recovery',
+    href: `${siteUrls.docs}/docs/subscriptions/recovery`,
     cta: 'How recovery works',
     Mock: RecoveryMock,
   },
@@ -54,7 +61,7 @@ const SHEETS = [
       'Every refund has a transaction you can check',
       'Works in USDC and EURC',
     ],
-    href: '/docs/guides/refunds',
+    href: `${siteUrls.docs}/docs/guides/refunds`,
     cta: 'How refunds work',
     Mock: RefundsMock,
   },
@@ -68,7 +75,7 @@ const SHEETS = [
       'Download a PDF from the dashboard',
       'Bill in dollars or euros',
     ],
-    href: '/docs/guides/invoices',
+    href: `${siteUrls.docs}/docs/guides/invoices`,
     cta: 'How invoices work',
     Mock: InvoicesMock,
   },
@@ -82,7 +89,7 @@ const SHEETS = [
       'Churn over the last 12 months',
       'Forecasts rated by confidence',
     ],
-    href: '/docs/dashboard/analytics',
+    href: `${siteUrls.docs}/docs/dashboard/analytics`,
     cta: 'What the reports show',
     Mock: AnalyticsMock,
   },

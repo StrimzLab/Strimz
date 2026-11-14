@@ -7,7 +7,7 @@ import infoIcon from '@iconify-icons/solar/info-circle-bold'
 import closeIcon from '@iconify-icons/solar/close-circle-linear'
 import { cn } from '@strimz/ui'
 import { MkIcon } from '../icon'
-import { EASE_OUT, gsap } from '../motion/gsap'
+import { EASE_OUT, gsap } from '@strimz/web-shared/components/marketing/motion/gsap'
 import { getServerToasts, getToasts, subscribe, toast, type ToastItem } from './store'
 
 const TONES = {

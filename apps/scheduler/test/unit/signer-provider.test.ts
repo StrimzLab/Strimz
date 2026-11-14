@@ -19,6 +19,7 @@ function env(overrides: Record<string, string | undefined>): Record<string, stri
     WEBHOOK_SECRET_ENCRYPTION_KEY: 'ab'.repeat(32),
     RELAYER_ADDRESS: RELAYER,
     STRIMZ_ADMIN_ALERT_EMAIL: 'ops@strimz.test',
+    CHECKOUT_ORIGIN: 'http://localhost:3002',
     ...overrides,
   }
 }
@@ -31,10 +32,23 @@ const awsKms = {
 }
 
 describe('scheduler signer provider', () => {
-  it('refuses a plaintext scheduler key in production', () => {
+  it('refuses a plaintext scheduler key in production on mainnet', () => {
+    expect(() =>
+      validateEnv(
+        env({
+          NODE_ENV: 'production',
+          ARC_ENVIRONMENT: 'mainnet',
+          SCHEDULER_PRIVATE_KEY: SCHEDULER_KEY,
+        }),
+      ),
+    ).toThrow(/SCHEDULER_SIGNER_PROVIDER/u)
+  })
+
+  // ADR-2026-11-13-testnet-software-signer.
+  it('accepts an explicit plaintext scheduler key in production on testnet', () => {
     expect(() =>
       validateEnv(env({ NODE_ENV: 'production', SCHEDULER_PRIVATE_KEY: SCHEDULER_KEY })),
-    ).toThrow(/SCHEDULER_SIGNER_PROVIDER/u)
+    ).not.toThrow()
   })
 
   it('starts in production with an AWS KMS key and no plaintext key', () => {

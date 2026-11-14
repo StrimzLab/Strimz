@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-02C76A.svg)](./LICENSE)
 
 The server-side client for the
-[Strimz API](https://www.strimz.finance/docs/api/overview). Typed
+[Strimz API](https://docs.strimz.finance/docs/api/overview). Typed
 resources for every endpoint, end-to-end TypeScript types derived
 from the
 [`@strimz/shared-types`](https://www.npmjs.com/package/@strimz/shared-types)
@@ -230,7 +230,7 @@ try {
 ```
 
 The full code list is documented at
-[strimz.finance/docs/errors](https://www.strimz.finance/docs/errors).
+[strimz.finance/docs/errors](https://docs.strimz.finance/docs/errors).
 
 ## Runtime support
 
@@ -243,12 +243,12 @@ The full code list is documented at
 | Bun                | Should work, not regularly tested                    |
 | Browsers           | Use `StrimzBrowserClient` from `@strimz/sdk/browser` |
 
-`StrimzClient` refuses to start in a browser runtime: a page, a web worker, an Electron renderer, or React Native. It throws `StrimzAuthenticationError` with code `secret_key_in_browser` and a message that never contains the key. Node with a DOM shim such as jsdom, Deno, Bun, Vercel Edge and Cloudflare Workers count as servers. There is no option to turn the check off. Create payment sessions on your server and pass the session id to the browser; see [strimz.finance/docs/checkout/server-sessions](https://www.strimz.finance/docs/checkout/server-sessions).
+`StrimzClient` refuses to start in a browser runtime: a page, a web worker, an Electron renderer, or React Native. It throws `StrimzAuthenticationError` with code `secret_key_in_browser` and a message that never contains the key. Node with a DOM shim such as jsdom, Deno, Bun, Vercel Edge and Cloudflare Workers count as servers. There is no option to turn the check off. Create payment sessions on your server and pass the session id to the browser; see [strimz.finance/docs/checkout/server-sessions](https://docs.strimz.finance/docs/checkout/server-sessions).
 
 ## Links
 
-- [Documentation](https://www.strimz.finance/docs)
-- [API reference](https://www.strimz.finance/docs/api/overview)
+- [Documentation](https://docs.strimz.finance/docs)
+- [API reference](https://docs.strimz.finance/docs/api/overview)
 - [Repository](https://github.com/StrimzLab/strimz/tree/main/packages/sdk)
 - [Changelog](./CHANGELOG.md)
 - [Issues](https://github.com/StrimzLab/strimz/issues)

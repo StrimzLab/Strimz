@@ -1,6 +1,6 @@
 import checkIcon from '@iconify-icons/solar/check-circle-bold'
 import minusIcon from '@iconify-icons/solar/minus-circle-linear'
-import { PLAN_COMPARISON, PRICING_PLANS } from '@/lib/pricing-plans'
+import { PLAN_COMPARISON, PRICING_PLANS } from '@strimz/web-shared/lib/pricing-plans'
 import { MkIcon } from '../icon'
 import { PopLink } from '../fx/pop-button'
 

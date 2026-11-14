@@ -7,7 +7,13 @@ import arrowIcon from '@iconify-icons/solar/arrow-right-linear'
 import infoIcon from '@iconify-icons/solar/info-circle-linear'
 import { cn } from '@strimz/ui'
 import { MkIcon } from '../icon'
-import { EASE_OUT, MOTION_OK, PLAY_ONCE, gsap, useGSAP } from '../motion/gsap'
+import {
+  EASE_OUT,
+  MOTION_OK,
+  PLAY_ONCE,
+  gsap,
+  useGSAP,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 import { USE_CASE_MOCKS } from './mock-map'
 import { sampleCost, type UseCase } from './data'
 
