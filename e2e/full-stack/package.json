@@ -1,0 +1,32 @@
+{
+  "name": "@strimz/e2e-full-stack",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Money-path test across the real contracts, api, indexer and scheduler on a local fork of Arc testnet.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "DOCKER_HOST=${DOCKER_HOST:-unix://${HOME}/.docker/run/docker.sock} vitest run",
+    "test:stress": "DOCKER_HOST=${DOCKER_HOST:-unix://${HOME}/.docker/run/docker.sock} E2E_MERCHANTS=${E2E_MERCHANTS:-6} vitest run --config vitest.stress.config.ts",
+    "test:chaos": "DOCKER_HOST=${DOCKER_HOST:-unix://${HOME}/.docker/run/docker.sock} vitest run --config vitest.chaos.config.ts"
+  },
+  "devDependencies": {
+    "@strimz/db": "workspace:*",
+    "@strimz/eslint-config": "workspace:*",
+    "@strimz/sdk": "workspace:*",
+    "@strimz/shared-config": "workspace:*",
+    "@strimz/shared-crypto": "workspace:*",
+    "@strimz/tsconfig": "workspace:*",
+    "@testcontainers/postgresql": "^10.16.0",
+    "@testcontainers/redis": "^10.16.0",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
+    "testcontainers": "^10.16.0",
+    "typescript": "^5.7.3",
+    "viem": "^2.22.6",
+    "vitest": "^2.1.8",
+    "zod": "^3.24.1"
+  }
+}
