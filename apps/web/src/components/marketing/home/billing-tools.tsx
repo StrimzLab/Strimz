@@ -208,7 +208,7 @@ export function BillingTools() {
                 className="pointer-events-none absolute inset-0 z-10 bg-black/10 opacity-0 dark:bg-black/40"
               />
               <div className={cn(i % 2 === 1 && 'md:order-2')}>
-                <p className="font-poppins bg-accent/10 text-accent-ink dark:text-accent inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-medium">
+                <p className="font-poppins bg-accent/10 text-accent-ink dark:text-brand-text inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-medium">
                   <span className="bg-accent size-1.5 rounded-full" />
                   {s.chip}
                 </p>
@@ -227,7 +227,7 @@ export function BillingTools() {
                       key={p}
                       className="font-poppins text-foreground flex items-start gap-2.5 text-[15px]"
                     >
-                      <MkIcon icon={checkIcon} className="text-accent mt-0.5 size-5 shrink-0" />
+                      <MkIcon icon={checkIcon} className="text-brand-text mt-0.5 size-5 shrink-0" />
                       {p}
                     </li>
                   ))}

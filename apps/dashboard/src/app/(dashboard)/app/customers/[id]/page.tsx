@@ -33,7 +33,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
   if (isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="text-accent size-6 animate-spin" />
+        <Loader2 className="text-brand-text size-6 animate-spin" />
       </div>
     )
   }
@@ -42,9 +42,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       <div className="space-y-4">
         <BackLink />
         <Card>
-          <CardContent className="p-6 text-sm text-rose-600 dark:text-rose-400">
-            Customer not found.
-          </CardContent>
+          <CardContent className="text-danger p-6 text-sm">Customer not found.</CardContent>
         </Card>
       </div>
     )
@@ -199,9 +197,7 @@ function Section<T>({
           <p className="text-muted-foreground text-xs">Loading…</p>
         ) : query.isError ? (
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-rose-600 dark:text-rose-400">
-              Couldn’t load {title.toLowerCase()}.
-            </p>
+            <p className="text-danger text-xs">Couldn’t load {title.toLowerCase()}.</p>
             <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
               Try again
             </Button>
@@ -265,7 +261,7 @@ function CopyValue({ value }: { value: string }) {
   return (
     <button
       type="button"
-      className="hover:text-accent inline-flex min-w-0 items-center gap-1 break-all text-right text-xs"
+      className="hover:text-brand-text inline-flex min-w-0 items-center gap-1 break-all text-right text-xs"
       onClick={() => {
         void navigator.clipboard.writeText(value).then(() => toast.success('Copied'))
       }}

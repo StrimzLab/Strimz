@@ -133,7 +133,7 @@ export default function AdminMerchantDetailPage() {
                 href={merchant.websiteUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="text-accent text-xs hover:underline"
+                className="text-brand-text text-xs hover:underline"
               >
                 {merchant.websiteUrl}
               </a>
@@ -186,7 +186,7 @@ export default function AdminMerchantDetailPage() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="border-rose-500/40 text-rose-600 hover:bg-rose-500/10"
+                    className="border-danger-border text-danger hover:bg-danger-surface"
                     onClick={() =>
                       setPendingConfirm({
                         copy: suspendMerchantConfirm({

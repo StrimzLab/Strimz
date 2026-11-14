@@ -141,7 +141,7 @@ function PaymentSessions() {
         cell: ({ row }) => (
           <Link
             href={`/app/payment-sessions/${row.original.id}`}
-            className="text-accent font-mono text-xs hover:underline"
+            className="text-brand-text font-mono text-xs hover:underline"
             // Prefetch the session detail when the row is in the user's
             // cursor. Clicking through feels instant. Hover-prefetch
             // is the cheapest UX win TanStack Query offers.
@@ -238,7 +238,7 @@ function PaymentSessions() {
                 ) : null}
                 {cancelable ? (
                   <DropdownMenuItem
-                    className="-mt-2 text-xs text-rose-600 focus:text-rose-600"
+                    className="text-danger focus:text-danger -mt-2 text-xs"
                     onClick={() =>
                       setPendingConfirm({
                         copy: cancelPaymentSessionConfirm(session),

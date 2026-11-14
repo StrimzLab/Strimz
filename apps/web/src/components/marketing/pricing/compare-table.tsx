@@ -50,7 +50,7 @@ export function CompareTable() {
                       {typeof v === 'boolean' ? (
                         v ? (
                           <>
-                            <MkIcon icon={checkIcon} className="text-accent size-5" />
+                            <MkIcon icon={checkIcon} className="text-brand-text size-5" />
                             <span className="sr-only">Included</span>
                           </>
                         ) : (

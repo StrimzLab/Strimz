@@ -230,7 +230,7 @@ export function NewPlanDialog() {
             />
             <p className="text-muted-foreground text-xs">Where they go if they cancel.</p>
           </div>
-          {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+          {error ? <p className="text-danger text-xs">{error}</p> : null}
         </div>
         <DialogFooter>
           <Button

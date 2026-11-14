@@ -127,7 +127,7 @@ function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
   return (
     <SceneShell>
       <SceneHeader>
-        <Repeat className="text-accent size-4" />
+        <Repeat className="text-brand-text size-4" />
         <SceneTitle>Subscriptions</SceneTitle>
         <Pill tone="positive">12 active</Pill>
       </SceneHeader>
@@ -191,7 +191,7 @@ function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
                 <motion.span
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="font-poppins text-accent-ink dark:text-accent text-[10px] sm:text-[11px]"
+                  className="font-poppins text-accent-ink dark:text-brand-text text-[10px] sm:text-[11px]"
                 >
                   all confirmed
                 </motion.span>
@@ -210,7 +210,7 @@ function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
               >
                 Customer signed <span className="text-foreground font-[600]">once on Mar 20</span>
                 {' · '}charged{' '}
-                <span className="text-accent-ink dark:text-accent font-[600]">7 times</span>
+                <span className="text-accent-ink dark:text-brand-text font-[600]">7 times</span>
               </motion.p>
             ) : null}
           </motion.div>
@@ -233,7 +233,7 @@ function ChargeCell({ label, show }: { label: string; show: boolean }) {
         animate={show ? { scale: 1 } : { scale: 0 }}
         transition={{ delay: 0.08, type: 'spring', stiffness: 350, damping: 18 }}
       >
-        <Check className="text-accent size-3" strokeWidth={3} />
+        <Check className="text-brand-text size-3" strokeWidth={3} />
       </motion.span>
       <span className="text-muted-foreground font-mono text-[8px] sm:text-[9px]">{label}</span>
     </motion.div>
@@ -276,7 +276,7 @@ function OneShotScene({ reducedMotion }: { reducedMotion: boolean }) {
   return (
     <SceneShell>
       <SceneHeader>
-        <Zap className="text-accent size-4" />
+        <Zap className="text-brand-text size-4" />
         <SceneTitle>Payment sessions</SceneTitle>
         <AnimatePresence mode="wait">
           {step >= 4 ? (
@@ -351,7 +351,7 @@ function OneShotScene({ reducedMotion }: { reducedMotion: boolean }) {
                   <span className="font-poppins text-muted-foreground text-[10px] sm:text-[11px]">
                     Settled in
                   </span>
-                  <span className="text-accent-ink dark:text-accent font-mono text-[10px] font-[600] sm:text-[11px]">
+                  <span className="text-accent-ink dark:text-brand-text font-mono text-[10px] font-[600] sm:text-[11px]">
                     seconds
                   </span>
                 </motion.div>
@@ -369,12 +369,12 @@ function OneShotScene({ reducedMotion }: { reducedMotion: boolean }) {
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Wallet className="text-accent size-4" />
+                <Wallet className="text-brand-text size-4" />
                 <span className="font-poppins text-foreground text-[11px] font-[500] sm:text-[12px]">
                   Payout to your wallet
                 </span>
               </div>
-              <span className="text-accent font-mono text-[12px] font-[700] sm:text-[13px]">
+              <span className="text-brand-text font-mono text-[12px] font-[700] sm:text-[13px]">
                 +$49.75 USDC
               </span>
             </div>
@@ -401,9 +401,9 @@ function SessionStatusPill({ step }: { step: number }) {
         key="pending"
         initial={{ opacity: 0, scale: 0.85 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="font-poppins inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-[500] text-amber-700 sm:text-[11px] dark:text-amber-300"
+        className="font-poppins bg-warning-surface text-warning inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-[500] sm:text-[11px]"
       >
-        <span className="size-1.5 animate-pulse rounded-full bg-amber-500" />
+        <span className="bg-warning size-1.5 animate-pulse rounded-full" />
         pending
       </motion.span>
     )
@@ -430,7 +430,7 @@ function SessionStatusPill({ step }: { step: number }) {
       initial={{ scale: 0.5, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 280, damping: 15 }}
-      className="font-poppins bg-accent/10 text-accent-ink dark:text-accent inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-[500] sm:text-[11px]"
+      className="font-poppins bg-accent/10 text-accent-ink dark:text-brand-text inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-[500] sm:text-[11px]"
     >
       <Check className="size-3" strokeWidth={3} />
       confirmed
@@ -485,7 +485,7 @@ function RecoveryScene({ reducedMotion }: { reducedMotion: boolean }) {
   return (
     <SceneShell>
       <SceneHeader>
-        <Repeat className="text-accent size-4" />
+        <Repeat className="text-brand-text size-4" />
         <SceneTitle>Subscriptions</SceneTitle>
         <AnimatePresence mode="wait">
           {isAtRisk ? (
@@ -517,7 +517,9 @@ function RecoveryScene({ reducedMotion }: { reducedMotion: boolean }) {
             animate={{ opacity: 1, y: 0 }}
             className={cn(
               'rounded-[10px] border p-3.5 transition-colors sm:p-4',
-              isAtRisk ? 'border-amber-500/30 bg-amber-500/5' : 'border-accent/30 bg-accent/5',
+              isAtRisk
+                ? 'border-warning-border bg-warning-surface'
+                : 'border-accent/30 bg-accent/5',
             )}
           >
             <div className="flex items-start justify-between gap-3">
@@ -595,9 +597,9 @@ function RecoveryStatusPill({ atRisk, resolved }: { atRisk: boolean; resolved: b
       <motion.span
         initial={{ scale: 0.85 }}
         animate={{ scale: 1 }}
-        className="font-poppins inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-[500] text-amber-700 sm:text-[11px] dark:text-amber-300"
+        className="font-poppins bg-warning-surface text-warning inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-[500] sm:text-[11px]"
       >
-        <span className="size-1.5 animate-pulse rounded-full bg-amber-500" />
+        <span className="bg-warning size-1.5 animate-pulse rounded-full" />
         at risk
       </motion.span>
     )
@@ -619,9 +621,9 @@ function TimelineRow({
   tone: 'danger' | 'info' | 'success'
 }) {
   const tones = {
-    danger: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
+    danger: 'bg-danger-surface text-danger',
     info: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
-    success: 'bg-accent/10 text-accent',
+    success: 'bg-accent/10 text-brand-text',
   } as const
   return (
     <motion.div
@@ -687,7 +689,7 @@ function FloatingChips({ sceneIndex }: { sceneIndex: number }) {
           transition={{ duration: 0.35, delay: 0.05 }}
           className="bg-ink absolute -bottom-4 left-2 hidden items-center gap-2 rounded-full px-3 py-2 shadow-[0_15px_30px_-10px_rgba(5,0,32,0.4)] sm:flex md:left-4"
         >
-          <Wallet className="text-accent size-3.5" />
+          <Wallet className="text-brand-text size-3.5" />
           <span className="font-mono text-[10px] font-[500] text-white md:text-[11px]">
             {bottomScene.amount}
           </span>
@@ -738,9 +740,9 @@ function Pill({
   tone?: 'positive' | 'info' | 'warning'
 }) {
   const tones = {
-    positive: 'bg-accent/10 text-accent-ink dark:text-accent',
+    positive: 'bg-accent/10 text-accent-ink dark:text-brand-text',
     info: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
-    warning: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    warning: 'bg-warning-surface text-warning',
   } as const
   return (
     <span
@@ -756,7 +758,7 @@ function Pill({
 
 function PulsePill({ children }: { children: ReactNode }) {
   return (
-    <span className="font-poppins bg-accent/10 text-accent-ink dark:text-accent inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-[500] sm:text-[11px]">
+    <span className="font-poppins bg-accent/10 text-accent-ink dark:text-brand-text inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-[500] sm:text-[11px]">
       <span className="relative flex size-1.5">
         <span className="bg-accent/70 absolute inline-flex h-full w-full animate-ping rounded-full" />
         <span className="bg-accent relative inline-flex size-1.5 rounded-full" />

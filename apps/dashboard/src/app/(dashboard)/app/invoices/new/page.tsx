@@ -231,7 +231,7 @@ export default function NewInvoicePage() {
                         onClick={() => removeLine(idx)}
                         disabled={lines.length <= 1}
                         aria-label="Remove line"
-                        className="text-muted-foreground hover:text-rose-600 disabled:opacity-30"
+                        className="text-muted-foreground hover:text-danger disabled:opacity-30"
                       >
                         <Trash2 className="size-4" />
                       </button>

@@ -78,7 +78,7 @@ export default function DeliveryDetailPage({ params }: { params: Promise<{ id: s
             <Row label="Endpoint">
               <Link
                 href={`/app/webhooks/endpoints/${delivery.endpointId}`}
-                className="text-accent text-xs hover:underline"
+                className="text-brand-text text-xs hover:underline"
               >
                 <code>{delivery.endpointId}</code>
               </Link>
@@ -113,7 +113,7 @@ export default function DeliveryDetailPage({ params }: { params: Promise<{ id: s
                 <code
                   className={
                     delivery.responseCode >= 400
-                      ? 'text-xs text-rose-600'
+                      ? 'text-danger text-xs'
                       : 'text-muted-foreground text-xs'
                   }
                 >

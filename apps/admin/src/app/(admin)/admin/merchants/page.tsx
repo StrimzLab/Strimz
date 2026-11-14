@@ -17,16 +17,16 @@ import type { MerchantStatus, MerchantTier } from '@strimz/web-shared/lib/admin-
 import { useAdminMerchants } from '@/hooks/admin'
 
 const STATUS_TINT: Record<MerchantStatus, string> = {
-  active: 'border-accent/40 bg-accent/10 text-accent',
-  suspended: 'border-amber-400/40 bg-amber-50 text-amber-700',
-  closed: 'border-rose-500/40 bg-rose-50 text-rose-700',
+  active: 'border-accent/40 bg-accent/10 text-brand-text',
+  suspended: 'border-warning-border bg-warning-surface text-warning',
+  closed: 'border-danger-border bg-danger-surface text-danger',
 }
 
 const TIER_TINT: Record<MerchantTier, string> = {
   free: 'border-border/60',
   starter: 'border-sky-400/40 bg-sky-50 text-sky-700',
   growth: 'border-violet-400/40 bg-violet-50 text-violet-700',
-  enterprise: 'border-accent/40 bg-accent/10 text-accent',
+  enterprise: 'border-accent/40 bg-accent/10 text-brand-text',
 }
 
 const STATUSES: readonly MerchantStatus[] = ['active', 'suspended', 'closed']

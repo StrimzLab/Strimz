@@ -21,7 +21,7 @@ export function Manifesto() {
         </p>
         <p className="text-foreground">
           Each payment settles on-chain and the money is{' '}
-          <span className="text-accent">in your own wallet in seconds.</span>
+          <span className="text-brand-text">in your own wallet in seconds.</span>
         </p>
       </GooeyTextReveal>
     </section>

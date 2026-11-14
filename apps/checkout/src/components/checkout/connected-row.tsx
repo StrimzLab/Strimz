@@ -5,7 +5,7 @@ export function ConnectedRow({ address, onChange }: { address: string; onChange:
   return (
     <div className="font-poppins border-border bg-muted flex items-center justify-between rounded-md border px-3 py-2 text-xs">
       <span className="flex items-center gap-2">
-        <Wallet className="text-accent size-3.5" />
+        <Wallet className="text-brand-text size-3.5" />
         <span className="text-muted-foreground">Paying from</span>
         <span className="text-foreground font-medium tabular-nums">{short}</span>
       </span>

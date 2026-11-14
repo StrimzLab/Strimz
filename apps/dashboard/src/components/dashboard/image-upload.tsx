@@ -130,7 +130,7 @@ export function ImageUpload({
           <div className="text-center">
             {isUploading ? (
               <>
-                <Loader2 className="text-accent mx-auto size-6 animate-spin" />
+                <Loader2 className="text-brand-text mx-auto size-6 animate-spin" />
                 <p className="font-poppins text-muted-foreground mt-2 text-xs font-[500]">
                   Uploading…
                 </p>

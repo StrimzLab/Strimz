@@ -152,10 +152,10 @@ export function DashboardSidebar({ open, onClose }: Props) {
                         'font-poppins flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-all',
                         active
                           ? 'shadow-sidebar-link border-border bg-card text-foreground border font-[500]'
-                          : 'text-muted-foreground hover:text-foreground border border-transparent hover:bg-white/60',
+                          : 'text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent',
                       )}
                     >
-                      <link.icon className={cn('size-4', active && 'text-accent')} />
+                      <link.icon className={cn('size-4', active && 'text-brand-text')} />
                       {link.label}
                     </Link>
                   )
@@ -214,7 +214,7 @@ function OnboardingCard() {
       </p>
       <Link
         href="/onboarding"
-        className="font-poppins text-foreground mt-3 inline-flex h-8 w-full items-center justify-center rounded-md bg-white/95 text-xs font-[500] transition-transform hover:scale-[1.02]"
+        className="font-poppins text-ink mt-3 inline-flex h-8 w-full items-center justify-center rounded-md bg-white/95 text-xs font-[500] transition-transform hover:scale-[1.02]"
       >
         Continue
       </Link>

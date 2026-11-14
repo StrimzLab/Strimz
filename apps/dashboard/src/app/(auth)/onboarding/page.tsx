@@ -84,7 +84,7 @@ export default function OnboardingPage() {
   return (
     <div className="w-full max-w-xl">
       <div className="text-center">
-        <span className="bg-accent/10 text-accent inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium">
+        <span className="bg-accent/10 text-brand-text inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium">
           <Sparkles className="size-3" />
           One step from live
         </span>

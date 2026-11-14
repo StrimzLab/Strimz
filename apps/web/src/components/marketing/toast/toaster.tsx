@@ -11,7 +11,7 @@ import { EASE_OUT, gsap } from '@strimz/web-shared/components/marketing/motion/g
 import { getServerToasts, getToasts, subscribe, toast, type ToastItem } from './store'
 
 const TONES = {
-  success: { icon: checkIcon, colour: 'text-accent', bar: 'bg-accent' },
+  success: { icon: checkIcon, colour: 'text-brand-text', bar: 'bg-accent' },
   error: { icon: dangerIcon, colour: 'text-destructive', bar: 'bg-destructive' },
   info: { icon: infoIcon, colour: 'text-step-blue', bar: 'bg-step-blue' },
 } as const

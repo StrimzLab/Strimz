@@ -205,14 +205,14 @@ function VolumeChartCard({
               <button
                 type="button"
                 onClick={onRetry}
-                className="text-accent font-medium hover:underline"
+                className="text-brand-text font-medium hover:underline"
               >
                 Retry
               </button>
             </div>
           ) : empty ? (
             <div className="flex h-[220px] flex-col items-center justify-center gap-3 text-center">
-              <span className="bg-accent/10 text-accent grid size-11 place-items-center rounded-xl">
+              <span className="bg-accent/10 text-brand-text grid size-11 place-items-center rounded-xl">
                 <LineChart className="size-5" />
               </span>
               <div>
@@ -339,7 +339,7 @@ function FirstRunCard({ paid }: { paid: boolean }) {
                   className={
                     s.done
                       ? 'bg-accent text-ink flex size-8 shrink-0 items-center justify-center rounded-full'
-                      : 'font-sora bg-accent/10 text-accent flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold'
+                      : 'font-sora bg-accent/10 text-brand-text flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold'
                   }
                 >
                   {s.done ? <Check className="size-4" aria-label="Done" /> : i + 1}
@@ -371,7 +371,7 @@ function RecentSessionsCard() {
           <h3 className="font-poppins font-semibold">Recent activity</h3>
           <Link
             href="/app/payment-sessions"
-            className="text-accent text-xs font-medium hover:underline"
+            className="text-brand-text text-xs font-medium hover:underline"
           >
             View all →
           </Link>

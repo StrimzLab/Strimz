@@ -35,7 +35,7 @@ export function FilterButton({
           {active ? (
             <>
               <span className="bg-border h-3.5 w-px" aria-hidden />
-              <span className="text-accent max-w-[14rem] truncate">{summary}</span>
+              <span className="text-brand-text max-w-[14rem] truncate">{summary}</span>
             </>
           ) : null}
           <ChevronDown className="size-3.5 opacity-60" aria-hidden />

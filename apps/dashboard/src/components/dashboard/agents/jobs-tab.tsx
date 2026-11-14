@@ -108,8 +108,8 @@ export function JobsTab({
               </Button>
             )
           }
-          if (job.status === 'completed') return <Check className="text-accent size-4" />
-          if (job.status === 'disputed') return <X className="size-4 text-rose-600" />
+          if (job.status === 'completed') return <Check className="text-brand-text size-4" />
+          if (job.status === 'disputed') return <X className="text-danger size-4" />
           if (job.status === 'cancelled') return <X className="text-muted-foreground size-4" />
           return <Clock className="text-muted-foreground size-4" />
         },

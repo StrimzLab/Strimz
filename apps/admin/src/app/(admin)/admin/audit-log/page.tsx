@@ -122,7 +122,7 @@ function AuditLog() {
             </p>
           ) : query.isError && rows.length === 0 ? (
             <div className="flex items-center justify-between gap-2 p-4 text-sm">
-              <span className="text-rose-600">Couldn&apos;t load the audit log.</span>
+              <span className="text-danger">Couldn&apos;t load the audit log.</span>
               <Button variant="outline" size="sm" onClick={() => query.refetch()}>
                 Try again
               </Button>
@@ -154,7 +154,7 @@ function AuditLog() {
         </div>
       ) : null}
       {query.isFetchNextPageError ? (
-        <p className="text-center text-xs text-rose-600">Couldn&apos;t load more. Try again.</p>
+        <p className="text-danger text-center text-xs">Couldn&apos;t load more. Try again.</p>
       ) : null}
     </div>
   )
@@ -207,7 +207,7 @@ function AuditRow({ row }: { row: AuditLogEntry }) {
               href={arcExplorerTxUrl(env.arcEnvironment, txHash)}
               target="_blank"
               rel="noreferrer"
-              className="text-accent inline-flex items-center gap-1 text-xs hover:underline"
+              className="text-brand-text inline-flex items-center gap-1 text-xs hover:underline"
             >
               View transaction <ExternalLink className="size-3" />
             </a>

@@ -61,7 +61,7 @@ export function ReceiptPanel({
   return (
     <div className="border-accent/30 bg-accent/5 rounded-xl border px-5 py-6">
       <div className="flex flex-col items-center text-center">
-        <div className="bg-accent/15 text-accent flex size-12 items-center justify-center rounded-full">
+        <div className="bg-accent/15 text-brand-text flex size-12 items-center justify-center rounded-full">
           <svg
             viewBox="0 0 24 24"
             className="receipt-check size-7"
@@ -96,7 +96,7 @@ export function ReceiptPanel({
           href={arcExplorerTxUrl(env.arcEnvironment, txHash)}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-foreground hover:text-accent mt-4 flex items-center justify-center gap-1.5 text-xs font-medium underline-offset-2 hover:underline"
+          className="text-foreground hover:text-brand-text mt-4 flex items-center justify-center gap-1.5 text-xs font-medium underline-offset-2 hover:underline"
         >
           View receipt on Arc explorer
           <ExternalLink className="size-3" />

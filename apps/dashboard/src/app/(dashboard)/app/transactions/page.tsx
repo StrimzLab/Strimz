@@ -101,7 +101,7 @@ function Transactions() {
         cell: ({ row }) => (
           <Link
             href={`/app/transactions/${row.original.id}`}
-            className="text-accent font-mono text-xs hover:underline"
+            className="text-brand-text font-mono text-xs hover:underline"
           >
             {row.original.id.slice(0, 14)}…
           </Link>

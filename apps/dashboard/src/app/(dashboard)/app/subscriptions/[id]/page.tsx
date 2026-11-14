@@ -52,7 +52,7 @@ export default function SubscriptionDetailPage({ params }: { params: Promise<{ i
   if (isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="text-accent size-6 animate-spin" />
+        <Loader2 className="text-brand-text size-6 animate-spin" />
       </div>
     )
   }
@@ -61,7 +61,7 @@ export default function SubscriptionDetailPage({ params }: { params: Promise<{ i
       <div className="space-y-4">
         <BackLink />
         <Card>
-          <CardContent className="p-6 text-sm text-rose-600">Subscription not found.</CardContent>
+          <CardContent className="text-danger p-6 text-sm">Subscription not found.</CardContent>
         </Card>
       </div>
     )
@@ -101,7 +101,7 @@ export default function SubscriptionDetailPage({ params }: { params: Promise<{ i
       <Card>
         <CardContent className="space-y-3 p-6 text-sm">
           <Row label="Plan">
-            <Link href={`/app/plans/${sub.planId}`} className="text-accent hover:underline">
+            <Link href={`/app/plans/${sub.planId}`} className="text-brand-text hover:underline">
               {planName ?? `${sub.planId.slice(0, 14)}…`}
             </Link>
           </Row>
@@ -142,7 +142,7 @@ export default function SubscriptionDetailPage({ params }: { params: Promise<{ i
             <p className="text-muted-foreground text-xs">Loading…</p>
           ) : chargesQuery.isError ? (
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs text-rose-600">Couldn’t load charges.</p>
+              <p className="text-danger text-xs">Couldn’t load charges.</p>
               <Button variant="outline" size="sm" onClick={() => chargesQuery.refetch()}>
                 Try again
               </Button>
@@ -182,7 +182,7 @@ function ChargeAttemptsCard({ subscriptionId }: { subscriptionId: string }) {
           <p className="text-muted-foreground text-xs">Loading…</p>
         ) : query.isError && attempts.length === 0 ? (
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-rose-600">Couldn&apos;t load charge attempts.</p>
+            <p className="text-danger text-xs">Couldn&apos;t load charge attempts.</p>
             <Button variant="outline" size="sm" onClick={() => query.refetch()}>
               Try again
             </Button>
@@ -217,7 +217,7 @@ function ChargeAttemptsCard({ subscriptionId }: { subscriptionId: string }) {
                         href={arcExplorerTxUrl(env.arcEnvironment, c.onchainTxHash)}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-accent hover:underline"
+                        className="text-brand-text hover:underline"
                       >
                         View tx
                       </a>
@@ -239,7 +239,7 @@ function ChargeAttemptsCard({ subscriptionId }: { subscriptionId: string }) {
           </Button>
         ) : null}
         {query.isFetchNextPageError ? (
-          <p className="text-xs text-rose-600">Couldn&apos;t load more attempts. Try again.</p>
+          <p className="text-danger text-xs">Couldn&apos;t load more attempts. Try again.</p>
         ) : null}
       </CardContent>
     </Card>

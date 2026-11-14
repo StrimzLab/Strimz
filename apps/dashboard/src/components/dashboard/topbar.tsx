@@ -119,7 +119,7 @@ export function DashboardTopbar({ title, onMenuClick, menuOpen }: Props) {
           className="hover:shadow-sub-icon border-border/60 bg-card text-foreground hover:bg-muted inline-flex h-9 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition-colors sm:px-3"
           aria-label="Take the dashboard tour"
         >
-          <Sparkles className="text-accent size-3.5" />
+          <Sparkles className="text-brand-text size-3.5" />
           <span className="hidden sm:inline">Take a tour</span>
         </button>
         <ThemeToggle />
@@ -162,7 +162,7 @@ export function DashboardTopbar({ title, onMenuClick, menuOpen }: Props) {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="text-rose-600">
+            <DropdownMenuItem onClick={handleLogout} className="text-danger">
               <LogOut className="size-4" />
               Sign out
             </DropdownMenuItem>

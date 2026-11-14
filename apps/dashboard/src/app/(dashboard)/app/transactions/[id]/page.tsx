@@ -33,7 +33,7 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
   if (isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="text-accent size-6 animate-spin" />
+        <Loader2 className="text-brand-text size-6 animate-spin" />
       </div>
     )
   }
@@ -42,7 +42,7 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
       <div className="space-y-4">
         <BackLink />
         <Card>
-          <CardContent className="p-6 text-sm text-rose-600">Transaction not found.</CardContent>
+          <CardContent className="text-danger p-6 text-sm">Transaction not found.</CardContent>
         </Card>
       </div>
     )
@@ -109,7 +109,7 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
               href={`${explorer}/tx/${tx.onchainTxHash}`}
               target="_blank"
               rel="noreferrer"
-              className="text-accent inline-flex items-center gap-1 font-mono text-xs hover:underline"
+              className="text-brand-text inline-flex items-center gap-1 font-mono text-xs hover:underline"
             >
               {tx.onchainTxHash.slice(0, 18)}… <ExternalLink className="size-3" />
             </a>
@@ -118,7 +118,7 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
               <Row label="Payment session">
                 <Link
                   href={`/app/payment-sessions/${tx.sessionId}`}
-                  className="text-accent font-mono text-xs hover:underline"
+                  className="text-brand-text font-mono text-xs hover:underline"
                 >
                   {tx.sessionId.slice(0, 14)}…
                 </Link>
@@ -131,7 +131,7 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
             ) : null}
             {tx.refundId ? (
               <Row label="Refund">
-                <Link href="/app/refunds" className="text-accent hover:underline">
+                <Link href="/app/refunds" className="text-brand-text hover:underline">
                   View refunds
                 </Link>
               </Row>
@@ -176,7 +176,7 @@ function CopyValue({ value }: { value: string }) {
   return (
     <button
       type="button"
-      className="hover:text-accent inline-flex items-center gap-1 font-mono text-xs"
+      className="hover:text-brand-text inline-flex items-center gap-1 font-mono text-xs"
       onClick={() => {
         void navigator.clipboard.writeText(value).then(() => toast.success('Copied'))
       }}

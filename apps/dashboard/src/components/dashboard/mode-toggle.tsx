@@ -11,7 +11,7 @@ export function ModeToggle() {
     <span
       className={cn(
         'border-border/60 bg-card inline-flex h-9 items-center rounded-md border px-2.5 text-xs font-medium',
-        mode === 'live' ? 'text-foreground' : 'text-accent',
+        mode === 'live' ? 'text-foreground' : 'text-brand-text',
       )}
       aria-label={`Dashboard mode: ${mode === 'live' ? 'Live' : 'Test'}`}
     >

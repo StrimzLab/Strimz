@@ -136,7 +136,7 @@ function Stat({
       <div
         className={[
           'font-sora mt-1 text-2xl font-semibold',
-          tone === 'danger' ? 'text-rose-600' : tone === 'warning' ? 'text-amber-600' : '',
+          tone === 'danger' ? 'text-danger' : tone === 'warning' ? 'text-warning' : '',
         ].join(' ')}
       >
         {value}

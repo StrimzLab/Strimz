@@ -41,7 +41,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
   if (isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
-        <Loader2 className="text-accent size-6 animate-spin" />
+        <Loader2 className="text-brand-text size-6 animate-spin" />
       </div>
     )
   }
@@ -54,7 +54,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
           </Link>
         </Button>
         <Card>
-          <CardContent className="p-6 text-sm text-rose-600">Invoice not found.</CardContent>
+          <CardContent className="text-danger p-6 text-sm">Invoice not found.</CardContent>
         </Card>
       </div>
     )
@@ -118,7 +118,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-rose-600 hover:text-rose-600"
+                  className="text-danger hover:text-danger"
                   onClick={() =>
                     setPendingConfirm({
                       copy: voidInvoiceConfirm(invoice),

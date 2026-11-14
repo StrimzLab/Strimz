@@ -209,7 +209,7 @@ function ApiKeys() {
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      className="text-rose-600 focus:text-rose-600"
+                      className="text-danger focus:text-danger"
                       onClick={() =>
                         setPendingConfirm({
                           copy: revokeApiKeyConfirm(key),
@@ -516,9 +516,9 @@ function SecretReveal({ secret }: { secret: string }) {
 
 function KeyHygieneCallout() {
   return (
-    <div className="rounded-xl border border-amber-300/50 bg-amber-100/40 p-4">
+    <div className="border-warning-border bg-warning-surface rounded-xl border p-4">
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400">
+        <span className="bg-warning-surface text-warning mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md">
           <AlertTriangle className="size-3.5" />
         </span>
         <div className="space-y-1 text-base">
@@ -539,8 +539,8 @@ function KeyHygieneCallout() {
 
 function DialogHygieneNote() {
   return (
-    <div className="text-muted-foreground flex items-start gap-2 rounded-md border border-amber-300/50 bg-amber-100/40 p-2.5 text-xs">
-      <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+    <div className="text-muted-foreground border-warning-border bg-warning-surface flex items-start gap-2 rounded-md border p-2.5 text-xs">
+      <AlertTriangle className="text-warning mt-0.5 size-3.5 shrink-0" />
       <p>
         Give this key only the scopes the workload actually needs. Full access is convenient but
         expands the blast radius on any leak.

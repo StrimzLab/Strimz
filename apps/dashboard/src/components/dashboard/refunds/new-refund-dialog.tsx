@@ -162,7 +162,7 @@ export function NewRefundDialog({
               <p className="text-muted-foreground text-xs">Looking up the transaction…</p>
             ) : null}
             {!transaction && typedId && lookup.isError ? (
-              <p className="text-xs text-rose-600">No transaction with this ID in this mode.</p>
+              <p className="text-danger text-xs">No transaction with this ID in this mode.</p>
             ) : null}
             {target ? (
               <p className="text-muted-foreground text-xs">
@@ -214,7 +214,7 @@ export function NewRefundDialog({
               onChange={(e) => setNote(e.target.value)}
             />
           </div>
-          {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+          {error ? <p className="text-danger text-xs">{error}</p> : null}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>

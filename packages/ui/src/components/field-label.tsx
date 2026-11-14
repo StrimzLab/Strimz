@@ -21,7 +21,7 @@ export function FieldLabel({
       {required ? (
         <>
           <span className="text-muted-foreground text-xs font-normal">(required)</span>
-          <span aria-hidden="true" className="text-red-500">
+          <span aria-hidden="true" className="text-danger">
             *
           </span>
         </>

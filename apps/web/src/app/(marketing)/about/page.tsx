@@ -79,7 +79,7 @@ function Pillars({ items }: { items: typeof WHY | typeof SAFETY }) {
           data-rise
           className="border-border bg-card rounded-[24px] border p-7"
         >
-          <span className="bg-accent/10 text-accent-ink dark:text-accent grid size-11 place-items-center rounded-xl">
+          <span className="bg-accent/10 text-accent-ink dark:text-brand-text grid size-11 place-items-center rounded-xl">
             <MkIcon icon={item.icon} className="size-5" />
           </span>
           <h3 className="font-sora text-foreground mt-6 text-xl font-semibold tracking-[-0.02em]">
@@ -148,7 +148,7 @@ export default function AboutPage() {
                   i > 1 && 'border-t md:border-t-0',
                 )}
               >
-                <p className="font-sora text-accent-ink dark:text-accent text-5xl font-semibold tracking-[-0.04em] sm:text-6xl">
+                <p className="font-sora text-accent-ink dark:text-brand-text text-5xl font-semibold tracking-[-0.04em] sm:text-6xl">
                   {f.value}
                 </p>
                 <p className="font-poppins text-muted-foreground mt-3 max-w-[14rem] text-sm">

@@ -43,7 +43,7 @@ export function OnchainPolicySection() {
   if (error) {
     return (
       <PanelShell title="On-chain policy" description="Registry read failed.">
-        <div className="flex items-center gap-2 text-xs text-red-600">
+        <div className="text-danger flex items-center gap-2 text-xs">
           <ShieldAlert className="size-3.5" />
           Could not reach the Registry contract. Check network then retry.
         </div>
@@ -115,14 +115,14 @@ function PayoutPanel({ state }: { state: OnchainState }) {
       <ReadonlyAddress label="Current payout" value={state.payoutAddress} />
 
       {state.pendingPayoutAddress ? (
-        <div className="rounded-md border border-amber-300 bg-amber-50 p-3">
-          <div className="flex items-center gap-2 text-xs font-medium text-amber-900">
+        <div className="border-warning-border bg-warning-surface rounded-md border p-3">
+          <div className="text-warning flex items-center gap-2 text-xs font-medium">
             <Clock3 className="size-3.5" />
             {delayDue
               ? 'Pending change is ready to commit'
               : `Pending change goes live in ${formatDuration(remainingSec)}`}
           </div>
-          <div className="mt-2 break-all font-mono text-[11px] text-amber-900">
+          <div className="text-warning mt-2 break-all font-mono text-[11px]">
             {state.pendingPayoutAddress}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -207,8 +207,8 @@ function OwnershipPanel({ state }: { state: OnchainState }) {
       <ReadonlyAddress label="Current owner" value={state.owner} />
 
       {state.pendingOwner ? (
-        <div className="space-y-3 rounded-md border border-amber-300 bg-amber-50 p-3">
-          <div className="flex items-center gap-2 text-xs font-medium text-amber-900">
+        <div className="border-warning-border bg-warning-surface space-y-3 rounded-md border p-3">
+          <div className="text-warning flex items-center gap-2 text-xs font-medium">
             <Clock3 className="size-3.5" />
             {state.pendingOwnerAcceptableAt === null
               ? 'Nomination cannot be accepted. Cancel it and nominate again.'
@@ -216,7 +216,7 @@ function OwnershipPanel({ state }: { state: OnchainState }) {
                 ? 'Nominated owner can accept now'
                 : `Nominated owner can accept in ${formatDuration(acceptRemainingSec)}`}
           </div>
-          <div className="break-all font-mono text-[11px] text-amber-900">{state.pendingOwner}</div>
+          <div className="text-warning break-all font-mono text-[11px]">{state.pendingOwner}</div>
           <div className="flex flex-wrap gap-2">
             {iAmPending ? (
               <Button
@@ -241,7 +241,7 @@ function OwnershipPanel({ state }: { state: OnchainState }) {
             </Button>
           </div>
           {!iAmPending ? (
-            <p className="text-xs text-amber-900">
+            <p className="text-warning text-xs">
               The nominated wallet needs to open this dashboard from its own account and click
               Accept once the 24-hour wait is over. Accepting cancels any pending payout change.
             </p>

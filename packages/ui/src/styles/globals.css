@@ -1,21 +1,9 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/**
- * Strimz design tokens — lifted directly from `strimz-subscription`'s
- * `tailwind.config.ts`. Light mode only; the legacy `.dark` selector and
- * `@custom-variant dark` declaration are intentionally removed.
- *
- * Brand:
- *   accent  = #02C76A  — every CTA + active state
- *   primary = #050020  — every dark surface + headline
- *
- * Shadcn semantic tokens (background, card, popover, secondary, muted,
- * destructive, border, input, ring, chart) keep their HSL-variable
- * indirection so consuming primitives behave normally.
- */
+/* Values from the Strimz UI Library: docs/design/strimz-design-system.md. Dark mode is built on the brand navy. */
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -49,6 +37,18 @@
 
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-brand-text: hsl(var(--brand-text));
+  --color-tertiary: hsl(var(--tertiary));
+  --color-success: hsl(var(--success));
+  --color-success-surface: hsl(var(--success-surface));
+  --color-success-border: hsl(var(--success-border));
+  --color-warning: hsl(var(--warning));
+  --color-warning-surface: hsl(var(--warning-surface));
+  --color-warning-border: hsl(var(--warning-border));
+  --color-danger: hsl(var(--danger));
+  --color-danger-surface: hsl(var(--danger-surface));
+  --color-danger-border: hsl(var(--danger-border));
 
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
@@ -96,8 +96,6 @@
 
 @layer base {
   :root {
-    /* Pure light-mode token set — neutral grayscale per shadcn's default,
-     * matching strimz-subscription's :root block. */
     --background: 0 0% 100%;
     --foreground: 249.4 100% 6.3%;
 
@@ -123,12 +121,12 @@
     --muted: 210 20% 98%;
     --muted-foreground: 248.6 11% 37.5%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 4.2 76.5% 40%;
+    --destructive-foreground: 0 0% 100%;
 
     --border: 220 13% 91%;
     --input: 216 12.2% 83.9%;
-    --ring: 249.4 100% 6.3%;
+    --ring: 249.4 100% 20%;
 
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -145,21 +143,32 @@
     --step-red: 355.8 71.8% 47.3%;
 
     --radius: 0.5rem;
+    --tertiary: 247.5 7.5% 58%;
+    --brand-text: 151.5 97.2% 28%;
+    --success: 151.6 98.3% 23.1%;
+    --success-surface: 150 100% 98%;
+    --success-border: 151.5 89.4% 77.8%;
+    --warning: 21.8 91.5% 37.1%;
+    --warning-surface: 45 100% 96.1%;
+    --warning-border: 41.9 98.9% 64.5%;
+    --danger: 4.2 76.5% 40%;
+    --danger-surface: 5 85.7% 97.3%;
+    --danger-border: 4.3 96.1% 80%;
   }
 
   .dark {
-    --background: 240 24.1% 5.7%;
-    --foreground: 240 11.1% 96.5%;
+    --background: 249.4 100% 6.3%;
+    --foreground: 0 0% 100%;
 
-    --card: 240 18.4% 9.6%;
-    --card-foreground: 240 11.1% 96.5%;
+    --card: 246.2 59.2% 9.6%;
+    --card-foreground: 0 0% 100%;
 
-    --popover: 240 18.4% 9.6%;
-    --popover-foreground: 240 11.1% 96.5%;
+    --popover: 246.2 59.2% 9.6%;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 240 11.1% 96.5%;
+    --primary: 0 0% 100%;
     --primary-foreground: 249.4 100% 6.3%;
-    --primary-hover: 240 12.5% 90.6%;
+    --primary-hover: 252 9.8% 90%;
 
     --accent-hover: 151.2 97.8% 35.5%;
 
@@ -167,18 +176,18 @@
     --ink-foreground: 0 0% 100%;
     --ink-muted: 216 12.2% 83.9%;
 
-    --secondary: 240 16.4% 13.1%;
-    --secondary-foreground: 240 11.1% 96.5%;
+    --secondary: 246.2 47.5% 12%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 240 16.4% 13.1%;
-    --muted-foreground: 249.5 10.7% 65.3%;
+    --muted: 246.2 47.5% 12%;
+    --muted-foreground: 247.5 11.6% 72.9%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 3.9 86% 58%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 240 13.4% 19%;
-    --input: 240 11.5% 25.7%;
-    --ring: 151.7 98% 39.4%;
+    --border: 246.4 28.6% 19.2%;
+    --input: 246.7 21.6% 24.5%;
+    --ring: 151.8 89.1% 67.6%;
 
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
@@ -193,6 +202,17 @@
     --step-blue: 212 100% 67.3%;
     --step-purple: 265 100% 77.5%;
     --step-red: 3.8 100% 72.4%;
+    --tertiary: 247.5 7.5% 58%;
+    --brand-text: 151.7 98% 39.4%;
+    --success: 151.8 89.1% 67.6%;
+    --success-surface: 202.7 78.7% 9.2%;
+    --success-border: 165.8 90.5% 16.5%;
+    --warning: 41.9 98.9% 64.5%;
+    --warning-surface: 290.8 21.3% 12%;
+    --warning-border: 33.2 36.4% 30.2%;
+    --danger: 4.3 96.1% 80%;
+    --danger-surface: 306.4 58.3% 9.4%;
+    --danger-border: 351 56.3% 27.8%;
   }
 
   * {
@@ -203,7 +223,12 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     @apply font-display;
   }
 }

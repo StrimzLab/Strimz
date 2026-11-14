@@ -79,11 +79,11 @@ export default function RenewAllowancePage({
       <div className="space-y-6">
         <div>
           <Badge variant="outline" className="mb-3 gap-1.5">
-            <ShieldCheck className="text-accent size-3" />
+            <ShieldCheck className="text-brand-text size-3" />
             Secured by Strimz
           </Badge>
           <h2 className="font-poppins flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <RefreshCcw className="text-accent size-5 shrink-0" />
+            <RefreshCcw className="text-brand-text size-5 shrink-0" />
             {step === 'done' ? 'Approval renewed' : 'Renew your approval'}
           </h2>
           {renewal && step !== 'done' && (
@@ -101,7 +101,7 @@ export default function RenewAllowancePage({
         )}
 
         {loadError && (
-          <p className="text-sm text-rose-600 dark:text-rose-400">
+          <p className="text-danger text-sm">
             Couldn&apos;t load this subscription. Check the link in your email, or contact the
             merchant.
           </p>
@@ -115,7 +115,7 @@ export default function RenewAllowancePage({
 
         {renewal && RENEWABLE.has(renewal.status) && step === 'done' && (
           <div className="border-accent/30 bg-accent/5 flex items-start gap-3 rounded-xl border p-5 text-sm">
-            <CheckCircle2 className="text-accent mt-0.5 size-5 shrink-0" />
+            <CheckCircle2 className="text-brand-text mt-0.5 size-5 shrink-0" />
             <p>
               Your wallet now approves 12 more charges of {amountDisplay} for {renewal.planName}.
               You can close this window.
@@ -134,7 +134,7 @@ export default function RenewAllowancePage({
               <>
                 <ConnectedRow address={address} onChange={disconnect} />
                 {!isPayer ? (
-                  <p className="text-sm text-rose-600 dark:text-rose-400">
+                  <p className="text-danger text-sm">
                     This wallet isn&apos;t the wallet that subscribed (
                     {renewal.payerAddress.slice(0, 6)}…{renewal.payerAddress.slice(-4)}). Switch to
                     it to renew.
@@ -161,9 +161,7 @@ export default function RenewAllowancePage({
                     </SubmitButton>
                   </>
                 )}
-                {step === 'failed' && error && (
-                  <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>
-                )}
+                {step === 'failed' && error && <p className="text-danger text-sm">{error}</p>}
               </>
             )}
           </>

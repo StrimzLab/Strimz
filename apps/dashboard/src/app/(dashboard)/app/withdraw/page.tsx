@@ -222,7 +222,7 @@ export default function WithdrawPage() {
             <BalanceSkeleton />
           ) : balanceQuery.isError ? (
             <Card className="border-border/60">
-              <CardContent className="p-6 text-sm text-rose-600">
+              <CardContent className="text-danger p-6 text-sm">
                 Couldn&apos;t load your on-chain balance. Check your RPC connection and try again.
               </CardContent>
             </Card>
@@ -232,7 +232,7 @@ export default function WithdrawPage() {
             <Card className="border-border/60 border-dashed">
               <CardContent className="text-muted-foreground p-6 text-sm">
                 Set a payout address on the{' '}
-                <Link href="/app/settings" className="text-accent underline">
+                <Link href="/app/settings" className="text-brand-text underline">
                   Settings page
                 </Link>{' '}
                 before you can withdraw.
@@ -244,7 +244,7 @@ export default function WithdrawPage() {
             <Card className="border-border/60">
               <CardContent className="p-6">
                 <h3 className="font-sora inline-flex items-center gap-2 text-base font-[600]">
-                  <ArrowUpFromLine className="text-accent size-4" />
+                  <ArrowUpFromLine className="text-brand-text size-4" />
                   Send funds
                 </h3>
                 {balance.canSignFromDashboard ? (
@@ -254,7 +254,7 @@ export default function WithdrawPage() {
                   </p>
                 ) : (
                   <div className="border-border/60 bg-muted text-muted-foreground mt-4 flex items-start gap-2 rounded-md border p-3 text-xs">
-                    <ShieldAlert className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                    <ShieldAlert className="text-warning mt-0.5 size-4 shrink-0" />
                     <div>
                       <p className="text-foreground font-medium">
                         Your payout goes to an external wallet.
@@ -316,7 +316,7 @@ export default function WithdrawPage() {
                       autoComplete="off"
                     />
                     {destination && !destinationOk && (
-                      <p className="font-poppins mt-1 text-xs text-rose-600">
+                      <p className="font-poppins text-danger mt-1 text-xs">
                         Enter a valid 0x address.
                       </p>
                     )}
@@ -348,7 +348,7 @@ export default function WithdrawPage() {
                               ? 'Enter a destination so the network fee can be estimated'
                               : undefined
                           }
-                          className="bg-accent/10 text-accent absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-[10px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                          className="bg-accent/10 text-brand-text absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-[10px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           MAX
                         </button>
@@ -371,7 +371,7 @@ export default function WithdrawPage() {
                       />
                     )}
                     {amountCheck && !amountCheck.ok && (
-                      <p className="font-poppins mt-1 text-xs text-rose-600">
+                      <p className="font-poppins text-danger mt-1 text-xs">
                         {withdrawProblem(amountCheck.reason, currency, gasReserve, usdcBalance)}
                       </p>
                     )}
@@ -405,7 +405,7 @@ export default function WithdrawPage() {
                       href={arcExplorerTxUrl(env.arcEnvironment, lastTx)}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-poppins text-accent mt-1 inline-flex items-center gap-1 break-all hover:underline"
+                      className="font-poppins text-brand-text mt-1 inline-flex items-center gap-1 break-all hover:underline"
                     >
                       {lastTx}
                       <ExternalLink className="size-3 shrink-0" />
@@ -489,7 +489,7 @@ function NetworkFeeNote({
     )
   }
   if (error) {
-    return <p className="font-poppins mt-1 text-xs text-rose-600">{error}</p>
+    return <p className="font-poppins text-danger mt-1 text-xs">{error}</p>
   }
   if (!destinationOk) {
     return (
@@ -559,7 +559,7 @@ function BalanceCard({
             </div>
           </div>
           {balance.canSignFromDashboard ? (
-            <Badge className="bg-accent/10 text-accent hover:bg-accent/10">Managed</Badge>
+            <Badge className="bg-accent/10 text-brand-text hover:bg-accent/10">Managed</Badge>
           ) : (
             <Badge variant="outline">External</Badge>
           )}

@@ -83,7 +83,7 @@ export function StepIndicator({ phase }: { phase: CheckoutPhase }) {
             <div
               className={`flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
                 isDone
-                  ? 'bg-accent/15 text-accent'
+                  ? 'bg-accent/15 text-brand-text'
                   : isActive && !isTerminal
                     ? 'bg-accent text-white'
                     : 'bg-muted text-muted-foreground'

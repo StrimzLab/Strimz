@@ -189,7 +189,7 @@ export default function AnalyticsPage() {
                       className={[
                         'h-8 rounded-md border px-2.5 text-xs font-medium transition-colors',
                         ltvCurrency === c
-                          ? 'border-accent bg-accent/10 text-accent'
+                          ? 'border-accent bg-accent/10 text-brand-text'
                           : 'border-border/60 hover:bg-muted',
                       ].join(' ')}
                     >
@@ -312,7 +312,7 @@ function Kpi({
           <div
             className={[
               'font-sora mt-1 text-2xl font-semibold',
-              isDanger ? 'text-rose-600' : '',
+              isDanger ? 'text-danger' : '',
             ].join(' ')}
           >
             {value}
@@ -345,7 +345,7 @@ function CurrencyForecast({
         <ForecastBucket label="Next 90 days" value={forecast.next90} currency={currency} />
       </div>
       {forecast.confidence === 'low' ? (
-        <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-50 p-3 text-xs text-amber-800">
+        <div className="bg-warning-surface text-warning mt-3 flex items-start gap-2 rounded-md p-3 text-xs">
           <AlertCircle className="size-4 shrink-0" />
           <p>
             Low confidence. We need at least 30 days of transaction data for a meaningful
@@ -403,8 +403,8 @@ function ChartCard({
           <p className="text-muted-foreground mt-1 text-xs">{description}</p>
         </div>
         {isError ? (
-          <div className="flex items-center justify-between rounded-md bg-rose-50 p-4">
-            <span className="text-xs text-rose-700">Failed to load. Try again.</span>
+          <div className="bg-danger-surface flex items-center justify-between rounded-md p-4">
+            <span className="text-danger text-xs">Failed to load. Try again.</span>
             <Button variant="outline" size="sm" onClick={onRetry}>
               <RefreshCcw className="mr-1 size-3" /> Retry
             </Button>

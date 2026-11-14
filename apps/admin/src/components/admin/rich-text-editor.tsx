@@ -85,7 +85,7 @@ export function RichTextEditor({
   const btn = (active: boolean) =>
     `inline-flex size-8 items-center justify-center rounded-md text-xs transition-colors ${
       active
-        ? 'bg-accent/15 text-accent'
+        ? 'bg-accent/15 text-brand-text'
         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
     }`
 

@@ -261,7 +261,7 @@ export function DataTable<TData, TValue>({
           {globalFilter ? ` matching "${globalFilter}"` : ''}
           {serverRows?.hasMore ? ' loaded. Older records are not loaded yet.' : ''}
           {serverRows?.loadMoreError ? (
-            <span className="ml-2 text-rose-600">{serverRows.loadMoreError}</span>
+            <span className="text-danger ml-2">{serverRows.loadMoreError}</span>
           ) : null}
         </div>
         {serverRows?.hasMore ? (
@@ -316,17 +316,17 @@ export type StatusTone = 'positive' | 'warning' | 'danger' | 'info' | 'neutral'
 
 export const TONE_DOT: Record<StatusTone, string> = {
   positive: 'bg-accent',
-  warning: 'bg-amber-500',
-  danger: 'bg-rose-500',
+  warning: 'bg-warning',
+  danger: 'bg-destructive',
   info: 'bg-sky-500',
   neutral: 'bg-muted-foreground/50',
 }
 
 export function StatusPill({ tone, children }: { tone: StatusTone; children: React.ReactNode }) {
   const tones: Record<StatusTone, string> = {
-    positive: 'bg-accent/10 text-accent border-accent/20',
-    warning: 'bg-amber-500/10  text-amber-600  border-amber-500/20',
-    danger: 'bg-rose-500/10   text-rose-600   border-rose-500/20',
+    positive: 'bg-accent/10 text-brand-text border-accent/20',
+    warning: 'bg-warning-surface  text-warning  border-warning-border',
+    danger: 'bg-danger-surface   text-danger   border-danger-border',
     info: 'bg-sky-500/10    text-sky-600    border-sky-500/20',
     neutral: 'bg-muted/60      text-muted-foreground border-border/60',
   }

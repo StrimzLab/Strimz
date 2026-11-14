@@ -40,8 +40,8 @@ export function Pill({
     <span
       className={cn(
         'font-poppins shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-medium',
-        tone === 'good' && 'bg-accent/10 text-accent-ink dark:text-accent',
-        tone === 'warn' && 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+        tone === 'good' && 'bg-accent/10 text-accent-ink dark:text-brand-text',
+        tone === 'warn' && 'bg-warning-surface text-warning',
         tone === 'muted' && 'bg-muted text-muted-foreground',
       )}
     >
@@ -71,7 +71,7 @@ export function SubscriptionsMock() {
               className={cn(
                 'grid aspect-square place-items-center rounded-lg',
                 i < 6
-                  ? 'bg-accent/15 text-accent'
+                  ? 'bg-accent/15 text-brand-text'
                   : 'border-border text-muted-foreground border border-dashed',
               )}
             >
@@ -91,7 +91,7 @@ export function SubscriptionsMock() {
 const RECOVERY = [
   {
     icon: dangerIcon,
-    tone: 'text-amber-600 dark:text-amber-400',
+    tone: 'text-warning',
     title: 'Charge failed',
     meta: 'Not enough USDC in the wallet',
   },
@@ -107,7 +107,7 @@ const RECOVERY = [
     title: 'Retried after 1 hour',
     meta: 'Then 3, 6, 12 and 24 hours',
   },
-  { icon: checkIcon, tone: 'text-accent', title: 'Recovered', meta: '$49.00 USDC collected' },
+  { icon: checkIcon, tone: 'text-brand-text', title: 'Recovered', meta: '$49.00 USDC collected' },
 ] as const
 
 export function RecoveryMock() {
@@ -174,7 +174,7 @@ export function RefundsMock() {
             data-step
             className="border-border bg-background flex items-center gap-3 rounded-xl border p-3"
           >
-            <MkIcon icon={s.icon} className="text-accent size-5 shrink-0" />
+            <MkIcon icon={s.icon} className="text-brand-text size-5 shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="font-poppins text-foreground text-[13px] font-medium">{s.label}</p>
               <p className="font-poppins text-muted-foreground text-[11px]">{s.note}</p>
@@ -238,7 +238,7 @@ export function InvoicesMock() {
         </span>
         <span
           data-stamp
-          className="font-sora border-accent text-accent-ink dark:text-accent bg-card/90 absolute -top-[70px] left-[28%] rotate-[-10deg] rounded-xl border-2 px-3 py-1 text-base font-bold tracking-[0.04em] backdrop-blur-sm sm:-top-[188px] sm:left-[38%] sm:text-lg"
+          className="font-sora border-accent text-accent-ink dark:text-brand-text bg-card/90 absolute -top-[70px] left-[28%] rotate-[-10deg] rounded-xl border-2 px-3 py-1 text-base font-bold tracking-[0.04em] backdrop-blur-sm sm:-top-[188px] sm:left-[38%] sm:text-lg"
         >
           PAID
         </span>
