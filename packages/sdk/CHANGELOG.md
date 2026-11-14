@@ -1,5 +1,11 @@
 # @strimz/sdk
 
+## 0.16.2
+
+### Patch Changes
+
+- ff356c8: The hosted checkout moved to its own host. `StrimzProvider`'s `checkoutOrigin` now defaults to `https://checkout.strimz.finance`, and only results from that origin are accepted unless you pass another one. Old `www.strimz.finance/pay/...` links redirect there. The README docs links, and the link in the browser-use error, point to `docs.strimz.finance`.
+
 ## 0.16.1
 
 ### Patch Changes
