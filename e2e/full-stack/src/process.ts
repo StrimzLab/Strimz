@@ -1,5 +1,12 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import { createWriteStream, existsSync, mkdirSync, type WriteStream } from 'node:fs'
+import {
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  type WriteStream,
+} from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -119,6 +126,18 @@ export async function waitFor(
   }
   const reason = lastError instanceof Error ? `: ${lastError.message}` : ''
   throw new Error(`timed out after ${timeoutMs}ms waiting for ${what}${reason}`)
+}
+
+/** The last lines of every service log, for a failure message CI can show. */
+export function logTails(lines = 40): string {
+  if (!existsSync(LOG_DIR)) return ''
+  return readdirSync(LOG_DIR)
+    .filter((f) => f.endsWith('.log'))
+    .map((f) => {
+      const tail = readFileSync(join(LOG_DIR, f), 'utf8').trimEnd().split('\n').slice(-lines)
+      return `--- ${f} ---\n${tail.join('\n')}`
+    })
+    .join('\n')
 }
 
 export async function httpOk(url: string): Promise<boolean> {

@@ -255,6 +255,8 @@ jobs:
         with:
           name: e2e-full-stack-logs
           path: e2e/full-stack/.logs/
+          # The folder name starts with a dot, which upload-artifact skips by default.
+          include-hidden-files: true
 
   quality:
     name: quality

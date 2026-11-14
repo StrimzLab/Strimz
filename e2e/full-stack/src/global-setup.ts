@@ -7,7 +7,16 @@ import { ARC_TESTNET_CHAIN_ID } from '@strimz/shared-config'
 import { generateAesGcmKey } from '@strimz/shared-crypto'
 import type { GlobalSetupContext } from 'vitest/node'
 import { createActors, deploy, fundUsdc, startFork, type Actors, type Deployment } from './chain.js'
-import { httpOk, LogSink, REPO_ROOT, run, startService, stopAll, waitFor } from './process.js'
+import {
+  httpOk,
+  LogSink,
+  logTails,
+  REPO_ROOT,
+  run,
+  startService,
+  stopAll,
+  waitFor,
+} from './process.js'
 import { seedMerchant, type SeededMerchant } from './seed.js'
 
 declare module 'vitest' {
@@ -155,6 +164,7 @@ export default async function setup({ provide }: GlobalSetupContext): Promise<()
         KMS_SOFTWARE_PRIVATE_KEY: actors.relayer.privateKey,
         COMPLIANCE_PROVIDER: 'disabled',
         OPS_ALERT_EMAIL: 'ops@strimz.test',
+        STRIMZ_ADMIN_URL: 'http://localhost:3004',
       },
     })
     children.push(api.child)
@@ -169,6 +179,7 @@ export default async function setup({ provide }: GlobalSetupContext): Promise<()
       REGISTRY_ADDRESS: deployment.registry,
       RELAYER_ADDRESS: actors.relayer.address,
       STRIMZ_ADMIN_ALERT_EMAIL: 'ops@strimz.test',
+      CHECKOUT_ORIGIN: 'http://localhost:3002',
       SUBSCRIPTION_SWEEPER_CRON: '*/5 * * * * *',
     }
     const schedulerCwd = join(REPO_ROOT, 'apps/scheduler')
@@ -203,6 +214,7 @@ export default async function setup({ provide }: GlobalSetupContext): Promise<()
     })
     return teardown
   } catch (err) {
+    console.error(logTails())
     await teardown()
     throw err
   }
