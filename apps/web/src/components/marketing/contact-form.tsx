@@ -18,7 +18,7 @@ import {
 import { TurnstileWidget } from '@/components/turnstile-widget'
 import { submitContact } from '@/lib/contact-submission'
 import { contactErrorMap, contactFormSchema, type ContactFormValues } from '@/lib/contact-form'
-import { env } from '@/lib/env'
+import { env } from '@strimz/web-shared/lib/env'
 
 type FormValues = ContactFormValues
 

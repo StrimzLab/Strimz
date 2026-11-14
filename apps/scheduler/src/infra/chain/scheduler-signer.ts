@@ -37,6 +37,9 @@ export const schedulerSignerProvider: FactoryProvider<KmsSigner> = {
     }
 
     if (provider === 'software') {
+      if (cfg.env.NODE_ENV === 'production') {
+        log.warn('signing with a plaintext key on testnet; not allowed on mainnet')
+      }
       return new SoftwareSigner(requireSetting(cfg.env, 'SCHEDULER_PRIVATE_KEY') as `0x${string}`)
     }
 

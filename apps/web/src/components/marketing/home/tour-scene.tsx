@@ -18,7 +18,7 @@ import {
 import { FieldLabel, cn } from '@strimz/ui'
 import blueLogoSrc from '@/../public/logo/blueLogo.png'
 import whiteLogoSrc from '@/../public/logo/whiteLogo.png'
-import { ScrollTrigger, gsap, useGSAP } from '../motion/gsap'
+import { ScrollTrigger, gsap, useGSAP } from '@strimz/web-shared/components/marketing/motion/gsap'
 import { TOUR_LABELS as L } from './tour-data'
 
 const W = 960

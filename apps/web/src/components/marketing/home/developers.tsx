@@ -8,8 +8,15 @@ import { MkIcon } from '../icon'
 import { CopyButton } from '../fx/copy-button'
 import dynamic from 'next/dynamic'
 import { PlaceholderLine } from '../fx/placeholder'
-import { EASE_OUT, MOTION_OK, gsap, useGSAP, PLAY_ONCE } from '../motion/gsap'
+import {
+  EASE_OUT,
+  MOTION_OK,
+  gsap,
+  useGSAP,
+  PLAY_ONCE,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 import { CODE_TABS, DEV_LINKS } from './developers-data'
+import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 
 const CodeBlock = dynamic(() => import('@/components/shared/code-block').then((m) => m.CodeBlock), {
   ssr: false,
@@ -88,7 +95,7 @@ export function Developers() {
           </ul>
           <Link
             data-dev-item
-            href="/docs"
+            href={`${siteUrls.docs}/docs`}
             className="font-poppins text-foreground decoration-accent group mt-8 inline-flex items-center gap-1.5 text-[15px] font-medium underline decoration-2 underline-offset-[6px]"
           >
             Read the docs

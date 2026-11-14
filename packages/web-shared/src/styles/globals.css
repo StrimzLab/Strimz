@@ -1,0 +1,462 @@
+@import 'tailwindcss';
+@import '@strimz/ui/globals.css';
+@plugin '@tailwindcss/typography';
+
+/* Tailwind v4 only scans the root app by default. We have shared shadcn
+ * primitives in `packages/ui` that bake in their own utility classes
+ * (data-[state=open]:translate-x-0, bg-[#E5E7EB], etc.). Without this
+ * @source directive those classes never make it into the bundle, which
+ * is what caused: the mobile sheet to never slide in, the active tab to
+ * have no background, and DropdownMenuSeparator to be invisible. */
+@source "../../../ui/src/**/*.{ts,tsx,js,jsx}";
+/* Each app scans its own folder; this file also lives outside it. */
+@source "../**/*.{ts,tsx}";
+
+/**
+ * App-level extensions on top of the @strimz/ui token base.
+ *
+ * Brand
+ *   #02C76A  accent (green CTAs / active states / progress bars)
+ *   #050020  primary (dark navy backgrounds + headlines)
+ *
+ * Custom shadows are direct ports of strimz-subscription's tailwind v3
+ * `boxShadow` keys, re-expressed as Tailwind v4 `--shadow-*` tokens so
+ * `shadow-cta-rim`, `shadow-auth-card` etc. work as utility classes.
+ */
+@theme {
+  /* Brand green dark enough for small text on white (about 5:1). */
+  --color-accent-ink: #027a43;
+  --shadow-cta-rim:
+    0px -4px 4px 0px rgba(0, 0, 0, 0.2) inset, 0px 4px 4px 0px rgba(225, 225, 225, 0.25) inset,
+    0px 0px 0px 1px rgba(2, 199, 106, 0.25);
+  --shadow-cta:
+    0px -4px 4px 0px rgba(0, 0, 0, 0.2) inset, 0px 4px 4px 0px rgba(225, 225, 225, 0.25) inset;
+  --shadow-sub-card: 0px 1px 2px -1px rgba(0, 0, 0, 0.1), 0px 1px 3px 0px rgba(0, 0, 0, 0.1);
+  --shadow-verify-m:
+    0px 2.8px 5.6px -2.8px rgba(0, 0, 0, 0.05), 0px 5.6px 8.4px -1.4px rgba(0, 0, 0, 0.1),
+    0px -2.8px 5.6px 0px rgba(0, 0, 0, 0.1) inset;
+  --shadow-auth-card: 0px 2px 4px -2px rgba(0, 0, 0, 0.05), 0px 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-strimz-logo:
+    0px 25px 40px 0px rgba(2, 199, 106, 0.6), 0px -9px 15px 0px rgba(0, 0, 0, 0.2) inset;
+  --shadow-sidebar-link: 0px 2px 4px -2px rgba(0, 0, 0, 0.05), 0px 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-sub-icon:
+    0px 2px 4px -2px rgba(0, 0, 0, 0.05), 0px 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0px -2px 4px 0px rgba(0, 0, 0, 0.1) inset;
+  --shadow-navbar: 0px 1px 2px -1px rgba(0, 0, 0, 0.1), 0px 1px 3px 0px rgba(0, 0, 0, 0.1);
+  --shadow-nav-cta: 0px -2px 4px 0px rgba(0, 0, 0, 0.08) inset, 0px 0px 0px 1px hsl(var(--border));
+  --shadow-soft-1: 0px 1px 2px 0px rgba(0, 0, 0, 0.08);
+  --shadow-soft-inset: 0px -2px 4px 0px rgba(0, 0, 0, 0.08) inset;
+
+  /* Branded drop shadow used on hero brand logos (Netflix, Spotify…) */
+  --drop-shadow-brand: drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.05))
+    drop-shadow(0px 10px 15px rgba(0, 0, 0, 0.1));
+
+  /* Custom keyframes */
+  --animate-custom-ping: custom-ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes custom-ping {
+  75%,
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer utilities {
+  /* Concentric wave gradients for the strimz-subscription hero orb. Light
+   * mode only; the design never ships a dark variant. */
+  .strimz-wave-1 {
+    background: linear-gradient(to bottom, #f0fff8 0%, #ffffff 100%);
+  }
+  .strimz-wave-2 {
+    background: linear-gradient(to bottom, #ccffe7 0%, #ffffff 100%);
+  }
+  .strimz-wave-3 {
+    background: linear-gradient(to bottom, #b3fedb 0%, #ffffff 100%);
+  }
+  .dark .strimz-wave-1,
+  .dark .strimz-wave-2,
+  .dark .strimz-wave-3 {
+    background: linear-gradient(to bottom, rgba(2, 199, 106, 0.14) 0%, transparent 100%);
+  }
+
+  /* Footer + alert gradient strips */
+  .strimz-alert-gradient {
+    background: linear-gradient(90deg, #05214d 0%, #0d705f 50%, #05214d 100%);
+  }
+
+  /* CTA gradient used on small floating buttons (scroll-to-top) */
+  .strimz-cta-gradient {
+    background: linear-gradient(135deg, #02c76a 0%, #028d4b 100%);
+  }
+
+  /* Drops a thin green text-shadow on white-on-green CTAs (matches
+   * strimz-subscription's `.text-shadow` utility). */
+  .strimz-text-shadow {
+    text-shadow: 0px 0.5px 1px rgba(1, 141, 75, 1);
+  }
+
+  /* Hide scrollbars where appropriate (sidebar, tab rows). */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* driver.js popover skinning to match the Strimz palette. Applied
+   * via the `popoverClass: 'strimz-tour'` config in use-dashboard-tour. */
+  .driver-popover.strimz-tour {
+    background: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+    border: 1px solid hsl(var(--border));
+    border-radius: 12px;
+    box-shadow:
+      0 20px 40px -20px rgba(2, 199, 106, 0.25),
+      0 6px 20px -8px rgba(5, 0, 32, 0.15);
+    font-family: var(--font-poppins), system-ui, sans-serif;
+  }
+  .driver-popover.strimz-tour .driver-popover-title {
+    font-family: var(--font-sora), system-ui, sans-serif;
+    font-weight: 600;
+    color: hsl(var(--card-foreground));
+  }
+  .driver-popover.strimz-tour .driver-popover-description {
+    color: hsl(var(--muted-foreground));
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .driver-popover.strimz-tour .driver-popover-progress-text {
+    color: hsl(var(--muted-foreground));
+    font-size: 11px;
+  }
+  .driver-popover.strimz-tour .driver-popover-navigation-btns button {
+    background: #02c76a;
+    color: #ffffff;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 8px;
+    text-shadow: none;
+    border: none;
+  }
+  .driver-popover.strimz-tour .driver-popover-prev-btn {
+    background: transparent !important;
+    color: hsl(var(--muted-foreground)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+  }
+  .driver-popover.strimz-tour .driver-popover-close-btn {
+    color: hsl(var(--muted-foreground));
+    top: 10px;
+    right: 12px;
+  }
+  .driver-popover-arrow-side-bottom.strimz-tour,
+  .driver-popover.strimz-tour .driver-popover-arrow {
+    border-color: hsl(var(--card)) !important;
+  }
+
+  .dark .recharts-default-tooltip {
+    background-color: hsl(var(--popover)) !important;
+    border-color: hsl(var(--border)) !important;
+    color: hsl(var(--popover-foreground));
+  }
+  .dark .recharts-cartesian-grid line {
+    stroke: hsl(var(--border));
+  }
+  .dark .recharts-cartesian-axis-tick-value {
+    fill: hsl(var(--muted-foreground));
+  }
+
+  /* Strip number-input spinners site-wide (matches strimz-subscription's
+   * global declaration). */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+}
+
+:root {
+  --ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@theme inline {
+  --ease-out-quint: var(--ease-out-quint);
+}
+
+@keyframes beam {
+  to {
+    offset-distance: 100%;
+  }
+}
+
+@keyframes light-down {
+  from {
+    transform: translateY(-1080px);
+  }
+  to {
+    transform: translateY(1080px);
+  }
+}
+
+.light-down,
+.light-up {
+  animation: light-down linear infinite;
+}
+.light-up {
+  animation-direction: reverse;
+}
+
+/* Adapted from Vengeance UI's Pop Button (MIT): a keycap that sinks when pressed. */
+@property --pop-d {
+  syntax: '<length>';
+  initial-value: 6px;
+  inherits: false;
+}
+.pop-button {
+  --pop-depth: 6px;
+  --pop-d: var(--pop-depth);
+  --pop-face: #02c76a;
+  --pop-face-hover: #0bd677;
+  --pop-side: #01a85a;
+  --pop-edge: #027a43;
+  --pop-floor: rgb(2 122 67 / 0.22);
+  --pop-shine: rgb(255 255 255 / 0.45);
+  border: 1.5px solid var(--pop-edge);
+  background: var(--pop-face);
+  color: #050020;
+  box-shadow:
+    inset 0 1px 0 var(--pop-shine),
+    0 var(--pop-d) 0 -1.5px var(--pop-side),
+    0 var(--pop-d) 0 0 var(--pop-edge),
+    0 calc(var(--pop-d) * 1.9) 0 0 var(--pop-floor);
+  transform: translateY(calc(var(--pop-depth) - var(--pop-d)));
+  transition:
+    --pop-d 0.15s cubic-bezier(0, 0, 0.58, 1),
+    transform 0.15s cubic-bezier(0, 0, 0.58, 1),
+    background-color 0.15s,
+    opacity 0.3s,
+    scale 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+.pop-button[data-size='sm'] {
+  --pop-depth: 4px;
+}
+.pop-button[data-tone='neutral'] {
+  --pop-face: hsl(var(--card));
+  --pop-face-hover: hsl(var(--muted));
+  --pop-side: hsl(var(--border));
+  --pop-edge: hsl(var(--input));
+  --pop-floor: rgb(5 0 32 / 0.08);
+  --pop-shine: rgb(255 255 255 / 0.9);
+  color: hsl(var(--foreground));
+}
+.dark .pop-button[data-tone='neutral'],
+.pop-button[data-tone='neutral'][data-on-ink] {
+  --pop-face: hsl(240 18% 13%);
+  --pop-face-hover: hsl(240 17% 17%);
+  --pop-side: hsl(240 16% 9%);
+  --pop-edge: hsl(240 12% 28%);
+  --pop-floor: rgb(0 0 0 / 0.35);
+  --pop-shine: rgb(255 255 255 / 0.08);
+  color: #fff;
+}
+.dark .pop-button:not([data-tone]) {
+  --pop-floor: rgb(0 0 0 / 0.4);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pop-button:hover {
+    --pop-d: calc(var(--pop-depth) * 0.6);
+    background: var(--pop-face-hover);
+  }
+}
+.pop-button:active,
+.pop-button[data-pressed] {
+  --pop-d: 0px;
+  background: var(--pop-face-hover);
+}
+.pop-button:focus-visible {
+  outline: 2px solid #028d4b;
+  outline-offset: 3px;
+}
+.dark .pop-button:focus-visible,
+.pop-button[data-on-ink]:focus-visible {
+  outline-color: #95fecc;
+}
+
+/* Five words, a fifth of the cycle each. Each fade-out overlaps the next fade-in. */
+.morph-word {
+  opacity: 0;
+  animation-name: morph-word;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes morph-word {
+  0% {
+    opacity: 0;
+    filter: blur(12px);
+    transform: translateY(12%) scale(0.92);
+  }
+  4%,
+  20% {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+  24%,
+  100% {
+    opacity: 0;
+    filter: blur(12px);
+    transform: translateY(-12%) scale(1.04);
+  }
+}
+
+.toast-timer {
+  animation-name: toast-timer;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.toasts-paused .toast-timer {
+  animation-play-state: paused;
+}
+@keyframes toast-timer {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.receipt-check path {
+  stroke-dasharray: 24;
+  stroke-dashoffset: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .receipt-check path {
+    animation: draw-check 400ms ease-out both;
+  }
+}
+@keyframes draw-check {
+  from {
+    stroke-dashoffset: 24;
+  }
+}
+
+html.lenis,
+html.lenis body {
+  height: auto;
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: clip;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+/* Film grain for the navy stages. */
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.circuit-pulse {
+  stroke-dasharray: 14 86;
+  stroke-dashoffset: 100;
+  animation: circuit-pulse 2.6s linear infinite;
+}
+@keyframes circuit-pulse {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* The inline gate adds .mk-motion before first paint when motion is allowed,
+ * so intro items start hidden instead of flashing; without it they render final. */
+.mk-motion [data-intro] {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-motion [data-intro] {
+    visibility: visible;
+  }
+  .light-down,
+  .light-up,
+  .beam::after,
+  .morph-word {
+    animation: none;
+  }
+  .circuit-pulse {
+    display: none;
+  }
+  .morph-word:first-child {
+    opacity: 1;
+  }
+}
+
+/* Long-form text (legal pages, the broadcast editor) on theme tokens, so it follows the light/dark toggle. */
+:root {
+  --prose-link: #027a43;
+}
+.dark {
+  --prose-link: #02c76a;
+}
+/* The typography plugin wraps inline code in literal backticks; the chip styling is enough. */
+.prose :where(code)::before,
+.prose :where(code)::after {
+  content: none;
+}
+@utility prose-strimz {
+  --tw-prose-body: hsl(var(--muted-foreground));
+  --tw-prose-headings: hsl(var(--foreground));
+  --tw-prose-lead: hsl(var(--muted-foreground));
+  --tw-prose-links: var(--prose-link);
+  --tw-prose-bold: hsl(var(--foreground));
+  --tw-prose-counters: hsl(var(--muted-foreground));
+  --tw-prose-bullets: var(--prose-link);
+  --tw-prose-hr: hsl(var(--border));
+  --tw-prose-quotes: hsl(var(--foreground));
+  --tw-prose-quote-borders: hsl(var(--border));
+  --tw-prose-captions: hsl(var(--muted-foreground));
+  --tw-prose-code: hsl(var(--foreground));
+  --tw-prose-pre-code: hsl(var(--foreground));
+  --tw-prose-pre-bg: hsl(var(--muted));
+  --tw-prose-th-borders: hsl(var(--border));
+  --tw-prose-td-borders: hsl(var(--border));
+}

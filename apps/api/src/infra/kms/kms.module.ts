@@ -13,9 +13,8 @@ import { KMS_SIGNER } from './kms.tokens.js'
  * concrete provider class.
  *
  * Current providers:
- *  - `software`: secp256k1 key in process memory. Suitable for dev,
- *    testnet, and early production with an explicit key. Refuses to
- *    start in production with an auto-generated ephemeral key.
+ *  - `software`: secp256k1 key in process memory. Dev, and production on
+ *    testnet with an explicit key. Refused in production on mainnet.
  *
  * Future providers (drop in against the same interface):
  *  - `gcp-kms`: GCP Cloud KMS hardware-backed signing.
@@ -41,10 +40,17 @@ const kmsSignerProvider: FactoryProvider<KmsSigner> = {
 
     if (provider === 'software') {
       if (cfg.env.NODE_ENV === 'production') {
-        throw new Error(
-          'KMS: KMS_PROVIDER=software keeps the relayer key in process memory and is refused ' +
-            'in production. Set KMS_PROVIDER=aws-kms (see docs/runbooks/kms-signers.md).',
-        )
+        // Testnet only: ADR-2026-11-13-testnet-software-signer. Mainnet waits on #455.
+        if (cfg.env.ARC_ENVIRONMENT !== 'testnet') {
+          throw new Error(
+            'KMS: KMS_PROVIDER=software keeps the relayer key in process memory and is refused ' +
+              'in production on mainnet. Set KMS_PROVIDER=aws-kms (see docs/runbooks/kms-signers.md).',
+          )
+        }
+        if (!cfg.env.KMS_SOFTWARE_PRIVATE_KEY) {
+          throw new Error('KMS: KMS_SOFTWARE_PRIVATE_KEY is required in production')
+        }
+        log.warn('KMS: signing with a plaintext key on testnet; not allowed on mainnet')
       }
       const signer = new SoftwareSigner(
         cfg.env.KMS_SOFTWARE_PRIVATE_KEY as `0x${string}` | undefined,

@@ -1,0 +1,394 @@
+'use client'
+
+import {
+  useInfiniteQuery,
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+  type UseQueryOptions,
+} from '@tanstack/react-query'
+
+import { useMutationWithToast } from '@strimz/web-shared/hooks/api/use-mutation-with-toast'
+import type {
+  Broadcast,
+  BroadcastAudience,
+  BroadcastListResponse,
+  CreateBroadcastInput,
+  Mode,
+  PaymentCurrency,
+} from '@strimz/shared-types'
+import type {
+  AdminListItem,
+  AdminMerchantDetail,
+  AdminMerchantListResponse,
+  AdminProfile,
+  HealthResponse,
+  InviteAdminInput,
+  PlatformOverview,
+  SetAdminRoleInput,
+  SetAdminStatusInput,
+  SetMerchantStatusInput,
+  SetMerchantTierInput,
+  SignupSeriesResponse,
+  TopMerchantsResponse,
+  VolumeSeriesResponse,
+} from '@strimz/web-shared/lib/admin-api'
+
+import type { AdminApiClient } from '@strimz/web-shared/lib/admin-api/client'
+import { useAdminApi } from '@strimz/web-shared/hooks/admin/admin-context'
+
+export { AdminApiProvider, useAdminApi } from '@strimz/web-shared/hooks/admin/admin-context'
+
+// Query key factories.
+export const adminKeys = {
+  all: ['admin'] as const,
+  me: () => [...adminKeys.all, 'me'] as const,
+  overview: () => [...adminKeys.all, 'overview'] as const,
+  overviewFor: (mode: Mode) => [...adminKeys.overview(), mode] as const,
+  merchants: () => [...adminKeys.all, 'merchants'] as const,
+  merchantList: (params: unknown) => [...adminKeys.merchants(), 'list', params] as const,
+  merchantDetail: (id: string) => [...adminKeys.merchants(), 'detail', id] as const,
+  merchantDetailFor: (id: string, mode: Mode) => [...adminKeys.merchantDetail(id), mode] as const,
+  analytics: () => [...adminKeys.all, 'analytics'] as const,
+  volume: (range: unknown) => [...adminKeys.analytics(), 'volume', range] as const,
+  signups: (range: unknown) => [...adminKeys.analytics(), 'signups', range] as const,
+  topMerchants: (params: { currency: PaymentCurrency; mode: Mode; limit: number }) =>
+    [...adminKeys.analytics(), 'top', params] as const,
+  health: () => [...adminKeys.all, 'health'] as const,
+  admins: () => [...adminKeys.all, 'admins'] as const,
+  broadcasts: (audience?: BroadcastAudience) =>
+    [...adminKeys.all, 'broadcasts', audience ?? 'any'] as const,
+}
+
+// ---- Queries ----
+
+export function useAdminMe<TData = AdminProfile>(
+  options?: Omit<
+    UseQueryOptions<AdminProfile, Error, TData, ReturnType<typeof adminKeys.me>>,
+    'queryKey' | 'queryFn'
+  >,
+) {
+  const api = useAdminApi()
+  return useQuery({
+    queryKey: adminKeys.me(),
+    queryFn: ({ signal }) => api.me({ signal }),
+    staleTime: 5 * 60_000,
+    retry: false,
+    ...options,
+  })
+}
+
+export function useAdminOverview<TData = PlatformOverview>(
+  mode: Mode,
+  options?: Omit<
+    UseQueryOptions<PlatformOverview, Error, TData, ReturnType<typeof adminKeys.overviewFor>>,
+    'queryKey' | 'queryFn'
+  >,
+) {
+  const api = useAdminApi()
+  return useQuery({
+    queryKey: adminKeys.overviewFor(mode),
+    queryFn: ({ signal }) => api.overview(mode, { signal }),
+    placeholderData: keepPreviousData,
+    staleTime: 60_000,
+    ...options,
+  })
+}
+
+export function useAdminAuditLog(
+  params: Omit<Parameters<AdminApiClient['listAuditLog']>[0] & object, 'cursor'>,
+) {
+  const api = useAdminApi()
+  return useInfiniteQuery({
+    queryKey: [...adminKeys.all, 'audit-log', params] as const,
+    queryFn: ({ pageParam, signal }) =>
+      api.listAuditLog({ ...params, cursor: pageParam }, { signal }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => (last.hasMore ? last.nextCursor : null),
+  })
+}
+
+export function useAdminMerchants<TData = AdminMerchantListResponse>(
+  params: Parameters<AdminApiClient['listMerchants']>[0] = {},
+  options?: Omit<
+    UseQueryOptions<
+      AdminMerchantListResponse,
+      Error,
+      TData,
+      ReturnType<typeof adminKeys.merchantList>
+    >,
+    'queryKey' | 'queryFn'
+  >,
+) {
+  const api = useAdminApi()
+  return useQuery({
+    queryKey: adminKeys.merchantList(params),
+    queryFn: ({ signal }) => api.listMerchants(params, { signal }),
+    placeholderData: keepPreviousData,
+    ...options,
+  })
+}
+
+export function useAdminMerchantDetail<TData = AdminMerchantDetail>(
+  id: string | undefined | null,
+  mode: Mode,
+  options?: Omit<
+    UseQueryOptions<
+      AdminMerchantDetail,
+      Error,
+      TData,
+      ReturnType<typeof adminKeys.merchantDetailFor>
+    >,
+    'queryKey' | 'queryFn'
+  >,
+) {
+  const api = useAdminApi()
+  return useQuery({
+    queryKey: adminKeys.merchantDetailFor(id ?? '__unset', mode),
+    queryFn: ({ signal }) => api.getMerchant(id as string, mode, { signal }),
+    placeholderData: keepPreviousData,
+    enabled: typeof id === 'string' && id.length > 0,
+    ...options,
+  })
+}
+
+export function useAdminVolume<TData = VolumeSeriesResponse>(
+  range: { from?: string; to?: string; mode: Mode },
+  options?: Omit<
+    UseQueryOptions<VolumeSeriesResponse, Error, TData, ReturnType<typeof adminKeys.volume>>,
+    'queryKey' | 'queryFn'
+  >,
+) {
+  const api = useAdminApi()
+  return useQuery({
+    queryKey: adminKeys.volume(range),
+    queryFn: ({ signal }) => api.volumeSeries(range, { signal }),
+    staleTime: 5 * 60_000,
+    ...options,
+  })
+}
+
+export function useAdminSignups<TData = SignupSeriesResponse>(
+  range: { from?: string; to?: string } = {},
+  options?: Omit<
+    UseQueryOptions<SignupSeriesResponse, Error, TData, ReturnType<typeof adminKeys.signups>>,
+    'queryKey' | 'queryFn'
+  >,
+) {
+  const api = useAdminApi()
+  return useQuery({
+    queryKey: adminKeys.signups(range),
+    queryFn: ({ signal }) => api.signupSeries(range, { signal }),
+    staleTime: 5 * 60_000,
+    ...options,
+  })
+}
+
+export function useAdminTopMerchants<TData = TopMerchantsResponse>(
+  params: { currency: PaymentCurrency; mode: Mode; limit: number },
+  options?: Omit<
+    UseQueryOptions<TopMerchantsResponse, Error, TData, ReturnType<typeof adminKeys.topMerchants>>,
+    'queryKey' | 'queryFn'
+  >,
+) {
+  const api = useAdminApi()
+  return useQuery({
+    queryKey: adminKeys.topMerchants(params),
+    queryFn: ({ signal }) => api.topMerchants(params, { signal }),
+    staleTime: 5 * 60_000,
+    ...options,
+  })
+}
+
+export function useAdminHealth<TData = HealthResponse>(
+  options?: Omit<
+    UseQueryOptions<HealthResponse, Error, TData, ReturnType<typeof adminKeys.health>>,
+    'queryKey' | 'queryFn'
+  >,
+) {
+  const api = useAdminApi()
+  return useQuery({
+    queryKey: adminKeys.health(),
+    queryFn: ({ signal }) => api.health({ signal }),
+    refetchInterval: 30_000,
+    ...options,
+  })
+}
+
+export function useAdminList<TData = { data: AdminListItem[] }>(
+  options?: Omit<
+    UseQueryOptions<{ data: AdminListItem[] }, Error, TData, ReturnType<typeof adminKeys.admins>>,
+    'queryKey' | 'queryFn'
+  >,
+) {
+  const api = useAdminApi()
+  return useQuery({
+    queryKey: adminKeys.admins(),
+    queryFn: ({ signal }) => api.listAdmins({ signal }),
+    ...options,
+  })
+}
+
+// ---- Mutations (BFF-routed) ----
+
+export function useSuspendMerchant() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (id: string) => api.suspendMerchant(id),
+    onSuccess: (updated) => {
+      qc.invalidateQueries({ queryKey: adminKeys.merchantDetail(updated.id) })
+      qc.invalidateQueries({ queryKey: adminKeys.merchants() })
+      qc.invalidateQueries({ queryKey: adminKeys.overview() })
+    },
+    messages: { loading: 'Suspending merchant…', success: 'Merchant suspended' },
+  })
+}
+
+export function useReactivateMerchant() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (id: string) => api.reactivateMerchant(id),
+    onSuccess: (updated) => {
+      qc.invalidateQueries({ queryKey: adminKeys.merchantDetail(updated.id) })
+      qc.invalidateQueries({ queryKey: adminKeys.merchants() })
+      qc.invalidateQueries({ queryKey: adminKeys.overview() })
+    },
+    messages: { loading: 'Reactivating merchant…', success: 'Merchant reactivated' },
+  })
+}
+
+export function useSetMerchantTier() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (vars: { id: string; input: SetMerchantTierInput }) =>
+      api.setMerchantTier(vars.id, vars.input),
+    onSuccess: (updated) => {
+      qc.invalidateQueries({ queryKey: adminKeys.merchantDetail(updated.id) })
+      qc.invalidateQueries({ queryKey: adminKeys.merchants() })
+    },
+    messages: { loading: 'Changing tier…', success: (m) => `Tier set to ${m.tier}` },
+  })
+}
+
+export function useSetMerchantStatus() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (vars: { id: string; input: SetMerchantStatusInput }) =>
+      api.setMerchantStatus(vars.id, vars.input),
+    onSuccess: (updated) => {
+      qc.invalidateQueries({ queryKey: adminKeys.merchantDetail(updated.id) })
+      qc.invalidateQueries({ queryKey: adminKeys.merchants() })
+      qc.invalidateQueries({ queryKey: adminKeys.overview() })
+    },
+    messages: { loading: 'Updating status…', success: (m) => `Status set to ${m.status}` },
+  })
+}
+
+export function useInviteAdmin() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (input: InviteAdminInput) => api.inviteAdmin(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: adminKeys.admins() }),
+    messages: {
+      loading: 'Inviting admin…',
+      success: (a) => `Invited ${a.email}`,
+    },
+  })
+}
+
+export function useResendAdminInvite() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (id: string) => api.resendAdminInvite(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: adminKeys.admins() }),
+    messages: {
+      loading: 'Re-sending invite…',
+      success: (a) => `New invite sent to ${a.email}`,
+    },
+  })
+}
+
+export function useAcceptAdminInvite() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (token: string) => api.acceptAdminInvite(token),
+    onSuccess: (profile) => qc.setQueryData(adminKeys.me(), profile),
+    messages: {
+      loading: 'Accepting invite…',
+      success: 'Invite accepted',
+      error: (err) => (err instanceof Error ? err.message : 'Could not accept the invite'),
+    },
+  })
+}
+
+export function useSetAdminRole() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (vars: { id: string; input: SetAdminRoleInput }) =>
+      api.setAdminRole(vars.id, vars.input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: adminKeys.admins() }),
+    messages: { loading: 'Updating role…', success: 'Role updated' },
+  })
+}
+
+export function useSetAdminStatus() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (vars: { id: string; input: SetAdminStatusInput }) =>
+      api.setAdminStatus(vars.id, vars.input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: adminKeys.admins() }),
+    messages: { loading: 'Updating admin…', success: 'Admin updated' },
+  })
+}
+
+export function useRemoveAdmin() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (id: string) => api.removeAdmin(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: adminKeys.admins() }),
+    messages: { loading: 'Removing admin…', success: 'Admin removed' },
+  })
+}
+
+// ---- Broadcasts ----
+
+export function useAdminBroadcasts<TData = BroadcastListResponse>(
+  params: { audience?: BroadcastAudience; limit?: number } = {},
+  options?: Omit<
+    UseQueryOptions<BroadcastListResponse, Error, TData, ReturnType<typeof adminKeys.broadcasts>>,
+    'queryKey' | 'queryFn'
+  >,
+) {
+  const api = useAdminApi()
+  return useQuery({
+    queryKey: adminKeys.broadcasts(params.audience),
+    queryFn: ({ signal }) => api.listBroadcasts(params, { signal }),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    ...options,
+  })
+}
+
+export function useCreateBroadcast() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast<Broadcast, CreateBroadcastInput>({
+    mutationFn: (input) => api.createBroadcast(input),
+    onSuccess: () => {
+      // Invalidate every audience slice so the operator sees their
+      // new broadcast in whichever tab they're viewing.
+      qc.invalidateQueries({ queryKey: [...adminKeys.all, 'broadcasts'] })
+    },
+    messages: { loading: 'Sending broadcast…', success: 'Broadcast sent' },
+  })
+}

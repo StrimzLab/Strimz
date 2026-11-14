@@ -674,11 +674,7 @@ export class AdminService {
   }
 
   private acceptUrlForResponse(token: string): string | undefined {
-    return inviteAcceptUrlForResponse(
-      this.cfg.env.NODE_ENV,
-      this.cfg.env.STRIMZ_DASHBOARD_URL,
-      token,
-    )
+    return inviteAcceptUrlForResponse(this.cfg.env.NODE_ENV, this.cfg.env.STRIMZ_ADMIN_URL, token)
   }
 
   async acceptInvite(input: { token: string; privyUserId: string }) {
@@ -768,7 +764,7 @@ export class AdminService {
     inviter: { name: string | null; email: string } | null,
     token: string,
   ) {
-    const acceptUrl = inviteAcceptUrl(this.cfg.env.STRIMZ_DASHBOARD_URL, token)
+    const acceptUrl = inviteAcceptUrl(this.cfg.env.STRIMZ_ADMIN_URL, token)
     const html = await renderToHtml(
       AdminInviteEmail({
         inviteeName: admin.name,
@@ -841,7 +837,7 @@ export class AdminService {
           newRole: role,
           actorDisplay: actor?.name ?? actor?.email ?? 'A Strimz super admin',
           actorEmail: actor?.email ?? 'strimztokenstream@gmail.com',
-          dashboardUrl: `${this.cfg.env.STRIMZ_DASHBOARD_URL.replace(/\/+$/, '')}/admin`,
+          dashboardUrl: `${this.cfg.env.STRIMZ_ADMIN_URL.replace(/\/+$/, '')}/admin`,
         }),
       )
       await this.email.send({
@@ -909,7 +905,7 @@ export class AdminService {
           newStatus: status,
           actorDisplay: actor?.name ?? actor?.email ?? 'A Strimz super admin',
           actorEmail: actor?.email ?? 'strimztokenstream@gmail.com',
-          dashboardUrl: `${this.cfg.env.STRIMZ_DASHBOARD_URL.replace(/\/+$/, '')}/admin`,
+          dashboardUrl: `${this.cfg.env.STRIMZ_ADMIN_URL.replace(/\/+$/, '')}/admin`,
         }),
       )
       await this.email.send({

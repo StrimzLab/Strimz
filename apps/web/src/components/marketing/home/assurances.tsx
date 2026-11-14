@@ -11,7 +11,13 @@ import { PaddedLines } from '@/components/shared/padded-lines'
 import { MkIcon } from '../icon'
 import { ArtImage } from '../fx/art-image'
 import { LightLines } from '../fx/light-lines'
-import { EASE_OUT, MOTION_OK, gsap, useGSAP, PLAY_ONCE } from '../motion/gsap'
+import {
+  EASE_OUT,
+  MOTION_OK,
+  gsap,
+  useGSAP,
+  PLAY_ONCE,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 
 const ITEMS = [
   {

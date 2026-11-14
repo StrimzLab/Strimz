@@ -1,7 +1,8 @@
+import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 export const DEV_LINKS = [
-  { href: '/docs/sdks/server', label: 'Server SDK' },
-  { href: '/docs/sdks/react', label: 'React pay button' },
-  { href: '/docs/api/overview', label: 'OpenAPI' },
+  { href: `${siteUrls.docs}/docs/sdks/server`, label: 'Server SDK' },
+  { href: `${siteUrls.docs}/docs/sdks/react`, label: 'React pay button' },
+  { href: `${siteUrls.docs}/docs/api/overview`, label: 'OpenAPI' },
 ] as const
 
 export const CODE_TABS = [

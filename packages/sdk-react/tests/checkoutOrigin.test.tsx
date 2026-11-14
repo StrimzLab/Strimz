@@ -4,6 +4,7 @@ import { StrimzProvider, useStrimzCheckout, useStrimzContext } from '../src/inde
 
 const validKey = 'pk_test_' + 'a'.repeat(20)
 const WWW = 'https://www.strimz.finance'
+const CHECKOUT = 'https://checkout.strimz.finance'
 const txHash = `0x${'ab'.repeat(32)}`
 
 function openWith(checkoutOrigin: string | undefined, onSuccess = vi.fn()) {
@@ -26,16 +27,16 @@ afterEach(() => {
 })
 
 describe('checkoutOrigin', () => {
-  it('defaults to www, the host that serves the checkout', () => {
+  it('defaults to the checkout host', () => {
     const { url } = openWith(undefined)
-    expect(url.origin + url.pathname).toBe(`${WWW}/pay/sess_1`)
+    expect(url.origin + url.pathname).toBe(`${CHECKOUT}/pay/sess_1`)
   })
 
-  it('accepts results from www by default', () => {
+  it('accepts results from the checkout host by default', () => {
     const { popup, onSuccess } = openWith(undefined)
     const ev = new MessageEvent('message', {
       data: { type: 'strimz:checkout:success', sessionId: 'sess_1', txHash },
-      origin: WWW,
+      origin: CHECKOUT,
     })
     Object.defineProperty(ev, 'source', { value: popup })
     act(() => {

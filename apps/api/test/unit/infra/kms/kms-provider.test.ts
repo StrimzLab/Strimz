@@ -13,6 +13,7 @@ vi.hoisted(() => {
     DATABASE_URL: process.env.DATABASE_URL ?? 'postgres://strimz:strimz@localhost:5432/strimz',
     REDIS_URL: process.env.REDIS_URL ?? 'redis://localhost:6379',
     PRIVY_APP_ID: process.env.PRIVY_APP_ID ?? 'test-privy-app',
+    STRIMZ_ADMIN_URL: 'http://localhost:3004',
     PRIVY_APP_SECRET: process.env.PRIVY_APP_SECRET ?? 'test-privy-secret',
     STRIMZ_WEBHOOK_SIGNING_SECRET:
       process.env.STRIMZ_WEBHOOK_SIGNING_SECRET ?? 'test-webhook-secret-at-least-32-chars-long',
@@ -41,14 +42,36 @@ async function resolveSigner(env: Record<string, unknown>): Promise<KmsSigner> {
 }
 
 describe('KMS provider selection', () => {
-  it('refuses a plaintext relayer key in production', async () => {
+  it('refuses a plaintext relayer key in production on mainnet', async () => {
     await expect(
       resolveSigner({
         NODE_ENV: 'production',
+        ARC_ENVIRONMENT: 'mainnet',
         KMS_PROVIDER: 'software',
         KMS_SOFTWARE_PRIVATE_KEY: RELAYER_KEY,
       }),
     ).rejects.toThrow(/KMS_PROVIDER/u)
+  })
+
+  // ADR-2026-11-13-testnet-software-signer.
+  it('signs with an explicit plaintext key in production on testnet', async () => {
+    const signer = await resolveSigner({
+      NODE_ENV: 'production',
+      ARC_ENVIRONMENT: 'testnet',
+      KMS_PROVIDER: 'software',
+      KMS_SOFTWARE_PRIVATE_KEY: RELAYER_KEY,
+    })
+    expect(signer.address).toMatch(/^0x[0-9a-fA-F]{40}$/u)
+  })
+
+  it('never generates a relayer key in production, even on testnet', async () => {
+    await expect(
+      resolveSigner({
+        NODE_ENV: 'production',
+        ARC_ENVIRONMENT: 'testnet',
+        KMS_PROVIDER: 'software',
+      }),
+    ).rejects.toThrow(/KMS_SOFTWARE_PRIVATE_KEY/u)
   })
 
   it('accepts aws-kms as a provider', () => {

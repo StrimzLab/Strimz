@@ -9,10 +9,16 @@ import { MkIcon } from '../icon'
 import { BorderBeam } from '../fx/border-beam'
 import { MorphWord } from '../fx/morph-word'
 import { PopLink } from '../fx/pop-button'
-import { EASE_OUT, MOTION_OK, gsap, useGSAP } from '../motion/gsap'
+import {
+  EASE_OUT,
+  MOTION_OK,
+  gsap,
+  useGSAP,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 import { markMotionReady } from '../motion/gate'
 import { DashboardPreview } from './dashboard-preview'
 import { StreamField } from './stream-field'
+import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 
 const AUDIENCES = ['SaaS teams.', 'marketplaces.', 'creators.', 'agencies.', 'global B2B.'] as const
 
@@ -146,7 +152,7 @@ export function Hero() {
             </p>
 
             <div data-intro data-fade className="mt-9 flex flex-wrap items-center gap-3">
-              <PopLink href="/signup">Start free</PopLink>
+              <PopLink href={`${siteUrls.dashboard}/signup`}>Start free</PopLink>
               <PopLink href="#how-it-works" tone="neutral">
                 See how it works
               </PopLink>

@@ -1,0 +1,50 @@
+{
+  "name": "@strimz/docs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "NODE_OPTIONS=--max-old-space-size=4096 next build",
+    "dev": "next dev --port 3003",
+    "start": "next start --port 3003",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "next typegen && tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf .next .open-next .turbo *.tsbuildinfo",
+    "build:cloudflare": "opennextjs-cloudflare build",
+    "preview:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@strimz/ui": "workspace:*",
+    "@strimz/web-shared": "workspace:*",
+    "fumadocs-core": "^14.7.5",
+    "fumadocs-mdx": "^11.3.2",
+    "fumadocs-ui": "^14.7.5",
+    "lucide-react": "^0.469.0",
+    "next": "^15.5.29",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "sonner": "^1.7.1"
+  },
+  "devDependencies": {
+    "@opennextjs/cloudflare": "1.20.13",
+    "@playwright/test": "^1.49.1",
+    "@strimz/eslint-config": "workspace:*",
+    "@strimz/tsconfig": "workspace:*",
+    "@tailwindcss/postcss": "^4.0.0",
+    "@tailwindcss/typography": "0.5.20",
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.18.0",
+    "eslint-config-next": "^15.1.4",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8",
+    "wrangler": "4.154.0"
+  }
+}

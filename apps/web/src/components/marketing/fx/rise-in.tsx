@@ -2,7 +2,13 @@
 
 import { useRef, type ReactNode } from 'react'
 import { cn } from '@strimz/ui'
-import { EASE_OUT, MOTION_OK, PLAY_ONCE, gsap, useGSAP } from '../motion/gsap'
+import {
+  EASE_OUT,
+  MOTION_OK,
+  PLAY_ONCE,
+  gsap,
+  useGSAP,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 
 /** Children marked data-rise come up in turn the first time the group scrolls into view. */
 export function RiseIn({ children, className }: { children: ReactNode; className?: string }) {

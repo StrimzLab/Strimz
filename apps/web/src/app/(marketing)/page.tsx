@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { OG_IMAGE } from '@/lib/seo'
+import { OG_IMAGE } from '@strimz/web-shared/lib/seo'
 import { Hero } from '@/components/marketing/home/hero'
 import { WhoItsFor } from '@/components/marketing/home/who-its-for'
 import { Manifesto } from '@/components/marketing/home/manifesto'

@@ -17,7 +17,7 @@ export interface StrimzProviderProps {
   publishableKey: string
   /** Override the API base URL. */
   apiBaseUrl?: string
-  /** Hosted-checkout origin, scheme and host only. Defaults to https://www.strimz.finance. */
+  /** Hosted-checkout origin, scheme and host only. Defaults to https://checkout.strimz.finance. */
   checkoutOrigin?: string
   children: React.ReactNode
 }

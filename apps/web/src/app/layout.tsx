@@ -1,19 +1,7 @@
 import type { Metadata, Viewport } from 'next'
-import { Sora, Poppins } from 'next/font/google'
-import { Providers } from '@/components/providers'
-import { ThemeProvider } from '@/components/theme/theme-provider'
-import { Toaster } from '@strimz/ui'
-import { OG_IMAGE, TWITTER_IMAGE } from '@/lib/seo'
-import { THEME_STORAGE_KEY } from '@/lib/theme'
-import '@/styles/globals.css'
-
-const sora = Sora({ subsets: ['latin'], variable: '--font-sora', display: 'swap' })
-const poppins = Poppins({
-  weight: ['400', '500', '600', '700', '800'],
-  subsets: ['latin'],
-  variable: '--font-poppins',
-  display: 'swap',
-})
+import { preconnect } from 'react-dom'
+import { RootShell } from '@strimz/web-shared/components/root-shell'
+import { OG_IMAGE, TWITTER_IMAGE } from '@strimz/web-shared/lib/seo'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://strimz.finance'),
@@ -57,25 +45,7 @@ export const viewport: Viewport = {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en" suppressHydrationWarning className={`${sora.variable} ${poppins.variable}`}>
-      <head>
-        {/* Pre-resolve DNS + TLS for Cloudflare Turnstile so the bot-
-            check on /signup loads with no network hiccup. */}
-        <link rel="preconnect" href="https://challenges.cloudflare.com" />
-      </head>
-      <body className="bg-background text-foreground antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-          storageKey={THEME_STORAGE_KEY}
-        >
-          <Providers>{children}</Providers>
-          <Toaster richColors position="top-right" />
-        </ThemeProvider>
-      </body>
-    </html>
-  )
+  // Turnstile on the contact form.
+  preconnect('https://challenges.cloudflare.com')
+  return <RootShell>{children}</RootShell>
 }

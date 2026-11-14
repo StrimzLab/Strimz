@@ -1,4 +1,8 @@
-import { CSP_REPORT_MAX_BYTES, parseCspReport, readCappedBody } from '@/lib/csp-report'
+import {
+  CSP_REPORT_MAX_BYTES,
+  parseCspReport,
+  readCappedBody,
+} from '@strimz/web-shared/lib/csp-report'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

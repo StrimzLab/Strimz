@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { FAQS } from '@/components/marketing/home/faq-data'
 
 const WEB_ROOT = join(__dirname, '..', '..')
+const SHARED = join(WEB_ROOT, '../../packages/web-shared')
 const ARC = /\bArc\b/u
 
 function files(dir: string): string[] {
@@ -19,9 +20,11 @@ function files(dir: string): string[] {
 // The Terms keep Arc on purpose, and the FAQ says where customers pay today.
 const PUBLIC = [
   ...files(join(WEB_ROOT, 'src/components/marketing')),
+  ...files(join(SHARED, 'src/components/marketing')),
   ...files(join(WEB_ROOT, 'src/app/(marketing)')).filter((f) => !f.includes('/legal/')),
   join(WEB_ROOT, 'src/app/layout.tsx'),
-  join(WEB_ROOT, 'src/lib/seo.ts'),
+  join(SHARED, 'src/lib/seo.ts'),
+  join(WEB_ROOT, '../docs/src/app/layout.tsx'),
 ].filter((f) => !f.endsWith('faq-data.ts'))
 
 describe('public pages do not lead with the network name', () => {
