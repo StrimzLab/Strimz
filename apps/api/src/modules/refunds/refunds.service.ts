@@ -65,65 +65,69 @@ export class RefundsService {
     input: CreateRefundParsed,
   ): Promise<RefundCreateOutput> {
     const { tx, refund, token } = await this.prisma.db
-      .$transaction(async (db) => {
-        await db.$executeRaw`SET LOCAL lock_timeout = '5s'`
-        // Refunds of one transaction run one at a time, or concurrent requests all pass the cap.
-        await db.$queryRaw`SELECT id FROM "Transaction" WHERE id = ${input.transactionId} AND "merchantId" = ${merchantId} FOR UPDATE`
+      .$transaction(
+        async (db) => {
+          await db.$executeRaw`SET LOCAL lock_timeout = '5s'`
+          // Refunds of one transaction run one at a time, or concurrent requests all pass the cap.
+          await db.$queryRaw`SELECT id FROM "Transaction" WHERE id = ${input.transactionId} AND "merchantId" = ${merchantId} FOR UPDATE`
 
-        const tx = await db.transaction.findFirst({
-          where: { id: input.transactionId, merchantId, mode },
-        })
-        if (!tx) {
-          throw new NotFoundException({ code: 'not_found', message: 'transaction not found' })
-        }
-        if (tx.status !== 'confirmed') {
-          throw new ForbiddenException({
-            code: 'session_invalid_state',
-            message: `cannot refund a transaction in status ${tx.status}`,
+          const tx = await db.transaction.findFirst({
+            where: { id: input.transactionId, merchantId, mode },
           })
-        }
+          if (!tx) {
+            throw new NotFoundException({ code: 'not_found', message: 'transaction not found' })
+          }
+          if (tx.status !== 'confirmed') {
+            throw new ForbiddenException({
+              code: 'session_invalid_state',
+              message: `cannot refund a transaction in status ${tx.status}`,
+            })
+          }
 
-        // Refund.amount is varchar(78), which Prisma's _sum can't add, so it's summed as BigInt.
-        const priorRefunds = await db.refund.findMany({
-          where: {
-            transactionId: tx.id,
-            status: { in: ['pending', 'awaiting_signature', 'submitted', 'completed'] },
-          },
-          select: { amount: true },
-        })
-        const priorTotal = priorRefunds.reduce((acc, r) => acc + BigInt(r.amount), 0n)
-        const requested = BigInt(input.amount)
-        const original = BigInt(tx.amount)
-        if (priorTotal + requested > original) {
-          throw new BadRequestException({
-            code: 'invalid_request',
-            message: 'refund amount exceeds remaining refundable balance',
-            details: {
-              originalAmount: original.toString(),
-              priorRefundedTotal: priorTotal.toString(),
-              requested: requested.toString(),
+          // Refund.amount is varchar(78), which Prisma's _sum can't add, so it's summed as BigInt.
+          const priorRefunds = await db.refund.findMany({
+            where: {
+              transactionId: tx.id,
+              status: { in: ['pending', 'awaiting_signature', 'submitted', 'completed'] },
+            },
+            select: { amount: true },
+          })
+          const priorTotal = priorRefunds.reduce((acc, r) => acc + BigInt(r.amount), 0n)
+          const requested = BigInt(input.amount)
+          const original = BigInt(tx.amount)
+          if (priorTotal + requested > original) {
+            throw new BadRequestException({
+              code: 'invalid_request',
+              message: 'refund amount exceeds remaining refundable balance',
+              details: {
+                originalAmount: original.toString(),
+                priorRefundedTotal: priorTotal.toString(),
+                requested: requested.toString(),
+              },
+            })
+          }
+
+          const token = this.tokenAddressFor(tx.currency)
+
+          const refund = await db.refund.create({
+            data: {
+              merchantId,
+              transactionId: tx.id,
+              amount: input.amount,
+              currency: tx.currency,
+              reason: input.reason,
+              note: input.note ?? null,
+              status: 'awaiting_signature',
+              payerAddress: tx.payerAddress,
+              initiatedById: actorId,
+              mode: tx.mode,
             },
           })
-        }
-
-        const token = this.tokenAddressFor(tx.currency)
-
-        const refund = await db.refund.create({
-          data: {
-            merchantId,
-            transactionId: tx.id,
-            amount: input.amount,
-            currency: tx.currency,
-            reason: input.reason,
-            note: input.note ?? null,
-            status: 'awaiting_signature',
-            payerAddress: tx.payerAddress,
-            initiatedById: actorId,
-            mode: tx.mode,
-          },
-        })
-        return { tx, refund, token }
-      })
+          return { tx, refund, token }
+        },
+        // Longer than lock_timeout, so a lock wait ends as refund_in_progress, not a timeout.
+        { timeout: 10_000 },
+      )
       .catch((err: unknown) => {
         if (isLockTimeout(err)) {
           throw new ConflictException({
