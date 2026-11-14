@@ -1,10 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { readWeb, webExists } from './web-source'
 
-const WEB_ROOT = join(__dirname, '..', '..')
-const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
-const exists = (path: string) => existsSync(join(WEB_ROOT, path))
+const read = (path: string) => readWeb(path)
+const exists = (path: string) => webExists(path)
 
 describe('dashboard plans and subscriptions', () => {
   it('has plans, plan detail and subscription detail pages', () => {

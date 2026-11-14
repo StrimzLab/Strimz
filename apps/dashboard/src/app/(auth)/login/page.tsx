@@ -8,8 +8,8 @@ import {
   PrivyContinueButton,
   UnconfiguredContinueButton,
 } from '@/components/auth/privy-continue-button'
-import { safeNextPath, withNext } from '@/lib/auth-redirect'
-import { env } from '@/lib/env'
+import { safeNextPath, withNext } from '@strimz/web-shared/lib/auth-redirect'
+import { env } from '@strimz/web-shared/lib/env'
 
 export default function LoginPage() {
   return (

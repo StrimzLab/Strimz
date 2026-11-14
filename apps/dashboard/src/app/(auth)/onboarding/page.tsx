@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { FieldLabel, Input, Label } from '@strimz/ui'
 import type { OnboardMerchantInput } from '@strimz/shared-types'
-import { SubmitButton } from '@/components/auth/submit-button'
+import { SubmitButton } from '@strimz/web-shared/components/auth/submit-button'
 import { ImageUpload } from '@/components/dashboard/image-upload'
 import { useMerchantMe, useOnboardMerchant } from '@/hooks/api/use-merchant'
 

@@ -8,17 +8,21 @@
     "build": "next build",
     "start": "next start --port 3200",
     "lint": "eslint . --max-warnings 0",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "build:cloudflare": "opennextjs-cloudflare build",
+    "preview:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@strimz/sdk": "workspace:*",
     "@strimz/sdk-react": "workspace:*",
-    "next": "^15.5.15",
+    "next": "^15.5.29",
     "next-themes": "^0.4.4",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "1.20.13",
     "@strimz/eslint-config": "workspace:*",
     "@types/node": "^22.10.5",
     "@types/react": "19.1.0",
@@ -28,6 +32,7 @@
     "eslint-config-next": "^15.1.4",
     "postcss": "^8.5.1",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "wrangler": "4.154.0"
   }
 }

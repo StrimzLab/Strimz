@@ -6,19 +6,22 @@ import { useParams } from 'next/navigation'
 import { ArrowLeft, Ban, RotateCcw } from 'lucide-react'
 import { Badge, Button, Card, CardContent } from '@strimz/ui'
 
-import { PageHeader } from '@/components/dashboard/page-header'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import type { Mode } from '@strimz/shared-types'
 import { SegmentedToggle } from '@/components/shared/segmented-toggle'
-import { useDashboardMode } from '@/lib/dashboard-mode'
-import { relativeTime, shortAddress } from '@/lib/format'
-import { formatCurrencyAmounts } from '@/lib/currency-totals'
+import { useDashboardMode } from '@strimz/web-shared/lib/dashboard-mode'
+import { relativeTime, shortAddress } from '@strimz/web-shared/lib/format'
+import { formatCurrencyAmounts } from '@strimz/web-shared/lib/currency-totals'
 import { MODE_OPTIONS } from '@/lib/admin-volume'
 import { tierRefusal } from '@/lib/admin-api/tier-refusal'
-import { moveToEnterpriseConfirm, suspendMerchantConfirm } from '@/lib/destructive-actions'
+import {
+  moveToEnterpriseConfirm,
+  suspendMerchantConfirm,
+} from '@strimz/web-shared/lib/destructive-actions'
 import {
   ConfirmActionDialog,
   type PendingConfirm,
-} from '@/components/dashboard/confirm-action-dialog'
+} from '@strimz/web-shared/components/dashboard/confirm-action-dialog'
 import {
   useAdminMerchantDetail,
   useReactivateMerchant,

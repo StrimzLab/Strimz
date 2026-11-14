@@ -1,0 +1,265 @@
+---
+title: Errors
+description: The error codes Strimz returns, what causes them, and what to do about them.
+---
+
+Every Strimz error has the same envelope:
+
+```json
+{
+  "error": {
+    "code": "invalid_request",
+    "message": "amount must be a positive integer string",
+    "param": "amount",
+    "details": { "issues": [...] },
+    "requestId": "req-4f2"
+  }
+}
+```
+
+Always include the `requestId` when you contact support. It's the
+key support uses to find your request in the logs.
+
+## Codes
+
+The common codes. The tables below cover the ones you're most likely to see; a few admin-only and internal codes are left out.
+
+| Code                      | HTTP | Meaning                                                                                            |
+| ------------------------- | ---- | -------------------------------------------------------------------------------------------------- |
+| `authentication_error`    | 401  | Missing, invalid, or expired auth token                                                            |
+| `permission_denied`       | 403  | Token is valid but lacks the required scope, or the route accepts only a dashboard session         |
+| `live_mode_ineligible`    | 403  | A live key was requested but the account fails a live-mode check; `details.reasons` lists which    |
+| `live_mode_unavailable`   | 403  | A live key was requested while live mode is closed, before Strimz runs on Arc mainnet              |
+| `mode_unavailable`        | 403  | The key's mode is not this deployment's: test keys on the live API, or live keys on the sandbox    |
+| `plan_required`           | 403  | The feature needs a higher plan; `details.requiredPlan` names it                                   |
+| `merchant_not_synced`     | 401  | Privy session is valid but no Merchant row. Call `POST /v1/auth/sync` first.                       |
+| `secret_key_in_browser`   | none | Thrown by `@strimz/sdk` when `StrimzClient` is constructed in a browser. No request is sent.       |
+| `not_found`               | 404  | Resource doesn't exist or isn't visible to your token                                              |
+| `invalid_request`         | 400  | Validation failure; `details.issues` has the Zod paths                                             |
+| `session_invalid_state`   | 403  | The action conflicts with the resource's current status (e.g. cancelling an already-cancelled sub) |
+| `idempotency_error`       | 409  | An idempotency key was reused with a different payload                                             |
+| `idempotency_in_progress` | 409  | A request with this idempotency key is still running; retry after `Retry-After`                    |
+| `rate_limited`            | 429  | Rate limit exceeded. Limits are per IP (global and per route), and some relay routes per merchant  |
+| `api_error`               | 500  | Unexpected server error. It surfaces in the Strimz logs and gets triaged.                          |
+| `service_unavailable`     | 503  | Strimz couldn't reach its idempotency store, so the write didn't run. Retry with the same key.     |
+
+### Payments, checkout and relay
+
+| Code                        | HTTP | Meaning                                                                                 |
+| --------------------------- | ---- | --------------------------------------------------------------------------------------- |
+| `amount_below_minimum`      | 400  | The amount is below 1.00 of the stablecoin                                              |
+| `token_mismatch`            | 400  | The signed token isn't the token of the session's currency                              |
+| `auth_nonce_mismatch`       | 400  | The EIP-3009 nonce isn't `checkoutPaymentNonce(sessionId)`                              |
+| `relay_simulation_failed`   | 400  | The call would revert on-chain; `details.revert` names the revert                       |
+| `enrolment_terms_mismatch`  | 400  | The signed enrolment terms don't match the plan                                         |
+| `insufficient_balance`      | 400  | The payer holds less than the plan amount of the plan token                             |
+| `session_expired`           | 400  | The payment session has expired                                                         |
+| `merchant_mismatch`         | 403  | The body `merchantId` isn't the on-chain id of the merchant that owns the key           |
+| `session_not_open`          | 409  | The session is no longer open for payment                                               |
+| `payer_already_bound`       | 409  | The session is already linked to another wallet                                         |
+| `session_already_submitted` | 409  | The session's payment has already been mined                                            |
+| `attempt_in_progress`       | 409  | An earlier attempt can still land; `details.submission` is that attempt                 |
+| `already_settled`           | 409  | The earlier attempt already settled on-chain                                            |
+| `subscription_exists`       | 409  | The wallet already subscribes to this plan                                              |
+| `plan_not_active`           | 409  | The plan is archived                                                                    |
+| `sold_out`                  | 409  | The storefront product has no stock left                                                |
+| `relay_budget_exhausted`    | 429  | The merchant's daily relay budget is spent; `details.retryAfterSec` says when it resets |
+
+### Account and agent
+
+| Code                      | HTTP | Meaning                                                                                             |
+| ------------------------- | ---- | --------------------------------------------------------------------------------------------------- |
+| `invalid_state`           | 400  | The action can't run in the current state, e.g. a token address isn't configured on this deployment |
+| `capability_unavailable`  | 403  | The agent capability isn't available yet, such as agent escrow                                      |
+| `capability_disabled`     | 403  | The agent capability is turned off in your agent config                                             |
+| `merchant_not_registered` | 409  | The merchant isn't registered on-chain yet                                                          |
+
+## Examples
+
+### `authentication_error`
+
+```json
+{
+  "error": {
+    "code": "authentication_error",
+    "message": "missing bearer token"
+  }
+}
+```
+
+You forgot the `Authorization: Bearer …` header. Or the key is malformed.
+
+A publishable key sent to a route that needs a secret key gets the same code with this message:
+
+```json
+{
+  "error": {
+    "code": "authentication_error",
+    "message": "publishable keys can only call /v1/checkout and /v1/tokens; use a secret key from your server"
+  }
+}
+```
+
+Publishable keys only work with the public checkout and token routes. Make the call from your server with a secret key.
+
+### `secret_key_in_browser`
+
+This one never comes from the API. `@strimz/sdk` throws it as a `StrimzAuthenticationError`, with no `httpStatus`, when you construct `StrimzClient` with a secret key in a browser, a web worker, an Electron renderer, or a React Native app:
+
+```
+StrimzClient cannot run in a browser: secret keys must stay on your server. Create payment sessions from a server route and pass the session id to the browser. See https://docs.strimz.finance/docs/checkout/server-sessions
+```
+
+Move the code that uses `StrimzClient` into a server route and rotate the key if it has already shipped to browsers. See [Create sessions on your server](/docs/checkout/server-sessions).
+
+### `permission_denied`
+
+```json
+{
+  "error": {
+    "code": "permission_denied",
+    "message": "api key missing scope subscriptions_write"
+  }
+}
+```
+
+Your key has read access but not write. Re-issue with broader scopes from the dashboard.
+
+```json
+{
+  "error": {
+    "code": "permission_denied",
+    "message": "route requires a dashboard session"
+  }
+}
+```
+
+The route accepts only a dashboard session, whatever scopes your key holds. See [dashboard-only routes](/docs/authentication#dashboard-only-routes).
+
+### `live_mode_ineligible`
+
+```json
+{
+  "error": {
+    "code": "live_mode_ineligible",
+    "message": "merchant is not eligible for live mode",
+    "details": {
+      "reasons": [
+        {
+          "code": "mfa_required",
+          "message": "Enable two-factor authentication in your account settings."
+        }
+      ]
+    }
+  }
+}
+```
+
+Returned when creating or rotating a live key. Each reason's `code` is one of `email_unverified`, `mfa_required`, `onboarding_incomplete` or `payout_address_missing`. Complete the steps, then try again. See [live-mode eligibility](/docs/authentication#live-mode-eligibility).
+
+### `live_mode_unavailable`
+
+```json
+{
+  "error": {
+    "code": "live_mode_unavailable",
+    "message": "live mode is not available until Arc mainnet is configured"
+  }
+}
+```
+
+Live keys cannot be created or rotated until Strimz runs on Arc mainnet. Use test-mode keys until then.
+
+### `mode_unavailable`
+
+```json
+{
+  "error": {
+    "code": "mode_unavailable",
+    "message": "test keys are not accepted here; this Strimz deployment runs on Arc mainnet in live mode"
+  }
+}
+```
+
+Each deployment runs in one mode: the sandbox on Arc testnet in test mode, the live API on Arc mainnet in live mode. Send test keys to the sandbox and live keys to the live API.
+
+### `plan_required`
+
+```json
+{
+  "error": {
+    "code": "plan_required",
+    "message": "the storefront builder needs the Starter plan, which starts automatically once 1,000 USDC or EURC has been processed",
+    "details": { "feature": "storefront", "plan": "free", "requiredPlan": "starter" }
+  }
+}
+```
+
+The storefront builder, anomaly alerts and yield recommendations start on the Starter plan. Every merchant starts on Free. A merchant moves to Starter automatically once its all-time volume reaches 1,000 in USDC or in EURC; the two currencies are counted separately. `details.feature` is one of `storefront`, `anomaly_alerts` or `yield_recommendations`.
+
+### `invalid_request`
+
+```json
+{
+  "error": {
+    "code": "invalid_request",
+    "message": "Validation failed",
+    "details": {
+      "issues": [
+        {
+          "path": ["amount"],
+          "message": "must be a non-negative integer string",
+          "code": "custom"
+        },
+        { "path": ["currency"], "message": "Required", "code": "invalid_type" }
+      ]
+    }
+  }
+}
+```
+
+Look at `details.issues` for the exact Zod path that failed.
+
+### `session_invalid_state`
+
+```json
+{
+  "error": {
+    "code": "session_invalid_state",
+    "message": "subscription is already cancelled"
+  }
+}
+```
+
+You tried to cancel a subscription that was already in the `cancelled` status. No-op.
+
+### `rate_limited`
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 30
+```
+
+Wait 30 seconds, then retry. The `@strimz/sdk` retries a `429` that carries `Retry-After` automatically.
+
+## When you should retry
+
+- **5xx errors.** Yes, with exponential backoff. The SDK handles this.
+- **`rate_limited`.** Yes, after `Retry-After`. The SDK handles this.
+- **`authentication_error`.** No. Your key needs to be fixed.
+- **`permission_denied`.** No. Your scope needs to change, or the route needs a dashboard session.
+- **`live_mode_ineligible`.** No. Complete the steps in `details.reasons` first.
+- **`live_mode_unavailable`.** No. Live mode is not open yet.
+- **`mode_unavailable`.** No. Send the key to the deployment that matches its mode.
+- **`invalid_request`.** No. Your payload needs to change.
+- **`session_invalid_state`.** No. The resource's state needs to change first.
+
+## Reporting an issue
+
+If you hit an error you can't make sense of:
+
+1. Save the full response body, including `requestId`.
+2. Note the time in UTC. The logs are indexed by it.
+3. File at [github.com/StrimzLab/strimz/issues](https://github.com/StrimzLab/strimz/issues) or email support@strimz.finance.
+
+Every report gets a reply within one business day.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { odometerCells } from '@/components/marketing/motion/odometer-cells'
+import { odometerCells } from '../components/marketing/motion/odometer-cells'
 
 describe('odometerCells', () => {
   it('rolls digits and keeps symbols still', () => {

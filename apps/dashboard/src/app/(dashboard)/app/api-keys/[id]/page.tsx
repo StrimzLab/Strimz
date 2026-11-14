@@ -18,14 +18,14 @@ import {
   DialogTitle,
 } from '@strimz/ui'
 
-import { PageHeader } from '@/components/dashboard/page-header'
-import { StatusPill } from '@/components/dashboard/data-table'
-import { relativeTime } from '@/lib/format'
-import { revokeApiKeyConfirm } from '@/lib/destructive-actions'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import { StatusPill } from '@strimz/web-shared/components/dashboard/data-table'
+import { relativeTime } from '@strimz/web-shared/lib/format'
+import { revokeApiKeyConfirm } from '@strimz/web-shared/lib/destructive-actions'
 import {
   ConfirmActionDialog,
   type PendingConfirm,
-} from '@/components/dashboard/confirm-action-dialog'
+} from '@strimz/web-shared/components/dashboard/confirm-action-dialog'
 import { useApiKey, useRevokeApiKey, useRotateApiKey } from '@/hooks/api'
 
 export default function ApiKeyDetailPage({ params }: { params: Promise<{ id: string }> }) {

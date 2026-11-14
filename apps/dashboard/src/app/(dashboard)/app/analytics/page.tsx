@@ -15,10 +15,10 @@ import {
 import { AlertCircle, RefreshCcw } from 'lucide-react'
 import { Button, Card, CardContent, Tabs, TabsContent, TabsList, TabsTrigger } from '@strimz/ui'
 
-import { PageHeader } from '@/components/dashboard/page-header'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { paymentCurrencies, type Forecast, type PaymentCurrency } from '@strimz/shared-types'
-import { formatTokenAmount, shortAddress } from '@/lib/format'
-import { formatCurrencyAmounts } from '@/lib/currency-totals'
+import { formatTokenAmount, shortAddress } from '@strimz/web-shared/lib/format'
+import { formatCurrencyAmounts } from '@strimz/web-shared/lib/currency-totals'
 import { forecastAmounts, forecastConfidenceNote } from '@/lib/stats-summary'
 import { useChurn, useConversion, useForecast, useLtv, useMrr } from '@/hooks/api'
 

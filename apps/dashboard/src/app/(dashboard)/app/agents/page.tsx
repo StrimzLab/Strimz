@@ -23,21 +23,25 @@ import type {
 import { AGENT_CAPABILITIES } from '@strimz/shared-config'
 
 import { ComingSoonBadge } from '@/components/dashboard/coming-soon-badge'
-import { PageHeader } from '@/components/dashboard/page-header'
-import { DataTable, StatusPill, type StatusTone } from '@/components/dashboard/data-table'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import {
+  DataTable,
+  StatusPill,
+  type StatusTone,
+} from '@strimz/web-shared/components/dashboard/data-table'
 import {
   DateFilter,
   MultiSelectFilter,
   filterOptions,
   useDateRange,
   useTableFilters,
-} from '@/components/dashboard/filter-bar'
-import { dateFilter, multiFilter } from '@/lib/table-filters'
+} from '@strimz/web-shared/components/dashboard/filter-bar'
+import { dateFilter, multiFilter } from '@strimz/web-shared/lib/table-filters'
 import {
   CashflowSettingsDialog,
   RecoverySettingsDialog,
 } from '@/components/dashboard/agents/settings-dialogs'
-import { relativeTime } from '@/lib/format'
+import { relativeTime } from '@strimz/web-shared/lib/format'
 import { useAgentActivity, useAgentConfig, useUpdateAgentConfig } from '@/hooks/api'
 
 type CapabilityMeta = {

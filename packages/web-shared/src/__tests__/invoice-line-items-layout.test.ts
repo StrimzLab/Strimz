@@ -1,11 +1,8 @@
 import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { webPath } from './web-source'
 
-const page = readFileSync(
-  resolve(__dirname, '../app/(dashboard)/app/invoices/new/page.tsx'),
-  'utf8',
-)
+const page = readFileSync(webPath('src/app/(dashboard)/app/invoices/new/page.tsx'), 'utf8')
 const section = page.slice(
   page.lastIndexOf('<CardContent', page.indexOf('Line items')),
   page.indexOf('iv-note'),

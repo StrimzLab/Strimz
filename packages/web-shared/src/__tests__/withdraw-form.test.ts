@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { webPath } from './web-source'
 
-const page = readFileSync(resolve(__dirname, '../app/(dashboard)/app/withdraw/page.tsx'), 'utf8')
-const hook = readFileSync(resolve(__dirname, '../hooks/use-withdraw-gas-quote.ts'), 'utf8')
+const page = readFileSync(webPath('src/app/(dashboard)/app/withdraw/page.tsx'), 'utf8')
+const hook = readFileSync(webPath('src/hooks/use-withdraw-gas-quote.ts'), 'utf8')
 
 describe('withdraw form', () => {
   it('clears the amount once the transfer is signed', () => {

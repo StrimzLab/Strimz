@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
 import { AdminShell } from '@/components/admin/admin-shell'
-import { InactivityLogout } from '@/components/auth/inactivity-logout'
+import { InactivityLogout } from '@strimz/web-shared/components/auth/inactivity-logout'
 
 /**
  * Group-wide metadata for `/admin/*`. Same noindex stance as the

@@ -3,8 +3,8 @@ import { join } from 'node:path'
 import { subscriptionChargeOutcomeSchema } from '@strimz/shared-types'
 import { describe, expect, it, vi } from 'vitest'
 import { chargeOutcomeView } from '@/lib/charge-outcome'
-import type { MerchantApiClient } from '@/lib/merchant-api/client'
-import { SubscriptionsResource } from '@/lib/merchant-api/resources/subscriptions'
+import type { MerchantApiClient } from '@strimz/web-shared/lib/merchant-api/client'
+import { SubscriptionsResource } from '@strimz/web-shared/lib/merchant-api/resources/subscriptions'
 
 const WEB_ROOT = join(__dirname, '..', '..')
 const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')

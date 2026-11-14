@@ -1,9 +1,7 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { readWeb } from './web-source'
 
-const WEB_ROOT = join(__dirname, '..', '..')
-const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
+const read = (path: string) => readWeb(path)
 
 describe('dashboard sections locked by plan', () => {
   it('shows the storefront builder only when the plan includes it', () => {

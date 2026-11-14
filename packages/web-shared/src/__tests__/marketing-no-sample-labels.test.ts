@@ -1,8 +1,9 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { webTree } from './web-source'
 
-const WEB_ROOT = join(__dirname, '..', '..')
+const WEB_ROOT = webTree()
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {

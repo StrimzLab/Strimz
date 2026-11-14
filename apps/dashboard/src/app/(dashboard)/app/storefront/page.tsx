@@ -38,10 +38,10 @@ import { planIncludes } from '@strimz/shared-config'
 
 import { ImageUpload } from '@/components/dashboard/image-upload'
 import { PlanLockedNotice } from '@/components/dashboard/plan-locked-notice'
-import { PageHeader } from '@/components/dashboard/page-header'
-import { TokenLogo } from '@/components/shared/token-logo'
-import { formatTokenAmount } from '@/lib/format'
-import { env } from '@/lib/env'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import { TokenLogo } from '@strimz/web-shared/components/shared/token-logo'
+import { formatTokenAmount } from '@strimz/web-shared/lib/format'
+import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 import { buildProductInput } from '@/lib/storefront-product-input'
 import {
   useAddStorefrontProduct,
@@ -56,7 +56,7 @@ import {
   useDefaultCurrency,
 } from '@/hooks/api'
 
-const STORE_URL = `${env.appUrl}/store`
+const STORE_URL = `${siteUrls.checkout}/store`
 const STORE_PATH = STORE_URL.replace(/^https?:\/\//u, '')
 
 export default function StorefrontPage() {

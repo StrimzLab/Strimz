@@ -21,7 +21,7 @@ import {
   Textarea,
 } from '@strimz/ui'
 
-import { PageHeader } from '@/components/dashboard/page-header'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { useCreateInvoice, useDefaultCurrency } from '@/hooks/api'
 
 interface LineItemDraft {

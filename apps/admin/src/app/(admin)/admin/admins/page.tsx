@@ -30,14 +30,14 @@ import {
   SelectValue,
 } from '@strimz/ui'
 
-import { PageHeader } from '@/components/dashboard/page-header'
-import { relativeTime } from '@/lib/format'
-import type { AdminInviteResult, AdminRole } from '@/lib/admin-api'
-import { removeAdminConfirm, suspendAdminConfirm } from '@/lib/destructive-actions'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import { relativeTime } from '@strimz/web-shared/lib/format'
+import type { AdminInviteResult, AdminRole } from '@strimz/web-shared/lib/admin-api'
+import { removeAdminConfirm, suspendAdminConfirm } from '@strimz/web-shared/lib/destructive-actions'
 import {
   ConfirmActionDialog,
   type PendingConfirm,
-} from '@/components/dashboard/confirm-action-dialog'
+} from '@strimz/web-shared/components/dashboard/confirm-action-dialog'
 import {
   useAdminList,
   useAdminMe,

@@ -2,11 +2,12 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ThemeToggle } from '@strimz/ui'
-import { Logo } from '@/components/shared/logo'
+import { Logo } from '@strimz/web-shared/components/shared/logo'
 import { AuthBenefitsRow, AuthPanel } from '@/components/auth/auth-panel'
 import authPattern from '@/../public/patterns/authPattern.png'
 import authPattern2 from '@/../public/patterns/authPattern2.png'
 
+import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 /**
  * Group-wide metadata for `/signup`, `/login`, `/callback`. Per-page
  * titles + descriptions live in each page's sibling `layout.tsx` (the
@@ -50,7 +51,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <span className="hidden md:block" />
           <div className="flex items-center gap-3">
             <Link
-              href="/"
+              href={siteUrls.site}
               className="font-poppins text-muted-foreground hover:text-foreground text-sm transition-colors"
             >
               Back to site

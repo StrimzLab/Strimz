@@ -1,4 +1,5 @@
 import { firstYearFees } from '@/lib/fee-estimate'
+import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 
 export type UseCaseId = 'saas' | 'marketplaces' | 'creators' | 'agencies' | 'global-b2b'
 export type MockKind = 'subscriptions' | 'order' | 'storefront' | 'invoice' | 'payment-link'
@@ -43,17 +44,17 @@ export const USE_CASES: readonly UseCase[] = [
       {
         title: 'Subscriptions with free trials',
         body: 'Daily to yearly plans in USDC or EURC. The customer approves once; the first charge waits for the trial to end.',
-        href: '/docs/guides/subscriptions',
+        href: `${siteUrls.docs}/docs/guides/subscriptions`,
       },
       {
         title: 'Failed-charge recovery',
         body: 'Strimz retries a failed renewal and can email the customer to top up. You get a webhook either way.',
-        href: '/docs/subscriptions/recovery',
+        href: `${siteUrls.docs}/docs/subscriptions/recovery`,
       },
       {
         title: 'Self-serve cancel',
         body: 'A cancel button in your app that calls one API method, without exposing your secret key.',
-        href: '/docs/recipes/self-serve-cancel',
+        href: `${siteUrls.docs}/docs/recipes/self-serve-cancel`,
       },
     ],
     mock: 'subscriptions',
@@ -70,17 +71,17 @@ export const USE_CASES: readonly UseCase[] = [
       {
         title: 'A checkout per order',
         body: 'Create a payment session for each order, with your own metadata, and send the buyer to the hosted page.',
-        href: '/docs/guides/accept-payment',
+        href: `${siteUrls.docs}/docs/guides/accept-payment`,
       },
       {
         title: 'Signed webhooks',
         body: 'Every event is signed, so your order system can trust it and mark the order paid without polling.',
-        href: '/docs/guides/webhooks',
+        href: `${siteUrls.docs}/docs/guides/webhooks`,
       },
       {
         title: 'Full or partial refunds',
         body: 'Refund from your own wallet, and the dashboard records it once the transfer settles.',
-        href: '/docs/guides/refunds',
+        href: `${siteUrls.docs}/docs/guides/refunds`,
       },
     ],
     limit:
@@ -99,17 +100,17 @@ export const USE_CASES: readonly UseCase[] = [
       {
         title: 'A no-code storefront',
         body: 'A branded page at strimz.finance/store with your products, each a one-off or subscription checkout. Starts on Starter.',
-        href: '/docs/guides/storefronts',
+        href: `${siteUrls.docs}/docs/guides/storefronts`,
       },
       {
         title: 'Memberships',
         body: 'Monthly or yearly plans members approve once and can cancel from their own wallet.',
-        href: '/docs/guides/subscriptions',
+        href: `${siteUrls.docs}/docs/guides/subscriptions`,
       },
       {
         title: 'Payment links',
         body: 'A link for a single payment you can post, message or put in a bio. No backend needed.',
-        href: '/docs/recipes/invoice-link',
+        href: `${siteUrls.docs}/docs/recipes/invoice-link`,
       },
     ],
     mock: 'storefront',
@@ -126,17 +127,17 @@ export const USE_CASES: readonly UseCase[] = [
       {
         title: 'Invoices with a Pay button',
         body: 'Add line items and a due date. Strimz emails your client the invoice with a button that opens checkout.',
-        href: '/docs/guides/invoices',
+        href: `${siteUrls.docs}/docs/guides/invoices`,
       },
       {
         title: 'Numbered, with a PDF',
         body: 'Invoices are numbered for you, year by year, and you can download a PDF from the dashboard.',
-        href: '/docs/guides/invoices',
+        href: `${siteUrls.docs}/docs/guides/invoices`,
       },
       {
         title: 'Retainers as subscriptions',
         body: 'Put a monthly retainer on a plan so it charges itself after the client approves once.',
-        href: '/docs/guides/subscriptions',
+        href: `${siteUrls.docs}/docs/guides/subscriptions`,
       },
     ],
     mock: 'invoice',
@@ -153,17 +154,17 @@ export const USE_CASES: readonly UseCase[] = [
       {
         title: 'USDC or EURC',
         body: 'Price plans and payments in either stablecoin. Each one counts toward your plan on its own.',
-        href: '/docs/subscriptions/plans',
+        href: `${siteUrls.docs}/docs/subscriptions/plans`,
       },
       {
         title: 'Straight to your wallet',
         body: 'Payments settle into a wallet you control. Strimz never holds your money.',
-        href: '/docs/concepts/meta-tx-flow',
+        href: `${siteUrls.docs}/docs/concepts/meta-tx-flow`,
       },
       {
         title: 'No gas for your client',
         body: 'Your client signs in their wallet and the Strimz relayer submits the payment and pays the network fee.',
-        href: '/docs/checkout/hosted',
+        href: `${siteUrls.docs}/docs/checkout/hosted`,
       },
     ],
     mock: 'payment-link',

@@ -11,6 +11,8 @@ build/
 out/
 .next/
 .turbo/
+.open-next/
+.wrangler/
 .swc/
 *.tsbuildinfo
 next-env.d.ts
@@ -37,6 +39,8 @@ packages/db/generated/
 .env.development
 .env.production
 !.env.example
+.dev.vars*
+!.dev.vars.example
 
 # Logs
 logs/
@@ -69,7 +73,7 @@ coverage/
 
 # Local agent runs
 .agent-runs/
-apps/web/.source/
+apps/docs/.source/
 
 # Governance
 .worktrees/

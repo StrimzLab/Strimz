@@ -1,9 +1,9 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { webTree } from './web-source'
 
-const WEB_ROOT = fileURLToPath(new URL('../..', import.meta.url))
+const WEB_ROOT = webTree()
 const DOCS = join(WEB_ROOT, 'content/docs')
 
 function files(dir: string, pattern: RegExp): string[] {

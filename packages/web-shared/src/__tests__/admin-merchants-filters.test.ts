@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { webTree } from './web-source'
 
-const WEB_ROOT = join(__dirname, '..', '..')
+const WEB_ROOT = webTree()
 const page = () => readFileSync(join(WEB_ROOT, 'src/app/(admin)/admin/merchants/page.tsx'), 'utf8')
 
 describe('admin merchants filters', () => {

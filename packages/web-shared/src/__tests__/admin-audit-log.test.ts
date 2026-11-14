@@ -1,15 +1,13 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { readWeb, webExists } from './web-source'
 
-const WEB_ROOT = join(__dirname, '..', '..')
-const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
+const read = (path: string) => readWeb(path)
 const PAGE = 'src/app/(admin)/admin/audit-log/page.tsx'
 
 // ADR-2026-11-13-admin-audit-log (#260).
 describe('admin audit log page', () => {
   it('exists and reads the audit log through the admin client', () => {
-    expect(existsSync(join(WEB_ROOT, PAGE))).toBe(true)
+    expect(webExists(PAGE)).toBe(true)
     expect(read(PAGE)).toMatch(/useAdminAuditLog\(/u)
     expect(read('src/lib/admin-api/client.ts')).toMatch(/'\/v1\/admin\/audit-log'/u)
   })

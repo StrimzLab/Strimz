@@ -1,11 +1,8 @@
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { webPath } from './web-source'
 
-const page = readFileSync(
-  join(__dirname, '..', 'app', '(dashboard)', 'app', 'refunds', 'page.tsx'),
-  'utf8',
-)
+const page = readFileSync(webPath('src/app/(dashboard)/app/refunds/page.tsx'), 'utf8')
 
 // #441: a failed refund says why, so the merchant knows whether to retry.
 describe('refunds page failure reason', () => {

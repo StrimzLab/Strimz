@@ -5,10 +5,10 @@ import Link from 'next/link'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Button, Card, CardContent } from '@strimz/ui'
 
-import { PageHeader } from '@/components/dashboard/page-header'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { useNotificationBroadcast } from '@/hooks/api/use-notifications'
-import { relativeTime } from '@/lib/format'
-import { NotFoundError } from '@/lib/merchant-api/errors'
+import { relativeTime } from '@strimz/web-shared/lib/format'
+import { NotFoundError } from '@strimz/web-shared/lib/merchant-api/errors'
 
 export default function BroadcastPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)

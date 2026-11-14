@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { DashboardShell } from '@/components/dashboard/dashboard-shell'
-import { InactivityLogout } from '@/components/auth/inactivity-logout'
+import { InactivityLogout } from '@strimz/web-shared/components/auth/inactivity-logout'
 
 /**
  * Group-wide metadata for the merchant dashboard at `/app/*`. The title

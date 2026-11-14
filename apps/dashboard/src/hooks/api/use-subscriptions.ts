@@ -1,0 +1,92 @@
+'use client'
+
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+  type UseQueryOptions,
+} from '@tanstack/react-query'
+import type { CancelSubscriptionInput, Subscription } from '@strimz/shared-types'
+
+import type { ListSubscriptionsParams } from '@strimz/web-shared/lib/merchant-api/resources/subscriptions'
+import type { Page } from '@strimz/web-shared/lib/merchant-api'
+import type { LoadedRows } from '@strimz/web-shared/lib/cursor-pages'
+
+import { useMerchantApi } from './merchant-api-context'
+import { useCursorList } from './use-cursor-list'
+import { useMutationWithToast } from '@strimz/web-shared/hooks/api/use-mutation-with-toast'
+import { analyticsKeys, subscriptionKeys } from './query-keys'
+
+type ListOptions<TData = Page<Subscription>> = Omit<
+  UseQueryOptions<Page<Subscription>, Error, TData, ReturnType<typeof subscriptionKeys.list>>,
+  'queryKey' | 'queryFn'
+>
+
+type DetailOptions<TData = Subscription> = Omit<
+  UseQueryOptions<Subscription, Error, TData, ReturnType<typeof subscriptionKeys.detail>>,
+  'queryKey' | 'queryFn'
+>
+
+export function useSubscriptions<TData = Page<Subscription>>(
+  params: ListSubscriptionsParams = {},
+  options?: ListOptions<TData>,
+) {
+  const api = useMerchantApi()
+  return useQuery({
+    queryKey: subscriptionKeys.list(params),
+    queryFn: ({ signal }) => api.subscriptions.list(params, { signal }),
+    placeholderData: keepPreviousData,
+    ...options,
+  })
+}
+
+export function useSubscriptionCharges(id: string) {
+  const api = useMerchantApi()
+  return useCursorList(
+    [...subscriptionKeys.detail(id), 'charges'],
+    (cursor, signal) => api.subscriptions.charges(id, { cursor, limit: 25 }, { signal }),
+    { select: (loaded) => loaded },
+  )
+}
+
+export function useSubscription<TData = Subscription>(
+  id: string | null | undefined,
+  options?: DetailOptions<TData>,
+) {
+  const api = useMerchantApi()
+  return useQuery({
+    queryKey: subscriptionKeys.detail(id ?? '__unset'),
+    queryFn: ({ signal }) => api.subscriptions.retrieve(id as string, { signal }),
+    enabled: typeof id === 'string' && id.length > 0,
+    ...options,
+  })
+}
+
+export function useCancelSubscription() {
+  const api = useMerchantApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (input: CancelSubscriptionInput) => api.subscriptions.cancel(input),
+    onSuccess: (updated) => {
+      qc.setQueryData(subscriptionKeys.detail(updated.id), updated)
+      qc.invalidateQueries({ queryKey: subscriptionKeys.lists() })
+      qc.invalidateQueries({ queryKey: analyticsKeys.all })
+    },
+    messages: {
+      loading: 'Cancelling subscription…',
+      success: 'Subscription cancelled immediately',
+    },
+  })
+}
+
+export function useSubscriptionPages<TView>(
+  params: Omit<ListSubscriptionsParams, 'cursor'>,
+  options: { select: (loaded: LoadedRows<Subscription>) => TView },
+) {
+  const api = useMerchantApi()
+  return useCursorList(
+    subscriptionKeys.pages(params),
+    (cursor, signal) => api.subscriptions.list({ ...params, cursor }, { signal }),
+    options,
+  )
+}

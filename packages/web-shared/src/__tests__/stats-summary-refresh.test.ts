@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { webTree } from './web-source'
 
-const HOOKS = join(__dirname, '..', 'hooks', 'api')
+const HOOKS = join(webTree(), 'src/hooks/api')
 const read = (file: string) => readFileSync(join(HOOKS, file), 'utf8')
 
 // The body of one exported hook, up to the next export.

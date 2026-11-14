@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 
-import { env } from '@/lib/env'
+import { env } from '@strimz/web-shared/lib/env'
 
 /**
  * Shared BFF forwarding helper for `/api/admin/*` route handlers.

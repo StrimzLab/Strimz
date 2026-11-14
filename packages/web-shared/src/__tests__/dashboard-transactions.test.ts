@@ -1,11 +1,12 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import type { MerchantApiClient } from '@/lib/merchant-api/client'
-import { TransactionsResource } from '@/lib/merchant-api/resources/transactions'
+import type { MerchantApiClient } from '../lib/merchant-api/client'
+import { TransactionsResource } from '../lib/merchant-api/resources/transactions'
+import { readWeb, webTree } from './web-source'
 
-const WEB_ROOT = join(__dirname, '..', '..')
-const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
+const WEB_ROOT = webTree()
+const read = (path: string) => readWeb(path)
 
 describe('dashboard transactions', () => {
   it('has a transactions list and detail page', () => {

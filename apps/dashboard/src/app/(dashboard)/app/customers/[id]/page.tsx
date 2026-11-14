@@ -7,8 +7,8 @@ import { toast } from 'sonner'
 import { ArrowLeft, Copy, Loader2 } from 'lucide-react'
 import { Button, Card, CardContent } from '@strimz/ui'
 
-import { PageHeader } from '@/components/dashboard/page-header'
-import { formatTokenAmount, relativeTime } from '@/lib/format'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import { formatTokenAmount, relativeTime } from '@strimz/web-shared/lib/format'
 import { billingLabel } from '@/lib/plans-view'
 import {
   useCustomer,

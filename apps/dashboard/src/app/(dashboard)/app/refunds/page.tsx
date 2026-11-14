@@ -6,7 +6,7 @@ import { Copy, Download, ExternalLink, Loader2, MoreHorizontal, PenLine } from '
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import { getTokenAddress } from '@strimz/shared-config'
-import { env } from '@/lib/env'
+import { env } from '@strimz/web-shared/lib/env'
 import {
   Button,
   DropdownMenu,
@@ -18,23 +18,27 @@ import {
 } from '@strimz/ui'
 import type { Refund, RefundStatus } from '@strimz/shared-types'
 
-import { PageHeader } from '@/components/dashboard/page-header'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { NewRefundDialog } from '@/components/dashboard/refunds/new-refund-dialog'
 import { useRefundSigner } from '@/components/dashboard/refunds/use-refund-signer'
-import { DataTable, StatusPill, type StatusTone } from '@/components/dashboard/data-table'
+import {
+  DataTable,
+  StatusPill,
+  type StatusTone,
+} from '@strimz/web-shared/components/dashboard/data-table'
 import {
   DateFilter,
   MultiSelectFilter,
   filterOptions,
   useDateRange,
   useTableFilters,
-} from '@/components/dashboard/filter-bar'
-import { dateFilter, multiFilter } from '@/lib/table-filters'
-import { TokenLogo } from '@/components/shared/token-logo'
+} from '@strimz/web-shared/components/dashboard/filter-bar'
+import { dateFilter, multiFilter } from '@strimz/web-shared/lib/table-filters'
+import { TokenLogo } from '@strimz/web-shared/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
-import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
+import { formatTokenAmount, relativeTime, shortAddress } from '@strimz/web-shared/lib/format'
 import { refundCards, summaryValue } from '@/lib/stats-summary'
-import type { LoadedRows } from '@/lib/cursor-pages'
+import type { LoadedRows } from '@strimz/web-shared/lib/cursor-pages'
 import { serverRowsOf, useRefundPages, useStatsSummary } from '@/hooks/api'
 import { EMPTY_STATES } from '@/lib/empty-states'
 

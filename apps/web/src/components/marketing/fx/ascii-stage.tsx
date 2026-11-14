@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { gsap } from '../motion/gsap'
+import { gsap } from '@strimz/web-shared/components/marketing/motion/gsap'
 
 // Adapted from Vengeance UI's Animated Footer (MIT): images redrawn as ASCII that lights up near the cursor.
 

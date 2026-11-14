@@ -7,15 +7,15 @@ import { Archive, ArrowLeft, Copy, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Card, CardContent } from '@strimz/ui'
 
-import { PageHeader } from '@/components/dashboard/page-header'
-import { StatusPill } from '@/components/dashboard/data-table'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import { StatusPill } from '@strimz/web-shared/components/dashboard/data-table'
 import {
   ConfirmActionDialog,
   type PendingConfirm,
-} from '@/components/dashboard/confirm-action-dialog'
+} from '@strimz/web-shared/components/dashboard/confirm-action-dialog'
 import { EditReturnUrlsDialog } from '@/components/dashboard/plans/edit-return-urls-dialog'
-import { archivePlanConfirm } from '@/lib/destructive-actions'
-import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
+import { archivePlanConfirm } from '@strimz/web-shared/lib/destructive-actions'
+import { formatTokenAmount, relativeTime, shortAddress } from '@strimz/web-shared/lib/format'
 import { billingLabel, planPriceLabel } from '@/lib/plans-view'
 import { useArchiveSubscriptionPlan, useSubscriptionPlan, useSubscriptions } from '@/hooks/api'
 

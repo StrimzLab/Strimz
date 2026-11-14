@@ -1,15 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { webPath } from './web-source'
 
-const CHECKOUT = fileURLToPath(new URL('../app/(checkout)', import.meta.url))
+const CHECKOUT = webPath('src/app/(checkout)')
 const PAY = readFileSync(join(CHECKOUT, 'pay/[sessionId]/page.tsx'), 'utf8')
 const SUB = readFileSync(join(CHECKOUT, 'sub/[planId]/page.tsx'), 'utf8')
-const SHELL = readFileSync(
-  fileURLToPath(new URL('../components/checkout/checkout-shell.tsx', import.meta.url)),
-  'utf8',
-)
+const SHELL = readFileSync(webPath('src/components/checkout/checkout-shell.tsx'), 'utf8')
 
 describe('hosted checkout result wiring', () => {
   it.each([

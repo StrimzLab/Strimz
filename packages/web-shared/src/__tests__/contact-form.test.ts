@@ -1,11 +1,8 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-
-const WEB_ROOT = join(__dirname, '..', '..')
+import { readWeb } from './web-source'
 
 function read(path: string): string {
-  return readFileSync(join(WEB_ROOT, path), 'utf8')
+  return readWeb(path)
 }
 
 describe('marketing contact form', () => {

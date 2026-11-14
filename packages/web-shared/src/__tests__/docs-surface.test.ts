@@ -1,10 +1,10 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import postcss, { type AtRule, type Rule } from 'postcss'
 import { describe, expect, it } from 'vitest'
+import { readWeb, webTree } from './web-source'
 
-const WEB_ROOT = fileURLToPath(new URL('../..', import.meta.url))
+const WEB_ROOT = webTree()
 
 function mdxFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -27,7 +27,7 @@ describe('the docs describe Strimz without comparing it to other processors', ()
   })
 
   it('still explains idempotent charges and final settlement on the welcome page', () => {
-    const welcome = readFileSync(join(WEB_ROOT, 'content/docs/index.mdx'), 'utf8')
+    const welcome = readWeb('content/docs/index.mdx')
     expect(welcome).toMatch(/cannot become a double charge/)
     expect(welcome).toMatch(/final/)
   })
@@ -36,8 +36,8 @@ describe('the docs describe Strimz without comparing it to other processors', ()
 // fumadocs-ui ships unlayered Tailwind v3 CSS whose `img` and `.hidden` rules beat
 // our layered v4 `dark:` utilities, so the logo swap has to live in docs.css.
 describe('the docs logo follows the theme', () => {
-  const layout = readFileSync(join(WEB_ROOT, 'src/lib/layout.shared.tsx'), 'utf8')
-  const css = readFileSync(join(WEB_ROOT, 'src/styles/docs.css'), 'utf8')
+  const layout = readWeb('src/lib/layout.shared.tsx')
+  const css = readWeb('src/styles/docs.css')
 
   it('does not rely on Tailwind display utilities for the swap', () => {
     expect(layout).not.toMatch(/dark:(hidden|block)/)
@@ -54,8 +54,8 @@ describe('the docs logo follows the theme', () => {
 })
 
 describe('inline code renders as a chip without backticks', () => {
-  const globals = readFileSync(join(WEB_ROOT, 'src/styles/globals.css'), 'utf8')
-  const docs = readFileSync(join(WEB_ROOT, 'src/styles/docs.css'), 'utf8')
+  const globals = readWeb('src/styles/globals.css')
+  const docs = readWeb('src/styles/docs.css')
 
   it.each(['before', 'after'])('drops the typography plugin backtick on ::%s', (pseudo) => {
     expect(globals).toMatch(
@@ -96,7 +96,7 @@ const mediaOf = (rule: Rule) =>
 
 // fumadocs' selectors that move an element with the v3 `transform`, mapped to their media query.
 function fumadocsTransforms(): Map<string, string | undefined> {
-  const css = readFileSync(join(WEB_ROOT, 'node_modules/fumadocs-ui/dist/style.css'), 'utf8')
+  const css = readWeb('node_modules/fumadocs-ui/dist/style.css')
   return new Map(
     cssRules(css)
       .filter((rule) =>
@@ -113,8 +113,8 @@ function fumadocsTransforms(): Map<string, string | undefined> {
 }
 
 describe('docs.css styles what fumadocs renders', () => {
-  const css = readFileSync(join(WEB_ROOT, 'src/styles/docs.css'), 'utf8')
-  const layout = readFileSync(join(WEB_ROOT, 'src/app/docs/layout.tsx'), 'utf8')
+  const css = readWeb('src/styles/docs.css')
+  const layout = readWeb('src/app/docs/layout.tsx')
   const fumadocs = ['fumadocs-ui', 'fumadocs-core']
     .flatMap((pkg) => jsFiles(join(WEB_ROOT, 'node_modules', pkg, 'dist')))
     .map((file) => readFileSync(file, 'utf8'))
@@ -152,13 +152,12 @@ describe('docs.css styles what fumadocs renders', () => {
 // Our v4 utilities of the same name set `translate`, `rotate` and `scale` as well, which
 // moved the search dialog off centre and turned the sidebar chevrons twice.
 describe('fumadocs transforms are not applied twice', () => {
-  const resets = cssRules(readFileSync(join(WEB_ROOT, 'src/styles/docs.css'), 'utf8')).filter(
-    (rule) =>
-      ['translate', 'rotate', 'scale'].every((prop) =>
-        rule.nodes.some(
-          (node) => node.type === 'decl' && node.prop === prop && node.value === 'none',
-        ),
+  const resets = cssRules(readWeb('src/styles/docs.css')).filter((rule) =>
+    ['translate', 'rotate', 'scale'].every((prop) =>
+      rule.nodes.some(
+        (node) => node.type === 'decl' && node.prop === prop && node.value === 'none',
       ),
+    ),
   )
 
   it('finds the transforms fumadocs ships', () => {
@@ -197,6 +196,6 @@ describe('docs pages show their title once', () => {
   const outsideCode = (source: string) => source.replace(/^```[\s\S]*?^```/gm, '')
 
   it.each(DOCS.map((file) => relative(WEB_ROOT, file)))('%s has no h1 of its own', (file) => {
-    expect(outsideCode(readFileSync(join(WEB_ROOT, file), 'utf8'))).not.toMatch(/^# /m)
+    expect(outsideCode(readWeb(file))).not.toMatch(/^# /m)
   })
 })

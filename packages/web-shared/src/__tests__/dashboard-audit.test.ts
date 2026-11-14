@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { AGENT_CAPABILITIES } from '@strimz/shared-config'
 import { describe, expect, it } from 'vitest'
+import { REPO, readWeb } from './web-source'
 
-const WEB_ROOT = join(__dirname, '..', '..')
-const REPO_ROOT = join(WEB_ROOT, '..', '..')
-const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
+const REPO_ROOT = REPO
+const read = (path: string) => readWeb(path)
 const readRepo = (path: string) => readFileSync(join(REPO_ROOT, path), 'utf8')
 
 // #406: dashboard bugs found before the v1 end-to-end pass.
@@ -16,10 +16,10 @@ describe('dashboard audit (#406)', () => {
     expect(kinds.match(/'[a-z_]+'/gu)).toEqual(["'one_shot'", "'subscription_charge'"])
   })
 
-  it('links the storefront to this deployment, not production', () => {
+  it("links the storefront to this deployment's checkout host, not production", () => {
     const page = read('src/app/(dashboard)/app/storefront/page.tsx')
     expect(page).not.toContain('strimz.finance/store')
-    expect(page).toMatch(/env\.appUrl/u)
+    expect(page).toMatch(/siteUrls\.checkout\}\/store/u)
   })
 
   it.each([

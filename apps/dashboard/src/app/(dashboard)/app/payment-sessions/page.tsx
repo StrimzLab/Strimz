@@ -16,27 +16,31 @@ import {
 } from '@strimz/ui'
 import type { PaymentSession, PaymentSessionStatus } from '@strimz/shared-types'
 
-import { PageHeader } from '@/components/dashboard/page-header'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { NewPaymentSessionDialog } from '@/components/dashboard/payment-sessions/new-payment-session-dialog'
-import { DataTable, StatusPill, type StatusTone } from '@/components/dashboard/data-table'
+import {
+  DataTable,
+  StatusPill,
+  type StatusTone,
+} from '@strimz/web-shared/components/dashboard/data-table'
 import {
   DateFilter,
   MultiSelectFilter,
   filterOptions,
   useDateRange,
   useTableFilters,
-} from '@/components/dashboard/filter-bar'
-import { dateFilter, multiFilter } from '@/lib/table-filters'
-import { TokenLogo } from '@/components/shared/token-logo'
+} from '@strimz/web-shared/components/dashboard/filter-bar'
+import { dateFilter, multiFilter } from '@strimz/web-shared/lib/table-filters'
+import { TokenLogo } from '@strimz/web-shared/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
-import { formatTokenAmount, relativeTime, shortAddress } from '@/lib/format'
+import { formatTokenAmount, relativeTime, shortAddress } from '@strimz/web-shared/lib/format'
 import { paymentSessionCards, summaryValue } from '@/lib/stats-summary'
-import type { LoadedRows } from '@/lib/cursor-pages'
-import { cancelPaymentSessionConfirm } from '@/lib/destructive-actions'
+import type { LoadedRows } from '@strimz/web-shared/lib/cursor-pages'
+import { cancelPaymentSessionConfirm } from '@strimz/web-shared/lib/destructive-actions'
 import {
   ConfirmActionDialog,
   type PendingConfirm,
-} from '@/components/dashboard/confirm-action-dialog'
+} from '@strimz/web-shared/components/dashboard/confirm-action-dialog'
 import {
   serverRowsOf,
   useCancelPaymentSession,

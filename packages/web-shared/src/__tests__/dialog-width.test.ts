@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { REPO } from './web-source'
 
-const REPO_ROOT = join(__dirname, '..', '..', '..', '..')
+const REPO_ROOT = REPO
 
 describe('dialog width', () => {
   const dialog = readFileSync(join(REPO_ROOT, 'packages/ui/src/components/dialog.tsx'), 'utf8')

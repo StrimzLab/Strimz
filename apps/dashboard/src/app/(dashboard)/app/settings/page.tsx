@@ -24,11 +24,11 @@ import {
 import type { Merchant, PaymentCurrency, UpdateMerchantInput } from '@strimz/shared-types'
 import { PLANS } from '@strimz/shared-config'
 
-import { SUPPORT_EMAIL, mailto } from '@/lib/contact-topics'
-import { nextPlanNotice, planFeeLabel } from '@/lib/pricing-plans'
+import { SUPPORT_EMAIL, mailto } from '@strimz/web-shared/lib/contact-topics'
+import { nextPlanNotice, planFeeLabel } from '@strimz/web-shared/lib/pricing-plans'
 
 import { ComingSoonBadge } from '@/components/dashboard/coming-soon-badge'
-import { PageHeader } from '@/components/dashboard/page-header'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { ImageUpload } from '@/components/dashboard/image-upload'
 import { OnchainPolicySection } from '@/components/dashboard/onchain-policy-section'
 import { useMerchantMe, useUpdateMerchant } from '@/hooks/api'

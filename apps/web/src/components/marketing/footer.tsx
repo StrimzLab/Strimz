@@ -7,11 +7,16 @@ import art1 from '@/../public/art/1.svg'
 import art2 from '@/../public/art/2.svg'
 import dynamic from 'next/dynamic'
 import externalIcon from '@iconify-icons/solar/arrow-right-up-linear'
-import { Logo } from '@/components/shared/logo'
+import { Logo } from '@strimz/web-shared/components/shared/logo'
 import { MkIcon } from './icon'
 import { FOOTER_COLUMNS } from './footer-data'
 import { PlaceholderLine } from './fx/placeholder'
-import { MOTION_OK, gsap, useGSAP, PLAY_ONCE } from './motion/gsap'
+import {
+  MOTION_OK,
+  gsap,
+  useGSAP,
+  PLAY_ONCE,
+} from '@strimz/web-shared/components/marketing/motion/gsap'
 
 const AsciiStage = dynamic(() => import('./fx/ascii-stage').then((m) => m.AsciiStage), {
   ssr: false,

@@ -5,20 +5,20 @@ import { ChevronDown, ExternalLink } from 'lucide-react'
 import { Button, Card, CardContent } from '@strimz/ui'
 import { arcExplorerTxUrl } from '@strimz/shared-config'
 
-import { PageHeader } from '@/components/dashboard/page-header'
-import { StatusPill } from '@/components/dashboard/data-table'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import { StatusPill } from '@strimz/web-shared/components/dashboard/data-table'
 import {
   DateFilter,
   MultiSelectFilter,
   filterOptions,
   useDateRange,
   useTableFilters,
-} from '@/components/dashboard/filter-bar'
-import { dateFilter, multiFilter } from '@/lib/table-filters'
-import { relativeTime, shortAddress } from '@/lib/format'
-import { env } from '@/lib/env'
-import { ForbiddenError } from '@/lib/merchant-api/errors'
-import type { AuditCategory, AuditLogEntry } from '@/lib/admin-api'
+} from '@strimz/web-shared/components/dashboard/filter-bar'
+import { dateFilter, multiFilter } from '@strimz/web-shared/lib/table-filters'
+import { relativeTime, shortAddress } from '@strimz/web-shared/lib/format'
+import { env } from '@strimz/web-shared/lib/env'
+import { ForbiddenError } from '@strimz/web-shared/lib/merchant-api/errors'
+import type { AuditCategory, AuditLogEntry } from '@strimz/web-shared/lib/admin-api'
 import { useAdminAuditLog } from '@/hooks/admin'
 
 const CATEGORIES: readonly AuditCategory[] = [

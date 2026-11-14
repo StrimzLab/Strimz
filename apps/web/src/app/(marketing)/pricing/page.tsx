@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { OG_IMAGE } from '@/lib/seo'
+import { OG_IMAGE } from '@strimz/web-shared/lib/seo'
 import { SectionBoundary } from '@/components/marketing/fx/section-boundary'
 import { Closing } from '@/components/marketing/home/closing'
 import { Faq } from '@/components/marketing/home/faq'
@@ -9,6 +9,7 @@ import { FeeCalculator } from '@/components/marketing/pricing/fee-calculator'
 import { PlanCards } from '@/components/marketing/pricing/plan-cards'
 import { PlanRail } from '@/components/marketing/pricing/plan-rail'
 import { PricingHero } from '@/components/marketing/pricing/pricing-hero'
+import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 
 export const metadata: Metadata = {
   title: 'Pricing',
@@ -49,7 +50,7 @@ export default function PricingPage() {
         <Faq title="Pricing questions." items={PRICING_FAQS} id="pricing-faq-title" />
       </SectionBoundary>
       <SectionBoundary name="closing">
-        <Closing startHref="/login" />
+        <Closing startHref={`${siteUrls.dashboard}/login`} />
       </SectionBoundary>
     </>
   )

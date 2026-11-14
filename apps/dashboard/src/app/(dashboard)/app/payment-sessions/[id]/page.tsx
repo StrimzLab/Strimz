@@ -9,18 +9,18 @@ import { Button, Card, CardContent } from '@strimz/ui'
 import { getArcExplorerUrl } from '@strimz/shared-config'
 import type { PaymentSessionStatus } from '@strimz/shared-types'
 
-import { PageHeader } from '@/components/dashboard/page-header'
-import { StatusPill } from '@/components/dashboard/data-table'
-import { TokenLogo } from '@/components/shared/token-logo'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import { StatusPill } from '@strimz/web-shared/components/dashboard/data-table'
+import { TokenLogo } from '@strimz/web-shared/components/shared/token-logo'
 import { NewRefundDialog } from '@/components/dashboard/refunds/new-refund-dialog'
 import { useRefundSigner } from '@/components/dashboard/refunds/use-refund-signer'
 import {
   ConfirmActionDialog,
   type PendingConfirm,
-} from '@/components/dashboard/confirm-action-dialog'
-import { env } from '@/lib/env'
-import { cancelPaymentSessionConfirm } from '@/lib/destructive-actions'
-import { formatTokenAmount, relativeTime } from '@/lib/format'
+} from '@strimz/web-shared/components/dashboard/confirm-action-dialog'
+import { env } from '@strimz/web-shared/lib/env'
+import { cancelPaymentSessionConfirm } from '@strimz/web-shared/lib/destructive-actions'
+import { formatTokenAmount, relativeTime } from '@strimz/web-shared/lib/format'
 import { canRefund, transactionKindLabel } from '@/lib/transactions-view'
 import { useCancelPaymentSession, usePaymentSession, useTransactions } from '@/hooks/api'
 

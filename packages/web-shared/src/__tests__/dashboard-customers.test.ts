@@ -1,16 +1,14 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import type { MerchantApiClient } from '@/lib/merchant-api/client'
-import { CustomersResource } from '@/lib/merchant-api/resources/customers'
-import { InvoicesResource } from '@/lib/merchant-api/resources/invoices'
-import { PaymentSessionsResource } from '@/lib/merchant-api/resources/payment-sessions'
-import { RefundsResource } from '@/lib/merchant-api/resources/refunds'
-import { SubscriptionsResource } from '@/lib/merchant-api/resources/subscriptions'
-import { TransactionsResource } from '@/lib/merchant-api/resources/transactions'
+import type { MerchantApiClient } from '../lib/merchant-api/client'
+import { CustomersResource } from '../lib/merchant-api/resources/customers'
+import { InvoicesResource } from '../lib/merchant-api/resources/invoices'
+import { PaymentSessionsResource } from '../lib/merchant-api/resources/payment-sessions'
+import { RefundsResource } from '../lib/merchant-api/resources/refunds'
+import { SubscriptionsResource } from '../lib/merchant-api/resources/subscriptions'
+import { TransactionsResource } from '../lib/merchant-api/resources/transactions'
+import { readWeb, webExists } from './web-source'
 
-const WEB_ROOT = join(__dirname, '..', '..')
-const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
+const read = (path: string) => readWeb(path)
 const DETAIL = 'src/app/(dashboard)/app/customers/[id]/page.tsx'
 const CUSTOMER = 'cmq4wh9de0006je6l2n5v0kqt'
 
@@ -46,7 +44,7 @@ describe('customer filters in the dashboard client', () => {
 
 describe('customer detail page', () => {
   it('exists', () => {
-    expect(existsSync(join(WEB_ROOT, DETAIL))).toBe(true)
+    expect(webExists(DETAIL)).toBe(true)
   })
 
   it.each([

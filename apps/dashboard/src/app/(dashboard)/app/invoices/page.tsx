@@ -17,27 +17,31 @@ import {
 } from '@strimz/ui'
 import type { Invoice, InvoiceStatus } from '@strimz/shared-types'
 
-import { PageHeader } from '@/components/dashboard/page-header'
-import { DataTable, StatusPill, type StatusTone } from '@/components/dashboard/data-table'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import {
+  DataTable,
+  StatusPill,
+  type StatusTone,
+} from '@strimz/web-shared/components/dashboard/data-table'
 import {
   DateFilter,
   MultiSelectFilter,
   filterOptions,
   useDateRange,
   useTableFilters,
-} from '@/components/dashboard/filter-bar'
-import { dateFilter, multiFilter } from '@/lib/table-filters'
-import { TokenLogo } from '@/components/shared/token-logo'
+} from '@strimz/web-shared/components/dashboard/filter-bar'
+import { dateFilter, multiFilter } from '@strimz/web-shared/lib/table-filters'
+import { TokenLogo } from '@strimz/web-shared/components/shared/token-logo'
 import { downloadCsv } from '@/lib/csv-export'
 import { downloadInvoicePdf } from '@/lib/invoice-pdf'
-import { formatTokenAmount, relativeTime } from '@/lib/format'
+import { formatTokenAmount, relativeTime } from '@strimz/web-shared/lib/format'
 import { invoiceCards, summaryValue } from '@/lib/stats-summary'
-import type { LoadedRows } from '@/lib/cursor-pages'
-import { voidInvoiceConfirm } from '@/lib/destructive-actions'
+import type { LoadedRows } from '@strimz/web-shared/lib/cursor-pages'
+import { voidInvoiceConfirm } from '@strimz/web-shared/lib/destructive-actions'
 import {
   ConfirmActionDialog,
   type PendingConfirm,
-} from '@/components/dashboard/confirm-action-dialog'
+} from '@strimz/web-shared/components/dashboard/confirm-action-dialog'
 import {
   serverRowsOf,
   useInvoicePages,

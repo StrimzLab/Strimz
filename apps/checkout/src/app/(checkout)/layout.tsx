@@ -3,8 +3,8 @@ import { Suspense } from 'react'
 import { ThemeToggle } from '@strimz/ui'
 import { CheckoutProviders } from '@/components/checkout-providers'
 import { HiddenInEmbed } from '@/components/checkout/hidden-in-embed'
-import { Logo } from '@/components/shared/logo'
-import { embedThemeScript } from '@/lib/theme'
+import { Logo } from '@strimz/web-shared/components/shared/logo'
+import { embedThemeScript } from '@strimz/web-shared/lib/theme'
 
 /**
  * Group-wide metadata for `/pay/[sessionId]` and `/sub/[planId]`.

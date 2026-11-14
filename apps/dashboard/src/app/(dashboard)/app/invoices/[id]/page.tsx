@@ -7,17 +7,18 @@ import { ArrowLeft, Ban, Copy, Download, ExternalLink, FileDown, Loader2, Send }
 import { toast } from 'sonner'
 import { Badge, Button, Card, CardContent } from '@strimz/ui'
 import type { InvoiceStatus } from '@strimz/shared-types'
+import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 
-import { PageHeader } from '@/components/dashboard/page-header'
-import { StatusPill } from '@/components/dashboard/data-table'
-import { TokenLogo } from '@/components/shared/token-logo'
-import { formatTokenAmount, relativeTime, tokenAmountToNumber } from '@/lib/format'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import { StatusPill } from '@strimz/web-shared/components/dashboard/data-table'
+import { TokenLogo } from '@strimz/web-shared/components/shared/token-logo'
+import { formatTokenAmount, relativeTime, tokenAmountToNumber } from '@strimz/web-shared/lib/format'
 import { downloadInvoicePdf } from '@/lib/invoice-pdf'
-import { voidInvoiceConfirm } from '@/lib/destructive-actions'
+import { voidInvoiceConfirm } from '@strimz/web-shared/lib/destructive-actions'
 import {
   ConfirmActionDialog,
   type PendingConfirm,
-} from '@/components/dashboard/confirm-action-dialog'
+} from '@strimz/web-shared/components/dashboard/confirm-action-dialog'
 import { useInvoice, useMerchantMe, useSendInvoice, useVoidInvoice } from '@/hooks/api'
 
 const STATUS_TONE: Record<InvoiceStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
@@ -285,7 +286,11 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                       Copy link
                     </Button>
                     <Button variant="outline" size="sm" asChild>
-                      <a href={`/pay/${invoice.sessionId}`} target="_blank" rel="noreferrer">
+                      <a
+                        href={`${siteUrls.checkout}/pay/${invoice.sessionId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
                         <ExternalLink className="size-3.5" />
                       </a>
                     </Button>

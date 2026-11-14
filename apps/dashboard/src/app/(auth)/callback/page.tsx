@@ -6,8 +6,8 @@ import { usePrivy, getAccessToken } from '@privy-io/react-auth'
 import { Loader2 } from 'lucide-react'
 import type { Merchant } from '@strimz/shared-types'
 import { AuthCard } from '@/components/auth/auth-card'
-import { env } from '@/lib/env'
-import { safeNextPath, withNext } from '@/lib/auth-redirect'
+import { env } from '@strimz/web-shared/lib/env'
+import { safeNextPath, withNext } from '@strimz/web-shared/lib/auth-redirect'
 
 export default function AuthCallbackPage() {
   return (

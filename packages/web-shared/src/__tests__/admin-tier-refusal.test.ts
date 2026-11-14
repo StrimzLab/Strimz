@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { webTree } from './web-source'
 
-const WEB_ROOT = join(__dirname, '..', '..')
+const WEB_ROOT = webTree()
 
 describe('admin merchant page tier refusal', () => {
   const page = readFileSync(join(WEB_ROOT, 'src/app/(admin)/admin/merchants/[id]/page.tsx'), 'utf8')

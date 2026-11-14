@@ -5,15 +5,15 @@ import Link from 'next/link'
 import { Card, CardContent, Input, Button } from '@strimz/ui'
 import { Search } from 'lucide-react'
 
-import { PageHeader } from '@/components/dashboard/page-header'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import {
   MultiSelectFilter,
   filterOptions,
   useTableFilters,
-} from '@/components/dashboard/filter-bar'
-import { multiFilter } from '@/lib/table-filters'
-import { relativeTime } from '@/lib/format'
-import type { MerchantStatus, MerchantTier } from '@/lib/admin-api'
+} from '@strimz/web-shared/components/dashboard/filter-bar'
+import { multiFilter } from '@strimz/web-shared/lib/table-filters'
+import { relativeTime } from '@strimz/web-shared/lib/format'
+import type { MerchantStatus, MerchantTier } from '@strimz/web-shared/lib/admin-api'
 import { useAdminMerchants } from '@/hooks/admin'
 
 const STATUS_TINT: Record<MerchantStatus, string> = {

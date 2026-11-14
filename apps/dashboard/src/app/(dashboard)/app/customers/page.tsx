@@ -25,10 +25,10 @@ import {
 } from '@strimz/ui'
 import type { Customer } from '@strimz/shared-types'
 
-import { PageHeader } from '@/components/dashboard/page-header'
-import { DataTable } from '@/components/dashboard/data-table'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import { DataTable } from '@strimz/web-shared/components/dashboard/data-table'
 import { downloadCsv } from '@/lib/csv-export'
-import { relativeTime, shortAddress } from '@/lib/format'
+import { relativeTime, shortAddress } from '@strimz/web-shared/lib/format'
 import { serverRowsOf, useCustomerPages, useStatsSummary } from '@/hooks/api'
 import { customerCards, summaryValue } from '@/lib/stats-summary'
 import { EMPTY_STATES } from '@/lib/empty-states'

@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { REPO, readWeb } from './web-source'
 
-const WEB_ROOT = join(__dirname, '..', '..')
-const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
+const read = (path: string) => readWeb(path)
 
 function fieldLabel(source: string, required: boolean, text: string): boolean {
   const flag = required ? 'required(?:=\\{true\\})?' : 'required=\\{false\\}'
@@ -37,7 +37,7 @@ describe('form label convention: every input says (required) * or (optional)', (
 
   it('the demo merchant marks its custom tip amount optional', () => {
     const tip = readFileSync(
-      join(WEB_ROOT, '..', 'demo-merchant', 'src', 'components', 'TipWidget.tsx'),
+      join(REPO, 'apps', 'demo-merchant', 'src', 'components', 'TipWidget.tsx'),
       'utf8',
     )
     expect(tip).toMatch(/htmlFor="custom"[\s\S]{0,200}\(optional\)/u)

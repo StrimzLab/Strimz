@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { OG_IMAGE } from '@/lib/seo'
+import { OG_IMAGE } from '@strimz/web-shared/lib/seo'
 import { SectionBoundary } from '@/components/marketing/fx/section-boundary'
 import { Closing } from '@/components/marketing/home/closing'
 import { CaseStudiesSection } from '@/components/marketing/use-cases/case-studies-section'

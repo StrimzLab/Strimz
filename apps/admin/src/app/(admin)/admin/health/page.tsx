@@ -2,8 +2,8 @@
 
 import { Card, CardContent } from '@strimz/ui'
 
-import { PageHeader } from '@/components/dashboard/page-header'
-import { relativeTime } from '@/lib/format'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import { relativeTime } from '@strimz/web-shared/lib/format'
 import { useAdminHealth } from '@/hooks/admin'
 
 export default function AdminHealthPage() {

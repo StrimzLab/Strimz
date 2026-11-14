@@ -1,14 +1,12 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { readWeb, webExists } from './web-source'
 
-const WEB_ROOT = join(__dirname, '..', '..')
-const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
+const read = (path: string) => readWeb(path)
 const LOGIN = 'src/app/(admin-auth)/admin/login/page.tsx'
 
 describe('admin sign-in', () => {
   it('has its own page outside the admin shell', () => {
-    expect(existsSync(join(WEB_ROOT, LOGIN))).toBe(true)
+    expect(webExists(LOGIN)).toBe(true)
   })
 
   it('never creates a merchant or routes through onboarding', () => {

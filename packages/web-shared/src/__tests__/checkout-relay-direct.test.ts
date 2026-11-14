@@ -1,16 +1,17 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { readWeb, webTree } from './web-source'
 
-const WEB_ROOT = fileURLToPath(new URL('../..', import.meta.url))
+const WEB_ROOT = webTree()
 const SELF = fileURLToPath(import.meta.url)
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name)
     if (statSync(path).isDirectory()) return sourceFiles(path)
-    return /\.(ts|tsx|mjs|js)$/u.test(name) && path !== SELF ? [path] : []
+    return /\.(ts|tsx|mjs|js)$/u.test(name) && realpathSync(path) !== SELF ? [path] : []
   })
 }
 
@@ -37,7 +38,7 @@ describe('hosted checkout relay', () => {
 
   it('sends both hooks through the public checkout relay client', () => {
     for (const hook of ['use-pay-checkout.ts', 'use-subscription-checkout.ts']) {
-      const source = readFileSync(join(WEB_ROOT, 'src/hooks', hook), 'utf8')
+      const source = readWeb(join('src/hooks', hook))
       expect(source, hook).toContain('submitCheckoutRelay(')
       expect(source, hook).toContain('checkoutSubmissionUrl(')
     }

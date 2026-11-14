@@ -4,7 +4,7 @@
 
 import * as React from 'react'
 import { SplitText } from 'gsap/SplitText'
-import { gsap, useGSAP } from '../motion/gsap'
+import { gsap, useGSAP } from '@strimz/web-shared/components/marketing/motion/gsap'
 
 gsap.registerPlugin(SplitText)
 

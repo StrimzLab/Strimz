@@ -25,11 +25,12 @@ import {
 } from '@strimz/ui'
 import menuIcon from '@iconify-icons/solar/hamburger-menu-linear'
 import arrowIcon from '@iconify-icons/solar/arrow-right-linear'
-import { Logo } from '@/components/shared/logo'
+import { Logo } from '@strimz/web-shared/components/shared/logo'
 import { MkIcon } from './icon'
 import { PopLink } from './fx/pop-button'
 import { NAV_GROUPS, NAV_LINKS, type NavGroup, type NavItem } from './nav-data'
 import { panelAnchor } from './nav-panel'
+import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 
 const TOP_ITEM =
   'font-poppins text-muted-foreground hover:text-foreground data-[state=open]:text-foreground aria-[current=page]:text-foreground focus-visible:ring-accent relative whitespace-nowrap rounded-full px-3 py-2 text-[15px] xl:px-4 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2'
@@ -157,13 +158,17 @@ export function MarketingNav() {
         </NavigationMenu>
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
-            href="/login"
+            href={`${siteUrls.dashboard}/login`}
             className="font-poppins text-foreground focus-visible:ring-accent hidden whitespace-nowrap rounded-full px-2 text-[15px] font-medium focus-visible:outline-none focus-visible:ring-2 sm:inline"
           >
             Sign in
           </Link>
           <ThemeToggle />
-          <PopLink href="/signup" size="sm" className="hidden whitespace-nowrap sm:inline-flex">
+          <PopLink
+            href={`${siteUrls.dashboard}/signup`}
+            size="sm"
+            className="hidden whitespace-nowrap sm:inline-flex"
+          >
             Start free
           </PopLink>
           <Sheet open={open} onOpenChange={setOpen}>
@@ -210,23 +215,28 @@ export function MarketingNav() {
                   ))}
                 </Accordion>
                 <ul className="mt-2 space-y-1">
-                  {[...NAV_LINKS, { href: '/login', label: 'Sign in' }].map((l) => (
-                    <li key={l.href}>
-                      <SheetClose asChild>
-                        <Link
-                          href={l.href}
-                          aria-current={isCurrent(pathname, l.href) ? 'page' : undefined}
-                          className="font-sora text-foreground block py-3 text-3xl font-semibold tracking-[-0.03em]"
-                        >
-                          {l.label}
-                        </Link>
-                      </SheetClose>
-                    </li>
-                  ))}
+                  {[...NAV_LINKS, { href: `${siteUrls.dashboard}/login`, label: 'Sign in' }].map(
+                    (l) => (
+                      <li key={l.href}>
+                        <SheetClose asChild>
+                          <Link
+                            href={l.href}
+                            aria-current={isCurrent(pathname, l.href) ? 'page' : undefined}
+                            className="font-sora text-foreground block py-3 text-3xl font-semibold tracking-[-0.03em]"
+                          >
+                            {l.label}
+                          </Link>
+                        </SheetClose>
+                      </li>
+                    ),
+                  )}
                 </ul>
               </nav>
               <SheetClose asChild>
-                <PopLink href="/signup" className="mt-10 flex w-full text-base">
+                <PopLink
+                  href={`${siteUrls.dashboard}/signup`}
+                  className="mt-10 flex w-full text-base"
+                >
                   Start free
                 </PopLink>
               </SheetClose>

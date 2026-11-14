@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { REPO, readWeb } from './web-source'
 
-const WEB_ROOT = join(__dirname, '..', '..')
-const REPO_ROOT = join(WEB_ROOT, '..', '..')
-const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
+const REPO_ROOT = REPO
+const read = (path: string) => readWeb(path)
 const BAR = 'src/components/dashboard/filter-bar'
 
 describe('filter bar', () => {

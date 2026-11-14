@@ -36,21 +36,21 @@ import {
   type ApiKeyScope,
 } from '@strimz/shared-types'
 
-import { PageHeader } from '@/components/dashboard/page-header'
-import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import { DataTable, StatusPill } from '@strimz/web-shared/components/dashboard/data-table'
 import {
   MultiSelectFilter,
   filterOptions,
   useTableFilters,
-} from '@/components/dashboard/filter-bar'
-import { multiFilter } from '@/lib/table-filters'
-import { useDashboardMode } from '@/lib/dashboard-mode'
-import { relativeTime } from '@/lib/format'
-import { revokeApiKeyConfirm } from '@/lib/destructive-actions'
+} from '@strimz/web-shared/components/dashboard/filter-bar'
+import { multiFilter } from '@strimz/web-shared/lib/table-filters'
+import { useDashboardMode } from '@strimz/web-shared/lib/dashboard-mode'
+import { relativeTime } from '@strimz/web-shared/lib/format'
+import { revokeApiKeyConfirm } from '@strimz/web-shared/lib/destructive-actions'
 import {
   ConfirmActionDialog,
   type PendingConfirm,
-} from '@/components/dashboard/confirm-action-dialog'
+} from '@strimz/web-shared/components/dashboard/confirm-action-dialog'
 import {
   serverRowsOf,
   useApiKeyPages,

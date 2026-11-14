@@ -1,10 +1,10 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { REPO, webTree } from './web-source'
 
-const WEB_ROOT = fileURLToPath(new URL('../..', import.meta.url))
-const REPO_ROOT = join(WEB_ROOT, '../..')
+const WEB_ROOT = webTree()
+const REPO_ROOT = REPO
 const UI_ROOT = join(REPO_ROOT, 'packages/ui')
 
 const SCANNED_DIRS = [
@@ -155,11 +155,18 @@ describe('every surface renders the theme toggle', () => {
     expect(docs).not.toMatch(/theme=\{\{\s*enabled:\s*false\s*\}\}/)
   })
 
-  it('the root layout mounts the theme provider with the shared storage key', () => {
-    const layout = read(join(WEB_ROOT, 'src/app/layout.tsx'))
-    expect(layout).toMatch(/<ThemeProvider\b/)
-    expect(layout).toMatch(/storageKey=\{THEME_STORAGE_KEY\}/)
+  it('the root shell mounts the theme provider with the shared storage key', () => {
+    const shell = read(join(WEB_ROOT, 'src/components/root-shell.tsx'))
+    expect(shell).toMatch(/<ThemeProvider\b/)
+    expect(shell).toMatch(/storageKey=\{THEME_STORAGE_KEY\}/)
   })
+
+  it.each(['web', 'docs', 'dashboard', 'admin', 'checkout'])(
+    'apps/%s renders its pages inside the root shell',
+    (app) => {
+      expect(read(join(REPO, 'apps', app, 'src/app/layout.tsx'))).toMatch(/<RootShell\b/)
+    },
+  )
 })
 
 describe('third-party widgets follow the active theme', () => {

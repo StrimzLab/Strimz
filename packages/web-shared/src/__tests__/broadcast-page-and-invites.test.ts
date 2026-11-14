@@ -1,11 +1,9 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import type { MerchantApiClient } from '@/lib/merchant-api/client'
-import { NotificationsResource } from '@/lib/merchant-api/resources/notifications'
+import type { MerchantApiClient } from '../lib/merchant-api/client'
+import { NotificationsResource } from '../lib/merchant-api/resources/notifications'
+import { readWeb, webExists } from './web-source'
 
-const WEB_ROOT = join(__dirname, '..', '..')
-const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
+const read = (path: string) => readWeb(path)
 const PAGE = 'src/app/(dashboard)/app/notifications/[id]/page.tsx'
 
 // ADR-2026-11-13-broadcast-page-and-dev-invites.
@@ -18,7 +16,7 @@ describe('broadcast page', () => {
   })
 
   it('exists where the tray links and renders only the API-cleaned html', () => {
-    expect(existsSync(join(WEB_ROOT, PAGE))).toBe(true)
+    expect(webExists(PAGE)).toBe(true)
     const page = read(PAGE)
     expect(page).toMatch(/useNotificationBroadcast\(/u)
     const raw = page.match(/dangerouslySetInnerHTML=\{\{ __html: ([^}]+) \}\}/gu) ?? []

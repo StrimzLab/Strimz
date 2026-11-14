@@ -19,6 +19,7 @@ import plugIcon from '@iconify-icons/solar/plug-circle-linear'
 import routeIcon from '@iconify-icons/solar/routing-2-linear'
 import infoIcon from '@iconify-icons/solar/info-circle-linear'
 import letterIcon from '@iconify-icons/solar/letter-linear'
+import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 
 import { USE_CASES, type UseCaseId } from './use-cases/data'
 
@@ -118,31 +119,31 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     label: 'Developers',
     items: [
       {
-        href: '/docs',
+        href: `${siteUrls.docs}/docs`,
         label: 'Documentation',
         description: 'Guides for the dashboard, checkout and billing.',
         icon: bookIcon,
       },
       {
-        href: '/docs/quickstart',
+        href: `${siteUrls.docs}/docs/quickstart`,
         label: 'Quickstart',
         description: 'Take a first test payment in a few minutes.',
         icon: rocketIcon,
       },
       {
-        href: '/docs/sdks',
+        href: `${siteUrls.docs}/docs/sdks`,
         label: 'SDKs',
         description: 'The server SDK and the React pay button.',
         icon: codeIcon,
       },
       {
-        href: '/docs/api/overview',
+        href: `${siteUrls.docs}/docs/api/overview`,
         label: 'API reference',
         description: 'Every resource, with requests and responses.',
         icon: docIcon,
       },
       {
-        href: '/docs/webhooks',
+        href: `${siteUrls.docs}/docs/webhooks`,
         label: 'Webhooks',
         description: 'Signed events for every payment and charge.',
         icon: plugIcon,

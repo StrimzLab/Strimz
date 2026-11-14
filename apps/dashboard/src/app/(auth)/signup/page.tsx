@@ -8,8 +8,9 @@ import {
   PrivyContinueButton,
   UnconfiguredContinueButton,
 } from '@/components/auth/privy-continue-button'
-import { safeNextPath, withNext } from '@/lib/auth-redirect'
-import { env } from '@/lib/env'
+import { safeNextPath, withNext } from '@strimz/web-shared/lib/auth-redirect'
+import { env } from '@strimz/web-shared/lib/env'
+import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 
 export default function SignupPage() {
   return (
@@ -42,7 +43,7 @@ function Signup() {
       <p className="font-poppins text-muted-foreground mt-6 text-center text-xs">
         By continuing you agree to our{' '}
         <Link
-          href="/legal/terms"
+          href={`${siteUrls.site}/legal/terms`}
           target="_blank"
           rel="noreferrer"
           className="underline underline-offset-2"
@@ -51,7 +52,7 @@ function Signup() {
         </Link>{' '}
         and{' '}
         <Link
-          href="/legal/privacy"
+          href={`${siteUrls.site}/legal/privacy`}
           target="_blank"
           rel="noreferrer"
           className="underline underline-offset-2"

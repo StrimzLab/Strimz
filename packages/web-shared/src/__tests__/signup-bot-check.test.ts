@@ -1,11 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-
-const WEB_ROOT = join(__dirname, '..', '..')
+import { readWeb, webExists } from './web-source'
 
 function read(path: string): string {
-  return readFileSync(join(WEB_ROOT, path), 'utf8')
+  return readWeb(path)
 }
 
 describe('signup bot check', () => {
@@ -21,6 +18,6 @@ describe('signup bot check', () => {
   })
 
   it('no longer serves the web Turnstile verify route', () => {
-    expect(existsSync(join(WEB_ROOT, 'src/app/api/auth/turnstile/verify/route.ts'))).toBe(false)
+    expect(webExists('src/app/api/auth/turnstile/verify/route.ts')).toBe(false)
   })
 })

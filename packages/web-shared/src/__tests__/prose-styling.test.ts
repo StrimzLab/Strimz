@@ -1,9 +1,9 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { REPO, readWeb, webTree } from './web-source'
 
-const WEB_ROOT = fileURLToPath(new URL('../..', import.meta.url))
+const WEB_ROOT = webTree()
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -25,13 +25,15 @@ describe('prose styling', () => {
   })
 
   it('has the typography plugin installed and registered', () => {
-    const pkg = JSON.parse(readFileSync(join(WEB_ROOT, 'package.json'), 'utf8')) as {
+    const pkg = JSON.parse(
+      readFileSync(join(REPO, 'packages/web-shared/package.json'), 'utf8'),
+    ) as {
       dependencies?: Record<string, string>
       devDependencies?: Record<string, string>
     }
     const deps = { ...pkg.dependencies, ...pkg.devDependencies }
     expect(deps['@tailwindcss/typography']).toBeDefined()
-    const css = readFileSync(join(WEB_ROOT, 'src/styles/globals.css'), 'utf8')
+    const css = readWeb('src/styles/globals.css')
     expect(css).toMatch(/@plugin\s+['"]@tailwindcss\/typography['"]/u)
     expect(css).toMatch(/@utility\s+prose-strimz\s*\{/u)
   })
@@ -39,7 +41,7 @@ describe('prose styling', () => {
   it.each(users.map((file) => relative(WEB_ROOT, file)))(
     '%s uses the Strimz prose theme',
     (file) => {
-      const source = readFileSync(join(WEB_ROOT, file), 'utf8')
+      const source = readWeb(file)
       expect(source).toContain('prose-strimz')
       expect(source).not.toMatch(/prose-(neutral|gray|slate|zinc|stone)\b/u)
     },

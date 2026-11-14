@@ -13,9 +13,13 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from '@strimz/ui'
-import type { AdminMerchantListItem, Broadcast, BroadcastAudience } from '@/lib/admin-api'
+import type {
+  AdminMerchantListItem,
+  Broadcast,
+  BroadcastAudience,
+} from '@strimz/web-shared/lib/admin-api'
 
-import { PageHeader } from '@/components/dashboard/page-header'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { RichTextEditor } from '@/components/admin/rich-text-editor'
 import { useAdminBroadcasts, useAdminMerchants, useCreateBroadcast } from '@/hooks/admin'
 

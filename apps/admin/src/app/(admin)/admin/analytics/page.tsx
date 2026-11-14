@@ -14,12 +14,12 @@ import {
 } from 'recharts'
 import { Card, CardContent } from '@strimz/ui'
 
-import { PageHeader } from '@/components/dashboard/page-header'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import type { Mode, PaymentCurrency } from '@strimz/shared-types'
 import { SegmentedToggle } from '@/components/shared/segmented-toggle'
-import { useDashboardMode } from '@/lib/dashboard-mode'
-import { formatTokenAmount } from '@/lib/format'
-import { formatCurrencyAmounts } from '@/lib/currency-totals'
+import { useDashboardMode } from '@strimz/web-shared/lib/dashboard-mode'
+import { formatTokenAmount } from '@strimz/web-shared/lib/format'
+import { formatCurrencyAmounts } from '@strimz/web-shared/lib/currency-totals'
 import { CURRENCY_OPTIONS, MODE_OPTIONS, pivotVolumeByCurrency } from '@/lib/admin-volume'
 import {
   useAdminOverview,

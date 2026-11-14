@@ -15,11 +15,15 @@ import {
 } from 'recharts'
 import { Button, Card, CardContent } from '@strimz/ui'
 
-import { PageHeader } from '@/components/dashboard/page-header'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { KpiCard } from '@/components/dashboard/kpi-card'
 import { stagger, inViewOnce } from '@/lib/motion'
-import { formatTokenAmount, tokenAmountToNumber } from '@/lib/format'
-import { bucketVolumeDays, formatCurrencyAmounts, utcDayStart } from '@/lib/currency-totals'
+import { formatTokenAmount, tokenAmountToNumber } from '@strimz/web-shared/lib/format'
+import {
+  bucketVolumeDays,
+  formatCurrencyAmounts,
+  utcDayStart,
+} from '@strimz/web-shared/lib/currency-totals'
 import { homeCards, summaryValue } from '@/lib/stats-summary'
 import { paymentCurrencies } from '@strimz/shared-types'
 import { useDashboardTour } from '@/hooks/use-dashboard-tour'

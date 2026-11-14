@@ -5,25 +5,18 @@ import { describe, expect, it } from 'vitest'
 import { CODE_TABS, DEV_LINKS } from '@/components/marketing/home/developers-data'
 import { FOOTER_COLUMNS } from '@/components/marketing/footer-data'
 import { NAV_GROUPS } from '@/components/marketing/nav-data'
+import { appLink, dashboardRouteExists, docExists } from './app-links'
 
 const WEB_ROOT = join(__dirname, '..', '..')
 const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
-const DOCS = join(WEB_ROOT, 'content/docs')
-
-function docExists(href: string) {
-  const rest = href.replace(/^\/docs\/?/u, '').split('#')[0] ?? ''
-  if (!rest) return existsSync(join(DOCS, 'index.mdx'))
-  return existsSync(join(DOCS, `${rest}.mdx`)) || existsSync(join(DOCS, rest, 'index.mdx'))
-}
-
 function resolves(href: string) {
-  if (href.startsWith('http')) return true
-  if (href.startsWith('/docs')) return docExists(href)
-  const path = href.split('#')[0] || '/'
+  const link = appLink(href)
+  if (link.app === 'external') return true
+  if (link.app === 'docs') return docExists(link.path)
+  if (link.app === 'dashboard') return dashboardRouteExists(link.path)
+  const path = link.path.split('#')[0] || '/'
   const route = path === '/' ? 'page.tsx' : `${path.slice(1)}/page.tsx`
-  return [`src/app/(marketing)/${route}`, `src/app/(auth)/${route}`].some((p) =>
-    existsSync(join(WEB_ROOT, p)),
-  )
+  return existsSync(join(WEB_ROOT, `src/app/(marketing)/${route}`))
 }
 
 describe('compact developer band (#279)', () => {
@@ -35,7 +28,9 @@ describe('compact developer band (#279)', () => {
     expect(existsSync(join(WEB_ROOT, 'src/components/marketing/fx/typing-keyboard.tsx'))).toBe(
       false,
     )
-    expect(read('src/styles/globals.css')).not.toMatch(/--tk-|\.tk-/u)
+    expect(
+      readFileSync(join(WEB_ROOT, '../../packages/web-shared/src/styles/globals.css'), 'utf8'),
+    ).not.toMatch(/--tk-|\.tk-/u)
   })
 
   it('keeps each code tab short', () => {
@@ -46,7 +41,11 @@ describe('compact developer band (#279)', () => {
 
   it('links the three ways in to docs pages that exist', () => {
     expect(DEV_LINKS).toHaveLength(3)
-    for (const l of DEV_LINKS) expect(docExists(l.href), l.href).toBe(true)
+    for (const l of DEV_LINKS) {
+      const link = appLink(l.href)
+      expect(link.app, l.href).toBe('docs')
+      expect(docExists(link.path), l.href).toBe(true)
+    }
   })
 })
 

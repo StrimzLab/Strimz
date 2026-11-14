@@ -1,9 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { readWeb, webTree } from './web-source'
 
-const WEB_ROOT = join(__dirname, '..', '..')
-const read = (path: string) => readFileSync(join(WEB_ROOT, path), 'utf8')
+const WEB_ROOT = webTree()
+const read = (path: string) => readWeb(path)
 
 describe('agent escrow is hidden for launch', () => {
   const agents = read('src/app/(dashboard)/app/agents/page.tsx')

@@ -6,21 +6,21 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { Button } from '@strimz/ui'
 import type { SubscriptionPlan, SubscriptionPlanStatus } from '@strimz/shared-types'
 
-import { PageHeader } from '@/components/dashboard/page-header'
-import { DataTable, StatusPill } from '@/components/dashboard/data-table'
+import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
+import { DataTable, StatusPill } from '@strimz/web-shared/components/dashboard/data-table'
 import {
   MultiSelectFilter,
   filterOptions,
   useTableFilters,
-} from '@/components/dashboard/filter-bar'
+} from '@strimz/web-shared/components/dashboard/filter-bar'
 import { NewPlanDialog } from '@/components/dashboard/plans/new-plan-dialog'
-import { TokenLogo } from '@/components/shared/token-logo'
-import { relativeTime } from '@/lib/format'
-import type { LoadedRows } from '@/lib/cursor-pages'
+import { TokenLogo } from '@strimz/web-shared/components/shared/token-logo'
+import { relativeTime } from '@strimz/web-shared/lib/format'
+import type { LoadedRows } from '@strimz/web-shared/lib/cursor-pages'
 import { planPriceLabel } from '@/lib/plans-view'
 import { serverRowsOf, useSubscriptionPlanPages } from '@/hooks/api'
 import { EMPTY_STATES } from '@/lib/empty-states'
-import { multiFilter } from '@/lib/table-filters'
+import { multiFilter } from '@strimz/web-shared/lib/table-filters'
 
 const STATUSES: readonly SubscriptionPlanStatus[] = ['active', 'archived']
 const STATUS_OPTIONS = filterOptions(STATUSES, { active: 'positive', archived: 'neutral' })
