@@ -153,8 +153,9 @@ Two processes hold a signing key, each with narrow on-chain roles. The
 relayer inside `apps/api` submits payer-signed payments and enrolments and
 registers merchants. The scheduler charges due subscriptions, cancels them,
 and moves merchants between fee tiers inside the cap fixed at registration.
-Both refuse to start in production without AWS KMS, so neither key sits in
-process memory there. Neither key can redirect a payment, change what a
+On mainnet both refuse to start without a hardware-backed signer. On
+testnet they run with plain keys kept in the server's `.env` (mode 600).
+Neither key can redirect a payment, change what a
 payer signed, pause a contract or withdraw fees: those sit with the Safe.
 The agent holds no key at all.
 
@@ -304,7 +305,7 @@ refund, webhook. We use it ourselves.
 
 ### Live demo
 
-[Fanline](https://strimz-fanline.vercel.app) is a sample creator platform
+[Fanline](https://fanline.strimz.finance) is a sample creator platform
 (`apps/demo-merchant`) wired to Strimz end to end: tip a creator with a
 one-shot payment, or subscribe to a tier — both hand off to Strimz hosted
 checkout on Arc testnet.
@@ -341,19 +342,25 @@ production merchants.
 
 ## Repo layout
 
-Turborepo monorepo. Apps under `apps/` — `web` (Next.js dashboard,
-checkout, marketing), `api` (NestJS HTTP), `indexer` (Go), `scheduler`
-(NestJS workers), `agent` (NestJS), and `demo-merchant` (a sample dApp) —
-plus a `packages/contracts` Foundry workspace. Shared SDKs and brand UI
-live under `packages/`. Each app has its own README with run instructions.
+Turborepo monorepo. Apps under `apps/`:
+
+- Next.js frontends, each its own Cloudflare Worker: `web` (marketing),
+  `docs`, `dashboard` (merchants), `admin` and `checkout`
+  (`docs/runbooks/cloudflare-workers.md`).
+- `api` (NestJS HTTP), `indexer` (Go), `scheduler` (NestJS workers),
+  `agent` (NestJS).
+- `demo-merchant`, a sample dApp.
+
+`packages/contracts` is the Foundry workspace. Shared SDKs, brand UI and
+code the frontends share (`web-shared`) live under `packages/`.
 
 ---
 
 ## Links
 
 - Marketing: [strimz.finance](https://strimz.finance)
-- Docs: [strimz docs](https://strimz.finance/docs)
-- Live demo: [Fanline](https://strimz-fanline.vercel.app) (sample integration)
+- Docs: [strimz docs](https://docs.strimz.finance/docs)
+- Live demo: [Fanline](https://fanline.strimz.finance) (sample integration)
 - Email: support@strimz.finance
 
 ---
