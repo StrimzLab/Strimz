@@ -1,12 +1,12 @@
-export function inviteAcceptUrl(dashboardUrl: string, token: string): string {
-  return `${dashboardUrl.replace(/\/+$/, '')}/admin/accept-invite?token=${encodeURIComponent(token)}`
+export function inviteAcceptUrl(adminUrl: string, token: string): string {
+  return `${adminUrl.replace(/\/+$/, '')}/admin/accept-invite?token=${encodeURIComponent(token)}`
 }
 
 // Lets local and staging setups accept invites without email. Never in production.
 export function inviteAcceptUrlForResponse(
   nodeEnv: string,
-  dashboardUrl: string,
+  adminUrl: string,
   token: string,
 ): string | undefined {
-  return nodeEnv === 'production' ? undefined : inviteAcceptUrl(dashboardUrl, token)
+  return nodeEnv === 'production' ? undefined : inviteAcceptUrl(adminUrl, token)
 }

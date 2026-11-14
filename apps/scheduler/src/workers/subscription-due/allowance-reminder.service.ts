@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import type { Prisma, Subscription } from '@strimz/db'
-import { PayerAllowanceRenewalEmail, STRIMZ_ORIGIN, renderToHtml } from '@strimz/email-templates'
+import { PayerAllowanceRenewalEmail, renderToHtml } from '@strimz/email-templates'
 import { getTokenAddress } from '@strimz/shared-config'
 import { formatUnits, type Address } from 'viem'
 
@@ -81,7 +81,7 @@ export class AllowanceReminderService {
           merchantBusinessName: row.merchant.businessName ?? 'Your merchant',
           planName: row.plan.name,
           amountDisplay: `${formatUnits(BigInt(sub.amount), 6)} ${sub.currency}`,
-          renewUrl: `${process.env.STRIMZ_DASHBOARD_URL ?? STRIMZ_ORIGIN}/sub/renew/${sub.id}`,
+          renewUrl: `${this.cfg.env.CHECKOUT_ORIGIN.replace(/\/+$/, '')}/sub/renew/${sub.id}`,
         }),
       )
       await this.email.send({
