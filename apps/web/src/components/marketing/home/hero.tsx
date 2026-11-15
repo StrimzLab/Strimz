@@ -161,7 +161,7 @@ export function Hero() {
               className="relative w-full max-w-[560px] [transform-style:preserve-3d]"
             >
               <DashboardPreview />
-              <div className="pointer-events-none absolute inset-0 rounded-[14px]">
+              <div className="pointer-events-none absolute inset-0 z-10 rounded-[14px]">
                 <BorderBeam size={180} duration={10} />
               </div>
             </div>
