@@ -11,5 +11,7 @@
   "preview_urls": false,
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "observability": { "enabled": true },
+  // Dashboard-only vars are dropped when Workers Builds redeploys, so the API URL lives here.
+  "vars": { "STRIMZ_API_URL": "https://api.strimz.finance" },
   "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "strimz-fanline" }],
 }

@@ -66,7 +66,10 @@ export function ProCard() {
               ))}
             </ul>
             {error && (
-              <p role="alert" className="mt-6 rounded-lg bg-red-500/15 p-2 text-xs text-red-300">
+              <p
+                role="alert"
+                className="bg-brand-500/15 text-brand-200 dark:text-brand-700 mt-6 rounded-lg p-2 text-xs"
+              >
                 {error}
               </p>
             )}
