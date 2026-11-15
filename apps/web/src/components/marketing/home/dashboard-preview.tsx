@@ -665,7 +665,7 @@ function FloatingChips({ sceneIndex }: { sceneIndex: number }) {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -8, opacity: 0 }}
           transition={{ duration: 0.35 }}
-          className="bg-card absolute -top-4 right-2 hidden items-center gap-2 rounded-full px-3 py-2 shadow-[0_15px_30px_-10px_rgba(5,0,32,0.25)] ring-1 ring-black/5 sm:flex md:right-4"
+          className="bg-card absolute -top-4 right-2 z-20 hidden items-center gap-2 rounded-full px-3 py-2 shadow-[0_15px_30px_-10px_rgba(5,0,32,0.25)] ring-1 ring-black/5 sm:flex md:right-4"
         >
           <span className="relative flex size-2">
             <span className="bg-accent/60 absolute inline-flex h-full w-full animate-ping rounded-full" />
@@ -687,7 +687,7 @@ function FloatingChips({ sceneIndex }: { sceneIndex: number }) {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 8, opacity: 0 }}
           transition={{ duration: 0.35, delay: 0.05 }}
-          className="bg-ink absolute -bottom-4 left-2 hidden items-center gap-2 rounded-full px-3 py-2 shadow-[0_15px_30px_-10px_rgba(5,0,32,0.4)] sm:flex md:left-4"
+          className="bg-ink absolute -bottom-4 left-2 z-20 hidden items-center gap-2 rounded-full px-3 py-2 shadow-[0_15px_30px_-10px_rgba(5,0,32,0.4)] sm:flex md:left-4"
         >
           <Wallet className="text-brand-text size-3.5" />
           <span className="font-mono text-[10px] font-[500] text-white md:text-[11px]">
