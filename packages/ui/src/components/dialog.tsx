@@ -41,7 +41,7 @@ export const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'border-border bg-card fixed left-1/2 top-1/2 z-[80] grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 grid-cols-[minmax(0,1fr)] gap-4 rounded-[14px] border p-6 shadow-[0_25px_50px_-12px_rgba(5,0,32,0.25)]',
+        'border-border bg-card fixed left-1/2 top-1/2 z-[80] grid max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 grid-cols-[minmax(0,1fr)] gap-4 overflow-y-auto overscroll-contain rounded-[14px] border p-6 shadow-[0_25px_50px_-12px_rgba(5,0,32,0.25)]',
         'transition-[opacity,transform] duration-200',
         'data-[state=closed]:scale-95 data-[state=open]:scale-100 data-[state=closed]:opacity-0 data-[state=open]:opacity-100',
         className,
@@ -65,7 +65,10 @@ DialogHeader.displayName = 'DialogHeader'
 
 export const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
-    className={cn('flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', className)}
+    className={cn(
+      'bg-card sticky -bottom-6 -mx-6 -mb-6 flex flex-col-reverse gap-2 px-6 pb-6 pt-2 sm:flex-row sm:justify-end',
+      className,
+    )}
     {...props}
   />
 )

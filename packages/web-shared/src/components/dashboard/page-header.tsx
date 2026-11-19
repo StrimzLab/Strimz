@@ -28,7 +28,7 @@ export function PageHeader({
               href={`${siteUrls.docs}/docs/dashboard/${docsSlug}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
+              className="text-brand-text focus-visible:ring-ring inline-flex items-center gap-1 rounded-sm text-xs font-medium underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2"
               aria-label={`Learn about ${title}`}
             >
               <HelpCircle className="size-3.5" />

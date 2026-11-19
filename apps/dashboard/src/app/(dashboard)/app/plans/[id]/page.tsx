@@ -17,6 +17,7 @@ import { EditReturnUrlsDialog } from '@/components/dashboard/plans/edit-return-u
 import { archivePlanConfirm } from '@strimz/web-shared/lib/destructive-actions'
 import { formatTokenAmount, relativeTime, shortAddress } from '@strimz/web-shared/lib/format'
 import { billingLabel, planPriceLabel } from '@/lib/plans-view'
+import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 import { useArchiveSubscriptionPlan, useSubscriptionPlan, useSubscriptions } from '@/hooks/api'
 
 export default function PlanDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -25,12 +26,6 @@ export default function PlanDetailPage({ params }: { params: Promise<{ id: strin
   const subscriptionsQuery = useSubscriptions({ planId: id, limit: 25 })
   const archiveMutation = useArchiveSubscriptionPlan()
   const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
-  const [origin, setOrigin] = React.useState('')
-
-  React.useEffect(() => {
-    setOrigin(window.location.origin)
-  }, [])
-
   if (isPending) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
@@ -49,7 +44,7 @@ export default function PlanDetailPage({ params }: { params: Promise<{ id: strin
     )
   }
 
-  const signUpUrl = `${origin}/sub/${plan.id}`
+  const signUpUrl = `${siteUrls.checkout}/sub/${plan.id}`
   const buttonSnippet = `<StrimzSubscribeButton planId="${plan.id}" onSuccess={({ subscriptionId }) => {}} />`
   const subscriptions = subscriptionsQuery.data?.data ?? []
 

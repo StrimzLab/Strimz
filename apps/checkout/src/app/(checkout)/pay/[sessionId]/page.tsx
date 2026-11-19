@@ -1,7 +1,9 @@
 'use client'
 
 import { use, useEffect, useState } from 'react'
-import { useAccount, useDisconnect } from 'wagmi'
+import { useAccount, useDisconnect, useReadContract } from 'wagmi'
+import { erc20Abi } from 'viem'
+import { chainIdFor } from '@strimz/shared-config'
 import { useAppKit } from '@reown/appkit/react'
 import { useRefreshWhile } from '@/hooks/use-refresh-while'
 import { Loader2, ShieldCheck, Wallet } from 'lucide-react'
@@ -27,6 +29,7 @@ import { attachSessionPayer } from '@/lib/checkout-payer'
 import { busyLabel, phaseLine } from '@/lib/checkout-copy'
 import { attachError, payerError } from '@/lib/payer-errors'
 import { usePayCheckout, type PayPhase } from '@/hooks/use-pay-checkout'
+import { payerBalance } from '@/lib/payer-balance'
 import { useCheckoutHost } from '@/hooks/use-checkout-host'
 import {
   buildReturnUrl,
@@ -103,6 +106,21 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
   )
   const amountBaseUnits = session ? BigInt(session.amount) : 0n
   const amountDisplay = formatAmount(amountBaseUnits, tokenMeta?.decimals ?? 6)
+
+  const balanceQuery = useReadContract({
+    address: tokenMeta?.address as `0x${string}` | undefined,
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    chainId: chainIdFor(env.arcEnvironment),
+    query: { enabled: Boolean(address && tokenMeta), refetchInterval: 5_000 },
+  })
+  const funds = payerBalance({
+    balance: balanceQuery.data,
+    amount: amountBaseUnits,
+    decimals: tokenMeta?.decimals ?? 6,
+    symbol: tokenMeta?.symbol ?? session?.currency ?? 'USDC',
+  })
 
   const pay = usePayCheckout({
     sessionId,
@@ -260,7 +278,7 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
                   onReady: () => void pay.submit(),
                 })
               }
-              disabled={!env.paymentsAddress || attaching}
+              disabled={!env.paymentsAddress || attaching || funds.state !== 'enough'}
             >
               {attaching ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -269,6 +287,13 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
               )}
               Pay {amountDisplay} {symbol}
             </SubmitButton>
+            {funds.state === 'short' ? (
+              <p role="status" className="text-warning text-center text-xs">
+                {funds.message}
+              </p>
+            ) : funds.state === 'unknown' ? (
+              <p className="text-muted-foreground text-center text-xs">Checking your balance…</p>
+            ) : null}
           </>
         )}
 
