@@ -76,7 +76,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
   const copyLink = async () => {
     if (!invoice.sessionId) return
-    const url = `${window.location.origin}/pay/${invoice.sessionId}`
+    const url = `${siteUrls.checkout}/pay/${invoice.sessionId}`
     await navigator.clipboard.writeText(url)
     toast.success('Payment link copied')
   }

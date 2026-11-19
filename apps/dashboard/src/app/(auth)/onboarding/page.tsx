@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Sparkles } from 'lucide-react'
-import { FieldLabel, Input, Label } from '@strimz/ui'
+import { FieldLabel, Input } from '@strimz/ui'
 import type { OnboardMerchantInput } from '@strimz/shared-types'
 import { SubmitButton } from '@strimz/web-shared/components/auth/submit-button'
 import { ImageUpload } from '@/components/dashboard/image-upload'
@@ -174,16 +174,11 @@ export default function OnboardingPage() {
           />
         </Field>
 
-        <div>
-          <Label className="mb-1.5 inline-flex items-center gap-1">Your payout wallet</Label>
-          <div className="border-border bg-muted/30 text-foreground flex items-center rounded-md border px-3 py-2 font-mono text-xs">
-            {payoutAddress || 'Preparing your Strimz-embedded wallet…'}
-          </div>
-          <p className="text-muted-foreground mt-1 text-xs">
-            USDC settlements arrive here. You can route payouts to a treasury or Safe later from
-            Settings, with a 24-hour on-chain safety delay.
+        {!payoutAddress && (
+          <p role="status" className="text-muted-foreground text-xs">
+            Setting up your Strimz wallet…
           </p>
-        </div>
+        )}
 
         <SubmitButton
           type="submit"

@@ -1,12 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getAccount, getBytecode } from '@wagmi/core'
+import { getAccount, getBytecode, readContract } from '@wagmi/core'
 import { useAccount, useConfig, useSignTypedData, useSwitchChain } from 'wagmi'
 import { buildPayIntentTypedData, buildReceiveWithAuthorizationTypedData } from '@strimz/sdk/eip712'
 import type { TokenMetadata } from '@strimz/shared-types'
 import { checkoutPaymentNonce } from '@strimz/shared-crypto/checkout'
-import { stringToHex } from 'viem'
+import { erc20Abi, stringToHex } from 'viem'
 
 import {
   checkoutSubmissionUrl,
@@ -17,6 +17,7 @@ import {
 import { prepareArcSigning } from '@strimz/web-shared/lib/arc-network'
 import { env } from '@strimz/web-shared/lib/env'
 import { walletSignature } from '@/lib/wallet-signature'
+import { PAYER_MESSAGES } from '@/lib/payer-errors'
 
 /**
  * One-shot payment flow on the hosted checkout.
@@ -149,6 +150,21 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
       // returning), but the shared-types schema models it as `string`.
       // The cast is safe given that validation.
       const tokenAddress = tokenMeta.address as `0x${string}`
+
+      const balance = await readContract(config, {
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: [address],
+      })
+      if (balance < amount) {
+        setState((s) => ({
+          ...s,
+          phase: 'failed',
+          error: PAYER_MESSAGES.insufficient_balance_payment ?? null,
+        }))
+        return
+      }
 
       const authTypedData = buildReceiveWithAuthorizationTypedData({
         chainId,
