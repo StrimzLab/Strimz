@@ -19,7 +19,10 @@ export { buildPermitTypedData, PERMIT_TYPES, type PermitParams } from './permit.
 export { buildPayIntentTypedData, PAY_INTENT_TYPES, type PayIntentParams } from './pay-intent.js'
 
 export {
+  buildCancelSubscriptionTypedData,
   buildSubscriptionIntentTypedData,
+  CANCEL_SUBSCRIPTION_TYPES,
   SUBSCRIPTION_INTENT_TYPES,
+  type CancelSubscriptionParams,
   type SubscriptionIntentParams,
 } from './subscription-intent.js'

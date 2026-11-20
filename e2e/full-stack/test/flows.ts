@@ -178,6 +178,7 @@ export async function signEnrolment(
     buildSubscriptionIntentTypedData({
       chainId: ARC_TESTNET_CHAIN_ID,
       verifyingContract: deployment.subscriptions,
+      payer: payer.address,
       merchantId,
       token: deployment.usdc,
       amount,

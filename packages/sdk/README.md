@@ -174,11 +174,12 @@ For a full hosted-checkout UX with components and hooks, use
 
 `@strimz/sdk/eip712` builds the typed data a wallet signs:
 `buildReceiveWithAuthorizationTypedData`, `buildPermitTypedData`,
-`buildPayIntentTypedData` and `buildSubscriptionIntentTypedData`, with
-their `*_TYPES` constants. Hosted checkout uses them; you only need
+`buildPayIntentTypedData`, `buildSubscriptionIntentTypedData` and
+`buildCancelSubscriptionTypedData`, with their `*_TYPES` constants. Hosted checkout uses them; you only need
 them if you build your own signing UI.
 
-A `SubscriptionIntent` carries the permit's `permitValue` and a `nonce`.
+A `SubscriptionIntent` names the `payer` and carries the permit's
+`permitValue` and a `nonce`.
 When you relay an enrolment through Strimz, the nonce must be
 `subscriptionIntentNonce(planId, payer, permitNonce)` from
 `@strimz/shared-crypto`, where `permitNonce` is the token's

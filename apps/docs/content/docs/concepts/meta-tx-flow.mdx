@@ -101,6 +101,9 @@ Two independent checks run on-chain.
    came from.
    - For a payment, the intent's `nonce` is the same nonce the token
      authorization burns, so the two signatures are bound together.
+   - For a subscription, the intent names the paying wallet, so one
+     signature can't enrol a second wallet controlled by the same key.
+     It also stops working after the permit's deadline.
    - For a subscription, the intent's `nonce` is spent once on chain.
      The hosted checkout uses
      `subscriptionIntentNonce(planId, payer, permitNonce)` from

@@ -57,7 +57,8 @@ interface IStrimzSubscriptions {
         address token,
         uint256 amount,
         uint32 interval,
-        uint64 startAt
+        uint64 startAt,
+        bytes32 intentNonce
     );
 
     event SubscriptionCharged(
@@ -77,6 +78,8 @@ interface IStrimzSubscriptions {
 
     event SubscriptionCancelled(uint256 indexed subscriptionId, address indexed by);
     event SubscriptionReinstated(uint256 indexed subscriptionId, address indexed by);
+    /// @notice The payer cancelled a subscription an operator had already cancelled, so it can't be reinstated.
+    event SubscriptionCancelConfirmedByPayer(uint256 indexed subscriptionId, address indexed payer);
     event TokensRescued(address indexed token, address indexed to, uint256 amount, address indexed by);
 
     error Subscriptions__InvalidToken(address token);
@@ -99,6 +102,9 @@ interface IStrimzSubscriptions {
     error Subscriptions__ReinstateWindowClosed(uint256 subscriptionId);
     /// @notice A payer without code sent a permit signature that isn't 65 bytes.
     error Subscriptions__InvalidSignature();
+    error Subscriptions__PermitExpired(uint256 deadline);
+    error Subscriptions__CancelExpired(uint256 deadline);
+    error Subscriptions__InvalidCancelSignature();
 
     /// @param merchantId The merchant the subscription bills to.
     /// @param token ERC20 token address — must be whitelisted.
@@ -146,6 +152,9 @@ interface IStrimzSubscriptions {
 
     /// @notice Callable by the payer, the merchant owner, or a SUBSCRIPTION_CANCELLER_ROLE holder cancelling for the merchant.
     function cancel(uint256 subscriptionId) external;
+
+    /// @notice Cancels as the payer, from their EIP-712 `CancelSubscription` signature. Anyone may submit it.
+    function cancelWithSig(uint256 subscriptionId, uint256 deadline, bytes calldata signature) external;
 
     /// @notice Undoes a SUBSCRIPTION_CANCELLER_ROLE cancel within `REINSTATE_WINDOW`. ADMIN_ROLE only.
     function reinstate(uint256 subscriptionId) external;

@@ -32,8 +32,9 @@ Send the customer to the checkout link. They connect a wallet, see
 
 1. An EIP-2612 `Permit` that gives the `StrimzSubscriptions` contract
    an allowance on their USDC.
-2. A Strimz `SubscriptionIntent` that binds the plan, amount, interval
-   and start time they agreed to.
+2. A Strimz `SubscriptionIntent` that binds the paying wallet, the plan,
+   amount, interval and start time they agreed to. It can't be used after
+   the permit's deadline, even if the wallet already has an allowance.
 
 Strimz's relayer submits both in one `permitAndCreateSubscription`
 transaction. That transaction creates the subscription and moves no
@@ -107,3 +108,7 @@ Strimz charges a per-transaction fee on every charge based on your tier. For a S
 - Merchant receives: **19.90 USDC**
 
 The fee is taken on chain, in the same transaction as the charge, by `StrimzSubscriptions`. There's no separate invoicing. Your dashboard's MRR view shows both gross and net.
+
+### How fees can change
+
+Strimz may raise its fee, for example when network costs go up. It can never go above your account's fee ceiling, which the Registry contract stores and enforces, and no ceiling can be higher than 5%. Your ceiling and current fee are in [Settings](/docs/dashboard/settings). An increase that Strimz schedules automatically takes effect 24 hours after it's scheduled, and every change is recorded on chain.

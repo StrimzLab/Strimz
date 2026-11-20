@@ -66,6 +66,7 @@ interface IStrimzRegistry {
     error Registry__OwnershipTransferNotDue();
     error Registry__NoPendingFeeChange();
     error Registry__FeeChangeNotDue();
+    error Registry__OwnershipTransferPending();
 
     // solhint-disable-next-line func-name-mixedcase
     // forge-lint: disable-next-line(mixed-case-function)

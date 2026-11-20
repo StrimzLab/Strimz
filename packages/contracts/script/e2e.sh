@@ -323,10 +323,10 @@ RECEIPT=$(send_as_capture "$STRIMZ_DEPLOYER_PRIVATE_KEY" \
     "($PAYER,$PERMIT_VALUE,$DEADLINE)" \
     "$(packed_sig "$PV" "$PR" "$PS")" "$(packed_sig "$SV" "$SR" "$SS")")
 
-# SubscriptionCreated(subscriptionId indexed, merchantId indexed, payer indexed, token, amount, interval, endAt).
+# SubscriptionCreated(subscriptionId indexed, merchantId indexed, payer indexed, token, amount, interval, startAt, intentNonce).
 # topic[0] = signature hash, topic[1] = subscriptionId. Pull it straight out
 # of the receipt the previous call already returned.
-SUB_SIG=$("$CAST" keccak "SubscriptionCreated(uint256,uint256,address,address,uint256,uint32,uint64)")
+SUB_SIG=$("$CAST" keccak "SubscriptionCreated(uint256,uint256,address,address,uint256,uint32,uint64,bytes32)")
 SUB_TOPIC1=$(printf '%s' "$RECEIPT" \
     | jq -r --arg sig "$SUB_SIG" \
         '.logs[] | select(.topics[0] == $sig) | .topics[1]' \

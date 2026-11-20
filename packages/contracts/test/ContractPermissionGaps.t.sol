@@ -153,23 +153,21 @@ contract ContractPermissionGapsTest is StrimzTestBase {
         assertEq(logs[0].topics[0], IStrimzRegistry.MerchantOwnershipTransferAccepted.selector);
     }
 
-    function test_acceptanceEmitsPayoutCancellationBeforeAcceptance() public {
+    function test_transferStartCancelsPendingPayoutChangeFirst() public {
         address next = makeAddr("next");
-        vm.startPrank(merchant);
+        vm.prank(merchant);
         registry.setPayoutAddress(merchantId, makeAddr("previousOwnerPick"));
-        registry.transferMerchantOwnership(merchantId, next);
-        vm.stopPrank();
-        vm.warp(block.timestamp + registry.PAYOUT_CHANGE_DELAY());
 
         vm.recordLogs();
-        vm.prank(next);
-        registry.acceptMerchantOwnership(merchantId);
+        vm.prank(merchant);
+        registry.transferMerchantOwnership(merchantId, next);
 
         Vm.Log[] memory logs = vm.getRecordedLogs();
         assertEq(logs.length, 2);
         assertEq(logs[0].topics[0], IStrimzRegistry.MerchantPayoutChangeCancelled.selector);
         assertEq(logs[0].topics[1], bytes32(merchantId));
-        assertEq(logs[1].topics[0], IStrimzRegistry.MerchantOwnershipTransferAccepted.selector);
+        assertEq(logs[1].topics[0], IStrimzRegistry.MerchantOwnershipTransferInitiated.selector);
+        assertEq(registry.getMerchant(merchantId).pendingPayoutAddress, address(0));
     }
 
     function test_adminCancelsPendingPayoutChange() public {

@@ -26,6 +26,7 @@ interface IPayIntentDigest {
 
 interface ISubscriptionIntentDigest {
     function subscriptionIntentDigest(
+        address payer,
         uint256 merchantId,
         address token,
         uint256 amount,
@@ -119,7 +120,7 @@ contract Digests is Script {
     ) external view {
         bytes32 digest = ISubscriptionIntentDigest(vm.envAddress("STRIMZ_SUBSCRIPTIONS_ADDRESS"))
             .subscriptionIntentDigest(
-                merchantId, vm.envAddress("ARC_USDC_ADDRESS"), amount, interval, startAt, endAt, permitDeadline, permitValue, nonce
+                vm.addr(vm.envUint("STRIMZ_PAYER_PRIVATE_KEY")), merchantId, vm.envAddress("ARC_USDC_ADDRESS"), amount, interval, startAt, endAt, permitDeadline, permitValue, nonce
             );
         _emitSig(digest);
     }
