@@ -70,7 +70,7 @@ draft  →  sent  →  paid
                overdue  →  void
 ```
 
-An hourly scheduler job flips `sent` invoices past `dueAt` to `overdue` and fires `invoice.overdue`. Any invoice that isn't paid can be voided.
+An hourly scheduler job flips `sent` invoices past `dueAt` to `overdue` and fires `invoice.overdue`. An overdue invoice can still be paid: its checkout link stays open for a year after `dueAt`. Any invoice that isn't paid can be voided.
 
 ## Webhook events
 
