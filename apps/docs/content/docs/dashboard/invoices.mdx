@@ -47,7 +47,7 @@ Click any row. You'll see:
 
 **Paid.** The indexer detected a matching on-chain payment. `invoice.paid` webhook fires. A payer-side receipt goes out via the payer notifier cron. The row locks — you can no longer edit line items.
 
-**Overdue.** The due date passed without payment. Strimz emails you (and optionally the client) via the merchant notifier cron. The status is informational — the pay link keeps working.
+**Overdue.** The due date passed without payment. Strimz emails you (and optionally the client) via the merchant notifier cron. The status is informational. The pay link keeps working for a year after the due date; void the invoice to close it sooner.
 
 **Void.** You cancelled it. Pay link returns an error; no further status changes are possible.
 
