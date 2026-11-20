@@ -654,8 +654,9 @@ rotation on Payments or Subscriptions is one batch: `pause()`, the setter, `unpa
 The Registry decides the fee every payment pays. The plans are in
 `packages/shared-config/src/tiers.ts`: Free 0 bps, Starter 50 bps, Growth 40 bps, and
 Enterprise by contract. Every merchant registers at its plan fee with a ceiling
-(`maxFeeBps`) of 50 bps, the highest plan fee. No role can set a fee above the ceiling,
-and nothing lowers it.
+(`maxFeeBps`) of 500 bps (`MERCHANT_FEE_CEILING_BPS`, equal to `MAX_FEE_BPS`). No role can
+set a fee above the ceiling, and nothing changes it. Merchants are promised 30 days' email
+notice before any increase that isn't a plan change, so send a raise only after that notice.
 
 Free, Starter and Growth follow the merchant's all-time volume and are not set by hand.
 The admin page only moves a merchant to Enterprise, for a signed contract:

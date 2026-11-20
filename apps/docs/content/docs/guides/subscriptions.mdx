@@ -111,4 +111,8 @@ The fee is taken on chain, in the same transaction as the charge, by `StrimzSubs
 
 ### How fees can change
 
-Strimz may raise its fee, for example when network costs go up. It can never go above your account's fee ceiling, which the Registry contract stores and enforces, and no ceiling can be higher than 5%. Your ceiling and current fee are in [Settings](/docs/dashboard/settings). An increase that Strimz schedules automatically takes effect 24 hours after it's scheduled, and every change is recorded on chain.
+Your fee follows your plan. Strimz may raise it, for example when network costs go up, but never above your account's fee ceiling: 5%, stored and enforced by the Registry contract and fixed when your account registers. Your ceiling and current fee are in [Settings](/docs/dashboard/settings).
+
+- Moving between Free, Starter and Growth follows the published plans. That change takes effect 24 hours after it's scheduled.
+- Any other increase comes with at least 30 days' notice by email.
+- Every change is recorded on chain.

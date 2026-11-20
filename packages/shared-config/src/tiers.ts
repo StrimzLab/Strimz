@@ -72,6 +72,9 @@ export const PLAN_FEE_CEILING_BPS: number = Math.max(
   ...VOLUME_PLANS.map((plan) => PLANS[plan].feeBps ?? 0),
 )
 
+// Matches the registry's MAX_FEE_BPS. A merchant's ceiling is fixed at registration.
+export const MERCHANT_FEE_CEILING_BPS = 500
+
 export function planFeeBps(plan: MerchantTier): number | null {
   return PLANS[plan].feeBps
 }
