@@ -142,6 +142,7 @@ export async function signEnrolment(
   amount: bigint,
   intervalSeconds: number,
   signer: Signer = defaultSigner(),
+  permitValue: bigint = maxUint256,
 ) {
   const payer = signer.account
   const token = await usdcMeta()
@@ -168,7 +169,7 @@ export async function signEnrolment(
       tokenVersion: token.version,
       owner: payer.address,
       spender: deployment.subscriptions,
-      value: maxUint256,
+      value: permitValue,
       nonce: permitNonce,
       deadline,
     }),
@@ -184,7 +185,7 @@ export async function signEnrolment(
       startAt,
       endAt,
       permitDeadline: deadline,
-      permitValue: maxUint256,
+      permitValue,
       nonce,
     }),
   )
@@ -199,7 +200,7 @@ export async function signEnrolment(
     nonce,
     permitData: {
       owner: payer.address,
-      value: maxUint256.toString(),
+      value: permitValue.toString(),
       deadline: deadline.toString(),
     },
     permitSignature,

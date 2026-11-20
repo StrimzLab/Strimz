@@ -45,6 +45,7 @@ const ENDPOINT_EVENTS: WebhookEventName[] = [
   'payment_completed',
   'subscription_created',
   'subscription_charged',
+  'subscription_charge_failed',
   'subscription_cancelled',
   'refund_completed',
 ]
