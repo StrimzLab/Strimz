@@ -10,6 +10,9 @@ import { MerchantChainService } from '../merchants/merchant-chain.service.js'
 import { feeSplit } from '../../common/money/fee-split.js'
 import { anyOf } from '../../common/schemas/list-query.js'
 
+// Overdue invoices stay payable; voiding closes the link sooner.
+const PAYABLE_AFTER_DUE_MS = 365 * 86_400_000
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 @Injectable()
@@ -60,7 +63,7 @@ export class InvoicesService {
           description: `Invoice ${number}`,
           checkoutUrl: '',
           mode,
-          expiresAt: dueAt,
+          expiresAt: new Date(dueAt.getTime() + PAYABLE_AFTER_DUE_MS),
         },
       })
       await tx.paymentSession.update({

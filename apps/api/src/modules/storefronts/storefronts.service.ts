@@ -254,13 +254,7 @@ export class StorefrontsService {
     await this.paymentSessions.prepareMerchant(sf.merchantId)
     const session = await this.prisma.db.$transaction(async (tx) => {
       if (product.stock !== null) {
-        // Decrement stock atomically. Race-safe under concurrent buys —
-        // `stock: { decrement: 1 }` translates to `UPDATE ... SET stock =
-        // stock - 1`, not a check-then-write. The sold-out gate above
-        // handles the visible case; concurrent buys of the last unit will
-        // result in one row landing at -1 rather than a conflict, and the
-        // scheduler's fulfilment cron treats <=0 as sold-out on the next
-        // tick. Merchants can always top the stock back up.
+        // One conditional UPDATE, so concurrent buys of the last unit can't both win.
         const { count } = await tx.storefrontProduct.updateMany({
           where: { id: product.id, stock: { gt: 0 } },
           data: { stock: { decrement: 1 } },

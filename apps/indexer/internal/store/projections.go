@@ -268,6 +268,17 @@ func (s *Store) InsertOneShotTransaction(ctx context.Context, in OneShotTxInput)
 				*sessionID, in.OnchainTxHash, in.PayerAddress); err != nil {
 				return fmt.Errorf("confirm session: %w", err)
 			}
+			// Expiry and cancel gave the reserved unit back; the sale still happened.
+			if session.status == "expired" || session.status == "cancelled" {
+				if _, err := tx.Exec(ctx, `
+					UPDATE "StorefrontProduct"
+					   SET stock = stock - 1, "updatedAt" = NOW()
+					 WHERE id = (SELECT "storefrontProductId" FROM "PaymentSession" WHERE id = $1)
+					   AND stock IS NOT NULL`,
+					*sessionID); err != nil {
+					return fmt.Errorf("retake storefront stock: %w", err)
+				}
+			}
 			// Checkout can bind the customer while this transaction is open; the
 			// confirm above holds the session lock, so read it again now.
 			if _, err := tx.Exec(ctx, `

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { seedApiKey, seedMerchant } from '../helpers/fixtures.js'
@@ -16,6 +16,10 @@ describe('invoices e2e', () => {
   beforeEach(async () => {
     await truncateAll(t.prisma.db)
     t.email.reset()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   async function authed() {
@@ -155,5 +159,28 @@ describe('invoices e2e', () => {
     const numbers = responses.map((r) => JSON.parse(r.body).number as string).sort()
     const year = new Date().getFullYear()
     expect(numbers).toEqual([`${year}-0001`, `${year}-0002`, `${year}-0003`])
+  })
+  it('keeps an overdue invoice payable after its due date', async () => {
+    const { k } = await authed()
+    const create = await t.inject({
+      method: 'POST',
+      url: '/v1/invoices',
+      headers: { authorization: `Bearer ${k.secretKey}` },
+      payload: {
+        currency: 'USDC',
+        lineItems: [{ description: 'Hosting', quantity: 1, unitAmount: '50000000' }],
+        dueInDays: 1,
+      },
+    })
+    expect(create.statusCode).toBe(201)
+    const invoice = JSON.parse(create.body) as { sessionId: string; dueAt: string }
+
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.parse(invoice.dueAt) + 2 * 86_400_000 })
+    const bind = await t.inject({
+      method: 'POST',
+      url: `/v1/checkout/sessions/${invoice.sessionId}/payer`,
+      payload: { email: 'client@buyer.test', walletAddress: `0x${'d'.repeat(40)}` },
+    })
+    expect(bind.statusCode).toBe(201)
   })
 })
