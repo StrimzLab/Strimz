@@ -29,6 +29,19 @@
     "clean": {
       "cache": false
     },
+    "@strimz/db#typecheck": {
+      "dependsOn": ["build"],
+      "outputs": ["*.tsbuildinfo"]
+    },
+    "@strimz/db#lint": {
+      "dependsOn": ["build"],
+      "outputs": []
+    },
+    "@strimz/db#test": {
+      "dependsOn": ["build"],
+      "outputs": ["coverage/**"],
+      "cache": false
+    },
     "db:generate": {
       "cache": false
     },
