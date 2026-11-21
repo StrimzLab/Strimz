@@ -69,7 +69,7 @@ describe('auditMerchantTiers', () => {
         tierChange('m_custom', 'enterprise', '2026-10-01T00:00:00Z'),
       ],
       registry: new Map([
-        ['1', { feeBps: 0, maxFeeBps: 50 }],
+        ['1', { feeBps: 50, maxFeeBps: 500 }],
         ['2', { feeBps: 0, maxFeeBps: 0 }],
         ['3', { feeBps: 20, maxFeeBps: 50 }],
       ]),
@@ -80,9 +80,9 @@ describe('auditMerchantTiers', () => {
         merchantId: 'm_ok',
         onchainMerchantId: '1',
         tier: 'free',
-        tierFeeBps: 0,
-        onchainFeeBps: 0,
-        maxFeeBps: 50,
+        tierFeeBps: 50,
+        onchainFeeBps: 50,
+        maxFeeBps: 500,
         flags: [],
       },
       {

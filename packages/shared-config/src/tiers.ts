@@ -79,6 +79,18 @@ export function planFeeBps(plan: MerchantTier): number | null {
   return PLANS[plan].feeBps
 }
 
+/**
+ * The fee the Registry charges. Free merchants pay the Starter fee on chain, and
+ * Strimz refunds it on each business's first 1,000 of volume per currency
+ * (ADR-2026-11-21-free-plan-fee-integrity).
+ */
+export function onchainFeeBps(plan: MerchantTier): number | null {
+  return plan === 'free' ? PLANS.starter.feeBps : PLANS[plan].feeBps
+}
+
+/** Volume per currency, in whole units, whose fees Strimz refunds for each business. */
+export const FREE_ALLOWANCE_UNITS: number = PLANS.starter.entersAtVolume ?? 0
+
 export function planIncludes(plan: MerchantTier, feature: PlanFeature): boolean {
   return PLANS[plan].features.includes(feature)
 }

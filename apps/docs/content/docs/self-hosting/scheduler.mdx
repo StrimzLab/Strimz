@@ -46,6 +46,10 @@ SCHEDULER_KMS_KEY_ID=...
 SCHEDULER_SIGNER_ADDRESS=0x...
 AWS_REGION=us-east-1
 
+REFUND_SIGNER_PROVIDER=aws-kms
+REFUND_KMS_KEY_ID=...
+REFUND_SIGNER_ADDRESS=0x...
+
 STRIMZ_WEBHOOK_SIGNING_SECRET=...
 WEBHOOK_SECRET_ENCRYPTION_KEY=...
 STRIMZ_ADMIN_ALERT_EMAIL=ops@your-domain.com
@@ -55,6 +59,15 @@ STRIMZ_ADMIN_ALERT_EMAIL=ops@your-domain.com
 `WEBHOOK_SECRET_ENCRYPTION_KEY` is 64 hex characters and must match the
 API's value exactly. `ARC_ENVIRONMENT` is required when
 `NODE_ENV=production`.
+
+The refund wallet (`REFUND_*`) pays back the fee on each business's first
+1,000 per currency ([Fees and your free $1,000](/docs/concepts/fees)). It
+must be its own key, not the scheduler's or the relayer's, and it holds no
+contract roles. On testnet `REFUND_SIGNER_PROVIDER=software` with
+`REFUND_PRIVATE_KEY` is allowed; mainnet requires AWS KMS. Keep a small
+float of USDC and EURC in it, topped up from the FeeCollector by a Safe
+withdrawal. On Arc it also pays its own gas in USDC. The gas-balance monitor
+watches it, and the refund job emails ops when it can't pay.
 
 Optional, with their defaults:
 
@@ -70,6 +83,7 @@ PLAN_UPGRADE_CRON=0 */5 * * * *
 CONTRACT_ALERT_CRON=0 * * * * *
 FEE_DRIFT_CRON=0 */5 * * * *
 GAS_BALANCE_CRON=0 */15 * * * *
+FEE_REFUND_CRON=0 */15 * * * *
 MERCHANT_NOTIFICATION_CRON=*/30 * * * * *
 
 RESEND_API_KEY=...

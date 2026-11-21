@@ -5,7 +5,7 @@ import {
   type Hex,
   type TransactionReceipt,
 } from 'viem'
-import { MERCHANT_FEE_CEILING_BPS, planFeeBps, type MerchantTier } from '@strimz/shared-config'
+import { MERCHANT_FEE_CEILING_BPS, onchainFeeBps, type MerchantTier } from '@strimz/shared-config'
 
 import { registerMerchantAbi } from './registry.abi.js'
 
@@ -33,7 +33,7 @@ export function registrationGaps(m: RegistrationCandidate): string[] {
 }
 
 function registrationFeeBps(tier: MerchantTier): number {
-  const feeBps = planFeeBps(tier)
+  const feeBps = onchainFeeBps(tier)
   if (feeBps === null) {
     throw new Error(`the ${tier} plan has no fixed fee to register with`)
   }

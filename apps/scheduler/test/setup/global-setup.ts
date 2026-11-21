@@ -82,6 +82,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   process.env.SESSION_EXPIRY_CRON = '0 0 0 1 1 *'
   process.env.SUBSCRIPTION_LAPSED_CRON = '0 0 0 1 1 *'
   process.env.REFUND_RECONCILER_CRON = '0 0 0 1 1 *'
+  process.env.FEE_REFUND_CRON = '0 0 0 1 1 *'
   process.env.SUBSCRIPTION_SWEEP_LIMIT = '100'
   process.env.SUBSCRIPTION_BATCH_SIZE = '20'
   process.env.RESEND_FROM_EMAIL = 'noreply@strimz.test'

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { pathToFileURL } from 'node:url'
 import { createPublicClient, http, isAddress, parseAbi } from 'viem'
-import { DEFAULT_TIER, PLAN_FEE_CEILING_BPS, planFeeBps } from '@strimz/shared-config'
+import { DEFAULT_TIER, PLAN_FEE_CEILING_BPS, onchainFeeBps } from '@strimz/shared-config'
 import { print } from './print.mjs'
 
 const registryAbi = parseAbi([
@@ -46,7 +46,7 @@ function nonFreeRow(merchant, lastChange) {
 }
 
 function registeredRow(merchant, record) {
-  const tierFeeBps = planFeeBps(merchant.tier)
+  const tierFeeBps = onchainFeeBps(merchant.tier)
   const flags = []
   if (tierFeeBps !== null && record.feeBps !== tierFeeBps) flags.push('fee_mismatch')
   if (tierFeeBps !== null && record.feeBps < tierFeeBps) flags.push('fee_below_tier')

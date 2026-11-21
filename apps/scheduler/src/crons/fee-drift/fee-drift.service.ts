@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
-import { getArcChain, planFeeBps, type MerchantTier } from '@strimz/shared-config'
+import { getArcChain, onchainFeeBps, type MerchantTier } from '@strimz/shared-config'
 
 import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
@@ -63,7 +63,7 @@ export class FeeDriftService {
 
     let drifted = 0
     for (const m of merchants) {
-      const planFee = planFeeBps(m.tier)
+      const planFee = onchainFeeBps(m.tier)
       const onchainFee = m.onchainFeeBps
       const changedAt = m.onchainFeeChangedAt
       const txHash = m.onchainFeeTxHash

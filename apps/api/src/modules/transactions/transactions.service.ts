@@ -9,7 +9,10 @@ export class TransactionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async retrieve(merchantId: string, mode: Mode, id: string): Promise<Transaction> {
-    const row = await this.prisma.db.transaction.findFirst({ where: { id, merchantId, mode } })
+    const row = await this.prisma.db.transaction.findFirst({
+      where: { id, merchantId, mode },
+      include: FEE_REFUND,
+    })
     if (!row) throw new NotFoundException({ code: 'not_found', message: 'transaction not found' })
     return serialise(row)
   }
@@ -40,6 +43,7 @@ export class TransactionsService {
         customerId: params.customerId,
         blockTimestamp: params.blockTimestamp,
       },
+      include: FEE_REFUND,
       orderBy: { blockTimestamp: 'desc' },
       take: limit + 1,
       ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
@@ -50,12 +54,26 @@ export class TransactionsService {
   }
 }
 
+const FEE_REFUND = {
+  feeRefund: {
+    select: { amount: true, status: true, transfer: { select: { txHash: true } } },
+  },
+} as const
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function serialise(row: any): Transaction {
+  const { feeRefund, ...rest } = row
   return {
-    ...row,
+    ...rest,
     blockNumber: Number(row.blockNumber),
     blockTimestamp: row.blockTimestamp.toISOString(),
     createdAt: row.createdAt.toISOString(),
+    feeRefund: feeRefund
+      ? {
+          amount: feeRefund.amount,
+          status: feeRefund.status,
+          txHash: feeRefund.transfer?.txHash ?? null,
+        }
+      : null,
   }
 }

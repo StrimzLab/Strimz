@@ -44,23 +44,26 @@ export function seedTransaction(
     amount: string
     currency: PaymentCurrency
     mode: Mode
+    feeAmount: string
+    blockTimestamp: Date
   }> = {},
 ): Promise<any> {
   const amount = overrides.amount ?? '1000000'
+  const feeAmount = overrides.feeAmount ?? '0'
   return prisma.transaction.create({
     data: {
       merchantId,
       kind: overrides.kind ?? 'one_shot',
       status: overrides.status ?? 'confirmed',
       amount,
-      feeAmount: '0',
-      netAmount: amount,
+      feeAmount,
+      netAmount: String(BigInt(amount) - BigInt(feeAmount)),
       currency: overrides.currency ?? 'USDC',
       payerAddress: '0x000000000000000000000000000000000000cafe',
       merchantAddress: '0x000000000000000000000000000000000000beef',
       onchainTxHash: `0x${randomBytes(32).toString('hex')}`,
       blockNumber: 1n,
-      blockTimestamp: new Date(),
+      blockTimestamp: overrides.blockTimestamp ?? new Date(),
       logIndex: 0,
       mode: overrides.mode ?? 'test',
     },

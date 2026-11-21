@@ -5,6 +5,8 @@ import { ChainService } from '../../src/infra/chain/chain.service.js'
 import { EmailService } from '../../src/infra/email/email.service.js'
 import { PrismaService } from '../../src/infra/prisma/prisma.service.js'
 import { WebhookTargetPolicy } from '../../src/infra/webhook-transport/webhook-target-policy.js'
+import { RefundChainService } from '../../src/infra/refund-chain/refund-chain.service.js'
+import { StubRefundChainService } from './stubs/refund-chain.stub.js'
 import { StubChainService } from './stubs/chain.stub.js'
 import { StubEmailService } from './stubs/email.stub.js'
 import { StubWebhookTargetPolicy } from './stubs/webhook-target-policy.stub.js'
@@ -15,6 +17,7 @@ export interface TestApp {
   chain: StubChainService
   email: StubEmailService
   webhookTargets: StubWebhookTargetPolicy
+  refundChain: StubRefundChainService
   close: () => Promise<void>
 }
 
@@ -27,6 +30,7 @@ export async function createTestApp(): Promise<TestApp> {
   const stubChain = new StubChainService()
   const stubEmail = new StubEmailService()
   const stubWebhookTargets = new StubWebhookTargetPolicy()
+  const stubRefundChain = new StubRefundChainService()
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(ChainService)
@@ -35,6 +39,8 @@ export async function createTestApp(): Promise<TestApp> {
     .useValue(stubEmail)
     .overrideProvider(WebhookTargetPolicy)
     .useValue(stubWebhookTargets)
+    .overrideProvider(RefundChainService)
+    .useValue(stubRefundChain)
     .compile()
 
   const app = moduleRef.createNestApplication<NestFastifyApplication>(new FastifyAdapter())
@@ -47,6 +53,7 @@ export async function createTestApp(): Promise<TestApp> {
     chain: stubChain,
     email: stubEmail,
     webhookTargets: stubWebhookTargets,
+    refundChain: stubRefundChain,
     close: async () => {
       await app.close()
     },

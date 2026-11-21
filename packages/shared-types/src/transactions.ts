@@ -28,6 +28,14 @@ export type TransactionKind = z.infer<typeof transactionKindSchema>
 export const transactionStatusSchema = z.enum(['pending', 'confirmed', 'failed'])
 export type TransactionStatus = z.infer<typeof transactionStatusSchema>
 
+/** The 0.5% fee Strimz pays back on a business's first 1,000 per currency. */
+export const transactionFeeRefundSchema = z.object({
+  amount: tokenAmountSchema,
+  status: z.enum(['pending', 'sending', 'refunded']),
+  txHash: evmTxHashSchema.nullable(),
+})
+export type TransactionFeeRefund = z.infer<typeof transactionFeeRefundSchema>
+
 export const transactionSchema = z.object({
   id: idSchema,
   merchantId: idSchema,
@@ -48,5 +56,6 @@ export const transactionSchema = z.object({
   blockNumber: z.number().int().nonnegative(),
   blockTimestamp: isoTimestampSchema,
   createdAt: isoTimestampSchema,
+  feeRefund: transactionFeeRefundSchema.nullable().optional(),
 })
 export type Transaction = z.infer<typeof transactionSchema>

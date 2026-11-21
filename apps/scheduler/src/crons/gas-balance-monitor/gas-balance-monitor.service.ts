@@ -7,6 +7,7 @@ import { TypedConfigService } from '../../config/index.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { RedisService } from '../../infra/redis/redis.service.js'
+import { RefundChainService } from '../../infra/refund-chain/refund-chain.service.js'
 
 /**
  * Gas-balance monitor.
@@ -35,6 +36,7 @@ export class GasBalanceMonitorService {
     private readonly chain: ChainService,
     private readonly email: EmailService,
     private readonly redis: RedisService,
+    private readonly refundChain: RefundChainService,
   ) {}
 
   @Cron(process.env.GAS_BALANCE_CRON || '0 */15 * * * *', { name: 'gas-balance-monitor' })
@@ -48,6 +50,10 @@ export class GasBalanceMonitorService {
       { role: 'relayer', address: this.cfg.env.RELAYER_ADDRESS as Address },
       { role: 'scheduler', address: this.chain.account.address },
     ]
+    // Pays fee refunds and, on Arc, its own gas in USDC.
+    if (this.refundChain.address) {
+      watchlist.push({ role: 'refund', address: this.refundChain.address })
+    }
 
     const usdc = this.cfg.env.ARC_USDC_ADDRESS as Address
     const thresholdRaw = BigInt(Math.floor(this.cfg.env.GAS_BALANCE_THRESHOLD_USDC * 1_000_000))

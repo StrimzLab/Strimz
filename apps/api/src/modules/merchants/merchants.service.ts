@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common'
 import { erc20Abi, formatUnits, getAddress } from 'viem'
 import type { Merchant, MerchantBalanceView, UpdateMerchantParsed } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
@@ -95,6 +95,26 @@ export class MerchantsService {
     }
   }
 
+  // The Registry pays the on-chain payout address. Once registered, only the 24-hour
+  // on-chain rotation may change it; the indexer mirrors it here.
+  private async assertPayoutUnchangedOnceRegistered(
+    id: string,
+    payoutAddress: string | undefined,
+  ): Promise<void> {
+    if (payoutAddress === undefined) return
+    const m = await this.prisma.db.merchant.findUniqueOrThrow({
+      where: { id },
+      select: { onchainMerchantId: true, payoutAddress: true },
+    })
+    if (m.onchainMerchantId === null) return
+    if (m.payoutAddress?.toLowerCase() === payoutAddress.toLowerCase()) return
+    throw new ConflictException({
+      code: 'payout_change_onchain',
+      message:
+        'this account is registered on chain; change the payout address from Settings, which waits 24 hours',
+    })
+  }
+
   // Fallthrough helpers appended at end of file.
 
   async findById(id: string): Promise<Merchant> {
@@ -104,6 +124,7 @@ export class MerchantsService {
   }
 
   async update(id: string, input: UpdateMerchantParsed): Promise<Merchant> {
+    await this.assertPayoutUnchangedOnceRegistered(id, input.payoutAddress)
     let metadata: unknown = input.metadata
     if (input.emailPrefs) {
       const existing = await this.prisma.db.merchant.findUniqueOrThrow({
@@ -140,6 +161,7 @@ export class MerchantsService {
    * the onboarding wizard.
    */
   async onboard(id: string, input: OnboardInput): Promise<Merchant> {
+    await this.assertPayoutUnchangedOnceRegistered(id, input.payoutAddress)
     const updated = await this.prisma.db.merchant.update({
       where: { id },
       data: {

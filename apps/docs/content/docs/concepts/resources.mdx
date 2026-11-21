@@ -58,7 +58,7 @@ A confirmed on-chain payment. There are several kinds:
 | `subscription_charge` | Scheduler successfully charged a sub |
 | `refund`              | A refund tx was confirmed            |
 
-`Transaction.amount` is in smallest token units (USDC has 6 decimals). `feeAmount` is the Strimz platform fee at the merchant's tier. `netAmount` is what landed in the merchant's payout wallet.
+`Transaction.amount` is in smallest token units (USDC has 6 decimals). `feeAmount` is the Strimz fee the contract took. `netAmount` is what landed in the merchant's payout wallet. `feeRefund` is set when the payment falls inside the business's free 1,000: `{ amount, status, txHash }`, with `status` going `pending`, `sending`, then `refunded` ([Fees and your free $1,000](/docs/concepts/fees)).
 
 ## Refund
 

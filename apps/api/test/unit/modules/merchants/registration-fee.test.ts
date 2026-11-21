@@ -22,8 +22,10 @@ function registerArgs(tier: MerchantTier) {
 }
 
 describe('registerMerchant call', () => {
-  it('registers a Free merchant at 0 bps with a 500 bps ceiling and no parent', () => {
-    expect(registerArgs('free')).toEqual([WALLET, PAYOUT, 0, 500, 0n])
+  // ADR-2026-11-21-free-plan-fee-integrity: the fee is taken on chain from the first
+  // payment, and the first $1,000 per business is refunded off chain.
+  it('registers a Free merchant at the Starter fee with a 500 bps ceiling and no parent', () => {
+    expect(registerArgs('free')).toEqual([WALLET, PAYOUT, 50, 500, 0n])
   })
 
   it.each<[MerchantTier, number]>([

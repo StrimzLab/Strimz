@@ -65,11 +65,13 @@ describe('session fees follow the merchant plan', () => {
     })
   }
 
+  // A Free merchant pays the Starter fee on chain; the first $1,000 is refunded
+  // afterwards (ADR-2026-11-21-free-plan-fee-integrity).
   it.each<[MerchantTier, string, string]>([
-    ['free', '0', '100000000'],
+    ['free', '500000', '99500000'],
     ['starter', '500000', '99500000'],
     ['growth', '400000', '99600000'],
-  ])('charges a %s merchant its plan fee', async (tier, feeAmount, netAmount) => {
+  ])('charges a %s merchant the fee the contract takes', async (tier, feeAmount, netAmount) => {
     const res = await createSession(tier, '100000000')
 
     expect(res.statusCode).toBe(201)

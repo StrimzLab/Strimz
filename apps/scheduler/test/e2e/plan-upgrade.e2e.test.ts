@@ -39,11 +39,13 @@ describe('plan upgrade by all-time volume e2e', () => {
     tier: MerchantTier,
     volumes: { USDC?: bigint; EURC?: bigint } = {},
     registered = true,
+    payoutAddress?: string,
   ) {
     const id = onchainId++
     const m = await seedMerchant(t.prisma.db, {
       tier,
       onchainMerchantId: registered ? id : null,
+      payoutAddress: payoutAddress ?? `0x${id.toString(16).padStart(40, '0')}`,
     })
     for (const currency of ['USDC', 'EURC'] as const) {
       const whole = volumes[currency]
@@ -89,6 +91,32 @@ describe('plan upgrade by all-time volume e2e', () => {
       feeBps: 50,
       volumes: { USDC: String(1_000n * UNIT), EURC: '0' },
     })
+  })
+
+  // ADR-2026-11-21-free-plan-fee-integrity: one free allowance per business.
+  it('pools volume across accounts that share a payout address, and tells ops', async () => {
+    const shared = '0x00000000000000000000000000000000000c0ffe'
+    const a = await merchantWith('free', { USDC: 600n }, true, shared)
+    const b = await merchantWith('free', { USDC: 500n }, true, shared)
+
+    await runPastFeeDelay()
+
+    expect(await tierOf(a.id)).toBe('starter')
+    expect(await tierOf(b.id)).toBe('starter')
+    const alerts = t.email.sent.filter((e) => e.subject.includes('Linked accounts'))
+    expect(alerts).toHaveLength(2)
+    expect(must(alerts[0]).html).toContain(a.id)
+    expect(must(alerts[0]).html).toContain(b.id)
+  })
+
+  it('does not pool accounts that share nothing', async () => {
+    const a = await merchantWith('free', { USDC: 600n })
+    const b = await merchantWith('free', { USDC: 500n })
+
+    await runPastFeeDelay()
+
+    expect(await tierOf(a.id)).toBe('free')
+    expect(await tierOf(b.id)).toBe('free')
   })
 
   it('moves a Free merchant to Starter at 1,000 EURC', async () => {

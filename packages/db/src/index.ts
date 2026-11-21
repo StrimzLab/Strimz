@@ -10,6 +10,8 @@
 
 export { createPrismaClient, buildPrismaOptions } from './client.js'
 export type { CreatePrismaClientOptions } from './client.js'
+export { pooledVolumes } from './pooled-volume.js'
+export type { PooledVolumeRow } from './pooled-volume.js'
 
 // Re-export everything from the generated client so consumers can type
 // their services with `Merchant`, `Subscription`, `Prisma`, `PrismaClient`, etc.
