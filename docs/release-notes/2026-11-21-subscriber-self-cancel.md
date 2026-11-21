@@ -36,6 +36,7 @@ Needs the contracts from #504 (`cancelWithSig`). On the current testnet contract
   - `POST /v1/checkout/manage/subscriptions` lists a wallet's open subscriptions, after checking a signed `ViewSubscriptions` that is at most ten minutes old.
   - `POST /v1/checkout/manage/subscriptions/:id/cancel` checks the payer's `CancelSubscription` signature and relays `cancelWithSig`, under the new relay reason `cancelWithSig`.
   - Cancels don't count against the merchant's daily relay budget.
+  - Strimz relays at most 3 new cancels per subscription per day (`429 cancel_attempts_exhausted`). This stops a wallet that reverts on purpose from draining the relayer.
   - The merchant API cancel sets `cancelledBy = merchant`.
 - **Indexer:** the cancel projection works out who cancelled from the event's `by` address, and writes the `subscription.cancelled` outbox event in the same transaction. A row the API already cancelled sends nothing more.
 - **Scheduler:** the webhook outbox expands `subscription.cancelled`, and subscription payloads carry `cancelledBy`.

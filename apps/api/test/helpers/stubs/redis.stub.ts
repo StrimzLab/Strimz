@@ -20,6 +20,12 @@ export class StubRedisService {
       return Promise.resolve(1)
     },
     del: (key: string) => Promise.resolve(this.store.delete(key) ? 1 : 0),
+    incr: (key: string) => {
+      const next = Number(this.store.get(key) ?? '0') + 1
+      this.store.set(key, String(next))
+      return Promise.resolve(next)
+    },
+    expire: () => Promise.resolve(1),
     quit: () => Promise.resolve('OK'),
     on: () => undefined,
   }

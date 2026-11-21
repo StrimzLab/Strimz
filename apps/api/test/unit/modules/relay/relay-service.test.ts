@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { BadRequestException } from '@nestjs/common'
+import { BadRequestException, HttpException } from '@nestjs/common'
 import { decodeFunctionData, keccak256, toFunctionSelector, toHex } from 'viem'
 
 import {
@@ -144,9 +144,15 @@ function makeFakeProbe(
 }
 
 function makeFakePointers(): RelayAttemptPointers {
+  const cancels = new Map<string, number>()
   return {
     current: () => Promise.resolve(null),
     claim: () => Promise.resolve(true),
+    countCancelAttempt: (id: string) => {
+      const next = (cancels.get(id) ?? 0) + 1
+      cancels.set(id, next)
+      return Promise.resolve(next)
+    },
   } as unknown as RelayAttemptPointers
 }
 
@@ -416,6 +422,21 @@ describe('RelayService', () => {
       expect((err as BadRequestException).getResponse()).toMatchObject({
         code: 'invalid_signature',
       })
+    })
+
+    it('stops relaying cancels for one subscription after three new attempts in a day', async () => {
+      for (const deadline of [1_700_001_801n, 1_700_001_802n, 1_700_001_803n]) {
+        await service.submitCancelWithSig(cancelInput({ deadline }))
+      }
+      const err = await service
+        .submitCancelWithSig(cancelInput({ deadline: 1_700_001_804n }))
+        .catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(HttpException)
+      expect((err as HttpException).getStatus()).toBe(429)
+      expect((err as HttpException).getResponse()).toMatchObject({
+        code: 'cancel_attempts_exhausted',
+      })
+      expect(queue._jobs.size).toBe(3)
     })
 
     it('refuses a signature past its deadline', async () => {

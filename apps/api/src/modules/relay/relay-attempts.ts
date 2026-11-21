@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common'
 import { RedisService } from '../../infra/redis/redis.service.js'
 
 export const RELAY_ATTEMPT_TTL_SECONDS = 2 * 60 * 60
+const CANCEL_COUNT_TTL_SECONDS = 24 * 60 * 60
 
 export const COMPARE_AND_SET_SCRIPT =
   "if redis.call('GET', KEYS[1]) == ARGV[1] then " +
@@ -38,5 +39,13 @@ export class RelayAttemptPointers {
       RELAY_ATTEMPT_TTL_SECONDS,
     )
     return swapped === 1
+  }
+
+  /** New relayed cancels for one subscription in the last 24 hours, this one included. */
+  async countCancelAttempt(subscriptionId: string): Promise<number> {
+    const key = `relay-cancel-count:${subscriptionId}`
+    const count = await this.redis.client.incr(key)
+    if (count === 1) await this.redis.client.expire(key, CANCEL_COUNT_TTL_SECONDS)
+    return count
   }
 }

@@ -2,6 +2,8 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
 } from '@nestjs/common'
@@ -50,6 +52,10 @@ const GAS_LIMITS = {
 } as const
 
 const MAX_RELAY_GAS = 600_000n
+
+// A smart wallet can pass the simulation and still revert on chain. Strimz pays
+// for every cancel, so it relays only a few per subscription a day.
+const MAX_CANCEL_ATTEMPTS_PER_DAY = 3
 
 // FiatToken's bytes overload, so smart-wallet (ERC-1271) payers can renew too.
 const tokenPermitAbi = parseAbi([
@@ -319,6 +325,17 @@ export class RelayService {
     const key = relayKeyFor('cancelWithSig', callData)
     const replay = await this.existingView(key)
     if (replay) return replay
+    const attempts = await this.attempts.countCancelAttempt(input.subscriptionInternalId)
+    if (attempts > MAX_CANCEL_ATTEMPTS_PER_DAY) {
+      throw new HttpException(
+        {
+          code: 'cancel_attempts_exhausted',
+          message:
+            'Strimz has tried to cancel this subscription too many times today. Try again tomorrow, or cancel from your wallet.',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      )
+    }
     const gasLimit = await this.gasLimitFor('cancelWithSig', this.subscriptionsAddress, callData)
     return this.enqueue(
       {

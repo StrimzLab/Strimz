@@ -95,6 +95,7 @@ sequenceDiagram
 
 These came up while building and don't change the decision.
 
+- **At most 3 relayed cancels per subscription per day.** A smart-wallet payer can pass the gas estimate and then revert on chain, and Strimz pays for every attempt. After the third attempt the API answers `429 cancel_attempts_exhausted`, and the subscriber can still cancel from their wallet. Replays of the same signed cancel don't count.
 - **Cancels skip the merchant's relay budget.** `RelayBudgetService.consume` refuses once a merchant's daily quota is spent, which would stop subscribers from leaving. A subscription can only be cancelled once on chain, which bounds the cost, and the routes are IP rate-limited.
 - **No API admin cancel exists,** so only the merchant API sets `cancelledBy = merchant`. `strimz` comes from the indexer, for an on-chain cancel by any address that is neither the payer nor the merchant's `walletAddress`.
 - **Emails:** there is no payer failed-charge email. The link went into the three payer subscription emails: started, charged and the allowance reminder.
