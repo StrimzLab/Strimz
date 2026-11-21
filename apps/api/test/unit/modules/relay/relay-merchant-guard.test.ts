@@ -8,6 +8,7 @@ import type { QueueService } from '../../../../src/infra/queue/queue.service.js'
 import type { TypedConfigService } from '../../../../src/config/index.js'
 import type { RelayAttemptPointers } from '../../../../src/modules/relay/relay-attempts.js'
 import type { RelayBudgetService } from '../../../../src/modules/relay/relay-budget.service.js'
+import { openRelayGuard } from '../../../helpers/stubs/relay-guard.stub.js'
 import type { RelayChainProbe } from '../../../../src/modules/relay/relay-chain-probe.js'
 import type { RelayEnrolmentGate } from '../../../../src/modules/relay/relay-enrolment-gate.js'
 
@@ -29,6 +30,7 @@ function relayWith(onchainMerchantId: number | null | undefined) {
     {} as RelayAttemptPointers,
     {} as RelayEnrolmentGate,
     {} as RelayBudgetService,
+    openRelayGuard(),
   )
   return { service, findUnique }
 }

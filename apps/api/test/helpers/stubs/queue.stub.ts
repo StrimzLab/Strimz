@@ -65,10 +65,11 @@ export class StubQueueService implements Pick<
     await this.queue(QUEUE_NAMES.webhookDelivery).add('deliver', parsed)
   }
 
-  async addRelaySubmission(job: RelayJob): Promise<void> {
+  async addRelaySubmission(job: RelayJob, opts: { delayMs?: number } = {}): Promise<void> {
     const parsed = relayJobSchema.parse(job)
     await this.queue(QUEUE_NAMES.relaySubmission).add(`relay:${parsed.reason}`, parsed, {
       jobId: parsed.idempotencyKey,
+      delay: opts.delayMs ?? 0,
     })
   }
 

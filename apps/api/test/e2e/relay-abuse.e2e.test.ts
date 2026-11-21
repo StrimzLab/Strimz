@@ -371,6 +371,13 @@ describe('relay abuse e2e', () => {
         where: { merchantId_day: { merchantId, day: today() } },
       })
 
+    // These cover the full free quota, which a merchant earns with its first real payment.
+    const unlocked = async () => {
+      const ms = await merchants()
+      await t.prisma.db.merchant.updateMany({ data: { relayUnlockedAt: new Date() } })
+      return ms
+    }
+
     const payableSession = (merchantId: string) =>
       seedPaymentSession(t.prisma.db, merchantId, {
         status: 'awaiting_payment',
@@ -378,7 +385,7 @@ describe('relay abuse e2e', () => {
       })
 
     it('refuses a new submission once the free daily quota is spent', async () => {
-      const { a, keyA } = await merchants()
+      const { a, keyA } = await unlocked()
       const session = await payableSession(a.id)
       await seedUsage(a.id, 500)
 
@@ -388,19 +395,18 @@ describe('relay abuse e2e', () => {
         payment({ merchantId: '1', sessionId: session.id }),
       )
 
-      expect(res.statusCode).toBe(429)
+      expect(res.statusCode).toBe(402)
       const error = (
-        JSON.parse(res.body) as { error: { code: string; details: { retryAfterSec: number } } }
+        JSON.parse(res.body) as { error: { code: string; details: { reason: string } } }
       ).error
-      expect(error.code).toBe('relay_budget_exhausted')
-      expect(error.details.retryAfterSec).toBeGreaterThan(0)
-      expect(error.details.retryAfterSec).toBeLessThanOrEqual(DAY_SECONDS)
+      expect(error.code).toBe('relay_unavailable')
+      expect(error.details.reason).toBe('merchant_quota')
       expect(relayJobs()).toHaveLength(0)
       expect((await usage(a.id)).submissions).toBe(500)
     })
 
     it('counts a new submission once and never a replay', async () => {
-      const { a, keyA } = await merchants()
+      const { a, keyA } = await unlocked()
       const first = await payableSession(a.id)
       const second = await payableSession(a.id)
       await seedUsage(a.id, 499)
@@ -414,8 +420,8 @@ describe('relay abuse e2e', () => {
         payment({ merchantId: '1', sessionId: second.id }),
       )
 
-      expect(over.statusCode).toBe(429)
-      expect(errorCode(over.body)).toBe('relay_budget_exhausted')
+      expect(over.statusCode).toBe(402)
+      expect(errorCode(over.body)).toBe('relay_unavailable')
       expect(relayJobs()).toHaveLength(1)
       expect((await usage(a.id)).submissions).toBe(500)
     })
@@ -438,7 +444,7 @@ describe('relay abuse e2e', () => {
     })
 
     it('alerts the operator once at 80% and once at 100%', async () => {
-      const { a, keyA } = await merchants()
+      const { a, keyA } = await unlocked()
       const sessions = await Promise.all([1, 2, 3].map(() => payableSession(a.id)))
       await seedUsage(a.id, 399)
       const pay = (sessionId: string) =>
@@ -474,8 +480,8 @@ describe('relay abuse e2e', () => {
 
       const res = await hostedPayment(session.id, body)
 
-      expect(res.statusCode).toBe(429)
-      expect(errorCode(res.body)).toBe('relay_budget_exhausted')
+      expect(res.statusCode).toBe(402)
+      expect(errorCode(res.body)).toBe('relay_unavailable')
       expect(relayJobs()).toHaveLength(0)
       expect(await t.prisma.db.relayDailyUsage.count({ where: { merchantId: a.id } })).toBe(0)
     })

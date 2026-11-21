@@ -26,6 +26,7 @@ import {
 import { RelayBudgetService } from './relay-budget.service.js'
 import { RelayChainProbe } from './relay-chain-probe.js'
 import { RelayEnrolmentGate } from './relay-enrolment-gate.js'
+import { clientKeyFor, RelayGuardService, type RelayKind } from './relay-guard.service.js'
 import {
   cancelWithSigAbi,
   payWithAuthorizationAbi,
@@ -114,6 +115,7 @@ export class RelayService {
     private readonly attempts: RelayAttemptPointers,
     private readonly enrolmentGate: RelayEnrolmentGate,
     private readonly budget: RelayBudgetService,
+    private readonly guard: RelayGuardService,
   ) {
     this.paymentsAddress = cfg.env.STRIMZ_PAYMENTS_ADDRESS as `0x${string}` | undefined
     this.subscriptionsAddress = cfg.env.STRIMZ_SUBSCRIPTIONS_ADDRESS as `0x${string}` | undefined
@@ -195,6 +197,7 @@ export class RelayService {
         sessionId: input.sessionId,
       },
       paymentAttemptScope(input.sessionId),
+      { kind: 'payment', payer: input.auth.from, clientIp: input.clientIp },
     )
   }
 
@@ -262,6 +265,7 @@ export class RelayService {
         subscriptionInternalId: input.subscriptionInternalId,
       },
       subscriptionAttemptScope(input.subscriptionInternalId, input.permitData.owner),
+      { kind: 'enrolment', payer: input.permitData.owner, clientIp: input.clientIp },
     )
   }
 
@@ -290,6 +294,7 @@ export class RelayService {
         subscriptionInternalId: input.subscriptionInternalId,
       },
       `allowance:${input.subscriptionInternalId}:${input.owner.toLowerCase()}`,
+      { kind: 'allowance', payer: input.owner, clientIp: input.clientIp },
     )
   }
 
@@ -348,7 +353,7 @@ export class RelayService {
         subscriptionInternalId: input.subscriptionInternalId,
       },
       `cancel:${input.subscriptionInternalId}`,
-      { chargeBudget: false },
+      { kind: 'cancel', payer: input.payer, clientIp: input.clientIp, chargeBudget: false },
     )
   }
 
@@ -455,12 +460,35 @@ export class RelayService {
   private async enqueue(
     job: RelayCallJob,
     attemptScope: string,
-    opts: { chargeBudget: boolean } = { chargeBudget: true },
+    origin: { kind: RelayKind; payer: Hex; clientIp: string | undefined; chargeBudget?: boolean },
   ): Promise<RelaySubmissionView> {
-    const data = relayJobSchema.parse(job)
+    const clientKey = clientKeyFor(origin.clientIp)
+    const data = relayJobSchema.parse({
+      ...job,
+      payer: origin.payer,
+      ...(clientKey ? { clientKey } : {}),
+    })
+    const call = { to: job.toAddress, data: job.callData }
     const queue = this.queue.queue(QUEUE_NAMES.relaySubmission)
     await this.claimAttempt(attemptScope, data.idempotencyKey)
-    if (opts.chargeBudget) await this.budget.consume(job.merchantInternalId)
+    const admission = {
+      kind: origin.kind,
+      payer: origin.payer,
+      merchantInternalId: job.merchantInternalId,
+      clientKey,
+      call,
+    }
+    await this.guard.admit(admission)
+    const charged = origin.chargeBudget !== false
+    if (charged && !(await this.budget.consume(job.merchantInternalId))) {
+      throw this.guard.unavailable('merchant_quota', call)
+    }
+    try {
+      await this.guard.commit(admission)
+    } catch (err) {
+      if (charged) await this.budget.release(job.merchantInternalId)
+      throw err
+    }
     // Using the idempotency key as the BullMQ job id makes
     // resubmission a no-op: BullMQ rejects duplicate ids with a
     // documented `Job <id> already exists` shape. We catch that and

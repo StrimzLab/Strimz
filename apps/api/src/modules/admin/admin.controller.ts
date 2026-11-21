@@ -162,6 +162,15 @@ export class AdminController {
   }
 
   @RequireAdminRoles('super_admin', 'admin')
+  @Post('/merchants/:id/relay-unlock')
+  @ApiOperation({
+    summary: "Give a free merchant its plan's full relay quota before its first real payment.",
+  })
+  unlockMerchantRelay(@CurrentAdmin() ctx: CurrentAdminPayload, @Param('id') id: string) {
+    return this.admin.unlockMerchantRelay(id, ctx.adminId)
+  }
+
+  @RequireAdminRoles('super_admin', 'admin')
   @Patch('/merchants/:id/tier')
   @ApiOperation({
     summary:

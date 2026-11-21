@@ -19,6 +19,7 @@ import {
 import { ConnectedRow } from '@/components/checkout/connected-row'
 import { HowItWorks } from '@/components/checkout/how-it-works'
 import { ReceiptPanel } from '@/components/checkout/receipt-panel'
+import { SelfPayPanel } from '@/components/checkout/self-pay-panel'
 import { WalletPickerGuard } from '@/components/checkout/wallet-picker-guard'
 import { SubmitButton } from '@strimz/web-shared/components/auth/submit-button'
 import { TokenLogo } from '@strimz/web-shared/components/shared/token-logo'
@@ -29,6 +30,7 @@ import { attachSessionPayer } from '@/lib/checkout-payer'
 import { busyLabel, phaseLine } from '@/lib/checkout-copy'
 import { attachError, payerError } from '@/lib/payer-errors'
 import { usePayCheckout, type PayPhase } from '@/hooks/use-pay-checkout'
+import { useSelfPay } from '@/hooks/use-self-pay'
 import { payerBalance } from '@/lib/payer-balance'
 import { useCheckoutHost } from '@/hooks/use-checkout-host'
 import {
@@ -128,6 +130,8 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
     tokenMeta: tokenMeta ?? PLACEHOLDER_TOKEN,
     amount: amountBaseUnits,
   })
+
+  const selfPay = useSelfPay(pay.selfPayCall ?? null)
 
   const phase = derivePhase({
     hookPhase: pay.phase,
@@ -304,6 +308,20 @@ export default function PayPage({ params }: { params: Promise<{ sessionId: strin
           </>
         )}
 
+        {phase === 'self_pay' && (
+          <>
+            {address && <ConnectedRow address={address} onChange={disconnect} />}
+            <SelfPayPanel
+              selfPay={selfPay}
+              onSend={() =>
+                void selfPay.send().then((result) => {
+                  if (result) pay.settleSelfPay(result)
+                })
+              }
+            />
+          </>
+        )}
+
         {phase === 'confirmed' && (
           <ReceiptPanel
             title="Payment complete"
@@ -385,6 +403,7 @@ type VisiblePhase =
   | 'signing'
   | 'submitting'
   | 'polling'
+  | 'self_pay'
   | 'confirmed'
   | 'reverted'
   | 'failed'
@@ -414,6 +433,7 @@ function derivePhase(args: {
   if (hookPhase === 'signing') return 'signing'
   if (hookPhase === 'submitting') return 'submitting'
   if (hookPhase === 'polling') return 'polling'
+  if (hookPhase === 'self_pay') return 'self_pay'
   if (!isConnected) return 'connect'
   return 'ready'
 }

@@ -15,6 +15,8 @@ export class StubChainService {
   public environment: 'testnet' | 'mainnet' = 'testnet'
   public revertData: Hex | null = null
   public balance = DEFAULT_BALANCE
+  /** Per-owner balances, by lower-case address; anyone else holds `balance`. */
+  public readonly balances = new Map<string, bigint>()
   public gasEstimate = 150_000n
   public permitNonce = 0n
   public readonly balanceReads: { token: Hex; owner: Hex }[] = []
@@ -43,7 +45,8 @@ export class StubChainService {
         return Promise.reject(new Error(`StubChainService cannot read ${args.functionName}`))
       }
       this.balanceReads.push({ token: args.address, owner: args.args[0] as Hex })
-      return Promise.resolve(this.balance)
+      const owner = (args.args[0] as Hex).toLowerCase()
+      return Promise.resolve(this.balances.get(owner) ?? this.balance)
     },
     getTransaction: ({ hash }: { hash: Hex }) => {
       const tx = this.sentTxs.get(hash.toLowerCase())
@@ -62,6 +65,7 @@ export class StubChainService {
     this.calls.length = 0
     this.balance = DEFAULT_BALANCE
     this.balanceReads.length = 0
+    this.balances.clear()
     this.gasEstimate = 150_000n
     this.permitNonce = 0n
     this.sentTxs.clear()

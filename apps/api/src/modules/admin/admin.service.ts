@@ -231,6 +231,7 @@ export class AdminService {
         websiteUrl: true,
         logoUrl: true,
         onchainMerchantId: true,
+        relayUnlockedAt: true,
         createdAt: true,
         lastLoginAt: true,
       },
@@ -269,6 +270,30 @@ export class AdminService {
       ),
     }
     return { ...merchant, stats }
+  }
+
+  async unlockMerchantRelay(merchantId: string, actorId: string) {
+    const merchant = await this.prisma.db.merchant.findUnique({
+      where: { id: merchantId },
+      select: { id: true, relayUnlockedAt: true },
+    })
+    if (!merchant) throw new NotFoundException({ code: 'not_found' })
+    if (merchant.relayUnlockedAt !== null) {
+      return { id: merchant.id, relayUnlockedAt: merchant.relayUnlockedAt }
+    }
+    const updated = await this.prisma.db.merchant.update({
+      where: { id: merchantId },
+      data: { relayUnlockedAt: new Date() },
+      select: { id: true, relayUnlockedAt: true },
+    })
+    await this.writeAudit({
+      actorId,
+      merchantId,
+      action: 'merchant.relay_unlocked',
+      targetType: 'Merchant',
+      targetId: merchantId,
+    })
+    return updated
   }
 
   async setMerchantStatus(

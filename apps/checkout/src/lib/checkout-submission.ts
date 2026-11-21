@@ -16,6 +16,23 @@ export interface RelaySubmissionView {
   enqueuedAt: string
 }
 
+/** The payer-signed call, which the payer's own wallet can send when Strimz won't pay the gas. */
+export interface SelfPayCall {
+  to: `0x${string}`
+  data: `0x${string}`
+  chainId: number
+}
+
+export class RelayUnavailableError extends Error {
+  constructor(
+    readonly reason: string,
+    readonly call: SelfPayCall,
+  ) {
+    super("Strimz can't cover the network fee for this one.")
+    this.name = 'RelayUnavailableError'
+  }
+}
+
 export interface CheckoutRelayTarget {
   kind: 'sessions' | 'plans' | 'subscriptions'
   id: string
@@ -25,7 +42,7 @@ interface ApiErrorBody {
   error?: {
     code?: unknown
     message?: unknown
-    details?: { submission?: RelaySubmissionView | null }
+    details?: { submission?: RelaySubmissionView | null; reason?: unknown; call?: unknown }
   }
 }
 
@@ -59,6 +76,24 @@ export function relayErrorMessage(body: unknown, fallback: string): string {
   return typeof error?.message === 'string' ? error.message : fallback
 }
 
+/** A 402 `relay_unavailable` as a typed error, or null for any other response. */
+export function relayUnavailableFrom(status: number, body: unknown): RelayUnavailableError | null {
+  if (status !== 402) return null
+  const selfPay = selfPayCallOf(body)
+  return selfPay ? new RelayUnavailableError(selfPay.reason, selfPay.call) : null
+}
+
+function selfPayCallOf(body: unknown): { reason: string; call: SelfPayCall } | null {
+  const error = (body as ApiErrorBody | null)?.error
+  if (error?.code !== 'relay_unavailable') return null
+  const call = error.details?.call as Partial<SelfPayCall> | undefined
+  const hex = (v: unknown, len?: number): v is `0x${string}` =>
+    typeof v === 'string' && /^0x[0-9a-fA-F]*$/.test(v) && (len === undefined || v.length === len)
+  if (!call || !hex(call.to, 42) || !hex(call.data) || !Number.isInteger(call.chainId)) return null
+  const reason = typeof error.details?.reason === 'string' ? error.details.reason : 'unavailable'
+  return { reason, call: { to: call.to, data: call.data, chainId: call.chainId as number } }
+}
+
 async function errorBody(res: Response): Promise<unknown> {
   const text = await res.text()
   try {
@@ -82,6 +117,8 @@ export async function submitCheckoutRelay(
     const detail = await errorBody(res)
     const live = res.status === 409 ? inProgressSubmission(detail) : null
     if (live) return live
+    const unavailable = relayUnavailableFrom(res.status, detail)
+    if (unavailable) throw unavailable
     throw new Error(relayErrorMessage(detail, `submit failed (${res.status})`))
   }
   return (await res.json()) as RelaySubmissionView

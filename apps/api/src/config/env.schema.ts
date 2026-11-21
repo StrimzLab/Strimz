@@ -89,6 +89,14 @@ export const envSchema = z.object({
   ARC_USDC_ADDRESS: z.string().optional(),
   ARC_EURC_ADDRESS: z.string().optional(),
 
+  // ----- Relay gas protection (ADR-2026-11-21-relay-gas-protection) -----
+  /** Relayed submissions Strimz pays gas for per UTC day, across all merchants. */
+  RELAY_PLATFORM_DAILY_CAP: z.coerce.number().int().positive().default(50_000),
+  /** Below this USDC balance the relayer stops paying gas, so it can't be drained to zero. */
+  RELAYER_MIN_BALANCE_USDC: z.coerce.number().nonnegative().default(2),
+  /** New on-chain merchant registrations per UTC day; the rest wait for the next day. */
+  REGISTRATION_DAILY_CAP: z.coerce.number().int().positive().default(200),
+
   // ----- Compliance -----
   COMPLIANCE_PROVIDER: z.enum(['trm', 'elliptic', 'disabled']).default('disabled'),
   COMPLIANCE_API_KEY: z.string().optional(),

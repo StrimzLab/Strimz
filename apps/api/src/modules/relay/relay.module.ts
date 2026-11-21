@@ -8,6 +8,7 @@ import { RelayAttemptPointers } from './relay-attempts.js'
 import { RelayBudgetService } from './relay-budget.service.js'
 import { RelayChainProbe } from './relay-chain-probe.js'
 import { RelayEnrolmentGate } from './relay-enrolment-gate.js'
+import { RelayGuardService } from './relay-guard.service.js'
 import { RelayController } from './relay.controller.js'
 import { RelayJobRunner } from './relay-job-runner.js'
 import { RelayProcessor } from './relay.processor.js'
@@ -41,6 +42,7 @@ import { RelayService } from './relay.service.js'
     RelayChainProbe,
     RelayAttemptPointers,
     RelayBudgetService,
+    RelayGuardService,
     RelayEnrolmentGate,
     RelayService,
     RelayJobRunner,

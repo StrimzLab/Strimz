@@ -23,6 +23,7 @@ import {
 } from '../merchants/registration.js'
 import { GasPricingService, type GasPrice } from './gas-pricing.service.js'
 import { RelayBudgetService } from './relay-budget.service.js'
+import { RelayGuardService } from './relay-guard.service.js'
 import { NonceManager } from './nonce-manager.service.js'
 
 export interface RelayJobHandle {
@@ -63,6 +64,7 @@ export class RelayJobRunner {
     @Inject(KMS_SIGNER) private readonly signer: KmsSigner,
     cfg: TypedConfigService,
     private readonly budget: RelayBudgetService,
+    private readonly guard: RelayGuardService,
   ) {
     const registry = cfg.env.STRIMZ_REGISTRY_ADDRESS
     if (!registry) {
@@ -189,7 +191,7 @@ export class RelayJobRunner {
 
     if (data.broadcast) {
       const settled = await this.settledReceipt(data.broadcast.txHash)
-      if (settled) return this.requireSuccess(settled)
+      if (settled) return this.requireSuccess(settled, data)
 
       const sender = data.broadcast.from
       if (!sender || !isAddressEqual(sender, this.signer.address)) {
@@ -260,7 +262,7 @@ export class RelayJobRunner {
       timeout: 60_000,
       pollingInterval: 500,
     })
-    return this.requireSuccess(receipt)
+    return this.requireSuccess(receipt, data)
   }
 
   private async settledReceipt(hash: Hex): Promise<TransactionReceipt | null> {
@@ -288,8 +290,18 @@ export class RelayJobRunner {
     })
   }
 
-  private requireSuccess(receipt: TransactionReceipt): TransactionReceipt {
+  private async requireSuccess(
+    receipt: TransactionReceipt,
+    data: RelayJob,
+  ): Promise<TransactionReceipt> {
     if (receipt.status !== 'success') {
+      if (data.reason !== 'registerMerchant') {
+        await this.guard.recordRevert(data.payer, data.clientKey)
+        // Cancels never took a unit of quota.
+        if (data.merchantInternalId && data.reason !== 'cancelWithSig') {
+          await this.budget.release(data.merchantInternalId)
+        }
+      }
       throw new RelayPermanentError(
         `tx ${receipt.transactionHash} reverted in block ${receipt.blockNumber}`,
       )

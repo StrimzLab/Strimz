@@ -41,10 +41,11 @@ export class QueueService implements OnModuleDestroy {
     await this.queue(QUEUE_NAMES.webhookDelivery).add('deliver', parsed)
   }
 
-  async addRelaySubmission(job: RelayJob): Promise<void> {
+  async addRelaySubmission(job: RelayJob, opts: { delayMs?: number } = {}): Promise<void> {
     const parsed = relayJobSchema.parse(job)
     await this.queue(QUEUE_NAMES.relaySubmission).add(`relay:${parsed.reason}`, parsed, {
       jobId: parsed.idempotencyKey,
+      delay: opts.delayMs ?? 0,
       attempts: 5,
       backoff: { type: 'exponential', delay: 2000 },
       removeOnComplete: { age: 3600 },

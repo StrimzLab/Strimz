@@ -17,6 +17,7 @@ import { tierRefusal } from '@/lib/admin-api/tier-refusal'
 import {
   moveToEnterpriseConfirm,
   suspendMerchantConfirm,
+  unlockRelayConfirm,
 } from '@strimz/web-shared/lib/destructive-actions'
 import {
   ConfirmActionDialog,
@@ -27,6 +28,7 @@ import {
   useReactivateMerchant,
   useSetMerchantTier,
   useSuspendMerchant,
+  useUnlockMerchantRelay,
 } from '@/hooks/admin'
 
 export default function AdminMerchantDetailPage() {
@@ -37,6 +39,7 @@ export default function AdminMerchantDetailPage() {
   const suspendMutation = useSuspendMerchant()
   const reactivateMutation = useReactivateMerchant()
   const tierMutation = useSetMerchantTier()
+  const relayMutation = useUnlockMerchantRelay()
   const refusal = tierRefusal(tierMutation.error)
   const [pendingConfirm, setPendingConfirm] = React.useState<PendingConfirm | null>(null)
 
@@ -202,6 +205,38 @@ export default function AdminMerchantDetailPage() {
                 )}
               </div>
             </div>
+
+            {merchant.tier === 'free' && (
+              <div className="border-border/60 rounded-md border p-3">
+                <div className="text-sm font-medium">Relay quota</div>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  A new free merchant gets 50 gas-paid submissions a day until its first payment of
+                  at least 1.00. Then it gets the full 500 automatically.
+                </p>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <Badge variant="outline">
+                    {merchant.relayUnlockedAt ? '500 a day' : '50 a day'}
+                  </Badge>
+                  {merchant.relayUnlockedAt ? null : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setPendingConfirm({
+                          copy: unlockRelayConfirm({
+                            businessName: merchant.businessName ?? merchant.email,
+                          }),
+                          run: () => relayMutation.mutate(merchant.id),
+                        })
+                      }
+                      disabled={relayMutation.isPending}
+                    >
+                      {relayMutation.isPending ? 'Giving…' : 'Give full quota'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="border-border/60 rounded-md border p-3">
               <div className="text-sm font-medium">Plan</div>

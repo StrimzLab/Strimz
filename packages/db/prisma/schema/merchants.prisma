@@ -25,6 +25,8 @@ model Merchant {
   /// Free-text business sector (Software, eCommerce, etc.); collected at onboarding.
   businessSector       String?        @db.VarChar(80)
   tier                 MerchantTier   @default(free)
+  /// When a free merchant earned the full relay quota: its first real payment, or an admin.
+  relayUnlockedAt      DateTime?
   status               MerchantStatus @default(active)
   /// The merchant's controlling EVM address — used as the on-chain
   /// `owner` in `StrimzRegistry.registerMerchant`. Sourced from the

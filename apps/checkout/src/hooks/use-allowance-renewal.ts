@@ -3,12 +3,19 @@
 import { useState } from 'react'
 import { useAccount, useConfig, useSignTypedData, useSwitchChain } from 'wagmi'
 import { getAccount, getBytecode, readContract } from '@wagmi/core'
-import { erc20Abi } from 'viem'
+import { erc20Abi, parseAbi } from 'viem'
+import { chainIdFor } from '@strimz/shared-config'
 import { buildPermitTypedData } from '@strimz/sdk/eip712'
 import type { TokenMetadata } from '@strimz/shared-types'
 
 import { prepareArcSigning } from '@strimz/web-shared/lib/arc-network'
-import { checkoutSubmissionUrl, submitCheckoutRelay } from '@/lib/checkout-submission'
+import {
+  checkoutSubmissionUrl,
+  submitCheckoutRelay,
+  type SelfPayCall,
+} from '@/lib/checkout-submission'
+import { selfPayFallback } from '@/lib/self-pay'
+import type { SelfPayResult } from '@/hooks/use-self-pay'
 import { env } from '@strimz/web-shared/lib/env'
 import { strimzBrowserClient } from '@/lib/strimz-browser'
 import { topUpAllowance } from '@/lib/subscription-allowance'
@@ -27,7 +34,12 @@ export interface Renewal {
   suggestedAllowance: string
 }
 
-type Step = 'idle' | 'signing' | 'submitting' | 'done' | 'failed'
+type Step = 'idle' | 'signing' | 'submitting' | 'self_pay' | 'done' | 'failed'
+
+// FiatToken's bytes overload, the one the relay sends.
+const tokenPermitAbi = parseAbi([
+  'function permit(address owner, address spender, uint256 value, uint256 deadline, bytes signature)',
+])
 
 const POLL_MS = 1500
 const POLL_LIMIT_MS = 120_000
@@ -44,6 +56,7 @@ export function useAllowanceRenewal(
   const { signTypedDataAsync } = useSignTypedData()
   const [step, setStep] = useState<Step>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [selfPayCall, setSelfPayCall] = useState<SelfPayCall | null>(null)
 
   async function renew() {
     if (!address || !renewal || !token) return
@@ -107,10 +120,31 @@ export function useAllowanceRenewal(
       }
       setStep('done')
     } catch (err) {
-      setError((err as Error).message)
+      const fallback = selfPayFallback(err, {
+        to: renewal.token,
+        chainId: chainIdFor(env.arcEnvironment),
+        abi: tokenPermitAbi,
+        functionName: 'permit',
+      })
+      if (fallback && 'selfPayCall' in fallback) {
+        setSelfPayCall(fallback.selfPayCall)
+        setStep('self_pay')
+        return
+      }
+      setError(fallback ? fallback.error : (err as Error).message)
       setStep('failed')
     }
   }
 
-  return { step, error, renew }
+  function settleSelfPay(result: SelfPayResult) {
+    setSelfPayCall(null)
+    if (result.status === 'success') {
+      setStep('done')
+      return
+    }
+    setError('The renewal did not go through.')
+    setStep('failed')
+  }
+
+  return { step, error, renew, selfPayCall, settleSelfPay }
 }

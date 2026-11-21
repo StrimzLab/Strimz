@@ -31,6 +31,7 @@ import {
 import { ConnectedRow } from '@/components/checkout/connected-row'
 import { HowItWorks } from '@/components/checkout/how-it-works'
 import { ReceiptPanel } from '@/components/checkout/receipt-panel'
+import { SelfPayPanel } from '@/components/checkout/self-pay-panel'
 import { WalletPickerGuard } from '@/components/checkout/wallet-picker-guard'
 import { SubmitButton } from '@strimz/web-shared/components/auth/submit-button'
 import { TokenLogo } from '@strimz/web-shared/components/shared/token-logo'
@@ -41,6 +42,7 @@ import { attachPlanPayer } from '@/lib/checkout-payer'
 import { busyLabel, intervalLabel, phaseLine } from '@/lib/checkout-copy'
 import { attachError, payerError } from '@/lib/payer-errors'
 import { useSubscriptionCheckout, type SubscriptionPhase } from '@/hooks/use-subscription-checkout'
+import { useSelfPay } from '@/hooks/use-self-pay'
 
 /**
  * Hosted checkout for subscriptions. A merchant not yet registered with
@@ -168,6 +170,8 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
   })
   const symbol = tokenMeta?.symbol ?? plan?.currency ?? 'USDC'
   const copy = terms ? trialCopy(terms, `${amountDisplay} ${symbol}`, interval) : null
+
+  const selfPay = useSelfPay(subscribe.selfPayCall ?? null)
 
   const phase = derivePhase({
     hookPhase: subscribe.phase,
@@ -387,6 +391,20 @@ export default function SubscribePage({ params }: { params: Promise<{ planId: st
           </>
         )}
 
+        {phase === 'self_pay' && (
+          <>
+            {address && <ConnectedRow address={address} onChange={disconnect} />}
+            <SelfPayPanel
+              selfPay={selfPay}
+              onSend={() =>
+                void selfPay.send().then((result) => {
+                  if (result) subscribe.settleSelfPay(result)
+                })
+              }
+            />
+          </>
+        )}
+
         {phase === 'confirmed' && (
           <ReceiptPanel
             title="Subscription active"
@@ -469,6 +487,7 @@ type VisiblePhase =
   | 'signing'
   | 'submitting'
   | 'polling'
+  | 'self_pay'
   | 'confirmed'
   | 'reverted'
   | 'failed'
@@ -504,6 +523,7 @@ function derivePhase(args: {
   if (hookPhase === 'signing') return 'signing'
   if (hookPhase === 'submitting') return 'submitting'
   if (hookPhase === 'polling') return 'polling'
+  if (hookPhase === 'self_pay') return 'self_pay'
   if (!isConnected) return 'connect'
   if (alreadySubscribed) return 'already_subscribed'
   if (!termsReady) return 'loading'

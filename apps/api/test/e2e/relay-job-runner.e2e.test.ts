@@ -20,6 +20,7 @@ import { must } from '../helpers/must.js'
 import { SoftwareSigner } from '@strimz/signer'
 import { registerMerchantAbi } from '../../src/modules/merchants/registry.abi.js'
 import { RelayBudgetService } from '../../src/modules/relay/relay-budget.service.js'
+import { RelayGuardService } from '../../src/modules/relay/relay-guard.service.js'
 import { RelayJobRunner, type RelayJobHandle } from '../../src/modules/relay/relay-job-runner.js'
 import type { ChainService } from '../../src/infra/chain/chain.service.js'
 import type { NonceManager } from '../../src/modules/relay/nonce-manager.service.js'
@@ -191,6 +192,7 @@ describe('relay job runner', () => {
       signer,
       { env: { STRIMZ_REGISTRY_ADDRESS: REGISTRY } } as unknown as TypedConfigService,
       t.app.get(RelayBudgetService),
+      t.app.get(RelayGuardService),
     )
   })
 
@@ -372,6 +374,32 @@ describe('relay job runner', () => {
     const result = await runner.run(handle(job.data, 1))
     expect(chain.sent).toHaveLength(1)
     expect(result).toMatchObject({ txHash: must(chain.sent[0]).hash })
+  })
+
+  it('counts a reverted payment against its payer and IP, never the merchant', async () => {
+    const m = await seedMerchant(t.prisma.db)
+    t.redis.reset()
+    chain.revert = true
+    const day = new Date().toISOString().slice(0, 10)
+    await t.prisma.db.relayDailyUsage.create({
+      data: { merchantId: m.id, day: new Date(`${day}T00:00:00Z`), submissions: 1 },
+    })
+    const payer = '0x00000000000000000000000000000000000000d7'
+    const job = handle({
+      ...relayJobFixtures.payWithAuthorization,
+      merchantInternalId: m.id,
+      payer,
+      clientKey: '0123456789abcdef',
+    })
+
+    await expect(runner.run(job)).rejects.toBeInstanceOf(UnrecoverableError)
+
+    expect(await t.redis.client.get(`relay:reverts:payer:${payer}:${day}`)).toBe('1')
+    expect(await t.redis.client.get(`relay:reverts:ip:0123456789abcdef:${day}`)).toBe('1')
+    const usage = await t.prisma.db.relayDailyUsage.findFirstOrThrow({
+      where: { merchantId: m.id },
+    })
+    expect(usage.submissions).toBe(0)
   })
 
   it("adds what each relayed call cost in gas to the merchant's daily usage", async () => {

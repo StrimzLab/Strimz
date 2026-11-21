@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import type { MerchantTier } from '@strimz/db'
 
 import { TypedConfigService } from '../../config/index.js'
@@ -14,7 +14,10 @@ export const RELAY_DAILY_QUOTA: Readonly<Record<MerchantTier, number>> = {
 
 export const RELAY_BUDGET_WARN_RATIO = 0.8
 
-const MS_PER_DAY = 86_400_000
+/** A free merchant's quota until its first real payment (ADR-2026-11-21-relay-gas-protection). */
+export const STARTER_RELAY_QUOTA = 50
+
+const UNLOCK_MIN_AMOUNT = '1000000'
 
 type BudgetAlert = 'warned' | 'exhausted'
 
@@ -26,11 +29,6 @@ interface UsageRow {
 
 function utcDay(at: Date): string {
   return at.toISOString().slice(0, 10)
-}
-
-function secondsToNextUtcMidnight(at: Date): number {
-  const nextMidnight = Math.floor(at.getTime() / MS_PER_DAY) * MS_PER_DAY + MS_PER_DAY
-  return Math.ceil((nextMidnight - at.getTime()) / 1000)
 }
 
 @Injectable()
@@ -46,12 +44,17 @@ export class RelayBudgetService {
     this.alertEmail = cfg.env.OPS_ALERT_EMAIL
   }
 
-  async consume(merchantId: string, now = new Date()): Promise<void> {
+  /** Takes one unit of today's quota; false when it's spent. */
+  async consume(merchantId: string, now = new Date()): Promise<boolean> {
     const merchant = await this.prisma.db.merchant.findUniqueOrThrow({
       where: { id: merchantId },
-      select: { tier: true },
+      select: { tier: true, relayUnlockedAt: true },
     })
-    const quota = RELAY_DAILY_QUOTA[merchant.tier]
+    const starter =
+      merchant.tier === 'free' &&
+      merchant.relayUnlockedAt === null &&
+      !(await this.unlockByPayment(merchantId, now))
+    const quota = starter ? STARTER_RELAY_QUOTA : RELAY_DAILY_QUOTA[merchant.tier]
     const day = utcDay(now)
     const [row] = await this.prisma.db.$queryRawUnsafe<UsageRow[]>(
       `INSERT INTO "RelayDailyUsage" ("merchantId", "day", "submissions", "updatedAt")
@@ -65,16 +68,7 @@ export class RelayBudgetService {
       now.toISOString(),
       quota,
     )
-    if (!row) {
-      throw new HttpException(
-        {
-          code: 'relay_budget_exhausted',
-          message: `the daily relay budget of ${quota} submissions is spent; it resets at 00:00 UTC`,
-          details: { quota, retryAfterSec: secondsToNextUtcMidnight(now) },
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      )
-    }
+    if (!row) return false
 
     if (row.submissions >= quota && row.exhaustedAt === null) {
       await this.alertOnce(merchantId, day, 'exhausted', row.submissions, quota, now)
@@ -84,6 +78,37 @@ export class RelayBudgetService {
     ) {
       await this.alertOnce(merchantId, day, 'warned', row.submissions, quota, now)
     }
+    return true
+  }
+
+  /** Gives back a unit taken today, for a relay that reverted. */
+  async release(merchantId: string, now = new Date()): Promise<void> {
+    await this.prisma.db.$executeRawUnsafe(
+      `UPDATE "RelayDailyUsage" SET "submissions" = "submissions" - 1, "updatedAt" = $3::timestamp
+        WHERE "merchantId" = $1 AND "day" = $2::date AND "submissions" > 0`,
+      merchantId,
+      utcDay(now),
+      now.toISOString(),
+    )
+  }
+
+  private async unlockByPayment(merchantId: string, now: Date): Promise<boolean> {
+    const [paid] = await this.prisma.db.$queryRawUnsafe<unknown[]>(
+      `SELECT 1 FROM "Transaction"
+        WHERE "merchantId" = $1
+          AND "status" = 'confirmed'
+          AND "kind" IN ('one_shot', 'subscription_charge', 'invoice_payment', 'storefront_purchase')
+          AND "amount"::numeric >= $2::numeric
+        LIMIT 1`,
+      merchantId,
+      UNLOCK_MIN_AMOUNT,
+    )
+    if (!paid) return false
+    await this.prisma.db.merchant.updateMany({
+      where: { id: merchantId, relayUnlockedAt: null },
+      data: { relayUnlockedAt: now },
+    })
+    return true
   }
 
   async recordGas(merchantId: string, gasWei: bigint, now = new Date()): Promise<void> {

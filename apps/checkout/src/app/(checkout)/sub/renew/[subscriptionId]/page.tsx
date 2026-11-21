@@ -13,6 +13,8 @@ import { ConnectedRow } from '@/components/checkout/connected-row'
 import { WalletPickerGuard } from '@/components/checkout/wallet-picker-guard'
 import { SubmitButton } from '@strimz/web-shared/components/auth/submit-button'
 import { useAllowanceRenewal, type Renewal } from '@/hooks/use-allowance-renewal'
+import { useSelfPay } from '@/hooks/use-self-pay'
+import { SelfPayPanel } from '@/components/checkout/self-pay-panel'
 import { env } from '@strimz/web-shared/lib/env'
 import { strimzBrowserClient } from '@/lib/strimz-browser'
 import { projectId as reownProjectId } from '@/lib/wagmi'
@@ -59,7 +61,12 @@ export default function RenewAllowancePage({
   const isPayer = Boolean(
     address && renewal && address.toLowerCase() === renewal.payerAddress.toLowerCase(),
   )
-  const { step, error, renew } = useAllowanceRenewal(subscriptionId, renewal, token)
+  const { step, error, renew, selfPayCall, settleSelfPay } = useAllowanceRenewal(
+    subscriptionId,
+    renewal,
+    token,
+  )
+  const selfPay = useSelfPay(selfPayCall)
   const amountDisplay =
     renewal && token ? `${formatUnits(BigInt(renewal.amount), token.decimals)} ${token.symbol}` : ''
 
@@ -139,6 +146,16 @@ export default function RenewAllowancePage({
                     {renewal.payerAddress.slice(0, 6)}…{renewal.payerAddress.slice(-4)}). Switch to
                     it to renew.
                   </p>
+                ) : step === 'self_pay' ? (
+                  <SelfPayPanel
+                    selfPay={selfPay}
+                    action="Pay the network fee and renew"
+                    onSend={() =>
+                      void selfPay.send().then((result) => {
+                        if (result) settleSelfPay(result)
+                      })
+                    }
+                  />
                 ) : (
                   <>
                     <p className="text-muted-foreground text-xs">

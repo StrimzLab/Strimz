@@ -123,6 +123,13 @@ const relayCallFields = {
   sessionId: z.string().optional(),
   subscriptionInternalId: z.string().optional(),
   broadcast: relayBroadcastSchema.optional(),
+  /** Who signed the call, so a revert on chain is counted against them. */
+  payer: addressSchema.optional(),
+  /** Hashed client IP, for the same reason; the raw IP is never stored. */
+  clientKey: z
+    .string()
+    .regex(/^[0-9a-f]{16}$/)
+    .optional(),
 }
 
 export const relayJobSchema = z.discriminatedUnion('reason', [

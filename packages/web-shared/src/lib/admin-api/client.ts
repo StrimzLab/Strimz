@@ -133,6 +133,11 @@ export class AdminApiClient {
       `/api/admin/merchants/${encodeURIComponent(id)}/status`,
       input,
     )
+  unlockMerchantRelay = (id: string) =>
+    this.bff<{ id: string; relayUnlockedAt: string }>(
+      `/api/admin/merchants/${encodeURIComponent(id)}/relay-unlock`,
+      {},
+    )
   setMerchantTier = (id: string, input: SetMerchantTierInput) =>
     this.bffPatch<AdminMerchantDetail>(`/api/admin/merchants/${encodeURIComponent(id)}/tier`, input)
 

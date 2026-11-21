@@ -99,7 +99,11 @@ export class CheckoutManageService {
     }
   }
 
-  async cancel(id: string, body: ManageSubscriptionCancel): Promise<RelaySubmissionView> {
+  async cancel(
+    id: string,
+    body: ManageSubscriptionCancel,
+    clientIp?: string,
+  ): Promise<RelaySubmissionView> {
     const sub = await this.prisma.db.subscription.findUnique({ where: { id } })
     if (!sub || sub.onchainSubscriptionId === null) {
       throw new NotFoundException({ code: 'not_found', message: 'subscription not found' })
@@ -117,6 +121,7 @@ export class CheckoutManageService {
       signature: body.signature,
       merchantInternalId: sub.merchantId,
       subscriptionInternalId: sub.id,
+      clientIp,
     })
   }
 

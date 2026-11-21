@@ -8,12 +8,18 @@ import type { TokenMetadata } from '@strimz/shared-types'
 import { checkoutPaymentNonce } from '@strimz/shared-crypto/checkout'
 import { erc20Abi, stringToHex } from 'viem'
 
+import { chainIdFor } from '@strimz/shared-config'
+
 import {
   checkoutSubmissionUrl,
   relayErrorMessage,
   submitCheckoutRelay,
   type RelaySubmissionView,
+  type SelfPayCall,
 } from '@/lib/checkout-submission'
+import { payWithAuthorizationAbi } from '@/lib/generated/relay-calls'
+import { selfPayFallback } from '@/lib/self-pay'
+import type { SelfPayResult } from '@/hooks/use-self-pay'
 import { prepareArcSigning } from '@strimz/web-shared/lib/arc-network'
 import { env } from '@strimz/web-shared/lib/env'
 import { walletSignature } from '@/lib/wallet-signature'
@@ -62,6 +68,7 @@ export type PayPhase =
   | 'signing'
   | 'submitting'
   | 'polling'
+  | 'self_pay'
   | 'confirmed'
   | 'reverted'
   | 'failed'
@@ -71,10 +78,13 @@ export interface PayCheckoutState {
   error: string | null
   txHash: string | null
   submission: RelaySubmissionView | null
+  /** Set when Strimz won't pay the gas, so the payer can send the signed call. */
+  selfPayCall?: SelfPayCall | null
 }
 
 interface UsePayCheckoutResult extends PayCheckoutState {
   submit: () => Promise<void>
+  settleSelfPay: (result: SelfPayResult) => void
 }
 
 const POLL_INTERVAL_MS = 1500
@@ -236,6 +246,20 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
         setState((prev) => ({ ...prev, phase: terminal }))
       })
     } catch (err) {
+      const fallback = selfPayFallback(err, {
+        to: env.paymentsAddress as `0x${string}`,
+        chainId: chainIdFor(env.arcEnvironment),
+        abi: payWithAuthorizationAbi,
+        functionName: 'payWithAuthorization',
+      })
+      if (fallback && 'selfPayCall' in fallback) {
+        setState((prev) => ({ ...prev, phase: 'self_pay', error: null, ...fallback }))
+        return
+      }
+      if (fallback) {
+        setState((prev) => ({ ...prev, phase: 'failed', error: fallback.error }))
+        return
+      }
       const message = err instanceof Error ? err.message : 'unknown error'
       setState((prev) => ({ ...prev, phase: 'failed', error: message }))
     } finally {
@@ -260,7 +284,16 @@ export function usePayCheckout(inputs: PayCheckoutInputs): UsePayCheckoutResult 
     setState({ phase: 'idle', error: null, txHash: null, submission: null })
   }, [sessionId])
 
-  return { ...state, submit }
+  const settleSelfPay = useCallback((result: SelfPayResult) => {
+    setState((prev) => ({
+      ...prev,
+      phase: result.status === 'success' ? 'confirmed' : 'reverted',
+      txHash: result.txHash,
+      selfPayCall: null,
+    }))
+  }, [])
+
+  return { ...state, submit, settleSelfPay }
 }
 
 // ---- helpers (intentionally local. These are coupling glue, not a

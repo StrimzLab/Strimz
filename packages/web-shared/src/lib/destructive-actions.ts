@@ -63,6 +63,15 @@ export function moveToEnterpriseConfirm(merchant: { businessName: string }) {
   } satisfies ConfirmCopy
 }
 
+export function unlockRelayConfirm(merchant: { businessName: string }) {
+  return {
+    title: `Give ${merchant.businessName} the full relay quota?`,
+    description:
+      'Strimz will pay gas for up to their plan quota each day, instead of 50, before their first real payment. Only do this for a merchant you have checked.',
+    confirmLabel: 'Give full quota',
+  } satisfies ConfirmCopy
+}
+
 export function suspendAdminConfirm(admin: { email: string }) {
   return {
     title: 'Suspend this admin?',
