@@ -42,6 +42,7 @@ export interface Actors {
   scheduler: Actor
   safeOwners: [Actor, Actor, Actor]
   payout: Actor
+  refund: Actor
 }
 
 export function createActors(): Actors {
@@ -53,6 +54,7 @@ export function createActors(): Actors {
     scheduler: freshActor(),
     safeOwners: [freshActor(), freshActor(), freshActor()],
     payout: freshActor(),
+    refund: freshActor(),
   }
 }
 

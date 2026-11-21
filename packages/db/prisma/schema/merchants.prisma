@@ -70,6 +70,8 @@ model Merchant {
   transactions         Transaction[]
   subscriptionPlans    SubscriptionPlan[]
   subscriptions        Subscription[]
+  feeRefunds           FeeRefund[]
+  feeRefundTransfers   FeeRefundTransfer[]
   subscriptionEnrolments SubscriptionEnrolment[]
   subscriptionCharges  SubscriptionCharge[]
   refunds              Refund[]

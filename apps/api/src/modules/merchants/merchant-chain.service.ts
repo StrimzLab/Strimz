@@ -5,7 +5,7 @@ import {
   PreconditionFailedException,
   ServiceUnavailableException,
 } from '@nestjs/common'
-import { planFeeBps, type MerchantTier } from '@strimz/shared-config'
+import { type MerchantTier, onchainFeeBps } from '@strimz/shared-config'
 import type { Hex } from 'viem'
 
 import { TypedConfigService } from '../../config/index.js'
@@ -189,7 +189,7 @@ export class MerchantChainService {
     tier: MerchantTier
     onchainMerchantId: number | null
   }): Promise<number> {
-    const feeBps = planFeeBps(merchant.tier)
+    const feeBps = onchainFeeBps(merchant.tier)
     if (feeBps !== null) return feeBps
     if (merchant.onchainMerchantId === null) {
       throw new ConflictException({

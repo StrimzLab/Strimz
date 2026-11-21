@@ -40,6 +40,55 @@ describe('merchants e2e', () => {
     expect(JSON.parse(res.body).businessName).toBe('New Name')
   })
 
+  // The Registry pays the on-chain payout address; after registration only the
+  // 24-hour on-chain rotation may change it, and the indexer mirrors it here.
+  it('refuses a payout change for a merchant registered on chain', async () => {
+    const onchain = '0x' + '2'.repeat(40)
+    const m = await seedMerchant(t.prisma.db, { onchainMerchantId: 77, payoutAddress: onchain })
+    const res = await t.inject({
+      method: 'PATCH',
+      url: '/v1/merchants/me',
+      headers: { authorization: `Bearer ${m.privyAccessToken}` },
+      payload: { payoutAddress: '0x' + '3'.repeat(40) },
+    })
+
+    expect(res.statusCode).toBe(409)
+    expect(JSON.parse(res.body).error.code).toBe('payout_change_onchain')
+    const row = await t.prisma.db.merchant.findUniqueOrThrow({ where: { id: m.id } })
+    expect(row.payoutAddress).toBe(onchain)
+  })
+
+  it('refuses an onboarding resubmission that changes a registered payout address', async () => {
+    const onchain = '0x' + '2'.repeat(40)
+    const m = await seedMerchant(t.prisma.db, { onchainMerchantId: 78, payoutAddress: onchain })
+    const res = await t.inject({
+      method: 'POST',
+      url: '/v1/merchants/me/onboard',
+      headers: { authorization: `Bearer ${m.privyAccessToken}` },
+      payload: {
+        businessName: 'Acme Inc',
+        businessSector: 'Software',
+        countryCode: 'US',
+        payoutAddress: '0x' + '4'.repeat(40),
+      },
+    })
+
+    expect(res.statusCode).toBe(409)
+    const row = await t.prisma.db.merchant.findUniqueOrThrow({ where: { id: m.id } })
+    expect(row.payoutAddress).toBe(onchain)
+  })
+
+  it('still lets an unregistered merchant set its payout address', async () => {
+    const m = await seedMerchant(t.prisma.db)
+    const res = await t.inject({
+      method: 'PATCH',
+      url: '/v1/merchants/me',
+      headers: { authorization: `Bearer ${m.privyAccessToken}` },
+      payload: { payoutAddress: '0x' + '5'.repeat(40) },
+    })
+    expect(res.statusCode).toBe(200)
+  })
+
   it('POST /v1/merchants/me/onboard flips onboardingCompleted', async () => {
     const m = await seedMerchant(t.prisma.db, { onboardingCompleted: false })
     const res = await t.inject({

@@ -16,7 +16,7 @@ The on-chain policy panel reads live from the Registry contract. Nothing you see
 
 - **Payout address.** Where every payment lands. Changing it triggers a 24-hour cooldown before the new address takes effect — mitigation for a compromised dashboard session pointing your revenue at an attacker.
 - **Ownership.** Two-step nominate + accept flow. You nominate a new owner; the new owner has to accept from their wallet, no sooner than 24 hours after the nomination. Only the accepting wallet can complete the handover. Nominating cancels any payout change that is still pending, and the payout address can't change until the handover is accepted or cancelled, so the new owner gets the payout address they saw.
-- **Current fee and the most Strimz can charge.** What Strimz charges you today, which follows your plan, and the ceiling the Registry stores for your account: 5%, fixed when the account registers. Strimz may raise the fee, for example when network costs go up, but never above the ceiling. Outside moves between plans, you get at least 30 days' notice by email before an increase.
+- **Current fee and the most Strimz can charge.** What Strimz charges you today, which follows your plan, and the ceiling the Registry stores for your account: 5%, fixed when the account registers. Strimz may raise the fee, for example when network costs go up, but never above the ceiling. Outside moves between plans, you get at least 30 days' notice by email before an increase. On the Free plan the fee shows as 0.5% because it's taken and then refunded; see [Fees and your free $1,000](/docs/concepts/fees).
 
 Every action here writes to the chain and requires you to sign with your Privy embedded wallet.
 

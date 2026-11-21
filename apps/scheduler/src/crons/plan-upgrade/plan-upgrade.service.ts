@@ -17,6 +17,8 @@ import {
   type VolumePlan,
 } from '@strimz/shared-config'
 
+import { pooledVolumes } from '@strimz/db'
+
 import { TypedConfigService } from '../../config/index.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
@@ -28,23 +30,16 @@ const FEATURE_NAMES: Record<PlanFeature, string> = {
   yield_recommendations: 'Yield recommendations',
 }
 
-interface VolumeRow {
-  id: string
-  email: string
-  businessName: string | null
-  onchainMerchantId: number
-  tier: MerchantTier
-  currency: PaymentToken
-  volume: string
-}
-
 interface Candidate {
   id: string
   email: string
   businessName: string | null
   onchainMerchantId: bigint
   tier: MerchantTier
+  /** Pooled with linked accounts (shared payout address or owner wallet). */
   volumes: Record<PaymentToken, bigint>
+  ownVolumes: Record<PaymentToken, bigint>
+  linkedMerchantIds: string[]
 }
 
 interface Upgrade {
@@ -93,23 +88,7 @@ export class PlanUpgradeService {
     this.running = true
     try {
       for (const candidate of await this.candidates()) {
-        const next = planUpgradeFor(candidate.tier, candidate.volumes)
-        if (!next) continue
-        result.checked++
-        let upgrade: Upgrade | 'scheduled' | 'waiting' | null
-        try {
-          upgrade = await this.upgrade(candidate, next)
-        } catch (err) {
-          result.failed++
-          this.log.error(
-            `plan upgrade ${candidate.tier} -> ${next} failed for merchant ${candidate.id}: ${(err as Error).message}`,
-          )
-          continue
-        }
-        if (upgrade === 'scheduled') result.scheduled++
-        if (!upgrade || upgrade === 'scheduled' || upgrade === 'waiting') continue
-        result.upgraded++
-        if (!(await this.notify(upgrade))) result.emailFailed++
+        await this.process(candidate, result)
       }
     } finally {
       this.running = false
@@ -122,25 +101,32 @@ export class PlanUpgradeService {
     return result
   }
 
-  private async candidates(): Promise<Candidate[]> {
+  private async process(candidate: Candidate, result: PlanUpgradeResult): Promise<void> {
+    const next = planUpgradeFor(candidate.tier, candidate.volumes)
+    if (!next) return
+    result.checked++
+    let upgrade: Upgrade | 'scheduled' | 'waiting' | null
+    try {
+      upgrade = await this.upgrade(candidate, next)
+    } catch (err) {
+      result.failed++
+      this.log.error(
+        `plan upgrade ${candidate.tier} -> ${next} failed for merchant ${candidate.id}: ${(err as Error).message}`,
+      )
+      return
+    }
+    if (upgrade === 'scheduled') result.scheduled++
+    if (!upgrade || upgrade === 'scheduled' || upgrade === 'waiting') return
+    result.upgraded++
+    if (!(await this.notify(upgrade))) result.emailFailed++
+    if (planUpgradeFor(candidate.tier, candidate.ownVolumes) !== next) {
+      await this.alertLinked(candidate, next)
+    }
+  }
+
+  private async candidates(merchantId?: string): Promise<Candidate[]> {
     const mode = arcModeFor(this.cfg.env.ARC_ENVIRONMENT)
-    const rows = await this.prisma.db.$queryRaw<VolumeRow[]>`
-      SELECT m.id,
-             m.email,
-             m."businessName",
-             m."onchainMerchantId",
-             m.tier::text AS tier,
-             t.currency::text AS currency,
-             sum(t.amount::numeric)::text AS volume
-        FROM "Merchant" m
-        JOIN "Transaction" t ON t."merchantId" = m.id
-       WHERE m."onchainMerchantId" IS NOT NULL
-         AND m.tier <> 'enterprise'::"MerchantTier"
-         AND t.status = 'confirmed'::"TransactionStatus"
-         AND t.kind <> 'refund'::"TransactionKind"
-         AND t.mode = ${mode}::"Mode"
-       GROUP BY m.id, t.currency
-       ORDER BY m.id`
+    const rows = await pooledVolumes(this.prisma.db, { mode, merchantId })
 
     const byMerchant = new Map<string, Candidate>()
     for (const row of rows) {
@@ -149,13 +135,34 @@ export class PlanUpgradeService {
         email: row.email,
         businessName: row.businessName,
         onchainMerchantId: BigInt(row.onchainMerchantId),
-        tier: row.tier,
+        tier: row.tier as MerchantTier,
         volumes: { USDC: 0n, EURC: 0n },
+        ownVolumes: { USDC: 0n, EURC: 0n },
+        linkedMerchantIds: [],
       }
       candidate.volumes[row.currency] = BigInt(row.volume)
+      candidate.ownVolumes[row.currency] = BigInt(row.ownVolume)
+      for (const id of row.contributors) {
+        if (id !== row.id && !candidate.linkedMerchantIds.includes(id)) {
+          candidate.linkedMerchantIds.push(id)
+        }
+      }
       byMerchant.set(row.id, candidate)
     }
     return [...byMerchant.values()]
+  }
+
+  private async alertLinked(candidate: Candidate, next: VolumePlan): Promise<void> {
+    const ids = [candidate.id, ...candidate.linkedMerchantIds]
+    try {
+      await this.email.send({
+        to: this.cfg.env.STRIMZ_ADMIN_ALERT_EMAIL,
+        subject: `Linked accounts: merchant ${candidate.id} moved to ${PLANS[next].name} on pooled volume`,
+        html: `<p>Merchant <code>${candidate.id}</code> left the free allowance because accounts sharing its payout address or owner wallet reached the threshold together.</p><p>Linked merchants: ${ids.map((id) => `<code>${id}</code>`).join(', ')}</p>`,
+      })
+    } catch (err) {
+      this.log.error(`linked-accounts alert for ${candidate.id} failed: ${(err as Error).message}`)
+    }
   }
 
   private async upgrade(

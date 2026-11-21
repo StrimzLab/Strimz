@@ -5,6 +5,7 @@ import { validateEnv } from '../../src/config/env.schema.js'
 const SCHEDULER_KEY = '0x00000000000000000000000000000000000000000000000000000000000000a1'
 const KMS_ADDRESS = '0x00000000000000000000000000000000000000c3'
 const RELAYER = '0x000000000000000000000000000000000000dEaD'
+const REFUND_KEY = '0x00000000000000000000000000000000000000000000000000000000000000b2'
 
 function env(overrides: Record<string, string | undefined>): Record<string, string | undefined> {
   return {
@@ -20,6 +21,8 @@ function env(overrides: Record<string, string | undefined>): Record<string, stri
     RELAYER_ADDRESS: RELAYER,
     STRIMZ_ADMIN_ALERT_EMAIL: 'ops@strimz.test',
     CHECKOUT_ORIGIN: 'http://localhost:3002',
+    REFUND_SIGNER_PROVIDER: 'software',
+    REFUND_PRIVATE_KEY: REFUND_KEY,
     ...overrides,
   }
 }
@@ -79,5 +82,47 @@ describe('scheduler signer provider', () => {
 
   it('keeps the software signer outside production', () => {
     expect(() => validateEnv(env({ SCHEDULER_PRIVATE_KEY: SCHEDULER_KEY }))).not.toThrow()
+  })
+
+  // ADR-2026-11-21-free-plan-fee-integrity: the refund wallet.
+  describe('refund wallet', () => {
+    it('is required in production, because merchants are owed refunds', () => {
+      expect(() =>
+        validateEnv(
+          env({
+            NODE_ENV: 'production',
+            SCHEDULER_PRIVATE_KEY: SCHEDULER_KEY,
+            REFUND_SIGNER_PROVIDER: undefined,
+            REFUND_PRIVATE_KEY: undefined,
+          }),
+        ),
+      ).toThrow(/REFUND_SIGNER_PROVIDER/u)
+    })
+
+    it('refuses a plaintext refund key in production on mainnet', () => {
+      expect(() =>
+        validateEnv(env({ NODE_ENV: 'production', ARC_ENVIRONMENT: 'mainnet', ...awsKms })),
+      ).toThrow(/REFUND_SIGNER_PROVIDER/u)
+    })
+
+    it('refuses a refund key that is the scheduler key', () => {
+      expect(() =>
+        validateEnv(
+          env({ SCHEDULER_PRIVATE_KEY: SCHEDULER_KEY, REFUND_PRIVATE_KEY: SCHEDULER_KEY }),
+        ),
+      ).toThrow(/refund wallet must be its own key/u)
+    })
+
+    it('needs the KMS key id, address and region under aws-kms', () => {
+      expect(() =>
+        validateEnv(
+          env({
+            SCHEDULER_PRIVATE_KEY: SCHEDULER_KEY,
+            REFUND_SIGNER_PROVIDER: 'aws-kms',
+            REFUND_PRIVATE_KEY: undefined,
+          }),
+        ),
+      ).toThrow(/REFUND_KMS_KEY_ID/u)
+    })
   })
 })

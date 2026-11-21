@@ -1,0 +1,60 @@
+---
+title: Fees and your free $1,000
+description: What Strimz charges, how your first $1,000 in each currency stays fee-free, and how the refund reaches your wallet.
+---
+
+Strimz charges a small fee on each payment. The first $1,000 of payments your business takes in each currency is fee-free.
+
+## The fee
+
+| Plan | Fee per payment | When you're on it |
+| --- | --- | --- |
+| Free | 0.5%, refunded | From your first payment until you've taken 1,000 |
+| Starter | 0.5% | From 1,000 of all-time volume |
+| Growth | 0.4% | From 50,000 of all-time volume |
+| Enterprise | By contract | Agreed with Strimz |
+
+The fee comes out of each payment on chain, in the same transaction. Strimz never holds your money and never sends you an invoice. What lands in your payout wallet is the payment minus the fee.
+
+## How the free $1,000 works
+
+Strimz takes the 0.5% fee on every payment, including your first ones, and then sends that fee back to you. You keep everything you take on your first 1,000.
+
+1. A customer pays you. The fee is taken on chain, like any other payment.
+2. Within about 15 minutes, Strimz sends the fee back to your payout wallet.
+3. This continues until your business has taken 1,000 in that currency. After that, the fee stays with Strimz.
+
+### An example
+
+Your first three sales are 200 USDC, 700 USDC and 300 USDC.
+
+| Payment | Fee taken | Fee refunded | Why |
+| --- | --- | --- | --- |
+| 200 USDC | 1.00 | 1.00 | All of it is inside your first 1,000 |
+| 700 USDC | 3.50 | 3.50 | You're now at 900 |
+| 300 USDC | 1.50 | 0.50 | Only 100 of it is inside your first 1,000 |
+
+In total you got 5.00 USDC back: the full fee on your first 1,000 USDC. From then on, every payment pays the normal fee.
+
+## Questions
+
+**Why take the fee and then refund it, instead of charging nothing?**
+The contract charges the same fee to everyone, all the time, with no switch to flip when you reach 1,000. That way nobody can get large payments through for free during a switch. You still pay nothing on your first 1,000.
+
+**Is it 1,000 dollars or 1,000 of each currency?**
+Each currency has its own allowance: your first 1,000 USDC and your first 1,000 EURC.
+
+**What if I have more than one Strimz account?**
+The free 1,000 is per business, not per account. Accounts that share a payout wallet or an owner wallet share one allowance. Opening another account doesn't give you a second one.
+
+**Where does the refund go?**
+To your account's payout wallet, the one the Registry contract pays. If you're changing it, the refund follows the change once its 24-hour wait has passed.
+
+**How do I see it?**
+Open a payment in [Transactions](/docs/dashboard/transactions). Payments inside your free allowance show **Fee refunded**, with a link to the refund on the block explorer once it's sent. While it's on its way, the page says so.
+
+**What if I refund a customer?**
+A payment you refund to your customer no longer counts toward your 1,000, so your next payments use that room instead. The fee on the refunded payment isn't returned again.
+
+**Can the fee change?**
+Your fee follows your plan. Strimz may raise it, for example when network costs go up, but never above your account's ceiling of 5%, which the Registry contract stores and enforces. Any increase outside a plan move comes with at least 30 days' notice by email. See [Settings](/docs/dashboard/settings).

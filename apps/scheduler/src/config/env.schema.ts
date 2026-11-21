@@ -31,6 +31,17 @@ export const envSchema = z.object({
   ),
   AWS_REGION: unsetWhenEmpty(z.string()),
 
+  // The wallet that pays free-allowance fee refunds (ADR-2026-11-21-free-plan-fee-integrity).
+  // It holds no contract roles; ops keep a small float in it.
+  REFUND_SIGNER_PROVIDER: unsetWhenEmpty(z.enum(['software', 'aws-kms'])),
+  REFUND_PRIVATE_KEY: unsetWhenEmpty(
+    z.string().regex(/^0x[0-9a-fA-F]{64}$/, 'must be a 0x-prefixed 32-byte hex private key'),
+  ),
+  REFUND_KMS_KEY_ID: unsetWhenEmpty(z.string()),
+  REFUND_SIGNER_ADDRESS: unsetWhenEmpty(
+    z.string().regex(/^0x[0-9a-fA-F]{40}$/u, 'must be a 0x-prefixed 20-byte hex address'),
+  ),
+
   SUBSCRIPTIONS_ADDRESS: z
     .string()
     .regex(/^0x[0-9a-fA-F]{40}$/, 'must be a 0x-prefixed 20-byte hex address'),
@@ -142,6 +153,12 @@ function schedulerSignerAddress(env: ParsedEnv): string | undefined {
   return privateKeyToAccount(env.SCHEDULER_PRIVATE_KEY as `0x${string}`).address
 }
 
+function refundSignerAddress(env: ParsedEnv): string | undefined {
+  if (env.REFUND_SIGNER_PROVIDER === 'aws-kms') return env.REFUND_SIGNER_ADDRESS
+  if (env.REFUND_SIGNER_PROVIDER !== 'software' || !env.REFUND_PRIVATE_KEY) return undefined
+  return privateKeyToAccount(env.REFUND_PRIVATE_KEY as `0x${string}`).address
+}
+
 const separatedSignersSchema = envSchema.superRefine((env, ctx) => {
   if (env.NODE_ENV === 'production' && !env.ARC_ENVIRONMENT) {
     issue(ctx, 'ARC_ENVIRONMENT', 'required when NODE_ENV=production')
@@ -172,7 +189,46 @@ const separatedSignersSchema = envSchema.superRefine((env, ctx) => {
     }
   }
 
+  if (env.NODE_ENV === 'production' && !env.REFUND_SIGNER_PROVIDER) {
+    issue(
+      ctx,
+      'REFUND_SIGNER_PROVIDER',
+      'required when NODE_ENV=production: merchants are owed fee refunds',
+    )
+  }
+  if (env.REFUND_SIGNER_PROVIDER === 'software') {
+    if (env.NODE_ENV === 'production' && env.ARC_ENVIRONMENT !== 'testnet') {
+      issue(
+        ctx,
+        'REFUND_SIGNER_PROVIDER',
+        'software is refused in production on mainnet; set aws-kms',
+      )
+    }
+    if (!env.REFUND_PRIVATE_KEY) {
+      issue(ctx, 'REFUND_PRIVATE_KEY', 'required when REFUND_SIGNER_PROVIDER=software')
+    }
+  } else if (env.REFUND_SIGNER_PROVIDER === 'aws-kms') {
+    for (const key of ['REFUND_KMS_KEY_ID', 'REFUND_SIGNER_ADDRESS', 'AWS_REGION'] as const) {
+      if (!env[key]) issue(ctx, key, 'required when REFUND_SIGNER_PROVIDER=aws-kms')
+    }
+    if (env.REFUND_PRIVATE_KEY) {
+      issue(ctx, 'REFUND_PRIVATE_KEY', 'must be unset when REFUND_SIGNER_PROVIDER=aws-kms')
+    }
+  }
+
   const schedulerAddress = schedulerSignerAddress(env)
+  const refundAddress = refundSignerAddress(env)
+  if (
+    refundAddress &&
+    (refundAddress.toLowerCase() === schedulerAddress?.toLowerCase() ||
+      refundAddress.toLowerCase() === env.RELAYER_ADDRESS.toLowerCase())
+  ) {
+    issue(
+      ctx,
+      'REFUND_SIGNER_PROVIDER',
+      'the refund wallet must be its own key, not the scheduler or the relayer',
+    )
+  }
   if (schedulerAddress?.toLowerCase() === env.RELAYER_ADDRESS.toLowerCase()) {
     issue(
       ctx,

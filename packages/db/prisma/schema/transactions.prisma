@@ -37,6 +37,7 @@ model Transaction {
   subscriptionCharge     SubscriptionCharge? @relation(fields: [subscriptionChargeId], references: [id], onDelete: SetNull)
   refund                 Refund?            @relation(fields: [refundId], references: [id], onDelete: SetNull)
   customer               Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  feeRefund              FeeRefund?
 
   @@unique([onchainTxHash, logIndex])
   @@index([onchainTxHash])
@@ -47,4 +48,51 @@ model Transaction {
   @@index([customerId])
   @@index([payerAddress])
   @@index([blockNumber])
+}
+
+/// The fee on one payment that Strimz pays back because it fell inside the
+/// business's free allowance (ADR-2026-11-21-free-plan-fee-integrity).
+model FeeRefund {
+  id            String          @id @default(cuid())
+  merchantId    String
+  /// Unique, so a payment's fee is refunded at most once.
+  transactionId String          @unique
+  currency      PaymentCurrency
+  amount        String          @db.VarChar(78)
+  mode          Mode
+  status        FeeRefundStatus @default(pending)
+  transferId    String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  merchant      Merchant           @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  transaction   Transaction        @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  transfer      FeeRefundTransfer? @relation(fields: [transferId], references: [id], onDelete: Restrict)
+
+  @@index([status, mode])
+  @@index([merchantId])
+}
+
+/// One token transfer from the refund wallet. Signed and stored before it is
+/// broadcast, so a restart rebroadcasts the same transaction instead of paying twice.
+model FeeRefundTransfer {
+  id          String                  @id @default(cuid())
+  merchantId  String
+  currency    PaymentCurrency
+  amount      String                  @db.VarChar(78)
+  toAddress   String                  @db.VarChar(42)
+  fromAddress String                  @db.VarChar(42)
+  nonce       Int
+  txHash      String                  @unique @db.VarChar(66)
+  signedTx    String
+  status      FeeRefundTransferStatus @default(signed)
+  mode        Mode
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  merchant    Merchant    @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  refunds     FeeRefund[]
+
+  @@unique([fromAddress, nonce])
+  @@index([status])
 }

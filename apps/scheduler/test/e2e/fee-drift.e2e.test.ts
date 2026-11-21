@@ -77,15 +77,30 @@ describe('merchant fee drift e2e', () => {
   })
 
   it('alerts when the chain charges more than the plan', async () => {
-    const id = await merchant('free', 50)
+    const id = await merchant('growth', 50)
 
     await run()
     const row = must((await driftRows(id))[0])
     expect(row.metadata).toMatchObject({
-      tier: 'free',
-      planFeeBps: 0,
+      tier: 'growth',
+      planFeeBps: 40,
       onchainFeeBps: 50,
       direction: 'above_plan',
+    })
+  })
+
+  // ADR-2026-11-21-free-plan-fee-integrity: Free pays the Starter fee on chain.
+  it('treats a Free merchant at the Starter fee as matching, and at 0 as drift', async () => {
+    const ok = await merchant('free', 50)
+    const zero = await merchant('free', 0)
+
+    expect(await run()).toEqual({ checked: 2, drifted: 1 })
+    expect(await driftRows(ok)).toHaveLength(0)
+    expect(must((await driftRows(zero))[0]).metadata).toMatchObject({
+      tier: 'free',
+      planFeeBps: 50,
+      onchainFeeBps: 0,
+      direction: 'below_plan',
     })
   })
 

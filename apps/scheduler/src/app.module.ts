@@ -16,6 +16,7 @@ import { InvoiceOverdueModule } from './crons/invoice-overdue/invoice-overdue.mo
 import { PlanUpgradeModule } from './crons/plan-upgrade/plan-upgrade.module.js'
 import { ContractAlertModule } from './crons/contract-alerts/contract-alerts.module.js'
 import { FeeDriftModule } from './crons/fee-drift/fee-drift.module.js'
+import { FeeRefundModule } from './crons/fee-refunds/fee-refund.module.js'
 import { GasBalanceMonitorModule } from './crons/gas-balance-monitor/gas-balance-monitor.module.js'
 import { MerchantNotificationsModule } from './crons/merchant-notifications/merchant-notifications.module.js'
 import { PayerNotificationsModule } from './crons/payer-notifications/payer-notifications.module.js'
@@ -49,6 +50,7 @@ import { AdminModule } from './common/admin/admin.module.js'
     PlanUpgradeModule,
     ContractAlertModule,
     FeeDriftModule,
+    FeeRefundModule,
     GasBalanceMonitorModule,
     MerchantNotificationsModule,
     PayerNotificationsModule,

@@ -368,3 +368,15 @@ enum AdminUserStatus {
   active
   suspended
 }
+
+enum FeeRefundStatus {
+  pending
+  sending
+  refunded
+}
+
+enum FeeRefundTransferStatus {
+  signed
+  confirmed
+  failed
+}

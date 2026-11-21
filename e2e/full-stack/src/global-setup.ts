@@ -87,7 +87,12 @@ export default async function setup({ provide }: GlobalSetupContext): Promise<()
     const actors = createActors()
     await fundUsdc(rpcUrl, actors.deployer.address, SERVICE_FUNDING_USDC)
     const deployment = await deploy(rpcUrl, actors, log)
-    for (const who of [actors.relayer.address, actors.scheduler.address, actors.payout.address]) {
+    for (const who of [
+      actors.relayer.address,
+      actors.scheduler.address,
+      actors.payout.address,
+      actors.refund.address,
+    ]) {
       await fundUsdc(rpcUrl, who, SERVICE_FUNDING_USDC)
     }
     await fundUsdc(rpcUrl, actors.payer.address, PAYER_FUNDING_USDC)
@@ -181,6 +186,11 @@ export default async function setup({ provide }: GlobalSetupContext): Promise<()
       STRIMZ_ADMIN_ALERT_EMAIL: 'ops@strimz.test',
       CHECKOUT_ORIGIN: 'http://localhost:3002',
       SUBSCRIPTION_SWEEPER_CRON: '*/5 * * * * *',
+      REFUND_SIGNER_PROVIDER: 'software',
+      REFUND_PRIVATE_KEY: actors.refund.privateKey,
+      // Never on its own: the fee-refund test runs it through /admin, so refunds
+      // can't land in the middle of another suite's balance checks.
+      FEE_REFUND_CRON: '0 0 0 1 1 *',
     }
     const schedulerCwd = join(REPO_ROOT, 'apps/scheduler')
     const scheduler = startService('scheduler', 'node', ['dist/main.js'], {

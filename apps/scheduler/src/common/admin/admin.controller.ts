@@ -4,6 +4,7 @@ import { TypedConfigService } from '../../config/index.js'
 import { SubscriptionSweeperService } from '../../crons/subscription-sweeper/subscription-sweeper.service.js'
 import { GasBalanceMonitorService } from '../../crons/gas-balance-monitor/gas-balance-monitor.service.js'
 import { MerchantNotificationsService } from '../../crons/merchant-notifications/merchant-notifications.service.js'
+import { FeeRefundService } from '../../crons/fee-refunds/fee-refund.service.js'
 
 /**
  * Out-of-band triggers for the cron workloads, exposed only when
@@ -26,6 +27,7 @@ export class AdminController {
     private readonly sweeper: SubscriptionSweeperService,
     private readonly gasMonitor: GasBalanceMonitorService,
     private readonly merchantNotifications: MerchantNotificationsService,
+    private readonly feeRefunds: FeeRefundService,
   ) {}
 
   @Post('/sweep-now')
@@ -50,6 +52,13 @@ export class AdminController {
     this.log.log('admin: manual merchant-notifications cron triggered')
     const result = await this.merchantNotifications.tickNow()
     return result
+  }
+
+  @Post('/run/fee-refunds')
+  runFeeRefunds() {
+    this.refuseInProduction()
+    this.log.log('admin: manual fee-refund run triggered')
+    return this.feeRefunds.runNow()
   }
 
   private refuseInProduction(): void {

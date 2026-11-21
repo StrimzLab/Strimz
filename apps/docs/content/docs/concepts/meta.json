@@ -3,6 +3,7 @@
   "pages": [
     "overview",
     "resources",
+    "fees",
     "idempotency",
     "meta-tx-flow",
     "modes-of-failure",

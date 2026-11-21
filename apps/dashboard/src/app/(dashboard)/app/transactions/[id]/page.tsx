@@ -84,6 +84,27 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
             <Row label="Strimz fee">
               <span className="font-mono">{formatTokenAmount(tx.feeAmount, tx.currency)}</span>
             </Row>
+            {tx.feeRefund && (
+              <Row label="Fee refunded">
+                <span className="inline-flex items-center gap-1.5 font-mono">
+                  {formatTokenAmount(tx.feeRefund.amount, tx.currency)}
+                  {tx.feeRefund.status === 'refunded' && tx.feeRefund.txHash ? (
+                    <a
+                      href={`${explorer}/tx/${tx.feeRefund.txHash}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-brand-text inline-flex items-center gap-1 font-sans text-xs hover:underline"
+                    >
+                      View <ExternalLink className="size-3" />
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground font-sans text-xs">
+                      On its way to your payout wallet
+                    </span>
+                  )}
+                </span>
+              </Row>
+            )}
             <Row label="Net to you">
               <span className="font-mono">{formatTokenAmount(tx.netAmount, tx.currency)}</span>
             </Row>
