@@ -3,6 +3,7 @@ import { BadRequestException } from '@nestjs/common'
 import { decodeFunctionData, keccak256, toFunctionSelector, toHex } from 'viem'
 
 import {
+  cancelWithSigAbi,
   payWithAuthorizationAbi,
   permitAndCreateSubscriptionAbi,
 } from '../../../../src/modules/relay/generated/contracts.js'
@@ -17,6 +18,7 @@ import type { TypedConfigService } from '../../../../src/config/index.js'
 import type { RelayJob } from '@strimz/queue-contracts'
 import { checkoutPaymentNonce, subscriptionIntentNonce } from '@strimz/shared-crypto/checkout'
 import type {
+  CancelWithSigInput,
   PayWithAuthorizationInput,
   PermitAndCreateSubscriptionInput,
 } from '../../../../src/modules/relay/relay.types.js'
@@ -128,9 +130,12 @@ function makeFakePrisma(): PrismaService {
 
 const PERMIT_NONCE = 4n
 
-function makeFakeProbe(over: Partial<Record<'estimateGas', () => Promise<bigint>>> = {}) {
+function makeFakeProbe(
+  over: Partial<Record<'estimateGas' | 'verifyCancel', () => Promise<bigint | boolean>>> = {},
+) {
   return {
     estimateGas: () => Promise.resolve(150_000n),
+    verifyCancel: () => Promise.resolve(true),
     permitNonce: () => Promise.resolve(PERMIT_NONCE),
     receiptStatus: () => Promise.resolve(null),
     latestBlockTimestamp: () => Promise.resolve(1_700_000_000n),
@@ -152,8 +157,15 @@ function makeEnrolmentGate(): RelayEnrolmentGate {
   } as unknown as RelayEnrolmentGate
 }
 
+let budgetConsumed = 0
+
 function makeBudget(): RelayBudgetService {
-  return { consume: () => Promise.resolve() } as unknown as RelayBudgetService
+  return {
+    consume: () => {
+      budgetConsumed += 1
+      return Promise.resolve()
+    },
+  } as unknown as RelayBudgetService
 }
 
 const MERCHANT_INTERNAL_ID = 'merchant_1'
@@ -214,6 +226,7 @@ describe('RelayService', () => {
 
   beforeEach(() => {
     enrolments = []
+    budgetConsumed = 0
     const { svc, queue: q } = makeFakeQueueService()
     queue = q
     service = new RelayService(
@@ -353,6 +366,67 @@ describe('RelayService', () => {
       })
       expect(queue._jobs.size).toBe(0)
       expect(enrolments).toEqual([])
+    })
+  })
+
+  describe('submitCancelWithSig', () => {
+    const SIG = `0x${'11'.repeat(65)}` as const
+    function cancelInput(over: Partial<CancelWithSigInput> = {}): CancelWithSigInput {
+      return {
+        onchainSubscriptionId: 7n,
+        payer: PAYER,
+        deadline: 1_700_001_800n,
+        signature: SIG,
+        merchantInternalId: MERCHANT_INTERNAL_ID,
+        subscriptionInternalId: 'sub_1',
+        ...over,
+      }
+    }
+
+    it('relays cancelWithSig to Subscriptions without spending the merchant relay budget', async () => {
+      const view = await service.submitCancelWithSig(cancelInput())
+      expect(view.reason).toBe('cancelWithSig')
+      const job = must(queue._jobs.get(view.idempotencyKey))
+      expect(job.data.toAddress).toBe(SUBS_ADDR)
+      const decoded = decodeFunctionData({ abi: cancelWithSigAbi, data: job.data.callData })
+      expect(decoded.functionName).toBe('cancelWithSig')
+      expect(decoded.args).toEqual([7n, 1_700_001_800n, SIG])
+      expect(budgetConsumed).toBe(0)
+    })
+
+    it('is idempotent on the signed call', async () => {
+      const first = await service.submitCancelWithSig(cancelInput())
+      const second = await service.submitCancelWithSig(cancelInput())
+      expect(second.idempotencyKey).toBe(first.idempotencyKey)
+      expect(queue._jobs.size).toBe(1)
+    })
+
+    it("refuses a signature that isn't the payer's", async () => {
+      const relay = new RelayService(
+        makeFakeQueueService().svc,
+        makeFakePrisma(),
+        makeCfg(),
+        makeFakeProbe({ verifyCancel: () => Promise.resolve(false) }),
+        makeFakePointers(),
+        makeEnrolmentGate(),
+        makeBudget(),
+      )
+      const err = await relay.submitCancelWithSig(cancelInput()).catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(BadRequestException)
+      expect((err as BadRequestException).getResponse()).toMatchObject({
+        code: 'invalid_signature',
+      })
+    })
+
+    it('refuses a signature past its deadline', async () => {
+      const err = await service
+        .submitCancelWithSig(cancelInput({ deadline: 1_699_999_999n }))
+        .catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(BadRequestException)
+      expect((err as BadRequestException).getResponse()).toMatchObject({
+        code: 'signature_expired',
+      })
+      expect(queue._jobs.size).toBe(0)
     })
   })
 

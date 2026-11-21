@@ -57,4 +57,15 @@ describe('allowance reminder renew link', () => {
     expect(html).toContain('https://checkout.strimz.finance/sub/renew/sub_1')
     expect(html).not.toContain('app.strimz.finance/sub/renew')
   })
+
+  it('also links to the page where the payer can cancel instead', async () => {
+    const { svc, send } = build()
+
+    await svc.check(sub)
+
+    const [mail] = send.mock.calls[0] ?? []
+    expect((mail as { html: string }).html).toContain(
+      'https://checkout.strimz.finance/manage?subscription=sub_1',
+    )
+  })
 })

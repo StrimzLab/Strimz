@@ -16,6 +16,8 @@ import {
   CheckoutAllowanceRelayDto,
   CheckoutEnrolmentRelayDto,
   CheckoutPaymentRelayDto,
+  ManageSubscriptionCancelDto,
+  ManageSubscriptionsListDto,
 } from '../relay/relay.dto.js'
 import { enrolmentRelayInput, paymentRelayInput } from '../relay/relay-inputs.js'
 import { RelayService } from '../relay/relay.service.js'
@@ -25,6 +27,7 @@ import { EnrolmentTermsService } from '../subscription-plans/enrolment-terms.ser
 import { SubscriptionsService } from '../subscriptions/subscriptions.service.js'
 import { CheckoutPayerService } from './checkout-payer.service.js'
 import { CheckoutRenewalService, type SubscriptionRenewalView } from './checkout-renewal.service.js'
+import { CheckoutManageService, type ManagedSubscriptionsView } from './checkout-manage.service.js'
 import { PayerIdentityDto } from './checkout.dto.js'
 
 /**
@@ -59,6 +62,7 @@ export class CheckoutController {
     private readonly relay: RelayService,
     private readonly payers: CheckoutPayerService,
     private readonly renewals: CheckoutRenewalService,
+    private readonly manage: CheckoutManageService,
   ) {}
 
   @ApiOperation({
@@ -307,6 +311,37 @@ export class CheckoutController {
     @Param('key') key: string,
   ): Promise<RelaySubmissionView> {
     return this.submission(key, await this.renewals.merchantOf(id), id)
+  }
+
+  @ApiOperation({
+    summary: "List a wallet's open subscriptions (public, signed)",
+    description:
+      'The wallet signs an EIP-712 ViewSubscriptions(payer, issuedAt), valid for ten minutes. ' +
+      "Returns that wallet's trialing, active and at-risk subscriptions, and nothing for any " +
+      'other wallet.',
+  })
+  @Public()
+  @RateLimit({ max: 30, windowMs: 60_000, keyBy: 'ip', label: 'checkout.manage_list' })
+  @Post('/manage/subscriptions')
+  manageSubscriptions(@Body() body: ManageSubscriptionsListDto): Promise<ManagedSubscriptionsView> {
+    return this.manage.list(body)
+  }
+
+  @ApiOperation({
+    summary: 'Cancel a subscription with the payer signature (public)',
+    description:
+      'The payer signs an EIP-712 CancelSubscription(subscriptionId, deadline) on the ' +
+      'Subscriptions contract. Strimz checks it, then relays cancelWithSig and pays the gas. ' +
+      'Poll /subscriptions/:id/submissions/:key for the result.',
+  })
+  @Public()
+  @RateLimit({ max: 10, windowMs: 60_000, keyBy: 'ip', label: 'checkout.manage_cancel' })
+  @Post('/manage/subscriptions/:id/cancel')
+  cancelManagedSubscription(
+    @Param('id') id: string,
+    @Body() body: ManageSubscriptionCancelDto,
+  ): Promise<RelaySubmissionView> {
+    return this.manage.cancel(id, body)
   }
 
   private async submission(

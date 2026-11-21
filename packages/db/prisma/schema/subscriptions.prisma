@@ -64,6 +64,7 @@ model Subscription {
   nextRetryAt             DateTime?
 
   cancelledAt             DateTime?
+  cancelledBy             SubscriptionCanceller?
   cancellationReason      String?             @db.VarChar(500)
 
   mode                    Mode                @default(test)

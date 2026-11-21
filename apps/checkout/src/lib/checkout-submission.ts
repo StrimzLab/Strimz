@@ -6,7 +6,11 @@ export interface RelaySubmissionView {
   idempotencyKey: string
   status: 'queued' | 'signing' | 'broadcast' | 'confirmed' | 'reverted' | 'failed'
   txHash: string | null
-  reason: 'payWithAuthorization' | 'permitAndCreateSubscription' | 'permitAllowance'
+  reason:
+    | 'payWithAuthorization'
+    | 'permitAndCreateSubscription'
+    | 'permitAllowance'
+    | 'cancelWithSig'
   errorReason: string | null
   attemptCount: number
   enqueuedAt: string

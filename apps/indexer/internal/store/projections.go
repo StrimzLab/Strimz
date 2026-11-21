@@ -827,33 +827,51 @@ func (s *Store) InsertSubscriptionChargeSkip(ctx context.Context, in Subscriptio
 // MarkSubscriptionCancelled flips the on-chain-driven cancellation flag.
 // Off-chain cancellation already happens in the API; this catches the
 // case where the customer (or anyone authorised) invokes the contract
-// directly.
+// directly, and sends that cancel's only subscription.cancelled.
 func (s *Store) MarkSubscriptionCancelled(ctx context.Context, onchainSubID *big.Int, by, txHash string, blockTimestamp time.Time) (int64, error) {
-	tag, err := s.db().Exec(ctx, `
-		UPDATE "Subscription"
-		   SET status = 'cancelled'::"SubscriptionStatus",
-		       "cancelledAt" = COALESCE("cancelledAt", $3),
-		       "cancellationReason" = COALESCE("cancellationReason", $2),
-		       "updatedAt" = NOW()
-		 WHERE "onchainSubscriptionId" = $1
-		   AND status NOT IN ('cancelled', 'lapsed')
-	`, onchainSubID.Int64(), fmt.Sprintf("on-chain cancel by %s in tx %s", by, txHash), blockTimestamp)
-	if err != nil {
-		return 0, fmt.Errorf("cancel sub: %w", err)
-	}
-	if tag.RowsAffected() > 0 {
-		return tag.RowsAffected(), nil
-	}
-	var exists bool
-	if err := s.db().QueryRow(ctx,
-		`SELECT EXISTS (SELECT 1 FROM "Subscription" WHERE "onchainSubscriptionId" = $1)`,
-		onchainSubID.Int64()).Scan(&exists); err != nil {
-		return 0, fmt.Errorf("cancel sub lookup: %w", err)
-	}
-	if !exists {
-		return 0, fmt.Errorf("%w: SubscriptionCancelled for unknown subscription %s", ErrUnresolvable, onchainSubID)
-	}
-	return 0, nil
+	var rows int64
+	err := s.inTx(ctx, func(tx pgxTxLike) error {
+		var subID, merchantID, mode string
+		err := tx.QueryRow(ctx, `
+			UPDATE "Subscription" s
+			   SET status = 'cancelled'::"SubscriptionStatus",
+			       "cancelledAt" = COALESCE(s."cancelledAt", $3),
+			       "cancelledBy" = COALESCE(s."cancelledBy", CASE
+			         WHEN lower(s."payerAddress") = lower($4) THEN 'payer'
+			         WHEN lower(m."walletAddress") = lower($4) THEN 'merchant'
+			         ELSE 'strimz'
+			       END::"SubscriptionCanceller"),
+			       "cancellationReason" = COALESCE(s."cancellationReason", $2),
+			       "updatedAt" = NOW()
+			  FROM "Merchant" m
+			 WHERE m.id = s."merchantId"
+			   AND s."onchainSubscriptionId" = $1
+			   AND s.status NOT IN ('cancelled', 'lapsed')
+			RETURNING s.id, s."merchantId", s.mode::text
+		`, onchainSubID.Int64(), fmt.Sprintf("on-chain cancel by %s in tx %s", by, txHash), blockTimestamp, by).Scan(&subID, &merchantID, &mode)
+		if err == nil {
+			rows = 1
+			ref := fmt.Sprintf(`"subscriptionId":%q`, subID)
+			if err := insertOutboxEvent(ctx, tx, "subscription_cancelled", "subscription.cancelled", merchantID, mode, ref); err != nil {
+				return fmt.Errorf("emit subscription.cancelled: %w", err)
+			}
+			return nil
+		}
+		if !isNoRows(err) {
+			return fmt.Errorf("cancel sub: %w", err)
+		}
+		var exists bool
+		if err := tx.QueryRow(ctx,
+			`SELECT EXISTS (SELECT 1 FROM "Subscription" WHERE "onchainSubscriptionId" = $1)`,
+			onchainSubID.Int64()).Scan(&exists); err != nil {
+			return fmt.Errorf("cancel sub lookup: %w", err)
+		}
+		if !exists {
+			return fmt.Errorf("%w: SubscriptionCancelled for unknown subscription %s", ErrUnresolvable, onchainSubID)
+		}
+		return nil
+	})
+	return rows, err
 }
 
 // ----- Refunds -----

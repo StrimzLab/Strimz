@@ -26,3 +26,10 @@ export {
   type CancelSubscriptionParams,
   type SubscriptionIntentParams,
 } from './subscription-intent.js'
+
+export {
+  buildViewSubscriptionsTypedData,
+  VIEW_SUBSCRIPTIONS_TYPES,
+  VIEW_SUBSCRIPTIONS_VALIDITY_SECONDS,
+  type ViewSubscriptionsParams,
+} from './view-subscriptions.js'

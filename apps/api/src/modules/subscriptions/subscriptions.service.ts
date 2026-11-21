@@ -141,6 +141,7 @@ export class SubscriptionsService {
       data: {
         status: 'cancelled',
         cancelledAt: new Date(),
+        cancelledBy: 'merchant',
         cancellationReason: input.reason ?? null,
       },
     })
@@ -191,6 +192,7 @@ function serialise(row: any): Subscription {
     nextChargeAt: row.nextChargeAt?.toISOString() ?? null,
     gracePeriodHours: row.gracePeriodHours,
     cancelledAt: row.cancelledAt?.toISOString() ?? null,
+    cancelledBy: row.cancelledBy ?? null,
     metadata: row.metadata ?? {},
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),

@@ -1,6 +1,7 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common'
 import { erc20Abi, parseAbi, TransactionReceiptNotFoundError, type Hex } from 'viem'
 import type { KmsSigner } from '@strimz/signer'
+import { CANCEL_SUBSCRIPTION_TYPES, VIEW_SUBSCRIPTIONS_TYPES } from '@strimz/sdk/eip712'
 
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { KMS_SIGNER } from '../../infra/kms/kms.tokens.js'
@@ -64,8 +65,52 @@ export class RelayChainProbe {
     })
   }
 
+  // verifyTypedData checks ERC-1271 smart wallets as well as plain keys.
+  verifyCancel(input: {
+    payer: Hex
+    subscriptions: Hex
+    subscriptionId: bigint
+    deadline: bigint
+    signature: Hex
+  }): Promise<boolean> {
+    return this.chain.client.verifyTypedData({
+      address: input.payer,
+      domain: {
+        name: 'StrimzSubscriptions',
+        version: '1',
+        chainId: this.chainId(),
+        verifyingContract: input.subscriptions,
+      },
+      types: CANCEL_SUBSCRIPTION_TYPES,
+      primaryType: 'CancelSubscription',
+      message: { subscriptionId: input.subscriptionId, deadline: input.deadline },
+      signature: input.signature,
+    })
+  }
+
+  verifyViewSubscriptions(input: {
+    payer: Hex
+    issuedAt: bigint
+    signature: Hex
+  }): Promise<boolean> {
+    return this.chain.client.verifyTypedData({
+      address: input.payer,
+      domain: { name: 'Strimz', version: '1', chainId: this.chainId() },
+      types: VIEW_SUBSCRIPTIONS_TYPES,
+      primaryType: 'ViewSubscriptions',
+      message: { payer: input.payer, issuedAt: input.issuedAt },
+      signature: input.signature,
+    })
+  }
+
   async latestBlockTimestamp(): Promise<bigint> {
     const block = await this.chain.client.getBlock({ blockTag: 'latest' })
     return block.timestamp
+  }
+
+  private chainId(): number {
+    const id = this.chain.client.chain?.id
+    if (id === undefined) throw new Error('the Arc client has no chain configured')
+    return id
   }
 }

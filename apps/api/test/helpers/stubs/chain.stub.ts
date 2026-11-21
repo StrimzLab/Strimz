@@ -4,6 +4,7 @@ import {
   RawContractError,
   TransactionNotFoundError,
   TransactionReceiptNotFoundError,
+  verifyTypedData,
   type Hex,
 } from 'viem'
 
@@ -21,6 +22,9 @@ export class StubChainService {
   /** Transactions a node knows about, by lower-case hash. */
   public readonly sentTxs = new Map<string, { from: Hex; nonce: number }>()
   public readonly client = {
+    chain: { id: 5042002 },
+    // Offline recovery: covers plain-key wallets, not ERC-1271.
+    verifyTypedData: (args: Parameters<typeof verifyTypedData>[0]) => verifyTypedData(args),
     getBlockNumber: () => Promise.resolve(1n),
     getBlock: () => Promise.resolve({ timestamp: BigInt(Math.floor(Date.now() / 1000)) }),
     estimateGas: (args: { to: Hex; data: Hex }) => {

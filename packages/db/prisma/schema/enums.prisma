@@ -144,6 +144,12 @@ enum SubscriptionStatus {
   lapsed
 }
 
+enum SubscriptionCanceller {
+  payer
+  merchant
+  strimz
+}
+
 enum SubscriptionChargeStatus {
   pending
   in_flight

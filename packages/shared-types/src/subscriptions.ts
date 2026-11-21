@@ -145,6 +145,9 @@ export const subscriptionStatusSchema = z.enum([
 ])
 export type SubscriptionStatus = z.infer<typeof subscriptionStatusSchema>
 
+export const subscriptionCancellerSchema = z.enum(['payer', 'merchant', 'strimz'])
+export type SubscriptionCanceller = z.infer<typeof subscriptionCancellerSchema>
+
 export const subscriptionSchema = z.object({
   id: idSchema,
   onchainSubscriptionId: z.number().int().nonnegative().nullable(),
@@ -163,6 +166,7 @@ export const subscriptionSchema = z.object({
   nextChargeAt: isoTimestampSchema.nullable(),
   gracePeriodHours: z.number().int().min(0).max(72),
   cancelledAt: isoTimestampSchema.nullable(),
+  cancelledBy: subscriptionCancellerSchema.nullable().optional(),
   metadata: metadataSchema,
   createdAt: isoTimestampSchema,
   updatedAt: isoTimestampSchema,

@@ -49,9 +49,11 @@ describe('subscriptions e2e', () => {
       payload: { reason: 'merchant initiated' },
     })
     expect(res.statusCode).toBe(201)
+    expect(JSON.parse(res.body)).toMatchObject({ status: 'cancelled', cancelledBy: 'merchant' })
 
     const row = await t.prisma.db.subscription.findUnique({ where: { id: sub.id } })
     expect(must(row).status).toBe('cancelled')
+    expect(must(row).cancelledBy).toBe('merchant')
     expect(must(row).cancellationReason).toBe('merchant initiated')
 
     const agentJobs = t.queue.jobsFor('strimz.agent.action')

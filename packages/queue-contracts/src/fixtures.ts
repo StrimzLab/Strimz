@@ -83,6 +83,15 @@ export const relayJobFixtures: { [R in RelayJob['reason']]: Extract<RelayJob, { 
     merchantInternalId: 'm_fixture',
     subscriptionInternalId: 'sub_fixture',
   },
+  cancelWithSig: {
+    reason: 'cancelWithSig',
+    idempotencyKey: 'cancel_fixture',
+    toAddress: '0x0000000000000000000000000000000000000a03',
+    callData: '0x5c0b4a7e',
+    gasLimit: '150000',
+    merchantInternalId: 'm_fixture',
+    subscriptionInternalId: 'sub_fixture',
+  },
   registerMerchant: {
     reason: 'registerMerchant',
     idempotencyKey: 'merchant-register-m_fixture',

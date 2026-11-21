@@ -152,6 +152,32 @@ export const permitAndCreateSubscriptionAbi = [
   }
 ] as const
 
+export const cancelWithSigAbi = [
+  {
+    "type": "function",
+    "name": "cancelWithSig",
+    "inputs": [
+      {
+        "name": "subscriptionId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "deadline",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "signature",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  }
+] as const
+
 export const strimzErrorsAbi = [
   {
     "type": "error",

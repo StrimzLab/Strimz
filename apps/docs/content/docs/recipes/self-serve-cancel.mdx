@@ -183,10 +183,10 @@ case 'subscription.cancelled': {
 
 No later event fires when the period ends. Revoke access when `accessUntil` passes, from your own job or on the next request.
 
-A customer can also cancel from their wallet by calling `cancel()` on the subscriptions contract. Strimz marks the subscription `cancelled`, but no webhook fires for that path today, so check `subscriptions.retrieve` if your records and Strimz disagree.
+A customer can also cancel without your app: from Strimz's [hosted cancel page](/docs/subscriptions/cancellation#the-subscribers-cancel-page), or from their wallet. Either way you get `subscription.cancelled` with `cancelledBy: 'payer'`, so handle that webhook as well as your own button.
 
 ## Why this pattern
 
 The Strimz API key never touches the browser. The customer's auth uses your existing system; you don't need to give them a Strimz-specific login. The cancellation is one API call from your server; your server controls the policy (do they need to confirm? do they get a refund? do they see a "are you sure?" page?).
 
-We don't ship a Strimz-hosted cancel page because the right cancellation policy varies. Some products refund unused time; some don't. Some run a win-back flow; some let customers leave immediately. Building one cancel UX into Strimz would be wrong for most merchants. The primitive is what you need; the policy is yours to compose.
+Strimz's hosted page only stops the charges, so every subscriber can always leave. Your own button is where your policy lives: refunds for unused time, a win-back offer, or a confirmation step. The primitive is what you need; the policy is yours to compose.

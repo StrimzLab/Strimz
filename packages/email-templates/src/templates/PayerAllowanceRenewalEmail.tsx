@@ -10,6 +10,7 @@ interface PayerAllowanceRenewalEmailProps {
   planName: string
   amountDisplay: string
   renewUrl: string
+  manageUrl: string
 }
 
 /** Sent to a subscriber when their approval covers fewer than two more charges. */
@@ -18,6 +19,7 @@ export function PayerAllowanceRenewalEmail({
   planName,
   amountDisplay,
   renewUrl,
+  manageUrl,
 }: PayerAllowanceRenewalEmailProps) {
   return (
     <Shell
@@ -48,6 +50,13 @@ export function PayerAllowanceRenewalEmail({
         lapse. Nothing is taken until a charge is due.
       </Text>
       <Text style={secondaryLinkRowStyle}>
+        Don&apos;t want it any more?{' '}
+        <Link href={manageUrl} style={{ color: colors.link, fontFamily: fonts.body }}>
+          Manage or cancel
+        </Link>{' '}
+        instead.
+      </Text>
+      <Text style={secondaryLinkRowStyle}>
         Sent by Strimz on behalf of the merchant. Learn more at{' '}
         <Link href="https://strimz.finance" style={{ color: colors.link, fontFamily: fonts.body }}>
           strimz.finance
@@ -63,6 +72,7 @@ PayerAllowanceRenewalEmail.PreviewProps = {
   planName: 'Creator Pro',
   amountDisplay: '10.00 USDC',
   renewUrl: 'https://strimz.finance/sub/renew/sub_123',
+  manageUrl: 'https://checkout.strimz.finance/manage?subscription=sub_123',
 } satisfies PayerAllowanceRenewalEmailProps
 
 const leadStyle: React.CSSProperties = {

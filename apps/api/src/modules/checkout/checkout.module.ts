@@ -8,6 +8,7 @@ import { SubscriptionPlansModule } from '../subscription-plans/subscription-plan
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module.js'
 import { CheckoutController } from './checkout.controller.js'
 import { CheckoutPayerService } from './checkout-payer.service.js'
+import { CheckoutManageService } from './checkout-manage.service.js'
 import { CheckoutRenewalService } from './checkout-renewal.service.js'
 
 @Module({
@@ -20,6 +21,6 @@ import { CheckoutRenewalService } from './checkout-renewal.service.js'
     RelayModule,
   ],
   controllers: [CheckoutController],
-  providers: [CheckoutPayerService, CheckoutRenewalService],
+  providers: [CheckoutPayerService, CheckoutRenewalService, CheckoutManageService],
 })
 export class CheckoutModule {}

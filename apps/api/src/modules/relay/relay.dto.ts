@@ -154,3 +154,18 @@ export const checkoutAllowanceRelaySchema = z.object({
 })
 export type CheckoutAllowanceRelay = z.output<typeof checkoutAllowanceRelaySchema>
 export class CheckoutAllowanceRelayDto extends createZodDto(checkoutAllowanceRelaySchema) {}
+
+export const manageSubscriptionsListSchema = z.object({
+  payer: addressSchema,
+  issuedAt: bigintStringSchema,
+  signature: signatureSchema,
+})
+export type ManageSubscriptionsList = z.output<typeof manageSubscriptionsListSchema>
+export class ManageSubscriptionsListDto extends createZodDto(manageSubscriptionsListSchema) {}
+
+export const manageSubscriptionCancelSchema = z.object({
+  deadline: bigintStringSchema,
+  signature: signatureSchema,
+})
+export type ManageSubscriptionCancel = z.output<typeof manageSubscriptionCancelSchema>
+export class ManageSubscriptionCancelDto extends createZodDto(manageSubscriptionCancelSchema) {}
