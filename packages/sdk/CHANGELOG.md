@@ -1,5 +1,18 @@
 # @strimz/sdk
 
+## 0.17.0
+
+### Minor Changes
+
+- 1f66ec6: Breaking: `SubscriptionIntentParams` gains a required `payer`, and `SUBSCRIPTION_INTENT_TYPES` signs it first, matching the redeployed `StrimzSubscriptions` (audit L-08: one signature can no longer enrol a sibling smart wallet). New `buildCancelSubscriptionTypedData` and `CANCEL_SUBSCRIPTION_TYPES` build the `CancelSubscription` a payer signs so Strimz can cancel for them without gas (`cancelWithSig`). Update together with the contract switch; intents signed for the old contract are refused by the new one.
+
+### Patch Changes
+
+- Updated dependencies [1f66ec6]
+  - @strimz/shared-config@0.11.0
+  - @strimz/shared-crypto@0.3.3
+  - @strimz/shared-types@0.19.1
+
 ## 0.16.2
 
 ### Patch Changes

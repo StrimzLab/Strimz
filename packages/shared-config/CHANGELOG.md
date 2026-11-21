@@ -1,5 +1,11 @@
 # @strimz/shared-config
 
+## 0.11.0
+
+### Minor Changes
+
+- 1f66ec6: New `MERCHANT_FEE_CEILING_BPS` (500, the registry's `MAX_FEE_BPS`): the fee ceiling every merchant registers with. `PLAN_FEE_CEILING_BPS` still names the highest plan fee.
+
 ## 0.10.0
 
 ### Minor Changes
