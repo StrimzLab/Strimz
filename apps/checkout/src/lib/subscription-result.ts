@@ -41,6 +41,7 @@ export type SubscriptionResultPhase =
   | 'signing'
   | 'submitting'
   | 'polling'
+  | 'self_pay'
   | 'confirmed'
   | 'reverted'
   | 'failed'

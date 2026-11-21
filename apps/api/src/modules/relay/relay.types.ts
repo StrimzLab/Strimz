@@ -46,6 +46,8 @@ export interface PayWithAuthorizationInput {
   // Optional diagnostics for the operator dashboard. Not used on-chain.
   merchantInternalId: string
   sessionId: string
+  /** Set by hosted checkout only; a merchant's own server isn't capped per IP. */
+  clientIp?: string
 }
 
 /**
@@ -68,6 +70,8 @@ export interface PermitAndCreateSubscriptionInput {
   intentSignature: RelaySignature
   merchantInternalId: string
   subscriptionInternalId: string
+  /** Set by hosted checkout only; a merchant's own server isn't capped per IP. */
+  clientIp?: string
 }
 
 /** A payer's signed CancelSubscription, relayed as cancelWithSig. */
@@ -78,6 +82,8 @@ export interface CancelWithSigInput {
   signature: `0x${string}`
   merchantInternalId: string
   subscriptionInternalId: string
+  /** Set by hosted checkout only; a merchant's own server isn't capped per IP. */
+  clientIp?: string
 }
 
 /** A payer's EIP-2612 permit renewing their allowance to Subscriptions. */
@@ -89,6 +95,8 @@ export interface PermitAllowanceInput {
   signature: RelaySignature
   merchantInternalId: string
   subscriptionInternalId: string
+  /** Set by hosted checkout only; a merchant's own server isn't capped per IP. */
+  clientIp?: string
 }
 
 /**

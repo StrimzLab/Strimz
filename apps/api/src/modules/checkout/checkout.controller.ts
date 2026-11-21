@@ -1,4 +1,4 @@
-import { Body, Controller, Get, NotFoundException, Param, Post, Query } from '@nestjs/common'
+import { Body, Controller, Get, Ip, NotFoundException, Param, Post, Query } from '@nestjs/common'
 import { ApiOperation, ApiTags } from '@nestjs/swagger'
 import type {
   MerchantPublicBrand,
@@ -205,11 +205,13 @@ export class CheckoutController {
   async relaySessionPayment(
     @Param('id') sessionId: string,
     @Body() body: CheckoutPaymentRelayDto,
+    @Ip() clientIp: string,
   ): Promise<RelaySubmissionView> {
     const session = await this.sessions.retrievePublic(sessionId)
-    return this.relay.submitPayWithAuthorization(
-      paymentRelayInput(body, { merchantInternalId: session.merchantId, sessionId }),
-    )
+    return this.relay.submitPayWithAuthorization({
+      ...paymentRelayInput(body, { merchantInternalId: session.merchantId, sessionId }),
+      clientIp,
+    })
   }
 
   @ApiOperation({
@@ -225,14 +227,16 @@ export class CheckoutController {
   async relayPlanEnrolment(
     @Param('id') planId: string,
     @Body() body: CheckoutEnrolmentRelayDto,
+    @Ip() clientIp: string,
   ): Promise<RelaySubmissionView> {
     const plan = await this.plans.retrievePublic(planId)
-    return this.relay.submitPermitAndCreateSubscription(
-      enrolmentRelayInput(body, {
+    return this.relay.submitPermitAndCreateSubscription({
+      ...enrolmentRelayInput(body, {
         merchantInternalId: plan.merchantId,
         subscriptionInternalId: planId,
       }),
-    )
+      clientIp,
+    })
   }
 
   @ApiOperation({
@@ -295,8 +299,9 @@ export class CheckoutController {
   renewAllowance(
     @Param('id') id: string,
     @Body() body: CheckoutAllowanceRelayDto,
+    @Ip() clientIp: string,
   ): Promise<RelaySubmissionView> {
-    return this.renewals.renew(id, body)
+    return this.renewals.renew(id, body, clientIp)
   }
 
   @ApiOperation({
@@ -340,8 +345,9 @@ export class CheckoutController {
   cancelManagedSubscription(
     @Param('id') id: string,
     @Body() body: ManageSubscriptionCancelDto,
+    @Ip() clientIp: string,
   ): Promise<RelaySubmissionView> {
-    return this.manage.cancel(id, body)
+    return this.manage.cancel(id, body, clientIp)
   }
 
   private async submission(

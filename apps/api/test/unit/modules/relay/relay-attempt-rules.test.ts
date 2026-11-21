@@ -16,6 +16,7 @@ import type {
   RelayReceiptStatus,
 } from '../../../../src/modules/relay/relay-chain-probe.js'
 import type { RelayBudgetService } from '../../../../src/modules/relay/relay-budget.service.js'
+import { openRelayGuard } from '../../../helpers/stubs/relay-guard.stub.js'
 import type { RelayEnrolmentGate } from '../../../../src/modules/relay/relay-enrolment-gate.js'
 import type { QueueService } from '../../../../src/infra/queue/queue.service.js'
 import type { PrismaService } from '../../../../src/infra/prisma/prisma.service.js'
@@ -159,7 +160,7 @@ function makeEnrolmentGate(): RelayEnrolmentGate {
 }
 
 function makeBudget(): RelayBudgetService {
-  return { consume: () => Promise.resolve() } as unknown as RelayBudgetService
+  return { consume: () => Promise.resolve(true) } as unknown as RelayBudgetService
 }
 
 const PERMIT_NONCE = 2n
@@ -225,6 +226,7 @@ describe('RelayService live-attempt pointer', () => {
       pointers.pointers,
       makeEnrolmentGate(),
       makeBudget(),
+      openRelayGuard(),
     )
   })
 

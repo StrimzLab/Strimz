@@ -6,12 +6,18 @@ import { erc20Abi } from 'viem'
 import { useAccount, useConfig, useSignTypedData, useSwitchChain } from 'wagmi'
 import type { TokenMetadata } from '@strimz/shared-types'
 
+import { chainIdFor } from '@strimz/shared-config'
+
 import {
   checkoutSubmissionUrl,
   relayErrorMessage,
   submitCheckoutRelay,
   type RelaySubmissionView,
+  type SelfPayCall,
 } from '@/lib/checkout-submission'
+import { permitAndCreateSubscriptionAbi } from '@/lib/generated/relay-calls'
+import { selfPayFallback } from '@/lib/self-pay'
+import type { SelfPayResult } from '@/hooks/use-self-pay'
 import { prepareArcSigning } from '@strimz/web-shared/lib/arc-network'
 import { env } from '@strimz/web-shared/lib/env'
 import { strimzBrowserClient } from '@/lib/strimz-browser'
@@ -68,6 +74,7 @@ export type SubscriptionPhase =
   | 'signing'
   | 'submitting'
   | 'polling'
+  | 'self_pay'
   | 'confirmed'
   | 'reverted'
   | 'failed'
@@ -77,10 +84,13 @@ export interface SubscriptionCheckoutState {
   error: string | null
   txHash: string | null
   submission: RelaySubmissionView | null
+  /** Set when Strimz won't pay the gas, so the payer can send the signed call. */
+  selfPayCall?: SelfPayCall | null
 }
 
 interface UseSubscriptionCheckoutResult extends SubscriptionCheckoutState {
   submit: () => Promise<void>
+  settleSelfPay: (result: SelfPayResult) => void
   /** What this subscription adds to the payer's approval. */
   approval: { value: bigint; charges: number }
 }
@@ -224,7 +234,21 @@ export function useSubscriptionCheckout(
         setState((prev) => ({ ...prev, phase: terminal }))
       })
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'unknown error'
+      const fallback = selfPayFallback(err, {
+        to: env.subscriptionsAddress as `0x${string}`,
+        chainId: chainIdFor(env.arcEnvironment),
+        abi: permitAndCreateSubscriptionAbi,
+        functionName: 'permitAndCreateSubscription',
+      })
+      if (fallback && 'selfPayCall' in fallback) {
+        setState((prev) => ({ ...prev, phase: 'self_pay', error: null, ...fallback }))
+        return
+      }
+      const message = fallback
+        ? fallback.error
+        : err instanceof Error
+          ? err.message
+          : 'unknown error'
       setState((prev) => ({ ...prev, phase: 'failed', error: message }))
     } finally {
       inFlightRef.current = false
@@ -253,7 +277,16 @@ export function useSubscriptionCheckout(
   // What the payer approves, for the copy beside the button. Trials don't change it.
   const approval = allowanceCap({ amount, interval: intervalSeconds, firstChargeAt: 0n, endAt })
 
-  return { ...state, submit, approval }
+  const settleSelfPay = useCallback((result: SelfPayResult) => {
+    setState((prev) => ({
+      ...prev,
+      phase: result.status === 'success' ? 'confirmed' : 'reverted',
+      txHash: result.txHash,
+      selfPayCall: null,
+    }))
+  }, [])
+
+  return { ...state, submit, approval, settleSelfPay }
 }
 
 // ---- helpers (intentionally duplicated from use-pay-checkout. See

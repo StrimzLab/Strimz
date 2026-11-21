@@ -1,6 +1,10 @@
 import { env } from '@strimz/web-shared/lib/env'
 
-import type { RelaySubmissionView } from '@/lib/checkout-submission'
+import {
+  relayUnavailableFrom,
+  type RelaySubmissionView,
+  type SelfPayCall,
+} from '@/lib/checkout-submission'
 
 export interface ManagedSubscription {
   subscriptionId: string
@@ -36,13 +40,15 @@ async function post<T>(path: string, body: unknown, fallback: string): Promise<T
     body: JSON.stringify(body),
   })
   if (res.ok) return (await res.json()) as T
-  let code: string | null = null
+  let parsed: { error?: { code?: unknown } } | null = null
   try {
-    const parsed = (await res.json()) as { error?: { code?: unknown } }
-    code = typeof parsed.error?.code === 'string' ? parsed.error.code : null
+    parsed = (await res.json()) as { error?: { code?: unknown } }
   } catch {
-    code = null
+    parsed = null
   }
+  const unavailable = relayUnavailableFrom(res.status, parsed)
+  if (unavailable) throw unavailable
+  const code = typeof parsed?.error?.code === 'string' ? parsed.error.code : null
   throw new Error((code && MESSAGES[code]) ?? fallback)
 }
 
@@ -75,6 +81,8 @@ export interface ManageState {
   subscriptions: ManagedSubscription[]
   cancelling: string | null
   cancelled: string[]
+  /** A cancel Strimz won't pay the gas for; the payer can send it themselves. */
+  selfPay: { subscriptionId: string; call: SelfPayCall } | null
   error: string | null
 }
 
@@ -84,6 +92,7 @@ export type ManageAction =
   | { type: 'load_failed'; message: string }
   | { type: 'cancel_started'; subscriptionId: string }
   | { type: 'cancel_confirmed'; subscriptionId: string }
+  | { type: 'cancel_self_pay'; subscriptionId: string; call: SelfPayCall }
   | { type: 'cancel_failed'; message: string }
   | { type: 'reset' }
 
@@ -93,6 +102,7 @@ export const initialManageState: ManageState = {
   subscriptions: [],
   cancelling: null,
   cancelled: [],
+  selfPay: null,
   error: null,
 }
 
@@ -111,15 +121,22 @@ export function manageReducer(state: ManageState, action: ManageAction): ManageS
     case 'load_failed':
       return { ...state, phase: 'signin', error: action.message }
     case 'cancel_started':
-      return { ...state, cancelling: action.subscriptionId, error: null }
+      return { ...state, cancelling: action.subscriptionId, selfPay: null, error: null }
+    case 'cancel_self_pay':
+      return {
+        ...state,
+        cancelling: null,
+        selfPay: { subscriptionId: action.subscriptionId, call: action.call },
+      }
     case 'cancel_confirmed':
       return {
         ...state,
         cancelling: null,
+        selfPay: null,
         cancelled: [...state.cancelled, action.subscriptionId],
       }
     case 'cancel_failed':
-      return { ...state, cancelling: null, error: action.message }
+      return { ...state, cancelling: null, selfPay: null, error: action.message }
     case 'reset':
       return initialManageState
   }

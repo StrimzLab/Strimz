@@ -11,8 +11,10 @@ import { SubmitButton } from '@strimz/web-shared/components/auth/submit-button'
 import { ConnectedRow } from '@/components/checkout/connected-row'
 import { CheckoutPoweredBy } from '@/components/checkout/payment-summary'
 import { WalletPickerGuard } from '@/components/checkout/wallet-picker-guard'
+import { SelfPayPanel } from '@/components/checkout/self-pay-panel'
 import { SubscriptionCard } from '@/components/manage/subscription-card'
 import { useManageSubscriptions } from '@/hooks/use-manage-subscriptions'
+import { useSelfPay } from '@/hooks/use-self-pay'
 import { projectId as reownProjectId } from '@/lib/wagmi'
 
 export default function ManageSubscriptionsPage() {
@@ -28,7 +30,8 @@ function ManageSubscriptions() {
   const { address } = useAccount()
   const { disconnect } = useDisconnect()
   const { open } = useAppKit()
-  const { state, signIn, cancel, reset } = useManageSubscriptions()
+  const { state, signIn, cancel, settleSelfPayCancel, reset } = useManageSubscriptions()
+  const selfPay = useSelfPay(state.selfPay?.call ?? null)
 
   // A different wallet must sign in again; never show the previous wallet's list.
   useEffect(() => {
@@ -106,6 +109,20 @@ function ManageSubscriptions() {
                   />
                 ))}
               </ul>
+            )}
+
+            {state.selfPay && (
+              <SelfPayPanel
+                selfPay={selfPay}
+                action="Pay the network fee and cancel"
+                onSend={() => {
+                  const subscriptionId = state.selfPay?.subscriptionId
+                  if (!subscriptionId) return
+                  void selfPay.send().then((result) => {
+                    if (result) void settleSelfPayCancel(subscriptionId, result)
+                  })
+                }}
+              />
             )}
 
             {state.error && (

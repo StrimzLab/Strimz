@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { MerchantChainService } from '../../../../src/modules/merchants/merchant-chain.service.js'
+import type { RegistrationCapService } from '../../../../src/modules/merchants/registration-cap.service.js'
 import type { ChainService } from '../../../../src/infra/chain/chain.service.js'
 import type { PrismaService } from '../../../../src/infra/prisma/prisma.service.js'
 import type { QueueService } from '../../../../src/infra/queue/queue.service.js'
@@ -34,7 +35,13 @@ function makeService(reads: Record<string, unknown>): MerchantChainService {
     },
   } as unknown as PrismaService
   const cfg = { env: { STRIMZ_REGISTRY_ADDRESS: REGISTRY } } as unknown as TypedConfigService
-  return new MerchantChainService(prisma, chain, {} as QueueService, cfg)
+  return new MerchantChainService(
+    prisma,
+    chain,
+    {} as QueueService,
+    cfg,
+    {} as RegistrationCapService,
+  )
 }
 
 function merchantRecord(pendingOwner: `0x${string}`) {

@@ -259,6 +259,18 @@ export function useReactivateMerchant() {
   })
 }
 
+export function useUnlockMerchantRelay() {
+  const api = useAdminApi()
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: (id: string) => api.unlockMerchantRelay(id),
+    onSuccess: (updated) => {
+      qc.invalidateQueries({ queryKey: adminKeys.merchantDetail(updated.id) })
+    },
+    messages: { loading: 'Giving full relay quota…', success: 'Full relay quota given' },
+  })
+}
+
 export function useSetMerchantTier() {
   const api = useAdminApi()
   const qc = useQueryClient()

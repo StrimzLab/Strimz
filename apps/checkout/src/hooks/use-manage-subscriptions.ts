@@ -8,6 +8,7 @@ import {
   buildViewSubscriptionsTypedData,
 } from '@strimz/sdk/eip712'
 
+import { chainIdFor } from '@strimz/shared-config'
 import { prepareArcSigning } from '@strimz/web-shared/lib/arc-network'
 import { env } from '@strimz/web-shared/lib/env'
 import { checkoutSubmissionUrl, type RelaySubmissionView } from '@/lib/checkout-submission'
@@ -18,7 +19,10 @@ import {
   manageReducer,
   type ManagedSubscription,
 } from '@/lib/manage-subscriptions'
+import { cancelWithSigAbi } from '@/lib/generated/relay-calls'
+import { selfPayFallback } from '@/lib/self-pay'
 import { walletSignature } from '@/lib/wallet-signature'
+import type { SelfPayResult } from '@/hooks/use-self-pay'
 
 const POLL_MS = 1500
 const POLL_LIMIT_MS = 180_000
@@ -87,6 +91,34 @@ export function useManageSubscriptions() {
       await waitForCancelled(sub.subscriptionId)
       dispatch({ type: 'cancel_confirmed', subscriptionId: sub.subscriptionId })
     } catch (err) {
+      const fallback = selfPayFallback(err, {
+        to: env.subscriptionsAddress as `0x${string}`,
+        chainId: chainIdFor(env.arcEnvironment),
+        abi: cancelWithSigAbi,
+        functionName: 'cancelWithSig',
+      })
+      if (fallback && 'selfPayCall' in fallback) {
+        dispatch({
+          type: 'cancel_self_pay',
+          subscriptionId: sub.subscriptionId,
+          call: fallback.selfPayCall,
+        })
+        return
+      }
+      dispatch({ type: 'cancel_failed', message: fallback ? fallback.error : friendly(err) })
+    }
+  }
+
+  async function settleSelfPayCancel(subscriptionId: string, result: SelfPayResult) {
+    if (result.status !== 'success') {
+      dispatch({ type: 'cancel_failed', message: 'The cancel did not go through. Try again.' })
+      return
+    }
+    dispatch({ type: 'cancel_started', subscriptionId })
+    try {
+      await waitForCancelled(subscriptionId)
+      dispatch({ type: 'cancel_confirmed', subscriptionId })
+    } catch (err) {
       dispatch({ type: 'cancel_failed', message: friendly(err) })
     }
   }
@@ -95,6 +127,7 @@ export function useManageSubscriptions() {
     state,
     signIn,
     cancel,
+    settleSelfPayCancel,
     reset,
   }
 }

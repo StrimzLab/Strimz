@@ -188,10 +188,45 @@ checkout routes:
 | Growth     | 50,000            |
 | Enterprise | 50,000            |
 
+A new Free merchant starts at 50 a day. The full 500 opens automatically with the
+first confirmed payment or subscription charge of at least 1.00, or earlier if Strimz
+support lifts it.
+
 A submission counts when it is queued. Sending the identical signed payload again,
-or paying a session that is already paid, does not count. Once the budget is spent,
-new submissions are refused with `429 relay_budget_exhausted` until 00:00 UTC;
-`error.details.retryAfterSec` is the number of seconds until then.
+or paying a session that is already paid, does not count, and a call that reverts
+on-chain gives its unit back.
+
+### When Strimz doesn't pay the gas
+
+Sometimes Strimz won't pay the gas for a call. Then the relay answers
+`402 relay_unavailable` instead of queueing it. This happens when:
+
+- the merchant's daily budget is spent;
+- the platform's daily limit is reached;
+- a payer wallet or network has had calls revert on-chain, or has started too many
+  subscriptions today.
+
+The payment isn't lost. `error.details.call` holds the payer-signed transaction, as
+`{ to, data, chainId }`. The payer's own wallet can send it and pay the network fee
+in USDC, with no second signature. Hosted checkout does this for the payer.
+`error.details.reason` is one of `merchant_quota`, `platform_paused`, `payer_limited`
+or `ip_limited`.
+
+```json
+{
+  "error": {
+    "code": "relay_unavailable",
+    "message": "Strimz can't cover the network fee for this one; send it from your own wallet",
+    "details": {
+      "reason": "merchant_quota",
+      "call": { "to": "0x…", "data": "0x…", "chainId": 5042002 }
+    }
+  }
+}
+```
+
+Before asking a wallet to send `call`, check that `to` and `chainId` are the contract
+and network you expect.
 
 The `tokens` and `checkout` namespaces sit outside the auth boundary
 on purpose. Both serve data that is either chain-derived or already

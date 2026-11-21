@@ -90,6 +90,8 @@ export interface AdminMerchantDetail extends Pick<
   | 'createdAt'
 > {
   onchainMerchantId: number | null
+  /** When a free merchant got its full relay quota; null while it is on the starter quota. */
+  relayUnlockedAt: string | null
   lastLoginAt: string | null
   stats: {
     mode: Mode

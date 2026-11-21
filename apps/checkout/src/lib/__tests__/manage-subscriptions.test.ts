@@ -7,6 +7,7 @@ import {
   initialManageState,
   type ManagedSubscription,
 } from '../manage-subscriptions'
+import { RelayUnavailableError } from '../checkout-submission'
 
 const SUB: ManagedSubscription = {
   subscriptionId: 'sub_1',
@@ -158,5 +159,43 @@ describe('manage API calls', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toMatch(/\/v1\/checkout\/manage\/subscriptions\/sub_1\/cancel$/u)
     expect(JSON.parse(String(init.body))).toEqual({ deadline: '99', signature: '0x34' })
+  })
+})
+
+describe('cancel when Strimz will not pay the gas', () => {
+  const call = { to: `0x${'a'.repeat(40)}`, data: '0x1234', chainId: 5042002 } as const
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('hands back the signed cancel so the payer can send it', async () => {
+    vi.stubGlobal(
+      'fetch',
+      respond(402, {
+        error: { code: 'relay_unavailable', details: { reason: 'payer_limited', call } },
+      }),
+    )
+
+    const err = await cancelManagedSubscription('sub_1', {
+      deadline: 99n,
+      signature: '0x34',
+    }).catch((e: unknown) => e)
+
+    expect(err).toBeInstanceOf(RelayUnavailableError)
+    expect((err as RelayUnavailableError).call).toEqual(call)
+  })
+
+  it('keeps the call for that subscription until it settles', () => {
+    const offered = manageReducer(
+      { ...initialManageState, cancelling: 'sub_1' },
+      { type: 'cancel_self_pay', subscriptionId: 'sub_1', call },
+    )
+    expect(offered.cancelling).toBeNull()
+    expect(offered.selfPay).toEqual({ subscriptionId: 'sub_1', call })
+
+    const done = manageReducer(offered, { type: 'cancel_confirmed', subscriptionId: 'sub_1' })
+    expect(done.selfPay).toBeNull()
+    expect(done.cancelled).toContain('sub_1')
   })
 })

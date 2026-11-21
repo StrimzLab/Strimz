@@ -62,7 +62,11 @@ export class CheckoutRenewalService {
     }
   }
 
-  async renew(id: string, body: CheckoutAllowanceRelay): Promise<RelaySubmissionView> {
+  async renew(
+    id: string,
+    body: CheckoutAllowanceRelay,
+    clientIp?: string,
+  ): Promise<RelaySubmissionView> {
     const sub = await this.prisma.db.subscription.findUnique({ where: { id } })
     if (!sub) throw new NotFoundException({ code: 'not_found', message: 'subscription not found' })
     if (!RENEWABLE.includes(sub.status)) {
@@ -91,6 +95,7 @@ export class CheckoutRenewalService {
       signature: body.signature,
       merchantInternalId: sub.merchantId,
       subscriptionInternalId: sub.id,
+      clientIp,
     })
   }
 

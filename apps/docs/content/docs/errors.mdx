@@ -45,25 +45,25 @@ The common codes. The tables below cover the ones you're most likely to see; a f
 
 ### Payments, checkout and relay
 
-| Code                        | HTTP | Meaning                                                                                 |
-| --------------------------- | ---- | --------------------------------------------------------------------------------------- |
-| `amount_below_minimum`      | 400  | The amount is below 1.00 of the stablecoin                                              |
-| `token_mismatch`            | 400  | The signed token isn't the token of the session's currency                              |
-| `auth_nonce_mismatch`       | 400  | The EIP-3009 nonce isn't `checkoutPaymentNonce(sessionId)`                              |
-| `relay_simulation_failed`   | 400  | The call would revert on-chain; `details.revert` names the revert                       |
-| `enrolment_terms_mismatch`  | 400  | The signed enrolment terms don't match the plan                                         |
-| `insufficient_balance`      | 400  | The payer holds less than the plan amount of the plan token                             |
-| `session_expired`           | 400  | The payment session has expired                                                         |
-| `merchant_mismatch`         | 403  | The body `merchantId` isn't the on-chain id of the merchant that owns the key           |
-| `session_not_open`          | 409  | The session is no longer open for payment                                               |
-| `payer_already_bound`       | 409  | The session is already linked to another wallet                                         |
-| `session_already_submitted` | 409  | The session's payment has already been mined                                            |
-| `attempt_in_progress`       | 409  | An earlier attempt can still land; `details.submission` is that attempt                 |
-| `already_settled`           | 409  | The earlier attempt already settled on-chain                                            |
-| `subscription_exists`       | 409  | The wallet already subscribes to this plan                                              |
-| `plan_not_active`           | 409  | The plan is archived                                                                    |
-| `sold_out`                  | 409  | The storefront product has no stock left                                                |
-| `relay_budget_exhausted`    | 429  | The merchant's daily relay budget is spent; `details.retryAfterSec` says when it resets |
+| Code                        | HTTP | Meaning                                                                                                      |
+| --------------------------- | ---- | ------------------------------------------------------------------------------------------------------------ |
+| `amount_below_minimum`      | 400  | The amount is below 1.00 of the stablecoin                                                                   |
+| `token_mismatch`            | 400  | The signed token isn't the token of the session's currency                                                   |
+| `auth_nonce_mismatch`       | 400  | The EIP-3009 nonce isn't `checkoutPaymentNonce(sessionId)`                                                   |
+| `relay_simulation_failed`   | 400  | The call would revert on-chain; `details.revert` names the revert                                            |
+| `enrolment_terms_mismatch`  | 400  | The signed enrolment terms don't match the plan                                                              |
+| `insufficient_balance`      | 400  | The payer holds less than the plan amount of the plan token                                                  |
+| `session_expired`           | 400  | The payment session has expired                                                                              |
+| `merchant_mismatch`         | 403  | The body `merchantId` isn't the on-chain id of the merchant that owns the key                                |
+| `session_not_open`          | 409  | The session is no longer open for payment                                                                    |
+| `payer_already_bound`       | 409  | The session is already linked to another wallet                                                              |
+| `session_already_submitted` | 409  | The session's payment has already been mined                                                                 |
+| `attempt_in_progress`       | 409  | An earlier attempt can still land; `details.submission` is that attempt                                      |
+| `already_settled`           | 409  | The earlier attempt already settled on-chain                                                                 |
+| `subscription_exists`       | 409  | The wallet already subscribes to this plan                                                                   |
+| `plan_not_active`           | 409  | The plan is archived                                                                                         |
+| `sold_out`                  | 409  | The storefront product has no stock left                                                                     |
+| `relay_unavailable`         | 402  | Strimz won't pay the gas for this call; `details.call` is the signed transaction the payer's wallet can send |
 
 ### Account and agent
 

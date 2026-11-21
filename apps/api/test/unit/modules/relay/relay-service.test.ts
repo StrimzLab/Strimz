@@ -11,6 +11,7 @@ import { RelayService } from '../../../../src/modules/relay/relay.service.js'
 import type { RelayAttemptPointers } from '../../../../src/modules/relay/relay-attempts.js'
 import type { RelayChainProbe } from '../../../../src/modules/relay/relay-chain-probe.js'
 import type { RelayBudgetService } from '../../../../src/modules/relay/relay-budget.service.js'
+import { openRelayGuard } from '../../../helpers/stubs/relay-guard.stub.js'
 import type { RelayEnrolmentGate } from '../../../../src/modules/relay/relay-enrolment-gate.js'
 import type { QueueService } from '../../../../src/infra/queue/queue.service.js'
 import type { PrismaService } from '../../../../src/infra/prisma/prisma.service.js'
@@ -169,7 +170,7 @@ function makeBudget(): RelayBudgetService {
   return {
     consume: () => {
       budgetConsumed += 1
-      return Promise.resolve()
+      return Promise.resolve(true)
     },
   } as unknown as RelayBudgetService
 }
@@ -243,6 +244,7 @@ describe('RelayService', () => {
       makeFakePointers(),
       makeEnrolmentGate(),
       makeBudget(),
+      openRelayGuard(),
     )
   })
 
@@ -309,6 +311,7 @@ describe('RelayService', () => {
         makeFakePointers(),
         makeEnrolmentGate(),
         makeBudget(),
+        openRelayGuard(),
       )
       await expect(svcNoAddr.submitPayWithAuthorization(payInput())).rejects.toThrow(
         /STRIMZ_PAYMENTS_ADDRESS/,
@@ -416,6 +419,7 @@ describe('RelayService', () => {
         makeFakePointers(),
         makeEnrolmentGate(),
         makeBudget(),
+        openRelayGuard(),
       )
       const err = await relay.submitCancelWithSig(cancelInput()).catch((e: unknown) => e)
       expect(err).toBeInstanceOf(BadRequestException)
@@ -462,6 +466,7 @@ describe('RelayService', () => {
         makeFakePointers(),
         makeEnrolmentGate(),
         makeBudget(),
+        openRelayGuard(),
       )
       return { relay, q }
     }

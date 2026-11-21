@@ -15,6 +15,7 @@ import { QueueService } from '../../infra/queue/queue.service.js'
 
 import { registryReadAbi } from './registry.abi.js'
 import { registrationGaps } from './registration.js'
+import { RegistrationCapService } from './registration-cap.service.js'
 
 /**
  * Bridges a Strimz merchant row to its on-chain identity in
@@ -38,6 +39,7 @@ export class MerchantChainService {
     private readonly chain: ChainService,
     private readonly queue: QueueService,
     cfg: TypedConfigService,
+    private readonly registrationCap: RegistrationCapService,
   ) {
     const addr = cfg.env.STRIMZ_REGISTRY_ADDRESS
     if (!addr) {
@@ -109,11 +111,14 @@ export class MerchantChainService {
   }
 
   private async enqueueRegistration(merchantId: string): Promise<void> {
-    await this.queue.addRelaySubmission({
-      reason: 'registerMerchant',
-      idempotencyKey: `merchant-register-${merchantId}`,
-      merchantInternalId: merchantId,
-    })
+    await this.queue.addRelaySubmission(
+      {
+        reason: 'registerMerchant',
+        idempotencyKey: `merchant-register-${merchantId}`,
+        merchantInternalId: merchantId,
+      },
+      { delayMs: await this.registrationCap.delayMs(merchantId) },
+    )
     await this.prisma.db.merchant.update({
       where: { id: merchantId },
       data: { onchainRegistrationRequestedAt: new Date() },

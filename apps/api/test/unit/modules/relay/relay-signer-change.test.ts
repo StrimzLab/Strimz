@@ -23,6 +23,7 @@ import type { TypedConfigService } from '../../../../src/config/index.js'
 import type { GasPricingService } from '../../../../src/modules/relay/gas-pricing.service.js'
 import type { NonceManager } from '../../../../src/modules/relay/nonce-manager.service.js'
 import type { RelayBudgetService } from '../../../../src/modules/relay/relay-budget.service.js'
+import { openRelayGuard } from '../../../helpers/stubs/relay-guard.stub.js'
 
 vi.hoisted(() => {
   Object.assign(process.env, {
@@ -110,7 +111,11 @@ function setup() {
     {
       env: { STRIMZ_REGISTRY_ADDRESS: '0x0000000000000000000000000000000000000a01' },
     } as unknown as TypedConfigService,
-    { recordGas: () => Promise.resolve() } as unknown as RelayBudgetService,
+    {
+      recordGas: () => Promise.resolve(),
+      release: () => Promise.resolve(),
+    } as unknown as RelayBudgetService,
+    openRelayGuard(),
   )
   return { chain, signer, runner }
 }

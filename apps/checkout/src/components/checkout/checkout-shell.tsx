@@ -60,6 +60,7 @@ export type CheckoutPhase =
   | 'signing'
   | 'submitting'
   | 'polling'
+  | 'self_pay'
   | 'confirmed'
   | 'reverted'
   | 'failed'
@@ -107,6 +108,7 @@ function activeIndexForPhase(phase: CheckoutPhase): number {
       return 0
     case 'submitting':
     case 'polling':
+    case 'self_pay':
     case 'reverted':
     case 'failed':
       return 1
