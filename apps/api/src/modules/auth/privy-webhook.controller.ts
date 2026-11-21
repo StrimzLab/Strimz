@@ -17,20 +17,11 @@ import { TypedConfigService } from '../../config/index.js'
 import { PrivyWebhookService } from './privy-webhook.service.js'
 import { readSvixHeaders, verifySvix } from './privy-webhook.verify.js'
 
-// Only the fields we actually use. Privy sends more but we ignore it.
+// Only the fields we use. Privy puts `user` and `account` at the top level.
 const eventSchema = z.object({
   type: z.string().min(1),
-  data: z
-    .object({
-      user: z
-        .object({
-          id: z.string().optional(),
-          email: z.object({ address: z.string() }).optional(),
-          linked_accounts: z.array(z.record(z.unknown())).optional(),
-        })
-        .optional(),
-    })
-    .optional(),
+  user: z.object({ id: z.string().min(1) }).optional(),
+  account: z.object({ type: z.string().min(1) }).optional(),
 })
 
 @ApiTags('auth')

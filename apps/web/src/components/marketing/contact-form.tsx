@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@strimz/ui'
-import { TurnstileWidget } from '@/components/turnstile-widget'
+import { TurnstileWidget } from '@strimz/web-shared/components/shared/turnstile-widget'
 import { submitContact } from '@/lib/contact-submission'
 import { contactErrorMap, contactFormSchema, type ContactFormValues } from '@/lib/contact-form'
 import { env } from '@strimz/web-shared/lib/env'

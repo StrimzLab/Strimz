@@ -24,6 +24,11 @@ error. The dashboard handles this automatically by calling
 `POST /v1/auth/sync` to create the merchant row, then retrying the
 original request.
 
+Creating that row needs a Cloudflare Turnstile token from the sign-up
+page, which the API checks before it creates anything. Without one, sync
+answers `428 turnstile_required`, and the dashboard shows the check again.
+Existing merchants never need a token.
+
 You usually don't need to think about any of this. If you're building a
 custom admin tool, the browser SDK handles the token round-trip for you.
 

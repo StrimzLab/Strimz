@@ -37,6 +37,7 @@ export class TurnstileService {
     token: string | null | undefined,
     remoteIp?: string,
     expectedAction?: string,
+    expectedHostname?: string,
   ): Promise<boolean> {
     if (!this.secretKey) return true
     if (!token) return false
@@ -67,6 +68,13 @@ export class TurnstileService {
       if (expectedAction && data.action !== expectedAction) {
         this.log.warn(
           `turnstile action mismatch: expected="${expectedAction}", received="${data.action}"`,
+        )
+        return false
+      }
+
+      if (expectedHostname && data.hostname !== expectedHostname) {
+        this.log.warn(
+          `turnstile hostname mismatch: expected="${expectedHostname}", received="${data.hostname}"`,
         )
         return false
       }

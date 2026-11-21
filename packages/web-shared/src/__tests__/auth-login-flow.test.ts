@@ -5,17 +5,16 @@ const read = (path: string) => readWeb(path)
 
 describe('auth login flow', () => {
   it('waits for Privy to finish before leaving', () => {
-    const button = read('src/components/auth/privy-continue-button.tsx')
-    expect(button).toMatch(/useLogin\(\{/u)
-    expect(button).toMatch(/onComplete/u)
-    expect(button).toMatch(/exited_auth_flow/u)
+    const methods = read('src/components/auth/auth-methods.tsx')
+    expect(methods).toMatch(/ready && authenticated/u)
+    expect(methods).toMatch(/router\.replace\(withNext\('\/callback', next\)\)/u)
   })
 
   it.each(['src/app/(auth)/login/page.tsx', 'src/app/(auth)/signup/page.tsx'])(
-    '%s uses the Privy continue button and no longer leaves right after login()',
+    '%s uses our sign-in methods and never leaves right after starting a login',
     (path) => {
       const page = read(path)
-      expect(page).toMatch(/<PrivyContinueButton/u)
+      expect(page).toMatch(/<AuthMethods\b/u)
       expect(page).not.toMatch(/privy\.login\(\)/u)
     },
   )

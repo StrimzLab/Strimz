@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, HttpCode, HttpStatus, Ip, Post, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { createZodDto } from 'nestjs-zod'
 import { z } from 'zod'
@@ -13,7 +13,11 @@ import { AuthService, type SyncResult } from './auth.service.js'
 import { MerchantsService } from '../merchants/merchants.service.js'
 
 class SyncDto extends createZodDto(
-  z.object({ accessToken: z.string().min(1, 'accessToken is required') }),
+  z.object({
+    accessToken: z.string().min(1, 'accessToken is required'),
+    /** Needed only when this sync would create the account. */
+    turnstileToken: z.string().min(1).max(4096).optional(),
+  }),
 ) {}
 
 @ApiTags('auth')
@@ -32,8 +36,8 @@ export class AuthController {
     summary:
       'Verify a Privy access token, upsert the Merchant row, and return the synced profile. Idempotent.',
   })
-  sync(@Body() dto: SyncDto): Promise<SyncResult> {
-    return this.auth.sync(dto.accessToken)
+  sync(@Body() dto: SyncDto, @Ip() ip: string): Promise<SyncResult> {
+    return this.auth.sync(dto.accessToken, { turnstileToken: dto.turnstileToken, ip })
   }
 
   @ApiBearerAuth()

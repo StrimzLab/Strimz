@@ -1,7 +1,9 @@
-import { Injectable, ForbiddenException, Logger } from '@nestjs/common'
+import { ForbiddenException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common'
 import { Prisma } from '@strimz/db'
 import { PrivyService } from '../../infra/privy/privy.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { TurnstileService } from '../../infra/turnstile/turnstile.service.js'
+import { TypedConfigService } from '../../config/index.js'
 import type { Merchant } from '@strimz/shared-types'
 import { serialiseMerchant } from '../merchants/merchants.serialiser.js'
 
@@ -18,6 +20,8 @@ export class AuthService {
   constructor(
     private readonly privy: PrivyService,
     private readonly prisma: PrismaService,
+    private readonly turnstile: TurnstileService,
+    private readonly cfg: TypedConfigService,
   ) {}
 
   /**
@@ -25,14 +29,44 @@ export class AuthService {
    * mirrors profile fields. Safe to call on every dashboard load — the
    * client uses it as both "create on first login" and "refresh profile".
    */
-  async sync(privyAccessToken: string): Promise<SyncResult> {
+  async sync(
+    privyAccessToken: string,
+    signup: { turnstileToken?: string; ip?: string } = {},
+  ): Promise<SyncResult> {
     const claims = await this.privy.verifyAccessToken(privyAccessToken)
-    return this.syncByPrivyUserId(claims.userId)
+    return this.syncByPrivyUserId(claims.userId, () => this.assertHuman(signup))
   }
 
-  // Same logic as sync() but called from trusted server-side paths
-  // (Privy webhook) that already know the user id.
-  async syncByPrivyUserId(privyUserId: string): Promise<SyncResult> {
+  /** Refreshes an existing merchant from Privy; never creates one. Null when there is none. */
+  async refreshExisting(privyUserId: string): Promise<SyncResult | null> {
+    const exists = await this.prisma.db.merchant.findUnique({
+      where: { privyUserId },
+      select: { id: true },
+    })
+    if (!exists) return null
+    return this.syncByPrivyUserId(privyUserId, () => {
+      throw new Error(`merchant for ${privyUserId} vanished during refresh`)
+    })
+  }
+
+  // Bots can finish a Privy login without our page, so creating a Strimz account
+  // needs a Turnstile token our server has checked (ADR-2026-11-21-custom-auth-screens).
+  private async assertHuman(signup: { turnstileToken?: string; ip?: string }): Promise<void> {
+    const host = new URL(this.cfg.env.STRIMZ_DASHBOARD_URL).hostname
+    if (await this.turnstile.verify(signup.turnstileToken, signup.ip, 'signup', host)) return
+    throw new HttpException(
+      {
+        code: 'turnstile_required',
+        message: 'confirm you are not a bot to finish creating your account',
+      },
+      HttpStatus.PRECONDITION_REQUIRED,
+    )
+  }
+
+  private async syncByPrivyUserId(
+    privyUserId: string,
+    beforeCreate: () => Promise<void>,
+  ): Promise<SyncResult> {
     const user = await this.privy.getUser(privyUserId)
 
     const email = this.privy.primaryEmail(user)
@@ -73,6 +107,8 @@ export class AuthService {
       })
       return { merchant: serialiseMerchant(updated), isNewMerchant: false }
     }
+
+    await beforeCreate()
 
     // First-time login for this privyUserId. Two concurrent /auth/sync
     // requests can both land here after both `findUnique` calls return

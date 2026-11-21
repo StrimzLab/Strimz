@@ -173,9 +173,13 @@ describe('third-party widgets follow the active theme', () => {
   it.each([
     ['Privy', 'src/components/providers.tsx', /theme:\s*'light'/],
     ['Reown AppKit', 'src/components/checkout-providers.tsx', /themeMode:\s*'light'/],
-    ['Turnstile (contact)', 'src/components/turnstile-widget.tsx', /theme:\s*'light'/],
   ])('%s is not pinned to light', (_widget, path, pinned) => {
     expect(read(join(WEB_ROOT, path))).not.toMatch(pinned)
+  })
+
+  it('Turnstile is not pinned to light', () => {
+    const widget = join(REPO, 'packages/web-shared/src/components/shared/turnstile-widget.tsx')
+    expect(read(widget)).not.toMatch(/theme:\s*'light'/)
   })
 
   it('the shared Toaster is not pinned to light', () => {

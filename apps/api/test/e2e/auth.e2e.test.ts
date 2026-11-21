@@ -3,6 +3,7 @@ import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import { makePrivyDid } from '../helpers/stubs/privy.stub.js'
 import { must } from '../helpers/must.js'
+import { PrivyWebhookService } from '../../src/modules/auth/privy-webhook.service.js'
 
 describe('auth e2e', () => {
   let t: TestApp
@@ -25,7 +26,7 @@ describe('auth e2e', () => {
       const res = await t.inject({
         method: 'POST',
         url: '/v1/auth/sync',
-        payload: { accessToken: token },
+        payload: { accessToken: token, turnstileToken: 'good-token' },
       })
 
       expect(res.statusCode).toBe(200)
@@ -44,12 +45,12 @@ describe('auth e2e', () => {
       const r1 = await t.inject({
         method: 'POST',
         url: '/v1/auth/sync',
-        payload: { accessToken: token },
+        payload: { accessToken: token, turnstileToken: 'good-token' },
       })
       const r2 = await t.inject({
         method: 'POST',
         url: '/v1/auth/sync',
-        payload: { accessToken: token },
+        payload: { accessToken: token, turnstileToken: 'good-token' },
       })
 
       expect(r1.statusCode).toBe(200)
@@ -59,6 +60,77 @@ describe('auth e2e', () => {
 
       const count = await t.prisma.db.merchant.count()
       expect(count).toBe(1)
+    })
+
+    describe('bot check on account creation', () => {
+      const sync = (accessToken: string, turnstileToken?: string) =>
+        t.inject({
+          method: 'POST',
+          url: '/v1/auth/sync',
+          payload: { accessToken, ...(turnstileToken === undefined ? {} : { turnstileToken }) },
+        })
+      const newUser = (email: string) => `test|${makePrivyDid(email)}|${email}|`
+
+      it.each([
+        ['no token', undefined],
+        ['a failed token', 'bad-token'],
+        ['a token from another form', 'good-token:contact'],
+      ])('creates no account for a new user with %s', async (_label, turnstileToken) => {
+        const res = await sync(newUser('bot@x.test'), turnstileToken)
+
+        expect(res.statusCode).toBe(428)
+        expect(JSON.parse(res.body).error.code).toBe('turnstile_required')
+        expect(await t.prisma.db.merchant.count()).toBe(0)
+      })
+
+      it('creates the account with a token from the signup check', async () => {
+        const res = await sync(newUser('human@x.test'), 'good-token:signup')
+
+        expect(res.statusCode).toBe(200)
+        expect(JSON.parse(res.body).isNewMerchant).toBe(true)
+      })
+
+      it('lets an existing merchant sign in without a token', async () => {
+        const token = newUser('back@x.test')
+        expect((await sync(token, 'good-token')).statusCode).toBe(200)
+
+        const again = await sync(token)
+
+        expect(again.statusCode).toBe(200)
+        expect(JSON.parse(again.body).isNewMerchant).toBe(false)
+      })
+    })
+
+    describe('privy webhook', () => {
+      it('never creates an account', async () => {
+        await t.app.get(PrivyWebhookService).handleEvent({
+          type: 'user.authenticated',
+          user: { id: makePrivyDid('ghost@x.test') },
+        })
+
+        expect(await t.prisma.db.merchant.count()).toBe(0)
+      })
+
+      it('still refreshes an existing account', async () => {
+        const did = makePrivyDid('known@x.test')
+        await t.inject({
+          method: 'POST',
+          url: '/v1/auth/sync',
+          payload: { accessToken: `test|${did}|known@x.test|`, turnstileToken: 'good-token' },
+        })
+        await t.prisma.db.merchant.update({
+          where: { privyUserId: did },
+          data: { lastLoginAt: new Date(0) },
+        })
+
+        await t.app.get(PrivyWebhookService).handleEvent({
+          type: 'user.authenticated',
+          user: { id: did },
+        })
+
+        const row = await t.prisma.db.merchant.findUniqueOrThrow({ where: { privyUserId: did } })
+        expect(must(row.lastLoginAt).getTime()).toBeGreaterThan(0)
+      })
     })
 
     it('rejects an invalid Privy token', async () => {
@@ -74,7 +146,11 @@ describe('auth e2e', () => {
   describe('GET /v1/auth/me', () => {
     it('returns the merchant when a valid token + synced row exists', async () => {
       const token = `test|${makePrivyDid('me@x.test')}|me@x.test|`
-      await t.inject({ method: 'POST', url: '/v1/auth/sync', payload: { accessToken: token } })
+      await t.inject({
+        method: 'POST',
+        url: '/v1/auth/sync',
+        payload: { accessToken: token, turnstileToken: 'good-token' },
+      })
 
       const res = await t.inject({
         method: 'GET',

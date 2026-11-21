@@ -6,6 +6,7 @@ import { ArrowRight, Sparkles } from 'lucide-react'
 import { FieldLabel, Input } from '@strimz/ui'
 import type { OnboardMerchantInput } from '@strimz/shared-types'
 import { SubmitButton } from '@strimz/web-shared/components/auth/submit-button'
+import { withNext } from '@strimz/web-shared/lib/auth-redirect'
 import { ImageUpload } from '@/components/dashboard/image-upload'
 import { useMerchantMe, useOnboardMerchant } from '@/hooks/api/use-merchant'
 
@@ -73,7 +74,7 @@ export default function OnboardingPage() {
     }
     try {
       await onboard.mutateAsync(payload)
-      router.push('/app')
+      router.push(withNext('/passkey', '/app'))
     } catch {
       // useMutationWithToast surfaces the error toast.
     }
