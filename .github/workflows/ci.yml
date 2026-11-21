@@ -1,9 +1,13 @@
 name: ci
 
-# Parallel jobs (build, checks, go, foundry, e2e, release-notes) feed one aggregating
-# `quality` job. A skipped job (foundry when no contract changed) counts as passed. Branch protection requires `quality` only, so jobs can be
-# added or renamed without touching protection settings. Concurrency cancels
-# older runs on the same ref so a fresh push doesn't pile up minutes.
+# Parallel jobs feed one aggregating `quality` job; a skipped job counts as passed.
+# Branch protection requires `quality` only, so jobs can be added or renamed freely.
+#
+# Minutes are tight (2,000 a month on the free plan), so:
+#   - pushes to main only run `build`, which refreshes the caches every PR starts from;
+#     the PR already passed every gate;
+#   - a PR that only touches docs/ or top-level markdown skips the code jobs;
+#   - the full-stack e2e lives in full-stack.yml and runs on a label, weekly, or by hand.
 
 on:
   push:
@@ -26,6 +30,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       contracts: ${{ steps.diff.outputs.contracts }}
+      code: ${{ steps.diff.outputs.code }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -35,7 +40,8 @@ jobs:
         id: diff
         run: |
           if [ "${{ github.event_name }}" != "pull_request" ]; then
-            echo "contracts=true" >> "$GITHUB_OUTPUT"
+            echo "contracts=false" >> "$GITHUB_OUTPUT"
+            echo "code=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           changed="$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}")"
@@ -46,12 +52,24 @@ jobs:
           else
             echo "contracts=false" >> "$GITHUB_OUTPUT"
           fi
+          # Anything outside docs/ and top-level markdown is code.
+          if printf '%s\n' "$changed" | grep -vqE '^(docs/|[^/]+\.md$)'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Release notes gate
+        if: github.event_name == 'pull_request'
+        run: STRICT_RELEASE_NOTES=true bash scripts/check_release_notes.sh
 
   # Production builds of every TS workspace except @strimz/contracts (its build is
   # `forge build`, which the foundry job runs). Turbo's cache is kept between runs, so
   # only workspaces whose inputs changed are rebuilt.
   build:
     name: build
+    needs: changes
+    if: github.event_name == 'push' || needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -101,6 +119,8 @@ jobs:
   # several read other workspaces' files, which turbo can't see as inputs.
   checks:
     name: checks (format · lint · typecheck · test)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -138,33 +158,6 @@ jobs:
 
       - name: Prune turbo cache
         run: find .turbo/cache -type f -mtime +7 -delete 2>/dev/null || true
-
-  go:
-    name: go (vet · build · test)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: apps/indexer
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: apps/indexer/go.mod
-          cache-dependency-path: apps/indexer/go.sum
-
-      - name: Format (gofmt)
-        run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
-
-      - name: Vet
-        run: go vet ./...
-
-      - name: Build
-        run: go build -o /dev/null ./...
-
-      - name: Test (unit only — e2e needs Docker)
-        run: go test -count=1 -race ./internal/...
 
   foundry:
     name: foundry (build · test)
@@ -221,8 +214,12 @@ jobs:
           FOUNDRY_PROFILE: fork
           ARC_TESTNET_RPC_URL: https://rpc.testnet.arc.io
 
+  # Also runs the Go checks: it sets up Go anyway, and a separate job cost a
+  # rounded-up minute of its own.
   e2e:
-    name: e2e (api · scheduler · agent · indexer)
+    name: e2e (go · api · scheduler · agent · indexer)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
@@ -245,6 +242,14 @@ jobs:
           go-version-file: apps/indexer/go.mod
           cache-dependency-path: apps/indexer/go.sum
 
+      - name: Go format, vet, build and unit tests
+        working-directory: apps/indexer
+        run: |
+          test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
+          go vet ./...
+          go build -o /dev/null ./...
+          go test -count=1 -race ./internal/...
+
       - name: Install
         run: pnpm install --frozen-lockfile
 
@@ -263,77 +268,11 @@ jobs:
       - name: Indexer store e2e
         run: pnpm --filter @strimz/indexer test:e2e
 
-  release-notes:
-    name: release notes
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # check_release_notes.sh diffs the PR against its base.
-          fetch-depth: 0
-
-      - name: Release Notes Governance Gate
-        run: STRICT_RELEASE_NOTES=true bash scripts/check_release_notes.sh
-
-  # Not in quality's needs on purpose: it forks public Arc testnet, so an Arc outage
-  # can fail it with nothing wrong in the PR. See docs/plans/2026-11-12-full-stack-e2e-plan.md.
-  e2e-full-stack:
-    name: e2e full stack (non-blocking)
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      TURBO_TELEMETRY_DISABLED: '1'
-      DOCKER_HOST: unix:///var/run/docker.sock
-      ARC_TESTNET_RPC_URL: https://rpc.testnet.arc.io
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          submodules: recursive
-
-      - name: Install Arc Foundry (pinned)
-        run: |
-          scripts/install-arc-foundry.sh "$HOME/.local/bin"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: '.nvmrc'
-          cache: pnpm
-
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: apps/indexer/go.mod
-          cache-dependency-path: apps/indexer/go.sum
-
-      - name: Install
-        run: pnpm install --frozen-lockfile
-
-      - name: Build the services under test
-        run: pnpm exec turbo run build --filter=@strimz/api --filter=@strimz/scheduler --filter=@strimz/indexer
-
-      - name: Full-stack e2e
-        run: pnpm --filter @strimz/e2e-full-stack test:e2e
-
-      - name: Service logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-full-stack-logs
-          path: e2e/full-stack/.logs/
-          # The folder name starts with a dot, which upload-artifact skips by default.
-          include-hidden-files: true
-
   quality:
     name: quality
     runs-on: ubuntu-latest
-    needs: [changes, build, checks, go, foundry, e2e, release-notes]
-    if: always()
+    needs: [changes, build, checks, foundry, e2e]
+    if: always() && github.event_name == 'pull_request'
     steps:
       - name: Every gate passed
         run: |
