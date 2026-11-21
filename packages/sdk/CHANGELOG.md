@@ -1,5 +1,16 @@
 # @strimz/sdk
 
+## 0.18.0
+
+### Minor Changes
+
+- b0388a7: Subscriptions say who cancelled them: `cancelledBy` is `'payer'`, `'merchant'`, `'strimz'` or `null`, and it is on every `subscription.cancelled` webhook. New `subscriptionCancellerSchema`. The SDK adds `buildViewSubscriptionsTypedData`, `VIEW_SUBSCRIPTIONS_TYPES` and `VIEW_SUBSCRIPTIONS_VALIDITY_SECONDS`, the gas-free sign-in a subscriber uses on Strimz's hosted cancel page.
+
+### Patch Changes
+
+- Updated dependencies [b0388a7]
+  - @strimz/shared-types@0.20.0
+
 ## 0.17.0
 
 ### Minor Changes
