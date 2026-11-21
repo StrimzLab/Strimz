@@ -91,9 +91,26 @@ function makeCfg(): TypedConfigService {
  * sessions / already-enrolled subscriptions; returning `null` keeps
  * every test exercising the fresh-submission path.
  */
+interface EnrolmentRow {
+  intentNonce: string
+  merchantId: string
+  planId: string
+  payerAddress: string
+}
+
+let enrolments: EnrolmentRow[] = []
+
 function makeFakePrisma(): PrismaService {
   return {
     db: {
+      subscriptionEnrolment: {
+        upsert: (args: { where: { intentNonce: string }; create: EnrolmentRow }) => {
+          if (!enrolments.some((e) => e.intentNonce === args.where.intentNonce)) {
+            enrolments.push(args.create)
+          }
+          return Promise.resolve(args.create)
+        },
+      },
       paymentSession: {
         findUnique: () =>
           Promise.resolve({
@@ -196,6 +213,7 @@ describe('RelayService', () => {
   let service: RelayService
 
   beforeEach(() => {
+    enrolments = []
     const { svc, queue: q } = makeFakeQueueService()
     queue = q
     service = new RelayService(
@@ -308,6 +326,21 @@ describe('RelayService', () => {
       expect(decoded.args[9]).toBe(input.intentSignature)
     })
 
+    it('records which plan the intent nonce enrols, once, before enqueuing', async () => {
+      const input = subsInput()
+      await service.submitPermitAndCreateSubscription(input)
+      await service.submitPermitAndCreateSubscription(input)
+
+      expect(enrolments).toEqual([
+        {
+          intentNonce: input.nonce.toLowerCase(),
+          merchantId: MERCHANT_INTERNAL_ID,
+          planId: PLAN_ID,
+          payerAddress: PAYER.toLowerCase(),
+        },
+      ])
+    })
+
     it('rejects a nonce that is not derived from the plan, payer and permit nonce', async () => {
       const stale = subscriptionIntentNonce(PLAN_ID, PAYER, PERMIT_NONCE - 1n)
       const err = await service
@@ -319,6 +352,7 @@ describe('RelayService', () => {
         code: 'intent_nonce_mismatch',
       })
       expect(queue._jobs.size).toBe(0)
+      expect(enrolments).toEqual([])
     })
   })
 

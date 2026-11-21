@@ -393,6 +393,7 @@ type SubscriptionCreatedInput struct {
 	NextChargeAt          time.Time
 	OnchainTxHash         string
 	Mode                  string
+	IntentNonce           string // 0x-prefixed 32-byte hex; empty or zero when not signed through Strimz
 }
 
 // UpsertSubscriptionFromOnchain projects `SubscriptionCreated`. Idempotent
@@ -427,9 +428,13 @@ func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in Subscripti
 			return err
 		}
 
-		planID, err := findOrCreatePlan(ctx, tx, merchantID, in.Amount, in.Currency, in.Interval, in.IntervalCount)
+		planID, ambiguous, err := resolvePlan(ctx, tx, merchantID, in.IntentNonce, in.Amount, in.Currency, in.Interval, in.IntervalCount)
 		if err != nil {
 			return err
+		}
+		metadata := "{}"
+		if ambiguous {
+			metadata = `{"planMatch":"ambiguous"}`
 		}
 
 		var subID string
@@ -438,12 +443,12 @@ func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in Subscripti
 			  id, "onchainSubscriptionId", "enrolmentTxHash", "merchantId", "customerId", "planId",
 			  status, "payerAddress", currency, amount, interval, "intervalCount",
 			  "currentPeriodStartAt", "currentPeriodEndAt", "nextChargeAt", "trialEndsAt",
-			  "gracePeriodHours", mode, "createdAt", "updatedAt"
+			  "gracePeriodHours", mode, metadata, "createdAt", "updatedAt"
 			) VALUES (
 			  gen_random_uuid()::text, $1, $2, $3, $4, $5,
 			  $15::"SubscriptionStatus", $6, $7::"PaymentCurrency", $8, $9::"SubscriptionInterval", $10,
 			  $11, $12, $13, $16,
-			  48, $14::"Mode", NOW(), NOW()
+			  48, $14::"Mode", $17::jsonb, NOW(), NOW()
 			)
 			ON CONFLICT ("onchainSubscriptionId") DO NOTHING
 			RETURNING id
@@ -451,7 +456,7 @@ func (s *Store) UpsertSubscriptionFromOnchain(ctx context.Context, in Subscripti
 			in.OnchainSubscriptionID.Int64(), in.OnchainTxHash, merchantID, customerID, planID,
 			in.PayerAddress, in.Currency, in.Amount, in.Interval, in.IntervalCount,
 			periodStart, periodEnd, in.NextChargeAt,
-			in.Mode, status, trialEndsAt,
+			in.Mode, status, trialEndsAt, metadata,
 		).Scan(&subID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			// Replay — subscription already exists.

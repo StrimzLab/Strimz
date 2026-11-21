@@ -412,3 +412,44 @@ func TestE2E_Stream_PeriodsSkippedMovesThePeriodTheChargePaid(t *testing.T) {
 	assert.Equal(t, 1, countRows(t, st,
 		`SELECT count(*) FROM "AuditLog" WHERE "merchantId" = 'm_gap' AND action = 'subscription.periods_skipped'`))
 }
+
+func TestE2E_Stream_SubscriptionLandsOnThePlanItsIntentNonceRecorded(t *testing.T) {
+	c := &rangeChain{head: 30}
+	r, st := newTestRunner(t, c, 1)
+	onchainID := int64(11)
+	seedMerchant(t, st, "m_twin", "0x"+fmt.Sprintf("%064x", 3), &onchainID)
+	ctx := context.Background()
+	for i, id := range []string{"plan_first", "plan_second"} {
+		_, err := st.Pool().Exec(ctx, `
+			INSERT INTO "SubscriptionPlan" (id, "merchantId", name, amount, currency, interval, "intervalCount", status, "createdAt", "updatedAt")
+			VALUES ($1, 'm_twin', $2, '2000000', 'USDC', 'monthly', 1, 'active', NOW() - make_interval(hours => $3), NOW())
+		`, id, "Plan "+id, 2-i)
+		require.NoError(t, err)
+	}
+	var nonce [32]byte
+	nonce[31] = 0x77
+	_, err := st.Pool().Exec(ctx, `
+		INSERT INTO "SubscriptionEnrolment" ("intentNonce", "merchantId", "planId", "payerAddress")
+		VALUES ($1, 'm_twin', 'plan_second', '0x000000000000000000000000000000000000aaaa')
+	`, "0x"+fmt.Sprintf("%064x", 0x77))
+	require.NoError(t, err)
+
+	c.logs = []types.Log{{
+		Address: subsAddr,
+		Topics: []common.Hash{
+			mustTopic(t, indabi.EventSubscriptionCreated),
+			common.BigToHash(big.NewInt(5)),
+			common.BigToHash(big.NewInt(onchainID)),
+			common.BytesToHash(common.HexToAddress("0xaaaa").Bytes()),
+		},
+		Data:        pack(t, []string{"address", "uint256", "uint32", "uint64", "bytes32"}, usdcAddr, big.NewInt(2_000_000), uint32(2_592_000), uint64(1_700_000_000), nonce),
+		BlockNumber: 10, Index: 0, TxHash: txHash(0x50), BlockHash: common.HexToHash(fmt.Sprintf("0x%064x", 10)),
+	}}
+
+	require.NoError(t, r.Tick(ctx))
+
+	var planID string
+	require.NoError(t, st.Pool().QueryRow(ctx,
+		`SELECT "planId" FROM "Subscription" WHERE "onchainSubscriptionId" = 5`).Scan(&planID))
+	assert.Equal(t, "plan_second", planID)
+}

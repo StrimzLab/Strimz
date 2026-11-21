@@ -106,28 +106,48 @@ func upsertCustomer(ctx context.Context, tx pgxTxLike, merchantID, walletAddress
 	return id, nil
 }
 
-// findOrCreatePlan finds a SubscriptionPlan matching the on-chain attrs or
-// creates a synthetic auto-discovered plan if none exists.
-func findOrCreatePlan(ctx context.Context, tx pgxTxLike, merchantID, amount, currency, interval string, intervalCount int32) (string, error) {
-	var id string
-	err := tx.QueryRow(ctx, `
-		SELECT id FROM "SubscriptionPlan"
+// resolvePlan picks the plan a SubscriptionCreated belongs to: the one the
+// relay recorded for its intent nonce, else the only active plan with the
+// same terms, else the oldest such plan (ambiguous), else a new plan.
+func resolvePlan(ctx context.Context, tx pgxTxLike, merchantID, intentNonce, amount, currency, interval string, intervalCount int32) (planID string, ambiguous bool, err error) {
+	if intentNonce != "" && intentNonce != zeroNonce {
+		err = tx.QueryRow(ctx, `
+			SELECT p.id FROM "SubscriptionEnrolment" e
+			  JOIN "SubscriptionPlan" p ON p.id = e."planId"
+			 WHERE e."intentNonce" = $1
+			   AND e."merchantId" = $2
+			   AND p.amount = $3
+			   AND p.currency = $4::"PaymentCurrency"
+			   AND p.interval = $5::"SubscriptionInterval"
+			   AND p."intervalCount" = $6
+		`, strings.ToLower(intentNonce), merchantID, amount, currency, interval, intervalCount).Scan(&planID)
+		if err == nil {
+			return planID, false, nil
+		}
+		if !isNoRows(err) {
+			return "", false, fmt.Errorf("enrolment lookup: %w", err)
+		}
+	}
+
+	var matches int
+	err = tx.QueryRow(ctx, `
+		SELECT id, count(*) OVER () FROM "SubscriptionPlan"
 		 WHERE "merchantId" = $1
 		   AND amount = $2
 		   AND currency = $3::"PaymentCurrency"
 		   AND interval = $4::"SubscriptionInterval"
 		   AND "intervalCount" = $5
 		   AND status = 'active'::"SubscriptionPlanStatus"
+		 ORDER BY "createdAt", id
 		 LIMIT 1
-	`, merchantID, amount, currency, interval, intervalCount).Scan(&id)
+	`, merchantID, amount, currency, interval, intervalCount).Scan(&planID, &matches)
 	if err == nil {
-		return id, nil
+		return planID, matches > 1, nil
 	}
 	if !isNoRows(err) {
-		return "", fmt.Errorf("plan lookup: %w", err)
+		return "", false, fmt.Errorf("plan lookup: %w", err)
 	}
 
-	// No matching plan — auto-create.
 	name := fmt.Sprintf("On-chain auto · %s × %d", interval, intervalCount)
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO "SubscriptionPlan" (
@@ -142,11 +162,13 @@ func findOrCreatePlan(ctx context.Context, tx pgxTxLike, merchantID, amount, cur
 		"Auto-discovered by indexer from on-chain SubscriptionCreated event",
 		amount, currency, interval, intervalCount,
 		`{"autoCreated":true,"source":"indexer"}`,
-	).Scan(&id); err != nil {
-		return "", fmt.Errorf("create plan: %w", err)
+	).Scan(&planID); err != nil {
+		return "", false, fmt.Errorf("create plan: %w", err)
 	}
-	return id, nil
+	return planID, false, nil
 }
+
+const zeroNonce = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 func isNoRows(err error) bool {
 	return errors.Is(err, pgx.ErrNoRows)

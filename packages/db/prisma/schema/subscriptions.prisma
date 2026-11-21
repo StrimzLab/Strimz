@@ -19,6 +19,7 @@ model SubscriptionPlan {
 
   merchant         Merchant               @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   subscriptions    Subscription[]
+  enrolments       SubscriptionEnrolment[]
 
   @@index([merchantId, status])
 }
@@ -130,4 +131,19 @@ model SubscriptionCharge {
   /// Drives the recurring-charge notification cron.
   @@index([status, merchantNotifiedAt])
   @@index([status, customerNotifiedAt])
+}
+
+/// Which plan a signed subscription intent was for. The relay writes it
+/// before submitting; the indexer reads it by the nonce on SubscriptionCreated.
+model SubscriptionEnrolment {
+  intentNonce  String           @id @db.VarChar(66)
+  merchantId   String
+  planId       String
+  payerAddress String           @db.VarChar(42)
+  createdAt    DateTime         @default(now())
+
+  merchant     Merchant         @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  plan         SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([merchantId, payerAddress])
 }
