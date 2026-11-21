@@ -2,6 +2,8 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
 } from '@nestjs/common'
@@ -24,9 +26,14 @@ import {
 import { RelayBudgetService } from './relay-budget.service.js'
 import { RelayChainProbe } from './relay-chain-probe.js'
 import { RelayEnrolmentGate } from './relay-enrolment-gate.js'
-import { payWithAuthorizationAbi, permitAndCreateSubscriptionAbi } from './generated/contracts.js'
+import {
+  cancelWithSigAbi,
+  payWithAuthorizationAbi,
+  permitAndCreateSubscriptionAbi,
+} from './generated/contracts.js'
 import type { RelayJobResult } from './relay.processor.js'
 import type {
+  CancelWithSigInput,
   PayWithAuthorizationInput,
   PermitAllowanceInput,
   PermitAndCreateSubscriptionInput,
@@ -41,16 +48,25 @@ const GAS_LIMITS = {
   payWithAuthorization: 280_000n,
   permitAndCreateSubscription: 320_000n,
   permitAllowance: 120_000n,
+  cancelWithSig: 150_000n,
 } as const
 
 const MAX_RELAY_GAS = 600_000n
+
+// A smart wallet can pass the simulation and still revert on chain. Strimz pays
+// for every cancel, so it relays only a few per subscription a day.
+const MAX_CANCEL_ATTEMPTS_PER_DAY = 3
 
 // FiatToken's bytes overload, so smart-wallet (ERC-1271) payers can renew too.
 const tokenPermitAbi = parseAbi([
   'function permit(address owner, address spender, uint256 value, uint256 deadline, bytes signature)',
 ])
 
-type RelayCallReason = 'payWithAuthorization' | 'permitAndCreateSubscription' | 'permitAllowance'
+type RelayCallReason =
+  | 'payWithAuthorization'
+  | 'permitAndCreateSubscription'
+  | 'permitAllowance'
+  | 'cancelWithSig'
 
 type RelayCallJob = Exclude<RelayJob, { reason: 'registerMerchant' }> & {
   merchantInternalId: string
@@ -60,6 +76,7 @@ const RELAY_KEY_PREFIX: Record<RelayCallReason, string> = {
   payWithAuthorization: 'relay-pay-',
   permitAndCreateSubscription: 'relay-sub-',
   permitAllowance: 'relay-allow-',
+  cancelWithSig: 'relay-cancel-',
 }
 
 export function relayKeyFor(reason: RelayCallReason, callData: Hex): string {
@@ -276,6 +293,65 @@ export class RelayService {
     )
   }
 
+  /** Relays a payer's signed cancel. Strimz pays for it, so it never touches the merchant's relay budget. */
+  async submitCancelWithSig(input: CancelWithSigInput): Promise<RelaySubmissionView> {
+    if (!this.subscriptionsAddress) {
+      throw new Error('STRIMZ_SUBSCRIPTIONS_ADDRESS is not configured')
+    }
+    if (input.deadline <= (await this.probe.latestBlockTimestamp())) {
+      throw new BadRequestException({
+        code: 'signature_expired',
+        message: 'the cancel signature has expired; sign it again',
+      })
+    }
+    const valid = await this.probe.verifyCancel({
+      payer: input.payer,
+      subscriptions: this.subscriptionsAddress,
+      subscriptionId: input.onchainSubscriptionId,
+      deadline: input.deadline,
+      signature: input.signature,
+    })
+    if (!valid) {
+      throw new BadRequestException({
+        code: 'invalid_signature',
+        message: "the cancel isn't signed by the subscription's payer",
+      })
+    }
+    const callData = encodeFunctionData({
+      abi: cancelWithSigAbi,
+      functionName: 'cancelWithSig',
+      args: [input.onchainSubscriptionId, input.deadline, input.signature],
+    })
+    const key = relayKeyFor('cancelWithSig', callData)
+    const replay = await this.existingView(key)
+    if (replay) return replay
+    const attempts = await this.attempts.countCancelAttempt(input.subscriptionInternalId)
+    if (attempts > MAX_CANCEL_ATTEMPTS_PER_DAY) {
+      throw new HttpException(
+        {
+          code: 'cancel_attempts_exhausted',
+          message:
+            'Strimz has tried to cancel this subscription too many times today. Try again tomorrow, or cancel from your wallet.',
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      )
+    }
+    const gasLimit = await this.gasLimitFor('cancelWithSig', this.subscriptionsAddress, callData)
+    return this.enqueue(
+      {
+        idempotencyKey: key,
+        reason: 'cancelWithSig',
+        toAddress: this.subscriptionsAddress,
+        callData,
+        gasLimit: gasLimit.toString(),
+        merchantInternalId: input.merchantInternalId,
+        subscriptionInternalId: input.subscriptionInternalId,
+      },
+      `cancel:${input.subscriptionInternalId}`,
+      { chargeBudget: false },
+    )
+  }
+
   /**
    * Look up a previously enqueued submission by its idempotency key.
    * Returns `null` if no job is found (i.e. it was never submitted,
@@ -370,17 +446,21 @@ export class RelayService {
     const receipt = await this.probe.receiptStatus(data.broadcast.txHash)
     if (receipt === 'success') throw alreadySettled(await this.viewFromJob(job))
     if (receipt === 'reverted') return
-    if (data.reason === 'permitAndCreateSubscription' || data.reason === 'permitAllowance') return
+    if (data.reason !== 'payWithAuthorization') return
     const validBefore = authorizationValidBefore(data.callData)
     if (validBefore <= (await this.probe.latestBlockTimestamp())) return
     throw attemptInProgress(await this.viewFromJob(job))
   }
 
-  private async enqueue(job: RelayCallJob, attemptScope: string): Promise<RelaySubmissionView> {
+  private async enqueue(
+    job: RelayCallJob,
+    attemptScope: string,
+    opts: { chargeBudget: boolean } = { chargeBudget: true },
+  ): Promise<RelaySubmissionView> {
     const data = relayJobSchema.parse(job)
     const queue = this.queue.queue(QUEUE_NAMES.relaySubmission)
     await this.claimAttempt(attemptScope, data.idempotencyKey)
-    await this.budget.consume(job.merchantInternalId)
+    if (opts.chargeBudget) await this.budget.consume(job.merchantInternalId)
     // Using the idempotency key as the BullMQ job id makes
     // resubmission a no-op: BullMQ rejects duplicate ids with a
     // documented `Job <id> already exists` shape. We catch that and

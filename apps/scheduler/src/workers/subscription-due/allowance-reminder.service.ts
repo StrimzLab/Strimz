@@ -8,6 +8,7 @@ import { TypedConfigService } from '../../config/index.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { manageSubscriptionUrl } from '../../infra/email/payer-links.js'
 
 // This charge plus two more, for every live subscription sharing the allowance.
 const CHARGES_OF_WARNING = 3n
@@ -82,6 +83,7 @@ export class AllowanceReminderService {
           planName: row.plan.name,
           amountDisplay: `${formatUnits(BigInt(sub.amount), 6)} ${sub.currency}`,
           renewUrl: `${this.cfg.env.CHECKOUT_ORIGIN.replace(/\/+$/, '')}/sub/renew/${sub.id}`,
+          manageUrl: manageSubscriptionUrl(this.cfg.env.CHECKOUT_ORIGIN, sub.id),
         }),
       )
       await this.email.send({

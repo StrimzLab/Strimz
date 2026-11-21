@@ -173,6 +173,7 @@ export async function seedSubscription(
     intervalCount: number
     amount: string
     mode: 'test' | 'live'
+    onchainSubscriptionId: number
   }> = {},
 ) {
   // Plan is required, so seed one if not provided.
@@ -211,6 +212,7 @@ export async function seedSubscription(
       gracePeriodHours: 48,
       status: overrides.status ?? 'active',
       mode: overrides.mode ?? 'test',
+      onchainSubscriptionId: overrides.onchainSubscriptionId ?? null,
       currentPeriodStartAt: now,
       currentPeriodEndAt: new Date(now.getTime() + 30 * 86_400_000),
       nextChargeAt: new Date(now.getTime() + 30 * 86_400_000),

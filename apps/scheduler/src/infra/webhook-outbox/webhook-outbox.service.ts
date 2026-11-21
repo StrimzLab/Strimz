@@ -235,6 +235,7 @@ export class WebhookOutboxService {
         return { refund: serialiseRefund(refund), transaction: serialiseTransaction(transaction) }
       }
       case 'subscription.lapsed':
+      case 'subscription.cancelled':
       case 'subscription.reactivated': {
         const sub = await this.prisma.db.subscription.findUniqueOrThrow({
           where: { id: ref.subscriptionId },

@@ -46,6 +46,8 @@ for c in "${RELAY_ERROR_SOURCES[@]}"; do error_files+=("$OUT/$c.sol/$c.json"); d
   echo
   echo "export const permitAndCreateSubscriptionAbi = $(relay_fn StrimzSubscriptions permitAndCreateSubscription) as const"
   echo
+  echo "export const cancelWithSigAbi = $(relay_fn StrimzSubscriptions cancelWithSig) as const"
+  echo
   echo "export const strimzErrorsAbi = $(jq -s --indent 2 '[.[].abi[] | select(.type == "error")] | unique_by([.name, [.inputs[].type]]) | sort_by(.name)' "${error_files[@]}") as const"
 } > "$target/relay-contracts.ts"
 

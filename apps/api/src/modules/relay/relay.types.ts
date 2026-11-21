@@ -70,6 +70,16 @@ export interface PermitAndCreateSubscriptionInput {
   subscriptionInternalId: string
 }
 
+/** A payer's signed CancelSubscription, relayed as cancelWithSig. */
+export interface CancelWithSigInput {
+  onchainSubscriptionId: bigint
+  payer: `0x${string}`
+  deadline: bigint
+  signature: `0x${string}`
+  merchantInternalId: string
+  subscriptionInternalId: string
+}
+
 /** A payer's EIP-2612 permit renewing their allowance to Subscriptions. */
 export interface PermitAllowanceInput {
   token: `0x${string}`

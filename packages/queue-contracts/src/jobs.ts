@@ -129,6 +129,7 @@ export const relayJobSchema = z.discriminatedUnion('reason', [
   z.object({ reason: z.literal('payWithAuthorization'), ...relayCallFields }),
   z.object({ reason: z.literal('permitAndCreateSubscription'), ...relayCallFields }),
   z.object({ reason: z.literal('permitAllowance'), ...relayCallFields }),
+  z.object({ reason: z.literal('cancelWithSig'), ...relayCallFields }),
   z.object({
     reason: z.literal('registerMerchant'),
     idempotencyKey: z.string().min(1),

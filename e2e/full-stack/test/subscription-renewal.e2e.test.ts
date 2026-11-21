@@ -1,10 +1,17 @@
 import { createTestClient, http, parseAbi } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { z } from 'zod'
+import { ARC_TESTNET_CHAIN_ID } from '@strimz/shared-config'
+import {
+  buildCancelSubscriptionTypedData,
+  buildViewSubscriptionsTypedData,
+} from '@strimz/sdk/eip712'
 import { fundUsdc } from '../src/chain.js'
 import { signEnrolment, type Signer } from './flows.js'
 import {
   actors,
+  apiUrl,
   chain,
   db,
   deployment,
@@ -17,6 +24,12 @@ import {
   TERMINAL,
   usdcBalance,
 } from './support.js'
+
+const managedListSchema = z.object({
+  chainId: z.number(),
+  subscriptionsAddress: z.string(),
+  data: z.array(z.object({ subscriptionId: z.string(), onchainSubscriptionId: z.number() })),
+})
 
 // Same price as the checkout suite's plan, so the indexer must use the intent nonce (#497).
 const AMOUNT = 2_000_000n // 2 USDC
@@ -184,5 +197,103 @@ describe('monthly subscription renewal', () => {
     expect(Date.parse(viaSdk.nextChargeAt ?? '') / 1000).toBe(Number(nextCharge))
     const attempts = await strimz.subscriptions.charges(subscriptionId)
     expect(attempts.data.filter((c) => c.status === 'succeeded')).toHaveLength(2)
+  })
+
+  // ADR-2026-11-20-subscriber-self-cancel (#499, #500).
+  it('the subscriber cancels from the manage page without gas, and month three is never charged', async () => {
+    await fundUsdc(deployment.rpcUrl, subscriber.address, AMOUNT / 1_000_000n)
+    const balanceBefore = await usdcBalance(subscriber.address)
+    const payoutBefore = await usdcBalance(actors.payout.address)
+
+    const issuedAt = BigInt(Math.floor(Date.now() / 1000))
+    const view = buildViewSubscriptionsTypedData({
+      chainId: ARC_TESTNET_CHAIN_ID,
+      payer: subscriber.address,
+      issuedAt,
+    })
+    const listRes = await fetch(`${apiUrl}/v1/checkout/manage/subscriptions`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        payer: subscriber.address,
+        issuedAt: issuedAt.toString(),
+        signature: await subscriber.signTypedData({
+          domain: view.domain,
+          types: view.types,
+          primaryType: 'ViewSubscriptions',
+          message: { payer: subscriber.address, issuedAt },
+        }),
+      }),
+    })
+    expect(listRes.status).toBe(201)
+    const list = managedListSchema.parse(await listRes.json())
+    expect(list.data.map((s) => s.subscriptionId)).toEqual([subscriptionId])
+    expect(list.subscriptionsAddress.toLowerCase()).toBe(deployment.subscriptions.toLowerCase())
+
+    const deadline = (await chain.getBlock()).timestamp + 1800n
+    const cancelTyped = buildCancelSubscriptionTypedData({
+      chainId: list.chainId,
+      verifyingContract: list.subscriptionsAddress as `0x${string}`,
+      subscriptionId: BigInt(onchainId),
+      deadline,
+    })
+    let submitted = await publicPost(`/v1/checkout/manage/subscriptions/${subscriptionId}/cancel`, {
+      deadline: deadline.toString(),
+      signature: await subscriber.signTypedData({
+        domain: cancelTyped.domain,
+        types: cancelTyped.types,
+        primaryType: 'CancelSubscription',
+        message: { subscriptionId: BigInt(onchainId), deadline },
+      }),
+    })
+    if (!TERMINAL.has(submitted.status)) {
+      const key = submitted.idempotencyKey
+      submitted = await eventually(
+        'cancel submission',
+        () =>
+          publicGet(
+            `/v1/checkout/subscriptions/${subscriptionId}/submissions/${key}`,
+            submissionSchema,
+          ),
+        (s) => TERMINAL.has(s.status),
+        90_000,
+      )
+    }
+    expect(submitted.status).toBe('confirmed')
+    expect((await onChain(onchainId)).cancelled).toBe(true)
+
+    const row = await eventually(
+      'cancel indexed',
+      () => db().subscription.findUniqueOrThrow({ where: { id: subscriptionId } }),
+      (s) => s.status === 'cancelled',
+      90_000,
+    )
+    expect(row.cancelledBy).toBe('payer')
+
+    const events = await eventually(
+      'subscription.cancelled dispatched',
+      async () =>
+        (
+          await db().webhookEvent.findMany({
+            where: { merchantId: merchant.id, type: 'subscription_cancelled' },
+            include: { deliveries: true },
+          })
+        ).filter(
+          (e) => (e.payload as { data?: { id?: string } } | null)?.data?.id === subscriptionId,
+        ),
+      (es) => es.length === 1 && es[0]?.dispatchedAt != null && es[0].deliveries.length === 1,
+      90_000,
+    )
+    expect((events[0]?.payload as { data: { cancelledBy: string } }).data.cancelledBy).toBe('payer')
+    expect(await usdcBalance(subscriber.address)).toBe(balanceBefore)
+
+    await anvil.increaseTime({ seconds: MONTH })
+    await anvil.mine({ blocks: 1 })
+    await new Promise((r) => setTimeout(r, 20_000))
+    expect(
+      await db().subscriptionCharge.count({ where: { subscriptionId, status: 'succeeded' } }),
+    ).toBe(2)
+    expect(await usdcBalance(subscriber.address)).toBe(balanceBefore)
+    expect(await usdcBalance(actors.payout.address)).toBe(payoutBefore)
   })
 })

@@ -175,6 +175,40 @@ describe('webhook outbox dispatcher e2e', () => {
     })
   })
 
+  it('builds subscription.cancelled, with who cancelled, from the ref the indexer writes', async () => {
+    const merchant = await seedMerchant(t.prisma.db)
+    const sub = await seedSubscription(t.prisma.db, merchant.id, { status: 'active' })
+    await t.prisma.db.subscription.update({
+      where: { id: sub.id },
+      data: { status: 'cancelled', cancelledAt: new Date(), cancelledBy: 'payer' },
+    })
+    await seedWebhookEndpoint(t.prisma.db, merchant.id, {
+      url: 'https://example.com/cancelled',
+      events: ['subscription_cancelled'],
+    })
+    await t.prisma.db.webhookEvent.create({
+      data: {
+        id: 'evt_cancelled_1',
+        merchantId: merchant.id,
+        type: 'subscription_cancelled',
+        apiVersion: '2026-04-27',
+        mode: 'test',
+        payload: { ref: { kind: 'subscription.cancelled', subscriptionId: sub.id } },
+      },
+    })
+
+    const outbox = t.app.get(WebhookOutboxService)
+    expect(await outbox.tickNow()).toEqual({ dispatched: 1, deliveriesQueued: 1 })
+    const event = await t.prisma.db.webhookEvent.findUniqueOrThrow({
+      where: { id: 'evt_cancelled_1' },
+    })
+    expect(event.dispatchError).toBeNull()
+    expect(event.payload).toMatchObject({
+      type: 'subscription.cancelled',
+      data: { id: sub.id, status: 'cancelled', cancelledBy: 'payer' },
+    })
+  })
+
   // ADR-2026-11-13-refund-failures (#440).
   it('builds refund.failed with the refund and its failure reason', async () => {
     const merchant = await seedMerchant(t.prisma.db)

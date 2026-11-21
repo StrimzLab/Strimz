@@ -14,6 +14,7 @@ import { TypedConfigService } from '../../config/index.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { EmailService } from '../../infra/email/email.service.js'
 import { EmailBudgetService } from '../../infra/email/email-budget.service.js'
+import { manageSubscriptionUrl } from '../../infra/email/payer-links.js'
 
 @Injectable()
 export class PayerNotificationsService {
@@ -167,6 +168,7 @@ export class PayerNotificationsService {
             startedAtDisplay: this.formatDate(row.createdAt) ?? '',
             network,
             explorerTxUrl,
+            manageUrl: manageSubscriptionUrl(this.cfg.env.CHECKOUT_ORIGIN, row.id),
           }),
         )
         await this.email.send({
@@ -229,6 +231,7 @@ export class PayerNotificationsService {
             subscriptionId: row.subscriptionId,
             network,
             explorerTxUrl,
+            manageUrl: manageSubscriptionUrl(this.cfg.env.CHECKOUT_ORIGIN, row.subscriptionId),
           }),
         )
         await this.email.send({

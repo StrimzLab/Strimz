@@ -14,6 +14,7 @@ interface PayerSubscriptionChargedEmailProps {
   subscriptionId: string
   network: 'Arc Testnet' | 'Arc Mainnet'
   explorerTxUrl: string
+  manageUrl: string
 }
 
 /**
@@ -30,6 +31,7 @@ export function PayerSubscriptionChargedEmail({
   subscriptionId,
   network,
   explorerTxUrl,
+  manageUrl,
 }: PayerSubscriptionChargedEmailProps) {
   return (
     <Shell
@@ -60,8 +62,10 @@ export function PayerSubscriptionChargedEmail({
       </Section>
 
       <Text style={secondaryLinkRowStyle}>
-        To cancel this subscription contact {merchantBusinessName}. You can also stop future charges
-        yourself by revoking token approval in your wallet.
+        <Link href={manageUrl} style={{ color: colors.link, fontFamily: fonts.body }}>
+          Manage or cancel
+        </Link>{' '}
+        this subscription. Cancelling stops future charges straight away.
       </Text>
       <Text style={secondaryLinkRowStyle}>
         Receipt delivered by Strimz on behalf of the merchant. Learn more at{' '}
@@ -84,6 +88,7 @@ PayerSubscriptionChargedEmail.PreviewProps = {
   network: 'Arc Testnet',
   explorerTxUrl:
     'https://explorer.testnet.arc.io/tx/0x4d328b9b2590614e51c9401a06b3b643e401965972a2494ce593edf71b251907',
+  manageUrl: 'https://checkout.strimz.finance/manage?subscription=sub_cmr9m3hg20004jy6lprky8ao7',
 } as PayerSubscriptionChargedEmailProps
 
 export default PayerSubscriptionChargedEmail

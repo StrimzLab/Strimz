@@ -1,11 +1,19 @@
 ---
 title: Cancellation
-description: Cancelling is immediate. How the API cancel works, how a payer cancels from their wallet, and how to handle refunds for unused time.
+description: Cancelling is immediate. How you cancel from the API, how a subscriber cancels from Strimz's hosted page or their wallet, and how to tell who cancelled.
 ---
 
-A cancel stops charging right away. There is no "cancel at period end" mode. A subscription can be cancelled two ways: by you through the API or dashboard, or by the payer from their own wallet.
+A cancel stops charging right away. There is no "cancel at period end" mode. A subscription can be cancelled by you, through the API or the dashboard, or by the subscriber, from Strimz's hosted page or straight from their wallet.
 
-Strimz never cancels on its own. A subscription that runs out of retries moves to `lapsed`, which is a separate status.
+Every cancel sends exactly one `subscription.cancelled` webhook, and the subscription's `cancelledBy` says who cancelled it:
+
+| `cancelledBy` | Who cancelled                                                   |
+| ------------- | --------------------------------------------------------------- |
+| `payer`       | The subscriber, from the hosted page or their wallet            |
+| `merchant`    | You, through the API or dashboard, or your merchant owner wallet |
+| `strimz`      | A Strimz operator key, on chain                                 |
+
+A subscription that runs out of retries is not cancelled. It moves to `lapsed`, a separate status with its own webhook.
 
 ## Cancelling from the API
 
@@ -20,19 +28,31 @@ await strimz.subscriptions.cancel({
 
 What happens during the call:
 
-1. The row's status becomes `cancelled` and `cancelledAt` is set.
-2. `subscription.cancelled` fires with `data.status: 'cancelled'`.
+1. The status becomes `cancelled`, `cancelledAt` is set, and `cancelledBy` is `merchant`.
+2. `subscription.cancelled` fires with that subscription.
 3. The scheduler stops picking the subscription up, so no more charges are taken.
 
 Cancelling a subscription that is already `cancelled` or `lapsed` returns an error.
 
-The API also queues an on-chain `cancel()` so the contract's state matches. The scheduler sends it with its charger key, and skips it if the subscription is already cancelled on chain. This works with the subscriptions contract from the next testnet redeploy ([#142](https://github.com/StrimzLab/strimz/issues/142)). On the current deployment the on-chain cancel still reverts, so the contract shows the subscription as live, although Strimz no longer charges it.
+The API also queues an on-chain cancel so the contract matches. When it lands, nothing else changes and no second webhook is sent.
+
+## The subscriber's cancel page
+
+Strimz hosts a page where subscribers see and cancel their subscriptions: `https://checkout.strimz.finance/manage`.
+
+1. The subscriber connects the wallet they subscribed with.
+2. They sign a message to prove the wallet is theirs. It costs nothing and moves no money.
+3. They see that wallet's open subscriptions, across every merchant on Strimz.
+4. **Cancel subscription** asks for one more signature. Strimz submits the cancel on chain and pays the network fee.
+5. Once the cancel is confirmed and recorded, the page says "Cancelled. You won't be charged again."
+
+Every receipt and reminder email Strimz sends a subscriber links to this page, with the subscription selected: `/manage?subscription=<id>`. You can link to it from your own product too.
+
+The page never shows one wallet's subscriptions to another wallet.
 
 ## Cancelling from the payer's wallet
 
-The contract's `cancel(uint256 subscriptionId)` can be called by the payer, by the merchant's registry owner, or by Strimz's scheduler acting on an API cancel. A payer can call it from any wallet tool that can send a contract call. The indexer sees the `SubscriptionCancelled` event and marks the row `cancelled`.
-
-Strimz has no hosted cancel page for payers, and an on-chain cancel does not fire a `subscription.cancelled` webhook today. If you need to react to it, poll `subscriptions.retrieve` or `subscriptions.list`.
+The contract's `cancel(uint256 subscriptionId)` can also be called by the payer directly, from any wallet tool that can send a contract call. The indexer sees the `SubscriptionCancelled` event, marks the subscription `cancelled` with `cancelledBy: 'payer'`, and sends `subscription.cancelled`.
 
 ## Building a cancel button for your customers
 

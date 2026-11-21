@@ -15,6 +15,7 @@ interface PayerSubscriptionStartedEmailProps {
   startedAtDisplay: string
   network: 'Arc Testnet' | 'Arc Mainnet'
   explorerTxUrl: string
+  manageUrl: string
 }
 
 /**
@@ -33,6 +34,7 @@ export function PayerSubscriptionStartedEmail({
   startedAtDisplay,
   network,
   explorerTxUrl,
+  manageUrl,
 }: PayerSubscriptionStartedEmailProps) {
   return (
     <Shell
@@ -63,8 +65,10 @@ export function PayerSubscriptionStartedEmail({
       </Section>
 
       <Text style={secondaryLinkRowStyle}>
-        To cancel, update, or ask about this subscription, contact {merchantBusinessName} directly.
-        Cancelling in your wallet stops future charges immediately.
+        <Link href={manageUrl} style={{ color: colors.link, fontFamily: fonts.body }}>
+          Manage or cancel
+        </Link>{' '}
+        this subscription at any time. For anything else about it, contact {merchantBusinessName}.
       </Text>
       <Text style={secondaryLinkRowStyle}>
         Receipt delivered by Strimz on behalf of the merchant. Learn more at{' '}
@@ -88,6 +92,7 @@ PayerSubscriptionStartedEmail.PreviewProps = {
   network: 'Arc Testnet',
   explorerTxUrl:
     'https://explorer.testnet.arc.io/tx/0x4d328b9b2590614e51c9401a06b3b643e401965972a2494ce593edf71b251907',
+  manageUrl: 'https://checkout.strimz.finance/manage?subscription=sub_cmr9m3hg20004jy6lprky8ao7',
 } as PayerSubscriptionStartedEmailProps
 
 export default PayerSubscriptionStartedEmail
