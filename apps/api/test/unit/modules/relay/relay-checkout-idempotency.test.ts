@@ -117,6 +117,7 @@ function makePrisma(sessionStatus: { current: string }): PrismaService {
           }),
       },
       subscription: { findFirst: () => Promise.resolve(null) },
+      subscriptionEnrolment: { upsert: () => Promise.resolve({}) },
     },
   } as unknown as PrismaService
 }

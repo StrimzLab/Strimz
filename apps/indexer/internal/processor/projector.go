@@ -222,6 +222,7 @@ func (p *Projector) Apply(ctx context.Context, lg types.Log, blockTime time.Time
 			NextChargeAt:          nextCharge,
 			OnchainTxHash:         lg.TxHash.Hex(),
 			Mode:                  p.mode,
+			IntentNonce:           hexBytes32(ev.IntentNonce),
 		})
 
 	case indabi.EventSubscriptionCharged:

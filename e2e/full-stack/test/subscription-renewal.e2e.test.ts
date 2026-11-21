@@ -18,9 +18,8 @@ import {
   usdcBalance,
 } from './support.js'
 
-// Not the 2 USDC of the checkout suite: the indexer files a signup under the first
-// plan with the same price and interval (#497).
-const AMOUNT = 3_000_000n // 3 USDC
+// Same price as the checkout suite's plan, so the indexer must use the intent nonce (#497).
+const AMOUNT = 2_000_000n // 2 USDC
 const MONTH = 30 * 24 * 60 * 60
 const BPS = 10_000n
 // What checkout approves for an open-ended plan (OPEN_ENDED_CHARGES).

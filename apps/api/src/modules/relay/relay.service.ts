@@ -227,6 +227,7 @@ export class RelayService {
     assertMinimumAmount(input.amount)
     await this.assertIntentNonce(input)
     await this.enrolmentGate.assertFunded(input)
+    await this.recordEnrolment(input)
 
     const gasLimit = await this.gasLimitFor(
       'permitAndCreateSubscription',
@@ -317,6 +318,21 @@ export class RelayService {
           "the intent nonce must be subscriptionIntentNonce(planId, payer, the token's permit nonce)",
       })
     }
+  }
+
+  // The indexer reads this by the nonce on SubscriptionCreated to know the plan.
+  private async recordEnrolment(input: PermitAndCreateSubscriptionInput): Promise<void> {
+    const intentNonce = input.nonce.toLowerCase()
+    await this.prisma.db.subscriptionEnrolment.upsert({
+      where: { intentNonce },
+      create: {
+        intentNonce,
+        merchantId: input.merchantInternalId,
+        planId: input.subscriptionInternalId,
+        payerAddress: input.permitData.owner.toLowerCase(),
+      },
+      update: {},
+    })
   }
 
   private async findJob(key: string): Promise<Job<RelayJob, RelayJobResult> | null> {
