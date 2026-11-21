@@ -50,8 +50,8 @@ export function Providers({ children }: { children: ReactNode }) {
           theme: privyAppearanceTheme(resolvedTheme ?? 'light'),
           accentColor: '#02C76A',
         },
-        loginMethods: ['email', 'wallet', 'google'],
-        embeddedWallets: { createOnLogin: 'users-without-wallets' },
+        loginMethods: ['email', 'google', 'passkey'],
+        embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } },
         defaultChain: getArcChain(env.arcEnvironment),
         supportedChains: [getArcChain(env.arcEnvironment)],
       }}

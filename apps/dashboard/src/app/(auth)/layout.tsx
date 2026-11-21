@@ -61,7 +61,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </header>
         <AuthBenefitsRow />
 
-        <div className="flex flex-1 items-center justify-center px-4 pb-16 sm:px-8">{children}</div>
+        <div className="flex flex-1 items-center justify-center px-3 pb-16 sm:px-8">{children}</div>
       </section>
     </div>
   )

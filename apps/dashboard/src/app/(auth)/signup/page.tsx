@@ -4,10 +4,8 @@ import { Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { AuthCard } from '@/components/auth/auth-card'
-import {
-  PrivyContinueButton,
-  UnconfiguredContinueButton,
-} from '@/components/auth/privy-continue-button'
+import { AuthMethods } from '@/components/auth/auth-methods'
+import { UnconfiguredContinueButton } from '@/components/auth/unconfigured-continue-button'
 import { safeNextPath, withNext } from '@strimz/web-shared/lib/auth-redirect'
 import { env } from '@strimz/web-shared/lib/env'
 import { siteUrls } from '@strimz/web-shared/lib/site-urls'
@@ -26,9 +24,9 @@ function Signup() {
   return (
     <AuthCard
       title="Create your Strimz account"
-      description="Sign up with email, your wallet, or Google. It takes about two minutes."
+      description="Sign up with Google or your email. It takes about two minutes."
     >
-      {env.privyAppId ? <PrivyContinueButton next={next} /> : <UnconfiguredContinueButton />}
+      {env.privyAppId ? <AuthMethods mode="signup" next={next} /> : <UnconfiguredContinueButton />}
 
       <p className="font-poppins text-muted-foreground mt-6 text-center text-sm">
         Already have an account?{' '}

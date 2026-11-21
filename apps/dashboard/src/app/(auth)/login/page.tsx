@@ -4,10 +4,8 @@ import { Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { AuthCard } from '@/components/auth/auth-card'
-import {
-  PrivyContinueButton,
-  UnconfiguredContinueButton,
-} from '@/components/auth/privy-continue-button'
+import { AuthMethods } from '@/components/auth/auth-methods'
+import { UnconfiguredContinueButton } from '@/components/auth/unconfigured-continue-button'
 import { safeNextPath, withNext } from '@strimz/web-shared/lib/auth-redirect'
 import { env } from '@strimz/web-shared/lib/env'
 
@@ -23,11 +21,8 @@ function Login() {
   const next = safeNextPath(useSearchParams().get('next'))
 
   return (
-    <AuthCard
-      title="Welcome back"
-      description="Sign in with the same email, wallet, or social account you used last time."
-    >
-      {env.privyAppId ? <PrivyContinueButton next={next} /> : <UnconfiguredContinueButton />}
+    <AuthCard title="Welcome back" description="Sign in with Google, your email, or a passkey.">
+      {env.privyAppId ? <AuthMethods mode="login" next={next} /> : <UnconfiguredContinueButton />}
       <p className="font-poppins text-muted-foreground mt-6 text-center text-sm">
         New to Strimz?{' '}
         <Link

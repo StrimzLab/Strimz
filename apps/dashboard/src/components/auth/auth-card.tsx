@@ -27,7 +27,7 @@ export function AuthCard({
       animate="show"
       variants={fadeUp}
       className={cn(
-        'shadow-auth-card border-border/60 bg-background/95 w-full rounded-2xl border p-8 backdrop-blur md:w-[420px]',
+        'shadow-auth-card border-border/60 bg-background/95 w-full rounded-2xl border p-4 backdrop-blur sm:p-8 md:w-[420px]',
         className,
       )}
     >

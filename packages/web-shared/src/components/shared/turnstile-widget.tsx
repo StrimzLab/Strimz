@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 import { useResolvedTheme } from '@strimz/ui'
-import { env } from '@strimz/web-shared/lib/env'
-import { turnstileTheme, type TurnstileTheme } from '@strimz/web-shared/lib/theme'
+import { env } from '../../lib/env'
+import { turnstileTheme, type TurnstileTheme } from '../../lib/theme'
 
 const SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
 
@@ -14,6 +14,7 @@ interface TurnstileApi {
       sitekey: string
       action?: string
       theme?: TurnstileTheme
+      size?: 'normal' | 'flexible' | 'compact'
       callback: (token: string) => void
       'error-callback'?: () => void
       'expired-callback'?: () => void
@@ -32,11 +33,14 @@ export function TurnstileWidget({
   resetKey,
   onToken,
   className,
+  size,
 }: {
   action: string
   resetKey: number
   onToken: (token: string | null) => void
   className?: string
+  /** `flexible` fills the container, for narrow cards. */
+  size?: 'normal' | 'flexible' | 'compact'
 }) {
   const container = useRef<HTMLDivElement>(null)
   const onTokenRef = useRef(onToken)
@@ -63,6 +67,7 @@ export function TurnstileWidget({
         sitekey: env.turnstileSiteKey,
         action,
         theme,
+        ...(size ? { size } : {}),
         callback: (token) => onTokenRef.current(token),
         'error-callback': clearToken,
         'expired-callback': clearToken,
@@ -97,7 +102,7 @@ export function TurnstileWidget({
       if (widgetId && turnstile?.remove) turnstile.remove(widgetId)
       else el.innerHTML = ''
     }
-  }, [action, theme, resetKey])
+  }, [action, theme, resetKey, size])
 
   if (!env.turnstileSiteKey) return null
   return <div ref={container} className={className} />

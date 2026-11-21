@@ -31,6 +31,7 @@ import { ComingSoonBadge } from '@/components/dashboard/coming-soon-badge'
 import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { ImageUpload } from '@/components/dashboard/image-upload'
 import { OnchainPolicySection } from '@/components/dashboard/onchain-policy-section'
+import { PasskeySettings } from '@/components/dashboard/passkey-settings'
 import { useMerchantMe, useUpdateMerchant } from '@/hooks/api'
 
 /**
@@ -243,10 +244,11 @@ function BusinessSection({ merchant }: { merchant: Merchant }) {
         <div className="border-border/60 rounded-md border p-3 text-sm">
           <div className="font-medium">Sign-in</div>
           <div className="text-muted-foreground text-xs">
-            Email, Google or wallet login, managed by Privy. Two-step verification isn&apos;t
+            Google or an email code, or a passkey once you add one. Two-step verification isn&apos;t
             available yet.
           </div>
         </div>
+        <PasskeySettings />
       </SettingsCard>
     </>
   )
