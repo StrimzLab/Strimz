@@ -5,7 +5,7 @@ import {
   type Hex,
   type TransactionReceipt,
 } from 'viem'
-import { PLAN_FEE_CEILING_BPS, planFeeBps, type MerchantTier } from '@strimz/shared-config'
+import { MERCHANT_FEE_CEILING_BPS, planFeeBps, type MerchantTier } from '@strimz/shared-config'
 
 import { registerMerchantAbi } from './registry.abi.js'
 
@@ -48,7 +48,7 @@ export function registerMerchantCallData(m: RegistrationCandidate & { tier: Merc
       m.walletAddress as Hex,
       m.payoutAddress as Hex,
       registrationFeeBps(m.tier),
-      PLAN_FEE_CEILING_BPS,
+      MERCHANT_FEE_CEILING_BPS,
       NO_PARENT,
     ],
   })

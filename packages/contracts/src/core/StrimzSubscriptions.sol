@@ -44,8 +44,12 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
     ///      alone can't enrol them in a plan they didn't pick, and the plan
     ///      can't be paired with a different approval amount.
     bytes32 private constant SUBSCRIPTION_INTENT_TYPEHASH = keccak256(
-        "SubscriptionIntent(uint256 merchantId,address token,uint256 amount,uint32 interval,uint64 startAt,uint64 endAt,uint256 permitDeadline,uint256 permitValue,bytes32 nonce)"
+        "SubscriptionIntent(address payer,uint256 merchantId,address token,uint256 amount,uint32 interval,uint64 startAt,uint64 endAt,uint256 permitDeadline,uint256 permitValue,bytes32 nonce)"
     );
+
+    /// @dev Signed by the payer so a relayer can cancel for them without gas.
+    bytes32 private constant CANCEL_SUBSCRIPTION_TYPEHASH =
+        keccak256("CancelSubscription(uint256 subscriptionId,uint256 deadline)");
 
     /// @custom:storage-location erc7201:strimz.storage.StrimzSubscriptions
     struct Storage {
@@ -182,7 +186,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
             cancelled: false
         });
 
-        emit SubscriptionCreated(subscriptionId, merchantId, msg.sender, token, amount, interval, firstChargeAt);
+        emit SubscriptionCreated(subscriptionId, merchantId, msg.sender, token, amount, interval, firstChargeAt, bytes32(0));
     }
 
     /// @inheritdoc IStrimzSubscriptions
@@ -204,6 +208,8 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         // A past startAt makes the first period already due at creation,
         // so the payer is charged for time they never received.
         if (startAt != 0 && startAt < block.timestamp) revert Subscriptions__InvalidStartAt();
+        // The allowance fallback below never looks at the deadline, so check it here.
+        if (block.timestamp > permitData.deadline) revert Subscriptions__PermitExpired(permitData.deadline);
 
         Storage storage $ = _s();
         if (!$.tokenWhitelist.isWhitelisted(token)) revert Subscriptions__InvalidToken(token);
@@ -243,7 +249,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         });
 
         emit SubscriptionCreated(
-            subscriptionId, merchantId, permitData.owner, token, amount, interval, firstChargeAt
+            subscriptionId, merchantId, permitData.owner, token, amount, interval, firstChargeAt, nonce
         );
     }
 
@@ -262,6 +268,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
     ) internal view {
         bytes32 structHash = keccak256(abi.encode(
             SUBSCRIPTION_INTENT_TYPEHASH,
+            permitData.owner,
             merchantId,
             token,
             amount,
@@ -308,6 +315,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
     /// @notice Exposed so off-chain SDKs can derive the same digest they
     ///         need to sign.
     function subscriptionIntentDigest(
+        address payer,
         uint256 merchantId,
         address token,
         uint256 amount,
@@ -320,6 +328,7 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
     ) external view returns (bytes32) {
         bytes32 structHash = keccak256(abi.encode(
             SUBSCRIPTION_INTENT_TYPEHASH,
+            payer,
             merchantId,
             token,
             amount,
@@ -339,8 +348,12 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         Subscription storage sub = $.subscriptions[subscriptionId];
         if (sub.payer == address(0)) revert Subscriptions__UnknownSubscription(subscriptionId);
 
+        if (msg.sender == sub.payer) {
+            _payerCancel($, subscriptionId, sub);
+            return;
+        }
         IStrimzRegistry.Merchant memory m = $.registry.getMerchant(sub.merchantId);
-        bool party = msg.sender == sub.payer || msg.sender == m.owner;
+        bool party = msg.sender == m.owner;
         if (!party && !hasRole(SUBSCRIPTION_CANCELLER_ROLE, msg.sender)) revert Subscriptions__NotSubscriptionParty();
         // The indexer rebuilds state from logs; a second SubscriptionCancelled
         // for the same id would be a state transition that never happened.
@@ -349,6 +362,35 @@ contract StrimzSubscriptions is IStrimzSubscriptions, StrimzPausable, Reentrancy
         sub.cancelled = true;
         if (!party) $.operatorCancelledAt[subscriptionId] = uint64(block.timestamp);
         emit SubscriptionCancelled(subscriptionId, msg.sender);
+    }
+
+    /// @inheritdoc IStrimzSubscriptions
+    function cancelWithSig(uint256 subscriptionId, uint256 deadline, bytes calldata signature) external override {
+        if (block.timestamp > deadline) revert Subscriptions__CancelExpired(deadline);
+        Storage storage $ = _s();
+        Subscription storage sub = $.subscriptions[subscriptionId];
+        if (sub.payer == address(0)) revert Subscriptions__UnknownSubscription(subscriptionId);
+        if (!PayerSignature.isValid(sub.payer, cancelDigest(subscriptionId, deadline), signature)) {
+            revert Subscriptions__InvalidCancelSignature();
+        }
+        _payerCancel($, subscriptionId, sub);
+    }
+
+    /// @notice The EIP-712 digest a payer signs for `cancelWithSig`.
+    function cancelDigest(uint256 subscriptionId, uint256 deadline) public view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(CANCEL_SUBSCRIPTION_TYPEHASH, subscriptionId, deadline)));
+    }
+
+    /// @dev On top of an operator cancel, the payer's cancel only rules out a reinstate.
+    function _payerCancel(Storage storage $, uint256 subscriptionId, Subscription storage sub) private {
+        if (sub.cancelled) {
+            if ($.operatorCancelledAt[subscriptionId] == 0) revert Subscriptions__AlreadyCancelled(subscriptionId);
+            delete $.operatorCancelledAt[subscriptionId];
+            emit SubscriptionCancelConfirmedByPayer(subscriptionId, sub.payer);
+            return;
+        }
+        sub.cancelled = true;
+        emit SubscriptionCancelled(subscriptionId, sub.payer);
     }
 
     /// @inheritdoc IStrimzSubscriptions

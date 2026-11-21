@@ -96,9 +96,9 @@ contract Erc1271PayersTest is StrimzTestBase {
         return abi.encodePacked(r, s, v);
     }
 
-    function _subIntentSig(uint256 pk, uint256 deadline) internal view returns (bytes memory) {
+    function _subIntentSig(uint256 pk, address owner, uint256 deadline) internal view returns (bytes memory) {
         (uint8 v, bytes32 r, bytes32 s) = _signSubscriptionIntent(
-            subs, pk, merchantId, address(usdc), AMOUNT, INTERVAL, 0, 0, deadline, type(uint256).max, INTENT_NONCE
+            subs, pk, owner, merchantId, address(usdc), AMOUNT, INTERVAL, 0, 0, deadline, type(uint256).max, INTENT_NONCE
         );
         return abi.encodePacked(r, s, v);
     }
@@ -224,7 +224,7 @@ contract Erc1271PayersTest is StrimzTestBase {
         uint256 deadline = block.timestamp + 1 hours;
         IStrimzSubscriptions.PermitData memory pd = _permit(address(wallet), deadline);
 
-        uint256 id = _subscribe(pd, _permitSig(pd, walletOwnerPk), _subIntentSig(walletOwnerPk, deadline));
+        uint256 id = _subscribe(pd, _permitSig(pd, walletOwnerPk), _subIntentSig(walletOwnerPk, address(wallet), deadline));
 
         assertEq(subs.getSubscription(id).payer, address(wallet));
         assertEq(usdc.allowance(address(wallet), address(subs)), type(uint256).max);
@@ -245,7 +245,7 @@ contract Erc1271PayersTest is StrimzTestBase {
         IStrimzSubscriptions.PermitData memory pd = _permit(address(wallet), deadline);
         (, uint256 otherPk) = makeAddrAndKey("other");
         bytes memory permitSig = _permitSig(pd, walletOwnerPk);
-        bytes memory intentSig = _subIntentSig(otherPk, deadline);
+        bytes memory intentSig = _subIntentSig(otherPk, address(wallet), deadline);
 
         vm.prank(relayer);
         vm.expectRevert(IStrimzSubscriptions.Subscriptions__InvalidIntent.selector);
@@ -267,7 +267,7 @@ contract Erc1271PayersTest is StrimzTestBase {
                 payer, address(subs), pd.value, deadline, uint8(permitSig[64]), r, s
             )
         );
-        _subscribe(pd, _yParity(permitSig), _yParity(_subIntentSig(payerPk, deadline)));
+        _subscribe(pd, _yParity(permitSig), _yParity(_subIntentSig(payerPk, payer, deadline)));
 
         assertEq(usdc.allowance(payer, address(subs)), type(uint256).max);
     }
@@ -276,7 +276,7 @@ contract Erc1271PayersTest is StrimzTestBase {
         uint256 deadline = block.timestamp + 1 hours;
         IStrimzSubscriptions.PermitData memory pd = _permit(payer, deadline);
         bytes memory permitSig = _compact(_permitSig(pd, payerPk));
-        bytes memory intentSig = _subIntentSig(payerPk, deadline);
+        bytes memory intentSig = _subIntentSig(payerPk, payer, deadline);
 
         vm.prank(relayer);
         vm.expectRevert(IStrimzSubscriptions.Subscriptions__InvalidSignature.selector);

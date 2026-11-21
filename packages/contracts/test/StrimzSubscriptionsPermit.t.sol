@@ -92,7 +92,7 @@ contract StrimzSubscriptionsPermitTest is StrimzTestBase {
         uint256 permitDeadline
     ) internal view returns (bytes memory) {
         (uint8 v, bytes32 r, bytes32 s) = _signSubscriptionIntent(
-            subs, signerPk, mid, token, amount, interval, startAt, endAt, permitDeadline, type(uint256).max, INTENT_NONCE
+            subs, signerPk, payer, mid, token, amount, interval, startAt, endAt, permitDeadline, type(uint256).max, INTENT_NONCE
         );
         return abi.encodePacked(r, s, v);
     }

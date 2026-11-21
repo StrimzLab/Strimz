@@ -22,8 +22,8 @@ function registerArgs(tier: MerchantTier) {
 }
 
 describe('registerMerchant call', () => {
-  it('registers a Free merchant at 0 bps with a 50 bps ceiling and no parent', () => {
-    expect(registerArgs('free')).toEqual([WALLET, PAYOUT, 0, 50, 0n])
+  it('registers a Free merchant at 0 bps with a 500 bps ceiling and no parent', () => {
+    expect(registerArgs('free')).toEqual([WALLET, PAYOUT, 0, 500, 0n])
   })
 
   it.each<[MerchantTier, number]>([
@@ -32,7 +32,7 @@ describe('registerMerchant call', () => {
   ])('registers a %s merchant at its plan fee under the same ceiling', (tier, feeBps) => {
     const [, , fee, ceiling] = registerArgs(tier)
     expect(fee).toBe(feeBps)
-    expect(ceiling).toBe(50)
+    expect(ceiling).toBe(500)
   })
 
   it('refuses to register an Enterprise merchant, whose fee is set by contract', () => {

@@ -374,6 +374,11 @@ export const strimzErrorsAbi = [
   },
   {
     "type": "error",
+    "name": "Registry__OwnershipTransferPending",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "Registry__PayoutChangeNotDue",
     "inputs": []
   },
@@ -481,6 +486,17 @@ export const strimzErrorsAbi = [
   },
   {
     "type": "error",
+    "name": "Subscriptions__CancelExpired",
+    "inputs": [
+      {
+        "name": "deadline",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "Subscriptions__DuplicateAttempt",
     "inputs": [
       {
@@ -504,6 +520,11 @@ export const strimzErrorsAbi = [
   {
     "type": "error",
     "name": "Subscriptions__InvalidAmount",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "Subscriptions__InvalidCancelSignature",
     "inputs": []
   },
   {
@@ -589,6 +610,17 @@ export const strimzErrorsAbi = [
       },
       {
         "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Subscriptions__PermitExpired",
+    "inputs": [
+      {
+        "name": "deadline",
         "type": "uint256",
         "internalType": "uint256"
       }

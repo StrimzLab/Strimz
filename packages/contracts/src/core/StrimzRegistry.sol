@@ -197,6 +197,7 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
     function setPayoutAddress(uint256 merchantId, address newPayoutAddress) external override {
         Merchant storage m = _load(merchantId);
         if (msg.sender != m.owner) revert Registry__NotMerchantOwner();
+        if (m.pendingOwner != address(0)) revert Registry__OwnershipTransferPending();
         if (newPayoutAddress == address(0)) revert Registry__ZeroAddress();
         if (newPayoutAddress == m.payoutAddress) revert Registry__SamePayoutAddress();
         m.pendingPayoutAddress = newPayoutAddress;
@@ -208,6 +209,7 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
     function commitPayoutAddress(uint256 merchantId) external override {
         Merchant storage m = _load(merchantId);
         if (m.pendingPayoutAddress == address(0)) revert Registry__NoPendingPayoutChange();
+        if (m.pendingOwner != address(0)) revert Registry__OwnershipTransferPending();
         if (block.timestamp < m.payoutChangeCommitAt) revert Registry__PayoutChangeNotDue();
         address newAddr = m.pendingPayoutAddress;
         m.payoutAddress = newAddr;
@@ -235,6 +237,8 @@ contract StrimzRegistry is IStrimzRegistry, StrimzAccessControl, UUPSUpgradeable
         if (msg.sender != m.owner) revert Registry__NotMerchantOwner();
         if (newOwner == address(0)) revert Registry__ZeroAddress();
         if (newOwner == m.owner) revert Registry__SameOwner();
+        // The buyer must accept the payout address they can see now.
+        if (m.pendingPayoutAddress != address(0)) _cancelPayoutChange(merchantId, m);
         m.pendingOwner = newOwner;
         _s().ownershipAcceptableAt[merchantId] = uint64(block.timestamp) + PAYOUT_CHANGE_DELAY;
         emit MerchantOwnershipTransferInitiated(merchantId, m.owner, newOwner);

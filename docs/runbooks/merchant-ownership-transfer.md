@@ -13,8 +13,11 @@ These hold once the `StrimzRegistry` upgrade from #130 is live. Until then, see
 
 - The nominee can accept ownership only `PAYOUT_CHANGE_DELAY` (24 hours) after the
   nomination. A new nomination restarts the 24 hours.
-- Accepting ownership cancels any pending payout change and emits
-  `MerchantPayoutChangeCancelled` before `MerchantOwnershipTransferAccepted`.
+- Nominating cancels any pending payout change and emits `MerchantPayoutChangeCancelled`
+  before `MerchantOwnershipTransferInitiated` (audit L-03/L-06, ADR-2026-11-19).
+- While a nomination is pending, `setPayoutAddress` and `commitPayoutAddress` revert with
+  `Registry__OwnershipTransferPending`. The nominee accepts the payout address they can
+  see. Cancelling the nomination lifts the freeze.
 - During the wait, the current owner (`cancelOwnershipTransfer`) or an `ADMIN_ROLE`
   holder (`adminCancelOwnershipTransfer`) can stop the transfer.
 - An `ADMIN_ROLE` holder can cancel a pending payout change
@@ -25,9 +28,9 @@ These hold once the `StrimzRegistry` upgrade from #130 is live. Until then, see
 
 ## Hand-over
 
-1. **Current owner: clear pending payout changes.** Open Settings, On-chain policy.
-   Under Payout address, confirm there is no pending change. If there is one, cancel it
-   or let it commit first. Do not hand over with a change pending.
+1. **Current owner: settle pending payout changes.** Open Settings, On-chain policy.
+   Under Payout address, check for a pending change. Nominating cancels it, so let a
+   change you want to keep commit first.
 2. **Current owner: nominate.** Under Ownership, enter the new owner's wallet address
    and click Nominate.
 3. **Operations: check the nomination.** Confirm the `MerchantOwnershipTransferInitiated`

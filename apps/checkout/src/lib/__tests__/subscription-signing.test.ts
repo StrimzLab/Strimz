@@ -35,6 +35,10 @@ describe('subscriptionSigningRequest', () => {
     expect(body.permitData.value).toBe(UINT256_MAX.toString())
   })
 
+  it('names the paying wallet in the signed intent', () => {
+    expect(request().intent.message.payer).toBe(PAYER)
+  })
+
   it("derives the intent nonce from the plan, the payer and the token's permit nonce", () => {
     const req = request()
     const nonce = subscriptionIntentNonce('cmplan0000000000000001', PAYER, 3n)

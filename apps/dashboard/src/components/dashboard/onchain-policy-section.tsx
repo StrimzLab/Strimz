@@ -288,7 +288,7 @@ function FeePanel({ state }: { state: OnchainState }) {
   return (
     <PanelShell
       title="Fees"
-      description="The platform fee taken from each transaction, plus your maximum cap. Strimz cannot raise the cap. If you want a lower cap you can lower it from your wallet."
+      description="The platform fee taken from each transaction, and the most Strimz can ever charge this account."
     >
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div className="rounded-md border p-3">
@@ -296,13 +296,14 @@ function FeePanel({ state }: { state: OnchainState }) {
           <div className="mt-1 text-xl font-semibold">{(state.feeBps / 100).toFixed(2)}%</div>
         </div>
         <div className="rounded-md border p-3">
-          <div className="text-muted-foreground text-xs">Ceiling (maxFeeBps)</div>
+          <div className="text-muted-foreground text-xs">Most Strimz can charge</div>
           <div className="mt-1 text-xl font-semibold">{(state.maxFeeBps / 100).toFixed(2)}%</div>
         </div>
       </div>
       <p className="text-muted-foreground text-xs">
-        Admin can lower the current fee any time. The ceiling can only go down, never up. Any
-        attempt by admin to set a fee above the ceiling reverts on-chain.
+        Your fee follows your plan. Strimz may raise it up to this maximum, with at least 30
+        days&apos; email notice outside plan changes. The maximum is fixed on-chain and can&apos;t
+        be raised.
       </p>
     </PanelShell>
   )

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as config from '../src/index.js'
 import {
   DEFAULT_TIER,
+  MERCHANT_FEE_CEILING_BPS,
   PLAN_FEE_CEILING_BPS,
   PLANS,
   lowestPlanWith,
@@ -35,8 +36,13 @@ describe('plan table', () => {
     expect(DEFAULT_TIER).toBe('free')
   })
 
-  it('sets the registry ceiling to the highest plan fee', () => {
+  it('knows the highest plan fee', () => {
     expect(PLAN_FEE_CEILING_BPS).toBe(50)
+  })
+
+  it('registers merchants at the registry maximum of 5%, above every plan fee', () => {
+    expect(MERCHANT_FEE_CEILING_BPS).toBe(500)
+    expect(MERCHANT_FEE_CEILING_BPS).toBeGreaterThanOrEqual(PLAN_FEE_CEILING_BPS)
   })
 
   it('has no monthly fee and no subscription premium', () => {

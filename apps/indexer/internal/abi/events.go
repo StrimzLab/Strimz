@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 
 	ethabi "github.com/ethereum/go-ethereum/accounts/abi"
@@ -208,26 +209,25 @@ func (r *Registry) AllTopics() []common.Hash {
 // SubscribedTopics returns the topic[0] values for `SubscribedEvents`,
 // keeping the filter narrow to events the projector actually projects.
 func (r *Registry) SubscribedTopics() []common.Hash {
+	// One name can have several signatures (StrimzSubscriptionsV1), so match on name.
 	out := make([]common.Hash, 0, len(SubscribedEvents))
-	seen := make(map[common.Hash]struct{}, len(SubscribedEvents))
-	for _, name := range SubscribedEvents {
-		topic, ok := r.TopicByName(name)
-		if !ok {
-			continue // contract change in flight; defensive
+	for _, topic := range r.allTopics {
+		if subscribed[EventName(r.byTopic[topic].event.Name)] {
+			out = append(out, topic)
 		}
-		if _, dup := seen[topic]; dup {
-			continue
-		}
-		seen[topic] = struct{}{}
-		out = append(out, topic)
 	}
 	return out
 }
 
-// TopicByName looks up an event's topic[0] across all loaded ABIs.
 func (r *Registry) TopicByName(name EventName) (common.Hash, bool) {
-	for _, parsed := range r.abis {
-		if ev, ok := parsed.Events[string(name)]; ok {
+	names := make([]string, 0, len(r.abis))
+	for contract := range r.abis {
+		names = append(names, contract)
+	}
+	// Sorted, so the current contract wins over a "...V1" legacy file.
+	sort.Strings(names)
+	for _, contract := range names {
+		if ev, ok := r.abis[contract].Events[string(name)]; ok {
 			return ev.ID, true
 		}
 	}
@@ -472,6 +472,8 @@ type SubscriptionCreated struct {
 	Amount         *big.Int
 	IntervalSecs   uint32
 	StartAt        uint64
+	// Zero for a direct createSubscription, and for the V1 contract, whose event had no nonce.
+	IntentNonce [32]byte
 }
 
 type SubscriptionCharged struct {
@@ -847,9 +849,17 @@ func materialise(name EventName, v map[string]interface{}) (interface{}, error) 
 		if err := firstErr(e1, e2, e3, e4, e5, e6, e7); err != nil {
 			return nil, err
 		}
+		var nonce [32]byte
+		if _, ok := v["intentNonce"]; ok {
+			n, err := b32("intentNonce")
+			if err != nil {
+				return nil, err
+			}
+			nonce = n
+		}
 		return &SubscriptionCreated{
 			SubscriptionID: subID, MerchantID: merchantID, Payer: payer, Token: token,
-			Amount: amount, IntervalSecs: interval, StartAt: startAt,
+			Amount: amount, IntervalSecs: interval, StartAt: startAt, IntentNonce: nonce,
 		}, nil
 
 	case EventSubscriptionCharged:

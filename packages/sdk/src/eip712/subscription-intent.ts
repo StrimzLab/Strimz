@@ -13,6 +13,8 @@ import type { Eip712TypedData } from './types.js'
 export interface SubscriptionIntentParams {
   chainId: number
   verifyingContract: `0x${string}`
+  /** The paying wallet. It's signed in, so one signature can't enrol a sibling wallet. */
+  payer: `0x${string}`
   merchantId: bigint
   token: `0x${string}`
   amount: bigint
@@ -27,6 +29,7 @@ export interface SubscriptionIntentParams {
 /** Field order matches `SUBSCRIPTION_INTENT_TYPEHASH` in the contract. */
 export const SUBSCRIPTION_INTENT_TYPES = {
   SubscriptionIntent: [
+    { name: 'payer', type: 'address' },
     { name: 'merchantId', type: 'uint256' },
     { name: 'token', type: 'address' },
     { name: 'amount', type: 'uint256' },
@@ -53,6 +56,7 @@ export function buildSubscriptionIntentTypedData(
     types: SUBSCRIPTION_INTENT_TYPES,
     primaryType: 'SubscriptionIntent',
     message: {
+      payer: params.payer,
       merchantId: params.merchantId,
       token: params.token,
       amount: params.amount,
@@ -63,5 +67,37 @@ export function buildSubscriptionIntentTypedData(
       permitValue: params.permitValue,
       nonce: params.nonce,
     },
+  }
+}
+
+export interface CancelSubscriptionParams {
+  chainId: number
+  verifyingContract: `0x${string}`
+  subscriptionId: bigint
+  deadline: bigint
+}
+
+/** Field order matches `CANCEL_SUBSCRIPTION_TYPEHASH` in the contract. */
+export const CANCEL_SUBSCRIPTION_TYPES = {
+  CancelSubscription: [
+    { name: 'subscriptionId', type: 'uint256' },
+    { name: 'deadline', type: 'uint256' },
+  ],
+} as const
+
+/** What a payer signs so Strimz can cancel for them with `cancelWithSig`. */
+export function buildCancelSubscriptionTypedData(
+  params: CancelSubscriptionParams,
+): Eip712TypedData<'CancelSubscription'> {
+  return {
+    domain: {
+      name: 'StrimzSubscriptions',
+      version: '1',
+      chainId: params.chainId,
+      verifyingContract: params.verifyingContract,
+    },
+    types: CANCEL_SUBSCRIPTION_TYPES,
+    primaryType: 'CancelSubscription',
+    message: { subscriptionId: params.subscriptionId, deadline: params.deadline },
   }
 }

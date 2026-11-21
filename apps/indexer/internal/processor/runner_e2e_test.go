@@ -382,7 +382,7 @@ func TestE2E_Stream_PeriodsSkippedMovesThePeriodTheChargePaid(t *testing.T) {
 				common.BigToHash(big.NewInt(onchainID)),
 				common.BytesToHash(common.HexToAddress("0xaaaa").Bytes()),
 			},
-			Data:        pack(t, []string{"address", "uint256", "uint32", "uint64"}, usdcAddr, big.NewInt(50_000_000), interval, startAt),
+			Data:        pack(t, []string{"address", "uint256", "uint32", "uint64", "bytes32"}, usdcAddr, big.NewInt(50_000_000), interval, startAt, [32]byte{}),
 			BlockNumber: 10, Index: 0, TxHash: txHash(0x40), BlockHash: blockHash(10),
 		},
 		{

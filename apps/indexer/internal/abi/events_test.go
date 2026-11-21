@@ -295,3 +295,56 @@ func TestChargeOutcome_IsPaymentFailure(t *testing.T) {
 		assert.Equal(t, want, outcome.IsPaymentFailure(), "outcome %d", outcome)
 	}
 }
+
+func subscriptionCreatedLog(t *testing.T, topic common.Hash, withNonce bool, nonce [32]byte) types.Log {
+	t.Helper()
+	address, _ := ethabi.NewType("address", "", nil)
+	uint256, _ := ethabi.NewType("uint256", "", nil)
+	uint32T, _ := ethabi.NewType("uint32", "", nil)
+	uint64T, _ := ethabi.NewType("uint64", "", nil)
+	bytes32, _ := ethabi.NewType("bytes32", "", nil)
+	args := ethabi.Arguments{{Type: address}, {Type: uint256}, {Type: uint32T}, {Type: uint64T}}
+	values := []interface{}{common.HexToAddress("0x00000000000000000000000000000000000000cc"), big.NewInt(3_000_000), uint32(2_592_000), uint64(1_700_000_000)}
+	if withNonce {
+		args = append(args, ethabi.Argument{Type: bytes32})
+		values = append(values, nonce)
+	}
+	data, err := args.Pack(values...)
+	require.NoError(t, err)
+	return types.Log{
+		Topics: []common.Hash{topic, common.BigToHash(big.NewInt(7)), common.BigToHash(big.NewInt(42)),
+			common.BytesToHash(common.HexToAddress("0x000000000000000000000000000000000000aaaa").Bytes())},
+		Data: data,
+	}
+}
+
+func TestDecode_SubscriptionCreatedCarriesItsIntentNonce(t *testing.T) {
+	r := MustLoad()
+	topic, ok := r.TopicByName(EventSubscriptionCreated)
+	require.True(t, ok)
+	nonce := [32]byte{1, 2, 3}
+
+	name, payload, err := r.Decode(subscriptionCreatedLog(t, topic, true, nonce))
+	require.NoError(t, err)
+	assert.Equal(t, EventSubscriptionCreated, name)
+	ev := payload.(*SubscriptionCreated)
+	assert.Equal(t, nonce, ev.IntentNonce)
+	assert.Equal(t, int64(7), ev.SubscriptionID.Int64())
+	assert.Equal(t, uint64(1_700_000_000), ev.StartAt)
+}
+
+func TestDecode_V1SubscriptionCreatedHasNoNonce(t *testing.T) {
+	r := MustLoad()
+	legacy := r.abis["StrimzSubscriptionsV1"].Events[string(EventSubscriptionCreated)].ID
+	current, _ := r.TopicByName(EventSubscriptionCreated)
+	require.NotEqual(t, current, legacy)
+	assert.Contains(t, r.SubscribedTopics(), legacy)
+	assert.Contains(t, r.SubscribedTopics(), current)
+
+	name, payload, err := r.Decode(subscriptionCreatedLog(t, legacy, false, [32]byte{}))
+	require.NoError(t, err)
+	assert.Equal(t, EventSubscriptionCreated, name)
+	ev := payload.(*SubscriptionCreated)
+	assert.Equal(t, [32]byte{}, ev.IntentNonce)
+	assert.Equal(t, int64(42), ev.MerchantID.Int64())
+}

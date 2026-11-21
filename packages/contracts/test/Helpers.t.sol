@@ -263,6 +263,7 @@ abstract contract StrimzTestBase is Test {
     function _signSubscriptionIntent(
         StrimzSubscriptions subs,
         uint256 signerPk,
+        address payer_,
         uint256 merchantId,
         address token,
         uint256 amount,
@@ -274,6 +275,7 @@ abstract contract StrimzTestBase is Test {
         bytes32 nonce
     ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
         bytes32 digest = subs.subscriptionIntentDigest(
+            payer_,
             merchantId, token, amount, interval, startAt, endAt, permitDeadline, permitValue, nonce
         );
         (v, r, s) = vm.sign(signerPk, digest);

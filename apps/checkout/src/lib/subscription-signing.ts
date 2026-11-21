@@ -48,6 +48,7 @@ export function subscriptionSigningRequest(input: SubscriptionSigningInput) {
   const intent = buildSubscriptionIntentTypedData({
     chainId: input.chainId,
     verifyingContract: input.subscriptionsAddress,
+    payer: input.payer,
     merchantId: input.merchantId,
     token: input.token.address,
     amount: input.amount,
