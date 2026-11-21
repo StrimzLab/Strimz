@@ -1,0 +1,75 @@
+name: full-stack
+
+# Not required by branch protection: it forks public Arc testnet, so an Arc outage
+# can fail it with nothing wrong in the PR. See docs/plans/2026-11-12-full-stack-e2e-plan.md.
+# About 6 runner minutes, so it runs only when asked: a PR labelled `full-stack`,
+# once a week on main, or by hand.
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled]
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: full-stack-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-full-stack:
+    name: e2e full stack (non-blocking)
+    if: >-
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'full-stack')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TURBO_TELEMETRY_DISABLED: '1'
+      DOCKER_HOST: unix:///var/run/docker.sock
+      ARC_TESTNET_RPC_URL: https://rpc.testnet.arc.io
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install Arc Foundry (pinned)
+        run: |
+          scripts/install-arc-foundry.sh "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: pnpm
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/indexer/go.mod
+          cache-dependency-path: apps/indexer/go.sum
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the services under test
+        run: pnpm exec turbo run build --filter=@strimz/api --filter=@strimz/scheduler --filter=@strimz/indexer
+
+      - name: Full-stack e2e
+        run: pnpm --filter @strimz/e2e-full-stack test:e2e
+
+      - name: Service logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-full-stack-logs
+          path: e2e/full-stack/.logs/
+          # The folder name starts with a dot, which upload-artifact skips by default.
+          include-hidden-files: true

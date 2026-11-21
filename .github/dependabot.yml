@@ -1,6 +1,5 @@
-# Weekly cadence on purpose — daily generates more PR noise than this
-# repo is ready to triage. Bump to "daily" on a per-ecosystem basis
-# once the project has dedicated maintenance time.
+# One grouped PR per ecosystem, so each update costs one CI run. npm is weekly;
+# Go and Actions move slowly and are monthly. Security updates still arrive on their own.
 
 version: 2
 updates:
@@ -16,38 +15,30 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 2
     groups:
-      # Group every Nest update together — Nest minors land in lockstep.
-      nest:
-        patterns: ['@nestjs/*']
-      # Group all Next.js + React-side bumps so the web app upgrades atomically.
-      next-react:
-        patterns: ['next', 'react', 'react-dom', '@types/react', '@types/react-dom']
-      # Linting / formatting tooling moves frequently and rarely affects runtime.
-      lint-format:
-        patterns:
-          - 'eslint'
-          - 'eslint-*'
-          - '@typescript-eslint/*'
-          - 'prettier'
-          - 'prettier-*'
+      npm:
+        patterns: ['*']
     labels: ['dependencies', 'npm']
 
   # ─────────── Go ───────────
   - package-ecosystem: gomod
     directory: /apps/indexer
     schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      go:
+        patterns: ['*']
     labels: ['dependencies', 'go']
 
   # ─────────── GitHub Actions ───────────
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      actions:
+        patterns: ['*']
     labels: ['dependencies', 'ci']
