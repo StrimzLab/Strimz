@@ -1,22 +1,30 @@
 'use client'
 
 import { useEffect } from 'react'
-import Lenis from 'lenis'
 import { gsap, ScrollTrigger } from '@strimz/web-shared/components/marketing/motion/gsap'
-import { startSmoothScroll } from './scroll-engine'
+import { shouldSmoothScroll, startSmoothScroll } from './scroll-engine'
 
 export function SmoothScroll() {
   useEffect(() => {
-    const query = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const fine = window.matchMedia('(pointer: fine)')
     let stop: (() => void) | null = null
+    let alive = true
+    let loading = false
 
-    const sync = () => {
-      if (query.matches) {
+    const sync = async () => {
+      if (!shouldSmoothScroll({ reducedMotion: reduced.matches, finePointer: fine.matches })) {
         stop?.()
         stop = null
         return
       }
-      if (stop) return
+      if (stop || loading) return
+      loading = true
+      // Lenis stays out of the first-load bundle.
+      const { default: Lenis } = await import('lenis')
+      loading = false
+      if (!alive || stop) return
+      if (!shouldSmoothScroll({ reducedMotion: reduced.matches, finePointer: fine.matches })) return
       gsap.ticker.lagSmoothing(0)
       stop = startSmoothScroll({
         create: () => new Lenis({ autoRaf: false, anchors: true, lerp: 0.12 }),
@@ -24,11 +32,15 @@ export function SmoothScroll() {
         onScroll: ScrollTrigger.update,
       })
     }
+    const onChange = () => void sync()
 
-    sync()
-    query.addEventListener('change', sync)
+    onChange()
+    reduced.addEventListener('change', onChange)
+    fine.addEventListener('change', onChange)
     return () => {
-      query.removeEventListener('change', sync)
+      alive = false
+      reduced.removeEventListener('change', onChange)
+      fine.removeEventListener('change', onChange)
       stop?.()
     }
   }, [])

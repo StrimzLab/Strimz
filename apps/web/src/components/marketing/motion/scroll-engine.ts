@@ -26,3 +26,8 @@ export function startSmoothScroll(deps: {
     engine.destroy()
   }
 }
+
+/** Phones scroll natively, and smoothing there only adds per-frame work (#496). */
+export function shouldSmoothScroll(env: { reducedMotion: boolean; finePointer: boolean }): boolean {
+  return env.finePointer && !env.reducedMotion
+}

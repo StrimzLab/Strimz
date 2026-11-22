@@ -132,7 +132,7 @@ export const GooeyTextReveal = React.forwardRef<HTMLDivElement, GooeyTextRevealP
             const split = SplitText.create(target, {
               type: 'lines',
               linesClass: 'gooey-text-reveal-line',
-              aria: 'auto',
+              aria: 'none',
             })
 
             split.lines.forEach((line) => {

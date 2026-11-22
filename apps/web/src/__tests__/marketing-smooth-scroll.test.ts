@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { startSmoothScroll, type ScrollEngine } from '@/components/marketing/motion/scroll-engine'
+import {
+  shouldSmoothScroll,
+  startSmoothScroll,
+  type ScrollEngine,
+} from '@/components/marketing/motion/scroll-engine'
 
 function fakes() {
   const engine: ScrollEngine = { raf: vi.fn(), on: vi.fn(), off: vi.fn(), destroy: vi.fn() }
@@ -34,5 +38,14 @@ describe('startSmoothScroll', () => {
     expect(callbacks.size).toBe(0)
     expect(engine.off).toHaveBeenCalled()
     expect(engine.destroy).toHaveBeenCalledTimes(1)
+  })
+})
+
+// #496: phones scroll natively; Lenis only added per-frame work there.
+describe('shouldSmoothScroll', () => {
+  it('runs only for a fine pointer without reduced motion', () => {
+    expect(shouldSmoothScroll({ reducedMotion: false, finePointer: true })).toBe(true)
+    expect(shouldSmoothScroll({ reducedMotion: false, finePointer: false })).toBe(false)
+    expect(shouldSmoothScroll({ reducedMotion: true, finePointer: true })).toBe(false)
   })
 })

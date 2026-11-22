@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, LazyMotion, m } from 'framer-motion'
 import { Check, Mail, Repeat, Wallet, X, Zap } from 'lucide-react'
 import { cn } from '@strimz/ui'
 import { usePrefersReducedMotion } from '../motion/reduced-motion'
@@ -23,6 +23,9 @@ import { usePrefersReducedMotion } from '../motion/reduced-motion'
  * frame and the rotator stops).
  */
 
+// The animation engine loads after first paint; the first frame needs none of it.
+const loadMotionFeatures = () => import('./motion-features').then((mod) => mod.default)
+
 const SCENE_DURATIONS = [7000, 6000, 7000] as const
 const URLS = [
   'strimz.finance/app/subscriptions',
@@ -33,6 +36,9 @@ const URLS = [
 export function DashboardPreview() {
   const reducedMotion = usePrefersReducedMotion()
   const [sceneIndex, setSceneIndex] = useState(0)
+  // The first scene arrives complete, so the server sends a finished picture
+  // instead of an empty window waiting on JavaScript (#496).
+  const [firstPass, setFirstPass] = useState(true)
   const [tabVisible, setTabVisible] = useState(true)
 
   useEffect(() => {
@@ -43,42 +49,52 @@ export function DashboardPreview() {
 
   useEffect(() => {
     if (reducedMotion || !tabVisible) return
-    const t = setTimeout(
-      () => setSceneIndex((i) => (i + 1) % 3),
-      SCENE_DURATIONS[sceneIndex] ?? SCENE_DURATIONS[0],
-    )
+    const t = setTimeout(() => {
+      setFirstPass(false)
+      setSceneIndex((i) => (i + 1) % 3)
+    }, SCENE_DURATIONS[sceneIndex] ?? SCENE_DURATIONS[0])
     return () => clearTimeout(t)
   }, [sceneIndex, tabVisible, reducedMotion])
 
   return (
-    <div className="relative w-full max-w-[560px]">
-      <div
-        aria-hidden
-        className="from-accent/25 via-accent/5 absolute -inset-6 rounded-[28px] bg-gradient-to-br to-transparent blur-3xl"
-      />
+    <LazyMotion features={loadMotionFeatures} strict>
+      {/* A mock-up with made-up data: nothing in it is for screen readers. */}
+      <div aria-hidden className="relative w-full max-w-[560px]">
+        <div
+          aria-hidden
+          className="from-accent/25 via-accent/5 absolute -inset-6 rounded-[28px] bg-gradient-to-br to-transparent blur-3xl"
+        />
 
-      <div className="border-border bg-card relative overflow-hidden rounded-[14px] border shadow-[0_30px_60px_-15px_rgba(5,0,32,0.18)]">
-        <ChromeBar urlIndex={sceneIndex} />
+        <div className="border-border bg-card relative overflow-hidden rounded-[14px] border shadow-[0_30px_60px_-15px_rgba(5,0,32,0.18)]">
+          <ChromeBar urlIndex={sceneIndex} />
 
-        {/* Fixed min-height keeps the card from jumping between scenes */}
-        <div className="relative min-h-[345px] sm:min-h-[400px]">
-          <AnimatePresence mode="wait">
-            {sceneIndex === 0 ? (
-              <SubscriptionScene key={`scene-sub-${reducedMotion}`} reducedMotion={reducedMotion} />
-            ) : sceneIndex === 1 ? (
-              <OneShotScene key={`scene-oneshot-${reducedMotion}`} reducedMotion={reducedMotion} />
-            ) : (
-              <RecoveryScene
-                key={`scene-recovery-${reducedMotion}`}
-                reducedMotion={reducedMotion}
-              />
-            )}
-          </AnimatePresence>
+          {/* Fixed min-height keeps the card from jumping between scenes */}
+          <div className="relative min-h-[345px] sm:min-h-[400px]">
+            <AnimatePresence mode="wait" initial={false}>
+              {sceneIndex === 0 ? (
+                <SubscriptionScene
+                  key={`scene-sub-${reducedMotion}`}
+                  reducedMotion={reducedMotion}
+                  complete={firstPass}
+                />
+              ) : sceneIndex === 1 ? (
+                <OneShotScene
+                  key={`scene-oneshot-${reducedMotion}`}
+                  reducedMotion={reducedMotion}
+                />
+              ) : (
+                <RecoveryScene
+                  key={`scene-recovery-${reducedMotion}`}
+                  reducedMotion={reducedMotion}
+                />
+              )}
+            </AnimatePresence>
+          </div>
         </div>
-      </div>
 
-      <FloatingChips sceneIndex={sceneIndex} />
-    </div>
+        <FloatingChips sceneIndex={sceneIndex} />
+      </div>
+    </LazyMotion>
   )
 }
 
@@ -92,8 +108,8 @@ function ChromeBar({ urlIndex }: { urlIndex: number }) {
       <span className="bg-window-zoom size-2.5 rounded-full" />
       <div className="bg-card ml-2 flex flex-1 items-center gap-1.5 truncate rounded-md px-3 py-1 ring-1 ring-black/5 sm:ml-3">
         <span className="bg-accent size-1 shrink-0 rounded-full" />
-        <AnimatePresence mode="wait">
-          <motion.span
+        <AnimatePresence mode="wait" initial={false}>
+          <m.span
             key={URLS[urlIndex]}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
@@ -102,7 +118,7 @@ function ChromeBar({ urlIndex }: { urlIndex: number }) {
             className="text-muted-foreground truncate font-mono text-[10px] sm:text-[11px]"
           >
             {URLS[urlIndex]}
-          </motion.span>
+          </m.span>
         </AnimatePresence>
       </div>
     </div>
@@ -111,16 +127,22 @@ function ChromeBar({ urlIndex }: { urlIndex: number }) {
 
 /* ─────────── Scene 1: subscription billing ─────────── */
 
-function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
+function SubscriptionScene({
+  reducedMotion,
+  complete,
+}: {
+  reducedMotion: boolean
+  complete: boolean
+}) {
   const finalStep = 13
-  const [step, setStep] = useState(reducedMotion ? finalStep : 0)
+  const [step, setStep] = useState(reducedMotion || complete ? finalStep : 0)
 
   useEffect(() => {
-    if (reducedMotion) return
+    if (reducedMotion || complete) return
     const beats = [200, 500, 800, 1100, 1400, 1700, 2000, 2300, 2600, 2900, 3200, 3700, 4200]
     const timers = beats.map((delay, i) => setTimeout(() => setStep(i + 1), delay))
     return () => timers.forEach(clearTimeout)
-  }, [reducedMotion])
+  }, [reducedMotion, complete])
 
   const charges = ['Sep 20', 'Aug 20', 'Jul 20', 'Jun 20', 'May 20', 'Apr 20', 'Mar 20']
 
@@ -160,9 +182,9 @@ function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
             </Reveal>
           </div>
 
-          <AnimatePresence>
+          <AnimatePresence initial={false}>
             {step >= 13 ? (
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="border-accent/15 mt-3 flex items-center justify-between border-t pt-3"
@@ -171,13 +193,13 @@ function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
                   Next charge
                 </span>
                 <CountdownClock />
-              </motion.div>
+              </m.div>
             ) : null}
           </AnimatePresence>
         </div>
 
         {step >= 4 ? (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35 }}
@@ -188,13 +210,13 @@ function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
                 Last 7 charges
               </span>
               {step >= 11 ? (
-                <motion.span
+                <m.span
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="font-poppins text-accent-ink dark:text-brand-text text-[10px] sm:text-[11px]"
                 >
                   all confirmed
-                </motion.span>
+                </m.span>
               ) : null}
             </div>
             <div className="mt-3 grid grid-cols-7 gap-1 sm:gap-1.5">
@@ -203,7 +225,7 @@ function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
               ))}
             </div>
             {step >= 12 ? (
-              <motion.p
+              <m.p
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="font-poppins text-muted-foreground mt-3 text-[10px] sm:text-[11px]"
@@ -211,9 +233,9 @@ function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
                 Customer signed <span className="text-foreground font-[600]">once on Mar 20</span>
                 {' · '}charged{' '}
                 <span className="text-accent-ink dark:text-brand-text font-[600]">7 times</span>
-              </motion.p>
+              </m.p>
             ) : null}
-          </motion.div>
+          </m.div>
         ) : null}
       </div>
     </SceneShell>
@@ -222,21 +244,21 @@ function SubscriptionScene({ reducedMotion }: { reducedMotion: boolean }) {
 
 function ChargeCell({ label, show }: { label: string; show: boolean }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={show ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
       className="bg-card ring-border flex flex-col items-center gap-1 rounded-md p-1.5 ring-1 sm:p-2"
     >
-      <motion.span
+      <m.span
         initial={{ scale: 0 }}
         animate={show ? { scale: 1 } : { scale: 0 }}
         transition={{ delay: 0.08, type: 'spring', stiffness: 350, damping: 18 }}
       >
         <Check className="text-brand-text size-3" strokeWidth={3} />
-      </motion.span>
+      </m.span>
       <span className="text-muted-foreground font-mono text-[8px] sm:text-[9px]">{label}</span>
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -280,39 +302,39 @@ function OneShotScene({ reducedMotion }: { reducedMotion: boolean }) {
         <SceneTitle>Payment sessions</SceneTitle>
         <AnimatePresence mode="wait">
           {step >= 4 ? (
-            <motion.span
+            <m.span
               key="confirmed-badge"
               initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
             >
               <Pill tone="positive">1 confirmed</Pill>
-            </motion.span>
+            </m.span>
           ) : step >= 3 ? (
-            <motion.span
+            <m.span
               key="confirming-badge"
               initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
             >
               <Pill tone="info">1 confirming</Pill>
-            </motion.span>
+            </m.span>
           ) : step >= 1 ? (
-            <motion.span
+            <m.span
               key="pending-badge"
               initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
             >
               <Pill tone="warning">1 pending</Pill>
-            </motion.span>
+            </m.span>
           ) : null}
         </AnimatePresence>
       </SceneHeader>
 
       <div className="space-y-3 p-4 sm:space-y-4 sm:p-5">
         {step >= 1 ? (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
@@ -342,7 +364,7 @@ function OneShotScene({ reducedMotion }: { reducedMotion: boolean }) {
               {step === 3 ? (
                 <ConfirmingBar key="confirming" />
               ) : step >= 4 ? (
-                <motion.div
+                <m.div
                   key="settled"
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -354,14 +376,14 @@ function OneShotScene({ reducedMotion }: { reducedMotion: boolean }) {
                   <span className="text-accent-ink dark:text-brand-text font-mono text-[10px] font-[600] sm:text-[11px]">
                     seconds
                   </span>
-                </motion.div>
+                </m.div>
               ) : null}
             </AnimatePresence>
-          </motion.div>
+          </m.div>
         ) : null}
 
         {step >= 5 ? (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35 }}
@@ -386,7 +408,7 @@ function OneShotScene({ reducedMotion }: { reducedMotion: boolean }) {
                 0.25 USDC
               </span>
             </div>
-          </motion.div>
+          </m.div>
         ) : null}
       </div>
     </SceneShell>
@@ -397,7 +419,7 @@ function SessionStatusPill({ step }: { step: number }) {
   if (step < 2) return null
   if (step === 2) {
     return (
-      <motion.span
+      <m.span
         key="pending"
         initial={{ opacity: 0, scale: 0.85 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -405,12 +427,12 @@ function SessionStatusPill({ step }: { step: number }) {
       >
         <span className="bg-warning size-1.5 animate-pulse rounded-full" />
         pending
-      </motion.span>
+      </m.span>
     )
   }
   if (step === 3) {
     return (
-      <motion.span
+      <m.span
         key="confirming"
         initial={{ opacity: 0, scale: 0.85 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -421,11 +443,11 @@ function SessionStatusPill({ step }: { step: number }) {
           <span className="relative inline-flex size-1.5 rounded-full bg-sky-500" />
         </span>
         confirming
-      </motion.span>
+      </m.span>
     )
   }
   return (
-    <motion.span
+    <m.span
       key="confirmed"
       initial={{ scale: 0.5, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
@@ -434,13 +456,13 @@ function SessionStatusPill({ step }: { step: number }) {
     >
       <Check className="size-3" strokeWidth={3} />
       confirmed
-    </motion.span>
+    </m.span>
   )
 }
 
 function ConfirmingBar() {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
@@ -455,14 +477,14 @@ function ConfirmingBar() {
         </span>
       </div>
       <div className="mt-2 h-1 overflow-hidden rounded-full bg-sky-500/15">
-        <motion.div
+        <m.div
           initial={{ width: '8%' }}
           animate={{ width: '92%' }}
           transition={{ duration: 1.2, ease: 'easeOut' }}
           className="h-full rounded-full bg-sky-500"
         />
       </div>
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -489,30 +511,30 @@ function RecoveryScene({ reducedMotion }: { reducedMotion: boolean }) {
         <SceneTitle>Subscriptions</SceneTitle>
         <AnimatePresence mode="wait">
           {isAtRisk ? (
-            <motion.span
+            <m.span
               key="atrisk"
               initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
             >
               <Pill tone="warning">1 at risk</Pill>
-            </motion.span>
+            </m.span>
           ) : (
-            <motion.span
+            <m.span
               key="active"
               initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
             >
               <Pill tone="positive">12 active</Pill>
-            </motion.span>
+            </m.span>
           )}
         </AnimatePresence>
       </SceneHeader>
 
       <div className="space-y-3 p-4 sm:p-5">
         {step >= 1 ? (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             className={cn(
@@ -541,11 +563,11 @@ function RecoveryScene({ reducedMotion }: { reducedMotion: boolean }) {
               </div>
               <RecoveryStatusPill atRisk={isAtRisk} resolved={isResolved} />
             </div>
-          </motion.div>
+          </m.div>
         ) : null}
 
         {step >= 3 ? (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, x: 12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.35 }}
@@ -584,7 +606,7 @@ function RecoveryScene({ reducedMotion }: { reducedMotion: boolean }) {
                 tone="success"
               />
             </div>
-          </motion.div>
+          </m.div>
         ) : null}
       </div>
     </SceneShell>
@@ -594,14 +616,14 @@ function RecoveryScene({ reducedMotion }: { reducedMotion: boolean }) {
 function RecoveryStatusPill({ atRisk, resolved }: { atRisk: boolean; resolved: boolean }) {
   if (atRisk && !resolved) {
     return (
-      <motion.span
+      <m.span
         initial={{ scale: 0.85 }}
         animate={{ scale: 1 }}
         className="font-poppins bg-warning-surface text-warning inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-[500] sm:text-[11px]"
       >
         <span className="bg-warning size-1.5 animate-pulse rounded-full" />
         at risk
-      </motion.span>
+      </m.span>
     )
   }
   return <PulsePill>active</PulsePill>
@@ -626,7 +648,7 @@ function TimelineRow({
     success: 'bg-accent/10 text-brand-text',
   } as const
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, x: 8 }}
       animate={show ? { opacity: 1, x: 0 } : { opacity: 0, x: 8 }}
       transition={{ duration: 0.3 }}
@@ -637,7 +659,7 @@ function TimelineRow({
       </span>
       <span className="text-muted-foreground font-mono text-[9px] sm:text-[10px]">{time}</span>
       <span className="font-poppins text-foreground text-[10px] sm:text-[11px]">{label}</span>
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -658,8 +680,8 @@ function FloatingChips({ sceneIndex }: { sceneIndex: number }) {
   const bottomScene = bottom[sceneIndex] ?? bottom[0]
   return (
     <>
-      <AnimatePresence mode="wait">
-        <motion.div
+      <AnimatePresence mode="wait" initial={false}>
+        <m.div
           key={`top-${sceneIndex}`}
           initial={{ y: -8, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -677,11 +699,11 @@ function FloatingChips({ sceneIndex }: { sceneIndex: number }) {
           <span className="font-poppins text-muted-foreground text-[9px] md:text-[10px]">
             {topScene.latency}
           </span>
-        </motion.div>
+        </m.div>
       </AnimatePresence>
 
-      <AnimatePresence mode="wait">
-        <motion.div
+      <AnimatePresence mode="wait" initial={false}>
+        <m.div
           key={`bot-${sceneIndex}`}
           initial={{ y: 8, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -696,7 +718,7 @@ function FloatingChips({ sceneIndex }: { sceneIndex: number }) {
           <span className="font-poppins text-[9px] text-white/60 md:text-[10px]">
             → your wallet
           </span>
-        </motion.div>
+        </m.div>
       </AnimatePresence>
     </>
   )
@@ -706,7 +728,7 @@ function FloatingChips({ sceneIndex }: { sceneIndex: number }) {
 
 function SceneShell({ children }: { children: ReactNode }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -714,7 +736,7 @@ function SceneShell({ children }: { children: ReactNode }) {
       className="absolute inset-0"
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -728,7 +750,9 @@ function SceneHeader({ children }: { children: ReactNode }) {
 
 function SceneTitle({ children }: { children: ReactNode }) {
   return (
-    <h3 className="font-sora text-foreground text-[13px] font-[600] sm:text-[14px]">{children}</h3>
+    <span className="font-sora text-foreground text-[13px] font-[600] sm:text-[14px]">
+      {children}
+    </span>
   )
 }
 
@@ -770,12 +794,12 @@ function PulsePill({ children }: { children: ReactNode }) {
 
 function Reveal({ show, children }: { show: boolean; children: ReactNode }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 4 }}
       animate={show ? { opacity: 1, y: 0 } : { opacity: 0, y: 4 }}
       transition={{ duration: 0.3 }}
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }

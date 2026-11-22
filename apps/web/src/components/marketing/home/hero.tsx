@@ -9,13 +9,8 @@ import { MkIcon } from '../icon'
 import { BorderBeam } from '../fx/border-beam'
 import { MorphWord } from '../fx/morph-word'
 import { PopLink } from '../fx/pop-button'
-import {
-  EASE_OUT,
-  MOTION_OK,
-  gsap,
-  useGSAP,
-} from '@strimz/web-shared/components/marketing/motion/gsap'
-import { markMotionReady } from '../motion/gate'
+import { MOTION_OK, gsap, useGSAP } from '@strimz/web-shared/components/marketing/motion/gsap'
+import { introOrder } from '../motion/intro'
 import { DashboardPreview } from './dashboard-preview'
 import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 
@@ -33,27 +28,9 @@ export function Hero() {
 
   useGSAP(
     () => {
-      markMotionReady()
+      // The intro is CSS (globals.css), so it plays before hydration (#496).
       const mm = gsap.matchMedia()
       mm.add(MOTION_OK, () => {
-        const tl = gsap.timeline({ defaults: { ease: EASE_OUT } })
-        tl.set('[data-intro]', { visibility: 'visible' })
-          .from('[data-line]', { yPercent: 110, duration: 1.2, stagger: 0.09 })
-          .from('[data-fade]', { autoAlpha: 0, y: 18, duration: 0.9, stagger: 0.08 }, '-=0.85')
-          .from(
-            '[data-dash]',
-            {
-              autoAlpha: 0,
-              y: 90,
-              rotateX: 16,
-              scale: 0.94,
-              duration: 1.6,
-              transformOrigin: '50% 100%',
-            },
-            0.25,
-          )
-          .from('[data-fact]', { autoAlpha: 0, y: 12, duration: 0.7, stagger: 0.06 }, '-=1')
-
         gsap.to('[data-copy]', {
           y: -80,
           autoAlpha: 0.2,
@@ -116,12 +93,12 @@ export function Hero() {
                 Stablecoin billing for SaaS teams, marketplaces, creators, agencies and global B2B.
               </span>
               <span aria-hidden className="block overflow-hidden pb-[0.06em]">
-                <span data-intro data-line className="block">
+                <span data-intro data-line style={introOrder(0)} className="block">
                   Stablecoin billing
                 </span>
               </span>
               <span aria-hidden className="block overflow-hidden pb-[0.1em]">
-                <span data-intro data-line className="block">
+                <span data-intro data-line style={introOrder(1)} className="block">
                   for{' '}
                   <span className="text-accent-deep dark:text-accent-bright">
                     <MorphWord words={AUDIENCES} />
@@ -133,13 +110,19 @@ export function Hero() {
             <p
               data-intro
               data-fade
+              style={introOrder(1)}
               className="font-poppins text-muted-foreground dark:text-ink-muted mt-6 max-w-[34rem] text-base leading-[1.7] sm:text-lg"
             >
               Take one-time and recurring payments in USDC and EURC. Your customer approves once,
               you get paid every period, and the money lands in your own wallet in seconds.
             </p>
 
-            <div data-intro data-fade className="mt-9 flex flex-wrap items-center gap-3">
+            <div
+              data-intro
+              data-fade
+              style={introOrder(0)}
+              className="mt-9 flex flex-wrap items-center gap-3"
+            >
               <PopLink href={`${siteUrls.dashboard}/signup`}>Start free</PopLink>
               <PopLink href="#how-it-works" tone="neutral">
                 See how it works
@@ -148,6 +131,7 @@ export function Hero() {
             <p
               data-intro
               data-fade
+              style={introOrder(2)}
               className="font-poppins text-muted-foreground mt-5 text-[13px] dark:text-white/55"
             >
               Free to start. 0% fees on your first $1,000, and no monthly fee.
@@ -169,11 +153,12 @@ export function Hero() {
         </div>
 
         <ul className="border-border relative mx-auto grid max-w-[1280px] grid-cols-2 gap-x-6 gap-y-4 border-t px-5 py-6 sm:px-10 lg:grid-cols-4 dark:border-white/10">
-          {FACTS.map((f) => (
+          {FACTS.map((f, i) => (
             <li
               key={f.label}
               data-intro
               data-fact
+              style={introOrder(i)}
               className="font-poppins text-muted-foreground flex items-center gap-2.5 text-[13px] sm:text-sm dark:text-white/70"
             >
               <MkIcon icon={f.icon} className="text-brand-text size-5 shrink-0" />
