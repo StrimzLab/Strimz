@@ -50,7 +50,8 @@ BLOCK_BATCH_SIZE=500                # max blocks per RPC call
 
 `ARC_CHAIN_ID`, `START_BLOCK`, `CONFIRMATIONS` and `TOKEN_WHITELIST_ADDRESS` have no default. A missing or malformed value stops the indexer at boot with the variable named.
 
-- `ARC_CHAIN_ID` is `5042002` on Arc testnet and `5042` on Arc mainnet. At boot the indexer asks every RPC endpoint (`ARC_RPC_URL` and each `ARC_FALLBACK_RPC_URLS` entry) for its chain id. An endpoint on another chain stops the boot; an endpoint that does not answer is dropped with a warning.
+- `ARC_CHAIN_ID` is `5042002` on Arc testnet and `5042` on Arc mainnet. At boot the indexer asks each of its RPC endpoints for its chain id. An endpoint on another chain stops the boot; an endpoint that does not answer is dropped with a warning.
+- The indexer's endpoints are `INDEXER_ARC_RPC_URL` and `INDEXER_FALLBACK_RPC_URLS` when set, otherwise `ARC_RPC_URL` and `ARC_FALLBACK_RPC_URLS`. Each must answer `eth_getLogs` over `BLOCK_BATCH_SIZE` blocks, or boot stops. Many free keyed RPCs cap that range at a few blocks, so give the indexer its own endpoint when the API uses one.
 - `START_BLOCK` is the block your core contracts were deployed at. A fresh database starts indexing there.
 - `TOKEN_WHITELIST_ADDRESS` is the `TokenWhitelist` contract. The indexer records its token changes and logs an error when a newly whitelisted token is missing from `STABLECOIN_ADDRESSES`.
 

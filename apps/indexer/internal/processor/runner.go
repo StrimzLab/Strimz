@@ -75,12 +75,15 @@ type Runner struct {
 // projector. Caller is responsible for calling Close.
 func NewRunner(ctx context.Context, cfg *config.Config) (*Runner, error) {
 	log := slog.Default().With("component", "processor")
-	rpcURLs := append([]string{cfg.RPCURL}, cfg.FallbackRPCURLs...)
-	cli, err := chain.DialFailover(ctx, rpcURLs, log)
+	cli, err := chain.DialFailover(ctx, cfg.RPCEndpoints(), log)
 	if err != nil {
 		return nil, err
 	}
 	if err := cli.VerifyChainID(ctx, uint64(cfg.ChainID)); err != nil {
+		cli.Close()
+		return nil, err
+	}
+	if err := cli.VerifyLogRange(ctx, cfg.BlockBatchSize, []common.Address{common.HexToAddress(cfg.RegistryAddress)}); err != nil {
 		cli.Close()
 		return nil, err
 	}
@@ -163,7 +166,7 @@ func (r *Runner) Run(ctx context.Context) error {
 	r.log.Info("indexer starting",
 		"environment", r.cfg.Environment,
 		"chainId", r.chainID,
-		"rpcURL", r.cfg.RPCURL,
+		"rpcEndpoints", redactAll(r.cfg.RPCEndpoints()),
 		"pollMs", r.cfg.PollIntervalMillis,
 		"confirmations", r.cfg.Confirmations,
 		"contracts", len(r.contractAddrs),
@@ -659,4 +662,12 @@ func logFromDeadLetter(d store.DeadLetter) (types.Log, error) {
 		Index:       d.LogIndex,
 		BlockHash:   common.HexToHash(d.BlockHash),
 	}, nil
+}
+
+func redactAll(urls []string) []string {
+	out := make([]string, len(urls))
+	for i, u := range urls {
+		out[i] = chain.RedactURL(u)
+	}
+	return out
 }

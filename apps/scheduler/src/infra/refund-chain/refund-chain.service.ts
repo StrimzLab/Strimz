@@ -4,7 +4,6 @@ import {
   createWalletClient,
   encodeFunctionData,
   erc20Abi,
-  http,
   keccak256,
   TransactionReceiptNotFoundError,
   type Address,
@@ -17,6 +16,7 @@ import { getArcChain } from '@strimz/shared-config'
 import { toSignerAccount, type TransactionSigner } from '@strimz/signer'
 
 import { TypedConfigService } from '../../config/index.js'
+import { rpcEndpoints, rpcTransport } from '../chain/rpc-endpoints.js'
 import { REFUND_SIGNER } from './refund-signer.js'
 
 export type BroadcastOutcome = 'sent' | 'known' | 'nonce_used'
@@ -38,7 +38,7 @@ export class RefundChainService {
 
   constructor(cfg: TypedConfigService, @Inject(REFUND_SIGNER) signer: TransactionSigner | null) {
     const chain = getArcChain(cfg.env.ARC_ENVIRONMENT)
-    const transport = http(cfg.env.ARC_RPC_URL)
+    const transport = rpcTransport(rpcEndpoints(cfg.env))
     this.client = createPublicClient({ chain, transport }) as PublicClient
     this.account = signer ? toSignerAccount(signer) : null
     this.wallet = this.account

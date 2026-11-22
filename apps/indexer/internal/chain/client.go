@@ -147,7 +147,7 @@ func DialFailover(ctx context.Context, urls []string, log *slog.Logger) (*Failov
 	for _, url := range urls {
 		c, err := Dial(ctx, url)
 		if err != nil {
-			log.Warn("rpc endpoint unavailable at startup, skipping", "url", redactURL(url), "err", err)
+			log.Warn("rpc endpoint unavailable at startup, skipping", "url", RedactURL(url), "err", err)
 			continue
 		}
 		fc.clients = append(fc.clients, c)
@@ -178,7 +178,7 @@ func failoverDo[T any](fc *FailoverClient, fn func(c Client) (T, error)) (T, err
 				fc.mu.Lock()
 				fc.active = idx
 				fc.mu.Unlock()
-				fc.log.Warn("rpc failover", "from", redactURL(fc.urls[start]), "to", redactURL(fc.urls[idx]))
+				fc.log.Warn("rpc failover", "from", RedactURL(fc.urls[start]), "to", RedactURL(fc.urls[idx]))
 			}
 			return out, nil
 		}
@@ -214,12 +214,12 @@ func (fc *FailoverClient) VerifyChainID(ctx context.Context, want uint64) error 
 	for i, c := range fc.clients {
 		got, err := c.ChainID(ctx)
 		if err != nil {
-			fc.log.Warn("rpc endpoint failed eth_chainId at startup, dropping it", "url", redactURL(fc.urls[i]), "err", err)
+			fc.log.Warn("rpc endpoint failed eth_chainId at startup, dropping it", "url", RedactURL(fc.urls[i]), "err", err)
 			dropped = append(dropped, c)
 			continue
 		}
 		if got != want {
-			return fmt.Errorf("rpc endpoint %s serves chain id %d, ARC_CHAIN_ID is %d", redactURL(fc.urls[i]), got, want)
+			return fmt.Errorf("rpc endpoint %s serves chain id %d, ARC_CHAIN_ID is %d", RedactURL(fc.urls[i]), got, want)
 		}
 		clients = append(clients, c)
 		urls = append(urls, fc.urls[i])
@@ -236,6 +236,26 @@ func (fc *FailoverClient) VerifyChainID(ctx context.Context, want uint64) error 
 	return nil
 }
 
+// VerifyLogRange makes every endpoint answer one eth_getLogs over a full batch,
+// so an endpoint that caps the range fails at boot instead of on every poll.
+func (fc *FailoverClient) VerifyLogRange(ctx context.Context, batch uint64, addresses []common.Address) error {
+	for i, c := range fc.clients {
+		head, err := c.BlockNumber(ctx)
+		if err != nil {
+			return fmt.Errorf("rpc endpoint %s: eth_blockNumber: %w", RedactURL(fc.urls[i]), err)
+		}
+		from := uint64(1)
+		if head >= batch {
+			from = head - batch + 1
+		}
+		if _, err := c.FilterLogs(ctx, FilterRange(addresses, nil, from, head)); err != nil {
+			return fmt.Errorf("rpc endpoint %s rejected eth_getLogs over %d blocks (BLOCK_BATCH_SIZE); "+
+				"give the indexer an endpoint with a wider log range: %w", RedactURL(fc.urls[i]), batch, err)
+		}
+	}
+	return nil
+}
+
 func (fc *FailoverClient) Pin() Client {
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
@@ -249,7 +269,7 @@ func (fc *FailoverClient) moveOff(idx int, err error) {
 		return
 	}
 	fc.active = (idx + 1) % len(fc.clients)
-	fc.log.Warn("rpc failover", "from", redactURL(fc.urls[idx]), "to", redactURL(fc.urls[fc.active]), "err", err)
+	fc.log.Warn("rpc failover", "from", RedactURL(fc.urls[idx]), "to", RedactURL(fc.urls[fc.active]), "err", err)
 }
 
 type pinnedClient struct {
@@ -262,7 +282,7 @@ func pinnedDo[T any](p *pinnedClient, fn func(c Client) (T, error)) (T, error) {
 	if err != nil {
 		p.fc.moveOff(p.idx, err)
 		var zero T
-		return zero, fmt.Errorf("rpc %s: %w", redactURL(p.fc.urls[p.idx]), err)
+		return zero, fmt.Errorf("rpc %s: %w", RedactURL(p.fc.urls[p.idx]), err)
 	}
 	return out, nil
 }
@@ -295,9 +315,9 @@ func (fc *FailoverClient) Close() {
 	}
 }
 
-// redactURL keeps scheme+host but drops the path so API keys embedded in the
-// URL (e.g. Alchemy's /v2/<key>) don't reach the logs.
-func redactURL(url string) string {
+// RedactURL keeps the scheme and host but drops the path, so keys embedded in
+// the URL (Alchemy's /v2/<key>, QuickNode's /<token>/) don't reach the logs.
+func RedactURL(url string) string {
 	scheme := 0
 	if j := strings.Index(url, "://"); j >= 0 {
 		scheme = j + 3

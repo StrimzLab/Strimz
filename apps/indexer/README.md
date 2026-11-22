@@ -172,14 +172,19 @@ default and fail boot with the variable named when missing or malformed:
 | `CONFIRMATIONS`           | Blocks to stay behind head. Any non-negative integer.                                   | `1`                                          | `1`          | `0`                   |
 | `TOKEN_WHITELIST_ADDRESS` | `TokenWhitelist` proxy. Watched in the same ordered stream as the other core contracts. | `0xc907412e31a35fcfac9336285a34c0007425066c` | deploy       | your deploy           |
 
-At boot the indexer calls `eth_chainId` on `ARC_RPC_URL` and on every
-`ARC_FALLBACK_RPC_URLS` entry before it opens the database:
+The indexer uses `INDEXER_ARC_RPC_URL` and `INDEXER_FALLBACK_RPC_URLS` when
+`INDEXER_ARC_RPC_URL` is set, and otherwise `ARC_RPC_URL` and `ARC_FALLBACK_RPC_URLS`
+(ADR-2026-11-22-rpc-per-service). At boot it calls `eth_chainId` on each of its
+endpoints before it opens the database:
 
 - an endpoint that answers with another chain id fails boot; the error names the
   endpoint (path redacted), the id it returned and `ARC_CHAIN_ID`;
 - an endpoint whose `eth_chainId` call errors is dropped from the failover set with a
   `warn` line;
-- boot fails if no endpoint is left.
+- boot fails if no endpoint is left;
+- every remaining endpoint must answer one `eth_getLogs` over `BLOCK_BATCH_SIZE` blocks.
+  An endpoint that caps the range stops boot, with the endpoint named and its path redacted.
+  Free keyed RPCs cap it at 5–100 blocks.
 
 `ARC_CHAIN_ID` is checked against the RPC, not against `ARC_ENVIRONMENT`. An env file that
 pairs `ARC_ENVIRONMENT=testnet` with mainnet RPCs and `ARC_CHAIN_ID=5042` boots and projects

@@ -14,10 +14,12 @@ import (
 
 // stubClient reports a fixed id via BlockNumber and can be toggled to fail.
 type stubClient struct {
-	id     uint64
-	fail   bool
-	calls  int
-	closed bool
+	id      uint64
+	fail    bool
+	calls   int
+	closed  bool
+	logsErr error
+	queries []ethereum.FilterQuery
 }
 
 func (s *stubClient) BlockNumber(context.Context) (uint64, error) {
@@ -27,8 +29,9 @@ func (s *stubClient) BlockNumber(context.Context) (uint64, error) {
 	}
 	return s.id, nil
 }
-func (s *stubClient) FilterLogs(context.Context, ethereum.FilterQuery) ([]types.Log, error) {
-	return nil, nil
+func (s *stubClient) FilterLogs(_ context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
+	s.queries = append(s.queries, q)
+	return nil, s.logsErr
 }
 func (s *stubClient) BlockTime(context.Context, uint64) (time.Time, error) { return time.Time{}, nil }
 func (s *stubClient) BlockHash(context.Context, uint64) (string, error)    { return "", nil }
@@ -75,7 +78,7 @@ func TestFailover_AllDownReturnsError(t *testing.T) {
 }
 
 func TestRedactURL_DropsPath(t *testing.T) {
-	got := redactURL("https://arc-testnet.g.alchemy.com/v2/secretkey")
+	got := RedactURL("https://arc-testnet.g.alchemy.com/v2/secretkey")
 	want := "https://arc-testnet.g.alchemy.com/…"
 	if got != want {
 		t.Fatalf("want %q, got %q", want, got)
@@ -151,5 +154,40 @@ func TestVerifyChainID_FailsWhenNoEndpointAnswers(t *testing.T) {
 	fc := newFailover(&stubClient{fail: true}, &stubClient{fail: true})
 	if err := fc.VerifyChainID(context.Background(), 5042002); err == nil {
 		t.Fatal("want an error when every endpoint fails eth_chainId")
+	}
+}
+
+// ADR-2026-11-22-rpc-per-service: a free keyed endpoint caps eth_getLogs at a few blocks.
+func TestVerifyLogRange_FailsNamingTheEndpointThatRejectsTheRange(t *testing.T) {
+	narrow := &stubClient{id: 1000, logsErr: errors.New("eth_getLogs is limited to a 5 range")}
+	fc := &FailoverClient{
+		clients: []Client{&stubClient{id: 1000}, narrow},
+		urls:    []string{"https://rpc.mainnet.arc.io", "https://free.quiknode.pro/secret-token/"},
+		log:     slog.Default(),
+	}
+	err := fc.VerifyLogRange(context.Background(), 500, nil)
+	if err == nil {
+		t.Fatal("want an error for an endpoint that rejects the batch range")
+	}
+	if !strings.Contains(err.Error(), "free.quiknode.pro") || !strings.Contains(err.Error(), "500") {
+		t.Fatalf("error %q should name the endpoint and the range", err)
+	}
+	if strings.Contains(err.Error(), "secret-token") {
+		t.Fatalf("error %q leaks the endpoint key", err)
+	}
+}
+
+func TestVerifyLogRange_QueriesOneBatchEndingAtHead(t *testing.T) {
+	wide := &stubClient{id: 1000}
+	fc := newFailover(wide)
+	if err := fc.VerifyLogRange(context.Background(), 500, nil); err != nil {
+		t.Fatalf("want nil, got %v", err)
+	}
+	if len(wide.queries) != 1 {
+		t.Fatalf("want one probe, got %d", len(wide.queries))
+	}
+	q := wide.queries[0]
+	if q.FromBlock.Uint64() != 501 || q.ToBlock.Uint64() != 1000 {
+		t.Fatalf("want blocks 501-1000, got %d-%d", q.FromBlock.Uint64(), q.ToBlock.Uint64())
 	}
 }

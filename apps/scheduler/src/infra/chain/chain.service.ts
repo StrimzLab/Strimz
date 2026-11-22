@@ -4,7 +4,6 @@ import {
   createPublicClient,
   createWalletClient,
   erc20Abi,
-  http,
   parseEventLogs,
   TransactionNotFoundError,
   TransactionReceiptNotFoundError,
@@ -15,7 +14,7 @@ import {
   type PublicClient,
   type WalletClient,
 } from 'viem'
-import { assertArcChainId, getArcChain, getCctpContracts } from '@strimz/shared-config'
+import { getArcChain, getCctpContracts } from '@strimz/shared-config'
 import { jsonRpc } from 'viem/nonce'
 import { toSignerAccount, type TransactionSigner } from '@strimz/signer'
 import { TypedConfigService } from '../../config/index.js'
@@ -28,6 +27,7 @@ import {
 } from './abis.js'
 import { SCHEDULER_SIGNER } from './scheduler-signer.js'
 import { withNonceReset } from './nonce-reset.js'
+import { assertEndpointsServeChain, rpcEndpoints, rpcTransport } from './rpc-endpoints.js'
 
 export interface SentTransaction {
   from: Address
@@ -75,13 +75,15 @@ export class ChainService implements OnModuleInit {
   private readonly chain: Chain
   private readonly production: boolean
   private readonly log = new Logger(ChainService.name)
+  private readonly endpoints: string[]
 
   constructor(cfg: TypedConfigService, @Inject(SCHEDULER_SIGNER) signer: TransactionSigner) {
     this.environment = cfg.env.ARC_ENVIRONMENT
     this.production = cfg.env.NODE_ENV === 'production'
     const chain = getArcChain(this.environment)
     this.chain = chain
-    const transport = http(cfg.env.ARC_RPC_URL)
+    this.endpoints = rpcEndpoints(cfg.env)
+    const transport = rpcTransport(this.endpoints)
 
     this.publicClient = createPublicClient({ chain, transport }) as PublicClient
     this.account = {
@@ -103,9 +105,15 @@ export class ChainService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     if (!this.production) return
-    const rpcChainId = await this.publicClient.getChainId()
-    assertArcChainId(this.environment, rpcChainId)
-    this.log.log(`ARC_RPC_URL serves chain id ${rpcChainId} (${this.environment})`)
+    const hosts = await assertEndpointsServeChain(this.environment, this.endpoints, (url) =>
+      this.chainIdAt(url),
+    )
+    this.log.log(`RPC endpoints serve ${this.environment}: ${hosts.join(', ')}`)
+  }
+
+  /** One endpoint's chain id, asked directly rather than through the fallback. */
+  chainIdAt(url: string): Promise<number> {
+    return createPublicClient({ transport: rpcTransport([url]) }).getChainId()
   }
 
   // ----- Subscription writes -----

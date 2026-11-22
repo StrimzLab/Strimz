@@ -47,11 +47,17 @@ func chainIDServer(t *testing.T, chainID uint64) string {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		if req.Method != "eth_chainId" {
+		// Boot asks for the chain id, then probes one eth_getLogs batch ending at head.
+		switch req.Method {
+		case "eth_chainId":
+			fmt.Fprintf(w, `{"jsonrpc":"2.0","id":%s,"result":"%s"}`, req.ID, hexutil.EncodeUint64(chainID))
+		case "eth_blockNumber":
+			fmt.Fprintf(w, `{"jsonrpc":"2.0","id":%s,"result":"0x3e8"}`, req.ID)
+		case "eth_getLogs":
+			fmt.Fprintf(w, `{"jsonrpc":"2.0","id":%s,"result":[]}`, req.ID)
+		default:
 			fmt.Fprintf(w, `{"jsonrpc":"2.0","id":%s,"error":{"code":-32601,"message":"method not found"}}`, req.ID)
-			return
 		}
-		fmt.Fprintf(w, `{"jsonrpc":"2.0","id":%s,"result":"%s"}`, req.ID, hexutil.EncodeUint64(chainID))
 	}))
 	t.Cleanup(srv.Close)
 	return srv.URL
