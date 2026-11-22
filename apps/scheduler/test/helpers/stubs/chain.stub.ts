@@ -53,6 +53,8 @@ export class StubChainService implements Methods<ChainService> {
   public sentTxs = new Map<string, SentTransaction>()
   /** Confirmed nonce by lower-case sender address; defaults to 0. */
   public confirmedNonces = new Map<string, number>()
+  /** How many receipt reads return nothing first, by lower-case hash: a node a block behind. */
+  public laggingReceipts = new Map<string, number>()
 
   onModuleInit(): Promise<void> {
     return Promise.resolve()
@@ -76,6 +78,7 @@ export class StubChainService implements Methods<ChainService> {
     this.allowances.clear()
     this.sentTxs.clear()
     this.confirmedNonces.clear()
+    this.laggingReceipts.clear()
   }
 
   private record(fn: string, args: unknown[]): `0x${string}` {
@@ -175,6 +178,11 @@ export class StubChainService implements Methods<ChainService> {
     return Promise.resolve(this.confirmedNonces.get(address.toLowerCase()) ?? 0)
   }
   readTransferReceipt(hash: `0x${string}`): Promise<TransferReceipt | null> {
+    const lag = this.laggingReceipts.get(hash.toLowerCase()) ?? 0
+    if (lag > 0) {
+      this.laggingReceipts.set(hash.toLowerCase(), lag - 1)
+      return Promise.resolve(null)
+    }
     const r = this.receipts.get(hash.toLowerCase())
     if (r instanceof Error) return Promise.reject(r)
     return Promise.resolve(r ?? null)

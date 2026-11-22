@@ -12,6 +12,8 @@ import { PrismaService } from '../../infra/prisma/prisma.service.js'
 
 const API_VERSION = '2026-04-27'
 const BATCH = 50
+// A transaction must look dropped on two checks this far apart before the refund fails (#517).
+const DROP_CONFIRM_MS = 60_000
 
 const sentTxSchema = z.object({
   from: z.string().regex(/^0x[0-9a-f]{40}$/u),
@@ -78,6 +80,9 @@ export class RefundReconcilerService {
           let dead: boolean
           try {
             dead = await this.cannotBeMined(row, hash)
+            // The nonce read can come from a node ahead of the one that answered the
+            // receipt read; ask again now that the nonce says the slot is spent.
+            if (dead) receipt = await this.chain.readTransferReceipt(hash)
           } catch (err) {
             result.errors++
             this.log.error(
@@ -85,21 +90,17 @@ export class RefundReconcilerService {
             )
             continue
           }
-          if (dead) {
-            if (await this.fail(row, 'transaction was replaced or dropped')) result.failed++
-          } else {
-            result.pending++
-            this.log.warn(`refund ${row.id}: no receipt yet for ${hash}`)
+          if (!receipt) {
+            if (dead && (await this.droppedLongEnough(row))) {
+              if (await this.fail(row, 'transaction was replaced or dropped')) result.failed++
+            } else {
+              result.pending++
+              this.log.warn(`refund ${row.id}: no receipt yet for ${hash}`)
+            }
+            continue
           }
-          continue
         }
-        if (receipt.status === 'reverted') {
-          if (await this.fail(row, 'transaction reverted')) result.failed++
-        } else if (this.matches(row, receipt)) {
-          if (await this.complete(row, receipt.blockTime)) result.completed++
-        } else if (await this.fail(row, 'transfer did not match token, recipient or amount')) {
-          result.failed++
-        }
+        await this.settle(row, receipt, result)
       }
     } finally {
       this.running = false
@@ -108,6 +109,33 @@ export class RefundReconcilerService {
       this.log.log(`refunds reconciled: ${result.completed} completed, ${result.failed} failed`)
     }
     return result
+  }
+
+  private async settle(
+    row: Refund,
+    receipt: TransferReceipt,
+    result: RefundReconcileResult,
+  ): Promise<void> {
+    if (receipt.status === 'reverted') {
+      if (await this.fail(row, 'transaction reverted')) result.failed++
+    } else if (this.matches(row, receipt)) {
+      if (await this.complete(row, receipt.blockTime)) result.completed++
+    } else if (await this.fail(row, 'transfer did not match token, recipient or amount')) {
+      result.failed++
+    }
+  }
+
+  /** Records when the transaction first looked dropped; true once that was long enough ago. */
+  private async droppedLongEnough(refund: Refund): Promise<boolean> {
+    const metadata = refund.metadata as Record<string, unknown>
+    const since =
+      typeof metadata.droppedSince === 'string' ? Date.parse(metadata.droppedSince) : NaN
+    if (Number.isFinite(since)) return Date.now() - since >= DROP_CONFIRM_MS
+    await this.prisma.db.refund.update({
+      where: { id: refund.id },
+      data: { metadata: { ...metadata, droppedSince: new Date().toISOString() } },
+    })
+    return false
   }
 
   private matches(refund: Refund, receipt: TransferReceipt): boolean {
