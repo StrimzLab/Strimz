@@ -1,5 +1,7 @@
 # Runbook: AWS KMS keys for the relayer and the scheduler
 
+> **Not used for mainnet.** Strimz has no AWS account. Mainnet signs with Privy server wallets: see [privy-signers.md](privy-signers.md). Mainnet production refuses `aws-kms`.
+
 Applies to the single Lightsail container (`strimz`, see `infra/lightsail/README.md`).
 Background: [ADR-2026-10-11-aws-kms-signers](../adr/ADR-2026-10-11-aws-kms-signers.md).
 

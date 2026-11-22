@@ -5,6 +5,7 @@ import { PrismaModule } from './infra/prisma/prisma.module.js'
 import { RedisModule } from './infra/redis/redis.module.js'
 import { QueueModule } from './infra/queue/queue.module.js'
 import { ChainModule } from './infra/chain/chain.module.js'
+import { PrivyWalletApiModule } from './infra/privy-signer/privy-wallet-api.js'
 import { WebhookSigningModule } from './infra/webhook-signing/signing.module.js'
 import { EmailModule } from './infra/email/email.module.js'
 import { WebhookDeliveryModule } from './workers/webhook-delivery/webhook-delivery.module.js'
@@ -33,6 +34,7 @@ import { AdminModule } from './common/admin/admin.module.js'
     PrismaModule,
     RedisModule,
     QueueModule,
+    PrivyWalletApiModule,
     ChainModule,
     WebhookSigningModule,
     EmailModule,

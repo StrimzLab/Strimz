@@ -24,7 +24,7 @@ export const envSchema = z.object({
   SCHEDULER_PRIVATE_KEY: unsetWhenEmpty(
     z.string().regex(/^0x[0-9a-fA-F]{64}$/, 'must be a 0x-prefixed 32-byte hex private key'),
   ),
-  SCHEDULER_SIGNER_PROVIDER: z.enum(['software', 'aws-kms']).default('software'),
+  SCHEDULER_SIGNER_PROVIDER: z.enum(['software', 'aws-kms', 'privy']).default('software'),
   SCHEDULER_KMS_KEY_ID: unsetWhenEmpty(z.string()),
   SCHEDULER_SIGNER_ADDRESS: unsetWhenEmpty(
     z.string().regex(/^0x[0-9a-fA-F]{40}$/u, 'must be a 0x-prefixed 20-byte hex address'),
@@ -33,7 +33,7 @@ export const envSchema = z.object({
 
   // The wallet that pays free-allowance fee refunds (ADR-2026-11-21-free-plan-fee-integrity).
   // It holds no contract roles; ops keep a small float in it.
-  REFUND_SIGNER_PROVIDER: unsetWhenEmpty(z.enum(['software', 'aws-kms'])),
+  REFUND_SIGNER_PROVIDER: unsetWhenEmpty(z.enum(['software', 'aws-kms', 'privy'])),
   REFUND_PRIVATE_KEY: unsetWhenEmpty(
     z.string().regex(/^0x[0-9a-fA-F]{64}$/, 'must be a 0x-prefixed 32-byte hex private key'),
   ),
@@ -41,6 +41,14 @@ export const envSchema = z.object({
   REFUND_SIGNER_ADDRESS: unsetWhenEmpty(
     z.string().regex(/^0x[0-9a-fA-F]{40}$/u, 'must be a 0x-prefixed 20-byte hex address'),
   ),
+
+  // Mainnet signers are Privy server wallets (ADR-2026-11-22-privy-server-signers).
+  PRIVY_APP_ID: unsetWhenEmpty(z.string()),
+  PRIVY_APP_SECRET: unsetWhenEmpty(z.string()),
+  // The server's Privy authorization key. It can only sign what each wallet's policy allows.
+  PRIVY_SIGNER_AUTHORIZATION_KEY: unsetWhenEmpty(z.string()),
+  PRIVY_SCHEDULER_WALLET_ID: unsetWhenEmpty(z.string()),
+  PRIVY_REFUND_WALLET_ID: unsetWhenEmpty(z.string()),
 
   SUBSCRIPTIONS_ADDRESS: z
     .string()
@@ -148,13 +156,15 @@ function issue(ctx: z.RefinementCtx, path: keyof ParsedEnv, message: string) {
 }
 
 function schedulerSignerAddress(env: ParsedEnv): string | undefined {
-  if (env.SCHEDULER_SIGNER_PROVIDER === 'aws-kms') return env.SCHEDULER_SIGNER_ADDRESS
+  if (env.SCHEDULER_SIGNER_PROVIDER !== 'software') return env.SCHEDULER_SIGNER_ADDRESS
   if (!env.SCHEDULER_PRIVATE_KEY) return undefined
   return privateKeyToAccount(env.SCHEDULER_PRIVATE_KEY as `0x${string}`).address
 }
 
 function refundSignerAddress(env: ParsedEnv): string | undefined {
-  if (env.REFUND_SIGNER_PROVIDER === 'aws-kms') return env.REFUND_SIGNER_ADDRESS
+  if (env.REFUND_SIGNER_PROVIDER === 'aws-kms' || env.REFUND_SIGNER_PROVIDER === 'privy') {
+    return env.REFUND_SIGNER_ADDRESS
+  }
   if (env.REFUND_SIGNER_PROVIDER !== 'software' || !env.REFUND_PRIVATE_KEY) return undefined
   return privateKeyToAccount(env.REFUND_PRIVATE_KEY as `0x${string}`).address
 }
@@ -164,27 +174,35 @@ const separatedSignersSchema = envSchema.superRefine((env, ctx) => {
     issue(ctx, 'ARC_ENVIRONMENT', 'required when NODE_ENV=production')
   }
 
+  const onMainnet = env.NODE_ENV === 'production' && env.ARC_ENVIRONMENT === 'mainnet'
+  if (onMainnet && env.SCHEDULER_SIGNER_PROVIDER !== 'privy') {
+    issue(ctx, 'SCHEDULER_SIGNER_PROVIDER', 'must be privy in production on mainnet')
+  }
   if (env.SCHEDULER_SIGNER_PROVIDER === 'software') {
-    // Testnet only: ADR-2026-11-13-testnet-software-signer. Mainnet waits on #455.
     if (env.NODE_ENV === 'production' && env.ARC_ENVIRONMENT !== 'testnet') {
       issue(
         ctx,
         'SCHEDULER_SIGNER_PROVIDER',
-        'software keeps the scheduler key in process memory and is refused in production on mainnet; set aws-kms',
+        'software keeps the scheduler key in process memory and is refused in production on mainnet; set privy',
       )
     }
     if (!env.SCHEDULER_PRIVATE_KEY) {
       issue(ctx, 'SCHEDULER_PRIVATE_KEY', 'required when SCHEDULER_SIGNER_PROVIDER=software')
     }
   } else {
-    for (const key of ['SCHEDULER_KMS_KEY_ID', 'SCHEDULER_SIGNER_ADDRESS', 'AWS_REGION'] as const) {
-      if (!env[key]) issue(ctx, key, 'required when SCHEDULER_SIGNER_PROVIDER=aws-kms')
+    const provider = env.SCHEDULER_SIGNER_PROVIDER
+    const needed =
+      provider === 'privy'
+        ? (['PRIVY_SCHEDULER_WALLET_ID', 'SCHEDULER_SIGNER_ADDRESS'] as const)
+        : (['SCHEDULER_KMS_KEY_ID', 'SCHEDULER_SIGNER_ADDRESS', 'AWS_REGION'] as const)
+    for (const key of needed) {
+      if (!env[key]) issue(ctx, key, `required when SCHEDULER_SIGNER_PROVIDER=${provider}`)
     }
     if (env.SCHEDULER_PRIVATE_KEY) {
       issue(
         ctx,
         'SCHEDULER_PRIVATE_KEY',
-        'must be unset when SCHEDULER_SIGNER_PROVIDER=aws-kms; remove the plaintext key',
+        `must be unset when SCHEDULER_SIGNER_PROVIDER=${provider}; remove the plaintext key`,
       )
     }
   }
@@ -196,14 +214,10 @@ const separatedSignersSchema = envSchema.superRefine((env, ctx) => {
       'required when NODE_ENV=production: merchants are owed fee refunds',
     )
   }
+  if (onMainnet && env.REFUND_SIGNER_PROVIDER && env.REFUND_SIGNER_PROVIDER !== 'privy') {
+    issue(ctx, 'REFUND_SIGNER_PROVIDER', 'must be privy in production on mainnet')
+  }
   if (env.REFUND_SIGNER_PROVIDER === 'software') {
-    if (env.NODE_ENV === 'production' && env.ARC_ENVIRONMENT !== 'testnet') {
-      issue(
-        ctx,
-        'REFUND_SIGNER_PROVIDER',
-        'software is refused in production on mainnet; set aws-kms',
-      )
-    }
     if (!env.REFUND_PRIVATE_KEY) {
       issue(ctx, 'REFUND_PRIVATE_KEY', 'required when REFUND_SIGNER_PROVIDER=software')
     }
@@ -213,6 +227,22 @@ const separatedSignersSchema = envSchema.superRefine((env, ctx) => {
     }
     if (env.REFUND_PRIVATE_KEY) {
       issue(ctx, 'REFUND_PRIVATE_KEY', 'must be unset when REFUND_SIGNER_PROVIDER=aws-kms')
+    }
+  } else if (env.REFUND_SIGNER_PROVIDER === 'privy') {
+    for (const key of ['PRIVY_REFUND_WALLET_ID', 'REFUND_SIGNER_ADDRESS'] as const) {
+      if (!env[key]) issue(ctx, key, 'required when REFUND_SIGNER_PROVIDER=privy')
+    }
+    if (env.REFUND_PRIVATE_KEY) {
+      issue(ctx, 'REFUND_PRIVATE_KEY', 'must be unset when REFUND_SIGNER_PROVIDER=privy')
+    }
+  }
+  if (env.SCHEDULER_SIGNER_PROVIDER === 'privy' || env.REFUND_SIGNER_PROVIDER === 'privy') {
+    for (const key of [
+      'PRIVY_APP_ID',
+      'PRIVY_APP_SECRET',
+      'PRIVY_SIGNER_AUTHORIZATION_KEY',
+    ] as const) {
+      if (!env[key]) issue(ctx, key, 'required for a privy signer')
     }
   }
 

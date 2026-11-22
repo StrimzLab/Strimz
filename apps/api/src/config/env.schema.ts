@@ -102,13 +102,13 @@ export const envSchema = z.object({
   COMPLIANCE_API_KEY: z.string().optional(),
   COMPLIANCE_BLOCK_THRESHOLD: z.coerce.number().int().min(0).max(100).default(80),
 
-  // ----- KMS (signer for meta-tx relayer) -----
-  // The KmsSigner interface is provider-agnostic. We ship with a
-  // software signer (key in process memory, sourced from the hosting
-  // provider's encrypted secrets vault). Future hardware-backed
-  // providers (GCP Cloud KMS, Vault Transit) drop in against the same
-  // env enum without touching call sites.
-  KMS_PROVIDER: z.enum(['software', 'aws-kms']).default('software'),
+  // ----- Relayer signer -----
+  // Mainnet signs with a Privy server wallet (ADR-2026-11-22-privy-server-signers);
+  // a plain key is for dev and testnet only.
+  KMS_PROVIDER: z.enum(['software', 'aws-kms', 'privy']).default('software'),
+  PRIVY_RELAYER_WALLET_ID: unsetWhenEmpty(z.string()),
+  // The server's Privy authorization key. It can only sign what the wallet's policy allows.
+  PRIVY_SIGNER_AUTHORIZATION_KEY: unsetWhenEmpty(z.string()),
   // 0x-prefixed 32-byte hex private key for the software signer. In dev
   // and CI this can be omitted — a fresh ephemeral key is generated at
   // boot and the derived address is logged. In production this MUST be
@@ -161,14 +161,19 @@ const networkSchema = envSchema.superRefine((env, ctx) => {
   }
 })
 
+const SIGNER_SETTINGS = {
+  'aws-kms': ['KMS_AWS_KEY_ID', 'KMS_SIGNER_ADDRESS', 'AWS_REGION'],
+  privy: ['PRIVY_RELAYER_WALLET_ID', 'KMS_SIGNER_ADDRESS', 'PRIVY_SIGNER_AUTHORIZATION_KEY'],
+} as const
+
 const signerSchema = networkSchema.superRefine((env, ctx) => {
-  if (env.KMS_PROVIDER !== 'aws-kms') return
-  for (const key of ['KMS_AWS_KEY_ID', 'KMS_SIGNER_ADDRESS', 'AWS_REGION'] as const) {
+  if (env.KMS_PROVIDER === 'software') return
+  for (const key of SIGNER_SETTINGS[env.KMS_PROVIDER]) {
     if (!env[key]) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: [key],
-        message: 'required when KMS_PROVIDER=aws-kms',
+        message: `required when KMS_PROVIDER=${env.KMS_PROVIDER}`,
       })
     }
   }
@@ -176,7 +181,7 @@ const signerSchema = networkSchema.superRefine((env, ctx) => {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['KMS_SOFTWARE_PRIVATE_KEY'],
-      message: 'must be unset when KMS_PROVIDER=aws-kms; remove the plaintext key',
+      message: `must be unset when KMS_PROVIDER=${env.KMS_PROVIDER}; remove the plaintext key`,
     })
   }
 })
