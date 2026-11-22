@@ -2,35 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@strimz/ui'
-import {
-  EASE_OUT,
-  MOTION_OK,
-  gsap,
-  useGSAP,
-} from '@strimz/web-shared/components/marketing/motion/gsap'
-import { markMotionReady } from '../motion/gate'
+import { introOrder } from '../motion/intro'
 import { USE_CASES, type UseCaseId } from './data'
 
 export function UseCasesHero() {
-  const scope = useRef<HTMLElement>(null)
   const [active, setActive] = useState<UseCaseId>('saas')
   const chipsRef = useRef<HTMLUListElement>(null)
-
-  useGSAP(
-    () => {
-      markMotionReady()
-      const mm = gsap.matchMedia()
-      mm.add(MOTION_OK, () => {
-        gsap
-          .timeline({ defaults: { ease: EASE_OUT } })
-          .set('[data-intro]', { visibility: 'visible' })
-          .from('[data-line]', { yPercent: 110, duration: 1.1, stagger: 0.08 })
-          .from('[data-fade]', { autoAlpha: 0, y: 16, duration: 0.8, stagger: 0.08 }, '-=0.7')
-      })
-      return () => mm.revert()
-    },
-    { scope },
-  )
 
   useEffect(() => {
     const sections = USE_CASES.map((u) => document.getElementById(u.id)).filter(
@@ -58,11 +35,12 @@ export function UseCasesHero() {
 
   return (
     <>
-      <section ref={scope} aria-labelledby="use-cases-title" className="pb-10 pt-16 sm:pt-24">
+      <section aria-labelledby="use-cases-title" className="pb-10 pt-16 sm:pt-24">
         <div className="mx-auto max-w-[1280px] px-5 sm:px-10">
           <p
             data-intro
             data-fade
+            style={introOrder(0)}
             className="font-poppins bg-card text-foreground ring-border inline-flex items-center gap-2 rounded-full px-3 py-1 text-[13px] font-medium ring-1"
           >
             <span className="bg-accent size-1.5 rounded-full" />
@@ -74,12 +52,12 @@ export function UseCasesHero() {
           >
             <span className="sr-only">Built for businesses that bill online.</span>
             <span aria-hidden className="block overflow-hidden pb-[0.06em]">
-              <span data-intro data-line className="block">
+              <span data-intro data-line style={introOrder(0)} className="block">
                 Built for businesses
               </span>
             </span>
             <span aria-hidden className="block overflow-hidden pb-[0.1em]">
-              <span data-intro data-line className="block">
+              <span data-intro data-line style={introOrder(1)} className="block">
                 that bill online.
               </span>
             </span>
@@ -87,6 +65,7 @@ export function UseCasesHero() {
           <p
             data-intro
             data-fade
+            style={introOrder(1)}
             className="font-poppins text-muted-foreground mt-6 max-w-2xl text-base leading-relaxed sm:text-lg"
           >
             Subscriptions, payment links, invoices and storefronts in one account. Here is how each
