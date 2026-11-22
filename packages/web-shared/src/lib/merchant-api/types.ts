@@ -37,4 +37,6 @@ export interface DateRangeParams {
 export interface CallOptions {
   signal?: AbortSignal
   timeoutMs?: number
+  /** One-use passkey confirmation for a sensitive action (ADR-2026-11-22-passkey-step-up). */
+  stepUpToken?: string
 }

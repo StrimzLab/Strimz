@@ -16,12 +16,34 @@ import { TypedConfigService } from '../../config/typed-config.service.js'
  * passwords. MFA enforcement happens in the Privy dashboard (require for
  * "live mode" is enforced by us before issuing live API keys).
  */
+const PRIVY_API = 'https://api.privy.io'
+
+/** A WebAuthn assertion in the snake_case shape Privy's API expects. */
+export interface PasskeyCredential {
+  id: string
+  raw_id: string
+  type: 'public-key'
+  response: {
+    client_data_json: string
+    authenticator_data: string
+    signature: string
+    user_handle?: string
+  }
+  client_extension_results?: Record<string, unknown>
+}
+
 @Injectable()
 export class PrivyService {
   private readonly log = new Logger(PrivyService.name)
   public readonly client: PrivyClient
+  private readonly appId: string
+  private readonly basicAuth: string
 
   constructor(cfg: TypedConfigService) {
+    this.appId = cfg.env.PRIVY_APP_ID
+    this.basicAuth = Buffer.from(`${cfg.env.PRIVY_APP_ID}:${cfg.env.PRIVY_APP_SECRET}`).toString(
+      'base64',
+    )
     const opts: ConstructorParameters<typeof PrivyClient>[2] = cfg.env.PRIVY_VERIFICATION_KEY
       ? { walletApi: { authorizationPrivateKey: cfg.env.PRIVY_VERIFICATION_KEY } }
       : undefined
@@ -84,6 +106,61 @@ export class PrivyService {
         (!a.chainType || a.chainType === 'ethereum'),
     )
     return wallet?.address?.toLowerCase() ?? null
+  }
+
+  hasPasskeyMfa(user: User): boolean {
+    const methods = (user as any).mfaMethods
+    return Array.isArray(methods) && methods.some((m: any) => m?.type === 'passkey')
+  }
+
+  /** Privy server-side MFA: WebAuthn options for the user's passkey, for `relyingParty`. */
+  async initPasskeyVerification(
+    privyUserId: string,
+    userJwt: string,
+    relyingParty: string,
+  ): Promise<unknown> {
+    const body = await this.mfaRequest(privyUserId, userJwt, 'init', {
+      relying_party: relyingParty,
+    })
+    return (body as { options?: unknown }).options
+  }
+
+  /** Throws unless Privy accepts the passkey assertion. */
+  async verifyPasskey(
+    privyUserId: string,
+    userJwt: string,
+    credential: PasskeyCredential,
+  ): Promise<void> {
+    await this.mfaRequest(privyUserId, userJwt, 'verify', { credential })
+  }
+
+  private async mfaRequest(
+    privyUserId: string,
+    userJwt: string,
+    step: 'init' | 'verify',
+    payload: unknown,
+  ): Promise<unknown> {
+    const res = await fetch(
+      `${PRIVY_API}/v1/users/${encodeURIComponent(privyUserId)}/mfa/passkey/verification/${step}`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Basic ${this.basicAuth}`,
+          'privy-app-id': this.appId,
+          'privy-user-token': userJwt,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      },
+    )
+    if (!res.ok) {
+      this.log.warn(`privy passkey ${step} failed with ${res.status}`)
+      throw new UnauthorizedException({
+        code: 'step_up_failed',
+        message: 'the passkey could not be verified; try again',
+      })
+    }
+    return res.json()
   }
 
   /** True if the user has at least one MFA method registered with Privy. */

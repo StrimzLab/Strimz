@@ -6,6 +6,7 @@ import { KeyRound } from 'lucide-react'
 import { Button } from '@strimz/ui'
 import { SubmitButton } from '@strimz/web-shared/components/auth/submit-button'
 
+import { useEnrolPasskeyMfa } from '@/hooks/use-passkey-mfa'
 import { authErrorMessage } from '@/lib/auth-flow'
 
 const never = () => () => {}
@@ -18,7 +19,19 @@ export function PasskeyOffer({ onDone }: { onDone: () => void }) {
     () => false,
   )
   const [error, setError] = useState<string | null>(null)
-  const { linkWithPasskey, state } = useLinkWithPasskey({ onSuccess: onDone })
+  const enrolMfa = useEnrolPasskeyMfa()
+  const { linkWithPasskey, state } = useLinkWithPasskey({
+    onSuccess: ({ user }) => {
+      enrolMfa(user)
+        .then(onDone)
+        .catch((err: unknown) => {
+          console.error('[auth] passkey added, but MFA enrolment failed', err)
+          setError(
+            'Your passkey was added, but we could not set it up for confirmations. Try again in Settings.',
+          )
+        })
+    },
+  })
   const busy = state.status !== 'initial' && state.status !== 'error' && state.status !== 'done'
 
   return (

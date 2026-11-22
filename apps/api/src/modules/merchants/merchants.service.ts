@@ -256,7 +256,7 @@ export class MerchantsService {
     if (!m.twoFactorEnabled) {
       reasons.push({
         code: 'mfa_required',
-        message: 'Enable two-factor authentication in your account settings.',
+        message: 'Add a passkey in Settings, under Security.',
       })
     }
     if (!m.onboardingCompleted) {

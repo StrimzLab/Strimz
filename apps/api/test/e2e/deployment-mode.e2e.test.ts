@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
+import { stepUp } from '../helpers/step-up.js'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
 import {
@@ -33,7 +34,10 @@ describe('one mode per deployment e2e', () => {
       const res = await t.inject({
         method: 'POST',
         url: '/v1/api-keys',
-        headers: { authorization: `Bearer ${m.privyAccessToken}` },
+        headers: {
+          authorization: `Bearer ${m.privyAccessToken}`,
+          'x-strimz-step-up': await stepUp(t, m.privyAccessToken, 'api_keys.create'),
+        },
         payload: { name: 'sandbox', kind: 'secret', mode: 'test', scopes: ['sessions_read'] },
       })
       expect(res.statusCode).toBe(403)

@@ -28,6 +28,7 @@ import type { MerchantBalanceView } from '@strimz/shared-types'
 
 import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { TokenLogo } from '@strimz/web-shared/components/shared/token-logo'
+import { PasskeyGate } from '@/components/dashboard/passkey-gate'
 import { useMerchantBalance } from '@/hooks/api/use-merchant'
 import { useWithdrawGasQuote } from '@/hooks/use-withdraw-gas-quote'
 import { prepareArcSigning } from '@strimz/web-shared/lib/arc-network'
@@ -216,235 +217,237 @@ export default function WithdrawPage() {
         description="Move your USDC or EURC out of your Strimz payout address."
       />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-6">
-          {balanceQuery.isPending ? (
-            <BalanceSkeleton />
-          ) : balanceQuery.isError ? (
-            <Card className="border-border/60">
-              <CardContent className="text-danger p-6 text-sm">
-                Couldn&apos;t load your on-chain balance. Check your RPC connection and try again.
-              </CardContent>
-            </Card>
-          ) : balance && balance.payoutAddress ? (
-            <BalanceCard balance={balance} onCopy={copyAddress} />
-          ) : (
-            <Card className="border-border/60 border-dashed">
-              <CardContent className="text-muted-foreground p-6 text-sm">
-                Set a payout address on the{' '}
-                <Link href="/app/settings" className="text-brand-text underline">
-                  Settings page
-                </Link>{' '}
-                before you can withdraw.
-              </CardContent>
-            </Card>
-          )}
+      <PasskeyGate action="withdraw">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="space-y-6">
+            {balanceQuery.isPending ? (
+              <BalanceSkeleton />
+            ) : balanceQuery.isError ? (
+              <Card className="border-border/60">
+                <CardContent className="text-danger p-6 text-sm">
+                  Couldn&apos;t load your on-chain balance. Check your RPC connection and try again.
+                </CardContent>
+              </Card>
+            ) : balance && balance.payoutAddress ? (
+              <BalanceCard balance={balance} onCopy={copyAddress} />
+            ) : (
+              <Card className="border-border/60 border-dashed">
+                <CardContent className="text-muted-foreground p-6 text-sm">
+                  Set a payout address on the{' '}
+                  <Link href="/app/settings" className="text-brand-text underline">
+                    Settings page
+                  </Link>{' '}
+                  before you can withdraw.
+                </CardContent>
+              </Card>
+            )}
 
-          {balance && balance.payoutAddress && (
-            <Card className="border-border/60">
-              <CardContent className="p-6">
-                <h3 className="font-sora inline-flex items-center gap-2 text-base font-[600]">
-                  <ArrowUpFromLine className="text-brand-text size-4" />
-                  Send funds
-                </h3>
-                {balance.canSignFromDashboard ? (
-                  <p className="font-poppins text-muted-foreground mt-1 text-xs">
-                    You&apos;re paying yourself. Sign the transfer with your Strimz-embedded wallet.
-                    No external wallet needed.
-                  </p>
-                ) : (
-                  <div className="border-border/60 bg-muted text-muted-foreground mt-4 flex items-start gap-2 rounded-md border p-3 text-xs">
-                    <ShieldAlert className="text-warning mt-0.5 size-4 shrink-0" />
+            {balance && balance.payoutAddress && (
+              <Card className="border-border/60">
+                <CardContent className="p-6">
+                  <h3 className="font-sora inline-flex items-center gap-2 text-base font-[600]">
+                    <ArrowUpFromLine className="text-brand-text size-4" />
+                    Send funds
+                  </h3>
+                  {balance.canSignFromDashboard ? (
+                    <p className="font-poppins text-muted-foreground mt-1 text-xs">
+                      You&apos;re paying yourself. Sign the transfer with your Strimz-embedded
+                      wallet. No external wallet needed.
+                    </p>
+                  ) : (
+                    <div className="border-border/60 bg-muted text-muted-foreground mt-4 flex items-start gap-2 rounded-md border p-3 text-xs">
+                      <ShieldAlert className="text-warning mt-0.5 size-4 shrink-0" />
+                      <div>
+                        <p className="text-foreground font-medium">
+                          Your payout goes to an external wallet.
+                        </p>
+                        <p className="mt-1">
+                          You can&apos;t send from this dashboard. Sign in with the wallet that
+                          controls{' '}
+                          <code className="text-foreground">
+                            {balance.payoutAddress.slice(0, 6)}…{balance.payoutAddress.slice(-4)}
+                          </code>{' '}
+                          and transfer from there. Or point your payout to a different address on
+                          the Settings page.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleWithdraw} className="mt-5 space-y-4">
                     <div>
-                      <p className="text-foreground font-medium">
-                        Your payout goes to an external wallet.
-                      </p>
-                      <p className="mt-1">
-                        You can&apos;t send from this dashboard. Sign in with the wallet that
-                        controls{' '}
-                        <code className="text-foreground">
-                          {balance.payoutAddress.slice(0, 6)}…{balance.payoutAddress.slice(-4)}
-                        </code>{' '}
-                        and transfer from there. Or point your payout to a different address on the
-                        Settings page.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <form onSubmit={handleWithdraw} className="mt-5 space-y-4">
-                  <div>
-                    <FieldLabel required className="font-poppins mb-2 text-sm">
-                      Currency
-                    </FieldLabel>
-                    <div className="grid grid-cols-2 gap-2">
-                      {balance.balances.map((b) => (
-                        <button
-                          key={b.currency}
-                          type="button"
-                          onClick={() => setCurrency(b.currency)}
-                          className={`border-border/60 flex items-center gap-2 rounded-md border p-3 text-left transition-colors ${
-                            currency === b.currency ? 'border-accent/60 bg-accent/5' : ''
-                          }`}
-                        >
-                          <TokenLogo symbol={b.currency} size={20} />
-                          <div className="flex-1">
-                            <div className="font-poppins text-sm font-medium">{b.currency}</div>
-                            <div className="font-poppins text-muted-foreground text-[10px]">
-                              Available {b.formatted}
+                      <FieldLabel required className="font-poppins mb-2 text-sm">
+                        Currency
+                      </FieldLabel>
+                      <div className="grid grid-cols-2 gap-2">
+                        {balance.balances.map((b) => (
+                          <button
+                            key={b.currency}
+                            type="button"
+                            onClick={() => setCurrency(b.currency)}
+                            className={`border-border/60 flex items-center gap-2 rounded-md border p-3 text-left transition-colors ${
+                              currency === b.currency ? 'border-accent/60 bg-accent/5' : ''
+                            }`}
+                          >
+                            <TokenLogo symbol={b.currency} size={20} />
+                            <div className="flex-1">
+                              <div className="font-poppins text-sm font-medium">{b.currency}</div>
+                              <div className="font-poppins text-muted-foreground text-[10px]">
+                                Available {b.formatted}
+                              </div>
                             </div>
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <FieldLabel
-                      htmlFor="destination"
-                      className="font-poppins mb-2 block text-sm"
-                      required
-                    >
-                      Send to
-                    </FieldLabel>
-                    <Input
-                      id="destination"
-                      value={destination}
-                      onChange={(e) => setDestination(e.target.value)}
-                      placeholder="0x…"
-                      spellCheck={false}
-                      autoComplete="off"
-                    />
-                    {destination && !destinationOk && (
-                      <p className="font-poppins text-danger mt-1 text-xs">
-                        Enter a valid 0x address.
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <FieldLabel
-                      htmlFor="amount"
-                      className="font-poppins mb-2 block text-sm"
-                      required
-                    >
-                      Amount ({currency})
-                    </FieldLabel>
-                    <div className="relative">
+                    <div>
+                      <FieldLabel
+                        htmlFor="destination"
+                        className="font-poppins mb-2 block text-sm"
+                        required
+                      >
+                        Send to
+                      </FieldLabel>
                       <Input
-                        id="amount"
-                        inputMode="decimal"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        placeholder="0.00"
+                        id="destination"
+                        value={destination}
+                        onChange={(e) => setDestination(e.target.value)}
+                        placeholder="0x…"
+                        spellCheck={false}
+                        autoComplete="off"
                       />
+                      {destination && !destinationOk && (
+                        <p className="font-poppins text-danger mt-1 text-xs">
+                          Enter a valid 0x address.
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <FieldLabel
+                        htmlFor="amount"
+                        className="font-poppins mb-2 block text-sm"
+                        required
+                      >
+                        Amount ({currency})
+                      </FieldLabel>
+                      <div className="relative">
+                        <Input
+                          id="amount"
+                          inputMode="decimal"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          placeholder="0.00"
+                        />
+                        {selectedBalance && (
+                          <button
+                            type="button"
+                            onClick={fillMax}
+                            disabled={gasReserve === null}
+                            title={
+                              gasReserve === null
+                                ? 'Enter a destination so the network fee can be estimated'
+                                : undefined
+                            }
+                            className="bg-accent/10 text-brand-text absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-[10px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            MAX
+                          </button>
+                        )}
+                      </div>
                       {selectedBalance && (
-                        <button
-                          type="button"
-                          onClick={fillMax}
-                          disabled={gasReserve === null}
-                          title={
-                            gasReserve === null
-                              ? 'Enter a destination so the network fee can be estimated'
-                              : undefined
-                          }
-                          className="bg-accent/10 text-brand-text absolute right-2 top-1/2 -translate-y-1/2 rounded px-2 py-1 text-[10px] font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          MAX
-                        </button>
+                        <p className="font-poppins text-muted-foreground mt-1 text-[10px]">
+                          Balance: {selectedBalance.formatted} {selectedBalance.currency}
+                        </p>
+                      )}
+                      {balance.canSignFromDashboard && (
+                        <NetworkFeeNote
+                          destinationOk={destinationOk}
+                          loading={gasQuery.isFetching && gasReserve === null}
+                          error={gasQuery.isError ? feeQuoteMessage(gasQuery.error) : null}
+                          empty={selectedRaw === 0n}
+                          reserve={gasReserve}
+                          currency={currency}
+                          usdcBalance={usdcBalance}
+                        />
+                      )}
+                      {amountCheck && !amountCheck.ok && (
+                        <p className="font-poppins text-danger mt-1 text-xs">
+                          {withdrawProblem(amountCheck.reason, currency, gasReserve, usdcBalance)}
+                        </p>
                       )}
                     </div>
-                    {selectedBalance && (
-                      <p className="font-poppins text-muted-foreground mt-1 text-[10px]">
-                        Balance: {selectedBalance.formatted} {selectedBalance.currency}
-                      </p>
-                    )}
-                    {balance.canSignFromDashboard && (
-                      <NetworkFeeNote
-                        destinationOk={destinationOk}
-                        loading={gasQuery.isFetching && gasReserve === null}
-                        error={gasQuery.isError ? feeQuoteMessage(gasQuery.error) : null}
-                        empty={selectedRaw === 0n}
-                        reserve={gasReserve}
-                        currency={currency}
-                        usdcBalance={usdcBalance}
-                      />
-                    )}
-                    {amountCheck && !amountCheck.ok && (
-                      <p className="font-poppins text-danger mt-1 text-xs">
-                        {withdrawProblem(amountCheck.reason, currency, gasReserve, usdcBalance)}
-                      </p>
-                    )}
-                  </div>
 
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
-                      <Info className="size-3" />
-                      Settles in under a second on {chain.name}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
+                        <Info className="size-3" />
+                        Settles in under a second on {chain.name}
+                      </div>
+                      <Button type="submit" disabled={!canSubmit}>
+                        {submitting ? (
+                          <>
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                            Sending…
+                          </>
+                        ) : (
+                          <>
+                            <ArrowUpFromLine className="mr-2 size-4" />
+                            Withdraw
+                          </>
+                        )}
+                      </Button>
                     </div>
-                    <Button type="submit" disabled={!canSubmit}>
-                      {submitting ? (
-                        <>
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                          Sending…
-                        </>
-                      ) : (
-                        <>
-                          <ArrowUpFromLine className="mr-2 size-4" />
-                          Withdraw
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </form>
+                  </form>
 
-                {lastTx && (
-                  <div className="border-border/60 bg-accent/5 mt-5 rounded-md border p-3 text-xs">
-                    <p className="font-poppins text-foreground font-medium">Transfer signed</p>
-                    <a
-                      href={arcExplorerTxUrl(env.arcEnvironment, lastTx)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="font-poppins text-brand-text mt-1 inline-flex items-center gap-1 break-all hover:underline"
-                    >
-                      {lastTx}
-                      <ExternalLink className="size-3 shrink-0" />
-                    </a>
+                  {lastTx && (
+                    <div className="border-border/60 bg-accent/5 mt-5 rounded-md border p-3 text-xs">
+                      <p className="font-poppins text-foreground font-medium">Transfer signed</p>
+                      <a
+                        href={arcExplorerTxUrl(env.arcEnvironment, lastTx)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-poppins text-brand-text mt-1 inline-flex items-center gap-1 break-all hover:underline"
+                      >
+                        {lastTx}
+                        <ExternalLink className="size-3 shrink-0" />
+                      </a>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <Card className="border-border/60">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                  <WalletIcon className="text-muted-foreground size-4" />
+                  <h3 className="font-poppins text-sm font-medium">Non-custodial</h3>
+                </div>
+                <p className="font-poppins text-muted-foreground mt-2 text-xs leading-5">
+                  Strimz never holds your funds. On-chain payments settle straight into your payout
+                  wallet. When you withdraw here, you&apos;re moving YOUR funds. Not requesting a
+                  payout from us.
+                </p>
+                <div className="border-border/60 mt-3 border-t pt-3">
+                  <p className="font-poppins text-muted-foreground text-[10px] uppercase tracking-wider">
+                    Settlement chain
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="bg-accent size-1.5 rounded-full" />
+                    <span className="font-poppins text-sm">{chain.name}</span>
+                    <Badge variant="outline" className="ml-auto text-[10px] capitalize">
+                      {env.arcEnvironment}
+                    </Badge>
                   </div>
-                )}
+                </div>
               </CardContent>
             </Card>
-          )}
+          </div>
         </div>
-
-        <div className="space-y-3">
-          <Card className="border-border/60">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <WalletIcon className="text-muted-foreground size-4" />
-                <h3 className="font-poppins text-sm font-medium">Non-custodial</h3>
-              </div>
-              <p className="font-poppins text-muted-foreground mt-2 text-xs leading-5">
-                Strimz never holds your funds. On-chain payments settle straight into your payout
-                wallet. When you withdraw here, you&apos;re moving YOUR funds. Not requesting a
-                payout from us.
-              </p>
-              <div className="border-border/60 mt-3 border-t pt-3">
-                <p className="font-poppins text-muted-foreground text-[10px] uppercase tracking-wider">
-                  Settlement chain
-                </p>
-                <div className="mt-1 flex items-center gap-2">
-                  <span className="bg-accent size-1.5 rounded-full" />
-                  <span className="font-poppins text-sm">{chain.name}</span>
-                  <Badge variant="outline" className="ml-auto text-[10px] capitalize">
-                    {env.arcEnvironment}
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      </PasskeyGate>
     </div>
   )
 }

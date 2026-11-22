@@ -17,6 +17,7 @@ import type {
 import type { ListWebhookDeliveriesParams } from '@strimz/web-shared/lib/merchant-api/resources/webhook-endpoints'
 import type { Page, PaginationParams } from '@strimz/web-shared/lib/merchant-api'
 
+import { useStepUp } from '@/hooks/use-step-up'
 import { useMerchantApi } from './merchant-api-context'
 import { useMutationWithToast } from '@strimz/web-shared/hooks/api/use-mutation-with-toast'
 import { webhookEndpointKeys } from './query-keys'
@@ -87,8 +88,12 @@ export function useWebhookDeliveries<TData = Page<WebhookDelivery>>(
 export function useCreateWebhookEndpoint() {
   const api = useMerchantApi()
   const qc = useQueryClient()
+  const stepUp = useStepUp()
   return useMutationWithToast<CreateWebhookEndpointOutput, CreateWebhookEndpointInput>({
-    mutationFn: (input) => api.webhookEndpoints.create(input),
+    mutationFn: async (input) =>
+      api.webhookEndpoints.create(input, {
+        stepUpToken: await stepUp('webhook_endpoints.create'),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: webhookEndpointKeys.lists() })
     },
@@ -134,8 +139,12 @@ export function useEnableWebhookEndpoint() {
 export function useRotateWebhookSecret() {
   const api = useMerchantApi()
   const qc = useQueryClient()
+  const stepUp = useStepUp()
   return useMutationWithToast({
-    mutationFn: (id: string) => api.webhookEndpoints.rotateSecret(id),
+    mutationFn: async (id: string) =>
+      api.webhookEndpoints.rotateSecret(id, {
+        stepUpToken: await stepUp('webhook_endpoints.rotate_secret'),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: webhookEndpointKeys.lists() })
     },

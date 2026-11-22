@@ -28,6 +28,7 @@ import { SubscriptionPlansModule } from './modules/subscription-plans/subscripti
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module.js'
 import { RefundsModule } from './modules/refunds/refunds.module.js'
 import { WebhooksModule } from './modules/webhooks/webhooks.module.js'
+import { StepUpModule } from './modules/step-up/step-up.module.js'
 import { ComplianceModule } from './modules/compliance/compliance.module.js'
 import { AnalyticsModule } from './modules/analytics/analytics.module.js'
 import { AgentsModule } from './modules/agents/agents.module.js'
@@ -64,6 +65,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     SubscriptionsModule,
     RefundsModule,
     WebhooksModule,
+    StepUpModule,
     ComplianceModule,
     AnalyticsModule,
     AgentsModule,

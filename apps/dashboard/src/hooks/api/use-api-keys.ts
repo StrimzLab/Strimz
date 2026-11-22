@@ -16,6 +16,7 @@ import {
   type LoadedRows,
 } from '@strimz/web-shared/lib/cursor-pages'
 
+import { useStepUp } from '@/hooks/use-step-up'
 import { useMerchantApi } from './merchant-api-context'
 import { useCursorList } from './use-cursor-list'
 import { useMutationWithToast } from '@strimz/web-shared/hooks/api/use-mutation-with-toast'
@@ -60,8 +61,10 @@ export function useApiKey<TData = ApiKey>(
 export function useCreateApiKey() {
   const api = useMerchantApi()
   const qc = useQueryClient()
+  const stepUp = useStepUp()
   return useMutationWithToast<CreateApiKeyOutput, CreateApiKeyInput>({
-    mutationFn: (input) => api.apiKeys.create(input),
+    mutationFn: async (input) =>
+      api.apiKeys.create(input, { stepUpToken: await stepUp('api_keys.create') }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: apiKeyKeys.lists() })
     },
@@ -75,8 +78,10 @@ export function useCreateApiKey() {
 export function useRotateApiKey() {
   const api = useMerchantApi()
   const qc = useQueryClient()
+  const stepUp = useStepUp()
   return useMutationWithToast<CreateApiKeyOutput, string>({
-    mutationFn: (id) => api.apiKeys.rotate(id),
+    mutationFn: async (id) =>
+      api.apiKeys.rotate(id, { stepUpToken: await stepUp('api_keys.rotate') }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: apiKeyKeys.lists() })
     },

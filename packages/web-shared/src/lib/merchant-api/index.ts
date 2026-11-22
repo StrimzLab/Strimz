@@ -22,6 +22,7 @@ import { SubscriptionPlansResource } from './resources/subscription-plans'
 import { SubscriptionsResource } from './resources/subscriptions'
 import { TransactionsResource } from './resources/transactions'
 import { WebhookEndpointsResource } from './resources/webhook-endpoints'
+import { StepUpResource } from './resources/step-up'
 
 import { MerchantApiClient, type MerchantApiClientOptions } from './client'
 
@@ -35,6 +36,7 @@ export class MerchantApi {
   readonly customers: CustomersResource
   readonly apiKeys: ApiKeysResource
   readonly webhookEndpoints: WebhookEndpointsResource
+  readonly stepUp: StepUpResource
   readonly transactions: TransactionsResource
   readonly refunds: RefundsResource
   readonly invoices: InvoicesResource
@@ -52,6 +54,7 @@ export class MerchantApi {
     this.customers = new CustomersResource(this.client)
     this.apiKeys = new ApiKeysResource(this.client)
     this.webhookEndpoints = new WebhookEndpointsResource(this.client)
+    this.stepUp = new StepUpResource(this.client)
     this.transactions = new TransactionsResource(this.client)
     this.refunds = new RefundsResource(this.client)
     this.invoices = new InvoicesResource(this.client)

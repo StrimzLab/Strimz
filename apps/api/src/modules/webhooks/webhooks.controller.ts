@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { RequireStepUp } from '../step-up/step-up.guard.js'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
 import {
   CurrentMerchant,
@@ -38,6 +39,7 @@ export class WebhooksController {
   // ----- Endpoints -----
 
   @RequireScopes('webhooks_write')
+  @RequireStepUp('webhook_endpoints.create')
   @SkipIdempotency()
   @Post('/webhook-endpoints')
   @ApiOperation({ summary: 'Register a new webhook endpoint and return the signing secret once.' })
@@ -79,6 +81,7 @@ export class WebhooksController {
   }
 
   @RequireScopes('webhooks_write')
+  @RequireStepUp('webhook_endpoints.rotate_secret')
   @SkipIdempotency()
   @Post('/webhook-endpoints/:id/rotate-secret')
   @ApiOperation({ summary: 'Generate a fresh signing secret. Old secret immediately invalidated.' })

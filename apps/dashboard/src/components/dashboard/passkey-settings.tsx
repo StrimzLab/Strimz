@@ -5,6 +5,7 @@ import { useLinkWithPasskey, usePrivy, useUnlinkPasskey } from '@privy-io/react-
 import { KeyRound } from 'lucide-react'
 import { Button } from '@strimz/ui'
 
+import { hasPasskeyMfa, useEnrolPasskeyMfa } from '@/hooks/use-passkey-mfa'
 import { authErrorMessage } from '@/lib/auth-flow'
 import { canRemovePasskey, passkeysOf } from '@/lib/passkeys'
 
@@ -19,7 +20,18 @@ export function PasskeySettings() {
   )
   const [error, setError] = useState<string | null>(null)
   const [removing, setRemoving] = useState<string | null>(null)
-  const { linkWithPasskey, state } = useLinkWithPasskey()
+  const enrolMfa = useEnrolPasskeyMfa()
+  const [enrolling, setEnrolling] = useState(false)
+  const enrol = (u: Parameters<typeof enrolMfa>[0]) => {
+    setEnrolling(true)
+    enrolMfa(u)
+      .catch((err: unknown) => {
+        console.error('[settings] passkey MFA enrolment failed', err)
+        setError(authErrorMessage(err, 'link'))
+      })
+      .finally(() => setEnrolling(false))
+  }
+  const { linkWithPasskey, state } = useLinkWithPasskey({ onSuccess: ({ user: u }) => enrol(u) })
   const { unlink } = useUnlinkPasskey()
   const accounts = user?.linkedAccounts ?? []
   const passkeys = passkeysOf(accounts)
@@ -30,9 +42,24 @@ export function PasskeySettings() {
       <div>
         <div className="font-medium">Passkeys</div>
         <p className="text-muted-foreground text-xs">
-          Sign in with your fingerprint, face or device PIN instead of an email code.
+          Sign in with your fingerprint, face or device PIN instead of an email code. Your passkey
+          also confirms withdrawals, payout changes, new API keys and webhooks.
         </p>
       </div>
+      {user && passkeys.length > 0 && !hasPasskeyMfa(user) && (
+        <div className="border-warning-border bg-warning-surface text-warning space-y-2 rounded-md border p-3 text-xs">
+          <p>Your passkey can sign you in but can&apos;t confirm sensitive actions yet.</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={enrolling}
+            onClick={() => enrol(user)}
+          >
+            {enrolling ? 'Setting up…' : 'Use my passkey for confirmations'}
+          </Button>
+        </div>
+      )}
       {passkeys.length === 0 ? (
         <p className="text-muted-foreground text-xs">No passkeys yet.</p>
       ) : (

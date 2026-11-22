@@ -32,6 +32,7 @@ import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { ImageUpload } from '@/components/dashboard/image-upload'
 import { OnchainPolicySection } from '@/components/dashboard/onchain-policy-section'
 import { PasskeySettings } from '@/components/dashboard/passkey-settings'
+import { PasskeyGate } from '@/components/dashboard/passkey-gate'
 import { useMerchantMe, useUpdateMerchant } from '@/hooks/api'
 
 /**
@@ -248,7 +249,9 @@ function BusinessSection({ merchant }: { merchant: Merchant }) {
             available yet.
           </div>
         </div>
-        <PasskeySettings />
+        <div id="security" className="scroll-mt-24">
+          <PasskeySettings />
+        </div>
       </SettingsCard>
     </>
   )
@@ -326,7 +329,9 @@ function PayoutSection({ merchant }: { merchant: Merchant }) {
         </div>
       </SettingsCard>
 
-      <OnchainPolicySection />
+      <PasskeyGate action="change your payout wallet or owner">
+        <OnchainPolicySection />
+      </PasskeyGate>
     </>
   )
 }
