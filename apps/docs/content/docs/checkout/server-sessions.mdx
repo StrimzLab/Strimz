@@ -3,9 +3,9 @@ title: Create sessions on your server
 description: Your secret key stays on your server. Create the payment session there, send the session id to the browser, and open checkout from the browser with a publishable key.
 ---
 
-A payment session sets what the payer is charged: the amount, the currency, and the metadata you read back in your webhook. Only your server should decide that, so only your server creates sessions, with your secret key (`sk_test_…` or `sk_live_…`).
+A payment session sets what the payer is charged: the amount, the currency, and the metadata you read back in your webhook. Only your server should decide that, so only your server creates sessions, with your secret key (`sk_live_…`).
 
-The browser never sees the secret key. It asks your server for a session, gets back the session id, and opens checkout for that id with your publishable key (`pk_test_…` or `pk_live_…`).
+The browser never sees the secret key. It asks your server for a session, gets back the session id, and opens checkout for that id with your publishable key (`pk_live_…`).
 
 ## Why the secret key stays on the server
 

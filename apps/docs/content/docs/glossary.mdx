@@ -9,9 +9,9 @@ on a stablecoin chain.
 
 ## API key kinds
 
-**Secret key.** Full permissions, server-side only. Prefixed `sk_test_` or `sk_live_`.
+**Secret key.** Full permissions, server-side only. Prefixed `sk_live_`.
 
-**Publishable key.** Marks browser calls as test or live mode and grants no access. The public checkout and token routes do not check it, and every other route rejects it. It cannot create a payment session. Safe to ship in a browser. Prefixed `pk_test_` or `pk_live_`.
+**Publishable key.** Identifies browser calls and grants no access. The public checkout and token routes do not check it, and every other route rejects it. It cannot create a payment session. Safe to ship in a browser. Prefixed `pk_live_`.
 
 ## Charge attempt ID
 
@@ -77,13 +77,11 @@ environment and is meant for development. `aws-kms` keeps the key in
 AWS KMS, so it never appears in an environment variable or on disk. The relay section of the API
 reference covers the operator-side configuration.
 
-## Live mode and test mode
+## Live mode
 
-Two separate modes with their own API keys. Each Strimz deployment
-runs in one mode with its own contracts: test mode on Arc testnet,
-live mode on Arc mainnet. Every resource also carries a `mode`, and a
-resource created in one mode cannot be read or modified from the
-other. Live keys can't be created until Strimz runs on Arc mainnet.
+Strimz runs in live mode only, on Arc mainnet, with `sk_live_` and
+`pk_live_` keys. There is no test mode; see
+[Testing your integration](/docs/testing).
 
 ## Meta-tx
 

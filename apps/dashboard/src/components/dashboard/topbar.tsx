@@ -17,7 +17,6 @@ import {
 import { cn } from '@strimz/ui'
 import { runDashboardTour } from '@/hooks/use-dashboard-tour'
 import { BlockieAvatar } from '@strimz/web-shared/components/dashboard/blockie-avatar'
-import { ModeToggle } from './mode-toggle'
 import { NotificationsPopover } from './notifications-popover'
 
 interface Props {
@@ -112,7 +111,6 @@ export function DashboardTopbar({ title, onMenuClick, menuOpen }: Props) {
       </div>
 
       <div className="flex items-center gap-1.5 sm:gap-2">
-        <ModeToggle />
         <button
           type="button"
           onClick={() => runDashboardTour()}

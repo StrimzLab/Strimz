@@ -11,10 +11,9 @@ The Strimz API is a single host (`https://api.strimz.finance`) serving JSON over
 https://api.strimz.finance
 ```
 
-Each Strimz deployment runs in one mode. The sandbox runs on Arc
-testnet and accepts `sk_test_` keys only; the live deployment runs on
-Arc mainnet and accepts `sk_live_` keys only. A key of the other mode
-returns `403 mode_unavailable`. See [Authentication](/docs/authentication).
+Strimz runs in live mode on Arc mainnet and accepts `sk_live_` keys
+only. See [Authentication](/docs/authentication) and
+[Testing your integration](/docs/testing).
 
 ## Authentication
 
@@ -98,5 +97,5 @@ A one-line sanity check against the test API:
 
 ```bash
 curl https://api.strimz.finance/v1/merchants/me \
-  -H "Authorization: Bearer sk_test_xxxxxxxxxxx"
+  -H "Authorization: Bearer sk_live_xxxxxxxxxxx"
 ```
