@@ -1,3 +1,4 @@
+import { TERMS_VERSION } from '@strimz/shared-config'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -39,7 +40,7 @@ describe('safeNextPath', () => {
   })
 })
 
-const synced = { onboardingCompleted: true }
+const synced = { onboardingCompleted: true, termsVersion: TERMS_VERSION }
 const unsynced = new MerchantNotSyncedError({ code: 'merchant_not_synced', message: 'sync first' })
 const expired = new AuthenticationError({ code: 'authentication_error', message: 'expired' })
 const broken = new StrimzApiError(500, { code: 'api_error', message: 'boom' })
@@ -112,12 +113,25 @@ describe('dashboardGate', () => {
     ).toEqual({ kind: 'loading' })
   })
 
+  it.each([
+    ['older terms', '2020-01-01'],
+    ['no terms yet', null],
+  ])('asks an onboarded merchant on %s to accept the current terms', (_label, termsVersion) => {
+    expect(
+      dashboardGate({
+        privyReady: true,
+        authenticated: true,
+        merchant: merchant({ data: { onboardingCompleted: true, termsVersion } }),
+      }),
+    ).toEqual({ kind: 'terms' })
+  })
+
   it('sends a merchant who has not finished onboarding to onboarding', () => {
     expect(
       dashboardGate({
         privyReady: true,
         authenticated: true,
-        merchant: merchant({ data: { onboardingCompleted: false } }),
+        merchant: merchant({ data: { onboardingCompleted: false, termsVersion: null } }),
       }),
     ).toEqual({ kind: 'onboarding' })
   })

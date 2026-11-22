@@ -32,6 +32,8 @@ export const merchantSchema = z.object({
   payoutAddress: evmAddressSchema.nullable(),
   walletAddress: evmAddressSchema.nullable(),
   onboardingCompleted: z.boolean(),
+  /** The Terms of Service version this merchant last accepted, if any. */
+  termsVersion: z.string().nullable(),
   defaultCurrency: z.enum(['USDC', 'EURC']),
   countryCode: z.string().length(2).nullable(),
   websiteUrl: z.string().url().nullable(),
@@ -112,6 +114,8 @@ export const onboardMerchantInputSchema = z.object({
   phone: z.string().min(6).max(20).optional(),
   payoutAddress: evmAddressSchema,
   defaultCurrency: z.enum(['USDC', 'EURC']).optional(),
+  /** The Terms of Service version the merchant ticked; must be the current one. */
+  acceptedTerms: z.string().min(1).max(20).optional(),
 })
 export type OnboardMerchantInput = z.input<typeof onboardMerchantInputSchema>
 export type OnboardMerchantParsed = z.output<typeof onboardMerchantInputSchema>
@@ -192,3 +196,6 @@ export const loginOutputSchema = z.object({
   merchant: merchantSchema,
 })
 export type LoginOutput = z.infer<typeof loginOutputSchema>
+
+export const acceptTermsInputSchema = z.object({ version: z.string().min(1).max(20) })
+export type AcceptTermsInput = z.infer<typeof acceptTermsInputSchema>

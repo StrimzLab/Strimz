@@ -32,6 +32,7 @@ export function DashboardShell({ children, title }: { children: React.ReactNode;
     if (gate.kind === 'login') router.replace(withNext('/login', pathname))
     if (gate.kind === 'sync') router.replace(withNext('/callback', pathname))
     if (gate.kind === 'onboarding') router.replace('/onboarding')
+    if (gate.kind === 'terms') router.replace(withNext('/terms', pathname))
   }, [gate.kind, pathname, router])
 
   const [open, setOpen] = useState(false)

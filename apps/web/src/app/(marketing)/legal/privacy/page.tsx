@@ -36,9 +36,10 @@ export default function PrivacyPage() {
     >
       <h2 id="overview">Overview</h2>
       <p>
-        Strimz Labs Ltd. ("Strimz", "we") collects only the data needed to operate the Service:
-        authenticate you, settle payments, and send you receipts and product communications. We do
-        not sell personal data and we do not run third-party advertising on our surfaces.
+        STRIMZ LTD ("Strimz", "we"), a company registered in Nigeria (RC 8624034), collects only the
+        data needed to operate the Service: authenticate you, settle payments, and send you receipts
+        and product communications. We do not sell personal data and we do not run third-party
+        advertising on our surfaces.
       </p>
       <p>
         This policy applies to data we process about merchants who sign up at strimz.finance and
@@ -251,10 +252,11 @@ export default function PrivacyPage() {
 
       <h2 id="contact">Contact</h2>
       <p>
-        Strimz Labs Ltd., 20 Chancery Lane, London EC4A 1LF, United Kingdom.
+        STRIMZ LTD, a company registered in Nigeria (RC 8624034).
         <br />
         <a href="mailto:support@strimz.finance">support@strimz.finance</a> for any privacy-related
-        question.
+        question, or <a href="mailto:legal@strimz.finance">legal@strimz.finance</a> for formal legal
+        notices.
       </p>
     </LegalDoc>
   )

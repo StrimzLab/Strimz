@@ -119,3 +119,16 @@ export function useOnboardMerchant() {
     },
   })
 }
+
+export function useAcceptTerms() {
+  const api = useMerchantApi()
+  const qc = useQueryClient()
+
+  return useMutationWithToast({
+    mutationFn: (version: string) => api.merchant.acceptTerms(version),
+    messages: { loading: 'Saving…', success: 'Thanks. You can carry on.' },
+    onSuccess: (merchant) => {
+      qc.setQueryData(merchantKeys.me(), merchant)
+    },
+  })
+}

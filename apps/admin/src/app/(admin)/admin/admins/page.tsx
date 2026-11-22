@@ -302,7 +302,7 @@ function InviteAdminDialog({ onInvited }: { onInvited: (res: AdminInviteResult) 
             <Input
               id="adm-email"
               type="email"
-              placeholder="alice@strimz.finance"
+              placeholder="name@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />

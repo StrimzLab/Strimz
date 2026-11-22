@@ -14,6 +14,9 @@ import { arcModeFor, modeFromKey } from '@strimz/shared-config'
 
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { TERMS_VERSION } from '@strimz/shared-config'
+
+import { ALLOW_WITHOUT_TERMS_KEY } from '../decorators/allow-without-terms.decorator.js'
 import { PrivyService } from '../../infra/privy/privy.service.js'
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js'
 import { assertApiKeyRouteAccess } from './api-key-route-access.js'
@@ -46,6 +49,8 @@ import { assertDeploymentMode } from './deployment-mode.js'
  * dashboard-only controllers can keep `PrivyAuthGuard`. The point of
  * this guard is the resources where BOTH callers need to land.
  */
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
 @Injectable()
 export class MerchantAuthGuard implements CanActivate {
   private readonly log = new Logger(MerchantAuthGuard.name)
@@ -78,7 +83,7 @@ export class MerchantAuthGuard implements CanActivate {
     if (isStrimzKey) {
       await this.authenticateWithApiKey(token, ctx, req)
     } else {
-      await this.authenticateWithPrivy(token, req)
+      await this.authenticateWithPrivy(token, ctx, req)
     }
     return true
   }
@@ -136,12 +141,16 @@ export class MerchantAuthGuard implements CanActivate {
   // ------------------------------------------------------------------
   // Path 2 — Privy access token (dashboard)
   // ------------------------------------------------------------------
-  private async authenticateWithPrivy(token: string, req: FastifyRequest): Promise<void> {
+  private async authenticateWithPrivy(
+    token: string,
+    ctx: ExecutionContext,
+    req: FastifyRequest,
+  ): Promise<void> {
     const claims = await this.privy.verifyAccessToken(token)
 
     const merchant = await this.prisma.db.merchant.findUnique({
       where: { privyUserId: claims.userId },
-      select: { id: true, status: true },
+      select: { id: true, status: true, termsVersion: true },
     })
     if (!merchant) {
       throw new UnauthorizedException({
@@ -155,6 +164,7 @@ export class MerchantAuthGuard implements CanActivate {
         message: `merchant account is ${merchant.status}`,
       })
     }
+    this.assertTermsAccepted(merchant.termsVersion, ctx, req)
 
     // Dashboard traffic ships an `x-strimz-mode` header carrying the
     // merchant's current toggle selection. Missing / malformed values
@@ -171,5 +181,24 @@ export class MerchantAuthGuard implements CanActivate {
       .catch((err: unknown) =>
         this.log.warn(`failed to update lastLoginAt: ${(err as Error).message}`),
       )
+  }
+
+  // API keys are never blocked here, so a merchant's customers can keep paying.
+  private assertTermsAccepted(
+    termsVersion: string | null,
+    ctx: ExecutionContext,
+    req: FastifyRequest,
+  ): void {
+    if (termsVersion === TERMS_VERSION || SAFE_METHODS.has(req.method)) return
+    const allowed = this.reflector.getAllAndOverride<boolean>(ALLOW_WITHOUT_TERMS_KEY, [
+      ctx.getHandler(),
+      ctx.getClass(),
+    ])
+    if (allowed) return
+    throw new ForbiddenException({
+      code: 'terms_required',
+      message: 'accept the current Terms of Service to make changes',
+      details: { version: TERMS_VERSION },
+    })
   }
 }

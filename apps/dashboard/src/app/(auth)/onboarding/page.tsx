@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { FieldLabel, Input } from '@strimz/ui'
+import { TERMS_VERSION } from '@strimz/shared-config'
 import type { OnboardMerchantInput } from '@strimz/shared-types'
 import { SubmitButton } from '@strimz/web-shared/components/auth/submit-button'
 import { withNext } from '@strimz/web-shared/lib/auth-redirect'
+import { TermsConsent } from '@/components/auth/terms-consent'
 import { ImageUpload } from '@/components/dashboard/image-upload'
 import { useMerchantMe, useOnboardMerchant } from '@/hooks/api/use-merchant'
 
@@ -46,6 +48,7 @@ export default function OnboardingPage() {
     logoUrl: null as string | null,
     phone: '',
   })
+  const [agreed, setAgreed] = useState(false)
 
   // If the merchant already finished onboarding, hard-redirect to the
   // dashboard instead of letting them re-submit the wizard.
@@ -62,12 +65,13 @@ export default function OnboardingPage() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!payoutAddress) return
+    if (!payoutAddress || !agreed) return
     const payload: OnboardMerchantInput = {
       businessName: form.businessName,
       businessSector: form.businessSector,
       countryCode: form.countryCode.toUpperCase(),
       payoutAddress: payoutAddress as `0x${string}`,
+      acceptedTerms: TERMS_VERSION,
       ...(form.websiteUrl ? { websiteUrl: form.websiteUrl } : {}),
       ...(form.logoUrl ? { logoUrl: form.logoUrl } : {}),
       ...(form.phone ? { phone: form.phone } : {}),
@@ -181,11 +185,13 @@ export default function OnboardingPage() {
           </p>
         )}
 
+        <TermsConsent checked={agreed} onChange={setAgreed} />
+
         <SubmitButton
           type="submit"
           isLoading={submitting}
           loadingText="Saving…"
-          disabled={!payoutAddress}
+          disabled={!payoutAddress || !agreed}
         >
           Complete onboarding
           <ArrowRight className="size-4" />

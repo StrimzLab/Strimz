@@ -69,7 +69,7 @@ export const API_KEYS: ApiKey[] = [
     status: 'active',
     createdAt: daysAgo(180),
     lastUsedAt: daysAgo(0, 11),
-    createdBy: 'founder@strimz.finance',
+    createdBy: 'owner@example.com',
   },
   {
     id: id('ak', 2),
@@ -87,7 +87,7 @@ export const API_KEYS: ApiKey[] = [
     status: 'active',
     createdAt: daysAgo(120),
     lastUsedAt: daysAgo(0, 8),
-    createdBy: 'data@strimz.finance',
+    createdBy: 'data@example.com',
   },
   {
     id: id('ak', 3),
@@ -98,7 +98,7 @@ export const API_KEYS: ApiKey[] = [
     status: 'active',
     createdAt: daysAgo(45),
     lastUsedAt: daysAgo(2),
-    createdBy: 'founder@strimz.finance',
+    createdBy: 'owner@example.com',
   },
   {
     id: id('ak', 4),
@@ -109,7 +109,7 @@ export const API_KEYS: ApiKey[] = [
     status: 'active',
     createdAt: daysAgo(60),
     lastUsedAt: daysAgo(0, 13),
-    createdBy: 'founder@strimz.finance',
+    createdBy: 'owner@example.com',
   },
   {
     id: id('ak', 5),
@@ -120,7 +120,7 @@ export const API_KEYS: ApiKey[] = [
     status: 'revoked',
     createdAt: daysAgo(220),
     lastUsedAt: daysAgo(40),
-    createdBy: 'founder@strimz.finance',
+    createdBy: 'owner@example.com',
   },
 ]
 

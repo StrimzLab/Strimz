@@ -1,5 +1,11 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common'
 import { erc20Abi, formatUnits, getAddress } from 'viem'
+import { TERMS_VERSION } from '@strimz/shared-config'
 import type { Merchant, MerchantBalanceView, UpdateMerchantParsed } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
@@ -160,11 +166,13 @@ export class MerchantsService {
    * country, etc. and flips `onboardingCompleted` so the dashboard exits
    * the onboarding wizard.
    */
-  async onboard(id: string, input: OnboardInput): Promise<Merchant> {
+  async onboard(id: string, input: OnboardInput, ip: string): Promise<Merchant> {
+    assertCurrentTerms(input.acceptedTerms)
     await this.assertPayoutUnchangedOnceRegistered(id, input.payoutAddress)
     const updated = await this.prisma.db.merchant.update({
       where: { id },
       data: {
+        ...termsAcceptance(ip),
         businessName: input.businessName,
         businessSector: input.businessSector,
         countryCode: input.countryCode,
@@ -176,8 +184,33 @@ export class MerchantsService {
         onboardingCompleted: true,
       },
     })
+    await this.auditTermsAccepted(id)
     await this.merchantChain.startRegistrationIfEligible(id)
     return serialiseMerchant(updated)
+  }
+
+  async acceptTerms(id: string, version: string, ip: string): Promise<Merchant> {
+    assertCurrentTerms(version)
+    const updated = await this.prisma.db.merchant.update({
+      where: { id },
+      data: termsAcceptance(ip),
+    })
+    await this.auditTermsAccepted(id)
+    return serialiseMerchant(updated)
+  }
+
+  private async auditTermsAccepted(id: string): Promise<void> {
+    await this.prisma.db.auditLog.create({
+      data: {
+        merchantId: id,
+        actorId: id,
+        category: 'merchant',
+        action: 'terms.accepted',
+        targetType: 'Merchant',
+        targetId: id,
+        metadata: { version: TERMS_VERSION },
+      },
+    })
   }
 
   async getPublicBrand(id: string): Promise<{
@@ -271,4 +304,17 @@ function buildBalance(
     formatted: formatUnits(result.value, 6),
     decimals: 6,
   }
+}
+
+function assertCurrentTerms(version: string | undefined): void {
+  if (version === TERMS_VERSION) return
+  throw new BadRequestException({
+    code: 'terms_required',
+    message: 'accept the current Terms of Service to continue',
+    details: { version: TERMS_VERSION },
+  })
+}
+
+function termsAcceptance(ip: string) {
+  return { termsVersion: TERMS_VERSION, termsAcceptedAt: new Date(), termsAcceptedIp: ip }
 }

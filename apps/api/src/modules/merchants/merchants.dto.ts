@@ -1,5 +1,6 @@
 import { createZodDto } from 'nestjs-zod'
 import {
+  acceptTermsInputSchema,
   onboardMerchantInputSchema,
   updateMerchantInputSchema,
   type OnboardMerchantParsed,
@@ -12,3 +13,5 @@ export class UpdateMerchantDto extends createZodDto(updateMerchantInputSchema) {
  *  a validation class it can @Body() against. */
 export class OnboardDto extends createZodDto(onboardMerchantInputSchema) {}
 export type OnboardInput = OnboardMerchantParsed
+
+export class AcceptTermsDto extends createZodDto(acceptTermsInputSchema) {}

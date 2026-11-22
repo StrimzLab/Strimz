@@ -1,3 +1,4 @@
+import { TERMS_VERSION } from '@strimz/shared-config'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -48,6 +49,7 @@ const unscopedRoutes: RouteCase[] = [
       businessSector: 'Software',
       countryCode: 'US',
       payoutAddress: '0x' + 'e'.repeat(40),
+      acceptedTerms: TERMS_VERSION,
     },
   },
   { method: 'GET', url: '/v1/merchants/me/live-mode-eligibility' },
@@ -64,6 +66,7 @@ const unscopedRoutes: RouteCase[] = [
   { method: 'GET', url: '/v1/stats/forecast' },
   { method: 'GET', url: '/v1/stats/summary' },
   { method: 'GET', url: '/v1/stats/volume' },
+  { method: 'POST', url: '/v1/merchants/me/terms', payload: { version: TERMS_VERSION } },
   { method: 'GET', url: '/v1/notifications' },
   { method: 'POST', url: '/v1/notifications/mark-all-read' },
   { method: 'GET', url: '/v1/storefront' },
@@ -91,6 +94,7 @@ const sessionOnlyRoutes: RouteCase[] = [
       businessSector: 'Software',
       countryCode: 'US',
       payoutAddress: '0x' + 'e'.repeat(40),
+      acceptedTerms: TERMS_VERSION,
     },
   },
   { method: 'GET', url: '/v1/notifications' },

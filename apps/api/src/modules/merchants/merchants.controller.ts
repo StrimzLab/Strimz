@@ -1,6 +1,17 @@
-import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common'
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Ip,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { MerchantAuthGuard } from '../../common/guards/merchant-auth.guard.js'
+import { AllowWithoutTerms } from '../../common/decorators/allow-without-terms.decorator.js'
 import { SessionOnly } from '../../common/decorators/session-only.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import {
@@ -9,7 +20,7 @@ import {
 } from '../../common/decorators/current-merchant.decorator.js'
 import { MerchantsService } from './merchants.service.js'
 import { MerchantChainService } from './merchant-chain.service.js'
-import { OnboardDto, UpdateMerchantDto } from './merchants.dto.js'
+import { AcceptTermsDto, OnboardDto, UpdateMerchantDto } from './merchants.dto.js'
 
 @ApiTags('merchants')
 @ApiBearerAuth()
@@ -36,13 +47,31 @@ export class MerchantsController {
   }
 
   @SessionOnly()
+  @AllowWithoutTerms()
   @Post('/me/onboard')
   @ApiOperation({
     summary:
       'Submit the self-attested business onboarding form (business name, sector, country, payout address).',
   })
-  onboard(@CurrentMerchant() ctx: CurrentMerchantPayload, @Body() dto: OnboardDto) {
-    return this.merchants.onboard(ctx.merchantId, dto)
+  onboard(
+    @CurrentMerchant() ctx: CurrentMerchantPayload,
+    @Body() dto: OnboardDto,
+    @Ip() ip: string,
+  ) {
+    return this.merchants.onboard(ctx.merchantId, dto, ip)
+  }
+
+  @SessionOnly()
+  @AllowWithoutTerms()
+  @Post('/me/terms')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Accept the current Terms of Service version.' })
+  acceptTerms(
+    @CurrentMerchant() ctx: CurrentMerchantPayload,
+    @Body() dto: AcceptTermsDto,
+    @Ip() ip: string,
+  ) {
+    return this.merchants.acceptTerms(ctx.merchantId, dto.version, ip)
   }
 
   @RequireScopes('merchants_read')
