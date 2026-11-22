@@ -42,16 +42,16 @@ jobs:
           scripts/install-arc-foundry.sh "$HOME/.local/bin"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           run_install: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: '.nvmrc'
           cache: pnpm
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: apps/indexer/go.mod
           cache-dependency-path: apps/indexer/go.sum
@@ -67,7 +67,7 @@ jobs:
 
       - name: Service logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-full-stack-logs
           path: e2e/full-stack/.logs/
