@@ -61,6 +61,20 @@ describe('refund reconciler e2e', () => {
     ...over,
   })
 
+  const DROP_CONFIRM_MS = 60_000
+  async function seenDroppedAgo(id: string, ms: number) {
+    const row = await t.prisma.db.refund.findUniqueOrThrow({ where: { id } })
+    await t.prisma.db.refund.update({
+      where: { id },
+      data: {
+        metadata: {
+          ...(row.metadata as object),
+          droppedSince: new Date(Date.now() - ms).toISOString(),
+        },
+      },
+    })
+  }
+
   const completedEvents = () =>
     t.prisma.db.webhookEvent.findMany({ where: { type: 'refund_completed' } })
   const failedEvents = () => t.prisma.db.webhookEvent.findMany({ where: { type: 'refund_failed' } })
@@ -145,6 +159,8 @@ describe('refund reconciler e2e', () => {
 
       t.chain.sentTxs.clear()
       t.chain.confirmedNonces.set(SENDER.toLowerCase(), 8)
+      expect(await run()).toMatchObject({ pending: 1, failed: 0 })
+      await seenDroppedAgo(r.id, DROP_CONFIRM_MS + 1_000)
       expect(await run()).toMatchObject({ failed: 1 })
 
       const row = await t.prisma.db.refund.findUniqueOrThrow({ where: { id: r.id } })
@@ -153,6 +169,39 @@ describe('refund reconciler e2e', () => {
       expect(await failedEvents()).toHaveLength(1)
       expect(await run()).toMatchObject({ checked: 0 })
       expect(await failedEvents()).toHaveLength(1)
+    })
+
+    // #517: the receipt read can hit a node a block behind the one that reported the nonce.
+    it('completes a refund whose receipt only shows up after the nonce moves on', async () => {
+      const r = await refund()
+      t.chain.sentTxs.set(r.hash, { from: SENDER, nonce: 7 })
+      t.chain.confirmedNonces.set(SENDER.toLowerCase(), 8)
+      t.chain.receipts.set(r.hash, receipt())
+      t.chain.laggingReceipts.set(r.hash, 1)
+
+      expect(await run()).toMatchObject({ completed: 1, failed: 0 })
+      expect(await failedEvents()).toHaveLength(0)
+    })
+
+    it('does not fail a refund the first time it looks dropped', async () => {
+      const r = await refund()
+      t.chain.sentTxs.set(r.hash, { from: SENDER, nonce: 7 })
+      t.chain.confirmedNonces.set(SENDER.toLowerCase(), 8)
+
+      expect(await run()).toMatchObject({ pending: 1, failed: 0 })
+      const row = await t.prisma.db.refund.findUniqueOrThrow({ where: { id: r.id } })
+      expect(row.status).toBe('submitted')
+      expect(row.metadata).toMatchObject({ droppedSince: expect.any(String) })
+    })
+
+    it('still waits if it looks dropped again too soon', async () => {
+      const r = await refund()
+      t.chain.sentTxs.set(r.hash, { from: SENDER, nonce: 7 })
+      t.chain.confirmedNonces.set(SENDER.toLowerCase(), 8)
+      await run()
+      await seenDroppedAgo(r.id, DROP_CONFIRM_MS - 5_000)
+
+      expect(await run()).toMatchObject({ pending: 1, failed: 0 })
     })
 
     it('keeps a transaction no node has seen as submitted, however old', async () => {
