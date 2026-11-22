@@ -34,6 +34,11 @@ export class MerchantResource {
     return this.client.post<Merchant>('/v1/merchants/me/onboard', input, options)
   }
 
+  /** POST /v1/merchants/me/terms. Accepts the current Terms of Service. */
+  acceptTerms(version: string, options?: CallOptions): Promise<Merchant> {
+    return this.client.post<Merchant>('/v1/merchants/me/terms', { version }, options)
+  }
+
   /**
    * GET /v1/merchants/me/balance. Live on-chain USDC / EURC balance
    * at the merchant's payout address. Powers the withdraw page.

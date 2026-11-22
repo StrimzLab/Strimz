@@ -1,3 +1,4 @@
+import { TERMS_VERSION } from '@strimz/shared-config'
 import { generateApiKey } from '@strimz/shared-crypto'
 import type {
   MerchantTier,
@@ -31,6 +32,7 @@ export async function seedMerchant(
     onchainMerchantId: number
     walletAddress: string
     tier: MerchantTier
+    termsVersion: string | null
   }> = {},
 ): Promise<SeededMerchant> {
   const email =
@@ -48,6 +50,8 @@ export async function seedMerchant(
       onchainMerchantId: overrides.onchainMerchantId ?? null,
       walletAddress: overrides.walletAddress ?? null,
       tier: overrides.tier ?? 'free',
+      // A seeded merchant has accepted the current terms unless a test says otherwise.
+      termsVersion: overrides.termsVersion === undefined ? TERMS_VERSION : overrides.termsVersion,
     },
   })
   return {

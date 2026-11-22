@@ -27,6 +27,10 @@ model Merchant {
   tier                 MerchantTier   @default(free)
   /// When a free merchant earned the full relay quota: its first real payment, or an admin.
   relayUnlockedAt      DateTime?
+  /// Terms of Service version last accepted, when, and from which IP (proof of agreement).
+  termsVersion         String?        @db.VarChar(20)
+  termsAcceptedAt      DateTime?
+  termsAcceptedIp      String?        @db.VarChar(45)
   status               MerchantStatus @default(active)
   /// The merchant's controlling EVM address — used as the on-chain
   /// `owner` in `StrimzRegistry.registerMerchant`. Sourced from the

@@ -1,3 +1,4 @@
+import { TERMS_VERSION } from '@strimz/shared-config'
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { QUEUE_NAMES, relayJobSchema } from '@strimz/queue-contracts'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
@@ -106,6 +107,7 @@ describe('merchant on-chain registration requests', () => {
         businessSector: 'Software',
         countryCode: 'US',
         payoutAddress: '0x' + 'a'.repeat(40),
+        acceptedTerms: TERMS_VERSION,
       },
     })
     expect(res.statusCode).toBe(201)
@@ -125,6 +127,7 @@ describe('merchant on-chain registration requests', () => {
         businessSector: 'Software',
         countryCode: 'US',
         payoutAddress: '0x' + 'a'.repeat(40),
+        acceptedTerms: TERMS_VERSION,
       },
     })
     expect(res.statusCode).toBe(201)

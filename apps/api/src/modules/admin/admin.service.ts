@@ -571,9 +571,8 @@ export class AdminService {
       throw new BadRequestException({ code: 'already_exists', message: 'email already admin' })
     }
 
-    // Read the inviter so the email can carry an attributable "added
-    // by Emmanuel (emma@strimz.finance)" line. Falls back to "A Strimz
-    // admin" if the row is gone (shouldn't happen — guard checked it).
+    // The email names who sent the invite. Falls back to "A Strimz admin"
+    // if the row is gone (shouldn't happen: the guard checked it).
     const inviter = await this.prisma.db.adminUser.findUnique({
       where: { id: input.invitedById },
       select: { name: true, email: true },

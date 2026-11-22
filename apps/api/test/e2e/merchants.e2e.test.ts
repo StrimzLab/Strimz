@@ -1,3 +1,4 @@
+import { TERMS_VERSION } from '@strimz/shared-config'
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { truncateAll } from '../helpers/db-helper.js'
@@ -70,6 +71,7 @@ describe('merchants e2e', () => {
         businessSector: 'Software',
         countryCode: 'US',
         payoutAddress: '0x' + '4'.repeat(40),
+        acceptedTerms: TERMS_VERSION,
       },
     })
 
@@ -100,6 +102,7 @@ describe('merchants e2e', () => {
         businessSector: 'Software',
         countryCode: 'US',
         payoutAddress: '0x' + 'a'.repeat(40),
+        acceptedTerms: TERMS_VERSION,
       },
     })
     expect(res.statusCode).toBe(201)

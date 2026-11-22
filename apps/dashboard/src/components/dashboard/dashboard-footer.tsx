@@ -14,7 +14,7 @@ export function DashboardFooter() {
       <div className="font-poppins text-muted-foreground mx-auto flex w-full max-w-7xl flex-col items-start justify-between gap-3 px-1 py-5 text-[12px] sm:flex-row sm:items-center sm:px-2">
         <div className="flex items-center gap-2">
           <Glyph className="size-4" />
-          <span>© {year} Strimz Labs</span>
+          <span>© {year} STRIMZ LTD</span>
         </div>
         <nav className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <Link

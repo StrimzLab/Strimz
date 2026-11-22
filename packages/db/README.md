@@ -49,7 +49,7 @@ import { createPrismaClient, type Merchant } from '@strimz/db'
 const prisma = createPrismaClient()
 
 const merchant: Merchant | null = await prisma.merchant.findUnique({
-  where: { email: 'ops@strimz.io' },
+  where: { email: 'owner@example.com' },
 })
 ```
 

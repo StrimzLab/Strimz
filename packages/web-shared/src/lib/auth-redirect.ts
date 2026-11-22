@@ -1,3 +1,4 @@
+import { TERMS_VERSION } from '@strimz/shared-config'
 import {
   AuthenticationError,
   ForbiddenError,
@@ -34,6 +35,7 @@ export type DashboardGate =
   | { kind: 'login' }
   | { kind: 'sync' }
   | { kind: 'onboarding' }
+  | { kind: 'terms' }
   | { kind: 'error'; message: string }
   | { kind: 'ready' }
 
@@ -43,7 +45,7 @@ export interface DashboardGateInput {
   merchant: {
     isPending: boolean
     error: unknown
-    data: { onboardingCompleted: boolean } | undefined
+    data: { onboardingCompleted: boolean; termsVersion: string | null } | undefined
   }
 }
 
@@ -65,6 +67,7 @@ export function dashboardGate({
   }
   if (merchant.isPending || !merchant.data) return { kind: 'loading' }
   if (!merchant.data.onboardingCompleted) return { kind: 'onboarding' }
+  if (merchant.data.termsVersion !== TERMS_VERSION) return { kind: 'terms' }
   return { kind: 'ready' }
 }
 
