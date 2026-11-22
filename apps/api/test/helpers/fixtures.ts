@@ -29,6 +29,7 @@ export async function seedMerchant(
     twoFactorEnabled: boolean
     payoutAddress: string
     mfa: boolean
+    passkey: boolean
     onchainMerchantId: number
     walletAddress: string
     tier: MerchantTier
@@ -37,7 +38,7 @@ export async function seedMerchant(
 ): Promise<SeededMerchant> {
   const email =
     overrides.email ?? `merchant-${Date.now()}-${Math.random().toString(36).slice(2)}@strimz.test`
-  const privyUserId = makePrivyDid(email, overrides.mfa ?? false)
+  const privyUserId = makePrivyDid(email, overrides.mfa ?? false, overrides.passkey ?? true)
   const m = await prisma.merchant.create({
     data: {
       privyUserId,

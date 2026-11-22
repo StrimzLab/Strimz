@@ -150,7 +150,7 @@ A dashboard session manages keys with any scopes.
 You can't issue a key the moment you sign up. Keys unlock once you've completed:
 
 1. **Email verification.** Privy verifies your email address.
-2. **Two-factor authentication.** Enabled in your Privy account settings.
+2. **A passkey.** Added in the dashboard under Settings, Security. It is your second factor.
 3. **Business onboarding.** The self-attested form in the dashboard (business name, sector, country, payout address).
 4. **Payout address.** A payout wallet address is set on your account.
 
@@ -161,6 +161,19 @@ right step. There is no manual review queue on the basic plan.
 The API checks the same list when a key is created or rotated. If a check fails, it returns `403` with code `live_mode_ineligible` and the same `reasons` in `error.details.reasons`, and no key is written. Existing keys keep working if a check later fails; the list is checked again on the next create or rotate.
 
 A request made with a key that isn't a live key returns `403` with code `mode_unavailable`.
+
+## Passkey confirmation
+
+Some changes made from the dashboard need your passkey at the moment you make them:
+
+- creating or rotating an API key;
+- adding a webhook endpoint or rotating its signing secret;
+- withdrawing, and changing your payout wallet or owner.
+
+For the first two, the dashboard asks for your passkey and the API checks it before
+making the change. A request without a fresh confirmation returns `403 step_up_required`,
+and an account with no passkey returns `403 passkey_required`. Requests made with an
+API key from your server are not asked for a passkey.
 
 ## Rotating a key
 

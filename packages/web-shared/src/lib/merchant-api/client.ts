@@ -43,6 +43,8 @@ export interface RequestOptions {
   query?: Record<string, QueryValue>
   /** JSON body for POST/PATCH/PUT. */
   body?: unknown
+  /** Sent as `x-strimz-step-up` on routes that need a passkey confirmation. */
+  stepUpToken?: string
   /**
    * When true, the client skips the access-token lookup. Used for the
    * `/v1/auth/sync` endpoint (which carries the Privy token explicitly
@@ -105,6 +107,10 @@ export class MerchantApiClient {
         })
       }
       ;(headers as Record<string, string>).authorization = `Bearer ${token}`
+    }
+
+    if (options.stepUpToken) {
+      ;(headers as Record<string, string>)['x-strimz-step-up'] = options.stepUpToken
     }
 
     let bodyJson: string | undefined

@@ -93,6 +93,8 @@ describe('api key route access declarations', () => {
       'NotificationsController.broadcast',
       'NotificationsController.list',
       'NotificationsController.markAllRead',
+      'StepUpController.start',
+      'StepUpController.verify',
     ])
   })
 })

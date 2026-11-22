@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { usePrivy } from '@privy-io/react-auth'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@strimz/ui'
+import { PasskeyMfaPrompt } from '@/components/dashboard/passkey-mfa-prompt'
 import { DashboardSidebar } from './sidebar'
 import { DashboardTopbar } from './topbar'
 import { DashboardFooter } from './dashboard-footer'
@@ -64,6 +65,7 @@ export function DashboardShell({ children, title }: { children: React.ReactNode;
       <DashboardSidebar open={open} onClose={() => setOpen(false)} />
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <DashboardTopbar title={title} menuOpen={open} onMenuClick={() => setOpen((o) => !o)} />
+        <PasskeyMfaPrompt />
         <main className="flex flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex-1">{children}</div>
           <DashboardFooter />

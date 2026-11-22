@@ -7,6 +7,7 @@ import { StrimzBrowserClient, StrimzClient, StrimzError } from '@strimz/sdk'
 import { createTestApp, type TestApp } from '../helpers/test-app.factory.js'
 import { ApiKeyGuard } from '../../src/common/guards/api-key.guard.js'
 import { MerchantAuthGuard } from '../../src/common/guards/merchant-auth.guard.js'
+import { StepUpGuard } from '../../src/modules/step-up/step-up.guard.js'
 import { IS_PUBLIC_KEY } from '../../src/common/decorators/public.decorator.js'
 import { REQUIRED_SCOPES_KEY } from '../../src/common/decorators/scopes.decorator.js'
 import { SESSION_ONLY_KEY } from '../../src/common/decorators/session-only.decorator.js'
@@ -245,7 +246,10 @@ function matchRoute(routes: Route[], captured: Captured): Route | undefined {
 
 function secretKeyCanCall(route: Route): boolean {
   if (route.public || route.guards.length === 0) return true
-  const keyGuards = route.guards.every((g) => g === MerchantAuthGuard || g === ApiKeyGuard)
+  // StepUpGuard only asks dashboard sessions for a passkey; API keys pass through it.
+  const keyGuards = route.guards.every(
+    (g) => g === MerchantAuthGuard || g === ApiKeyGuard || g === StepUpGuard,
+  )
   return keyGuards && !route.sessionOnly && route.scopes.length > 0
 }
 

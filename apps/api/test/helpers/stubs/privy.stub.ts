@@ -55,7 +55,10 @@ export class StubPrivyService {
       id: privyUserId,
       email: decoded.email ? { address: decoded.email } : undefined,
       linkedAccounts: decoded.email ? [{ type: 'email', address: decoded.email }] : [],
-      mfaMethods: decoded.mfa ? [{ type: 'totp' }] : [],
+      mfaMethods: [
+        ...(decoded.mfa ? [{ type: 'totp' }] : []),
+        ...(decoded.passkey ? [{ type: 'passkey' }] : []),
+      ],
     })
   }
 
@@ -65,6 +68,37 @@ export class StubPrivyService {
   primaryWallet(_user: any): string | null {
     return '0x000000000000000000000000000000000000dead'
   }
+  hasPasskeyMfa(user: any): boolean {
+    return (
+      Array.isArray(user?.mfaMethods) && user.mfaMethods.some((m: any) => m?.type === 'passkey')
+    )
+  }
+
+  /** Records the relying party each challenge was requested for. */
+  readonly passkeyChallenges: string[] = []
+
+  initPasskeyVerification(
+    _userId: string,
+    _userJwt: string,
+    relyingParty: string,
+  ): Promise<unknown> {
+    this.passkeyChallenges.push(relyingParty)
+    return Promise.resolve({
+      challenge: 'Y2hhbGxlbmdl',
+      allow_credentials: [{ id: 'Y3JlZA', type: 'public-key' }],
+      rp_id: new URL(relyingParty).hostname,
+      user_verification: 'required',
+    })
+  }
+
+  /** The credential id `good-credential` verifies; anything else is refused, as Privy would. */
+  verifyPasskey(_userId: string, _userJwt: string, credential: { id: string }): Promise<void> {
+    if (credential.id === 'good-credential') return Promise.resolve()
+    return Promise.reject(
+      new UnauthorizedException({ code: 'step_up_failed', message: 'passkey verification failed' }),
+    )
+  }
+
   hasMfa(user: any): boolean {
     return Array.isArray(user?.mfaMethods) && user.mfaMethods.length > 0
   }
@@ -74,12 +108,12 @@ export class StubPrivyService {
  * Encode `email` and `mfa` flags into a synthetic Privy DID so the stub's
  * `getUser()` can return the same data the test set up via `verifyAccessToken`.
  */
-export function makePrivyDid(email: string, mfa = false): string {
-  return `did:privy:e2e:${encodeURIComponent(email)}:${mfa ? '1' : '0'}`
+export function makePrivyDid(email: string, mfa = false, passkey = false): string {
+  return `did:privy:e2e:${encodeURIComponent(email)}:${mfa ? '1' : '0'}${passkey ? ':pk' : ''}`
 }
 
-function decodeDid(did: string): { email?: string; mfa?: boolean } {
-  const m = did.match(/^did:privy:e2e:([^:]+):([01])$/)
+function decodeDid(did: string): { email?: string; mfa?: boolean; passkey?: boolean } {
+  const m = did.match(/^did:privy:e2e:([^:]+):([01])(:pk)?$/)
   if (!m) return {}
-  return { email: decodeURIComponent(must(m[1])), mfa: m[2] === '1' }
+  return { email: decodeURIComponent(must(m[1])), mfa: m[2] === '1', passkey: m[3] === ':pk' }
 }

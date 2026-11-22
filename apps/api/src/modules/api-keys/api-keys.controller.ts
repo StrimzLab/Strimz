@@ -10,6 +10,7 @@ import {
 import { SkipIdempotency } from '../../common/decorators/skip-idempotency.decorator.js'
 import { RequireScopes } from '../../common/decorators/scopes.decorator.js'
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js'
+import { RequireStepUp } from '../step-up/step-up.guard.js'
 import { listQuerySchema, type ListQuery } from '../../common/schemas/list-query.js'
 import { ApiKeysService } from './api-keys.service.js'
 
@@ -21,6 +22,7 @@ export class ApiKeysController {
   constructor(private readonly apiKeys: ApiKeysService) {}
 
   @RequireScopes('api_keys_write')
+  @RequireStepUp('api_keys.create')
   @SkipIdempotency()
   @Post()
   create(
@@ -59,6 +61,7 @@ export class ApiKeysController {
   }
 
   @RequireScopes('api_keys_write')
+  @RequireStepUp('api_keys.rotate')
   @SkipIdempotency()
   @Post('/:id/rotate')
   @ApiOperation({ summary: 'Revoke this key and mint a fresh one with identical scopes.' })
