@@ -159,9 +159,9 @@ export function MarketingFooter() {
       <div className="relative mx-auto max-w-[1280px] px-5 sm:px-10">
         <p
           data-mark
-          aria-label={WORDMARK}
           className="font-sora -mb-[0.12em] overflow-hidden pb-[0.12em] text-center text-[26vw] font-semibold leading-[0.82] tracking-[-0.06em] sm:text-[21vw] xl:text-[17rem]"
         >
+          <span className="sr-only">{WORDMARK}</span>
           {[...WORDMARK].map((ch, i) => (
             <span
               key={i}

@@ -3,6 +3,7 @@ import { defineConfig } from 'vitest/config'
 
 // Playwright specs live in tests/e2e and run with `pnpm test:e2e`.
 export default defineConfig({
+  esbuild: { jsx: 'automatic' },
   resolve: {
     alias: {
       '@strimz/web-shared': fileURLToPath(
