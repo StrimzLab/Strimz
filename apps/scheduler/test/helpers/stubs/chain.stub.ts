@@ -59,6 +59,9 @@ export class StubChainService implements Methods<ChainService> {
   onModuleInit(): Promise<void> {
     return Promise.resolve()
   }
+  chainIdAt(): Promise<number> {
+    return Promise.resolve(5042002)
+  }
 
   reset() {
     this.calls.length = 0

@@ -60,6 +60,7 @@ function chainService(env: Record<string, unknown>, rpcChainId: number) {
   const cfg = {
     env: {
       ARC_RPC_URL: 'http://localhost:8545',
+      ARC_FALLBACK_RPC_URLS: [],
       SUBSCRIPTIONS_ADDRESS: '0x0000000000000000000000000000000000000001',
       AGENT_ESCROW_ADDRESS: '0x0000000000000000000000000000000000000002',
       REGISTRY_ADDRESS: '0x0000000000000000000000000000000000000003',
@@ -67,7 +68,7 @@ function chainService(env: Record<string, unknown>, rpcChainId: number) {
     },
   } as unknown as TypedConfigService
   const service = new ChainService(cfg, signer)
-  const getChainId = vi.spyOn(service.publicClient, 'getChainId').mockResolvedValue(rpcChainId)
+  const getChainId = vi.spyOn(service, 'chainIdAt').mockResolvedValue(rpcChainId)
   return { service, getChainId }
 }
 

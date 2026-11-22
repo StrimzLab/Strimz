@@ -1,6 +1,8 @@
 import { getTokenAddress } from '@strimz/shared-config'
 import { z } from 'zod'
 
+import { parseFallbackRpcUrls } from './rpc-fallbacks.js'
+
 const unsetWhenEmpty = <T extends z.ZodTypeAny>(schema: T) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema.optional())
 
@@ -77,6 +79,18 @@ export const envSchema = z.object({
   // ----- Chain -----
   ARC_ENVIRONMENT: z.enum(['testnet', 'mainnet']).optional(),
   ARC_RPC_URL: z.string().url(),
+  // Tried in order when ARC_RPC_URL fails (ADR-2026-11-22-rpc-per-service).
+  ARC_FALLBACK_RPC_URLS: z
+    .string()
+    .optional()
+    .transform((raw, ctx) => {
+      try {
+        return parseFallbackRpcUrls(raw)
+      } catch (err) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: (err as Error).message })
+        return z.NEVER
+      }
+    }),
   STRIMZ_REGISTRY_ADDRESS: z.string().optional(),
   STRIMZ_PAYMENTS_ADDRESS: z.string().optional(),
   STRIMZ_SUBSCRIPTIONS_ADDRESS: z.string().optional(),

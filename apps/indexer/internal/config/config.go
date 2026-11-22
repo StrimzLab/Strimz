@@ -29,17 +29,20 @@ const (
 type Config struct {
 	Environment Environment `envconfig:"ARC_ENVIRONMENT"   required:"true"`
 	ChainID     int64       `envconfig:"ARC_CHAIN_ID"      required:"true"`
-	RPCURL      string      `envconfig:"ARC_RPC_URL"       required:"true"`
-	// Optional ordered fallback endpoints. The client tries ARC_RPC_URL
-	// first, then these in order when a request errors.
-	FallbackRPCURLs    []string `envconfig:"ARC_FALLBACK_RPC_URLS" default:""`
-	DatabaseURL        string   `envconfig:"DATABASE_URL"      required:"true"`
-	HTTPPort           int      `envconfig:"HTTP_PORT"         default:"4100"`
-	LogLevel           string   `envconfig:"LOG_LEVEL"         default:"info"`
-	PollIntervalMillis int      `envconfig:"POLL_INTERVAL_MS"  default:"5000"`
-	Confirmations      uint64   `envconfig:"CONFIRMATIONS"     required:"true"`
-	StartBlock         uint64   `envconfig:"START_BLOCK"       required:"true"`
-	BlockBatchSize     uint64   `envconfig:"BLOCK_BATCH_SIZE"  default:"500"`
+	RPCURL      string      `envconfig:"ARC_RPC_URL"`
+	// Optional ordered fallback endpoints, tried in order when a request errors.
+	FallbackRPCURLs []string `envconfig:"ARC_FALLBACK_RPC_URLS" default:""`
+	// The indexer's own endpoints, which replace the two above when set. Free keyed
+	// RPCs cap eth_getLogs at a few blocks (ADR-2026-11-22-rpc-per-service).
+	IndexerRPCURL          string   `envconfig:"INDEXER_ARC_RPC_URL"`
+	IndexerFallbackRPCURLs []string `envconfig:"INDEXER_FALLBACK_RPC_URLS" default:""`
+	DatabaseURL            string   `envconfig:"DATABASE_URL"      required:"true"`
+	HTTPPort               int      `envconfig:"HTTP_PORT"         default:"4100"`
+	LogLevel               string   `envconfig:"LOG_LEVEL"         default:"info"`
+	PollIntervalMillis     int      `envconfig:"POLL_INTERVAL_MS"  default:"5000"`
+	Confirmations          uint64   `envconfig:"CONFIRMATIONS"     required:"true"`
+	StartBlock             uint64   `envconfig:"START_BLOCK"       required:"true"`
+	BlockBatchSize         uint64   `envconfig:"BLOCK_BATCH_SIZE"  default:"500"`
 	// StaleCursorSeconds: /readyz flips to 503 if any Strimz-contract
 	// cursor has not moved in this many seconds. Also drives a per-tick
 	// WARN log. Set to 0 to disable the check.
@@ -84,6 +87,9 @@ func Validate(c *Config) (*Config, error) {
 	if c.ChainID < 1 || c.ChainID > math.MaxInt32 {
 		return nil, fmt.Errorf("ARC_CHAIN_ID must be an integer in [1, %d], got %d", math.MaxInt32, c.ChainID)
 	}
+	if c.IndexerRPCURL == "" && c.RPCURL == "" {
+		return nil, errors.New("INDEXER_ARC_RPC_URL or ARC_RPC_URL is required")
+	}
 	if c.StartBlock < 1 {
 		return nil, errors.New("START_BLOCK must be >= 1, the block the core contracts were deployed at")
 	}
@@ -114,6 +120,21 @@ func Validate(c *Config) (*Config, error) {
 	}
 	c.Stablecoins = stablecoins
 	return c, nil
+}
+
+// RPCEndpoints returns the indexer's endpoints in priority order.
+func (c *Config) RPCEndpoints() []string {
+	primary, fallbacks := c.RPCURL, c.FallbackRPCURLs
+	if c.IndexerRPCURL != "" {
+		primary, fallbacks = c.IndexerRPCURL, c.IndexerFallbackRPCURLs
+	}
+	out := []string{primary}
+	for _, u := range fallbacks {
+		if u = strings.TrimSpace(u); u != "" {
+			out = append(out, u)
+		}
+	}
+	return out
 }
 
 func (c *Config) ContractNames() map[string]string {

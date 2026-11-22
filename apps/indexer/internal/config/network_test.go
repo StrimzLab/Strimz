@@ -117,3 +117,33 @@ func TestLoad_RejectsMalformedTokenWhitelistAddress(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "TOKEN_WHITELIST_ADDRESS")
 }
+
+// ADR-2026-11-22-rpc-per-service.
+func TestLoad_UsesTheIndexerRPCWhenSet(t *testing.T) {
+	setNetworkEnv(t, map[string]string{
+		"ARC_RPC_URL":               "https://shared.test/key-a",
+		"ARC_FALLBACK_RPC_URLS":     "https://shared-backup.test/key-b",
+		"INDEXER_ARC_RPC_URL":       "https://rpc.mainnet.arc.io",
+		"INDEXER_FALLBACK_RPC_URLS": "https://wide-range.test",
+	})
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"https://rpc.mainnet.arc.io", "https://wide-range.test"}, cfg.RPCEndpoints())
+}
+
+func TestLoad_KeepsTheSharedRPCWhenNoIndexerOneIsSet(t *testing.T) {
+	setNetworkEnv(t, map[string]string{
+		"ARC_RPC_URL":           "https://shared.test/rpc",
+		"ARC_FALLBACK_RPC_URLS": "https://shared-backup.test/rpc",
+	}, "INDEXER_ARC_RPC_URL", "INDEXER_FALLBACK_RPC_URLS")
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"https://shared.test/rpc", "https://shared-backup.test/rpc"}, cfg.RPCEndpoints())
+}
+
+func TestLoad_RequiresAnRPC(t *testing.T) {
+	setNetworkEnv(t, nil, "ARC_RPC_URL", "INDEXER_ARC_RPC_URL")
+	_, err := Load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "INDEXER_ARC_RPC_URL")
+}
