@@ -59,7 +59,7 @@ const MAX_RELAY_GAS = 600_000n
 const MAX_CANCEL_ATTEMPTS_PER_DAY = 3
 
 // FiatToken's bytes overload, so smart-wallet (ERC-1271) payers can renew too.
-const tokenPermitAbi = parseAbi([
+export const tokenPermitAbi = parseAbi([
   'function permit(address owner, address spender, uint256 value, uint256 deadline, bytes signature)',
 ])
 

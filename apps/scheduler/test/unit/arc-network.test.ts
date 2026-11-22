@@ -39,13 +39,16 @@ const productionEnv = {
   RELAYER_ADDRESS: '0x000000000000000000000000000000000000dEaD',
   STRIMZ_ADMIN_ALERT_EMAIL: 'ops@strimz.test',
   CHECKOUT_ORIGIN: 'http://localhost:3002',
-  REFUND_SIGNER_PROVIDER: 'aws-kms',
-  REFUND_KMS_KEY_ID: 'arn:aws:kms:us-east-1:111122223333:key/refund-testnet',
+  // Production signers are Privy wallets: ADR-2026-11-22-privy-server-signers.
+  REFUND_SIGNER_PROVIDER: 'privy',
+  PRIVY_REFUND_WALLET_ID: 'refund-wallet',
   REFUND_SIGNER_ADDRESS: '0x00000000000000000000000000000000000000e5',
-  SCHEDULER_SIGNER_PROVIDER: 'aws-kms',
-  SCHEDULER_KMS_KEY_ID: 'arn:aws:kms:us-east-1:111122223333:key/scheduler-testnet',
+  SCHEDULER_SIGNER_PROVIDER: 'privy',
+  PRIVY_SCHEDULER_WALLET_ID: 'scheduler-wallet',
   SCHEDULER_SIGNER_ADDRESS: KMS_ADDRESS,
-  AWS_REGION: 'us-east-1',
+  PRIVY_APP_ID: 'app',
+  PRIVY_APP_SECRET: 'secret',
+  PRIVY_SIGNER_AUTHORIZATION_KEY: 'wallet-auth:server-key',
 }
 
 const signer: KmsSigner = {

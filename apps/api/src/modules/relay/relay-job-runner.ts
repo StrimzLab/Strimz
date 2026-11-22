@@ -9,7 +9,7 @@ import {
   type TransactionReceipt,
 } from 'viem'
 import { relayJobSchema, type RelayBroadcast, type RelayJob } from '@strimz/queue-contracts'
-import { toKmsAccount, type KmsSigner } from '@strimz/signer'
+import { PrivyPolicyViolationError, toSignerAccount, type TransactionSigner } from '@strimz/signer'
 
 import { TypedConfigService } from '../../config/index.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
@@ -61,7 +61,7 @@ export class RelayJobRunner {
     private readonly nonces: NonceManager,
     private readonly gas: GasPricingService,
     private readonly prisma: PrismaService,
-    @Inject(KMS_SIGNER) private readonly signer: KmsSigner,
+    @Inject(KMS_SIGNER) private readonly signer: TransactionSigner,
     cfg: TypedConfigService,
     private readonly budget: RelayBudgetService,
     private readonly guard: RelayGuardService,
@@ -227,17 +227,28 @@ export class RelayJobRunner {
       retry: job.attemptsMade > 0,
       previous,
     })
-    const serialized = await toKmsAccount(this.signer).signTransaction({
-      type: 'eip1559',
-      chainId,
-      nonce: Number(nonce),
-      to: call.to,
-      data: call.data,
-      value: 0n,
-      gas: call.gas,
-      maxFeePerGas,
-      maxPriorityFeePerGas,
-    })
+    let serialized: Hex
+    try {
+      serialized = await toSignerAccount(this.signer).signTransaction({
+        type: 'eip1559',
+        chainId,
+        nonce: Number(nonce),
+        to: call.to,
+        data: call.data,
+        value: 0n,
+        gas: call.gas,
+        maxFeePerGas,
+        maxPriorityFeePerGas,
+      })
+    } catch (err) {
+      // Nothing was sent, so the nonce we took is still free.
+      await this.nonces.resync(chainId, this.signer.address)
+      if (err instanceof PrivyPolicyViolationError) {
+        await this.guard.alertSigningRefused(job.id ?? 'unknown', call.to)
+        throw new RelayPermanentError(`relay_signing_refused: ${err.message}`)
+      }
+      throw err
+    }
     const txHash = keccak256(serialized)
 
     await job.updateData({

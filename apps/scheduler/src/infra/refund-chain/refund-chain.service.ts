@@ -14,7 +14,7 @@ import {
   type Transport,
 } from 'viem'
 import { getArcChain } from '@strimz/shared-config'
-import { toKmsAccount, type KmsSigner } from '@strimz/signer'
+import { toSignerAccount, type TransactionSigner } from '@strimz/signer'
 
 import { TypedConfigService } from '../../config/index.js'
 import { REFUND_SIGNER } from './refund-signer.js'
@@ -36,11 +36,11 @@ export class RefundChainService {
   private readonly account: LocalAccount | null
   private readonly wallet: ReturnType<typeof refundWallet> | null
 
-  constructor(cfg: TypedConfigService, @Inject(REFUND_SIGNER) signer: KmsSigner | null) {
+  constructor(cfg: TypedConfigService, @Inject(REFUND_SIGNER) signer: TransactionSigner | null) {
     const chain = getArcChain(cfg.env.ARC_ENVIRONMENT)
     const transport = http(cfg.env.ARC_RPC_URL)
     this.client = createPublicClient({ chain, transport }) as PublicClient
-    this.account = signer ? toKmsAccount(signer) : null
+    this.account = signer ? toSignerAccount(signer) : null
     this.wallet = this.account
       ? refundWallet(this.account, cfg.env.ARC_ENVIRONMENT, transport)
       : null

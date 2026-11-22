@@ -73,8 +73,9 @@ The pattern Strimz uses to sign relayer transactions on Arc. The
 relayer asks a signer provider for a signature instead of holding the
 key itself. `KMS_PROVIDER` picks the provider. The default,
 `software`, reads the key from `KMS_SOFTWARE_PRIVATE_KEY` in the
-environment and is meant for development. `aws-kms` keeps the key in
-AWS KMS, so it never appears in an environment variable or on disk. The relay section of the API
+environment and is meant for development. `privy`, used on mainnet,
+keeps the key in a Privy server wallet: the server only holds a key
+that can ask for signatures the wallet's policy allows. The relay section of the API
 reference covers the operator-side configuration.
 
 ## Live mode

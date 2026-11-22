@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 
 import { HttpException, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common'
 import { erc20Abi, type Hex } from 'viem'
-import type { KmsSigner } from '@strimz/signer'
+import type { TransactionSigner } from '@strimz/signer'
 
 import { TypedConfigService } from '../../config/index.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
@@ -76,7 +76,7 @@ export class RelayGuardService {
     private readonly redis: RedisService,
     private readonly chain: ChainService,
     private readonly email: EmailService,
-    @Inject(KMS_SIGNER) private readonly signer: KmsSigner,
+    @Inject(KMS_SIGNER) private readonly signer: TransactionSigner,
   ) {}
 
   /** Checks every limit without counting anything. Throws `relay_unavailable` on refusal. */
@@ -158,6 +158,15 @@ export class RelayGuardService {
     const chain = this.chain.client.chain
     if (!chain) throw new Error('relay guard: chain client has no chain bound')
     return { ...call, chainId: chain.id }
+  }
+
+  /** Privy refused to sign a relay: either a bug or someone using the server's key. */
+  async alertSigningRefused(jobId: string, to: string): Promise<void> {
+    await this.alertOnce(
+      `relay:alert:signing-refused:${jobId}`,
+      'Privy refused to sign a relay: check for misuse of the server key',
+      `<p>Relay job <code>${jobId}</code> to <code>${to}</code> was refused by the relayer wallet's Privy policy. The job was stopped and not retried. If Strimz didn't change its contracts or calls, treat the server's Privy key as exposed and remove it from the wallet with the owner key.</p>`,
+    )
   }
 
   /** A relayed call reverted on chain: count it against whoever sent it. */

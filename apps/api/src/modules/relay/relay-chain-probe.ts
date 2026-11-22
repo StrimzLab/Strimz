@@ -1,6 +1,6 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common'
 import { erc20Abi, parseAbi, TransactionReceiptNotFoundError, type Hex } from 'viem'
-import type { KmsSigner } from '@strimz/signer'
+import type { TransactionSigner } from '@strimz/signer'
 import { CANCEL_SUBSCRIPTION_TYPES, VIEW_SUBSCRIPTIONS_TYPES } from '@strimz/sdk/eip712'
 
 import { ChainService } from '../../infra/chain/chain.service.js'
@@ -15,7 +15,7 @@ const erc2612NoncesAbi = parseAbi(['function nonces(address owner) view returns 
 export class RelayChainProbe {
   constructor(
     private readonly chain: ChainService,
-    @Inject(KMS_SIGNER) private readonly signer: KmsSigner,
+    @Inject(KMS_SIGNER) private readonly signer: TransactionSigner,
   ) {}
 
   estimateGas(call: { to: Hex; data: Hex }): Promise<bigint> {

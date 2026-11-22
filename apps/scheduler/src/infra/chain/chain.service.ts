@@ -17,7 +17,7 @@ import {
 } from 'viem'
 import { assertArcChainId, getArcChain, getCctpContracts } from '@strimz/shared-config'
 import { jsonRpc } from 'viem/nonce'
-import { toKmsAccount, type KmsSigner } from '@strimz/signer'
+import { toSignerAccount, type TransactionSigner } from '@strimz/signer'
 import { TypedConfigService } from '../../config/index.js'
 import {
   MessageTransmitterAbi,
@@ -27,6 +27,7 @@ import {
   TokenWhitelistAbi,
 } from './abis.js'
 import { SCHEDULER_SIGNER } from './scheduler-signer.js'
+import { withNonceReset } from './nonce-reset.js'
 
 export interface SentTransaction {
   from: Address
@@ -75,7 +76,7 @@ export class ChainService implements OnModuleInit {
   private readonly production: boolean
   private readonly log = new Logger(ChainService.name)
 
-  constructor(cfg: TypedConfigService, @Inject(SCHEDULER_SIGNER) signer: KmsSigner) {
+  constructor(cfg: TypedConfigService, @Inject(SCHEDULER_SIGNER) signer: TransactionSigner) {
     this.environment = cfg.env.ARC_ENVIRONMENT
     this.production = cfg.env.NODE_ENV === 'production'
     const chain = getArcChain(this.environment)
@@ -84,10 +85,13 @@ export class ChainService implements OnModuleInit {
 
     this.publicClient = createPublicClient({ chain, transport }) as PublicClient
     this.account = {
-      ...toKmsAccount(signer),
+      ...toSignerAccount(signer),
       nonceManager: createNonceManager({ source: jsonRpc() }),
     }
     this.walletClient = createWalletClient({ account: this.account, chain, transport })
+    const write = this.walletClient.writeContract
+    this.walletClient.writeContract = ((args: Parameters<typeof write>[0]) =>
+      withNonceReset(this.account, chain.id, () => write(args))) as typeof write
 
     this.subscriptionsAddress = cfg.env.SUBSCRIPTIONS_ADDRESS as Address
     this.agentEscrowAddress = cfg.env.AGENT_ESCROW_ADDRESS as Address

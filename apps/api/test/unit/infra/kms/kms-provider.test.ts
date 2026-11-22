@@ -1,12 +1,12 @@
 import { Global, Module } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
-import type { KmsSigner } from '@strimz/signer'
+import type { PrivyWalletApi, TransactionSigner } from '@strimz/signer'
 import { describe, expect, it, vi } from 'vitest'
 
 import { TypedConfigService } from '../../../../src/config/index.js'
 import { envSchema, validateEnv } from '../../../../src/config/env.schema.js'
 import { KmsModule } from '../../../../src/infra/kms/kms.module.js'
-import { KMS_SIGNER } from '../../../../src/infra/kms/kms.tokens.js'
+import { KMS_SIGNER, PRIVY_WALLET_API } from '../../../../src/infra/kms/kms.tokens.js'
 
 vi.hoisted(() => {
   Object.assign(process.env, {
@@ -33,12 +33,27 @@ let currentEnv: Record<string, unknown> = {}
 })
 class FakeConfigModule {}
 
-async function resolveSigner(env: Record<string, unknown>): Promise<KmsSigner> {
+const PRIVY_RELAYER = '0x00000000000000000000000000000000000000d4'
+const privyApi: PrivyWalletApi = {
+  walletAddress: vi.fn(() => Promise.resolve(PRIVY_RELAYER)),
+  signTransaction: vi.fn(() => Promise.reject(new Error('not used here'))),
+}
+const PRIVY_ENV = {
+  KMS_PROVIDER: 'privy',
+  PRIVY_RELAYER_WALLET_ID: 'relayer-wallet',
+  KMS_SIGNER_ADDRESS: PRIVY_RELAYER,
+  PRIVY_SIGNER_AUTHORIZATION_KEY: 'wallet-auth:server-key',
+}
+
+async function resolveSigner(env: Record<string, unknown>): Promise<TransactionSigner> {
   currentEnv = env
   const moduleRef = await Test.createTestingModule({
     imports: [FakeConfigModule, KmsModule],
-  }).compile()
-  return moduleRef.get<KmsSigner>(KMS_SIGNER)
+  })
+    .overrideProvider(PRIVY_WALLET_API)
+    .useValue(privyApi)
+    .compile()
+  return moduleRef.get<TransactionSigner>(KMS_SIGNER)
 }
 
 describe('KMS provider selection', () => {
@@ -107,6 +122,53 @@ describe('KMS provider selection', () => {
         AWS_REGION: 'us-east-1',
         KMS_SOFTWARE_PRIVATE_KEY: RELAYER_KEY,
       }),
+    ).toThrow(/KMS_SOFTWARE_PRIVATE_KEY/u)
+  })
+
+  // ADR-2026-11-22-privy-server-signers.
+  it('signs through the Privy wallet on mainnet', async () => {
+    const signer = await resolveSigner({
+      NODE_ENV: 'production',
+      ARC_ENVIRONMENT: 'mainnet',
+      ...PRIVY_ENV,
+    })
+    expect(signer.address.toLowerCase()).toBe(PRIVY_RELAYER)
+    expect(privyApi.walletAddress).toHaveBeenCalledWith('relayer-wallet')
+  })
+
+  it('refuses a Privy wallet that is not the configured relayer', async () => {
+    await expect(
+      resolveSigner({
+        NODE_ENV: 'production',
+        ARC_ENVIRONMENT: 'mainnet',
+        ...PRIVY_ENV,
+        KMS_SIGNER_ADDRESS: '0x00000000000000000000000000000000000000e5',
+      }),
+    ).rejects.toThrow(/does not match/u)
+  })
+
+  it('refuses AWS KMS in production on mainnet: only Privy signs there', async () => {
+    await expect(
+      resolveSigner({
+        NODE_ENV: 'production',
+        ARC_ENVIRONMENT: 'mainnet',
+        KMS_PROVIDER: 'aws-kms',
+        KMS_AWS_KEY_ID: 'alias/x',
+        KMS_SIGNER_ADDRESS: PRIVY_RELAYER,
+        AWS_REGION: 'us-east-1',
+      }),
+    ).rejects.toThrow(/privy/u)
+  })
+
+  it('requires the wallet id, address and server key for privy', () => {
+    expect(() => validateEnv({ ...process.env, KMS_PROVIDER: 'privy' })).toThrow(
+      /PRIVY_RELAYER_WALLET_ID[\s\S]*KMS_SIGNER_ADDRESS[\s\S]*PRIVY_SIGNER_AUTHORIZATION_KEY/u,
+    )
+  })
+
+  it('refuses a plaintext relayer key next to a Privy wallet', () => {
+    expect(() =>
+      validateEnv({ ...process.env, ...PRIVY_ENV, KMS_SOFTWARE_PRIVATE_KEY: RELAYER_KEY }),
     ).toThrow(/KMS_SOFTWARE_PRIVATE_KEY/u)
   })
 
