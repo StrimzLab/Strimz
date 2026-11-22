@@ -7,7 +7,6 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import {
   Button,
-  Badge,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -112,18 +111,6 @@ function ApiKeys() {
               {row.original.kind} key
             </span>
           </Link>
-        ),
-      },
-      {
-        accessorKey: 'mode',
-        header: 'Mode',
-        cell: ({ row }) => (
-          <Badge
-            variant={row.original.mode === 'live' ? 'default' : 'outline'}
-            className="text-[10px] capitalize"
-          >
-            {row.original.mode}
-          </Badge>
         ),
       },
       {
@@ -336,7 +323,7 @@ function NewKeyDialog() {
           <DialogDescription>
             {secret
               ? 'Copy this now. Once you close this dialog, the full key will be unrecoverable.'
-              : 'Pick a name, kind, mode, and scopes. The full key will be shown once.'}
+              : 'Pick a name, kind and scopes. The full key will be shown once.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -368,19 +355,6 @@ function NewKeyDialog() {
                   <SelectContent>
                     <SelectItem value="secret">Secret</SelectItem>
                     <SelectItem value="publishable">Publishable</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-1.5">
-                <FieldLabel htmlFor="key-mode" required>
-                  Mode
-                </FieldLabel>
-                <Select value={mode} disabled>
-                  <SelectTrigger id="key-mode">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={mode}>{mode === 'live' ? 'Live' : 'Test'}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

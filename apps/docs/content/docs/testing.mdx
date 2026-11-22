@@ -1,0 +1,28 @@
+---
+title: Testing your integration
+description: Try Strimz end to end with a small real payment.
+---
+
+Strimz runs in live mode only. There is no separate test environment and no test keys. To try your integration, make a small real payment to yourself, for example 1 USDC.
+
+## Why this costs almost nothing
+
+- **The money comes back to you.** You pay from one wallet and it lands in your own payout wallet.
+- **The fee is refunded.** On the Free plan, Strimz refunds its fee on your first 1,000 USDC and first 1,000 EURC. See [Fees and your free $1,000](/docs/concepts/fees).
+- **Strimz pays the network fee** in most cases, so your test payer only needs the amount itself.
+
+## How to run a test
+
+1. Issue a secret key in **API keys** (`sk_live_…`) and keep it on your server.
+2. Create a payment session for a small amount from your server (see the [Quickstart](/docs/quickstart)), or create a payment link in the dashboard.
+3. Open the checkout and pay it from a second wallet that holds a little USDC or EURC.
+4. Watch the session move to `confirmed` in **Payment sessions**, and your webhook endpoint receive `payment.completed`.
+
+Test subscriptions the same way: subscribe to a plan with a small amount, then cancel it from the payer's side.
+
+## Good habits
+
+- **Use small amounts.** The minimum is 1.00 of the stablecoin.
+- **Label your tests,** for example in the session description, so you can tell them apart in your records.
+- **Refund a test if you want to,** from the dashboard. A refund is a transfer from your wallet back to the payer.
+- **Keep keys apart.** Use a separate key for a development machine, with only the scopes it needs, and revoke it when you're done.

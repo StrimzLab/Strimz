@@ -1,14 +1,14 @@
 ---
 title: Quickstart
-description: Sign up, get a key, send a test payment, wire a webhook. About five minutes.
+description: Sign up, get a key, make a small payment, wire a webhook. About five minutes.
 ---
 
-This page takes you from zero to a confirmed test transaction in your
+This page takes you from zero to a confirmed payment in your
 dashboard. Every command here works as written. No placeholders.
 
 <Callout title="Prerequisites" type="info">
-  - Node.js 18+ or Bun 1.0+ (or any HTTP client) - A wallet with Arc-testnet USDC. See
-  [Modes](/docs/modes) for the faucet.
+  - Node.js 18+ or Bun 1.0+ (or any HTTP client) - A wallet with a little USDC on Arc, for example 1
+  USDC. See [Testing your integration](/docs/testing).
 </Callout>
 
 <Steps>
@@ -29,20 +29,20 @@ wallet.
 
 <Step>
 
-### Issue a test API key
+### Issue an API key
 
-In the dashboard, open **API keys** and click **Issue key**. Pick **Test
-mode** for now. You'll get a string that starts with `sk_test_`. Copy it
+In the dashboard, open **API keys** and click **Issue key**. You'll get a
+string that starts with `sk_live_`. Copy it
 straight away. The full key is only shown once. If you lose it, revoke it
 and issue a new one.
 
 ```bash
-export STRIMZ_KEY=sk_test_xxxxxxxxxxxxxxxxxxxx
+export STRIMZ_KEY=sk_live_xxxxxxxxxxxxxxxxxxxx
 ```
 
-<Callout title="Test mode is fully isolated" type="info">
-  Test-mode keys can never charge a live customer. Each Strimz deployment runs in one mode, on its
-  own chain and contracts, and refuses keys of the other mode. See [Modes](/docs/modes).
+<Callout title="Keep it on your server" type="info">
+  A secret key can create payments and manage your account. Store it in your server's environment
+  and never put it in browser code.
 </Callout>
 
 </Step>
@@ -132,14 +132,14 @@ on-chain.
   </Tab>
 </Tabs>
 
-Open the printed `checkoutUrl` in a browser, connect any test-mode wallet
-that has Arc-testnet USDC, and complete the payment. Now refresh the
+Open the printed `checkoutUrl` in a browser, connect a wallet
+that holds a little USDC on Arc, and pay. A small amount such as 1 USDC is enough. Now refresh the
 **Payment sessions** page in your dashboard. You'll see the new session,
 and within a few seconds its status moves from `created` to `confirmed`.
 
-<Callout title="Where do I get test USDC?" type="info">
-  Visit [Circle's faucet](https://faucet.circle.com) and choose **Arc testnet**. You'll need an
-  Arc-testnet RPC in your wallet. See [Modes](/docs/modes) for the URL.
+<Callout title="It comes back to you" type="info">
+  The payment lands in your own payout wallet, and on the Free plan the fee is refunded. See
+  [Testing your integration](/docs/testing).
 </Callout>
 
 </Step>
@@ -156,7 +156,7 @@ endpoint is the right shape. Register it from your server with the same
 const endpoint = await strimz.webhookEndpoints.create({
   url: 'https://your-site.com/webhooks/strimz',
   events: ['payment.completed', 'payment.failed'],
-  mode: 'test',
+  mode: 'live',
 })
 
 console.log(endpoint.signingSecret) // shown ONCE. Store it now.
@@ -208,9 +208,8 @@ itself are documented on [Verifying webhooks](/docs/guides/webhooks).
 ## What you just did
 
 You signed up, issued an API key, created a hosted checkout, took a
-real test payment, and wired a webhook to react to it. The production
-version of this code is identical. Swap `sk_test_` for `sk_live_` and
-point the webhook at your real URL.
+real payment, and wired a webhook to react to it. This is already your
+production setup: point the webhook at your real URL and go.
 
 ## Next steps
 
@@ -218,7 +217,7 @@ point the webhook at your real URL.
   <Card
     title="See a live integration"
     href="https://fanline.strimz.finance"
-    description="Fanline takes tips and a monthly plan through Strimz in test mode. Try it from the payer's side."
+    description="Fanline takes tips and a monthly plan through Strimz. Try it from the payer's side."
   />
   <Card
     title="Subscriptions guide"

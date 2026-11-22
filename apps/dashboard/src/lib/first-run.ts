@@ -34,7 +34,7 @@ export function firstRunSteps({ created, paid }: FirstRunProgress): FirstRunPath
         },
         {
           title: 'Share the link',
-          body: 'Copy it and send it, or open it yourself to pay in test mode.',
+          body: 'Copy it and send it. To try it yourself, pay a small amount such as 1 USDC.',
           href: '/app/payment-sessions',
           done: paid,
         },
@@ -52,19 +52,19 @@ export function firstRunSteps({ created, paid }: FirstRunProgress): FirstRunPath
       steps: [
         {
           title: 'Issue your first API key',
-          body: 'Keys match this deployment: test keys on Arc testnet, live keys on mainnet.',
+          body: 'Keep the secret key on your server. It is shown only once.',
           href: '/app/api-keys',
           done: false,
         },
         {
-          title: 'Send a test payment',
-          body: 'Create a test session from code, complete the hosted checkout, watch it confirm.',
+          title: 'Make your first payment',
+          body: 'Create a session from code, pay it with a small amount such as 1 USDC, and watch it confirm.',
           href: '/app/payment-sessions',
           done: paid,
         },
         {
           title: 'Wire a webhook',
-          body: 'Add an HTTPS endpoint and send a test event to check your handler.',
+          body: 'Add an HTTPS endpoint. Your next payment sends it a signed event.',
           href: '/app/webhooks',
           done: false,
         },

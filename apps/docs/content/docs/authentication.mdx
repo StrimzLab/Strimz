@@ -45,14 +45,15 @@ Every server-side integration uses a Strimz API key:
 Authorization: Bearer sk_live_xxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-Keys come in two kinds and two modes:
+Keys come in two kinds:
 
-| Kind        | Mode | Prefix     | Use                           |
-| ----------- | ---- | ---------- | ----------------------------- |
-| Secret      | Test | `sk_test_` | server-side, test environment |
-| Secret      | Live | `sk_live_` | server-side, production       |
-| Publishable | Test | `pk_test_` | browser, test environment     |
-| Publishable | Live | `pk_live_` | browser, production           |
+| Kind        | Prefix     | Use         |
+| ----------- | ---------- | ----------- |
+| Secret      | `sk_live_` | server-side |
+| Publishable | `pk_live_` | browser     |
+
+Strimz runs in live mode only. There are no test keys; to try your
+integration, see [Testing your integration](/docs/testing).
 
 **Secret keys must never reach the browser.** If one leaks, revoke
 it and create a new one.
@@ -139,15 +140,14 @@ These routes change your profile, where your money goes, or the dashboard itself
 
 A key with `api_keys_write` can create, rotate and revoke keys, within limits:
 
-- A key can only grant scopes it holds itself, and only in its own mode. A test key cannot create a live key.
-- A key only sees keys of its own mode. A test key gets `not_found` for a live key, on read, revoke and rotate.
+- A key can only grant scopes it holds itself.
 - A key can only rotate a key whose scopes it holds itself.
 
-A dashboard session manages keys of both modes with any scopes.
+A dashboard session manages keys with any scopes.
 
-## Live-mode eligibility
+## Key eligibility
 
-You can't issue a live-mode key the moment you sign up. Live-mode unlocks once you've completed:
+You can't issue a key the moment you sign up. Keys unlock once you've completed:
 
 1. **Email verification.** Privy verifies your email address.
 2. **Two-factor authentication.** Enabled in your Privy account settings.
@@ -158,13 +158,9 @@ The dashboard checks `GET /v1/merchants/me/live-mode-eligibility`,
 which returns structured `reasons` so the UI can point you at the
 right step. There is no manual review queue on the basic plan.
 
-The API checks the same list when a live key is created or rotated. If a check fails, it returns `403` with code `live_mode_ineligible` and the same `reasons` in `error.details.reasons`, and no key is written. Existing live keys keep working if a check later fails; the list is checked again on the next create or rotate.
+The API checks the same list when a key is created or rotated. If a check fails, it returns `403` with code `live_mode_ineligible` and the same `reasons` in `error.details.reasons`, and no key is written. Existing keys keep working if a check later fails; the list is checked again on the next create or rotate.
 
-Each Strimz deployment runs in one mode. The sandbox runs on Arc testnet and accepts test keys only. The live deployment runs on Arc mainnet and accepts live keys only.
-
-- On the sandbox, creating or rotating a live key returns `403` with code `live_mode_unavailable`, whatever your eligibility.
-- On the live deployment, creating or rotating a test key returns `403` with code `mode_unavailable`.
-- On either deployment, a request made with a key of the other mode returns `403` with code `mode_unavailable`. Use the sandbox's keys against the sandbox and live keys against the live API.
+A request made with a key that isn't a live key returns `403` with code `mode_unavailable`.
 
 ## Rotating a key
 
