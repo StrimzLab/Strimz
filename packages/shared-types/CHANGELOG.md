@@ -1,5 +1,16 @@
 # @strimz/shared-types
 
+## 0.22.0
+
+### Minor Changes
+
+- d1b4125: Add `TERMS_VERSION`, the Terms of Service version in force. `Merchant` gains `termsVersion`, onboarding takes an optional `acceptedTerms`, and there's a new `acceptTermsInputSchema`.
+
+### Patch Changes
+
+- Updated dependencies [d1b4125]
+  - @strimz/shared-config@0.13.0
+
 ## 0.21.0
 
 ### Minor Changes
