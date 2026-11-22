@@ -12,229 +12,358 @@ export const metadata: Metadata = {
 }
 
 const TOC = [
-  { id: 'who', label: '1. Who we are' },
-  { id: 'agreement', label: '2. This agreement' },
-  { id: 'service', label: '3. What Strimz does' },
-  { id: 'account', label: '4. Your account' },
+  { id: 'parties', label: '1. Parties and definitions' },
+  { id: 'acceptance', label: '2. Acceptance and capacity' },
+  { id: 'service', label: '3. The Service' },
+  { id: 'account', label: '4. Merchant account and security' },
   { id: 'fees', label: '5. Fees' },
   { id: 'network-fees', label: '6. Network fees' },
   { id: 'payments', label: '7. Payments and refunds' },
-  { id: 'use', label: '8. How you may use Strimz' },
-  { id: 'data', label: '9. Data and privacy' },
-  { id: 'availability', label: '10. Availability and risks' },
-  { id: 'liability', label: '11. Liability' },
-  { id: 'suspension', label: '12. Suspension and closing' },
-  { id: 'changes', label: '13. Changes to these terms' },
-  { id: 'notices', label: '14. Notices and contact' },
-  { id: 'law', label: '15. Law and disputes' },
+  { id: 'conduct', label: '8. Merchant obligations' },
+  { id: 'ip', label: '9. Intellectual property' },
+  { id: 'data', label: '10. Data protection' },
+  { id: 'availability', label: '11. Availability and risk' },
+  { id: 'disclaimer', label: '12. Disclaimer' },
+  { id: 'liability', label: '13. Limitation of liability' },
+  { id: 'indemnity', label: '14. Indemnity' },
+  { id: 'termination', label: '15. Suspension and termination' },
+  { id: 'changes', label: '16. Amendments' },
+  { id: 'notices', label: '17. Notices' },
+  { id: 'law', label: '18. Governing law and disputes' },
+  { id: 'general', label: '19. General' },
 ]
 
 export default function TermsPage() {
   return (
     <LegalDoc
       title="Terms of Service"
-      description={`The agreement between your business and STRIMZ LTD for using Strimz. Version ${TERMS_VERSION}.`}
+      description={`The agreement between your business and STRIMZ LTD for the use of Strimz. Version ${TERMS_VERSION}.`}
       effectiveDate="22 November 2026"
       lastUpdated="22 November 2026"
       toc={TOC}
     >
-      <h2 id="who">1. Who we are</h2>
+      <h2 id="parties">1. Parties and definitions</h2>
       <p>
-        Strimz is run by STRIMZ LTD, a private company limited by shares, registered in Nigeria
-        under the Companies and Allied Matters Act 2020 with registration number RC 8624034. In
-        these terms, &quot;Strimz&quot;, &quot;we&quot; and &quot;us&quot; mean STRIMZ LTD.
-        &quot;You&quot; means the business that opens a Strimz account, and the person who opens it
-        on that business&apos;s behalf.
+        <strong>1.1</strong> These Terms of Service (the &quot;Agreement&quot;) are made between
+        STRIMZ LTD, a private company limited by shares incorporated in the Federal Republic of
+        Nigeria under the Companies and Allied Matters Act 2020 with registration number RC 8624034
+        (&quot;Strimz&quot;, &quot;we&quot;, &quot;us&quot; or &quot;our&quot;), and the business
+        that opens an account with Strimz (the &quot;Merchant&quot; or &quot;you&quot;).
+      </p>
+      <p>
+        <strong>1.2</strong> In this Agreement: (a) &quot;Service&quot; means the Strimz website,
+        dashboard, application programming interface (&quot;API&quot;), software development kits,
+        hosted checkout, smart contracts and documentation; (b) &quot;Customer&quot; means any
+        person who makes a payment to the Merchant through the Service; (c) &quot;Payout
+        Wallet&quot; means the blockchain wallet address registered by the Merchant to receive
+        payments; (d) &quot;Stablecoin&quot; means USDC, EURC or any other digital token that Strimz
+        supports from time to time; (e) &quot;Fees&quot; means the charges described in clause 5;
+        and (f) &quot;Network Fee&quot; means the fee charged by a blockchain network to process a
+        transaction.
+      </p>
+      <p>
+        <strong>1.3</strong> Headings are for convenience only and do not affect interpretation. The
+        words &quot;include&quot; and &quot;including&quot; are illustrative and do not limit the
+        words that precede them.
       </p>
 
-      <h2 id="agreement">2. This agreement</h2>
+      <h2 id="acceptance">2. Acceptance and capacity</h2>
       <p>
-        These terms are a binding agreement between you and us. They cover the Strimz website,
-        dashboard, API, SDKs, hosted checkout and documentation, which we call &quot;Strimz&quot; or
-        &quot;the Service&quot;.
+        <strong>2.1</strong> The Merchant accepts this Agreement by ticking the box marked &quot;I
+        agree&quot; in the dashboard. This Agreement takes effect from that moment.
       </p>
       <p>
-        You accept these terms when you tick &quot;I agree&quot; in the dashboard. You may only do
-        that if you are at least 18 years old and allowed to act for the business you sign up.
+        <strong>2.2</strong> The person accepting this Agreement represents that they are at least
+        eighteen (18) years of age and are duly authorised to bind the Merchant.
       </p>
       <p>
-        If you do not agree, do not use Strimz. The{' '}
-        <a href="/legal/acceptable-use">Acceptable Use Policy</a> and the{' '}
-        <a href="/legal/privacy">Privacy Policy</a> form part of this agreement.
-      </p>
-
-      <h2 id="service">3. What Strimz does</h2>
-      <p>
-        Strimz lets your customers pay you in stablecoins (USDC and EURC) on a public blockchain. It
-        gives you checkout pages, payment links, subscriptions, invoices, storefronts, an API and a
-        dashboard.
-      </p>
-      <p>
-        We never hold your money. Each payment goes on-chain from your customer&apos;s wallet to
-        your payout wallet, in the same transaction that takes our fee. We never hold your private
-        keys or your customers&apos; keys, and we cannot move funds out of your wallet.
-      </p>
-      <p>
-        We do not provide banking, currency exchange, lending or investment services. We do not
-        convert stablecoins to any other currency.
+        <strong>2.3</strong> The <a href="/legal/acceptable-use">Acceptable Use Policy</a> and the{' '}
+        <a href="/legal/privacy">Privacy Policy</a> form part of this Agreement. If there is a
+        conflict between them and this Agreement, this Agreement prevails.
       </p>
 
-      <h2 id="account">4. Your account</h2>
+      <h2 id="service">3. The Service</h2>
       <p>
-        You must give us true and complete information about your business, and keep it up to date.
-        We rely on your account email for notices and security alerts, so keep it working.
+        <strong>3.1</strong> The Service enables the Merchant to accept payments in Stablecoin from
+        Customers on a public blockchain, by way of checkout pages, payment links, subscriptions,
+        invoices, storefronts and the API.
       </p>
       <p>
-        You are responsible for everything done with your account, your API keys and your payout
-        wallet. Keep your sign-in methods and secret keys private. If you think someone else has
-        access, tell us at <a href="mailto:support@strimz.finance">support@strimz.finance</a>{' '}
-        straight away and revoke the affected keys in the dashboard.
+        <strong>3.2</strong> Strimz does not take custody of funds. Each payment is transferred on
+        the blockchain from the Customer&apos;s wallet to the Payout Wallet, and the Fees are
+        deducted in the same transaction. Strimz does not hold, and cannot access, the private keys
+        of the Merchant or of any Customer, and cannot move funds out of the Payout Wallet.
       </p>
       <p>
-        Your payout wallet is registered on-chain. Changing it takes 24 hours, so that a stolen
-        session cannot redirect your payments at once.
+        <strong>3.3</strong> Strimz does not provide banking, deposit-taking, currency exchange,
+        lending, investment or custodial services, and does not convert Stablecoin into any other
+        currency.
+      </p>
+      <p>
+        <strong>3.4</strong> The Service is offered to businesses in Nigeria and in other African
+        countries. A Merchant established outside Nigeria is responsible for ensuring that its use
+        of the Service, and its acceptance of Stablecoin payments, is lawful in its own country.
+        Strimz may decline to offer the Service in a country where it considers it unable to do so
+        lawfully.
+      </p>
+
+      <h2 id="account">4. Merchant account and security</h2>
+      <p>
+        <strong>4.1</strong> The Merchant shall provide accurate and complete information about
+        itself and shall keep that information up to date.
+      </p>
+      <p>
+        <strong>4.2</strong> Strimz shall send notices and security alerts to the email address
+        registered on the Merchant&apos;s account. The Merchant shall ensure that this address
+        remains valid and monitored.
+      </p>
+      <p>
+        <strong>4.3</strong> The Merchant is responsible for all activity carried out through its
+        account, its API keys and its Payout Wallet, and shall keep its sign-in methods and secret
+        keys confidential.
+      </p>
+      <p>
+        <strong>4.4</strong> The Merchant shall notify Strimz without delay at{' '}
+        <a href="mailto:support@strimz.finance">support@strimz.finance</a> if it suspects any
+        unauthorised access, and shall immediately revoke any affected API key.
+      </p>
+      <p>
+        <strong>4.5</strong> A change to the Payout Wallet is recorded on the blockchain and takes
+        effect only after a delay of twenty-four (24) hours.
       </p>
 
       <h2 id="fees">5. Fees</h2>
       <p>
-        We charge a fee on every payment made to you through Strimz. The fee is a percentage of the
-        payment and is taken from it on-chain, at the moment the payment settles. You never receive
-        a separate bill.
-      </p>
-      <ul>
-        <li>
-          <strong>Free:</strong> 0.5% is taken on-chain, and we refund it on your business&apos;s
-          first 1,000 USDC and first 1,000 EURC of payments. The refund goes to your payout wallet.
-        </li>
-        <li>
-          <strong>Starter:</strong> 0.5%, from 1,000 of total payments.
-        </li>
-        <li>
-          <strong>Growth:</strong> 0.4%, from 50,000 of total payments.
-        </li>
-        <li>
-          <strong>Enterprise:</strong> the rate in your written agreement with us.
-        </li>
-      </ul>
-      <p>
-        Your plan moves up automatically as your volume grows. Accounts that share a payout wallet
-        or an owner wallet count as one business for the free 1,000.
+        <strong>5.1</strong> Strimz charges a fee on each payment made to the Merchant through the
+        Service. The fee is a percentage of the payment amount and is deducted on the blockchain at
+        the time the payment settles.
       </p>
       <p>
-        We may change our fees. We will email you at least 30 days before a change, and it only
-        applies to payments made after it takes effect. Your fee can never go above the ceiling
-        recorded for your account on-chain when you registered.
+        <strong>5.2</strong> The applicable rates are: (a) Free plan: 0.5%, which Strimz refunds to
+        the Payout Wallet on the first 1,000 USDC and the first 1,000 EURC of payments received by
+        the Merchant&apos;s business; (b) Starter plan: 0.5%, from 1,000 of total payments; (c)
+        Growth plan: 0.4%, from 50,000 of total payments; and (d) Enterprise plan: the rate set out
+        in a separate written agreement.
       </p>
-      <p>You are responsible for any taxes on your sales and on our fees.</p>
+      <p>
+        <strong>5.3</strong> The Merchant&apos;s plan changes automatically as its payment volume
+        grows. Accounts that share a Payout Wallet or an owner wallet are treated as a single
+        business for the purpose of clause 5.2(a).
+      </p>
+      <p>
+        <strong>5.4</strong> Strimz may change the Fees by giving the Merchant not less than thirty
+        (30) days&apos; notice by email. A change applies only to payments made after it takes
+        effect. The Fees shall not exceed the maximum rate recorded for the Merchant&apos;s account
+        on the blockchain at registration.
+      </p>
+      <p>
+        <strong>5.5</strong> The Merchant is responsible for all taxes due on its sales and on the
+        Fees.
+      </p>
 
       <h2 id="network-fees">6. Network fees</h2>
       <p>
-        Every blockchain transaction has a small network fee. We usually pay it for your customers,
-        so they only pay the price you set. We may stop paying it, for example when your account
-        reaches its daily limit, when our relaying is paused, or when a wallet or network has been
-        sending failed transactions. Your customer can then pay the network fee from their own
-        wallet to complete the payment. We will not stop an honest payment from going through.
+        <strong>6.1</strong> Strimz may, at its discretion, pay the Network Fee on behalf of a
+        Customer.
+      </p>
+      <p>
+        <strong>6.2</strong> Strimz may decline to pay the Network Fee, including where the Merchant
+        has reached its daily limit, where Strimz has paused relaying, or where a wallet or network
+        has submitted failed transactions. In that event the Customer may pay the Network Fee from
+        its own wallet and complete the payment.
       </p>
 
       <h2 id="payments">7. Payments and refunds</h2>
       <p>
-        A payment is final once it is confirmed on the blockchain. Nobody, including us, can reverse
-        it.
+        <strong>7.1</strong> A payment is final once it is confirmed on the blockchain and cannot be
+        reversed by Strimz or by any other person.
       </p>
       <p>
-        Refunds are your decision. A refund is a new transfer from your wallet to your
-        customer&apos;s wallet. You can start one from the dashboard; you sign it, and we do not
-        charge a fee on it. Disputes with your customers about your goods or services are between
-        you and them.
-      </p>
-      <p>You must honour the prices, terms and refund policy you show your customers.</p>
-
-      <h2 id="use">8. How you may use Strimz</h2>
-      <p>
-        You must follow the <a href="/legal/acceptable-use">Acceptable Use Policy</a> and every law
-        that applies to you, including laws on sanctions, money laundering, terrorist financing,
-        consumer protection and tax. You are responsible for what you sell.
+        <strong>7.2</strong> Refunds are at the Merchant&apos;s sole discretion. A refund is a
+        separate transfer from the Merchant&apos;s wallet to the Customer&apos;s wallet, which the
+        Merchant authorises and signs. Strimz does not charge a fee on refunds.
       </p>
       <p>
-        You must not try to break, overload, copy or misuse Strimz, its smart contracts or its
-        limits, or use it to harm anyone.
-      </p>
-      <p>
-        The Strimz name, logo, website, dashboard and documentation belong to STRIMZ LTD. Our
-        open-source code is licensed separately under the licence in its repository.
+        <strong>7.3</strong> Any dispute between the Merchant and a Customer concerning goods or
+        services is solely between them. The Merchant shall honour the prices, terms and refund
+        policy it presents to Customers.
       </p>
 
-      <h2 id="data">9. Data and privacy</h2>
+      <h2 id="conduct">8. Merchant obligations</h2>
       <p>
-        The <a href="/legal/privacy">Privacy Policy</a> explains what data we collect and how we use
-        it. Payments on a public blockchain can be seen by anyone, including the wallets and amounts
-        involved. You own your business data and your customers&apos; data. We process it to run
-        Strimz for you.
+        <strong>8.1</strong> The Merchant shall comply with the Acceptable Use Policy and with all
+        laws and regulations that apply to it, including those relating to sanctions, anti-money
+        laundering, counter-terrorist financing, consumer protection and taxation.
+      </p>
+      <p>
+        <strong>8.2</strong> The Merchant is solely responsible for the goods and services it offers
+        and for any representation it makes to Customers.
+      </p>
+      <p>
+        <strong>8.3</strong> The Merchant shall not attempt to interfere with, overload,
+        reverse-engineer, circumvent the limits of, or otherwise misuse the Service or its smart
+        contracts, and shall not use the Service to harm any person.
       </p>
 
-      <h2 id="availability">10. Availability and risks</h2>
+      <h2 id="ip">9. Intellectual property</h2>
       <p>
-        We work hard to keep Strimz running, but we cannot promise it will always be available or
-        free of errors. It depends on blockchains, wallets and other services that we do not
-        control.
+        <strong>9.1</strong> The Strimz name, logo, website, dashboard and documentation are the
+        property of STRIMZ LTD. Nothing in this Agreement transfers any of those rights to the
+        Merchant.
       </p>
       <p>
-        Stablecoins, blockchains and smart contracts carry risks, including bugs, network outages,
-        changes by the stablecoin issuer and changes in the law. Our smart contracts are open source
-        and tested, but we cannot promise they have no faults.
-      </p>
-      <p>Apart from what these terms say, we provide Strimz as it is, without other promises.</p>
-
-      <h2 id="liability">11. Liability</h2>
-      <p>
-        We are not liable for indirect or consequential losses, such as lost profits, lost business
-        or lost data.
-      </p>
-      <p>
-        Our total liability to you for all claims under these terms is limited to the greater of the
-        fees you paid us in the 12 months before the claim arose, or 100 US dollars.
-      </p>
-      <p>
-        Nothing in these terms limits liability that the law does not allow to be limited, such as
-        liability for fraud.
+        <strong>9.2</strong> Software that Strimz publishes as open source is licensed under the
+        terms stated in its repository, which apply in place of this clause for that software.
       </p>
 
-      <h2 id="suspension">12. Suspension and closing</h2>
+      <h2 id="data">10. Data protection</h2>
       <p>
-        We may suspend or close your account if you break these terms or the law, or if we must do
-        so to protect your customers, other businesses or Strimz. We will tell you why unless the
-        law or a regulator stops us. While your account is suspended, new payments are refused, but
-        payments already started can still settle.
+        <strong>10.1</strong> Each party shall comply with the Nigeria Data Protection Act 2023 and
+        any other data protection law that applies to it.
       </p>
       <p>
-        You can close your account at any time by emailing{' '}
-        <a href="mailto:support@strimz.finance">support@strimz.finance</a> from your account email.
-        When an account closes, its API keys stop working and its webhooks stop. Money already in
-        your payout wallet stays yours.
+        <strong>10.2</strong> Strimz processes personal data as described in the Privacy Policy.
+        Where Strimz processes personal data of Customers on the Merchant&apos;s behalf, it does so
+        to provide the Service and on the Merchant&apos;s instructions as expressed through its use
+        of the Service.
       </p>
-
-      <h2 id="changes">13. Changes to these terms</h2>
       <p>
-        We may change these terms. Each version has a date, shown at the top of this page. We will
-        email you at least 14 days before a new version takes effect. You then need to accept it in
-        the dashboard before you can make further changes there. Your API keys and checkout keep
-        working in the meantime, so your customers can still pay you.
+        <strong>10.3</strong> The Merchant acknowledges that transactions on a public blockchain,
+        including wallet addresses and amounts, are visible to the public.
       </p>
 
-      <h2 id="notices">14. Notices and contact</h2>
+      <h2 id="availability">11. Availability and risk</h2>
       <p>
-        Send legal notices to <a href="mailto:legal@strimz.finance">legal@strimz.finance</a>. We
-        send notices to your account email. For help with your account, write to{' '}
-        <a href="mailto:support@strimz.finance">support@strimz.finance</a>. For anything else, write
-        to <a href="mailto:hello@strimz.finance">hello@strimz.finance</a>.
+        <strong>11.1</strong> Strimz shall use reasonable efforts to keep the Service available, but
+        does not guarantee that it will be uninterrupted or free from errors.
+      </p>
+      <p>
+        <strong>11.2</strong> The Service depends on blockchain networks, Stablecoin issuers, wallet
+        providers and other third parties that Strimz does not control. The Merchant accepts the
+        risks of using Stablecoin and blockchain technology, including network outages, smart
+        contract defects, actions of Stablecoin issuers and changes in law.
       </p>
 
-      <h2 id="law">15. Law and disputes</h2>
-      <p>These terms are governed by the laws of the Federal Republic of Nigeria.</p>
+      <h2 id="disclaimer">12. Disclaimer</h2>
       <p>
-        If we disagree about anything under these terms, we will first try to settle it by writing
-        to each other in good faith. If we cannot settle it within 30 days, the courts of the
-        Federal Capital Territory, Abuja, have exclusive jurisdiction.
+        <strong>12.1</strong> Except as expressly stated in this Agreement, the Service is provided
+        &quot;as is&quot; and &quot;as available&quot;, and Strimz excludes all other warranties,
+        conditions and representations, whether express or implied, to the fullest extent permitted
+        by law.
+      </p>
+
+      <h2 id="liability">13. Limitation of liability</h2>
+      <p>
+        <strong>13.1</strong> Strimz shall not be liable for any indirect or consequential loss, or
+        for any loss of profit, revenue, business, goodwill or data, however arising.
+      </p>
+      <p>
+        <strong>13.2</strong> The total liability of Strimz arising out of or in connection with
+        this Agreement shall not exceed the greater of (a) the Fees paid by the Merchant in the
+        twelve (12) months preceding the event giving rise to the claim, and (b) one hundred United
+        States dollars (USD 100).
+      </p>
+      <p>
+        <strong>13.3</strong> Nothing in this Agreement limits or excludes liability for fraud or
+        for any other liability that cannot be limited or excluded by law.
+      </p>
+
+      <h2 id="indemnity">14. Indemnity</h2>
+      <p>
+        <strong>14.1</strong> The Merchant shall indemnify Strimz against all losses, costs and
+        claims arising from the Merchant&apos;s breach of this Agreement or of any law, or from any
+        claim by a Customer concerning the Merchant&apos;s goods or services.
+      </p>
+
+      <h2 id="termination">15. Suspension and termination</h2>
+      <p>
+        <strong>15.1</strong> Strimz may suspend or close the Merchant&apos;s account where the
+        Merchant breaches this Agreement or any law, or where Strimz reasonably considers it
+        necessary to protect Customers, other merchants or the Service. Strimz shall give reasons
+        unless prohibited by law or by a competent authority.
+      </p>
+      <p>
+        <strong>15.2</strong> During a suspension, new payments are refused. Payments already
+        initiated may complete.
+      </p>
+      <p>
+        <strong>15.3</strong> The Merchant may close its account at any time by written request to{' '}
+        <a href="mailto:support@strimz.finance">support@strimz.finance</a> from the email address
+        registered on the account.
+      </p>
+      <p>
+        <strong>15.4</strong> On closure, the Merchant&apos;s API keys and webhooks cease to
+        operate. Funds held in the Payout Wallet remain the property and under the control of the
+        Merchant. Clauses 7, 9, 12, 13, 14, 17 and 18 survive termination.
+      </p>
+
+      <h2 id="changes">16. Amendments</h2>
+      <p>
+        <strong>16.1</strong> Strimz may amend this Agreement. Each version is dated and published
+        on this page.
+      </p>
+      <p>
+        <strong>16.2</strong> Strimz shall give the Merchant not less than fourteen (14) days&apos;
+        notice of an amendment by email. The Merchant must accept the amended Agreement in the
+        dashboard before it may make further changes there. API keys and checkout continue to
+        operate in the meantime.
+      </p>
+
+      <h2 id="notices">17. Notices</h2>
+      <p>
+        <strong>17.1</strong> Legal notices to Strimz shall be sent by email to{' '}
+        <a href="mailto:legal@strimz.finance">legal@strimz.finance</a>. Notices to the Merchant
+        shall be sent to the email address registered on its account.
+      </p>
+      <p>
+        <strong>17.2</strong> A notice sent by email is deemed received on the next business day
+        after it is sent, unless the sender receives notice of non-delivery.
+      </p>
+      <p>
+        <strong>17.3</strong> For support, the Merchant may contact{' '}
+        <a href="mailto:support@strimz.finance">support@strimz.finance</a>. General enquiries may be
+        sent to <a href="mailto:hello@strimz.finance">hello@strimz.finance</a>.
+      </p>
+
+      <h2 id="law">18. Governing law and disputes</h2>
+      <p>
+        <strong>18.1</strong> This Agreement and any dispute arising out of or in connection with it
+        shall be governed by and construed in accordance with the laws of the Federal Republic of
+        Nigeria.
+      </p>
+      <p>
+        <strong>18.2</strong> The parties shall first attempt in good faith to resolve any dispute
+        by written correspondence. If the dispute is not resolved within thirty (30) days, the
+        courts of the Federal Capital Territory, Abuja, shall have exclusive jurisdiction.
+      </p>
+      <p>
+        <strong>18.3</strong> The choice of Nigerian law in clause 18.1 does not deprive the
+        Merchant of any protection afforded to it by the mandatory laws of the country in which it
+        is established.
+      </p>
+
+      <h2 id="general">19. General</h2>
+      <p>
+        <strong>19.1</strong> This Agreement constitutes the entire agreement between the parties
+        concerning its subject matter and supersedes any prior understanding.
+      </p>
+      <p>
+        <strong>19.2</strong> If any provision of this Agreement is found invalid or unenforceable,
+        the remaining provisions continue in full force.
+      </p>
+      <p>
+        <strong>19.3</strong> A failure or delay in exercising a right does not operate as a waiver
+        of that right.
+      </p>
+      <p>
+        <strong>19.4</strong> The Merchant may not assign or transfer its rights under this
+        Agreement without the prior written consent of Strimz. Strimz may assign this Agreement to a
+        successor to its business.
+      </p>
+      <p>
+        <strong>19.5</strong> Neither party is liable for a failure or delay caused by events beyond
+        its reasonable control, including the failure of a blockchain network or of a Stablecoin
+        issuer.
       </p>
     </LegalDoc>
   )

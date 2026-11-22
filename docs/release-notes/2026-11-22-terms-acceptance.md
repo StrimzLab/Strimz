@@ -19,6 +19,22 @@ Closes #508. ADR: [ADR-2026-11-21-terms-acceptance](../adr/ADR-2026-11-21-terms-
 - **When the terms change,** the dashboard asks you to accept the new version. Until you do, you can look around but not change anything. Your API keys and checkout keep working, so your customers can still pay.
 - **Existing merchants** are asked to accept once, at their next visit.
 
+## The documents
+
+- **Formal legal drafting.** The Terms of Service now have 19 numbered sections, with defined terms, an indemnity, notice rules and general clauses.
+- **Other African countries.** Strimz serves businesses in Nigeria and in other African countries (clause 3.4). Nigerian law governs, but it doesn't remove protections a merchant's own country gives by law (clause 18.3).
+- **Privacy Policy.** Rewritten in the same form, under the Nigeria Data Protection Act 2023, keeping the Kenyan, Ghanaian, Ugandan, Tanzanian and Rwandan laws. It now states:
+  - the lawful basis for each kind of processing;
+  - the rules for transfers outside Nigeria;
+  - breach notification to the Nigeria Data Protection Commission.
+- **Privacy facts corrected:**
+  - onboarding collects business name, sector, country, website, logo and phone, not "legal name, registered address, tax ID";
+  - no claim of "managed database encryption", which we couldn't confirm;
+  - Turnstile now also runs on sign-up and sign-in;
+  - the storage table lists the sign-up check token and the passkey offer date;
+  - terms acceptance records (version, time, IP) are listed;
+  - Zoho is named as our email provider.
+
 ## Corrections
 
 - **Company name:** "Strimz Labs Ltd." is gone everywhere. It is now STRIMZ LTD (RC 8624034) in the terms, the privacy policy and the dashboard footer.

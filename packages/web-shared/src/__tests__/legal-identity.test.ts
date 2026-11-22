@@ -11,7 +11,9 @@ const ALLOWED_EMAILS = new Set([
 ])
 
 function tracked(pattern: string): string[] {
-  const run = spawnSync('git', ['grep', '-hIoiE', pattern, '--', 'apps', 'packages'], {
+  // This file holds the patterns themselves, so it must not search itself.
+  const self = ':!packages/web-shared/src/__tests__/legal-identity.test.ts'
+  const run = spawnSync('git', ['grep', '-hIoiE', pattern, '--', 'apps', 'packages', self], {
     cwd: REPO,
     encoding: 'utf8',
   })
@@ -21,10 +23,13 @@ function tracked(pattern: string): string[] {
   return run.stdout.split('\n').filter(Boolean)
 }
 
+// Prettier wraps long JSX text, so compare with line breaks collapsed.
+const flat = (source: string) => source.replace(/\s+/gu, ' ')
+
 describe('legal identity', () => {
-  const terms = readWeb('src/app/(marketing)/legal/terms/page.tsx')
-  const privacy = readWeb('src/app/(marketing)/legal/privacy/page.tsx')
-  const footer = readWeb('src/components/dashboard/dashboard-footer.tsx')
+  const terms = flat(readWeb('src/app/(marketing)/legal/terms/page.tsx'))
+  const privacy = flat(readWeb('src/app/(marketing)/legal/privacy/page.tsx'))
+  const footer = flat(readWeb('src/components/dashboard/dashboard-footer.tsx'))
 
   it('names the registered company', () => {
     for (const page of [terms, privacy]) {
