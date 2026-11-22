@@ -42,3 +42,7 @@ updates:
       actions:
         patterns: ['*']
     labels: ['dependencies', 'ci']
+    # changesets/action v2 needs the Changesets v3 CLI. Take its majors together with that upgrade.
+    ignore:
+      - dependency-name: 'changesets/action'
+        update-types: ['version-update:semver-major']
