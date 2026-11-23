@@ -100,6 +100,10 @@ export class StubPrivyService {
     )
   }
 
+  hasVerifiedEmail(user: any): boolean {
+    return PrivyService.prototype.hasVerifiedEmail.call(this, user)
+  }
+
   hasMfa(user: any): boolean {
     return PrivyService.prototype.hasPasskeyMfa.call(this, user)
   }

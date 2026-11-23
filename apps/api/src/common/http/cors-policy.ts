@@ -29,6 +29,7 @@ const ALLOWLISTED_ALLOWED_HEADERS = [
   'x-strimz-sdk-runtime',
   'x-strimz-idempotency-key',
   'x-strimz-request-id',
+  'x-strimz-step-up',
 ]
 
 const PUBLIC_MAX_AGE_SECONDS = 7200

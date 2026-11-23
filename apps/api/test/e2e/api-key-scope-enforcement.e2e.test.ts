@@ -532,10 +532,7 @@ describe('api key scope enforcement e2e', () => {
 
   it('rejects rotating a live key for a merchant that is no longer eligible', async () => {
     t.chain.environment = 'mainnet'
-    const m = await seedMerchant(t.prisma.db, {
-      onboardingCompleted: true,
-      emailVerified: false,
-    })
+    const m = await seedMerchant(t.prisma.db, { onboardingCompleted: false })
     const live = await seedApiKey(t.prisma.db, m.id, { mode: 'live' })
     const res = await t.inject({
       method: 'POST',
@@ -550,7 +547,7 @@ describe('api key scope enforcement e2e', () => {
     expect(body.error.code).toBe('live_mode_ineligible')
     // The passkey confirmation itself proves the second factor.
     expect(body.error.details.reasons.map((r: { code: string }) => r.code)).toEqual([
-      'email_unverified',
+      'onboarding_incomplete',
     ])
     const row = await t.prisma.db.merchantApiKey.findUniqueOrThrow({ where: { id: live.id } })
     expect(row.revokedAt).toBeNull()

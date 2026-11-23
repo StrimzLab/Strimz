@@ -20,6 +20,7 @@ export function PasskeySettings() {
   )
   const [error, setError] = useState<string | null>(null)
   const [removing, setRemoving] = useState<string | null>(null)
+  const [confirming, setConfirming] = useState<string | null>(null)
   const enrolMfa = useEnrolPasskeyMfa()
   const [enrolling, setEnrolling] = useState(false)
   const enrol = (u: Parameters<typeof enrolMfa>[0]) => {
@@ -35,6 +36,9 @@ export function PasskeySettings() {
   const { unlink } = useUnlinkPasskey()
   const accounts = user?.linkedAccounts ?? []
   const passkeys = passkeysOf(accounts)
+  const confirmers = accounts.flatMap((a) =>
+    a.type === 'passkey' && a.enrolledInMfa ? [a.credentialId] : [],
+  )
   const adding = state.status !== 'initial' && state.status !== 'error' && state.status !== 'done'
 
   return (
@@ -43,7 +47,11 @@ export function PasskeySettings() {
         <div className="font-medium">Passkeys</div>
         <p className="text-muted-foreground text-xs">
           Sign in with your fingerprint, face or device PIN instead of an email code. Your passkey
-          also confirms withdrawals, payout changes, new API keys and webhooks.
+          also confirms withdrawals, refunds, payout changes, new API keys and webhooks.
+        </p>
+        <p className="text-muted-foreground mt-1 text-xs">
+          Adding or removing a passkey asks for one you already have, so a stolen login can&apos;t
+          take your protection away.
         </p>
       </div>
       {user && passkeys.length > 0 && !hasPasskeyMfa(user) && (
@@ -66,8 +74,13 @@ export function PasskeySettings() {
         <ul className="divide-border/60 divide-y">
           {passkeys.map((p) => {
             const removable = canRemovePasskey(accounts, p.credentialId)
+            const lastConfirmer = confirmers.length === 1 && confirmers[0] === p.credentialId
+            const askFirst = lastConfirmer && confirming !== p.credentialId
             return (
-              <li key={p.credentialId} className="flex items-center justify-between gap-3 py-2">
+              <li
+                key={p.credentialId}
+                className="flex flex-wrap items-center justify-between gap-3 py-2"
+              >
                 <span className="flex items-center gap-2">
                   <KeyRound className="text-muted-foreground size-4" aria-hidden />
                   {p.label}
@@ -85,6 +98,11 @@ export function PasskeySettings() {
                   }
                   onClick={() => {
                     setError(null)
+                    if (askFirst) {
+                      setConfirming(p.credentialId)
+                      return
+                    }
+                    setConfirming(null)
                     setRemoving(p.credentialId)
                     unlink({ credentialId: p.credentialId })
                       .catch((err: unknown) => {
@@ -94,8 +112,18 @@ export function PasskeySettings() {
                       .finally(() => setRemoving(null))
                   }}
                 >
-                  {removing === p.credentialId ? 'Removing…' : 'Remove'}
+                  {removing === p.credentialId
+                    ? 'Removing…'
+                    : confirming === p.credentialId
+                      ? 'Remove anyway'
+                      : 'Remove'}
                 </Button>
+                {confirming === p.credentialId && (
+                  <p role="alert" className="text-warning basis-full text-xs">
+                    This is the passkey that confirms withdrawals, refunds, API keys and webhooks.
+                    Without it you can&apos;t do those until you add another.
+                  </p>
+                )}
               </li>
             )
           })}

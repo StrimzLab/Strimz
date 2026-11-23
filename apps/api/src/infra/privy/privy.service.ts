@@ -166,6 +166,11 @@ export class PrivyService {
   }
 
   /** True if the user has at least one MFA method registered with Privy. */
+  /** Strimz signs in by email code or Google; Privy and Google both verify the address. */
+  hasVerifiedEmail(user: User): boolean {
+    return Boolean(user.email?.address || user.google?.email)
+  }
+
   /** Strimz offers passkeys as its only second factor. */
   hasMfa(user: User): boolean {
     return this.hasPasskeyMfa(user)

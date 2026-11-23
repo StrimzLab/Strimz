@@ -77,7 +77,7 @@ export class AuthService {
       })
     }
     const wallet = this.privy.primaryWallet(user)
-    const emailVerified = Boolean(user.email?.address) // Privy verifies email-login addresses
+    const emailVerified = this.privy.hasVerifiedEmail(user)
     const twoFactorEnabled = this.privy.hasMfa(user)
 
     const existing = await this.prisma.db.merchant.findUnique({

@@ -8,6 +8,7 @@ import { erc20Abi, formatUnits, getAddress } from 'viem'
 import { TERMS_VERSION } from '@strimz/shared-config'
 import type { Merchant, MerchantBalanceView, UpdateMerchantParsed } from '@strimz/shared-types'
 import { PrismaService } from '../../infra/prisma/prisma.service.js'
+import { PrivyService } from '../../infra/privy/privy.service.js'
 import { ChainService } from '../../infra/chain/chain.service.js'
 import { TypedConfigService } from '../../config/index.js'
 import { MerchantChainService } from './merchant-chain.service.js'
@@ -21,6 +22,7 @@ export class MerchantsService {
     private readonly chain: ChainService,
     private readonly cfg: TypedConfigService,
     private readonly merchantChain: MerchantChainService,
+    private readonly privy: PrivyService,
   ) {}
 
   /**
@@ -246,8 +248,9 @@ export class MerchantsService {
     eligible: boolean
     reasons: { code: string; message: string }[]
   }> {
-    const m = await this.prisma.db.merchant.findUnique({ where: { id } })
-    if (!m) throw new NotFoundException({ code: 'not_found', message: 'merchant not found' })
+    const found = await this.prisma.db.merchant.findUnique({ where: { id } })
+    if (!found) throw new NotFoundException({ code: 'not_found', message: 'merchant not found' })
+    const m = await this.withCurrentIdentity(found)
 
     const reasons: { code: string; message: string }[] = []
     if (!m.emailVerified) {
@@ -272,6 +275,28 @@ export class MerchantsService {
       })
     }
     return { eligible: reasons.length === 0, reasons }
+  }
+
+  // The stored flags lag Privy: a passkey enrolled just after the link webhook stays "off".
+  // Ask Privy before refusing, and keep what it says.
+  private async withCurrentIdentity<
+    T extends {
+      id: string
+      privyUserId: string | null
+      emailVerified: boolean
+      twoFactorEnabled: boolean
+    },
+  >(m: T): Promise<T> {
+    if ((m.emailVerified && m.twoFactorEnabled) || !m.privyUserId) return m
+    const user = await this.privy.getUser(m.privyUserId)
+    const emailVerified = m.emailVerified || this.privy.hasVerifiedEmail(user)
+    const twoFactorEnabled = m.twoFactorEnabled || this.privy.hasMfa(user)
+    if (emailVerified === m.emailVerified && twoFactorEnabled === m.twoFactorEnabled) return m
+    await this.prisma.db.merchant.update({
+      where: { id: m.id },
+      data: { emailVerified, twoFactorEnabled },
+    })
+    return { ...m, emailVerified, twoFactorEnabled }
   }
 }
 

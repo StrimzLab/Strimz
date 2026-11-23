@@ -114,9 +114,9 @@ describe('merchants e2e', () => {
 
   it('GET /v1/merchants/me/live-mode-eligibility surfaces blocking reasons', async () => {
     const m = await seedMerchant(t.prisma.db, {
-      emailVerified: false,
       twoFactorEnabled: false,
       onboardingCompleted: false,
+      passkey: false,
     })
     const res = await t.inject({
       method: 'GET',
@@ -127,9 +127,30 @@ describe('merchants e2e', () => {
     const body = JSON.parse(res.body)
     expect(body.eligible).toBe(false)
     const codes = body.reasons.map((r: { code: string }) => r.code).sort()
-    expect(codes).toContain('email_unverified')
     expect(codes).toContain('mfa_required')
     expect(codes).toContain('onboarding_incomplete')
+  })
+
+  it('corrects stale flags from Privy before refusing (#548)', async () => {
+    // A passkey enrolled right after Privy's link webhook leaves twoFactorEnabled stale, and
+    // Google sign-ins used to be stored as unverified.
+    const m = await seedMerchant(t.prisma.db, {
+      emailVerified: false,
+      twoFactorEnabled: false,
+      onboardingCompleted: true,
+      payoutAddress: '0x' + '1'.repeat(40),
+      passkey: true,
+    })
+    const res = await t.inject({
+      method: 'GET',
+      url: '/v1/merchants/me/live-mode-eligibility',
+      headers: { authorization: `Bearer ${m.privyAccessToken}` },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(JSON.parse(res.body)).toEqual({ eligible: true, reasons: [] })
+    const row = must(await t.prisma.db.merchant.findUnique({ where: { id: m.id } }))
+    expect(row.emailVerified).toBe(true)
+    expect(row.twoFactorEnabled).toBe(true)
   })
 
   it('GET /v1/merchants/me/live-mode-eligibility returns eligible=true when all gates clear', async () => {
