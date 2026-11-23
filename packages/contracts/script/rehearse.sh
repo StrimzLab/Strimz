@@ -6,11 +6,33 @@ FORGE="${FORGE:-arc-forge}"
 ANVIL="${ANVIL:-arc-anvil}"
 export CAST FORGE
 
-FORK_URL="${ARC_TESTNET_RPC_URL:?ARC_TESTNET_RPC_URL must point at Arc testnet}"
+# REHEARSE_NETWORK=mainnet rehearses the mainnet launch, which has no agent contracts
+# (ADR-2026-11-23-mainnet-without-agent-escrow).
+NETWORK="${REHEARSE_NETWORK:-testnet}"
+case "$NETWORK" in
+  testnet)
+    FORK_URL="${ARC_TESTNET_RPC_URL:?ARC_TESTNET_RPC_URL must point at Arc testnet}"
+    FORK_CHAIN_ID=5042002
+    EURC=0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a
+    WITH_AGENT=true
+    ;;
+  mainnet)
+    FORK_URL="${ARC_MAINNET_RPC_URL:?ARC_MAINNET_RPC_URL must point at Arc mainnet}"
+    FORK_CHAIN_ID=5042
+    EURC=0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1
+    WITH_AGENT=false
+    ;;
+  *) echo "REHEARSE_NETWORK must be testnet or mainnet, got $NETWORK" >&2; exit 1 ;;
+esac
 PORT="${REHEARSAL_PORT:-18555}"
 LOCAL="http://127.0.0.1:${PORT}"
 CHAIN_ID=31337
 MNEMONIC="test test test test test test test test test test test junk"
+# The well-known test accounts carry EIP-7702 code on public mainnets, which turns
+# their signatures into ERC-1271 checks; rehearse mainnet with fresh accounts instead.
+if [ "${REHEARSE_NETWORK:-testnet}" = mainnet ]; then
+  MNEMONIC="$("${CAST:-arc-cast}" wallet new-mnemonic --words 12 | awk 'f && !done { print; done = 1 } /^Phrase:/ { f = 1 }')"
+fi
 TIMELOCK_DELAY=300
 SAFE_PROXY_FACTORY=0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67
 SAFE_SINGLETON=0x41675C099F32341bf84BFc5382aF534df5C7461a
@@ -23,7 +45,7 @@ key() { "$CAST" wallet private-key --mnemonic "$MNEMONIC" --mnemonic-index "$1";
 addr() { "$CAST" wallet address --private-key "$1"; }
 step() { printf '\n=== %s ===\n' "$*"; }
 
-[ "$("$CAST" chain-id --rpc-url "$FORK_URL")" = "5042002" ] || { echo "ARC_TESTNET_RPC_URL is not Arc testnet" >&2; exit 1; }
+[ "$("$CAST" chain-id --rpc-url "$FORK_URL")" = "$FORK_CHAIN_ID" ] || { echo "the fork RPC is not Arc $NETWORK" >&2; exit 1; }
 
 DEPLOYER_KEY=$(key 0)
 MERCHANT_KEY=$(key 2)
@@ -36,7 +58,8 @@ SAFE_OWNER_C=$(addr "$(key 8)")
 PAYOUT=$(addr "$(key 9)")
 DEPLOYER=$(addr "$DEPLOYER_KEY")
 
-step "Fork Arc testnet on ${LOCAL} (chain id ${CHAIN_ID})"
+[ -n "$MNEMONIC" ] || { echo "could not generate a mnemonic" >&2; exit 1; }
+step "Fork Arc ${NETWORK} on ${LOCAL} (chain id ${CHAIN_ID})"
 "$ANVIL" --network arc --fork-url "$FORK_URL" --chain-id "$CHAIN_ID" --port "$PORT" > /tmp/strimz-rehearsal-anvil.log 2>&1 &
 ANVIL_PID=$!
 trap 'kill "$ANVIL_PID" 2>/dev/null || true' EXIT
@@ -46,10 +69,19 @@ for _ in $(seq 1 60); do
 done
 "$CAST" block-number --rpc-url "$LOCAL" > /dev/null
 
+if [ "$NETWORK" = mainnet ]; then
+  step "Fund fresh test accounts on the fork"
+  for i in 0 2 3 4 5 6 7 8 9; do
+    a=$(addr "$(key "$i")")
+    [ "$("$CAST" code "$a" --rpc-url "$LOCAL")" = "0x" ] || { echo "test account $a has code" >&2; exit 1; }
+    "$CAST" rpc anvil_setBalance "$a" 0x3635c9adc5dea00000 --rpc-url "$LOCAL" > /dev/null
+  done
+fi
+
 rm -f "$LOG"
 export STRIMZ_DEPLOYER_PRIVATE_KEY="$DEPLOYER_KEY"
 export ARC_USDC_ADDRESS=0x3600000000000000000000000000000000000000
-export ARC_EURC_ADDRESS=0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a
+export ARC_EURC_ADDRESS="$EURC"
 
 step "Build from clean"
 "$FORGE" clean
@@ -67,11 +99,16 @@ RECORDED_DEPLOYER=$(jq -r '[.[] | select(.label == "core")][-1].deployer' "$LOG"
 [ "$(printf '%s' "$RECORDED_DEPLOYER" | tr '[:upper:]' '[:lower:]')" = "$(printf '%s' "$DEPLOYER" | tr '[:upper:]' '[:lower:]')" ] \
   || { echo "deployment log recorded deployer $RECORDED_DEPLOYER, expected $DEPLOYER" >&2; exit 1; }
 
-step "Deploy agent"
-"$FORGE" script script/DeployAgent.s.sol --network arc --rpc-url "$LOCAL" --broadcast > /dev/null
-agent() { jq -r --arg n "$1" '[.[] | select(.label == "agent")][-1].contracts[] | select(.name == $n) | .proxy' "$LOG"; }
-export STRIMZ_AGENT_REGISTRY_ADDRESS=$(agent StrimzAgentRegistry)
-export STRIMZ_AGENT_ESCROW_ADDRESS=$(agent StrimzAgentEscrow)
+unset STRIMZ_AGENT_REGISTRY_ADDRESS STRIMZ_AGENT_ESCROW_ADDRESS
+if [ "$WITH_AGENT" = true ]; then
+  step "Deploy agent"
+  "$FORGE" script script/DeployAgent.s.sol --network arc --rpc-url "$LOCAL" --broadcast > /dev/null
+  agent() { jq -r --arg n "$1" '[.[] | select(.label == "agent")][-1].contracts[] | select(.name == $n) | .proxy' "$LOG"; }
+  export STRIMZ_AGENT_REGISTRY_ADDRESS=$(agent StrimzAgentRegistry)
+  export STRIMZ_AGENT_ESCROW_ADDRESS=$(agent StrimzAgentEscrow)
+else
+  step "No agent contracts on ${NETWORK}"
+fi
 
 step "Verify (deployed)"
 STRIMZ_VERIFY_PHASE=deployed STRIMZ_ADMIN_ADDRESS="$DEPLOYER" \
@@ -105,12 +142,14 @@ export TIMELOCK_MIN_DELAY="$TIMELOCK_DELAY"
 "$FORGE" script script/HandoffAdmin.s.sol --network arc --rpc-url "$LOCAL" --broadcast > /dev/null
 TIMELOCK=$(jq -r '[.[] | select(.label == "handoff")][-1].contracts[0].proxy' "$LOG")
 
-step "Safe pauses the agent escrow"
-"$CAST" rpc anvil_impersonateAccount "$SAFE" --rpc-url "$LOCAL" > /dev/null
-"$CAST" rpc anvil_setBalance "$SAFE" 0x8ac7230489e80000 --rpc-url "$LOCAL" > /dev/null
-"$CAST" send "$STRIMZ_AGENT_ESCROW_ADDRESS" "pause()" --from "$SAFE" --unlocked --rpc-url "$LOCAL" > /dev/null
-"$CAST" rpc anvil_stopImpersonatingAccount "$SAFE" --rpc-url "$LOCAL" > /dev/null
-[ "$("$CAST" call "$STRIMZ_AGENT_ESCROW_ADDRESS" "paused()(bool)" --rpc-url "$LOCAL")" = "true" ]
+if [ "$WITH_AGENT" = true ]; then
+  step "Safe pauses the agent escrow"
+  "$CAST" rpc anvil_impersonateAccount "$SAFE" --rpc-url "$LOCAL" > /dev/null
+  "$CAST" rpc anvil_setBalance "$SAFE" 0x8ac7230489e80000 --rpc-url "$LOCAL" > /dev/null
+  "$CAST" send "$STRIMZ_AGENT_ESCROW_ADDRESS" "pause()" --from "$SAFE" --unlocked --rpc-url "$LOCAL" > /dev/null
+  "$CAST" rpc anvil_stopImpersonatingAccount "$SAFE" --rpc-url "$LOCAL" > /dev/null
+  [ "$("$CAST" call "$STRIMZ_AGENT_ESCROW_ADDRESS" "paused()(bool)" --rpc-url "$LOCAL")" = "true" ]
+fi
 
 step "Verify (handed-off)"
 STRIMZ_VERIFY_PHASE=handed-off STRIMZ_TIMELOCK_ADDRESS="$TIMELOCK" STRIMZ_DEPLOYER_ADDRESS="$DEPLOYER" \

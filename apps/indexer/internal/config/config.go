@@ -49,13 +49,14 @@ type Config struct {
 	StaleCursorSeconds int `envconfig:"STALE_CURSOR_SECONDS" default:"120"`
 
 	// Contract addresses — emitted by the Foundry deployment script.
-	RegistryAddress       string `envconfig:"REGISTRY_ADDRESS"       required:"true"`
-	PaymentsAddress       string `envconfig:"PAYMENTS_ADDRESS"       required:"true"`
-	SubscriptionsAddress  string `envconfig:"SUBSCRIPTIONS_ADDRESS"  required:"true"`
-	AgentEscrowAddress    string `envconfig:"AGENT_ESCROW_ADDRESS"   required:"true"`
+	RegistryAddress      string `envconfig:"REGISTRY_ADDRESS"       required:"true"`
+	PaymentsAddress      string `envconfig:"PAYMENTS_ADDRESS"       required:"true"`
+	SubscriptionsAddress string `envconfig:"SUBSCRIPTIONS_ADDRESS"  required:"true"`
+	// Both or neither: mainnet launches without the agent contracts (ADR-2026-11-23).
+	AgentEscrowAddress    string `envconfig:"AGENT_ESCROW_ADDRESS"`
 	FeeCollectorAddress   string `envconfig:"FEE_COLLECTOR_ADDRESS"  required:"true"`
 	TokenWhitelistAddress string `envconfig:"TOKEN_WHITELIST_ADDRESS" required:"true"`
-	AgentRegistryAddress  string `envconfig:"AGENT_REGISTRY_ADDRESS"  required:"true"`
+	AgentRegistryAddress  string `envconfig:"AGENT_REGISTRY_ADDRESS"`
 	TimelockAddress       string `envconfig:"TIMELOCK_ADDRESS"        required:"true"`
 	// Optional: stablecoin addresses to scan for refund-completion Transfers.
 	StablecoinAddresses []string `envconfig:"STABLECOIN_ADDRESSES" default:""`
@@ -103,15 +104,26 @@ func Validate(c *Config) (*Config, error) {
 		"REGISTRY_ADDRESS":        c.RegistryAddress,
 		"PAYMENTS_ADDRESS":        c.PaymentsAddress,
 		"SUBSCRIPTIONS_ADDRESS":   c.SubscriptionsAddress,
-		"AGENT_ESCROW_ADDRESS":    c.AgentEscrowAddress,
 		"FEE_COLLECTOR_ADDRESS":   c.FeeCollectorAddress,
 		"TOKEN_WHITELIST_ADDRESS": c.TokenWhitelistAddress,
-		"AGENT_REGISTRY_ADDRESS":  c.AgentRegistryAddress,
 		"TIMELOCK_ADDRESS":        c.TimelockAddress,
 	}
 	for name, v := range addrs {
 		if !isEvmAddress(v) {
 			return nil, fmt.Errorf("%s must be a 0x-prefixed 20-byte hex string, got %q", name, v)
+		}
+	}
+	if (c.AgentEscrowAddress == "") != (c.AgentRegistryAddress == "") {
+		return nil, errors.New("set both AGENT_ESCROW_ADDRESS and AGENT_REGISTRY_ADDRESS, or neither")
+	}
+	if c.HasAgentContracts() {
+		for name, v := range map[string]string{
+			"AGENT_ESCROW_ADDRESS":   c.AgentEscrowAddress,
+			"AGENT_REGISTRY_ADDRESS": c.AgentRegistryAddress,
+		} {
+			if !isEvmAddress(v) {
+				return nil, fmt.Errorf("%s must be a 0x-prefixed 20-byte hex string, got %q", name, v)
+			}
 		}
 	}
 	stablecoins, err := parseStablecoins(c.StablecoinAddresses)
@@ -137,17 +149,41 @@ func (c *Config) RPCEndpoints() []string {
 	return out
 }
 
+// HasAgentContracts reports whether this network has the agent registry and escrow.
+func (c *Config) HasAgentContracts() bool { return c.AgentEscrowAddress != "" }
+
+// LegacyCursorContracts are the contracts that kept their own cursor before the core stream.
+func (c *Config) LegacyCursorContracts() []string {
+	out := []string{c.RegistryAddress, c.PaymentsAddress, c.SubscriptionsAddress}
+	if c.HasAgentContracts() {
+		out = append(out, c.AgentEscrowAddress)
+	}
+	return append(out, c.FeeCollectorAddress)
+}
+
+// WatchedContracts is every contract the core stream reads.
+func (c *Config) WatchedContracts() []string {
+	out := append(c.LegacyCursorContracts(), c.TokenWhitelistAddress)
+	if c.HasAgentContracts() {
+		out = append(out, c.AgentRegistryAddress)
+	}
+	return append(out, c.TimelockAddress)
+}
+
 func (c *Config) ContractNames() map[string]string {
-	return map[string]string{
+	names := map[string]string{
 		strings.ToLower(c.RegistryAddress):       "StrimzRegistry",
 		strings.ToLower(c.PaymentsAddress):       "StrimzPayments",
 		strings.ToLower(c.SubscriptionsAddress):  "StrimzSubscriptions",
-		strings.ToLower(c.AgentEscrowAddress):    "StrimzAgentEscrow",
 		strings.ToLower(c.FeeCollectorAddress):   "FeeCollector",
 		strings.ToLower(c.TokenWhitelistAddress): "TokenWhitelist",
-		strings.ToLower(c.AgentRegistryAddress):  "StrimzAgentRegistry",
 		strings.ToLower(c.TimelockAddress):       "TimelockController",
 	}
+	if c.HasAgentContracts() {
+		names[strings.ToLower(c.AgentEscrowAddress)] = "StrimzAgentEscrow"
+		names[strings.ToLower(c.AgentRegistryAddress)] = "StrimzAgentRegistry"
+	}
+	return names
 }
 
 func parseStablecoins(entries []string) ([]Stablecoin, error) {

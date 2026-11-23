@@ -67,9 +67,10 @@ export const envSchema = z.object({
   SUBSCRIPTIONS_ADDRESS: z
     .string()
     .regex(/^0x[0-9a-fA-F]{40}$/, 'must be a 0x-prefixed 20-byte hex address'),
-  AGENT_ESCROW_ADDRESS: z
-    .string()
-    .regex(/^0x[0-9a-fA-F]{40}$/, 'must be a 0x-prefixed 20-byte hex address'),
+  // Unset on mainnet, which launches without the agent contracts (ADR-2026-11-23).
+  AGENT_ESCROW_ADDRESS: unsetWhenEmpty(
+    z.string().regex(/^0x[0-9a-fA-F]{40}$/, 'must be a 0x-prefixed 20-byte hex address'),
+  ),
   REGISTRY_ADDRESS: z
     .string()
     .regex(/^0x[0-9a-fA-F]{40}$/, 'must be a 0x-prefixed 20-byte hex address'),

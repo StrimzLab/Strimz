@@ -64,6 +64,7 @@ library AdminHandoff {
     error AdminHandoff__UnknownChain(uint256 chainId);
     error AdminHandoff__GuardianRequired();
     error AdminHandoff__TimelockRoleMismatch(bytes32 role, address account, bool expected);
+    error AdminHandoff__AgentPairIncomplete();
 
     function run(Contracts memory c, Holders memory h, uint256 minDelay)
         internal
@@ -137,7 +138,7 @@ library AdminHandoff {
         if (minDelay < floor) revert AdminHandoff__DelayBelowFloor(minDelay, floor);
         if (block.chainid == ARC_MAINNET_CHAIN_ID && h.guardian == address(0)) revert AdminHandoff__GuardianRequired();
 
-        address[7] memory targets = _targets(c);
+        address[] memory targets = _targets(c);
         for (uint256 i; i < targets.length; ++i) {
             if (targets[i] == address(0)) revert AdminHandoff__ZeroAddress();
         }
@@ -171,37 +172,43 @@ library AdminHandoff {
         pure
         returns (Grant[] memory table)
     {
-        table = new Grant[](h.guardian == address(0) ? 36 : 39);
+        bool agent = _hasAgent(c);
+        table = new Grant[](39);
         uint256 n;
 
-        address[7] memory all = _targets(c);
+        address[] memory all = _targets(c);
         for (uint256 i; i < all.length; ++i) {
             n = _push(table, n, all[i], DEFAULT_ADMIN_ROLE, timelock);
         }
 
-        address[5] memory upgradeable = [c.registry, c.tokenWhitelist, c.feeCollector, c.agentRegistry, c.agentEscrow];
-        for (uint256 i; i < upgradeable.length; ++i) {
-            n = _push(table, n, upgradeable[i], UPGRADER_ROLE, timelock);
+        n = _push(table, n, c.registry, UPGRADER_ROLE, timelock);
+        n = _push(table, n, c.tokenWhitelist, UPGRADER_ROLE, timelock);
+        n = _push(table, n, c.feeCollector, UPGRADER_ROLE, timelock);
+        if (agent) {
+            n = _push(table, n, c.agentRegistry, UPGRADER_ROLE, timelock);
+            n = _push(table, n, c.agentEscrow, UPGRADER_ROLE, timelock);
         }
 
         n = _push(table, n, c.tokenWhitelist, TOKEN_MANAGER_ROLE, timelock);
 
         address[4] memory administered = [c.registry, c.payments, c.subscriptions, c.agentEscrow];
-        for (uint256 i; i < administered.length; ++i) {
+        for (uint256 i; i < (agent ? 4 : 3); ++i) {
             n = _push(table, n, administered[i], ADMIN_ROLE, timelock);
             n = _push(table, n, administered[i], ADMIN_ROLE, h.safe);
         }
 
         address[3] memory pausable = [c.payments, c.subscriptions, c.agentEscrow];
-        for (uint256 i; i < pausable.length; ++i) {
+        for (uint256 i; i < (agent ? 3 : 2); ++i) {
             n = _push(table, n, pausable[i], PAUSER_ROLE, timelock);
             n = _push(table, n, pausable[i], PAUSER_ROLE, h.safe);
             if (h.guardian != address(0)) n = _push(table, n, pausable[i], PAUSER_ROLE, h.guardian);
         }
 
         n = _push(table, n, c.feeCollector, TREASURY_ROLE, h.safe);
-        n = _push(table, n, c.agentEscrow, DISPUTE_RESOLVER_ROLE, h.safe);
-        n = _push(table, n, c.agentRegistry, AGENT_ADMIN_ROLE, h.safe);
+        if (agent) {
+            n = _push(table, n, c.agentEscrow, DISPUTE_RESOLVER_ROLE, h.safe);
+            n = _push(table, n, c.agentRegistry, AGENT_ADMIN_ROLE, h.safe);
+        }
         n = _push(table, n, c.registry, MERCHANT_REGISTRAR_ROLE, h.relayer);
         n = _push(table, n, c.subscriptions, CHARGER_ROLE, h.scheduler);
         n = _push(table, n, c.subscriptions, SUBSCRIPTION_CANCELLER_ROLE, h.scheduler);
@@ -209,11 +216,14 @@ library AdminHandoff {
         n = _push(table, n, c.feeCollector, FEE_ACCRUER_ROLE, c.payments);
         n = _push(table, n, c.feeCollector, FEE_ACCRUER_ROLE, c.subscriptions);
 
-        assert(n == table.length);
+        assert(n == (agent ? 36 : 26) + (h.guardian == address(0) ? 0 : (agent ? 3 : 2)));
+        assembly ("memory-safe") {
+            mstore(table, n)
+        }
     }
 
     function renounceAll(Contracts memory c, address deployer) internal {
-        address[7] memory targets = _targets(c);
+        address[] memory targets = _targets(c);
         bytes32[13] memory roles = _roles();
         for (uint256 i; i < targets.length; ++i) {
             IAccessControl target = IAccessControl(targets[i]);
@@ -225,7 +235,7 @@ library AdminHandoff {
     }
 
     function verify(Contracts memory c, Holders memory h, address timelock, Grant[] memory table) internal view {
-        address[7] memory targets = _targets(c);
+        address[] memory targets = _targets(c);
         bytes32[13] memory roles = _roles();
         address[8] memory accounts =
             [timelock, h.safe, h.guardian, h.relayer, h.scheduler, h.deployer, c.payments, c.subscriptions];
@@ -260,8 +270,25 @@ library AdminHandoff {
         }
     }
 
-    function _targets(Contracts memory c) private pure returns (address[7] memory) {
-        return [c.registry, c.tokenWhitelist, c.feeCollector, c.payments, c.subscriptions, c.agentRegistry, c.agentEscrow];
+    /// The agent contracts are optional: mainnet launches without them (ADR-2026-11-23).
+    function _hasAgent(Contracts memory c) private pure returns (bool) {
+        bool registrySet = c.agentRegistry != address(0);
+        if (registrySet != (c.agentEscrow != address(0))) revert AdminHandoff__AgentPairIncomplete();
+        return registrySet;
+    }
+
+    function _targets(Contracts memory c) private pure returns (address[] memory targets) {
+        bool agent = _hasAgent(c);
+        targets = new address[](agent ? 7 : 5);
+        targets[0] = c.registry;
+        targets[1] = c.tokenWhitelist;
+        targets[2] = c.feeCollector;
+        targets[3] = c.payments;
+        targets[4] = c.subscriptions;
+        if (agent) {
+            targets[5] = c.agentRegistry;
+            targets[6] = c.agentEscrow;
+        }
     }
 
     function _roles() private pure returns (bytes32[13] memory) {

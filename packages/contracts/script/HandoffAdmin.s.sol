@@ -18,8 +18,9 @@ contract HandoffAdmin is Script {
             feeCollector: vm.envAddress("STRIMZ_FEE_COLLECTOR_ADDRESS"),
             payments: vm.envAddress("STRIMZ_PAYMENTS_ADDRESS"),
             subscriptions: vm.envAddress("STRIMZ_SUBSCRIPTIONS_ADDRESS"),
-            agentRegistry: vm.envAddress("STRIMZ_AGENT_REGISTRY_ADDRESS"),
-            agentEscrow: vm.envAddress("STRIMZ_AGENT_ESCROW_ADDRESS")
+            // Unset on mainnet, which launches without the agent contracts (ADR-2026-11-23).
+            agentRegistry: vm.envOr("STRIMZ_AGENT_REGISTRY_ADDRESS", address(0)),
+            agentEscrow: vm.envOr("STRIMZ_AGENT_ESCROW_ADDRESS", address(0))
         });
         AdminHandoff.Holders memory h = AdminHandoff.Holders({
             safe: vm.envAddress("STRIMZ_SAFE_ADDRESS"),
