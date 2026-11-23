@@ -380,6 +380,43 @@ contract AdminHandoffTest is StrimzTestBase {
         assertTrue(payments.hasRole(PAUSER_ROLE, address(safe)));
     }
 
+    // ADR-2026-11-23-mainnet-without-agent-escrow.
+    function test_handoffWithoutAgentContracts() public {
+        AdminHandoff.Contracts memory c = _contracts();
+        c.agentRegistry = address(0);
+        c.agentEscrow = address(0);
+        timelock = runner.run(c, _holders(), MIN_DELAY);
+
+        address[5] memory core =
+            [address(registry), address(whitelist), address(feeCollector), address(payments), address(subs)];
+        bytes32[12] memory roles = _roles();
+        for (uint256 i; i < core.length; ++i) {
+            assertTrue(_has(core[i], DEFAULT_ADMIN_ROLE, address(timelock)), "timelock default admin");
+            for (uint256 j; j < roles.length; ++j) {
+                assertFalse(_has(core[i], roles[j], deployer), "deployer keeps a role");
+            }
+        }
+        assertTrue(_has(address(registry), MERCHANT_REGISTRAR_ROLE, relayer), "relayer registrar");
+        assertTrue(_has(address(subs), CHARGER_ROLE, scheduler), "scheduler charger");
+        assertTrue(_has(address(payments), PAUSER_ROLE, guardian), "guardian pauses payments");
+        assertTrue(_has(address(subs), PAUSER_ROLE, address(safe)), "safe pauses subscriptions");
+        assertTrue(_has(address(feeCollector), TREASURY_ROLE, address(safe)), "safe treasury");
+        // The undeployed agent contracts are untouched: the deployer still holds them.
+        assertTrue(_has(address(escrow), DEFAULT_ADMIN_ROLE, deployer), "agent escrow untouched");
+    }
+
+    function test_refusesHalfTheAgentPair() public {
+        AdminHandoff.Contracts memory c = _contracts();
+        c.agentEscrow = address(0);
+        vm.expectRevert(AdminHandoff.AdminHandoff__AgentPairIncomplete.selector);
+        runner.run(c, _holders(), MIN_DELAY);
+
+        c = _contracts();
+        c.agentRegistry = address(0);
+        vm.expectRevert(AdminHandoff.AdminHandoff__AgentPairIncomplete.selector);
+        runner.run(c, _holders(), MIN_DELAY);
+    }
+
     function test_refusesSafeBelowThresholdTwo() public {
         MockSafe single = new MockSafe(1);
         AdminHandoff.Holders memory h = _holders();

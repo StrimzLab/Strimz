@@ -45,8 +45,11 @@ contract Verify is Script {
         address feeCollector = vm.envAddress("STRIMZ_FEE_COLLECTOR_ADDRESS");
         address payments = vm.envAddress("STRIMZ_PAYMENTS_ADDRESS");
         address subs = vm.envAddress("STRIMZ_SUBSCRIPTIONS_ADDRESS");
-        address agentRegistry = vm.envAddress("STRIMZ_AGENT_REGISTRY_ADDRESS");
-        address agentEscrow = vm.envAddress("STRIMZ_AGENT_ESCROW_ADDRESS");
+        // Both or neither: mainnet launches without the agent contracts (ADR-2026-11-23).
+        address agentRegistry = vm.envOr("STRIMZ_AGENT_REGISTRY_ADDRESS", address(0));
+        address agentEscrow = vm.envOr("STRIMZ_AGENT_ESCROW_ADDRESS", address(0));
+        bool agent = agentRegistry != address(0);
+        require(agent == (agentEscrow != address(0)), "set both agent addresses or neither");
 
         console2.log("=== Strimz deployment verification ===");
         console2.log("chainId:", block.chainid);
@@ -75,8 +78,10 @@ contract Verify is Script {
             _requireRole("FeeCollector        [DEFAULT_ADMIN_ROLE]", feeCollector, defaultAdmin, admin);
             _requireRole("StrimzPayments      [DEFAULT_ADMIN_ROLE]", payments, defaultAdmin, admin);
             _requireRole("StrimzSubscriptions [DEFAULT_ADMIN_ROLE]", subs, defaultAdmin, admin);
-            _requireRole("StrimzAgentRegistry [DEFAULT_ADMIN_ROLE]", agentRegistry, defaultAdmin, admin);
-            _requireRole("StrimzAgentEscrow   [DEFAULT_ADMIN_ROLE]", agentEscrow, defaultAdmin, admin);
+            if (agent) {
+                _requireRole("StrimzAgentRegistry [DEFAULT_ADMIN_ROLE]", agentRegistry, defaultAdmin, admin);
+                _requireRole("StrimzAgentEscrow   [DEFAULT_ADMIN_ROLE]", agentEscrow, defaultAdmin, admin);
+            }
         }
 
         // 2. FEE_ACCRUER_ROLE wired so Payments and Subscriptions can credit fees.
@@ -105,11 +110,14 @@ contract Verify is Script {
         require(Upgrades.getImplementationAddress(registry) != address(0), "Registry: empty impl");
         require(Upgrades.getImplementationAddress(whitelist) != address(0), "Whitelist: empty impl");
         require(Upgrades.getImplementationAddress(feeCollector) != address(0), "FeeCollector: empty impl");
-        require(Upgrades.getImplementationAddress(agentRegistry) != address(0), "AgentRegistry: empty impl");
-        require(Upgrades.getImplementationAddress(agentEscrow) != address(0), "AgentEscrow: empty impl");
-        require(
-            address(StrimzAgentEscrow(agentEscrow).tokenWhitelist()) == whitelist, "AgentEscrow.tokenWhitelist mismatch"
-        );
+        if (agent) {
+            require(Upgrades.getImplementationAddress(agentRegistry) != address(0), "AgentRegistry: empty impl");
+            require(Upgrades.getImplementationAddress(agentEscrow) != address(0), "AgentEscrow: empty impl");
+            require(
+                address(StrimzAgentEscrow(agentEscrow).tokenWhitelist()) == whitelist,
+                "AgentEscrow.tokenWhitelist mismatch"
+            );
+        }
         console2.log("[ok] UUPS proxies have implementations set");
 
         // 5. Optional: token whitelist seed check. Only enforced when
@@ -150,8 +158,15 @@ contract Verify is Script {
         AdminHandoff.verify(c, h, timelock, AdminHandoff.roleTable(c, h, timelock));
         console2.log("[ok] post-handoff role table; deployer holds no role");
 
-        require(StrimzAgentEscrow(c.agentEscrow).paused(), "AgentEscrow is not paused; the Safe pauses it until escrow ships");
-        console2.log("[ok] AgentEscrow paused");
+        if (c.agentEscrow != address(0)) {
+            require(
+                StrimzAgentEscrow(c.agentEscrow).paused(),
+                "AgentEscrow is not paused; the Safe pauses it until escrow ships"
+            );
+            console2.log("[ok] AgentEscrow paused");
+        } else {
+            console2.log("[ok] no agent contracts on this network");
+        }
     }
 
     function _requireBothCapabilities(string memory label, address whitelist, address token) internal view {

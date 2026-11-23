@@ -100,17 +100,8 @@ func NewRunner(ctx context.Context, cfg *config.Config) (*Runner, error) {
 		return nil, fmt.Errorf("load abis: %w", err)
 	}
 
-	legacyCursorAddrs := []common.Address{
-		common.HexToAddress(cfg.RegistryAddress),
-		common.HexToAddress(cfg.PaymentsAddress),
-		common.HexToAddress(cfg.SubscriptionsAddress),
-		common.HexToAddress(cfg.AgentEscrowAddress),
-		common.HexToAddress(cfg.FeeCollectorAddress),
-	}
-	contractAddrs := append(append([]common.Address{}, legacyCursorAddrs...),
-		common.HexToAddress(cfg.TokenWhitelistAddress),
-		common.HexToAddress(cfg.AgentRegistryAddress),
-		common.HexToAddress(cfg.TimelockAddress))
+	legacyCursorAddrs := toAddresses(cfg.LegacyCursorContracts())
+	contractAddrs := toAddresses(cfg.WatchedContracts())
 	stables := make([]common.Address, 0, len(cfg.Stablecoins))
 	tokenMap := make(map[string]string, len(cfg.Stablecoins))
 	for _, coin := range cfg.Stablecoins {
@@ -668,6 +659,14 @@ func redactAll(urls []string) []string {
 	out := make([]string, len(urls))
 	for i, u := range urls {
 		out[i] = chain.RedactURL(u)
+	}
+	return out
+}
+
+func toAddresses(hexes []string) []common.Address {
+	out := make([]common.Address, len(hexes))
+	for i, h := range hexes {
+		out[i] = common.HexToAddress(h)
 	}
 	return out
 }

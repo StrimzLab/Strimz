@@ -68,7 +68,7 @@ export class ChainService implements OnModuleInit {
   // wallet_sendTransaction path, which RPC nodes don't implement.
   public readonly account: LocalAccount
   public readonly subscriptionsAddress: Address
-  public readonly agentEscrowAddress: Address
+  public readonly agentEscrowAddress: Address | null
   public readonly registryAddress: Address
   public readonly messageTransmitterAddress: Address
   private readonly environment: 'testnet' | 'mainnet'
@@ -96,11 +96,16 @@ export class ChainService implements OnModuleInit {
       withNonceReset(this.account, chain.id, () => write(args))) as typeof write
 
     this.subscriptionsAddress = cfg.env.SUBSCRIPTIONS_ADDRESS as Address
-    this.agentEscrowAddress = cfg.env.AGENT_ESCROW_ADDRESS as Address
+    this.agentEscrowAddress = (cfg.env.AGENT_ESCROW_ADDRESS as Address | undefined) ?? null
     this.registryAddress = cfg.env.REGISTRY_ADDRESS as Address
     this.messageTransmitterAddress = getCctpContracts(cfg.env.ARC_ENVIRONMENT)
       .messageTransmitterV2 as Address
     this.log.log(`scheduler signing as ${this.account.address}`)
+  }
+
+  private requireAgentEscrow(): Address {
+    if (!this.agentEscrowAddress) throw new Error('agent_escrow_not_deployed')
+    return this.agentEscrowAddress
   }
 
   async onModuleInit(): Promise<void> {
@@ -317,7 +322,7 @@ export class ChainService implements OnModuleInit {
   }): Promise<Hash> {
     return this.walletClient.writeContract({
       account: this.account,
-      address: this.agentEscrowAddress,
+      address: this.requireAgentEscrow(),
       abi: StrimzAgentEscrowAbi,
       functionName: 'createJob',
       args: [input.vendor, input.assessor, input.token, input.amount, input.description],
@@ -328,7 +333,7 @@ export class ChainService implements OnModuleInit {
   approveAndReleaseJob(jobId: bigint): Promise<Hash> {
     return this.walletClient.writeContract({
       account: this.account,
-      address: this.agentEscrowAddress,
+      address: this.requireAgentEscrow(),
       abi: StrimzAgentEscrowAbi,
       functionName: 'approveAndRelease',
       args: [jobId],
@@ -339,7 +344,7 @@ export class ChainService implements OnModuleInit {
   disputeJob(jobId: bigint, reason: string): Promise<Hash> {
     return this.walletClient.writeContract({
       account: this.account,
-      address: this.agentEscrowAddress,
+      address: this.requireAgentEscrow(),
       abi: StrimzAgentEscrowAbi,
       functionName: 'dispute',
       args: [jobId, reason],
@@ -350,7 +355,7 @@ export class ChainService implements OnModuleInit {
   cancelJob(jobId: bigint, reason: string): Promise<Hash> {
     return this.walletClient.writeContract({
       account: this.account,
-      address: this.agentEscrowAddress,
+      address: this.requireAgentEscrow(),
       abi: StrimzAgentEscrowAbi,
       functionName: 'cancelJob',
       args: [jobId, reason],

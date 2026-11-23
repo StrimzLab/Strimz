@@ -155,3 +155,37 @@ func TestContractNames_NamesEveryWatchedAddress(t *testing.T) {
 		"0x00000000000000000000000000000000000000a8": "TimelockController",
 	}, c.ContractNames())
 }
+
+// ADR-2026-11-23-mainnet-without-agent-escrow: mainnet launches without the agent contracts.
+func TestValidate_AcceptsNoAgentContracts(t *testing.T) {
+	c := validConfig()
+	c.AgentEscrowAddress = ""
+	c.AgentRegistryAddress = ""
+	_, err := Validate(c)
+	require.NoError(t, err)
+	assert.False(t, c.HasAgentContracts())
+	assert.NotContains(t, c.ContractNames(), "")
+	assert.Len(t, c.WatchedContracts(), 6)
+}
+
+func TestValidate_RejectsHalfTheAgentPair(t *testing.T) {
+	for _, unset := range []string{"escrow", "registry"} {
+		c := validConfig()
+		if unset == "escrow" {
+			c.AgentEscrowAddress = ""
+		} else {
+			c.AgentRegistryAddress = ""
+		}
+		_, err := Validate(c)
+		require.Error(t, err, unset)
+		assert.Contains(t, err.Error(), "AGENT_ESCROW_ADDRESS and AGENT_REGISTRY_ADDRESS")
+	}
+}
+
+func TestWatchedContracts_IncludesTheAgentPairWhenSet(t *testing.T) {
+	c := validConfig()
+	_, err := Validate(c)
+	require.NoError(t, err)
+	assert.True(t, c.HasAgentContracts())
+	assert.Len(t, c.WatchedContracts(), 8)
+}
