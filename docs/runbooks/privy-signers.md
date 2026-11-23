@@ -27,7 +27,8 @@ Privy refuses everything else. The rules live in `packages/signer/src/privy-poli
   - `payWithAuthorization` on Payments;
   - `permitAndCreateSubscription` and `cancelWithSig` on Subscriptions;
   - `registerMerchant` on the Registry;
-  - `permit` on USDC.
+  - `permit` on USDC;
+  - `execTransaction` on the Safe, only with a gas price of 0. The Safe console uses this to send what two owners already signed (ADR-2026-11-23-safe-console).
 - **Scheduler:**
   - `batchCharge` and `cancel` on Subscriptions;
   - `commitFeeBps` and `setFeeBps` on the Registry.
@@ -66,12 +67,25 @@ Use the three addresses in the mainnet deploy and admin handoff:
 export STRIMZ_PAYMENTS_ADDRESS=0x...       # from the mainnet deploy
 export STRIMZ_SUBSCRIPTIONS_ADDRESS=0x...
 export STRIMZ_REGISTRY_ADDRESS=0x...
+export STRIMZ_SAFE_ADDRESS=0x...           # the 2-of-3 Safe
 read -rs PRIVY_OWNER_AUTHORIZATION_KEY && export PRIVY_OWNER_AUTHORIZATION_KEY   # paste, then Enter
 pnpm privy:setup policies
 unset PRIVY_OWNER_AUTHORIZATION_KEY
 ```
 
 USDC and EURC come from `@strimz/shared-config`. A wallet that already has rules is skipped.
+
+### 2b. Add the Safe execute rule to a relayer that already has rules
+
+Relayers set up before the Safe console have no Safe rule, and `policies` skips them. Add it once:
+
+```bash
+read -rs PRIVY_OWNER_AUTHORIZATION_KEY && export PRIVY_OWNER_AUTHORIZATION_KEY
+pnpm privy:setup safe-rule
+unset PRIVY_OWNER_AUTHORIZATION_KEY
+```
+
+It needs the same contract settings as step 2. Rerunning it does nothing once the rule is there.
 
 ### 3. Check the rules before any money moves
 

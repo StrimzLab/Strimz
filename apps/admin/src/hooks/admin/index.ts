@@ -24,6 +24,7 @@ import type {
   AdminProfile,
   HealthResponse,
   InviteAdminInput,
+  SafeAction,
   PlatformOverview,
   SetAdminRoleInput,
   SetAdminStatusInput,
@@ -55,6 +56,8 @@ export const adminKeys = {
   topMerchants: (params: { currency: PaymentCurrency; mode: Mode; limit: number }) =>
     [...adminKeys.analytics(), 'top', params] as const,
   health: () => [...adminKeys.all, 'health'] as const,
+  safe: () => [...adminKeys.all, 'safe'] as const,
+  safeProposals: () => [...adminKeys.safe(), 'proposals'] as const,
   admins: () => [...adminKeys.all, 'admins'] as const,
   broadcasts: (audience?: BroadcastAudience) =>
     [...adminKeys.all, 'broadcasts', audience ?? 'any'] as const,
@@ -402,5 +405,74 @@ export function useCreateBroadcast() {
       qc.invalidateQueries({ queryKey: [...adminKeys.all, 'broadcasts'] })
     },
     messages: { loading: 'Sending broadcast…', success: 'Broadcast sent' },
+  })
+}
+
+// ---- Safe console ----
+
+export function useSafeState() {
+  const api = useAdminApi()
+  return useQuery({
+    queryKey: adminKeys.safe(),
+    queryFn: ({ signal }) => api.safeState({ signal }),
+    staleTime: 15_000,
+    retry: false,
+  })
+}
+
+export function useSafeProposals() {
+  const api = useAdminApi()
+  return useQuery({
+    queryKey: adminKeys.safeProposals(),
+    queryFn: ({ signal }) => api.safeProposals({ signal }),
+    refetchInterval: 15_000,
+    retry: false,
+  })
+}
+
+function useSafeMutation<TVars>(
+  fn: (vars: TVars) => Promise<unknown>,
+  messages: { loading: string; success: string },
+) {
+  const qc = useQueryClient()
+  return useMutationWithToast({
+    mutationFn: fn,
+    onSettled: () => qc.invalidateQueries({ queryKey: adminKeys.safe() }),
+    messages: {
+      ...messages,
+      error: (err) => (err instanceof Error ? err.message : 'The Safe request failed'),
+    },
+  })
+}
+
+export function useProposeSafeAction() {
+  const api = useAdminApi()
+  return useSafeMutation((action: SafeAction) => api.proposeSafeAction(action), {
+    loading: 'Proposing…',
+    success: 'Proposed. It now needs approvals.',
+  })
+}
+
+export function useSignSafeProposal() {
+  const api = useAdminApi()
+  return useSafeMutation(
+    (vars: { id: string; signature: string }) => api.signSafeProposal(vars.id, vars.signature),
+    { loading: 'Saving your approval…', success: 'Approved' },
+  )
+}
+
+export function useExecuteSafeProposal() {
+  const api = useAdminApi()
+  return useSafeMutation((id: string) => api.executeSafeProposal(id), {
+    loading: 'Sending from the Strimz relayer…',
+    success: 'Executed',
+  })
+}
+
+export function useProposeTimelockExecute() {
+  const api = useAdminApi()
+  return useSafeMutation((scheduleId: string) => api.proposeTimelockExecute(scheduleId), {
+    loading: 'Proposing…',
+    success: 'Proposed. It now needs approvals.',
   })
 }

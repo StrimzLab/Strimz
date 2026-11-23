@@ -245,3 +245,72 @@ export interface AuditLogResponse {
   nextCursor: string | null
   hasMore: boolean
 }
+
+// ----- Safe console (ADR-2026-11-23-safe-console) -----
+
+export type SafeContract =
+  | 'registry'
+  | 'payments'
+  | 'subscriptions'
+  | 'feeCollector'
+  | 'tokenWhitelist'
+export type SafeRole =
+  | 'ADMIN_ROLE'
+  | 'UPGRADER_ROLE'
+  | 'PAUSER_ROLE'
+  | 'TREASURY_ROLE'
+  | 'TOKEN_MANAGER_ROLE'
+  | 'FEE_ACCRUER_ROLE'
+  | 'MERCHANT_REGISTRAR_ROLE'
+  | 'FEE_MANAGER_ROLE'
+  | 'CHARGER_ROLE'
+  | 'SUBSCRIPTION_CANCELLER_ROLE'
+
+export type SafeAction =
+  | { kind: 'pause' | 'unpause'; contract: 'payments' | 'subscriptions' }
+  | { kind: 'withdrawFees'; token: 'USDC' | 'EURC'; to: string; amount: string }
+  | { kind: 'grantRole' | 'revokeRole'; contract: SafeContract; role: SafeRole; account: string }
+  | { kind: 'timelockCancel'; operationId: string }
+  | { kind: 'addOwner' | 'removeOwner'; owner: string; threshold: number }
+  | { kind: 'swapOwner'; oldOwner: string; newOwner: string }
+  | { kind: 'changeThreshold'; threshold: number }
+
+export interface SafeState {
+  chainId: number
+  safe: `0x${string}`
+  timelock: `0x${string}`
+  guardian: `0x${string}`
+  contracts: Record<SafeContract, `0x${string}`>
+  owners: `0x${string}`[]
+  threshold: number
+  nonce: number
+  timelockDelaySeconds: number
+  paused: { payments: boolean; subscriptions: boolean }
+}
+
+export type SafeProposalStatus =
+  | 'collecting'
+  | 'ready'
+  | 'executing'
+  | 'executed'
+  | 'failed'
+  | 'stale'
+
+export interface SafeProposal {
+  id: string
+  action: SafeAction | { kind: 'timelockExecute'; operationId: string }
+  to: `0x${string}`
+  data: `0x${string}`
+  nonce: number
+  safeTxHash: `0x${string}`
+  status: SafeProposalStatus
+  timelockOperationId: `0x${string}` | null
+  scheduledById: string | null
+  proposedById: string
+  executedById: string | null
+  executeTxHash: `0x${string}` | null
+  failureReason: string | null
+  executedAt: string | null
+  createdAt: string
+  signatures: { signer: `0x${string}`; signature: `0x${string}`; createdAt: string }[]
+}

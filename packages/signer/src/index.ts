@@ -17,6 +17,8 @@ export {
   type SignatureMeterOptions,
 } from './signature-meter.js'
 export {
+  safeExecFunction,
+  safeExecRule,
   signerFunctions,
   strimzSignerPolicies,
   REFUND_TRANSFER_CAP,

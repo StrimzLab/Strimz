@@ -6,6 +6,7 @@ export interface StrimzContracts {
   registry: Address
   usdc: Address
   eurc: Address
+  safe: Address
 }
 
 const fn = (signature: string) => parseAbiItem(`function ${signature}`) as AbiFunction
@@ -33,6 +34,23 @@ export const signerFunctions = {
   ],
   refund: [fn('transfer(address to, uint256 amount)')],
 } as const
+
+export const safeExecFunction = fn(
+  'execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)',
+)
+
+// gasPrice 0 means the Safe never refunds the relayer; the owners' signatures cover the rest.
+export function safeExecRule(safe: Address) {
+  return allowCall('Safe: execute owner-approved transaction', safe, safeExecFunction, [
+    {
+      field_source: 'ethereum_calldata',
+      field: 'execTransaction.gasPrice',
+      abi: [safeExecFunction],
+      operator: 'eq',
+      value: '0',
+    },
+  ])
+}
 
 /** The most one business is ever refunded: 0.5% of $1,000, in 6-decimal base units. */
 export const REFUND_TRANSFER_CAP = 5_000_000n
@@ -86,6 +104,7 @@ export function strimzSignerPolicies(c: StrimzContracts) {
       allowCall('Subscriptions: payer cancel', c.subscriptions, cancelWithSig),
       allowCall('Registry: register merchant', c.registry, register),
       allowCall('USDC: renew allowance', c.usdc, permit),
+      safeExecRule(c.safe),
     ]),
     scheduler: policy('strimz-mainnet-scheduler', [
       allowCall('Subscriptions: charge', c.subscriptions, charge),

@@ -13,6 +13,7 @@ import {
   Server,
   ShieldCheck,
   Users2,
+  Vault,
 } from 'lucide-react'
 import { useEffect, type ReactNode } from 'react'
 import { Button, ThemeToggle } from '@strimz/ui'
@@ -41,6 +42,7 @@ const NAV: {
     icon: ScrollText,
     roles: ['super_admin', 'admin'],
   },
+  { href: '/admin/safe', label: 'Safe', icon: Vault, roles: ['super_admin'] },
 ] as const
 
 // Admin access is an active AdminUser row and nothing else. Signing in
