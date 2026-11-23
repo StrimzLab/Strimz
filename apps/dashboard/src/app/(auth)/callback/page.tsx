@@ -2,13 +2,15 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { usePrivy, getAccessToken } from '@privy-io/react-auth'
+import { useCreateWallet, usePrivy } from '@privy-io/react-auth'
 import { Loader2 } from 'lucide-react'
 import type { Merchant } from '@strimz/shared-types'
 import { TurnstileWidget } from '@strimz/web-shared/components/shared/turnstile-widget'
 import { AuthCard } from '@/components/auth/auth-card'
 import { useViewportWidth } from '@/components/auth/auth-methods'
 import { readSignupToken, turnstileSizeFor } from '@/lib/auth-flow'
+import { syncSession } from '@/lib/auth-sync'
+import { ensureEmbeddedWallet } from '@/lib/embedded-wallet'
 import { lastPasskeyOffer, shouldOfferPasskey } from '@/lib/passkeys'
 import { env } from '@strimz/web-shared/lib/env'
 import { safeNextPath, withNext } from '@strimz/web-shared/lib/auth-redirect'
@@ -25,6 +27,7 @@ function AuthCallback() {
   const router = useRouter()
   const next = safeNextPath(useSearchParams().get('next'))
   const privy = usePrivyOrNull()
+  const { createWallet } = useCreateWallet()
   const [error, setError] = useState<string | null>(null)
   const [needsCheck, setNeedsCheck] = useState(false)
   const viewportWidth = useViewportWidth()
@@ -50,13 +53,9 @@ function AuthCallback() {
 
   async function doSync(turnstileToken = readSignupToken()) {
     try {
-      const accessToken = await getAccessToken()
-      if (!accessToken) return setError('No access token from Privy')
-      const r = await fetch(`${env.apiUrl}/v1/auth/sync`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ accessToken, ...(turnstileToken ? { turnstileToken } : {}) }),
-      })
+      // The first sync records the wallet address, so it has to exist by then.
+      await ensureEmbeddedWallet(privy?.user?.linkedAccounts ?? [], createWallet)
+      const r = await syncSession(turnstileToken)
       // A new account needs a fresh bot check, e.g. after the saved one expired.
       if (r.status === 428) {
         if (!env.turnstileSiteKey) {

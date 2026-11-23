@@ -1,7 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useCreateWallet, usePrivy } from '@privy-io/react-auth'
+import { useQueryClient } from '@tanstack/react-query'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { FieldLabel, Input } from '@strimz/ui'
 import { TERMS_VERSION } from '@strimz/shared-config'
@@ -10,7 +12,10 @@ import { SubmitButton } from '@strimz/web-shared/components/auth/submit-button'
 import { withNext } from '@strimz/web-shared/lib/auth-redirect'
 import { TermsConsent } from '@/components/auth/terms-consent'
 import { ImageUpload } from '@/components/dashboard/image-upload'
+import { merchantKeys } from '@/hooks/api/query-keys'
 import { useMerchantMe, useOnboardMerchant } from '@/hooks/api/use-merchant'
+import { syncSession } from '@/lib/auth-sync'
+import { ensureEmbeddedWallet } from '@/lib/embedded-wallet'
 
 const SECTORS = [
   'SaaS',
@@ -62,6 +67,7 @@ export default function OnboardingPage() {
   // to route payouts elsewhere later use Settings > On-chain policy,
   // which goes through the 24h delay.
   const payoutAddress = merchant?.walletAddress ?? ''
+  const wallet = useWalletRepair(merchant ? !merchant.walletAddress : false)
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -179,9 +185,17 @@ export default function OnboardingPage() {
           />
         </Field>
 
-        {!payoutAddress && (
+        {!payoutAddress && !wallet.failed && (
           <p role="status" className="text-muted-foreground text-xs">
             Setting up your Strimz wallet…
+          </p>
+        )}
+        {!payoutAddress && wallet.failed && (
+          <p role="alert" className="text-danger text-xs">
+            We couldn&apos;t set up your Strimz wallet.{' '}
+            <button type="button" className="underline" onClick={wallet.retry}>
+              Try again
+            </button>
           </p>
         )}
 
@@ -199,6 +213,37 @@ export default function OnboardingPage() {
       </form>
     </div>
   )
+}
+
+/** Accounts that signed up before #543 have no wallet; make one and sync again. */
+function useWalletRepair(missing: boolean) {
+  const { user } = usePrivy()
+  const { createWallet } = useCreateWallet()
+  const qc = useQueryClient()
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  const running = useRef(false)
+
+  useEffect(() => {
+    if (!missing || !user || running.current) return
+    running.current = true
+    setFailed(false)
+    ensureEmbeddedWallet(user.linkedAccounts, createWallet)
+      .then(() => syncSession())
+      .then((r) => {
+        if (!r.ok) throw new Error(`Sync failed (${r.status})`)
+        return qc.invalidateQueries({ queryKey: merchantKeys.me() })
+      })
+      .catch((err: unknown) => {
+        console.error('[onboarding] wallet setup failed', err)
+        setFailed(true)
+      })
+      .finally(() => {
+        running.current = false
+      })
+  }, [missing, user, createWallet, qc, attempt])
+
+  return { failed, retry: () => setAttempt((n) => n + 1) }
 }
 
 function Field({

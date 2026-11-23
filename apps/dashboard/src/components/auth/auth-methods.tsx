@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { useRouter } from 'next/navigation'
 import { Captcha, usePrivy } from '@privy-io/react-auth'
 import { TurnstileWidget } from '@strimz/web-shared/components/shared/turnstile-widget'
 import { env } from '@strimz/web-shared/lib/env'
@@ -13,14 +12,15 @@ import { saveSignupToken, turnstileSizeFor } from '@/lib/auth-flow'
 
 /** Sign-up and login methods behind one Turnstile check (ADR-2026-11-21-custom-auth-screens). */
 export function AuthMethods({ mode, next }: { mode: 'signup' | 'login'; next: string | null }) {
-  const router = useRouter()
   const { ready, authenticated } = usePrivy()
   const [human, setHuman] = useState(!env.turnstileSiteKey)
   const [resetKey, setResetKey] = useState(0)
 
   useEffect(() => {
-    if (ready && authenticated) router.replace(withNext('/callback', next))
-  }, [ready, authenticated, next, router])
+    // Not router.replace: Privy clears its OAuth params from the URL right after Google
+    // returns, and Next takes that as a navigation back here, cancelling ours (#542).
+    if (ready && authenticated) window.location.replace(withNext('/callback', next))
+  }, [ready, authenticated, next])
 
   const usable = ready && human
   const viewportWidth = useViewportWidth()

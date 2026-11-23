@@ -39,7 +39,6 @@ ARC_RPC_URL=https://your-arc-rpc.com
 ARC_FALLBACK_RPC_URLS=https://backup-rpc.example,https://another-rpc.example   # optional, tried in order
 
 SUBSCRIPTIONS_ADDRESS=0x...
-AGENT_ESCROW_ADDRESS=0x...
 REGISTRY_ADDRESS=0x...
 RELAYER_ADDRESS=0x...
 
@@ -58,7 +57,11 @@ PRIVY_SIGNER_AUTHORIZATION_KEY=...
 STRIMZ_WEBHOOK_SIGNING_SECRET=...
 WEBHOOK_SECRET_ENCRYPTION_KEY=...
 STRIMZ_ADMIN_ALERT_EMAIL=ops@your-domain.com
+
+# AGENT_ESCROW_ADDRESS=0x...      # optional; agent escrow is coming soon
 ```
+
+`AGENT_ESCROW_ADDRESS` is optional. Agent escrow is coming soon, so leave it unset on mainnet. Without it, agent escrow jobs fail with `agent_escrow_not_deployed` and are not retried.
 
 `STRIMZ_WEBHOOK_SIGNING_SECRET` is at least 32 characters.
 `WEBHOOK_SECRET_ENCRYPTION_KEY` is 64 hex characters and must match the
@@ -105,7 +108,7 @@ The scheduler signs these itself:
 | Charge a subscription | `StrimzSubscriptions.batchCharge(ids[], attemptIds[])`, one per call |
 | Cancel a subscription | `StrimzSubscriptions.cancel(subId)`                                  |
 | Set a merchant's fee  | `StrimzRegistry.setFeeBps(...)` (plan upgrades)                      |
-| Agent escrow jobs     | `StrimzAgentEscrow` create, release, dispute, cancel (not live yet)  |
+| Agent escrow jobs     | `StrimzAgentEscrow` create, release, dispute, cancel (coming soon)   |
 
 The subscription cancel needs the scheduler to hold `CHARGER_ROLE` on a subscriptions contract from the next testnet redeploy ([#142](https://github.com/StrimzLab/strimz/issues/142)). On the current deployment it reverts.
 
