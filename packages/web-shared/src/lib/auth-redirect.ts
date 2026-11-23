@@ -36,12 +36,15 @@ export type DashboardGate =
   | { kind: 'sync' }
   | { kind: 'onboarding' }
   | { kind: 'terms' }
+  | { kind: 'passkey' }
   | { kind: 'error'; message: string }
   | { kind: 'ready' }
 
 export interface DashboardGateInput {
   privyReady: boolean
   authenticated: boolean
+  /** A passkey that can confirm sensitive actions, not just sign in. */
+  passkeyEnrolled: boolean
   merchant: {
     isPending: boolean
     error: unknown
@@ -52,6 +55,7 @@ export interface DashboardGateInput {
 export function dashboardGate({
   privyReady,
   authenticated,
+  passkeyEnrolled,
   merchant,
 }: DashboardGateInput): DashboardGate {
   if (!privyReady) return { kind: 'loading' }
@@ -68,6 +72,7 @@ export function dashboardGate({
   if (merchant.isPending || !merchant.data) return { kind: 'loading' }
   if (!merchant.data.onboardingCompleted) return { kind: 'onboarding' }
   if (merchant.data.termsVersion !== TERMS_VERSION) return { kind: 'terms' }
+  if (!passkeyEnrolled) return { kind: 'passkey' }
   return { kind: 'ready' }
 }
 

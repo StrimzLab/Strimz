@@ -38,8 +38,7 @@ const STEPS: Array<{
   {
     selector: '[data-tour="nav-api-keys"]',
     title: 'API keys',
-    description:
-      'Issue a test key first, then upgrade to live once your team is ready. Every key is scoped and revocable.',
+    description: 'Create a live key for your integration. Every key is scoped and revocable.',
     side: 'right',
   },
   {
@@ -64,6 +63,13 @@ interface RunOptions {
   maxWaitMs?: number
 }
 
+let stopActive: (() => void) | null = null
+
+/** Closes the tour without counting it as finished, e.g. on sign-out or a page change. */
+export function stopDashboardTour(): void {
+  stopActive?.()
+}
+
 /**
  * Kicks off the tour. Retries until at least the first target
  * (KPIs) is in the DOM so framer-motion / query hydration races
@@ -71,17 +77,31 @@ interface RunOptions {
  */
 export function runDashboardTour({ onComplete, maxWaitMs = 3_000 }: RunOptions = {}): void {
   if (typeof window === 'undefined') return
+  stopDashboardTour()
   const start = performance.now()
+  let stopped = false
+  let timer: number | undefined
+  let tour: ReturnType<typeof driver> | undefined
+
+  const stop = () => {
+    stopped = true
+    window.clearTimeout(timer)
+    tour?.destroy()
+    if (stopActive === stop) stopActive = null
+  }
+  stopActive = stop
 
   const attempt = () => {
     const available = STEPS.filter((s) => document.querySelector(s.selector))
     if (available.length === 0) {
       if (performance.now() - start < maxWaitMs) {
-        window.setTimeout(attempt, 120)
+        timer = window.setTimeout(attempt, 120)
+      } else if (stopActive === stop) {
+        stopActive = null
       }
       return
     }
-    const d = driver({
+    tour = driver({
       showProgress: true,
       allowClose: true,
       overlayOpacity: 0.55,
@@ -95,9 +115,12 @@ export function runDashboardTour({ onComplete, maxWaitMs = 3_000 }: RunOptions =
         element: s.selector,
         popover: { title: s.title, description: s.description, side: s.side },
       })),
-      onDestroyed: () => onComplete?.(),
+      onDestroyed: () => {
+        if (stopActive === stop) stopActive = null
+        if (!stopped) onComplete?.()
+      },
     })
-    d.drive()
+    tour.drive()
   }
   attempt()
 }

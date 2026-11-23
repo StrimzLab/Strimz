@@ -20,7 +20,6 @@ export function PasskeySettings() {
   )
   const [error, setError] = useState<string | null>(null)
   const [removing, setRemoving] = useState<string | null>(null)
-  const [confirming, setConfirming] = useState<string | null>(null)
   const enrolMfa = useEnrolPasskeyMfa()
   const [enrolling, setEnrolling] = useState(false)
   const enrol = (u: Parameters<typeof enrolMfa>[0]) => {
@@ -36,9 +35,6 @@ export function PasskeySettings() {
   const { unlink } = useUnlinkPasskey()
   const accounts = user?.linkedAccounts ?? []
   const passkeys = passkeysOf(accounts)
-  const confirmers = accounts.flatMap((a) =>
-    a.type === 'passkey' && a.enrolledInMfa ? [a.credentialId] : [],
-  )
   const adding = state.status !== 'initial' && state.status !== 'error' && state.status !== 'done'
 
   return (
@@ -74,8 +70,6 @@ export function PasskeySettings() {
         <ul className="divide-border/60 divide-y">
           {passkeys.map((p) => {
             const removable = canRemovePasskey(accounts, p.credentialId)
-            const lastConfirmer = confirmers.length === 1 && confirmers[0] === p.credentialId
-            const askFirst = lastConfirmer && confirming !== p.credentialId
             return (
               <li
                 key={p.credentialId}
@@ -94,15 +88,10 @@ export function PasskeySettings() {
                   title={
                     removable
                       ? undefined
-                      : "This is your only way to sign in, so it can't be removed."
+                      : 'Strimz needs a passkey that confirms withdrawals. Add another one first.'
                   }
                   onClick={() => {
                     setError(null)
-                    if (askFirst) {
-                      setConfirming(p.credentialId)
-                      return
-                    }
-                    setConfirming(null)
                     setRemoving(p.credentialId)
                     unlink({ credentialId: p.credentialId })
                       .catch((err: unknown) => {
@@ -112,16 +101,11 @@ export function PasskeySettings() {
                       .finally(() => setRemoving(null))
                   }}
                 >
-                  {removing === p.credentialId
-                    ? 'Removing…'
-                    : confirming === p.credentialId
-                      ? 'Remove anyway'
-                      : 'Remove'}
+                  {removing === p.credentialId ? 'Removing…' : 'Remove'}
                 </Button>
-                {confirming === p.credentialId && (
-                  <p role="alert" className="text-warning basis-full text-xs">
-                    This is the passkey that confirms withdrawals, refunds, API keys and webhooks.
-                    Without it you can&apos;t do those until you add another.
+                {!removable && (
+                  <p className="text-muted-foreground basis-full text-xs">
+                    To remove this one, add another passkey first.
                   </p>
                 )}
               </li>

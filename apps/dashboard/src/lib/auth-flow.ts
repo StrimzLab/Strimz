@@ -23,7 +23,7 @@ const FALLBACK: Record<AuthStep, string> = {
   code: "We couldn't check that code. Try again in a moment.",
   google: "Google sign-in didn't finish. Try again.",
   passkey: "Your passkey didn't work. Try again, or use your email.",
-  link: "We couldn't add the passkey. Try again, or skip for now.",
+  link: "We couldn't add the passkey. Try again.",
 }
 
 /** A sentence for the person, or null when they cancelled and there's nothing to say. */

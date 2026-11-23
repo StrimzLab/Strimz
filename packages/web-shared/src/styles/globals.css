@@ -128,56 +128,6 @@
     display: none;
   }
 
-  /* driver.js popover skinning to match the Strimz palette. Applied
-   * via the `popoverClass: 'strimz-tour'` config in use-dashboard-tour. */
-  .driver-popover.strimz-tour {
-    background: hsl(var(--card));
-    color: hsl(var(--card-foreground));
-    border: 1px solid hsl(var(--border));
-    border-radius: 12px;
-    box-shadow:
-      0 20px 40px -20px rgba(2, 199, 106, 0.25),
-      0 6px 20px -8px rgba(5, 0, 32, 0.15);
-    font-family: var(--font-poppins), system-ui, sans-serif;
-  }
-  .driver-popover.strimz-tour .driver-popover-title {
-    font-family: var(--font-sora), system-ui, sans-serif;
-    font-weight: 600;
-    color: hsl(var(--card-foreground));
-  }
-  .driver-popover.strimz-tour .driver-popover-description {
-    color: hsl(var(--muted-foreground));
-    font-size: 13px;
-    line-height: 1.55;
-  }
-  .driver-popover.strimz-tour .driver-popover-progress-text {
-    color: hsl(var(--muted-foreground));
-    font-size: 11px;
-  }
-  .driver-popover.strimz-tour .driver-popover-navigation-btns button {
-    background: #02c76a;
-    color: #ffffff;
-    font-weight: 500;
-    padding: 6px 14px;
-    border-radius: 8px;
-    text-shadow: none;
-    border: none;
-  }
-  .driver-popover.strimz-tour .driver-popover-prev-btn {
-    background: transparent !important;
-    color: hsl(var(--muted-foreground)) !important;
-    border: 1px solid hsl(var(--border)) !important;
-  }
-  .driver-popover.strimz-tour .driver-popover-close-btn {
-    color: hsl(var(--muted-foreground));
-    top: 10px;
-    right: 12px;
-  }
-  .driver-popover-arrow-side-bottom.strimz-tour,
-  .driver-popover.strimz-tour .driver-popover-arrow {
-    border-color: hsl(var(--card)) !important;
-  }
-
   .dark .recharts-default-tooltip {
     background-color: hsl(var(--popover)) !important;
     border-color: hsl(var(--border)) !important;
@@ -200,6 +150,56 @@
   input[type='number'] {
     -moz-appearance: textfield;
   }
+}
+
+/* driver.js tour skin (popoverClass 'strimz-tour'). Unlayered on purpose: driver.css is
+ * unlayered and would beat any layered rule. */
+.driver-popover.strimz-tour {
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  box-shadow:
+    0 20px 40px -20px rgba(2, 199, 106, 0.25),
+    0 6px 20px -8px rgba(5, 0, 32, 0.15);
+  font-family: var(--font-poppins), system-ui, sans-serif;
+}
+.driver-popover.strimz-tour .driver-popover-title {
+  font-family: var(--font-sora), system-ui, sans-serif;
+  font-weight: 600;
+  color: hsl(var(--card-foreground));
+}
+.driver-popover.strimz-tour .driver-popover-description {
+  color: hsl(var(--muted-foreground));
+  font-size: 13px;
+  line-height: 1.55;
+}
+.driver-popover.strimz-tour .driver-popover-progress-text {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+}
+.driver-popover.strimz-tour .driver-popover-navigation-btns button {
+  background: #02c76a;
+  color: #ffffff;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 8px;
+  text-shadow: none;
+  border: none;
+}
+.driver-popover.strimz-tour .driver-popover-prev-btn {
+  background: transparent !important;
+  color: hsl(var(--muted-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+.driver-popover.strimz-tour .driver-popover-close-btn {
+  color: hsl(var(--muted-foreground));
+  top: 10px;
+  right: 12px;
+}
+.driver-popover-arrow-side-bottom.strimz-tour,
+.driver-popover.strimz-tour .driver-popover-arrow {
+  border-color: hsl(var(--card)) !important;
 }
 
 :root {
