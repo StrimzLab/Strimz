@@ -9,16 +9,20 @@ The steps follow the testnet runbook (`testnet-redeploy.md`), with mainnet value
 
 ## 0. Before you start
 
-| Item                                  | Who             | Notes                                                                                                          |
-| ------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------- |
-| The three Privy mainnet wallets       | done 2026-11-23 | relayer `0x2867…e95f`, scheduler `0x0be7…5874`, refund `0x769F…3BCc` (`privy-signers.md` step 1)               |
-| Safe owners A, B and C                | founder         | A = founder, also the guardian; B = teammate; C = offline recovery key. Addresses only.                        |
-| A fresh deployer key                  | engineer        | generated straight into `packages/contracts/.env` as `STRIMZ_DEPLOYER_PRIVATE_KEY` (gitignored), never printed |
-| 2 USDC on Arc mainnet to the deployer | founder         | gas is paid in USDC; the deploy and handoff use about 0.7 USDC                                                 |
-| `ARC_MAINNET_RPC_URL`                 | engineer        | `https://rpc.mainnet.arc.io`                                                                                   |
-| `TIMELOCK_MIN_DELAY=172800`           |                 | 48 hours; the handoff refuses less on mainnet                                                                  |
+| Item                                  | Who             | Notes                                                                                                     |
+| ------------------------------------- | --------------- | --------------------------------------------------------------------------------------------------------- |
+| The three Privy mainnet wallets       | done 2026-11-23 | addresses in the private ops manual (`privy-signers.md` step 1)                                           |
+| Safe owners A, B and C                | founder         | A = founder, also the guardian; B = teammate; C = offline recovery key. Addresses only.                   |
+| A fresh deployer key                  | engineer        | generated straight into `packages/contracts/.env.mainnet` as `STRIMZ_DEPLOYER_PRIVATE_KEY`, never printed |
+| 2 USDC on Arc mainnet to the deployer | founder         | gas is paid in USDC; the deploy and handoff use about 0.7 USDC                                            |
+| `ARC_MAINNET_RPC_URL`                 | engineer        | `https://rpc.mainnet.arc.io`                                                                              |
+| `TIMELOCK_MIN_DELAY=172800`           |                 | 48 hours; the handoff refuses less on mainnet                                                             |
 
-Leave `STRIMZ_AGENT_REGISTRY_ADDRESS` and `STRIMZ_AGENT_ESCROW_ADDRESS` unset. If only one of them is set, the handoff refuses to run.
+Set `STRIMZ_AGENT_REGISTRY_ADDRESS` and `STRIMZ_AGENT_ESCROW_ADDRESS` to the zero address. If only one of them is set, the handoff refuses to run.
+
+**Set every setting explicitly.** Forge loads `packages/contracts/.env`, the testnet file, for any setting not already in your shell. Leaving the agent addresses unset therefore picks up the testnet ones. Export every address the scripts read (tokens, the five core contracts, agent pair as zero, Safe, guardian, relayer, scheduler, timelock delay) before each step.
+
+**Mainnet addresses stay out of this repo.** It is public. Record them only in the private ops manual. `deployments/5042.json` is gitignored for this reason.
 
 ## 1. Rehearse on a fork of mainnet
 
@@ -76,8 +80,8 @@ STRIMZ_VERIFY_PHASE=deployed STRIMZ_ADMIN_ADDRESS="$DEPLOYER" \
 
 ```sh
 STRIMZ_SAFE_ADDRESS="$SAFE" STRIMZ_GUARDIAN_ADDRESS="$OWNER_A" \
-STRIMZ_RELAYER_ADDRESS=0x2867d4383C67Ee1b86960220175866920bb5e95f \
-STRIMZ_SCHEDULER_ADDRESS=0x0be71EB936539e2B0E81a8aa6D041608D8Ad5874 \
+STRIMZ_RELAYER_ADDRESS="$PRIVY_RELAYER" \
+STRIMZ_SCHEDULER_ADDRESS="$PRIVY_SCHEDULER" \
 TIMELOCK_MIN_DELAY=172800 \
   arc-forge script script/HandoffAdmin.s.sol --network arc --rpc-url arc_mainnet --broadcast -vvv
 
@@ -99,9 +103,18 @@ Then send what's left in the deployer back to the founder.
 
 ## 5. Publish the source
 
+The explorer's upload API sits behind a Cloudflare check that scripts can't pass, so `./script/verify.sh` doesn't work on mainnet. Verify on Sourcify instead; the explorer reads from it. Run this for each implementation, Payments, Subscriptions, the Timelock (`lib/openzeppelin-contracts/contracts/governance/TimelockController.sol:TimelockController`), and each proxy (`lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol:ERC1967Proxy`):
+
 ```sh
-./script/verify.sh
+env -u ETHERSCAN_API_KEY -u BLOCKSCOUT_API_KEY \
+  arc-forge verify-contract <address> <src/...sol:Contract> \
+  --verifier sourcify --verifier-url https://sourcify.dev/server/ \
+  --chain-id 5042 --rpc-url arc_mainnet --watch
 ```
+
+Unset the explorer keys as shown. With one set, forge ignores `--verifier sourcify`, calls the explorer, and prints the key in the error.
+
+Each should end with `Status: match`. Confirm with `https://sourcify.dev/server/v2/contract/5042/<address>`.
 
 ## 6. Then
 
@@ -112,5 +125,5 @@ Then send what's left in the deployer back to the founder.
   - no `AGENT_*` addresses;
   - remove dRPC from `ARC_FALLBACK_RPC_URLS`;
   - set `RELAY_PLATFORM_DAILY_CAP=1500`.
-- **Fund** the relayer and refund wallets with small floats.
-- **Record** the new `deployments/5042.json`, the README table and the release note with the transaction hashes.
+- **Fund** the relayer, scheduler and refund wallets with small floats.
+- **Record** the addresses, transaction hashes and `deployments/5042.json` in the private ops manual. Not in this repo.
