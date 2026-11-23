@@ -7,7 +7,8 @@ import { safeNextPath, withNext } from '@strimz/web-shared/lib/auth-redirect'
 
 import { AuthCard } from '@/components/auth/auth-card'
 import { PasskeyOffer } from '@/components/auth/passkey-offer'
-import { notePasskeyOffer, passkeysOf } from '@/lib/passkeys'
+import { hasPasskeyMfa } from '@/hooks/use-passkey-mfa'
+import { passkeysOf } from '@/lib/passkeys'
 
 export default function PasskeyPage() {
   return (
@@ -21,19 +22,31 @@ function Passkey() {
   const router = useRouter()
   const next = safeNextPath(useSearchParams().get('next')) ?? '/app'
 
-  const { ready, authenticated, user } = usePrivy()
-  const hasPasskey = passkeysOf(user?.linkedAccounts ?? []).length > 0
+  const { ready, authenticated, user, logout } = usePrivy()
+  const enrolled = hasPasskeyMfa(user)
+  const linked = passkeysOf(user?.linkedAccounts ?? []).length > 0
 
   useEffect(() => {
     if (!ready) return
     if (!authenticated) router.replace(withNext('/login', next))
-    else if (hasPasskey) router.replace(next)
-    else notePasskeyOffer()
-  }, [ready, authenticated, hasPasskey, next, router])
+    else if (enrolled) router.replace(next)
+  }, [ready, authenticated, enrolled, next, router])
 
   return (
-    <AuthCard title="Sign in faster next time" description="Add a passkey to your Strimz account.">
-      {ready && authenticated && <PasskeyOffer onDone={() => router.replace(next)} />}
+    <AuthCard
+      title="Add a passkey"
+      description="The last step. Your passkey signs you in and confirms withdrawals and payout changes."
+    >
+      {ready && authenticated && user && !enrolled && (
+        <PasskeyOffer
+          user={user}
+          linked={linked}
+          onDone={() => router.replace(next)}
+          onSignOut={() => {
+            void logout().then(() => router.replace('/login'))
+          }}
+        />
+      )}
     </AuthCard>
   )
 }

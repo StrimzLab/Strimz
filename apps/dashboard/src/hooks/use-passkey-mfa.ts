@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
-import { useMfaEnrollment, usePrivy, type User } from '@privy-io/react-auth'
+import { useMfaEnrollment, usePrivy, useUser, type User } from '@privy-io/react-auth'
 
 import { syncSession } from '@/lib/auth-sync'
 import { passkeysOf } from '@/lib/passkeys'
@@ -13,18 +13,21 @@ export function hasPasskeyMfa(user: User | null): boolean {
 /** Makes the account's passkeys its second factor, so sensitive actions can ask for them. */
 export function useEnrolPasskeyMfa() {
   const { initEnrollmentWithPasskey, submitEnrollmentWithPasskey } = useMfaEnrollment()
+  const { refreshUser } = useUser()
   return useCallback(
     async (user: User) => {
       const credentialIds = passkeysOf(user.linkedAccounts).map((p) => p.credentialId)
       if (credentialIds.length === 0) throw new Error('Add a passkey first.')
       await initEnrollmentWithPasskey()
       await submitEnrollmentWithPasskey({ credentialIds })
+      // The dashboard gate reads mfaMethods; without this it can bounce back to /passkey.
+      await refreshUser()
       // Privy sends no webhook for enrolment, so the API's copy stays stale until told.
       const r = await syncSession()
       if (!r.ok)
         throw new Error(`Your passkey is set up, but Strimz could not refresh (${r.status}).`)
     },
-    [initEnrollmentWithPasskey, submitEnrollmentWithPasskey],
+    [initEnrollmentWithPasskey, submitEnrollmentWithPasskey, refreshUser],
   )
 }
 

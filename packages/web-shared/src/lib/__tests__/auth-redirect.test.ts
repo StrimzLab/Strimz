@@ -57,7 +57,12 @@ describe('dashboardGate', () => {
 
   it('waits while Privy hydrates', () => {
     expect(
-      dashboardGate({ privyReady: false, authenticated: false, merchant: merchant({}) }),
+      dashboardGate({
+        privyReady: false,
+        authenticated: false,
+        passkeyEnrolled: true,
+        merchant: merchant({}),
+      }),
     ).toEqual({
       kind: 'loading',
     })
@@ -68,6 +73,7 @@ describe('dashboardGate', () => {
       dashboardGate({
         privyReady: true,
         authenticated: false,
+        passkeyEnrolled: true,
         merchant: merchant({ isPending: true }),
       }),
     ).toEqual({ kind: 'login' })
@@ -78,6 +84,7 @@ describe('dashboardGate', () => {
       dashboardGate({
         privyReady: true,
         authenticated: true,
+        passkeyEnrolled: true,
         merchant: merchant({ error: expired }),
       }),
     ).toEqual({ kind: 'login' })
@@ -88,6 +95,7 @@ describe('dashboardGate', () => {
       dashboardGate({
         privyReady: true,
         authenticated: true,
+        passkeyEnrolled: true,
         merchant: merchant({ error: unsynced }),
       }),
     ).toEqual({ kind: 'sync' })
@@ -98,6 +106,7 @@ describe('dashboardGate', () => {
       dashboardGate({
         privyReady: true,
         authenticated: true,
+        passkeyEnrolled: true,
         merchant: merchant({ error: broken }),
       }),
     ).toEqual({ kind: 'error', message: 'boom' })
@@ -108,6 +117,7 @@ describe('dashboardGate', () => {
       dashboardGate({
         privyReady: true,
         authenticated: true,
+        passkeyEnrolled: true,
         merchant: merchant({ isPending: true }),
       }),
     ).toEqual({ kind: 'loading' })
@@ -121,6 +131,7 @@ describe('dashboardGate', () => {
       dashboardGate({
         privyReady: true,
         authenticated: true,
+        passkeyEnrolled: true,
         merchant: merchant({ data: { onboardingCompleted: true, termsVersion } }),
       }),
     ).toEqual({ kind: 'terms' })
@@ -131,6 +142,30 @@ describe('dashboardGate', () => {
       dashboardGate({
         privyReady: true,
         authenticated: true,
+        passkeyEnrolled: true,
+        merchant: merchant({ data: { onboardingCompleted: false, termsVersion: null } }),
+      }),
+    ).toEqual({ kind: 'onboarding' })
+  })
+
+  // A passkey that only signs in can't confirm withdrawals, so it doesn't count (#560).
+  it('sends an onboarded merchant without a confirming passkey to the passkey step', () => {
+    expect(
+      dashboardGate({
+        privyReady: true,
+        authenticated: true,
+        passkeyEnrolled: false,
+        merchant: merchant({ data: { onboardingCompleted: true, termsVersion: TERMS_VERSION } }),
+      }),
+    ).toEqual({ kind: 'passkey' })
+  })
+
+  it('finishes onboarding before asking for a passkey', () => {
+    expect(
+      dashboardGate({
+        privyReady: true,
+        authenticated: true,
+        passkeyEnrolled: false,
         merchant: merchant({ data: { onboardingCompleted: false, termsVersion: null } }),
       }),
     ).toEqual({ kind: 'onboarding' })
@@ -141,6 +176,7 @@ describe('dashboardGate', () => {
       dashboardGate({
         privyReady: true,
         authenticated: true,
+        passkeyEnrolled: true,
         merchant: merchant({ data: synced }),
       }),
     ).toEqual({ kind: 'ready' })

@@ -11,7 +11,7 @@ import { useViewportWidth } from '@/components/auth/auth-methods'
 import { readSignupToken, turnstileSizeFor } from '@/lib/auth-flow'
 import { syncSession } from '@/lib/auth-sync'
 import { ensureEmbeddedWallet } from '@/lib/embedded-wallet'
-import { lastPasskeyOffer, shouldOfferPasskey } from '@/lib/passkeys'
+import { hasPasskeyMfa } from '@/hooks/use-passkey-mfa'
 import { env } from '@strimz/web-shared/lib/env'
 import { safeNextPath, withNext } from '@strimz/web-shared/lib/auth-redirect'
 
@@ -73,11 +73,8 @@ function AuthCallback() {
       // onboarding on a prior visit would otherwise slip into /app.
       if (!body.merchant.onboardingCompleted) return router.replace('/onboarding')
       const destination = next ?? '/app'
-      const accounts = privy?.user?.linkedAccounts ?? []
       router.replace(
-        shouldOfferPasskey(accounts, lastPasskeyOffer())
-          ? withNext('/passkey', destination)
-          : destination,
+        hasPasskeyMfa(privy?.user ?? null) ? destination : withNext('/passkey', destination),
       )
     } catch (err) {
       setError((err as Error).message)

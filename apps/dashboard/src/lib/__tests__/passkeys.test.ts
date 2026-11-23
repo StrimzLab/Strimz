@@ -1,19 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  canRemovePasskey,
-  passkeysOf,
-  PASSKEY_OFFER_EVERY_MS,
-  shouldOfferPasskey,
-} from '../passkeys'
+import * as passkeys from '../passkeys'
+import { canRemovePasskey, passkeysOf } from '../passkeys'
 
 const email = { type: 'email', address: 'a@b.co' }
 const google = { type: 'google_oauth', email: 'a@b.co' }
 const wallet = { type: 'wallet', address: '0x1' }
-const passkey = (credentialId: string, createdWithBrowser?: string) => ({
+const passkey = (credentialId: string, createdWithBrowser?: string, enrolledInMfa = false) => ({
   type: 'passkey',
   credentialId,
   createdWithBrowser,
+  enrolledInMfa,
 })
 
 describe('passkeysOf', () => {
@@ -38,21 +35,25 @@ describe('canRemovePasskey', () => {
   it('refuses to remove the last way in; a wallet does not count', () => {
     expect(canRemovePasskey([wallet, passkey('p1')], 'p1')).toBe(false)
   })
+
+  // The passkey step is required, so the account must keep one that confirms (#560).
+  it('refuses to remove the only passkey that confirms sensitive actions', () => {
+    expect(canRemovePasskey([email, passkey('p1', 'Chrome', true)], 'p1')).toBe(false)
+    expect(canRemovePasskey([email, passkey('p1', 'Chrome', true), passkey('p2')], 'p1')).toBe(
+      false,
+    )
+  })
+
+  it('allows removing a confirming passkey while another one confirms', () => {
+    expect(
+      canRemovePasskey([email, passkey('p1', 'Chrome', true), passkey('p2', 'Safari', true)], 'p1'),
+    ).toBe(true)
+  })
 })
 
-describe('shouldOfferPasskey', () => {
-  const now = 10 * PASSKEY_OFFER_EVERY_MS
-
-  it('offers to an account with no passkey that has not been asked lately', () => {
-    expect(shouldOfferPasskey([email], null, now)).toBe(true)
-    expect(shouldOfferPasskey([email], now - PASSKEY_OFFER_EVERY_MS - 1, now)).toBe(true)
-  })
-
-  it('waits a week after the last offer', () => {
-    expect(shouldOfferPasskey([email], now - 1000, now)).toBe(false)
-  })
-
-  it('never offers to an account that has one', () => {
-    expect(shouldOfferPasskey([email, passkey('p1')], null, now)).toBe(false)
+describe('the passkey step is never throttled', () => {
+  it('has no weekly offer left', () => {
+    expect(Object.keys(passkeys)).not.toContain('shouldOfferPasskey')
+    expect(Object.keys(passkeys)).not.toContain('notePasskeyOffer')
   })
 })

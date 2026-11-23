@@ -32,7 +32,7 @@ export default function PrivacyPage() {
       title="Privacy Policy"
       description="How STRIMZ LTD collects, uses and protects personal data, and the rights of data subjects."
       effectiveDate="22 November 2026"
-      lastUpdated="22 November 2026"
+      lastUpdated="23 November 2026"
       toc={TOC}
     >
       <h2 id="controller">1. Who we are</h2>
@@ -177,17 +177,6 @@ export default function PrivacyPage() {
               <td>Dashboard sign-up</td>
               <td>Holds the result of the bot check while your account is created.</td>
               <td>Removed when used, and never kept longer than five minutes</td>
-            </tr>
-            <tr>
-              <td>
-                <code>strimz:passkey-offered-at</code> (local storage)
-              </td>
-              <td>Dashboard</td>
-              <td>
-                Records when we last offered to add a passkey, so we do not ask more than once a
-                week.
-              </td>
-              <td>Until cleared</td>
             </tr>
             <tr>
               <td>

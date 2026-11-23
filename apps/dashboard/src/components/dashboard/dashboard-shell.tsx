@@ -10,6 +10,8 @@ import { DashboardSidebar } from './sidebar'
 import { DashboardTopbar } from './topbar'
 import { DashboardFooter } from './dashboard-footer'
 import { useMerchantMe } from '@/hooks/api/use-merchant'
+import { stopDashboardTour } from '@/hooks/use-dashboard-tour'
+import { hasPasskeyMfa } from '@/hooks/use-passkey-mfa'
 import { dashboardGate, withNext } from '@strimz/web-shared/lib/auth-redirect'
 
 export function DashboardShell({ children, title }: { children: React.ReactNode; title?: string }) {
@@ -22,6 +24,7 @@ export function DashboardShell({ children, title }: { children: React.ReactNode;
   const gate = dashboardGate({
     privyReady,
     authenticated,
+    passkeyEnrolled: hasPasskeyMfa(privy?.user ?? null),
     merchant: {
       isPending: merchantQuery.isPending,
       error: merchantQuery.error,
@@ -34,7 +37,14 @@ export function DashboardShell({ children, title }: { children: React.ReactNode;
     if (gate.kind === 'sync') router.replace(withNext('/callback', pathname))
     if (gate.kind === 'onboarding') router.replace('/onboarding')
     if (gate.kind === 'terms') router.replace(withNext('/terms', pathname))
+    if (gate.kind === 'passkey') router.replace(withNext('/passkey', pathname))
   }, [gate.kind, pathname, router])
+
+  // The tour draws over the whole page, so it would outlive a sign-out or a page change.
+  useEffect(() => {
+    if (gate.kind !== 'ready') stopDashboardTour()
+  }, [gate.kind])
+  useEffect(() => stopDashboardTour, [pathname])
 
   const [open, setOpen] = useState(false)
 
