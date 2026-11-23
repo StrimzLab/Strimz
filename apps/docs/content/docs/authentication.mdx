@@ -149,8 +149,8 @@ A dashboard session manages keys with any scopes.
 
 You can't issue a key the moment you sign up. Keys unlock once you've completed:
 
-1. **Email verification.** Privy verifies your email address.
-2. **A passkey.** Added in the dashboard under Settings, Security. It is your second factor.
+1. **Email verification.** Your email code or your Google account verifies it.
+2. **A passkey.** Added in the dashboard under Settings, Business, Security. It is your second factor.
 3. **Business onboarding.** The self-attested form in the dashboard (business name, sector, country, payout address).
 4. **Payout address.** A payout wallet address is set on your account.
 
@@ -168,10 +168,14 @@ Some changes made from the dashboard need your passkey at the moment you make th
 
 - creating or rotating an API key;
 - adding a webhook endpoint or rotating its signing secret;
-- withdrawing, and changing your payout wallet or owner.
+- withdrawing, refunding, and changing your payout wallet or owner;
+- adding or removing a passkey, once you have one.
 
-For the first two, the dashboard asks for your passkey and the API checks it before
-making the change. A request without a fresh confirmation returns `403 step_up_required`,
+The dashboard shows one "Confirm with your passkey" prompt, and you can cancel it at any
+time. Changing your passkeys asks for one you already have, so someone with a stolen login
+can't remove your protection.
+
+For API keys and webhooks, the API checks the passkey itself before making the change. A request without a fresh confirmation returns `403 step_up_required`,
 and an account with no passkey returns `403 passkey_required`. Requests made with an
 API key from your server are not asked for a passkey.
 

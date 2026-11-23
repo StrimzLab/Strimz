@@ -30,8 +30,8 @@ The common codes. The tables below cover the ones you're most likely to see; a f
 | `permission_denied`       | 403  | Token is valid but lacks the required scope, or the route accepts only a dashboard session                                                  |
 | `live_mode_ineligible`    | 403  | A live key was requested but the account fails a live-mode check; `details.reasons` lists which                                             |
 | `mode_unavailable`        | 403  | The key is not a live key. Strimz accepts `sk_live_` and `pk_live_` keys only                                                               |
-| `step_up_required`        | 403  | A dashboard change that needs a fresh passkey confirmation (new or rotated API key, new webhook endpoint or rotated secret) |
-| `passkey_required`        | 403  | The account has no passkey yet; add one under Settings, Security |
+| `step_up_required`        | 403  | A dashboard change that needs a fresh passkey confirmation (new or rotated API key, new webhook endpoint or rotated secret)                 |
+| `passkey_required`        | 403  | The account has no passkey yet; add one under Settings, Business, Security                                                                  |
 | `plan_required`           | 403  | The feature needs a higher plan; `details.requiredPlan` names it                                                                            |
 | `merchant_not_synced`     | 401  | Privy session is valid but no Merchant row. Call `POST /v1/auth/sync` first.                                                                |
 | `turnstile_required`      | 428  | `POST /v1/auth/sync` would create a new account but has no passed Turnstile check (`turnstileToken`)                                        |

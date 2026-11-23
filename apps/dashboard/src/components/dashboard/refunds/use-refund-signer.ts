@@ -1,12 +1,14 @@
 'use client'
 
 import * as React from 'react'
-import { useWallets } from '@privy-io/react-auth'
+import { usePrivy, useWallets } from '@privy-io/react-auth'
 import { encodeFunctionData, erc20Abi, isAddress } from 'viem'
 import { toast } from 'sonner'
 import type { RefundSigningInstructions } from '@strimz/shared-types'
 
+import { hasPasskeyMfa } from '@/hooks/use-passkey-mfa'
 import { browserRefundBroadcastMemory } from '@/lib/refund-broadcast'
+import { SECURITY_TAB } from '@/lib/settings-tabs'
 import { useSubmitRefundSignature } from '@/hooks/api'
 
 /**
@@ -17,6 +19,7 @@ import { useSubmitRefundSignature } from '@/hooks/api'
  * `awaiting_signature` to `submitted` and the indexer takes over.
  */
 export function useRefundSigner() {
+  const { user } = usePrivy()
   const { wallets } = useWallets()
   const submit = useSubmitRefundSignature()
 
@@ -37,6 +40,19 @@ export function useRefundSigner() {
     }) => {
       if (!embedded) {
         toast.error('Connect your Strimz-embedded wallet before signing.')
+        return null
+      }
+      // A refund moves money, so it needs the passkey like a withdrawal (ADR-2026-11-22-passkey-step-up).
+      if (!hasPasskeyMfa(user)) {
+        toast.error(
+          'Add a passkey before you refund. Strimz asks for it whenever money leaves your wallet.',
+          {
+            action: {
+              label: 'Add a passkey',
+              onClick: () => window.location.assign(`/app/settings?tab=${SECURITY_TAB}`),
+            },
+          },
+        )
         return null
       }
       if (!isAddress(instructions.to) || !isAddress(instructions.token)) {
@@ -81,7 +97,7 @@ export function useRefundSigner() {
         setBroadcasting(false)
       }
     },
-    [embedded, submit],
+    [embedded, submit, user],
   )
 
   return {

@@ -52,6 +52,8 @@ export function Providers({ children }: { children: ReactNode }) {
         },
         loginMethods: ['email', 'google', 'passkey'],
         embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } },
+        // PasskeyMfaPrompt is the only MFA screen; Privy's own would race it for the challenge.
+        mfa: { noPromptOnMfaRequired: true },
         defaultChain: getArcChain(env.arcEnvironment),
         supportedChains: [getArcChain(env.arcEnvironment)],
       }}
