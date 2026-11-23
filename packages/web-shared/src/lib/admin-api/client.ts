@@ -23,6 +23,9 @@ import type {
   AdminInviteResult,
   AuditCategory,
   AuditLogResponse,
+  SafeAction,
+  SafeProposal,
+  SafeState,
   InviteAdminInput,
   PlatformOverview,
   SetAdminRoleInput,
@@ -191,6 +194,24 @@ export class AdminApiClient {
     })
   createBroadcast = (input: CreateBroadcastInput) =>
     this.bff<Broadcast>('/api/admin/broadcasts', input)
+
+  // ----- Safe console -----
+  safeState = (options?: RequestOptions) => this.directGet<SafeState>('/v1/admin/safe', options)
+  safeProposals = (options?: RequestOptions) =>
+    this.directGet<{ data: SafeProposal[] }>('/v1/admin/safe/proposals', options)
+  proposeSafeAction = (action: SafeAction) =>
+    this.bff<SafeProposal>('/api/admin/safe/proposals', { action })
+  signSafeProposal = (id: string, signature: string) =>
+    this.bff<SafeProposal>(`/api/admin/safe/proposals/${encodeURIComponent(id)}/signatures`, {
+      signature,
+    })
+  executeSafeProposal = (id: string) =>
+    this.bff<SafeProposal>(`/api/admin/safe/proposals/${encodeURIComponent(id)}/execute`, {})
+  proposeTimelockExecute = (scheduleId: string) =>
+    this.bff<SafeProposal>(
+      `/api/admin/safe/proposals/${encodeURIComponent(scheduleId)}/timelock-execute`,
+      {},
+    )
 
   // ------------------------------------------------------------------
 

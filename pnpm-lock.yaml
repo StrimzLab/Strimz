@@ -90,6 +90,9 @@ importers:
       sonner:
         specifier: ^1.7.1
         version: 1.7.4(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
+      viem:
+        specifier: ^2.45.0
+        version: 2.48.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76)
       zod:
         specifier: ^3.24.1
         version: 3.25.76

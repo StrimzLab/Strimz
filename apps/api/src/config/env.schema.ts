@@ -96,6 +96,10 @@ export const envSchema = z.object({
   STRIMZ_SUBSCRIPTIONS_ADDRESS: z.string().optional(),
   STRIMZ_FEE_COLLECTOR_ADDRESS: z.string().optional(),
   STRIMZ_TOKEN_WHITELIST_ADDRESS: z.string().optional(),
+  // Safe console (ADR-2026-11-23-safe-console). Unset means the console says it isn't configured.
+  STRIMZ_SAFE_ADDRESS: z.string().optional(),
+  TIMELOCK_ADDRESS: z.string().optional(),
+  STRIMZ_GUARDIAN_ADDRESS: z.string().optional(),
   // Token contract addresses on the active Arc chain. The session +
   // plan serialisers map `currency` (USDC | EURC) to one of these so
   // the hosted checkout can build the EIP-712 typed-data domain

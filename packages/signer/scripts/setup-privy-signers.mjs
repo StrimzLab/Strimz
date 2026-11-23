@@ -5,6 +5,8 @@
 //   node scripts/setup-privy-signers.mjs wallets    create the three wallets; nobody can sign yet
 //   node scripts/setup-privy-signers.mjs policies   after the contract deploy: attach the rules and
 //                                                   the server key (needs the owner key)
+//   node scripts/setup-privy-signers.mjs safe-rule  add the Safe execute rule to the live relayer
+//                                                   policy (needs the owner key)
 //   node scripts/setup-privy-signers.mjs smoke      sign-only check of every rule; nothing is sent
 //
 // Secrets are read from the environment and never printed or written.
@@ -16,6 +18,8 @@ import {
   PrivyPolicyViolationError,
   privyWalletApi,
   REFUND_TRANSFER_CAP,
+  safeExecFunction,
+  safeExecRule,
   signerFunctions,
   strimzSignerPolicies,
 } from '../dist/index.js'
@@ -41,6 +45,7 @@ function contracts() {
     payments: contractEnv('STRIMZ_PAYMENTS_ADDRESS'),
     subscriptions: contractEnv('STRIMZ_SUBSCRIPTIONS_ADDRESS'),
     registry: contractEnv('STRIMZ_REGISTRY_ADDRESS'),
+    safe: contractEnv('STRIMZ_SAFE_ADDRESS'),
     usdc: getTokenAddress('mainnet', 'USDC'),
     eurc: getTokenAddress('mainnet', 'EURC'),
   }
@@ -89,6 +94,28 @@ async function policies() {
     })
     say(`${role}: policy ${policy.id} attached to ${wallet.id}, server key added`)
   }
+}
+
+// The relayer policy was attached before the Safe console existed (ADR-2026-11-23-safe-console).
+async function safeRule() {
+  const ownerKey = env('PRIVY_OWNER_AUTHORIZATION_KEY')
+  const wallet = await findWallet('relayer')
+  if (!wallet) throw new Error('no relayer wallet')
+  const [policyId] = wallet.policy_ids
+  if (!policyId || wallet.policy_ids.length !== 1) {
+    throw new Error(`relayer has ${wallet.policy_ids.length} policies; expected exactly one`)
+  }
+  const rule = safeExecRule(contracts().safe)
+  const policy = await privy.policies().get(policyId)
+  if (policy.rules.some((r) => r.name === rule.name)) {
+    say(`relayer: policy ${policyId} already has "${rule.name}", skipped`)
+    return
+  }
+  await privy.policies().createRule(policyId, {
+    ...rule,
+    authorization_context: { authorization_private_keys: [ownerKey] },
+  })
+  say(`relayer: added "${rule.name}" to policy ${policyId}`)
 }
 
 function zero(type) {
@@ -174,6 +201,14 @@ async function smoke() {
     REFUND_TRANSFER_CAP + 1n,
   ])
   await check('refund above the 5-token cap', refund.id, tx(c.usdc, over, 0), false)
+  const relayer = await findWallet('relayer')
+  const exec = (gasPrice) => {
+    const a = args(safeExecFunction)
+    a[6] = gasPrice
+    return call(safeExecFunction, a)
+  }
+  await check('relayer Safe execute', relayer.id, tx(c.safe, exec(0n), 0), true)
+  await check('relayer Safe execute with a refund', relayer.id, tx(c.safe, exec(1n), 0), false)
   if (failures > 0) {
     console.error(`${failures} check(s) failed: do not grant roles to these wallets`)
     process.exit(1)
@@ -181,10 +216,10 @@ async function smoke() {
   say('all checks passed')
 }
 
-const steps = { wallets, policies, smoke }
+const steps = { wallets, policies, 'safe-rule': safeRule, smoke }
 const step = steps[process.argv[2]]
 if (!step) {
-  console.error('usage: node scripts/setup-privy-signers.mjs wallets|policies|smoke')
+  console.error('usage: node scripts/setup-privy-signers.mjs wallets|policies|safe-rule|smoke')
   process.exit(2)
 }
 try {

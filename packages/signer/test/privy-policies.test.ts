@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { parseAbiItem, toFunctionSelector, type AbiFunction } from 'viem'
 
-import { signerFunctions, strimzSignerPolicies, type StrimzContracts } from '../src/index.js'
+import {
+  safeExecFunction,
+  signerFunctions,
+  strimzSignerPolicies,
+  type StrimzContracts,
+} from '../src/index.js'
 
 const contracts: StrimzContracts = {
   payments: '0x00000000000000000000000000000000000000a1',
@@ -9,6 +14,7 @@ const contracts: StrimzContracts = {
   registry: '0x00000000000000000000000000000000000000a3',
   usdc: '0x3600000000000000000000000000000000000000',
   eurc: '0x00000000000000000000000000000000000000a5',
+  safe: '0x00000000000000000000000000000000000000a6',
 }
 
 type Condition = {
@@ -45,6 +51,7 @@ describe('Strimz signer policies', () => {
         `${contracts.subscriptions} ${sel('cancelWithSig(uint256,uint256,bytes)')}`,
         `${contracts.registry} ${sel('registerMerchant(address,address,uint16,uint16,uint256)')}`,
         `${contracts.usdc} ${sel('permit(address,address,uint256,uint256,bytes)')}`,
+        `${contracts.safe} ${sel('execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)')}`,
       ].sort(),
     )
     for (const r of rules) {
@@ -97,5 +104,21 @@ describe('Strimz signer policies', () => {
       'commitFeeBps',
       'setFeeBps',
     ])
+  })
+
+  // ADR-2026-11-23-safe-console: the relayer pays for executes the owners already signed.
+  it('lets the relayer execute Safe transactions only with no gas refund', () => {
+    const rule = (policies.relayer.rules as Rule[]).find((r) =>
+      r.conditions.some((c) => c.field === 'to' && c.value === contracts.safe),
+    )
+    expect(rule?.conditions).toContainEqual(
+      expect.objectContaining({
+        field_source: 'ethereum_calldata',
+        field: 'execTransaction.gasPrice',
+        operator: 'eq',
+        value: '0',
+      }),
+    )
+    expect(safeExecFunction.name).toBe('execTransaction')
   })
 })

@@ -39,6 +39,7 @@ import { RelayModule } from './modules/relay/relay.module.js'
 import { TokensModule } from './modules/tokens/tokens.module.js'
 import { CheckoutModule } from './modules/checkout/checkout.module.js'
 import { AdminModule } from './modules/admin/admin.module.js'
+import { SafeModule } from './modules/safe/safe.module.js'
 import { ContactModule } from './modules/contact/contact.module.js'
 import { NotificationsModule } from './modules/notifications/notifications.module.js'
 
@@ -76,6 +77,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     TokensModule,
     CheckoutModule,
     AdminModule,
+    SafeModule,
     ContactModule,
     NotificationsModule,
   ],

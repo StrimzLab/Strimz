@@ -1,0 +1,58 @@
+// Safe console proposals (ADR-2026-11-23-safe-console). A proposal is one Safe transaction
+// built from the admin menu; owners sign it off-chain and the relayer sends it.
+
+enum SafeProposalStatus {
+  collecting
+  ready
+  executing
+  executed
+  failed
+  stale
+}
+
+model SafeProposal {
+  id                  String             @id @default(cuid())
+  chainId             Int
+  safeAddress         String             @db.VarChar(42)
+  /// The menu action and its inputs, as the proposer chose them.
+  action              Json
+  to                  String             @db.VarChar(42)
+  data                String
+  nonce               Int
+  safeTxHash          String             @unique @db.VarChar(66)
+  status              SafeProposalStatus @default(collecting)
+  /// Set when the Safe call schedules a Timelock operation.
+  timelockTarget      String?            @db.VarChar(42)
+  timelockData        String?
+  timelockSalt        String?            @db.VarChar(66)
+  timelockOperationId String?            @db.VarChar(66)
+  /// For a Timelock execute: the proposal that scheduled it.
+  scheduledById       String?
+  proposedById        String
+  executedById        String?
+  executeTxHash       String?            @unique @db.VarChar(66)
+  failureReason       String?            @db.VarChar(500)
+  executedAt          DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  signatures  SafeProposalSignature[]
+  scheduledBy SafeProposal?           @relation("SafeTimelockExecute", fields: [scheduledById], references: [id], onDelete: Restrict)
+  executions  SafeProposal[]          @relation("SafeTimelockExecute")
+
+  @@index([safeAddress, status])
+  @@index([timelockOperationId])
+}
+
+model SafeProposalSignature {
+  id          String   @id @default(cuid())
+  proposalId  String
+  signer      String   @db.VarChar(42)
+  signature   String   @db.VarChar(132)
+  adminUserId String
+  createdAt   DateTime @default(now())
+
+  proposal SafeProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, signer])
+}
