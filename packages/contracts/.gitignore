@@ -22,3 +22,6 @@ gas-report.json
 out-fork/
 cache-fork/
 deployments/31337.json
+
+# Mainnet addresses are kept out of the public repo
+deployments/5042.json
