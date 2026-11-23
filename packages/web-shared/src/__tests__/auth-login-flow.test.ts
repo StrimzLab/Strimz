@@ -7,7 +7,7 @@ describe('auth login flow', () => {
   it('waits for Privy to finish before leaving', () => {
     const methods = read('src/components/auth/auth-methods.tsx')
     expect(methods).toMatch(/ready && authenticated/u)
-    expect(methods).toMatch(/router\.replace\(withNext\('\/callback', next\)\)/u)
+    expect(methods).toMatch(/window\.location\.replace\(withNext\('\/callback', next\)\)/u)
   })
 
   it.each(['src/app/(auth)/login/page.tsx', 'src/app/(auth)/signup/page.tsx'])(
