@@ -9,12 +9,6 @@ access: the SDK calls only the public
 `/v1/checkout` and `/v1/tokens` routes, which answer browsers on any origin. See
 [Calling Strimz from a browser](/docs/authentication#calling-strimz-from-a-browser).
 
-<Callout title="See it live" type="info">
-  [Fanline](https://fanline.strimz.finance), our demo, uses this SDK for its tip form: its
-  server creates a payment session, the page calls `useStrimzCheckout({ mode: 'popup' })` to open
-  it, and `onSuccess` swaps the form for a receipt.
-</Callout>
-
 ## Install
 
 ```bash
