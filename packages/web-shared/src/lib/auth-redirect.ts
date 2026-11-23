@@ -87,7 +87,13 @@ export interface AdminGateInput<T> {
 export function adminGate<T>({ privyReady, authenticated, me }: AdminGateInput<T>): AdminGate<T> {
   if (!privyReady) return { kind: 'loading' }
   if (!authenticated) return { kind: 'login' }
-  if (me.error instanceof AuthenticationError) return { kind: 'login' }
+  // The sign-in page sends a signed-in visitor straight back, so a redirect here would loop.
+  if (me.error instanceof AuthenticationError) {
+    return {
+      kind: 'error',
+      message: "Your sign-in couldn't be confirmed. Sign out, then sign in again.",
+    }
+  }
   if (me.error instanceof ForbiddenError) return { kind: 'denied' }
   if (me.error) {
     const message = me.error instanceof Error ? me.error.message : 'Could not check admin access'

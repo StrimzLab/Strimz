@@ -18,18 +18,6 @@ import { getAccessToken } from '@privy-io/react-auth'
  */
 export type AccessTokenProvider = () => Promise<string | null>
 
-/**
- * Default provider used in production: reads from Privy's React SDK.
- *
- * Returns `null` (not throws) when no user is authenticated. The client
- * upgrades that into a typed `AuthenticationError` only if the call
- * site demanded auth; some endpoints are public (`/v1/checkout/*`) and
- * legitimately have no token.
- */
-export const defaultAccessTokenProvider: AccessTokenProvider = async () => {
-  try {
-    return await getAccessToken()
-  } catch {
-    return null
-  }
-}
+// Null when nobody is signed in. Only works from the same Privy copy as the mounted
+// PrivyProvider; apps that can, pass usePrivy().getAccessToken instead.
+export const defaultAccessTokenProvider: AccessTokenProvider = () => getAccessToken()

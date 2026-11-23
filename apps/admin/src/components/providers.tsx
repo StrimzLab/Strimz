@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { PrivyProvider } from '@privy-io/react-auth'
+import { PrivyProvider, usePrivy } from '@privy-io/react-auth'
 import { getArcChain } from '@strimz/shared-config'
 import { useResolvedTheme } from '@strimz/ui'
 import { env } from '@strimz/web-shared/lib/env'
 import { privyAppearanceTheme } from '@strimz/web-shared/lib/theme'
+import { AdminApiClient } from '@strimz/web-shared/lib/admin-api'
 import { AdminApiProvider } from '@strimz/web-shared/hooks/admin/admin-context'
 import { SessionCacheGuard } from '@strimz/web-shared/components/auth/session-cache-guard'
 
@@ -26,13 +27,13 @@ export function Providers({ children }: { children: ReactNode }) {
       }),
   )
 
-  const tree: ReactNode = (
-    <QueryClientProvider client={queryClient}>
-      <AdminApiProvider>{children}</AdminApiProvider>
-    </QueryClientProvider>
-  )
-
-  if (!env.privyAppId) return tree
+  if (!env.privyAppId) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <AdminApiProvider>{children}</AdminApiProvider>
+      </QueryClientProvider>
+    )
+  }
 
   return (
     <PrivyProvider
@@ -49,7 +50,17 @@ export function Providers({ children }: { children: ReactNode }) {
       }}
     >
       <SessionCacheGuard cache={queryClient} />
-      {tree}
+      <QueryClientProvider client={queryClient}>
+        <PrivyAdminApi>{children}</PrivyAdminApi>
+      </QueryClientProvider>
     </PrivyProvider>
   )
+}
+
+// Takes the token from this app's own Privy, so the API client can't end up asking a
+// second, never-mounted copy of the library.
+function PrivyAdminApi({ children }: { children: ReactNode }) {
+  const { getAccessToken } = usePrivy()
+  const client = useMemo(() => new AdminApiClient({ getAccessToken }), [getAccessToken])
+  return <AdminApiProvider client={client}>{children}</AdminApiProvider>
 }

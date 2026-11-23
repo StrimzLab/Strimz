@@ -173,10 +173,14 @@ describe('adminGate', () => {
     })
   })
 
-  it('sends a session the API no longer accepts to the admin sign-in', () => {
+  // The sign-in page sends a signed-in visitor straight back, so a redirect here would loop.
+  it('asks a signed-in admin the API rejects to sign out instead of redirecting', () => {
     expect(
       adminGate({ privyReady: true, authenticated: true, me: me({ error: expired }) }),
-    ).toEqual({ kind: 'login' })
+    ).toEqual({
+      kind: 'error',
+      message: "Your sign-in couldn't be confirmed. Sign out, then sign in again.",
+    })
   })
 
   it('refuses an account without an admin profile', () => {
