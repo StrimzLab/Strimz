@@ -217,7 +217,8 @@ export default function PrivacyPage() {
           <strong>Resend</strong>: delivery of transactional email;
         </li>
         <li>
-          <strong>Cloudflare</strong>: hosting of our websites, DNS and bot protection;
+          <strong>Cloudflare</strong>: hosting of our websites, DNS, bot protection and encrypted
+          database backups;
         </li>
         <li>
           <strong>OVHcloud</strong>: hosting of our API and database;
@@ -256,7 +257,11 @@ export default function PrivacyPage() {
         acceptance of our Terms of Service are kept for as long as we keep your account data.
       </p>
       <p>
-        <strong>8.3</strong> Data recorded on a public blockchain is permanent and cannot be altered
+        <strong>8.3</strong> Encrypted backups of our database are kept for fourteen (14) days and
+        then deleted. Data removed from our live systems may remain in these backups until then.
+      </p>
+      <p>
+        <strong>8.4</strong> Data recorded on a public blockchain is permanent and cannot be altered
         or deleted by us or by anyone else.
       </p>
 

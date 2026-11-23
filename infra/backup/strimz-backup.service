@@ -1,0 +1,15 @@
+[Unit]
+Description=Strimz nightly database backup to R2
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/strimz-backup.env
+ExecStart=/usr/local/sbin/strimz-backup
+Nice=10
+IOSchedulingClass=idle
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=yes
