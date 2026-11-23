@@ -103,6 +103,34 @@ describe('PrivyServerSigner', () => {
     await expect(toSignerAccount(signer).signTransaction(tx)).rejects.toThrow(/does not match/)
   })
 
+  it('names the fields that differ, with both values (#545)', async () => {
+    const { api } = fakeApi()
+    vi.mocked(api.signTransaction).mockResolvedValueOnce(
+      await wallet.signTransaction({ ...tx, maxPriorityFeePerGas: 2_000_000_000n }),
+    )
+    const signer = await PrivyServerSigner.connect({
+      api,
+      walletId: 'w1',
+      expectedAddress: wallet.address,
+    })
+    await expect(toSignerAccount(signer).signTransaction(tx)).rejects.toThrow(
+      'maxPriorityFeePerGas asked 1000000000 signed 2000000000',
+    )
+  })
+
+  it('names the signer when Privy signs with another key', async () => {
+    const { api } = fakeApi()
+    vi.mocked(api.signTransaction).mockResolvedValueOnce(
+      await privateKeyToAccount(generatePrivateKey()).signTransaction(tx),
+    )
+    const signer = await PrivyServerSigner.connect({
+      api,
+      walletId: 'w1',
+      expectedAddress: wallet.address,
+    })
+    await expect(toSignerAccount(signer).signTransaction(tx)).rejects.toThrow(/signer /)
+  })
+
   it('never signs messages or typed data', async () => {
     const { api } = fakeApi()
     const account = toSignerAccount(

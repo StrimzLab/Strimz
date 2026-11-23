@@ -6,6 +6,7 @@ import { KeyRound } from 'lucide-react'
 import { Button } from '@strimz/ui'
 
 import { usePasskeyMfa } from '@/hooks/use-passkey-mfa'
+import { SECURITY_TAB } from '@/lib/settings-tabs'
 
 /** Shows `children` only once the merchant's passkey can confirm sensitive actions. */
 export function PasskeyGate({ action, children }: { action: string; children: ReactNode }) {
@@ -24,7 +25,7 @@ export function PasskeyGate({ action, children }: { action: string; children: Re
         </div>
       </div>
       <Button asChild variant="outline" size="sm">
-        <Link href="/app/settings#security">Add a passkey in Settings</Link>
+        <Link href={`/app/settings?tab=${SECURITY_TAB}`}>Add a passkey in Settings</Link>
       </Button>
     </div>
   )

@@ -1,5 +1,6 @@
 import { UnauthorizedException } from '@nestjs/common'
 import { must } from '../must.js'
+import { PrivyService } from '../../../src/infra/privy/privy.service.js'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -54,10 +55,12 @@ export class StubPrivyService {
     return Promise.resolve({
       id: privyUserId,
       email: decoded.email ? { address: decoded.email } : undefined,
-      linkedAccounts: decoded.email ? [{ type: 'email', address: decoded.email }] : [],
-      mfaMethods: [
-        ...(decoded.mfa ? [{ type: 'totp' }] : []),
-        ...(decoded.passkey ? [{ type: 'passkey' }] : []),
+      // The SDK's shape: MFA is a flag on the passkey account, with no mfaMethods.
+      linkedAccounts: [
+        ...(decoded.email ? [{ type: 'email', address: decoded.email }] : []),
+        ...(decoded.passkey || decoded.mfa
+          ? [{ type: 'passkey', credentialId: 'cred_test', enrolledInMfa: true }]
+          : []),
       ],
     })
   }
@@ -69,9 +72,7 @@ export class StubPrivyService {
     return '0x000000000000000000000000000000000000dead'
   }
   hasPasskeyMfa(user: any): boolean {
-    return (
-      Array.isArray(user?.mfaMethods) && user.mfaMethods.some((m: any) => m?.type === 'passkey')
-    )
+    return PrivyService.prototype.hasPasskeyMfa.call(this, user)
   }
 
   /** Records the relying party each challenge was requested for. */
@@ -100,7 +101,7 @@ export class StubPrivyService {
   }
 
   hasMfa(user: any): boolean {
-    return Array.isArray(user?.mfaMethods) && user.mfaMethods.length > 0
+    return PrivyService.prototype.hasPasskeyMfa.call(this, user)
   }
 }
 

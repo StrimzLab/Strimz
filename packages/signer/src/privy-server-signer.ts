@@ -133,18 +133,29 @@ function toPrivyTransaction(tx: TransactionSerializable): PrivyTransaction {
   }
 }
 
-function sameTransaction(asked: PrivyTransaction, signed: ReturnType<typeof parseTransaction>) {
-  return (
-    signed.type === 'eip1559' &&
-    signed.chainId === asked.chain_id &&
-    signed.to?.toLowerCase() === asked.to.toLowerCase() &&
-    (signed.data ?? '0x').toLowerCase() === asked.data.toLowerCase() &&
-    (signed.value ?? 0n) === BigInt(asked.value) &&
-    signed.nonce === asked.nonce &&
-    signed.gas === BigInt(asked.gas_limit) &&
-    signed.maxFeePerGas === BigInt(asked.max_fee_per_gas) &&
-    signed.maxPriorityFeePerGas === BigInt(asked.max_priority_fee_per_gas)
-  )
+/** The fields where Privy's signed transaction differs from the request, as `name asked X signed Y`. */
+function transactionDiff(asked: PrivyTransaction, signed: ReturnType<typeof parseTransaction>) {
+  const askedData = asked.data.toLowerCase()
+  const signedData = (signed.data ?? '0x').toLowerCase()
+  const pairs: [string, unknown, unknown][] = [
+    ['type', 'eip1559', signed.type],
+    ['chainId', asked.chain_id, signed.chainId],
+    ['to', asked.to.toLowerCase(), signed.to?.toLowerCase()],
+    ['value', BigInt(asked.value), signed.value ?? 0n],
+    ['nonce', asked.nonce, signed.nonce],
+    ['gas', BigInt(asked.gas_limit), signed.gas],
+    ['maxFeePerGas', BigInt(asked.max_fee_per_gas), signed.maxFeePerGas],
+    ['maxPriorityFeePerGas', BigInt(asked.max_priority_fee_per_gas), signed.maxPriorityFeePerGas],
+  ]
+  const diffs = pairs
+    .filter(([, a, b]) => a !== b)
+    .map(([name, a, b]) => `${name} asked ${String(a)} signed ${String(b)}`)
+  if (askedData !== signedData) {
+    diffs.push(
+      `data asked ${(askedData.length - 2) / 2} bytes signed ${(signedData.length - 2) / 2} bytes`,
+    )
+  }
+  return diffs
 }
 
 /** A signer whose key stays in Privy. It signs whole transactions so Privy's policy can see them. */
@@ -186,9 +197,11 @@ export class PrivyServerSigner {
         const signer = await recoverTransactionAddress({
           serializedTransaction: signed as TransactionSerializedEIP1559,
         })
-        if (!sameTransaction(asked, parsed) || getAddress(signer) !== this.address) {
+        const diffs = transactionDiff(asked, parsed)
+        if (getAddress(signer) !== this.address) diffs.push(`signer ${getAddress(signer)}`)
+        if (diffs.length > 0) {
           throw new Error(
-            `Privy's signed transaction does not match the request for ${this.walletId}`,
+            `Privy's signed transaction does not match the request for ${this.walletId}: ${diffs.join('; ')}`,
           )
         }
         return signed
