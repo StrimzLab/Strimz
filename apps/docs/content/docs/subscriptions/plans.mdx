@@ -5,9 +5,6 @@ description: A SubscriptionPlan is the template. Name, amount, interval, optiona
 
 A plan is the thing your customers subscribe to. "Pro Monthly," "Team Annual," "Starter. 5 USDC/month." You create the plan once with `subscriptionPlans.create`; payers subscribe on the plan's hosted checkout link by signing an EIP-2612 permit and a Strimz `SubscriptionIntent`; each one becomes a `Subscription` row that points back at the plan.
 
-To see a plan from the subscriber's side, join Fanline Pro on [Fanline](https://fanline.strimz.finance/#pro),
-our demo. It is one plan, 5 USDC a month, created once with `subscriptionPlans.create`.
-
 ## Creating one
 
 ```ts

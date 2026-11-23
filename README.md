@@ -303,13 +303,6 @@ running, dashboard live. End-to-end works — merchant signup, plan
 creation, hosted checkout, subscription enrolment, recurring charge,
 refund, webhook. We use it ourselves.
 
-### Live demo
-
-[Fanline](https://fanline.strimz.finance) is a sample creator platform
-(`apps/demo-merchant`) wired to Strimz end to end: tip a creator with a
-one-shot payment, or subscribe to a tier — both hand off to Strimz hosted
-checkout on Arc testnet.
-
 ### Deployed contracts (Arc testnet)
 
 Deployed 2026-11-09 from block 71161770. View them on the [Arc testnet explorer](https://explorer.testnet.arc.io).
@@ -360,7 +353,6 @@ code the frontends share (`web-shared`) live under `packages/`.
 
 - Marketing: [strimz.finance](https://strimz.finance)
 - Docs: [strimz docs](https://docs.strimz.finance/docs)
-- Live demo: [Fanline](https://fanline.strimz.finance) (sample integration)
 - Email: support@strimz.finance
 
 ---
