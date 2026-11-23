@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { readWeb, webExists } from './web-source'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { REPO, readWeb, webExists } from './web-source'
 
 const read = (path: string) => readWeb(path)
 const LOGIN = 'src/app/(admin-auth)/admin/login/page.tsx'
@@ -30,5 +32,19 @@ describe('admin sign-in', () => {
     expect(read('src/app/(admin)/layout.tsx')).toMatch(
       /<InactivityLogout signInPath="\/admin\/login" \/>/u,
     )
+  })
+})
+
+describe('admin API token', () => {
+  it('comes from the Privy the admin app mounts', () => {
+    const providers = readFileSync(join(REPO, 'apps/admin/src/components/providers.tsx'), 'utf8')
+    expect(providers).toMatch(/usePrivy\(\)/u)
+    expect(providers).toMatch(/new AdminApiClient\(\{ getAccessToken \}\)/u)
+  })
+})
+
+describe('admin write origins', () => {
+  it('only allow Strimz origins', () => {
+    expect(read('src/app/api/admin/_lib/forward.ts')).not.toMatch(/vercel\.app/u)
   })
 })
