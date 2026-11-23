@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Save } from 'lucide-react'
 import {
   Button,
@@ -31,6 +32,7 @@ import { ComingSoonBadge } from '@/components/dashboard/coming-soon-badge'
 import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { ImageUpload } from '@/components/dashboard/image-upload'
 import { OnchainPolicySection } from '@/components/dashboard/onchain-policy-section'
+import { SECURITY_TAB, settingsTabFor, type SettingsTab } from '@/lib/settings-tabs'
 import { PasskeySettings } from '@/components/dashboard/passkey-settings'
 import { PasskeyGate } from '@/components/dashboard/passkey-gate'
 import { useMerchantMe, useUpdateMerchant } from '@/hooks/api'
@@ -55,7 +57,24 @@ import { useMerchantMe, useUpdateMerchant } from '@/hooks/api'
  *     mutation invalidation.
  */
 export default function SettingsPage() {
+  return (
+    <React.Suspense>
+      <Settings />
+    </React.Suspense>
+  )
+}
+
+function Settings() {
   const { data: merchant, isLoading } = useMerchantMe()
+  const wanted = useSearchParams().get('tab')
+  const [picked, setPicked] = React.useState<{ for: string | null; tab: SettingsTab } | null>(null)
+  const tab = picked && picked.for === wanted ? picked.tab : settingsTabFor(wanted)
+
+  React.useEffect(() => {
+    if (wanted === SECURITY_TAB && merchant) {
+      document.getElementById('security')?.scrollIntoView({ block: 'start' })
+    }
+  }, [wanted, merchant])
 
   if (isLoading || !merchant) {
     return (
@@ -84,7 +103,7 @@ export default function SettingsPage() {
         description="Account, business, payout, notifications, and team."
       />
 
-      <Tabs defaultValue="business">
+      <Tabs value={tab} onValueChange={(v) => setPicked({ for: wanted, tab: settingsTabFor(v) })}>
         <TabsList>
           <TabsTrigger value="business">Business</TabsTrigger>
           <TabsTrigger value="payout">Payout</TabsTrigger>

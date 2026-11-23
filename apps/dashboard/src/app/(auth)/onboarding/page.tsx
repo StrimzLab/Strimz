@@ -57,9 +57,10 @@ export default function OnboardingPage() {
 
   // If the merchant already finished onboarding, hard-redirect to the
   // dashboard instead of letting them re-submit the wizard.
+  // Not after our own submit, or this beats handleSubmit's move to /passkey (#546).
   useEffect(() => {
-    if (merchant?.onboardingCompleted) router.replace('/app')
-  }, [merchant?.onboardingCompleted, router])
+    if (merchant?.onboardingCompleted && onboard.isIdle) router.replace('/app')
+  }, [merchant?.onboardingCompleted, onboard.isIdle, router])
 
   // The Privy embedded wallet is the canonical payout at signup. It's
   // also the on-chain Registry owner, so tying payout to it removes a

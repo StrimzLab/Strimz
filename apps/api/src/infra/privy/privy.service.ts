@@ -109,8 +109,10 @@ export class PrivyService {
   }
 
   hasPasskeyMfa(user: User): boolean {
-    const methods = (user as any).mfaMethods
-    return Array.isArray(methods) && methods.some((m: any) => m?.type === 'passkey')
+    // getUser() has no mfaMethods; MFA shows on the passkey account (untyped in the SDK).
+    return user.linkedAccounts.some(
+      (a) => a.type === 'passkey' && 'enrolledInMfa' in a && a.enrolledInMfa === true,
+    )
   }
 
   /** Privy server-side MFA: WebAuthn options for the user's passkey, for `relyingParty`. */
@@ -164,8 +166,8 @@ export class PrivyService {
   }
 
   /** True if the user has at least one MFA method registered with Privy. */
+  /** Strimz offers passkeys as its only second factor. */
   hasMfa(user: User): boolean {
-    const methods = (user as any).mfaMethods
-    return Array.isArray(methods) && methods.length > 0
+    return this.hasPasskeyMfa(user)
   }
 }
