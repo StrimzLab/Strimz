@@ -1,0 +1,9 @@
+[Unit]
+Description=Run the Strimz database backup at 02:00 UTC (03:00 WAT)
+
+[Timer]
+OnCalendar=*-*-* 02:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
