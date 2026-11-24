@@ -123,3 +123,31 @@ sequenceDiagram
   - the temp file is gone in every case.
 - The script is checked with `bash -n` and `shellcheck`, if it's installed.
 - The live test restore is recorded in the runbook.
+
+## Amendment 2026-11-24: Cloudinary instead of R2
+
+- Status: accepted (founder, 2026-11-24)
+- Why: R2 needs a payment card on the Cloudflare account, even on the free tier. The founder chose Cloudinary's free plan, which needs no card.
+
+What changes:
+
+1. **Upload:** `curl` posts the encrypted file to Cloudinary's Upload API as a `raw` asset, with delivery type `authenticated`, so it has no public URL.
+   - It uses an **unsigned upload preset**. The server holds only the cloud name and the preset name, never the API key or secret.
+   - Cloudinary documents that unsigned uploads can't overwrite an existing asset, and that deleting or managing an asset needs a signed request. This takes the place of the R2 bucket lock: a hacked server can't delete or replace past backups, and couldn't read them anyway.
+   - The script compares the `bytes` in Cloudinary's response with the local file size.
+   - `rclone` is no longer needed.
+2. **Preset settings:**
+   - unsigned;
+   - folder `strimz-backups/mainnet`;
+   - delivery type `authenticated`;
+   - resource type `raw`.
+3. **Retention:** Cloudinary has no lifecycle rule. `infra/backup/prune.py` runs on the founder's Mac with the API key and secret and deletes backups older than 30 days, always keeping the newest 7. The runbook asks for it monthly. The privacy policy says backups are kept for up to 60 days.
+4. **Restore:** download the file from the Cloudinary console (Media Library → `strimz-backups/mainnet`). Everything after that is unchanged.
+5. **Privacy policy:** Cloudinary is added as a processor, "storage of encrypted database backups", and the backup line is removed from Cloudflare's.
+
+New trade-offs:
+
+- **Abuse of the preset name:** anyone who learns it could upload junk to the account until its free credits run out. That would block backups, and Healthchecks.io would email. The preset name lives only in `/etc/strimz-backup.env` (mode 600). The fix is to rotate it.
+- **File size:** the free plan has a per-file size limit. Cloudinary's pricing page gives 10 MB; their API docs don't confirm it. Today's dump is about 150 KB. If the database outgrows the limit, the upload fails loudly, a `/fail` ping, and we revisit.
+- **Retention is a manual monthly step,** not automatic. Missing it only keeps more encrypted copies; storage is about 55 MB a year.
+- **Healthchecks.io, encryption, the schedule, the table-list check and the restore drill are unchanged.**

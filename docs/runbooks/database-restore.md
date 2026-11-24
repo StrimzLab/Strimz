@@ -1,6 +1,6 @@
 # Runbook: database backups and restore
 
-Nightly encrypted backups of the mainnet `strimz` database go to Cloudflare R2 (ADR-2026-11-23-nightly-backups). This page covers setup, checks and a real restore.
+Nightly encrypted backups of the mainnet `strimz` database go to Cloudinary (ADR-2026-11-23-nightly-backups, amended 2026-11-24). This page covers setup, checks and a real restore.
 
 ## Read this first: the private key
 
@@ -10,7 +10,7 @@ Every backup is encrypted to one `age` key pair. The server holds only the publi
 
 | What              | Backed up?                                          | Why                                                                                                                |
 | ----------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Postgres `strimz` | Yes, nightly at 02:00 UTC (03:00 WAT), kept 14 days | Source of truth off-chain                                                                                          |
+| Postgres `strimz` | Yes, nightly at 02:00 UTC (03:00 WAT), kept 30 days | Source of truth off-chain                                                                                          |
 | Redis             | No                                                  | Queues are rebuilt from Postgres by `webhook-recovery` and `subscription-sweeper`; the rest is caches and counters |
 | On-chain state    | No                                                  | It lives on Arc; the indexer replays from the restored cursor                                                      |
 | `.env.mainnet`    | No                                                  | Secrets; see the private ops manual                                                                                |
@@ -28,14 +28,15 @@ Every backup is encrypted to one `age` key pair. The server holds only the publi
    - Delete the file: `rm ~/strimz-backup-key.txt`.
    - The `# public key: age1…` line is the public key; it's the only part the server gets.
 
-2. **R2 bucket**, in the Cloudflare dashboard:
-   - R2 → Create bucket, named e.g. `strimz-backups`, location Automatic, Standard storage.
-   - Bucket → Settings → **Bucket lock rules** → Add rule: no prefix, retain for **14 days**.
-   - Bucket → Settings → **Object lifecycle rules** → Add rule: no prefix, delete objects after **15 days**.
-3. **R2 token**:
-   - R2 → Manage API tokens → Create API token.
-   - Permission **Object Read & Write**, applied to **that bucket only**.
-   - Keep the Access Key ID, the Secret Access Key and the account ID for the next step. Don't paste them anywhere else.
+2. **Cloudinary upload preset**, in the Cloudinary console:
+   - Note the **cloud name** on the dashboard home.
+   - Settings → Upload → **Upload presets** → Add upload preset:
+     - **Upload preset name:** something hard to guess, e.g. `strimz-bk-` plus 12 random letters. It works like a password.
+     - **Signing mode:** Unsigned.
+     - **Asset folder:** `strimz-backups`.
+     - **Delivery type** (under Optimize and Deliver, or Advanced): **Authenticated**, so backups have no public link.
+   - Save it. Unsigned uploads can't overwrite or delete, so the server can only add backups.
+3. **API key and secret** (Settings → API Keys): save them in your password manager. They're only for the monthly cleanup on your Mac. Never put them on the server.
 4. **Healthchecks.io**:
    - Create a check with schedule **cron `0 2 * * *`**, time zone UTC, grace **2 hours**.
    - Keep its ping URL (`https://hc-ping.com/<uuid>`).
@@ -45,8 +46,8 @@ Every backup is encrypted to one `age` key pair. The server holds only the publi
    ssh -t ubuntu@<server> 'cd ~/strimz && git fetch && git merge --ff-only origin/main && sudo bash infra/backup/install.sh'
    ```
 
-   - It installs `age` and `rclone`.
-   - It asks for the public key, account ID and bucket, then for the token and ping URL through hidden prompts, and writes them to `/etc/strimz-backup.env` (root, mode 600).
+   - It installs `age`.
+   - It asks for the public key and cloud name, then for the preset name and ping URL through hidden prompts, and writes them to `/etc/strimz-backup.env` (root, mode 600).
    - It installs the script and the timer.
    - Run it again with `--reconfigure` to change the values.
 
@@ -61,13 +62,24 @@ Nothing. Healthchecks.io emails if a night's backup fails or doesn't arrive.
 - Next run: `systemctl list-timers strimz-backup.timer`.
 - Last runs: `journalctl -u strimz-backup --since -3d --no-pager`.
 - A failed run uploads nothing.
+- A run also fails if Cloudinary stored the backup without **Authenticated** delivery. Fix the preset; the encrypted file it left can be deleted from the console.
+- **Monthly cleanup**, on your Mac, deletes backups older than 30 days but always keeps the newest 7:
+
+  ```bash
+  /usr/bin/python3 infra/backup/prune.py <cloud name>           # lists what it would delete
+  /usr/bin/python3 infra/backup/prune.py <cloud name> --delete  # deletes it
+  ```
+
+  It asks for the API key and secret with hidden prompts. Missing a month only keeps more encrypted copies.
+
+- If the preset name ever leaks: create a new preset, rerun `sudo bash infra/backup/install.sh --reconfigure`, and delete the old preset.
 - Upgrading the script after a change in `infra/backup/`: rerun `sudo bash infra/backup/install.sh`. A `git pull` alone doesn't change what root runs.
 
 ## Check a backup (restore drill)
 
 Do this once after setup, and then each quarter or after a large schema change. It runs on your Mac, with Docker running, and the server is untouched.
 
-1. Download the newest object under `mainnet/` from the bucket in the Cloudflare dashboard.
+1. Download the newest backup from the Cloudinary console: Media Library → `strimz-backups` → the newest `strimz-<timestamp>.dump.age` → Download.
 2. Put the private key from your password manager in a temporary file (`~/k.txt`).
 3. Run:
    ```bash

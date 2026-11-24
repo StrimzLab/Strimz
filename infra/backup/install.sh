@@ -24,27 +24,19 @@ ask() { # prompt, regex, hidden; prompts go to stderr, the value to stdout
   printf '%s' "$value"
 }
 
-apt-get install -y -qq age rclone >/dev/null
+apt-get install -y -qq age >/dev/null
 
 if [ ! -f "$env_file" ] || [ "${1:-}" = --reconfigure ]; then
   recipient="$(ask "age public key (age1...)" '^age1[0-9a-z]{58}$' shown)"
-  account="$(ask "Cloudflare account ID" '^[0-9a-f]{32}$' shown)"
-  bucket="$(ask "R2 bucket name" '^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$' shown)"
-  key_id="$(ask "R2 access key ID" '^[0-9a-f]{32}$' hidden)"
-  secret="$(ask "R2 secret access key" '^[0-9a-f]{64}$' hidden)"
+  cloud="$(ask "Cloudinary cloud name" '^[a-z0-9][a-z0-9_-]{1,63}$' shown)"
+  preset="$(ask "Cloudinary unsigned upload preset name" '^[A-Za-z0-9_-]{1,100}$' hidden)"
   ping="$(ask "Healthchecks.io ping URL" '^https://hc-ping\.com/[0-9a-f-]{36}$' hidden)"
   tmp="$(mktemp /etc/strimz-backup.env.XXXXXX)"
   {
     printf 'AGE_RECIPIENT=%s\n' "$recipient"
-    printf 'R2_BUCKET=%s\n' "$bucket"
+    printf 'CLOUDINARY_CLOUD_NAME=%s\n' "$cloud"
+    printf 'CLOUDINARY_UPLOAD_PRESET=%s\n' "$preset"
     printf 'HC_PING_URL=%s\n' "$ping"
-    printf 'RCLONE_CONFIG_R2_TYPE=s3\n'
-    printf 'RCLONE_CONFIG_R2_PROVIDER=Cloudflare\n'
-    printf 'RCLONE_CONFIG_R2_REGION=auto\n'
-    printf 'RCLONE_CONFIG_R2_ENDPOINT=https://%s.r2.cloudflarestorage.com\n' "$account"
-    printf 'RCLONE_CONFIG_R2_ACCESS_KEY_ID=%s\n' "$key_id"
-    printf 'RCLONE_CONFIG_R2_SECRET_ACCESS_KEY=%s\n' "$secret"
-    printf 'RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true\n'
   } >"$tmp"
   mv "$tmp" "$env_file"
   echo "wrote $env_file"
