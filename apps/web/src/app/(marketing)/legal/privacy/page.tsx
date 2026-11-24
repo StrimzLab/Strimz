@@ -32,7 +32,7 @@ export default function PrivacyPage() {
       title="Privacy Policy"
       description="How STRIMZ LTD collects, uses and protects personal data, and the rights of data subjects."
       effectiveDate="22 November 2026"
-      lastUpdated="23 November 2026"
+      lastUpdated="24 November 2026"
       toc={TOC}
     >
       <h2 id="controller">1. Who we are</h2>
@@ -217,8 +217,10 @@ export default function PrivacyPage() {
           <strong>Resend</strong>: delivery of transactional email;
         </li>
         <li>
-          <strong>Cloudflare</strong>: hosting of our websites, DNS, bot protection and encrypted
-          database backups;
+          <strong>Cloudflare</strong>: hosting of our websites, DNS and bot protection;
+        </li>
+        <li>
+          <strong>Cloudinary</strong>: storage of our encrypted database backups;
         </li>
         <li>
           <strong>OVHcloud</strong>: hosting of our API and database;
@@ -257,8 +259,8 @@ export default function PrivacyPage() {
         acceptance of our Terms of Service are kept for as long as we keep your account data.
       </p>
       <p>
-        <strong>8.3</strong> Encrypted backups of our database are kept for fourteen (14) days and
-        then deleted. Data removed from our live systems may remain in these backups until then.
+        <strong>8.3</strong> Encrypted backups of our database are kept for up to sixty (60) days
+        and then deleted. Data removed from our live systems may remain in these backups until then.
       </p>
       <p>
         <strong>8.4</strong> Data recorded on a public blockchain is permanent and cannot be altered

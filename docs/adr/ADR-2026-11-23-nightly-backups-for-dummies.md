@@ -26,3 +26,12 @@ All of Strimz's records sit on one disk in one OVH server: merchants, API keys, 
 - **Up to a day of off-blockchain changes could be lost** after a disaster, for example an API key made that afternoon. Payments aren't lost: Strimz re-reads them from the blockchain.
 - **If you lose the private key, the backups can't be opened by anyone.** Keep it safe.
 - **Cost:** free at today's size.
+
+## Change (24 November 2026): Cloudinary instead of Cloudflare R2
+
+R2 wanted a payment card, so the backups go to Cloudinary's free plan instead.
+
+- **Same as before:** the backups are locked with your key before they leave the server, and Healthchecks.io still emails you if a night is missed.
+- **Nobody can wipe them:** the server can add new backups, but it can't delete or replace old ones. Only someone with your Cloudinary password or API secret can.
+- **New monthly job:** Cloudinary doesn't delete old files by itself. Once a month you run one command on your Mac to delete backups older than 30 days. If you forget, nothing breaks; you just keep a few more locked copies.
+- **One limit:** a single file on the free plan has a size cap (about 10 MB). Ours is about 0.15 MB, so there's plenty of room. If we ever outgrow it, the backup fails loudly and we change plans.

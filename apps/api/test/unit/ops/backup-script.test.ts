@@ -33,23 +33,35 @@ out=""
 while [ $# -gt 0 ]; do [ "$1" = -o ] && out="$2"; shift; done
 { printf 'age-encrypted:'; cat; } >"$out"
 `,
-  rclone: `#!/usr/bin/env bash
-echo "rclone $*" >>"$STUB_LOG"
-case "$1" in
-  copyto)
-    [ -n "\${STUB_UPLOAD_FAIL:-}" ] && exit 1
-    wc -c <"$2" | tr -d ' ' >"$STUB_DIR/uploaded-size"
-    ;;
-  size)
-    bytes="$(cat "$STUB_DIR/uploaded-size")"
+  curl: `#!/usr/bin/env bash
+case "$*" in
+  */raw/upload*)
+    file=""; id=""; preset=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        -F) file="\${2#file=@}"; shift ;;
+        --form-string)
+          case "$2" in
+            public_id=*) id="\${2#public_id=}" ;;
+            upload_preset=*) preset="\${2#upload_preset=}" ;;
+          esac
+          shift ;;
+      esac
+      shift
+    done
+    echo "upload $preset $id" >>"$STUB_LOG"
+    [ -n "\${STUB_UPLOAD_FAIL:-}" ] && { echo '{"error":{"message":"Upload preset not found"}}'; exit 22; }
+    bytes="$(wc -c <"$file" | tr -d ' ')"
     [ -n "\${STUB_SIZE_MISMATCH:-}" ] && bytes=1
-    echo "{\\"count\\":1,\\"bytes\\":$bytes}"
+    type=authenticated
+    [ -n "\${STUB_PUBLIC_TYPE:-}" ] && type=upload
+    echo "{\\"public_id\\":\\"$id\\",\\"bytes\\":$bytes,\\"type\\":\\"$type\\"}"
+    ;;
+  *)
+    for last; do :; done
+    echo "ping $last" >>"$STUB_LOG"
     ;;
 esac
-`,
-  curl: `#!/usr/bin/env bash
-for last; do :; done
-echo "ping $last" >>"$STUB_LOG"
 `,
 }
 
@@ -78,7 +90,8 @@ function run(env: Record<string, string> = {}) {
       STUB_DIR: dir,
       BACKUP_TMP_DIR: work,
       AGE_RECIPIENT: 'age1test',
-      R2_BUCKET: 'strimz-backups',
+      CLOUDINARY_CLOUD_NAME: 'strimz',
+      CLOUDINARY_UPLOAD_PRESET: 'nightly',
       HC_PING_URL: 'https://hc-ping.com/check',
       ...env,
     },
@@ -87,19 +100,19 @@ function run(env: Record<string, string> = {}) {
   return {
     status: res.status,
     stderr: res.stderr,
-    uploads: lines.filter((l) => l.startsWith('rclone copyto')),
+    uploads: lines.filter((l) => l.startsWith('upload ')),
     pings: lines.filter((l) => l.startsWith('ping ')).map((l) => l.slice(5)),
     leftovers: readdirSync(work),
   }
 }
 
 describe('nightly backup script', () => {
-  it('uploads one encrypted dump under mainnet/ and pings success', () => {
+  it('uploads one encrypted dump with the unsigned preset and pings success', () => {
     const r = run()
     expect(r.status).toBe(0)
     expect(r.uploads).toHaveLength(1)
     expect(r.uploads[0]).toMatch(
-      /^rclone copyto \S+\/dump\.age r2:strimz-backups\/mainnet\/strimz-\d{8}T\d{6}Z\.dump\.age$/u,
+      /^upload nightly strimz-backups\/mainnet\/strimz-\d{8}T\d{6}Z\.dump\.age$/u,
     )
     expect(r.pings).toEqual(['https://hc-ping.com/check/start', 'https://hc-ping.com/check'])
     expect(r.leftovers).toEqual([])
@@ -131,12 +144,19 @@ describe('nightly backup script', () => {
   it('reports a failed upload', () => {
     const r = run({ STUB_UPLOAD_FAIL: '1' })
     expect(r.status).not.toBe(0)
+    expect(r.stderr).toMatch(/Upload preset not found/u)
     expect(r.pings.at(-1)).toBe('https://hc-ping.com/check/fail')
     expect(r.leftovers).toEqual([])
   })
 
   it('reports an upload whose size does not match', () => {
     const r = run({ STUB_SIZE_MISMATCH: '1' })
+    expect(r.status).not.toBe(0)
+    expect(r.pings.at(-1)).toBe('https://hc-ping.com/check/fail')
+  })
+
+  it('reports a backup the preset made public', () => {
+    const r = run({ STUB_PUBLIC_TYPE: '1' })
     expect(r.status).not.toBe(0)
     expect(r.pings.at(-1)).toBe('https://hc-ping.com/check/fail')
   })
