@@ -1,6 +1,6 @@
 # ADR-2026-11-22: Launch with live mode only
 
-- **Status:** Accepted 2026-11-22 by the founder
+- **Status:** Superseded 2026-11-26 by ADR-2026-11-26-test-mode (accepted 2026-11-22 by the founder)
 - **Deciders:** the founder
 - **Supersedes:** the launch plan in ADR-2026-10-12-one-chain-one-mode, which called for a live deployment and a separate sandbox, and in `docs/runbooks/live-and-sandbox-deployments.md`.
 

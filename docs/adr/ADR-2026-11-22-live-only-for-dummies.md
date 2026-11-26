@@ -1,6 +1,6 @@
 # Launch with live mode only (plain English)
 
-- **Status:** Accepted 2026-11-22 by the founder
+- **Status:** Superseded 2026-11-26 by ADR-2026-11-26-test-mode (accepted 2026-11-22 by the founder)
 - **Technical version:** [ADR-2026-11-22-live-only](ADR-2026-11-22-live-only.md)
 
 ## The change
