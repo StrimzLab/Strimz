@@ -36,7 +36,20 @@ From `packages/contracts`, with its testnet `.env` loaded, run sections 1 to 3 o
 2. Deploy core and agent.
 3. Verify (`deployed`).
 
-Skip the admin handoff in section 4. Instead, pause the agent escrow with the deployer key, then publish the source:
+Skip the admin handoff in section 4. The handoff is also what gives the relayer and scheduler their operating roles, so grant those with the deployer key. Without them, registering merchants and charging subscriptions revert:
+
+```sh
+role() { arc-cast call "$1" "$2()(bytes32)" --rpc-url arc_testnet; }
+grant() { arc-cast send "$1" 'grantRole(bytes32,address)' "$(role "$1" "$2")" "$3" --private-key "$STRIMZ_DEPLOYER_PRIVATE_KEY" --rpc-url arc_testnet; }
+grant "$STRIMZ_REGISTRY_ADDRESS"      MERCHANT_REGISTRAR_ROLE     "$STRIMZ_RELAYER_ADDRESS"
+grant "$STRIMZ_SUBSCRIPTIONS_ADDRESS" CHARGER_ROLE                "$STRIMZ_SCHEDULER_ADDRESS"
+grant "$STRIMZ_SUBSCRIPTIONS_ADDRESS" SUBSCRIPTION_CANCELLER_ROLE "$STRIMZ_SCHEDULER_ADDRESS"
+grant "$STRIMZ_REGISTRY_ADDRESS"      FEE_MANAGER_ROLE            "$STRIMZ_SCHEDULER_ADDRESS"
+```
+
+`DeployCore` already gives Payments and Subscriptions `FEE_ACCRUER_ROLE` on the FeeCollector.
+
+Then pause the agent escrow with the deployer key, and publish the source:
 
 ```sh
 arc-cast send "$STRIMZ_AGENT_ESCROW_ADDRESS" "pause()" --private-key "$STRIMZ_DEPLOYER_PRIVATE_KEY" --rpc-url arc_testnet
