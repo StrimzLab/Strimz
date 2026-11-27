@@ -1,5 +1,11 @@
 # @strimz/shared-types
 
+## 0.23.0
+
+### Minor Changes
+
+- 7f2b448: `Merchant` now includes `businessSector` and `phone`, as given at onboarding (both nullable). `GET /v1/merchants/me` returns them, so the dashboard can copy a merchant's details into their test account.
+
 ## 0.22.1
 
 ### Patch Changes
