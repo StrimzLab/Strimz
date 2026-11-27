@@ -5,13 +5,16 @@ import Link from 'next/link'
 import { KeyRound } from 'lucide-react'
 import { Button } from '@strimz/ui'
 
+import { useDashboardMode } from '@strimz/web-shared/lib/dashboard-mode'
 import { usePasskeyMfa } from '@/hooks/use-passkey-mfa'
+import { asksStrimzPasskey } from '@/lib/passkey-policy'
 import { SECURITY_TAB } from '@/lib/settings-tabs'
 
-/** Shows `children` only once the merchant's passkey can confirm sensitive actions. */
+/** In live mode, shows `children` only once the merchant's passkey can confirm sensitive actions. */
 export function PasskeyGate({ action, children }: { action: string; children: ReactNode }) {
   const { user, enrolled } = usePasskeyMfa()
-  if (!user || enrolled) return <>{children}</>
+  const asks = asksStrimzPasskey(useDashboardMode())
+  if (!asks || !user || enrolled) return <>{children}</>
   return (
     <div className="border-border/60 bg-card space-y-3 rounded-xl border p-5">
       <div className="flex items-start gap-3">

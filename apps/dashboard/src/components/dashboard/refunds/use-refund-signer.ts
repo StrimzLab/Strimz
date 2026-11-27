@@ -6,7 +6,9 @@ import { encodeFunctionData, erc20Abi, isAddress } from 'viem'
 import { toast } from 'sonner'
 import type { RefundSigningInstructions } from '@strimz/shared-types'
 
+import { useDashboardMode } from '@strimz/web-shared/lib/dashboard-mode'
 import { hasPasskeyMfa } from '@/hooks/use-passkey-mfa'
+import { asksStrimzPasskey } from '@/lib/passkey-policy'
 import { browserRefundBroadcastMemory } from '@/lib/refund-broadcast'
 import { SECURITY_TAB } from '@/lib/settings-tabs'
 import { useSubmitRefundSignature } from '@/hooks/api'
@@ -20,6 +22,7 @@ import { useSubmitRefundSignature } from '@/hooks/api'
  */
 export function useRefundSigner() {
   const { user } = usePrivy()
+  const asks = asksStrimzPasskey(useDashboardMode())
   const { wallets } = useWallets()
   const submit = useSubmitRefundSignature()
 
@@ -42,8 +45,8 @@ export function useRefundSigner() {
         toast.error('Connect your Strimz-embedded wallet before signing.')
         return null
       }
-      // A refund moves money, so it needs the passkey like a withdrawal (ADR-2026-11-22-passkey-step-up).
-      if (!hasPasskeyMfa(user)) {
+      // A live refund moves real money, so it needs the passkey like a withdrawal (ADR-2026-11-22-passkey-step-up).
+      if (asks && !hasPasskeyMfa(user)) {
         toast.error(
           'Add a passkey before you refund. Strimz asks for it whenever money leaves your wallet.',
           {
@@ -97,7 +100,7 @@ export function useRefundSigner() {
         setBroadcasting(false)
       }
     },
-    [embedded, submit, user],
+    [asks, embedded, submit, user],
   )
 
   return {
