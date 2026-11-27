@@ -32,7 +32,6 @@ import { PasskeyGate } from '@/components/dashboard/passkey-gate'
 import { useMerchantBalance } from '@/hooks/api/use-merchant'
 import { useWithdrawGasQuote } from '@/hooks/use-withdraw-gas-quote'
 import { prepareArcSigning } from '@strimz/web-shared/lib/arc-network'
-import { env } from '@strimz/web-shared/lib/env'
 import { formatTokenAmount } from '@strimz/web-shared/lib/format'
 import { privySwitchableWallet } from '@/lib/privy-arc'
 import {
@@ -41,6 +40,7 @@ import {
   maxWithdrawable,
   type WithdrawCheck,
 } from '@/lib/withdraw-gas'
+import { useNetwork } from '@strimz/web-shared/lib/dashboard-mode'
 
 /**
  * Withdraw page.
@@ -63,6 +63,7 @@ import {
  * doesn't need any ETH.
  */
 export default function WithdrawPage() {
+  const network = useNetwork()
   const balanceQuery = useMerchantBalance()
   const { wallets } = useWallets()
 
@@ -74,7 +75,7 @@ export default function WithdrawPage() {
 
   const balance = balanceQuery.data
   const selectedBalance = balance?.balances.find((b) => b.currency === currency)
-  const chain = getArcChain(env.arcEnvironment)
+  const chain = getArcChain(network.arcEnvironment)
 
   const embeddedWallet = useMemo(() => {
     // The dashboard uses Privy's embedded wallet as the payout wallet
@@ -158,7 +159,7 @@ export default function WithdrawPage() {
     try {
       // Make sure the wallet is on the right chain before signing.
       // Privy handles the switch prompt if needed.
-      await prepareArcSigning(privySwitchableWallet(embeddedWallet), env.arcEnvironment)
+      await prepareArcSigning(privySwitchableWallet(embeddedWallet), network.arcEnvironment)
 
       const fresh = await gasQuery.refetch()
       if (!fresh.data) throw new Error(feeQuoteMessage(fresh.error))
@@ -404,7 +405,7 @@ export default function WithdrawPage() {
                     <div className="border-border/60 bg-accent/5 mt-5 rounded-md border p-3 text-xs">
                       <p className="font-poppins text-foreground font-medium">Transfer signed</p>
                       <a
-                        href={arcExplorerTxUrl(env.arcEnvironment, lastTx)}
+                        href={arcExplorerTxUrl(network.arcEnvironment, lastTx)}
                         target="_blank"
                         rel="noreferrer"
                         className="font-poppins text-brand-text mt-1 inline-flex items-center gap-1 break-all hover:underline"
@@ -439,7 +440,7 @@ export default function WithdrawPage() {
                     <span className="bg-accent size-1.5 rounded-full" />
                     <span className="font-poppins text-sm">{chain.name}</span>
                     <Badge variant="outline" className="ml-auto text-[10px] capitalize">
-                      {env.arcEnvironment}
+                      {network.arcEnvironment}
                     </Badge>
                   </div>
                 </div>

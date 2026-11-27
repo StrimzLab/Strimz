@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { ThemeToggle } from '@strimz/ui'
 import { Logo } from '@strimz/web-shared/components/shared/logo'
 import { AuthBenefitsRow, AuthPanel } from '@/components/auth/auth-panel'
+import { PrimaryNetworkScope } from '@/components/auth/primary-network-scope'
 import authPattern from '@/../public/patterns/authPattern.png'
 import authPattern2 from '@/../public/patterns/authPattern2.png'
 
@@ -61,7 +62,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </header>
         <AuthBenefitsRow />
 
-        <div className="flex flex-1 items-center justify-center px-3 pb-16 sm:px-8">{children}</div>
+        <div className="flex flex-1 items-center justify-center px-3 pb-16 sm:px-8">
+          <PrimaryNetworkScope>{children}</PrimaryNetworkScope>
+        </div>
       </section>
     </div>
   )

@@ -41,7 +41,6 @@ import { PlanLockedNotice } from '@/components/dashboard/plan-locked-notice'
 import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { TokenLogo } from '@strimz/web-shared/components/shared/token-logo'
 import { formatTokenAmount } from '@strimz/web-shared/lib/format'
-import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 import { buildProductInput } from '@/lib/storefront-product-input'
 import {
   useAddStorefrontProduct,
@@ -55,11 +54,15 @@ import {
   useUpsertStorefront,
   useDefaultCurrency,
 } from '@/hooks/api'
+import { useNetwork } from '@strimz/web-shared/lib/dashboard-mode'
 
-const STORE_URL = `${siteUrls.checkout}/store`
-const STORE_PATH = STORE_URL.replace(/^https?:\/\//u, '')
+function useStoreUrls() {
+  const url = `${useNetwork().checkoutUrl}/store`
+  return { url, path: url.replace(/^https?:\/\//u, '') }
+}
 
 export default function StorefrontPage() {
+  const store = useStoreUrls()
   const storefrontQuery = useStorefront()
   const storefront = storefrontQuery.data ?? null
   const merchantQuery = useMerchantMe()
@@ -74,7 +77,7 @@ export default function StorefrontPage() {
         action={
           storefront ? (
             <Button variant="outline" asChild>
-              <a href={`${STORE_URL}/${storefront.slug}`} target="_blank" rel="noreferrer">
+              <a href={`${store.url}/${storefront.slug}`} target="_blank" rel="noreferrer">
                 <ExternalLink className="mr-1.5 size-4" /> View live
               </a>
             </Button>
@@ -131,6 +134,7 @@ function NoStorefront() {
 }
 
 function StorefrontDetails({ storefront }: { storefront: Storefront }) {
+  const store = useStoreUrls()
   const publishMutation = usePublishStorefront()
   const archiveMutation = useArchiveStorefront()
 
@@ -157,7 +161,7 @@ function StorefrontDetails({ storefront }: { storefront: Storefront }) {
                 {storefront.description ?? 'No description set.'}
               </p>
               <code className="text-muted-foreground mt-2 inline-block text-xs">
-                {STORE_PATH}/{storefront.slug}
+                {store.path}/{storefront.slug}
               </code>
             </div>
             <div className="flex items-center gap-2">
@@ -314,6 +318,7 @@ function UpsertStorefrontDialog({
   existing?: Storefront
   trigger: React.ReactNode
 }) {
+  const store = useStoreUrls()
   const [open, setOpen] = React.useState(false)
   const [slug, setSlug] = React.useState(existing?.slug ?? '')
   const [name, setName] = React.useState(existing?.name ?? '')
@@ -364,7 +369,7 @@ function UpsertStorefrontDialog({
           <DialogDescription>
             Your public URL will be{' '}
             <code className="bg-muted rounded px-1 py-0.5 text-xs">
-              {STORE_PATH}/<strong>{slug || 'your-slug'}</strong>
+              {store.path}/<strong>{slug || 'your-slug'}</strong>
             </code>
             .
           </DialogDescription>

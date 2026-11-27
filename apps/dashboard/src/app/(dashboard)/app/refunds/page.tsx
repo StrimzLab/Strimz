@@ -6,7 +6,6 @@ import { Copy, Download, ExternalLink, Loader2, MoreHorizontal, PenLine } from '
 import type { ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import { getTokenAddress } from '@strimz/shared-config'
-import { env } from '@strimz/web-shared/lib/env'
 import {
   Button,
   DropdownMenu,
@@ -41,6 +40,7 @@ import { refundCards, summaryValue } from '@/lib/stats-summary'
 import type { LoadedRows } from '@strimz/web-shared/lib/cursor-pages'
 import { serverRowsOf, useRefundPages, useStatsSummary } from '@/hooks/api'
 import { EMPTY_STATES } from '@/lib/empty-states'
+import { useNetwork } from '@strimz/web-shared/lib/dashboard-mode'
 
 const STATUS_TONE: Record<RefundStatus, StatusTone> = {
   completed: 'positive',
@@ -80,6 +80,7 @@ export default function RefundsPage() {
 }
 
 function Refunds() {
+  const network = useNetwork()
   const filters = useTableFilters(FILTERS)
   const searchParams = useSearchParams()
   const { status, date } = filters.state
@@ -107,7 +108,7 @@ function Refunds() {
       // from the refund + transaction fields. Amount is on the refund;
       // the token address must come from currency + mode via a small
       // client-side lookup.
-      const tokenAddress = getTokenAddress(env.arcEnvironment, refund.currency)
+      const tokenAddress = getTokenAddress(network.arcEnvironment, refund.currency)
       setSigningId(refund.id)
       try {
         await signRefund({
@@ -125,7 +126,7 @@ function Refunds() {
         setSigningId(null)
       }
     },
-    [signRefund],
+    [signRefund, network.arcEnvironment],
   )
 
   const columns = React.useMemo<ColumnDef<Refund>[]>(

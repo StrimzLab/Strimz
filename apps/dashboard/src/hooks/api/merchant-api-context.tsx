@@ -26,15 +26,18 @@ const MerchantApiContext = createContext<MerchantApi | null>(null)
 export function MerchantApiProvider({
   children,
   client,
+  baseUrl,
 }: {
   children: ReactNode
+  /** API of the selected Test / Live mode. */
+  baseUrl?: string
   /**
    * Optional pre-constructed client (tests pass a stub here). Production
    * code mounts this with no `client` and gets the default instance.
    */
   client?: MerchantApi
 }) {
-  const value = useMemo(() => client ?? new MerchantApi(), [client])
+  const value = useMemo(() => client ?? new MerchantApi({ baseUrl }), [client, baseUrl])
   return <MerchantApiContext.Provider value={value}>{children}</MerchantApiContext.Provider>
 }
 

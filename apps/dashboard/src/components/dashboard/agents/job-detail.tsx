@@ -12,13 +12,13 @@ import type { AgentJob, AgentJobStatus } from '@strimz/shared-types'
 import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { StatusPill } from '@strimz/web-shared/components/dashboard/data-table'
 import { formatTokenAmount, relativeTime, shortAddress } from '@strimz/web-shared/lib/format'
-import { env } from '@strimz/web-shared/lib/env'
 import { approveAgentJobConfirm } from '@strimz/web-shared/lib/destructive-actions'
 import {
   ConfirmActionDialog,
   type PendingConfirm,
 } from '@strimz/web-shared/components/dashboard/confirm-action-dialog'
 import { useAgentJob, useApproveAgentJob } from '@/hooks/api'
+import { useNetwork } from '@strimz/web-shared/lib/dashboard-mode'
 
 const STATUS_TONE: Record<AgentJobStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> =
   {
@@ -39,6 +39,7 @@ const STATUS_TONE: Record<AgentJobStatus, 'positive' | 'warning' | 'danger' | 'i
   }
 
 export default function AgentJobDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const network = useNetwork()
   const { id } = use(params)
   const { data: job, isLoading, isError, error } = useAgentJob(id)
   const approve = useApproveAgentJob()
@@ -68,7 +69,7 @@ export default function AgentJobDetailPage({ params }: { params: Promise<{ id: s
   }
 
   const canApprove = job.status === 'proposed' || job.status === 'delivered'
-  const explorerBase = `${getArcExplorerUrl(env.arcEnvironment)}/tx/`
+  const explorerBase = `${getArcExplorerUrl(network.arcEnvironment)}/tx/`
 
   return (
     <div className="space-y-6">

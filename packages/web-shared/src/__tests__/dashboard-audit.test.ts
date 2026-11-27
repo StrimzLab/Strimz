@@ -16,10 +16,10 @@ describe('dashboard audit (#406)', () => {
     expect(kinds.match(/'[a-z_]+'/gu)).toEqual(["'one_shot'", "'subscription_charge'"])
   })
 
-  it("links the storefront to this deployment's checkout host, not production", () => {
+  it("links the storefront to the selected mode's checkout host, not production", () => {
     const page = read('src/app/(dashboard)/app/storefront/page.tsx')
     expect(page).not.toContain('strimz.finance/store')
-    expect(page).toMatch(/siteUrls\.checkout\}\/store/u)
+    expect(page).toMatch(/useNetwork\(\)\.checkoutUrl\}\/store/u)
   })
 
   it.each([

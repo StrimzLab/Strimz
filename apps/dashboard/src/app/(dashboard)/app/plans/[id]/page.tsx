@@ -17,10 +17,11 @@ import { EditReturnUrlsDialog } from '@/components/dashboard/plans/edit-return-u
 import { archivePlanConfirm } from '@strimz/web-shared/lib/destructive-actions'
 import { formatTokenAmount, relativeTime, shortAddress } from '@strimz/web-shared/lib/format'
 import { billingLabel, planPriceLabel } from '@/lib/plans-view'
-import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 import { useArchiveSubscriptionPlan, useSubscriptionPlan, useSubscriptions } from '@/hooks/api'
+import { useNetwork } from '@strimz/web-shared/lib/dashboard-mode'
 
 export default function PlanDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const network = useNetwork()
   const { id } = use(params)
   const { data: plan, isPending, isError } = useSubscriptionPlan(id)
   const subscriptionsQuery = useSubscriptions({ planId: id, limit: 25 })
@@ -44,7 +45,7 @@ export default function PlanDetailPage({ params }: { params: Promise<{ id: strin
     )
   }
 
-  const signUpUrl = `${siteUrls.checkout}/sub/${plan.id}`
+  const signUpUrl = `${network.checkoutUrl}/sub/${plan.id}`
   const buttonSnippet = `<StrimzSubscribeButton planId="${plan.id}" onSuccess={({ subscriptionId }) => {}} />`
   const subscriptions = subscriptionsQuery.data?.data ?? []
 

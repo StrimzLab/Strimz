@@ -16,7 +16,6 @@ import {
 } from '@strimz/web-shared/components/dashboard/confirm-action-dialog'
 import { chargeOutcomeView } from '@/lib/charge-outcome'
 import { cancelSubscriptionConfirm } from '@strimz/web-shared/lib/destructive-actions'
-import { env } from '@strimz/web-shared/lib/env'
 import { formatTokenAmount, relativeTime } from '@strimz/web-shared/lib/format'
 import { billingLabel } from '@/lib/plans-view'
 import {
@@ -26,6 +25,7 @@ import {
   useSubscriptionPlan,
   useTransactions,
 } from '@/hooks/api'
+import { useNetwork } from '@strimz/web-shared/lib/dashboard-mode'
 
 const STATUS_TONE: Record<
   SubscriptionStatus,
@@ -171,6 +171,7 @@ export default function SubscriptionDetailPage({ params }: { params: Promise<{ i
 }
 
 function ChargeAttemptsCard({ subscriptionId }: { subscriptionId: string }) {
+  const network = useNetwork()
   const query = useSubscriptionCharges(subscriptionId)
   const attempts = query.data?.rows ?? []
 
@@ -214,7 +215,7 @@ function ChargeAttemptsCard({ subscriptionId }: { subscriptionId: string }) {
                     <StatusPill tone={view.tone}>{view.label}</StatusPill>
                     {c.onchainTxHash ? (
                       <a
-                        href={arcExplorerTxUrl(env.arcEnvironment, c.onchainTxHash)}
+                        href={arcExplorerTxUrl(network.arcEnvironment, c.onchainTxHash)}
                         target="_blank"
                         rel="noreferrer"
                         className="text-brand-text hover:underline"
