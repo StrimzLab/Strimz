@@ -123,7 +123,7 @@ func TestValidate_RejectsStablecoinEntriesThatAreNotSymbolAddressPairs(t *testin
 func TestValidate_RequiresTheAgentRegistryAndTimelockAddresses(t *testing.T) {
 	for name, clear := range map[string]func(*Config){
 		"AGENT_REGISTRY_ADDRESS": func(c *Config) { c.AgentRegistryAddress = "" },
-		"TIMELOCK_ADDRESS":       func(c *Config) { c.TimelockAddress = "" },
+		"TIMELOCK_ADDRESS":       func(c *Config) { c.Environment = EnvMainnet; c.TimelockAddress = "" },
 	} {
 		c := validConfig()
 		clear(c)
@@ -131,6 +131,25 @@ func TestValidate_RequiresTheAgentRegistryAndTimelockAddresses(t *testing.T) {
 		require.Error(t, err, name)
 		assert.Contains(t, err.Error(), name)
 	}
+}
+
+// ADR-2026-11-26-test-mode: testnet has no Safe, so no timelock to watch.
+func TestValidate_AcceptsNoTimelockOnTestnet(t *testing.T) {
+	c := validConfig()
+	c.TimelockAddress = ""
+	_, err := Validate(c)
+	require.NoError(t, err)
+	assert.NotContains(t, c.WatchedContracts(), "")
+	assert.Len(t, c.WatchedContracts(), 7)
+	assert.NotContains(t, c.ContractNames(), "")
+}
+
+func TestValidate_RejectsAMalformedTimelockOnTestnet(t *testing.T) {
+	c := validConfig()
+	c.TimelockAddress = "0x123"
+	_, err := Validate(c)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "TIMELOCK_ADDRESS")
 }
 
 func TestContractNames_NamesEveryWatchedAddress(t *testing.T) {

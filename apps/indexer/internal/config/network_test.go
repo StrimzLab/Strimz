@@ -96,12 +96,22 @@ func TestLoad_RequiresConfirmations(t *testing.T) {
 }
 
 func TestLoad_RequiresTheAgentRegistryAndTimelockAddresses(t *testing.T) {
-	for _, name := range []string{"AGENT_REGISTRY_ADDRESS", "TIMELOCK_ADDRESS"} {
-		setNetworkEnv(t, nil, name)
-		_, err := Load()
-		require.Error(t, err, name)
-		assert.Contains(t, err.Error(), name)
-	}
+	setNetworkEnv(t, nil, "AGENT_REGISTRY_ADDRESS")
+	_, err := Load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "AGENT_REGISTRY_ADDRESS")
+
+	setNetworkEnv(t, map[string]string{"ARC_ENVIRONMENT": "mainnet", "ARC_CHAIN_ID": "5042"}, "TIMELOCK_ADDRESS")
+	_, err = Load()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "TIMELOCK_ADDRESS")
+}
+
+func TestLoad_AcceptsNoTimelockOnTestnet(t *testing.T) {
+	setNetworkEnv(t, nil, "TIMELOCK_ADDRESS")
+	c, err := Load()
+	require.NoError(t, err)
+	assert.Empty(t, c.TimelockAddress)
 }
 
 func TestLoad_RequiresTokenWhitelistAddress(t *testing.T) {
