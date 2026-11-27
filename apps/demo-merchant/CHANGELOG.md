@@ -1,5 +1,12 @@
 # @strimz/demo-merchant
 
+## 0.0.42
+
+### Patch Changes
+
+- @strimz/sdk@0.19.1
+- @strimz/sdk-react@0.6.1
+
 ## 0.0.41
 
 ### Patch Changes
