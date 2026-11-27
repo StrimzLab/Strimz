@@ -1,5 +1,12 @@
 # @strimz/shared-types
 
+## 0.22.1
+
+### Patch Changes
+
+- Updated dependencies [e286632]
+  - @strimz/shared-config@0.14.0
+
 ## 0.22.0
 
 ### Minor Changes

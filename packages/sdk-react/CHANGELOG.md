@@ -1,5 +1,20 @@
 # @strimz/sdk-react
 
+## 0.6.0
+
+### Minor Changes
+
+- e286632: The default API host now follows the key. `sk_test_` and `pk_test_` keys go to `https://api-test.strimz.finance` (test mode on Arc testnet), and `sk_live_` and `pk_live_` keys go to `https://api.strimz.finance`. `StrimzProvider` also picks the hosted checkout from the key: `https://checkout-test.strimz.finance` for test keys, `https://checkout.strimz.finance` for live keys. An explicit `baseUrl`, `apiBaseUrl` or `checkoutOrigin` still wins.
+
+  `@strimz/shared-config` adds `markTestModeEmail` and `TEST_MODE_EMAIL_NOTE`, which label emails sent from the testnet deployment.
+
+### Patch Changes
+
+- Updated dependencies [e286632]
+  - @strimz/sdk@0.19.0
+  - @strimz/shared-config@0.14.0
+  - @strimz/shared-types@0.22.1
+
 ## 0.5.4
 
 ### Patch Changes
