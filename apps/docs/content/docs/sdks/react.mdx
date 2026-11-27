@@ -37,8 +37,10 @@ operations, such as creating a payment session, go through your own
 backend with the server-side `StrimzClient`, which refuses to start in a browser (see
 [Create sessions on your server](/docs/checkout/server-sessions)). The provider also accepts
 `apiBaseUrl` to override the API base URL and `checkoutOrigin` to
-override the hosted-checkout origin (default `https://checkout.strimz.finance`). It takes an origin
-only: a path, query or hash throws.
+override the hosted-checkout origin. Both default from the key: a `pk_test_` key uses
+`https://api-test.strimz.finance` and `https://checkout-test.strimz.finance`, a `pk_live_` key uses
+`https://api.strimz.finance` and `https://checkout.strimz.finance`. `checkoutOrigin` takes an
+origin only: a path, query or hash throws.
 
 ## `<StrimzPayButton />`
 

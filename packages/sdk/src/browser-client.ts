@@ -10,6 +10,7 @@
 import { kindFromKey, modeFromKey, type ApiKeyMode } from '@strimz/shared-config'
 import { Fetcher } from './http/fetcher.js'
 import { buildBaseHeaders } from './http/headers.js'
+import { defaultBaseUrl } from './http/base-url.js'
 import { StrimzAuthenticationError } from './errors.js'
 import { CheckoutResource } from './resources/checkout.js'
 import {
@@ -22,13 +23,11 @@ import {
 export interface StrimzBrowserClientOptions {
   /** Publishable key. Either `pk_test_...` or `pk_live_...`. */
   publishableKey: string
-  /** Override the API base URL. */
+  /** Override the API base URL. Defaults to the test or live API, from the key's mode. */
   baseUrl?: string
   /** Per-request timeout in milliseconds. Default 30s. */
   timeoutMs?: number
 }
-
-const DEFAULT_BASE_URL = 'https://api.strimz.finance'
 
 /**
  * Browser-safe Strimz client.
@@ -81,7 +80,7 @@ export class StrimzBrowserClient {
     this.mode = mode
 
     const fetcher = new Fetcher({
-      baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
+      baseUrl: options.baseUrl ?? defaultBaseUrl(mode),
       baseHeaders: buildBaseHeaders(key, 'browser'),
       timeoutMs: options.timeoutMs,
       maxRetries: 2,

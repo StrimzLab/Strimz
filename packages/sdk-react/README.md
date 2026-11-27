@@ -74,11 +74,11 @@ Wraps any tree that uses Strimz components or hooks. Exposes a
 memoised `StrimzBrowserClient` and the hosted-checkout origin to its
 descendants. It throws on first render if you pass a secret key.
 
-| Prop             | Default                           | Notes                                       |
-| ---------------- | --------------------------------- | ------------------------------------------- |
-| `publishableKey` | required                          | `pk_test_…` or `pk_live_…`                  |
-| `apiBaseUrl`     | `https://api.strimz.finance`      | Override for staging                        |
-| `checkoutOrigin` | `https://checkout.strimz.finance` | Origin of the hosted checkout, with no path |
+| Prop             | Default             | Notes                                                                                                                             |
+| ---------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `publishableKey` | required            | `pk_test_…` or `pk_live_…`                                                                                                        |
+| `apiBaseUrl`     | from the key's mode | `pk_test_` uses `https://api-test.strimz.finance`, `pk_live_` uses `https://api.strimz.finance`                                   |
+| `checkoutOrigin` | from the key's mode | `pk_test_` uses `https://checkout-test.strimz.finance`, `pk_live_` uses `https://checkout.strimz.finance`. An origin with no path |
 
 `checkoutOrigin` must be an origin only. A trailing `/` is fine; a path,
 query or hash throws on first render.

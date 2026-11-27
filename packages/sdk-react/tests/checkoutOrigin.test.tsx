@@ -3,16 +3,22 @@ import { act, render, renderHook } from '@testing-library/react'
 import { StrimzProvider, useStrimzCheckout, useStrimzContext } from '../src/index.js'
 
 const validKey = 'pk_test_' + 'a'.repeat(20)
+const liveKey = 'pk_live_' + 'a'.repeat(20)
 const WWW = 'https://www.strimz.finance'
-const CHECKOUT = 'https://checkout.strimz.finance'
+const CHECKOUT = 'https://checkout-test.strimz.finance'
+const LIVE_CHECKOUT = 'https://checkout.strimz.finance'
 const txHash = `0x${'ab'.repeat(32)}`
 
-function openWith(checkoutOrigin: string | undefined, onSuccess = vi.fn()) {
+function openWith(
+  checkoutOrigin: string | undefined,
+  onSuccess = vi.fn(),
+  publishableKey = validKey,
+) {
   const popup = { closed: false, close: () => undefined }
   const open = vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window)
   const hook = renderHook(() => useStrimzCheckout({ onSuccess }), {
     wrapper: ({ children }) => (
-      <StrimzProvider publishableKey={validKey} checkoutOrigin={checkoutOrigin}>
+      <StrimzProvider publishableKey={publishableKey} checkoutOrigin={checkoutOrigin}>
         {children}
       </StrimzProvider>
     ),
@@ -27,9 +33,14 @@ afterEach(() => {
 })
 
 describe('checkoutOrigin', () => {
-  it('defaults to the checkout host', () => {
+  it('defaults to the test checkout host for a test key', () => {
     const { url } = openWith(undefined)
     expect(url.origin + url.pathname).toBe(`${CHECKOUT}/pay/sess_1`)
+  })
+
+  it('defaults to the live checkout host for a live key', () => {
+    const { url } = openWith(undefined, vi.fn(), liveKey)
+    expect(url.origin + url.pathname).toBe(`${LIVE_CHECKOUT}/pay/sess_1`)
   })
 
   it('accepts results from the checkout host by default', () => {

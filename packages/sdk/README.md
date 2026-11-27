@@ -65,15 +65,15 @@ confirms.
 
 ## Options
 
-| Option       | Default                      | Notes                                       |
-| ------------ | ---------------------------- | ------------------------------------------- |
-| `apiKey`     | required                     | `sk_test_…` or `sk_live_…`                  |
-| `baseUrl`    | `https://api.strimz.finance` | Override the API host                       |
-| `timeoutMs`  | `30000`                      | Per-request timeout                         |
-| `maxRetries` | `3`                          | Retries for network errors, `5xx` and `429` |
-| `onRequest`  | none                         | Callback before each request, for logging   |
-| `onResponse` | none                         | Callback after each response, for logging   |
-| `fetch`      | `globalThis.fetch`           | Inject a mock or polyfill                   |
+| Option       | Default             | Notes                                                                                                               |
+| ------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `apiKey`     | required            | `sk_test_…` or `sk_live_…`                                                                                          |
+| `baseUrl`    | from the key's mode | `sk_test_` uses `https://api-test.strimz.finance`, `sk_live_` uses `https://api.strimz.finance`. Set it to override |
+| `timeoutMs`  | `30000`             | Per-request timeout                                                                                                 |
+| `maxRetries` | `3`                 | Retries for network errors, `5xx` and `429`                                                                         |
+| `onRequest`  | none                | Callback before each request, for logging                                                                           |
+| `onResponse` | none                | Callback after each response, for logging                                                                           |
+| `fetch`      | `globalThis.fetch`  | Inject a mock or polyfill                                                                                           |
 
 `client.mode` is `'test'` or `'live'`, read from the key prefix.
 

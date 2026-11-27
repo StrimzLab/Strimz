@@ -5,7 +5,14 @@ import {
   type SubscriptionResultMessage,
 } from '@strimz/shared-types'
 
-export const DEFAULT_CHECKOUT_ORIGIN = 'https://checkout.strimz.finance'
+const CHECKOUT_ORIGINS = {
+  test: 'https://checkout-test.strimz.finance',
+  live: 'https://checkout.strimz.finance',
+} as const
+
+export function defaultCheckoutOrigin(mode: keyof typeof CHECKOUT_ORIGINS): string {
+  return CHECKOUT_ORIGINS[mode]
+}
 
 export function checkoutOriginOf(checkoutOrigin: string): string {
   let url: URL
@@ -13,12 +20,12 @@ export function checkoutOriginOf(checkoutOrigin: string): string {
     url = new URL(checkoutOrigin)
   } catch {
     throw new Error(
-      `checkoutOrigin must be an origin like ${DEFAULT_CHECKOUT_ORIGIN}, got "${checkoutOrigin}".`,
+      `checkoutOrigin must be an origin like ${CHECKOUT_ORIGINS.live}, got "${checkoutOrigin}".`,
     )
   }
   if (url.pathname !== '/' || url.search || url.hash) {
     throw new Error(
-      `checkoutOrigin must be an origin with no path, query or hash, like ${DEFAULT_CHECKOUT_ORIGIN}. Got "${checkoutOrigin}".`,
+      `checkoutOrigin must be an origin with no path, query or hash, like ${CHECKOUT_ORIGINS.live}. Got "${checkoutOrigin}".`,
     )
   }
   return url.origin
