@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { Resend } from 'resend'
+import { markTestModeEmail, type ArcEnvironment } from '@strimz/shared-config'
 import { TypedConfigService } from '../../config/index.js'
 
 export interface SendEmailOptions {
@@ -14,16 +15,19 @@ export class EmailService {
   private readonly log = new Logger(EmailService.name)
   private readonly resend: Resend | null
   private readonly fromEmail: string
+  private readonly environment: ArcEnvironment
 
   constructor(cfg: TypedConfigService) {
     this.fromEmail = cfg.env.RESEND_FROM_EMAIL
+    this.environment = cfg.env.ARC_ENVIRONMENT
     this.resend = cfg.env.RESEND_API_KEY ? new Resend(cfg.env.RESEND_API_KEY) : null
     if (!this.resend) {
       this.log.warn('RESEND_API_KEY not set — emails will be logged only')
     }
   }
 
-  async send(options: SendEmailOptions): Promise<{ id: string | null; queued: boolean }> {
+  async send(input: SendEmailOptions): Promise<{ id: string | null; queued: boolean }> {
+    const options = markTestModeEmail(this.environment, input)
     if (!this.resend) {
       this.log.log(`[email-stub] to=${options.to} subject=${options.subject}`)
       return { id: null, queued: false }

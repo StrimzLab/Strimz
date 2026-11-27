@@ -24,7 +24,7 @@ import { StrimzClient } from '@strimz/sdk'
 
 const strimz = new StrimzClient({
   apiKey: process.env.STRIMZ_KEY!,
-  baseUrl: 'https://api.strimz.finance', // optional override; defaults to live
+  baseUrl: 'https://api.strimz.finance', // optional; sk_test_ keys default to the test API, sk_live_ to the live one
   timeoutMs: 30_000,
   maxRetries: 3,
 })

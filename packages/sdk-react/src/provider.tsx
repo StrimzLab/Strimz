@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { StrimzBrowserClient } from '@strimz/sdk/browser'
-import { checkoutOriginOf, DEFAULT_CHECKOUT_ORIGIN } from './checkout-message.js'
+import { checkoutOriginOf, defaultCheckoutOrigin } from './checkout-message.js'
 
 export interface StrimzContextValue {
   client: StrimzBrowserClient
@@ -15,9 +15,9 @@ const StrimzContext = React.createContext<StrimzContextValue | null>(null)
 export interface StrimzProviderProps {
   /** Publishable key, e.g. process.env.NEXT_PUBLIC_STRIMZ_PUBLISHABLE_KEY. */
   publishableKey: string
-  /** Override the API base URL. */
+  /** Override the API base URL. Defaults to the test or live API, from the key's mode. */
   apiBaseUrl?: string
-  /** Hosted-checkout origin, scheme and host only. Defaults to https://checkout.strimz.finance. */
+  /** Hosted-checkout origin, scheme and host only. Defaults to the test or live checkout, from the key's mode. */
   checkoutOrigin?: string
   children: React.ReactNode
 }
@@ -29,16 +29,16 @@ export interface StrimzProviderProps {
 export function StrimzProvider({
   publishableKey,
   apiBaseUrl,
-  checkoutOrigin = DEFAULT_CHECKOUT_ORIGIN,
+  checkoutOrigin,
   children,
 }: StrimzProviderProps) {
-  const value = React.useMemo<StrimzContextValue>(
-    () => ({
-      client: new StrimzBrowserClient({ publishableKey, baseUrl: apiBaseUrl }),
-      checkoutOrigin: checkoutOriginOf(checkoutOrigin),
-    }),
-    [publishableKey, apiBaseUrl, checkoutOrigin],
-  )
+  const value = React.useMemo<StrimzContextValue>(() => {
+    const client = new StrimzBrowserClient({ publishableKey, baseUrl: apiBaseUrl })
+    return {
+      client,
+      checkoutOrigin: checkoutOriginOf(checkoutOrigin ?? defaultCheckoutOrigin(client.mode)),
+    }
+  }, [publishableKey, apiBaseUrl, checkoutOrigin])
   return <StrimzContext.Provider value={value}>{children}</StrimzContext.Provider>
 }
 

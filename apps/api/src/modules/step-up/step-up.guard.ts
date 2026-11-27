@@ -9,12 +9,13 @@ import {
 import { Reflector } from '@nestjs/core'
 import type { FastifyRequest } from 'fastify'
 
+import { ChainService } from '../../infra/chain/chain.service.js'
 import { StepUpService, type StepUpAction } from './step-up.service.js'
 
 const STEP_UP_KEY = 'stepUpAction'
 export const STEP_UP_HEADER = 'x-strimz-step-up'
 
-/** Dashboard sessions need a fresh passkey confirmation for this action; API keys don't. */
+/** Dashboard sessions on mainnet need a fresh passkey confirmation for this action; API keys don't. */
 export const RequireStepUp = (action: StepUpAction) =>
   applyDecorators(SetMetadata(STEP_UP_KEY, action), UseGuards(StepUpGuard))
 
@@ -23,12 +24,15 @@ export class StepUpGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly stepUp: StepUpService,
+    private readonly chain: ChainService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const action = this.reflector.get<StepUpAction | undefined>(STEP_UP_KEY, ctx.getHandler())
     const req = ctx.switchToHttp().getRequest<FastifyRequest>()
     if (!action || !req.merchant || req.merchant.apiKeyId) return true
+    // Test mode holds no real money (ADR-2026-11-26-test-mode).
+    if (this.chain.environment === 'testnet') return true
     const header = req.headers[STEP_UP_HEADER]
     await this.stepUp.consume(
       typeof header === 'string' ? header : undefined,

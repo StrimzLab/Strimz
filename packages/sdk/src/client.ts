@@ -8,6 +8,7 @@
 import { kindFromKey, modeFromKey, type ApiKeyMode } from '@strimz/shared-config'
 import { Fetcher } from './http/fetcher.js'
 import { buildBaseHeaders } from './http/headers.js'
+import { defaultBaseUrl } from './http/base-url.js'
 import { StrimzAuthenticationError } from './errors.js'
 import { MerchantsResource } from './resources/merchants.js'
 import { ApiKeysResource } from './resources/api-keys.js'
@@ -26,7 +27,7 @@ import { AgentsResource } from './resources/agents.js'
 export interface StrimzClientOptions {
   /** Secret key. Either `sk_test_...` or `sk_live_...`. Mode is auto-detected. */
   apiKey: string
-  /** Override the API base URL. Defaults to `https://api.strimz.finance`. */
+  /** Override the API base URL. Defaults to the test or live API, from the key's mode. */
   baseUrl?: string
   /** Per-request timeout in milliseconds. Default 30s. */
   timeoutMs?: number
@@ -38,8 +39,6 @@ export interface StrimzClientOptions {
   /** Override fetch. Use to inject mocks in tests or polyfills in Edge. */
   fetch?: typeof globalThis.fetch
 }
-
-const DEFAULT_BASE_URL = 'https://api.strimz.finance'
 
 const SECRET_KEY_IN_BROWSER_MESSAGE =
   'StrimzClient cannot run in a browser: secret keys must stay on your server. Create payment sessions from a server route and pass the session id to the browser. See https://docs.strimz.finance/docs/checkout/server-sessions'
@@ -95,7 +94,7 @@ export class StrimzClient {
     this.mode = mode
 
     const fetcher = new Fetcher({
-      baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
+      baseUrl: options.baseUrl ?? defaultBaseUrl(mode),
       baseHeaders: buildBaseHeaders(options.apiKey, detectRuntime()),
       timeoutMs: options.timeoutMs,
       maxRetries: options.maxRetries,
