@@ -12,4 +12,11 @@
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "observability": { "enabled": true },
   "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "strimz-checkout" }],
+  "env": {
+    // Test mode on Arc testnet, deployed with `--env test`.
+    "test": {
+      "name": "strimz-checkout-test",
+      "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "strimz-checkout-test" }],
+    },
+  },
 }
