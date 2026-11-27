@@ -9,3 +9,5 @@ export const siteUrls = {
   docs: trim(process.env.NEXT_PUBLIC_DOCS_URL ?? 'http://localhost:3003'),
   admin: trim(process.env.NEXT_PUBLIC_ADMIN_URL ?? 'http://localhost:3004'),
 } as const
+
+export const bookDemoUrl = 'https://strimz.zohobookings.com/5025813000000039046'
