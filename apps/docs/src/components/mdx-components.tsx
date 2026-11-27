@@ -7,6 +7,7 @@ import { File, Files, Folder } from 'fumadocs-ui/components/files'
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion'
 import { TypeTable } from 'fumadocs-ui/components/type-table'
 import type { ComponentType } from 'react'
+import { BookDemo } from './book-demo'
 
 export type MDXComponents = Record<string, ComponentType<Record<string, unknown>>>
 
@@ -32,6 +33,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     Accordion: Accordion as unknown as ComponentType<Record<string, unknown>>,
     Accordions: Accordions as unknown as ComponentType<Record<string, unknown>>,
     TypeTable: TypeTable as unknown as ComponentType<Record<string, unknown>>,
+    BookDemo: BookDemo as unknown as ComponentType<Record<string, unknown>>,
     ...components,
   }
 }

@@ -5,6 +5,7 @@ import { useRef } from 'react'
 import strimzVector from '@/../public/logoIcons/StrimzVector.svg'
 import { GooeyTextReveal } from '../fx/gooey-reveal'
 import { PopLink } from '../fx/pop-button'
+import { BookDemoLink } from '../book-demo-link'
 import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 import {
   EASE_OUT,
@@ -86,9 +87,7 @@ export function Closing({ startHref = `${siteUrls.dashboard}/signup` }: { startH
             <PopLink href={startHref} onInk className="px-8">
               Start free
             </PopLink>
-            <PopLink href="/contact" tone="neutral" onInk>
-              Talk to us
-            </PopLink>
+            <BookDemoLink onInk />
           </div>
         </div>
 

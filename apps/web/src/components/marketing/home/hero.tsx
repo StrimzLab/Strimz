@@ -9,6 +9,7 @@ import { MkIcon } from '../icon'
 import { BorderBeam } from '../fx/border-beam'
 import { MorphWord } from '../fx/morph-word'
 import { PopLink } from '../fx/pop-button'
+import { BookDemoLink } from '../book-demo-link'
 import { MOTION_OK, gsap, useGSAP } from '@strimz/web-shared/components/marketing/motion/gsap'
 import { introOrder } from '../motion/intro'
 import { DashboardPreview } from './dashboard-preview'
@@ -124,9 +125,7 @@ export function Hero() {
               className="mt-9 flex flex-wrap items-center gap-3"
             >
               <PopLink href={`${siteUrls.dashboard}/signup`}>Start free</PopLink>
-              <PopLink href="#how-it-works" tone="neutral">
-                See how it works
-              </PopLink>
+              <BookDemoLink />
             </div>
             <p
               data-intro
