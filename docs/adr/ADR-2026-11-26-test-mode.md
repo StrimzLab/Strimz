@@ -63,6 +63,7 @@ On 2026-11-25 and 2026-11-26 the founder reversed this:
    | API host        | `api.strimz.finance`                    | `api-test.strimz.finance`                                                 |
    | Checkout        | `checkout.strimz.finance`               | `checkout-test.strimz.finance`                                            |
    | Signers         | Privy server wallets                    | plain keys, as on testnet before (ADR-2026-11-13-testnet-software-signer) |
+   | Contract admin  | Safe, through a 48-hour timelock        | the testnet deployer key alone; no Safe or timelock (amended 2026-11-27)  |
    | Backups         | nightly                                 | none; testnet data can be thrown away                                     |
    - The test container runs the same image tag as live, with `--memory=768m` and `--restart=unless-stopped`. That cap keeps a busy testnet from starving mainnet or Solva.
    - Before it starts, swap goes into `/etc/fstab` so it survives a reboot.

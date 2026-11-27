@@ -168,20 +168,19 @@ Chain id `5042002`. Explorer: <https://explorer.testnet.arc.io>.
 Source for upgradeable contracts is verified at the **implementation**
 address; the proxy renders it automatically once Blockscout indexes
 the impl. The two immutable contracts have `proxy == implementation`.
-Deployed 2026-11-09 from block `71161770`. Admin roles sit with the
-TimelockController `0x2cdbaf2dcdb2128422edb10d1b81f7eb8d95066d` (300 s delay),
-which the 2-of-2 Safe `0xe38788afb172c1a7bb01feec5db0e3b21df301d7` runs.
-The agent escrow is paused until the agent marketplace launches.
+Deployed 2026-11-27 from block `74376690`. Testnet has no Safe or timelock
+(ADR-2026-11-26-test-mode): the deployer key `0xd9db…e645` keeps the admin
+roles. The agent escrow is paused until the agent marketplace launches.
 
 | Contract            | Address (proxy)                                                                                     | Implementation                                                                                      |
 | ------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| StrimzRegistry      | [`0xac3c…e681`](https://explorer.testnet.arc.io/address/0xac3c2632457d76c3752907add8dad06afa7ce681) | [`0x76ad…e403`](https://explorer.testnet.arc.io/address/0x76ad8b95279285ba4d16fc847f5da96477a8e403) |
-| TokenWhitelist      | [`0xd857…b853`](https://explorer.testnet.arc.io/address/0xd857043f2d1d96b53e096e175605907507b2b853) | [`0xda1b…1341`](https://explorer.testnet.arc.io/address/0xda1b4a7ce68b72a8a969ea5ec331085472ef1341) |
-| FeeCollector        | [`0x20b8…2920`](https://explorer.testnet.arc.io/address/0x20b8461c268f000c6c62a1dd313e8eb511fe2920) | [`0x0043…c2db`](https://explorer.testnet.arc.io/address/0x00431918aa7beaa52ea6554b29b5883a860fc2db) |
-| StrimzPayments      | [`0xac23…f3aa`](https://explorer.testnet.arc.io/address/0xac238787c7b1375529c48274dc382868dd26f3aa) | same as proxy (immutable)                                                                           |
-| StrimzSubscriptions | [`0x5b1a…6104`](https://explorer.testnet.arc.io/address/0x5b1aca9f3a4a75952d60e9db5bb8617737916104) | same as proxy (immutable)                                                                           |
-| StrimzAgentRegistry | [`0x4ede…b3ca`](https://explorer.testnet.arc.io/address/0x4ede74db581de6c31138a6145b7a62f99527b3ca) | [`0x9584…453b`](https://explorer.testnet.arc.io/address/0x95846615faaecc204c8fe2b694faa489b853453b) |
-| StrimzAgentEscrow   | [`0x02a0…cccf`](https://explorer.testnet.arc.io/address/0x02a0ceb2d93224e5f3e775b22e30c0241591cccf) | [`0x7780…c0f4`](https://explorer.testnet.arc.io/address/0x7780b05c7a313d8253e7f208f1e42f5f8ac3c0f4) |
+| StrimzRegistry      | [`0xe834…02f3`](https://explorer.testnet.arc.io/address/0xe834cde9324feb2093e3f37a2d9fff84e53302f3) | [`0xd782…daea`](https://explorer.testnet.arc.io/address/0xd782c87b13817abe61646f9676bf516a4770daea) |
+| TokenWhitelist      | [`0x9e6a…914a`](https://explorer.testnet.arc.io/address/0x9e6a9e46af57a8ae46ddbafd1779f040cf9c914a) | [`0x6970…18e3`](https://explorer.testnet.arc.io/address/0x6970c6e0806f54fff0b80dbff63914e67f2c18e3) |
+| FeeCollector        | [`0xb80c…15f2`](https://explorer.testnet.arc.io/address/0xb80cc20dd0f492fac4d72ccc830eaa9909a215f2) | [`0xba1a…1c96`](https://explorer.testnet.arc.io/address/0xba1a7644f68820d39ea0569fdf6d1a7a297e1c96) |
+| StrimzPayments      | [`0xe3d4…e879`](https://explorer.testnet.arc.io/address/0xe3d4b6591eed2871958bedf6a4ff1494d0e9e879) | same as proxy (immutable)                                                                           |
+| StrimzSubscriptions | [`0xaab0…5b24`](https://explorer.testnet.arc.io/address/0xaab095021a4644fa81096cead26ed484ad855b24) | same as proxy (immutable)                                                                           |
+| StrimzAgentRegistry | [`0x7c6c…2235`](https://explorer.testnet.arc.io/address/0x7c6c2bae78f73424311d7030e0a960dcc4ea2235) | [`0x9b84…9e45`](https://explorer.testnet.arc.io/address/0x9b84d41febc5c194aaf7a0afce440c13212c9e45) |
+| StrimzAgentEscrow   | [`0x4ae0…ce9e`](https://explorer.testnet.arc.io/address/0x4ae0f38713f88d818fa76f46dc31ff52acadce9e) | [`0x3185…f2a9`](https://explorer.testnet.arc.io/address/0x31850b50a65201fd3e2ab6745ce47fedf892f2a9) |
 
 When sending txs (or pasting addresses into the SDK / API), always
 use the **proxy** column. The implementation column is only for

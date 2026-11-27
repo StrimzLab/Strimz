@@ -305,19 +305,17 @@ refund, webhook. We use it ourselves.
 
 ### Deployed contracts (Arc testnet)
 
-Deployed 2026-11-09 from block 71161770. View them on the [Arc testnet explorer](https://explorer.testnet.arc.io).
+Deployed 2026-11-27 from block 74376690. View them on the [Arc testnet explorer](https://explorer.testnet.arc.io). Testnet has no Safe or timelock: the deployer key keeps the admin roles.
 
 | Contract            | Address                                      |
 | ------------------- | -------------------------------------------- |
-| StrimzRegistry      | `0xac3C2632457D76C3752907ADD8daD06AFA7ce681` |
-| TokenWhitelist      | `0xD857043f2d1D96b53e096e175605907507b2B853` |
-| FeeCollector        | `0x20b8461c268F000c6C62a1dd313E8EB511Fe2920` |
-| StrimzPayments      | `0xaC238787C7B1375529C48274Dc382868DD26f3Aa` |
-| StrimzSubscriptions | `0x5B1aca9f3A4A75952D60E9dB5Bb8617737916104` |
-| StrimzAgentRegistry | `0x4EDe74db581De6C31138A6145b7A62F99527B3Ca` |
-| StrimzAgentEscrow   | `0x02a0ceB2d93224E5F3e775B22e30c0241591Cccf` |
-| TimelockController  | `0x2CdbAF2dcDb2128422EDb10D1b81f7eB8d95066d` |
-| Admin Safe (2-of-2) | `0xe38788AFB172c1a7BB01FEEC5DB0e3b21df301D7` |
+| StrimzRegistry      | `0xe834cde9324feb2093e3f37a2d9fff84e53302f3` |
+| TokenWhitelist      | `0x9e6a9e46af57a8ae46ddbafd1779f040cf9c914a` |
+| FeeCollector        | `0xb80cc20dd0f492fac4d72ccc830eaa9909a215f2` |
+| StrimzPayments      | `0xe3d4b6591eed2871958bedf6a4ff1494d0e9e879` |
+| StrimzSubscriptions | `0xaab095021a4644fa81096cead26ed484ad855b24` |
+| StrimzAgentRegistry | `0x7c6c2bae78f73424311d7030e0a960dcc4ea2235` |
+| StrimzAgentEscrow   | `0x4ae0f38713f88d818fa76f46dc31ff52acadce9e` |
 
 Shipped so far: the smart contract suite (Payments, Subscriptions,
 Registry, FeeCollector, AgentRegistry, and AgentEscrow, deployed paused

@@ -28,15 +28,30 @@ sudo swapon -a && swapon --show
 
 ## 2. Contracts
 
-Deploy a fresh testnet core and agent with [testnet-redeploy.md](testnet-redeploy.md), sections 1 to 5. The relayer and scheduler addresses passed to `DeployCore` are the software keys from step 3, so create those first.
+Testnet has no Safe or timelock. The testnet deployer key keeps the admin roles and acts alone, because nothing on testnet holds real money.
 
-The old contracts' data isn't carried over: step 4 starts the test database empty, so sections 6 and 7 of that runbook don't apply.
+From `packages/contracts`, with its testnet `.env` loaded, run sections 1 to 3 of [testnet-redeploy.md](testnet-redeploy.md):
+
+1. Rehearse.
+2. Deploy core and agent.
+3. Verify (`deployed`).
+
+Skip the admin handoff in section 4. Instead, pause the agent escrow with the deployer key, then publish the source:
+
+```sh
+arc-cast send "$STRIMZ_AGENT_ESCROW_ADDRESS" "pause()" --private-key "$STRIMZ_DEPLOYER_PRIVATE_KEY" --rpc-url arc_testnet
+./script/verify.sh core && ./script/verify.sh agent
+```
+
+The `.env` may still list an older deploy's addresses. Unset them before `DeployCore`, and export the new core addresses from `deployments/5042002.json` before `DeployAgent`.
+
+The relayer and scheduler addresses passed to `DeployCore` are the software keys from step 3, so create those first. Step 4 starts the test database empty, so the old contracts' data isn't carried over.
 
 ## 3. The env file
 
 `~/strimz/.env.testnet` (root, mode 600) starts from the old testnet `~/strimz/.env`. Then make these changes:
 
-- **Contracts:** set `START_BLOCK` and every contract address to the new deploy.
+- **Contracts:** set `START_BLOCK` and every contract address to the new deploy. Leave `TIMELOCK_ADDRESS`, `STRIMZ_SAFE_ADDRESS` and `STRIMZ_GUARDIAN_ADDRESS` unset.
 - **Privy:** copy `PRIVY_APP_ID`, `PRIVY_APP_SECRET` and `PRIVY_WEBHOOK_SIGNING_SECRET` from `.env.mainnet`, so one Privy login works on both backends.
 - **URLs:**
   - `API_BASE_URL=https://api-test.strimz.finance`

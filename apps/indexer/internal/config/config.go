@@ -57,7 +57,8 @@ type Config struct {
 	FeeCollectorAddress   string `envconfig:"FEE_COLLECTOR_ADDRESS"  required:"true"`
 	TokenWhitelistAddress string `envconfig:"TOKEN_WHITELIST_ADDRESS" required:"true"`
 	AgentRegistryAddress  string `envconfig:"AGENT_REGISTRY_ADDRESS"`
-	TimelockAddress       string `envconfig:"TIMELOCK_ADDRESS"        required:"true"`
+	// Required on mainnet only: testnet has no Safe or timelock (ADR-2026-11-26-test-mode).
+	TimelockAddress string `envconfig:"TIMELOCK_ADDRESS"`
 	// Optional: stablecoin addresses to scan for refund-completion Transfers.
 	StablecoinAddresses []string `envconfig:"STABLECOIN_ADDRESSES" default:""`
 	Stablecoins         []Stablecoin
@@ -106,7 +107,9 @@ func Validate(c *Config) (*Config, error) {
 		"SUBSCRIPTIONS_ADDRESS":   c.SubscriptionsAddress,
 		"FEE_COLLECTOR_ADDRESS":   c.FeeCollectorAddress,
 		"TOKEN_WHITELIST_ADDRESS": c.TokenWhitelistAddress,
-		"TIMELOCK_ADDRESS":        c.TimelockAddress,
+	}
+	if c.Environment == EnvMainnet || c.TimelockAddress != "" {
+		addrs["TIMELOCK_ADDRESS"] = c.TimelockAddress
 	}
 	for name, v := range addrs {
 		if !isEvmAddress(v) {
@@ -167,7 +170,10 @@ func (c *Config) WatchedContracts() []string {
 	if c.HasAgentContracts() {
 		out = append(out, c.AgentRegistryAddress)
 	}
-	return append(out, c.TimelockAddress)
+	if c.TimelockAddress != "" {
+		out = append(out, c.TimelockAddress)
+	}
+	return out
 }
 
 func (c *Config) ContractNames() map[string]string {
@@ -177,7 +183,9 @@ func (c *Config) ContractNames() map[string]string {
 		strings.ToLower(c.SubscriptionsAddress):  "StrimzSubscriptions",
 		strings.ToLower(c.FeeCollectorAddress):   "FeeCollector",
 		strings.ToLower(c.TokenWhitelistAddress): "TokenWhitelist",
-		strings.ToLower(c.TimelockAddress):       "TimelockController",
+	}
+	if c.TimelockAddress != "" {
+		names[strings.ToLower(c.TimelockAddress)] = "TimelockController"
 	}
 	if c.HasAgentContracts() {
 		names[strings.ToLower(c.AgentEscrowAddress)] = "StrimzAgentEscrow"
