@@ -14,10 +14,10 @@ import { StatusPill } from '@strimz/web-shared/components/dashboard/data-table'
 import { TokenLogo } from '@strimz/web-shared/components/shared/token-logo'
 import { NewRefundDialog } from '@/components/dashboard/refunds/new-refund-dialog'
 import { useRefundSigner } from '@/components/dashboard/refunds/use-refund-signer'
-import { env } from '@strimz/web-shared/lib/env'
 import { formatTokenAmount, relativeTime } from '@strimz/web-shared/lib/format'
 import { canRefund, transactionKindLabel } from '@/lib/transactions-view'
 import { useTransaction } from '@/hooks/api'
+import { useNetwork } from '@strimz/web-shared/lib/dashboard-mode'
 
 const STATUS_TONE: Record<TransactionStatus, 'positive' | 'warning' | 'danger'> = {
   confirmed: 'positive',
@@ -26,6 +26,7 @@ const STATUS_TONE: Record<TransactionStatus, 'positive' | 'warning' | 'danger'> 
 }
 
 export default function TransactionDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const network = useNetwork()
   const { id } = use(params)
   const { data: tx, isPending, isError } = useTransaction(id)
   const { sign } = useRefundSigner()
@@ -48,7 +49,7 @@ export default function TransactionDetailPage({ params }: { params: Promise<{ id
     )
   }
 
-  const explorer = getArcExplorerUrl(env.arcEnvironment)
+  const explorer = getArcExplorerUrl(network.arcEnvironment)
 
   return (
     <div className="space-y-6">

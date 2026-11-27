@@ -112,6 +112,32 @@ describe('merchants e2e', () => {
     expect(must(row).businessSector).toBe('Software')
   })
 
+  // ADR-2026-11-26-test-mode: the dashboard copies these into the merchant's test account.
+  it('GET /v1/merchants/me returns the sector and phone given at onboarding', async () => {
+    const m = await seedMerchant(t.prisma.db, { onboardingCompleted: false })
+    const auth = { authorization: `Bearer ${m.privyAccessToken}` }
+    await t.inject({
+      method: 'POST',
+      url: '/v1/merchants/me/onboard',
+      headers: auth,
+      payload: {
+        businessName: 'Acme Inc',
+        businessSector: 'Software',
+        countryCode: 'US',
+        phone: '+2348012345678',
+        payoutAddress: '0x' + 'a'.repeat(40),
+        acceptedTerms: TERMS_VERSION,
+      },
+    })
+
+    const res = await t.inject({ method: 'GET', url: '/v1/merchants/me', headers: auth })
+
+    expect(res.statusCode).toBe(200)
+    const body = JSON.parse(res.body) as { businessSector: string; phone: string }
+    expect(body.businessSector).toBe('Software')
+    expect(body.phone).toBe('+2348012345678')
+  })
+
   it('GET /v1/merchants/me/live-mode-eligibility surfaces blocking reasons', async () => {
     const m = await seedMerchant(t.prisma.db, {
       twoFactorEnabled: false,

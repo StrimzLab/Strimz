@@ -25,7 +25,7 @@ describe('checkout links point at the checkout app', () => {
   it.each([
     ['app/(dashboard)/app/plans/[id]/page.tsx', '/sub/'],
     ['app/(dashboard)/app/invoices/[id]/page.tsx', '/pay/'],
-  ])('%s uses siteUrls.checkout', (path, route) => {
-    expect(readFileSync(join(SRC, path), 'utf8')).toContain('`${siteUrls.checkout}' + route)
+  ])('%s uses the checkout of the selected mode', (path, route) => {
+    expect(readFileSync(join(SRC, path), 'utf8')).toContain('`${network.checkoutUrl}' + route)
   })
 })

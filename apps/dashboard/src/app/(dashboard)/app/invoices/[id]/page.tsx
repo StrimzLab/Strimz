@@ -7,7 +7,6 @@ import { ArrowLeft, Ban, Copy, Download, ExternalLink, FileDown, Loader2, Send }
 import { toast } from 'sonner'
 import { Badge, Button, Card, CardContent } from '@strimz/ui'
 import type { InvoiceStatus } from '@strimz/shared-types'
-import { siteUrls } from '@strimz/web-shared/lib/site-urls'
 
 import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
 import { StatusPill } from '@strimz/web-shared/components/dashboard/data-table'
@@ -20,6 +19,7 @@ import {
   type PendingConfirm,
 } from '@strimz/web-shared/components/dashboard/confirm-action-dialog'
 import { useInvoice, useMerchantMe, useSendInvoice, useVoidInvoice } from '@/hooks/api'
+import { useNetwork } from '@strimz/web-shared/lib/dashboard-mode'
 
 const STATUS_TONE: Record<InvoiceStatus, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
   paid: 'positive',
@@ -30,6 +30,7 @@ const STATUS_TONE: Record<InvoiceStatus, 'positive' | 'warning' | 'danger' | 'in
 }
 
 export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const network = useNetwork()
   const { id } = use(params)
   const { data: invoice, isPending, isError } = useInvoice(id)
   const { data: merchant } = useMerchantMe()
@@ -76,7 +77,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
 
   const copyLink = async () => {
     if (!invoice.sessionId) return
-    const url = `${siteUrls.checkout}/pay/${invoice.sessionId}`
+    const url = `${network.checkoutUrl}/pay/${invoice.sessionId}`
     await navigator.clipboard.writeText(url)
     toast.success('Payment link copied')
   }
@@ -287,7 +288,7 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                     </Button>
                     <Button variant="outline" size="sm" asChild>
                       <a
-                        href={`${siteUrls.checkout}/pay/${invoice.sessionId}`}
+                        href={`${network.checkoutUrl}/pay/${invoice.sessionId}`}
                         target="_blank"
                         rel="noreferrer"
                       >

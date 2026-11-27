@@ -2,10 +2,13 @@
 
 import { useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query'
 import type { Merchant, OnboardMerchantInput, UpdateMerchantInput } from '@strimz/shared-types'
+import { MerchantApi } from '@strimz/web-shared/lib/merchant-api'
+import { primaryNetwork } from '@strimz/web-shared/lib/networks'
 
 import { useMerchantApi } from './merchant-api-context'
 import { useMutationWithToast } from '@strimz/web-shared/hooks/api/use-mutation-with-toast'
 import { merchantKeys } from './query-keys'
+import { primaryQueryClient } from '@/lib/query-clients'
 
 type MeOptions<TData = Merchant> = Omit<
   UseQueryOptions<Merchant, Error, TData, ReturnType<typeof merchantKeys.me>>,
@@ -29,6 +32,21 @@ export function useMerchantMe<TData = Merchant>(options?: MeOptions<TData>) {
     staleTime: 5 * 60_000, // 5 minutes. Overrides the global 30s default.
     ...options,
   })
+}
+
+const primaryApi = new MerchantApi({ baseUrl: primaryNetwork.apiUrl })
+
+/** The live account, whichever mode is selected. Sign-in and the account gate read this. */
+export function usePrimaryMerchantMe(options?: MeOptions) {
+  return useQuery(
+    {
+      queryKey: merchantKeys.me(),
+      queryFn: ({ signal }) => primaryApi.merchant.retrieve({ signal }),
+      staleTime: 5 * 60_000,
+      ...options,
+    },
+    primaryQueryClient,
+  )
 }
 
 export function useUpdateMerchant() {

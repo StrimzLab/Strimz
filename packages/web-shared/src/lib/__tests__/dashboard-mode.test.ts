@@ -23,3 +23,52 @@ describe('dashboard mode', () => {
     expect(getDashboardMode()).toBe('test')
   })
 })
+
+describe('initialMode (ADR-2026-11-26-test-mode)', () => {
+  it('starts a new browser in test mode when test mode exists', async () => {
+    const { initialMode } = await loadWith('mainnet')
+    expect(initialMode(['test', 'live'], null)).toBe('test')
+  })
+
+  it('remembers the last choice', async () => {
+    const { initialMode } = await loadWith('mainnet')
+    expect(initialMode(['test', 'live'], 'live')).toBe('live')
+  })
+
+  it('ignores a stored mode this build does not have, or junk', async () => {
+    const { initialMode } = await loadWith('mainnet')
+    expect(initialMode(['live'], 'test')).toBe('live')
+    expect(initialMode(['test', 'live'], 'sandbox')).toBe('test')
+  })
+})
+
+describe('stored mode', () => {
+  it('reads and writes the remembered mode', async () => {
+    const store = new Map<string, string>()
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+      },
+    })
+    const { readStoredMode, storeMode } = await loadWith('mainnet')
+    storeMode('live')
+    expect(readStoredMode()).toBe('live')
+  })
+
+  it('survives a browser that blocks storage', async () => {
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: () => {
+          throw new Error('blocked')
+        },
+        setItem: () => {
+          throw new Error('blocked')
+        },
+      },
+    })
+    const { readStoredMode, storeMode } = await loadWith('mainnet')
+    expect(readStoredMode()).toBeNull()
+    expect(() => storeMode('test')).not.toThrow()
+  })
+})

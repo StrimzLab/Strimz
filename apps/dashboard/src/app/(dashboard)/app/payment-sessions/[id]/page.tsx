@@ -18,11 +18,11 @@ import {
   ConfirmActionDialog,
   type PendingConfirm,
 } from '@strimz/web-shared/components/dashboard/confirm-action-dialog'
-import { env } from '@strimz/web-shared/lib/env'
 import { cancelPaymentSessionConfirm } from '@strimz/web-shared/lib/destructive-actions'
 import { formatTokenAmount, relativeTime } from '@strimz/web-shared/lib/format'
 import { canRefund, transactionKindLabel } from '@/lib/transactions-view'
 import { useCancelPaymentSession, usePaymentSession, useTransactions } from '@/hooks/api'
+import { useNetwork } from '@strimz/web-shared/lib/dashboard-mode'
 
 const STATUS_TONE: Record<
   PaymentSessionStatus,
@@ -40,6 +40,7 @@ const STATUS_TONE: Record<
 const OPEN_STATUSES: ReadonlySet<PaymentSessionStatus> = new Set(['created', 'awaiting_payment'])
 
 export default function PaymentSessionDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const network = useNetwork()
   const { id } = use(params)
   const { data: session, isPending, isError } = usePaymentSession(id)
   const transactionsQuery = useTransactions({ sessionId: id, limit: 10 })
@@ -65,7 +66,7 @@ export default function PaymentSessionDetailPage({ params }: { params: Promise<{
     )
   }
 
-  const explorer = getArcExplorerUrl(env.arcEnvironment)
+  const explorer = getArcExplorerUrl(network.arcEnvironment)
   const payments = transactionsQuery.data?.data ?? []
   const refundable = payments.find(canRefund) ?? null
 

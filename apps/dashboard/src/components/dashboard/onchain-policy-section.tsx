@@ -10,11 +10,11 @@ import { arcEnvironmentForChainId, arcExplorerTxUrl } from '@strimz/shared-confi
 import { Button, Card, CardContent, FieldLabel, Input, Label } from '@strimz/ui'
 
 import { prepareArcSigning } from '@strimz/web-shared/lib/arc-network'
-import { env } from '@strimz/web-shared/lib/env'
 import { privySwitchableWallet } from '@/lib/privy-arc'
 import { registryWriteAbi } from '@/lib/registry-write-abi'
 import { useMerchantOnchainState } from '@/hooks/api/use-merchant'
 import { merchantKeys } from '@/hooks/api/query-keys'
+import { useNetwork } from '@strimz/web-shared/lib/dashboard-mode'
 
 const ZERO = '0x0000000000000000000000000000000000000000' as const
 
@@ -369,6 +369,7 @@ type WriteFn =
  * the pending fields refresh without a page reload.
  */
 function useRegistryTx(state: OnchainState) {
+  const network = useNetwork()
   const { wallets } = useWallets()
   const qc = useQueryClient()
   const [busy, setBusy] = useState(false)
@@ -381,7 +382,7 @@ function useRegistryTx(state: OnchainState) {
     }
     setBusy(true)
     try {
-      await prepareArcSigning(privySwitchableWallet(embedded), env.arcEnvironment)
+      await prepareArcSigning(privySwitchableWallet(embedded), network.arcEnvironment)
       const data = encodeFunctionData({
         abi: registryWriteAbi,
         functionName: fn,
