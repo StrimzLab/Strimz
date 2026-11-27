@@ -14,6 +14,7 @@
     "build:cloudflare": "opennextjs-cloudflare build",
     "preview:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "deploy:cloudflare:test": "opennextjs-cloudflare build && opennextjs-cloudflare deploy --env test",
     "test:e2e": "playwright test"
   },
   "dependencies": {
