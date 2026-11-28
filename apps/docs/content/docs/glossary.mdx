@@ -9,9 +9,9 @@ on a stablecoin chain.
 
 ## API key kinds
 
-**Secret key.** Full permissions, server-side only. Prefixed `sk_live_`.
+**Secret key.** Full permissions, server-side only. Prefixed `sk_test_` in test mode and `sk_live_` in live mode.
 
-**Publishable key.** Identifies browser calls and grants no access. The public checkout and token routes do not check it, and every other route rejects it. It cannot create a payment session. Safe to ship in a browser. Prefixed `pk_live_`.
+**Publishable key.** Identifies browser calls and grants no access. The public checkout and token routes do not check it, and every other route rejects it. It cannot create a payment session. Safe to ship in a browser. Prefixed `pk_test_` in test mode and `pk_live_` in live mode.
 
 ## Charge attempt ID
 
@@ -80,9 +80,8 @@ reference covers the operator-side configuration.
 
 ## Live mode
 
-Strimz runs in live mode only, on Arc mainnet, with `sk_live_` and
-`pk_live_` keys. There is no test mode; see
-[Testing your integration](/docs/testing).
+Real payments on Arc mainnet, with `sk_live_` and `pk_live_` keys. Its counterpart is
+[test mode](#test-mode). See [Test mode and live mode](/docs/testing).
 
 ## Meta-tx
 
@@ -145,6 +144,12 @@ and AgentEscrow once agent escrow ships. `StrimzPayments` and `StrimzSubscriptio
 are not UUPS. They are deliberately immutable.
 [On-chain architecture](/docs/concepts/on-chain-architecture) covers
 why the line falls where it does.
+
+## Test mode
+
+Strimz on Arc testnet, with `sk_test_` and `pk_test_` keys and free test USDC from Circle's
+faucet. Every account has a test side and a live side, and they never share data. See
+[Test mode and live mode](/docs/testing).
 
 ## Webhook delivery
 

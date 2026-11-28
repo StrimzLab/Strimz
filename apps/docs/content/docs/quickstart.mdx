@@ -7,8 +7,9 @@ This page takes you from zero to a confirmed payment in your
 dashboard. Every command here works as written. No placeholders.
 
 <Callout title="Prerequisites" type="info">
-  - Node.js 18+ or Bun 1.0+ (or any HTTP client) - A wallet with a little USDC on Arc, for example 1
-  USDC. See [Testing your integration](/docs/testing).
+  - Node.js 18+ or Bun 1.0+ (or any HTTP client) - A wallet with a little test USDC on Arc testnet,
+  free from [faucet.circle.com](https://faucet.circle.com). This guide uses test mode; see [Test
+  mode and live mode](/docs/testing).
 </Callout>
 
 <Steps>
@@ -31,13 +32,13 @@ wallet.
 
 ### Issue an API key
 
-In the dashboard, open **API keys** and click **Issue key**. You'll get a
-string that starts with `sk_live_`. Copy it
+In the dashboard, check the **Test / Live** switch in the top bar is on **Test**, then open
+**API keys** and click **Issue key**. You'll get a string that starts with `sk_test_`. Copy it
 straight away. The full key is only shown once. If you lose it, revoke it
 and issue a new one.
 
 ```bash
-export STRIMZ_KEY=sk_live_xxxxxxxxxxxxxxxxxxxx
+export STRIMZ_KEY=sk_test_xxx
 ```
 
 <Callout title="Keep it on your server" type="info">
@@ -118,7 +119,7 @@ on-chain.
   </Tab>
   <Tab value="curl">
     ```bash
-    curl https://api.strimz.finance/v1/payment-sessions \
+    curl https://api-test.strimz.finance/v1/payment-sessions \
       -H "Authorization: Bearer $STRIMZ_KEY" \
       -H "Content-Type: application/json" \
       -d '{
@@ -133,13 +134,13 @@ on-chain.
 </Tabs>
 
 Open the printed `checkoutUrl` in a browser, connect a wallet
-that holds a little USDC on Arc, and pay. A small amount such as 1 USDC is enough. Now refresh the
+that holds test USDC on Arc testnet, and pay. Use a different wallet from your Strimz account's own. Now refresh the
 **Payment sessions** page in your dashboard. You'll see the new session,
 and within a few seconds its status moves from `created` to `confirmed`.
 
-<Callout title="It comes back to you" type="info">
-  The payment lands in your own payout wallet, and on the Free plan the fee is refunded. See
-  [Testing your integration](/docs/testing).
+<Callout title="Test money only" type="info">
+  This payment used test USDC, so nothing real moved, and your receipt email starts with "[Test]".
+  See [Test mode and live mode](/docs/testing).
 </Callout>
 
 </Step>
@@ -207,9 +208,10 @@ itself are documented on [Verifying webhooks](/docs/guides/webhooks).
 
 ## What you just did
 
-You signed up, issued an API key, created a hosted checkout, took a
-real payment, and wired a webhook to react to it. This is already your
-production setup: point the webhook at your real URL and go.
+You signed up, issued a test key, created a hosted checkout, took a test
+payment, and wired a webhook to react to it. Going live is the same code: switch the dashboard to
+**Live**, create live keys and a live webhook endpoint, and swap them into your production
+settings. See [Go live](/docs/testing#go-live).
 
 ## Next steps
 

@@ -11,22 +11,20 @@ For the auth model in detail see [Authentication](/docs/authentication). This pa
 
 Strimz has two key kinds. Both are minted on this page.
 
-- **Publishable key** (`pk_live_…`). Safe to embed in browser code because it grants no access. `@strimz/sdk-react` and `StrimzBrowserClient` read the mode from its prefix and call only the public `/v1/checkout` and `/v1/tokens` routes, which do not check the key. Every other route rejects it with `401 authentication_error`. It cannot create payment sessions, read customer data, or create charges, and the scopes you tick on a publishable key are not enforced today.
-- **Secret key** (`sk_live_…`). Full-power. Anything that isn't `pk`-safe requires an `sk` key. Never ships to the browser. Store in your server's env vars.
+- **Publishable key** (`pk_test_…` or `pk_live_…`). Safe to embed in browser code because it grants no access. `@strimz/sdk-react` and `StrimzBrowserClient` read the mode from its prefix and call only the public `/v1/checkout` and `/v1/tokens` routes, which do not check the key. Every other route rejects it with `401 authentication_error`. It cannot create payment sessions, read customer data, or create charges, and the scopes you tick on a publishable key are not enforced today.
+- **Secret key** (`sk_test_…` or `sk_live_…`). Full-power. Anything that isn't `pk`-safe requires an `sk` key. Never ships to the browser. Store in your server's env vars.
 
-The prefix (`test` / `live`) is tied to the mode you were in when you minted the key. A `test`-mode key can never fire against `live` data and vice versa — the API rejects mismatches.
+The prefix (`test` / `live`) follows the **Test / Live** switch in the top bar when you mint the key. A test key only works against test data and a live key only against live data; the API rejects a mismatch. In test mode the dashboard doesn't ask for your passkey to create or rotate a key; in live mode it does. See [Test mode and live mode](/docs/testing).
 
 ## The layout
 
-The table lists every key you've minted. Columns:
+The table lists every key you've minted in the mode you're viewing. Columns:
 
 - **Name** — the label you gave when minting
-- **Kind** — `publishable` or `secret`
-- **Mode** — `test` or `live`
-- **Prefix** — the first few characters (`sk_live_xY83…`) so you can identify without revealing
-- **Last used** — most recent request timestamp
+- **Key** — the first few characters (`sk_test_xY83…`) so you can identify it without revealing it
 - **Scopes** — how many capabilities this key has
 - **Status** — `active` or `revoked`
+- **Last used** — most recent request timestamp
 
 Top-right: **New API key** button.
 

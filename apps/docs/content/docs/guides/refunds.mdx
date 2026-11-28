@@ -24,8 +24,8 @@ between you and the customer, with no intermediary in between.
 Create the refund with `POST /v1/refunds`. `amount` is in the token's smallest unit (6 decimals for USDC), and partial refunds are fine. `reason` is one of `customer_request`, `product_issue`, `duplicate_charge`, `fraudulent` or `other`.
 
 ```bash
-curl https://api.strimz.finance/v1/refunds \
-  -H "Authorization: Bearer sk_live_xxxxxxxxxxx" \
+curl https://api-test.strimz.finance/v1/refunds \
+  -H "Authorization: Bearer sk_test_xxx" \
   -H "Content-Type: application/json" \
   -d '{
     "transactionId": "cmq4wf2b80004je6l7xq1c9ad",

@@ -36,3 +36,21 @@ describe('first-run checklist', () => {
     expect(done({ created: true, paid: true })).toEqual([true, true, true])
   })
 })
+
+// #573: test mode is paid with faucet USDC, not a small real payment.
+describe('firstRunSteps in test mode', () => {
+  const text = (paths: FirstRunPath[]) => paths.flatMap((p) => p.steps.map((s) => s.body)).join(' ')
+
+  it('points test payments at the faucet', () => {
+    const t = text(firstRunSteps({ created: false, paid: false, mode: 'test' }))
+    expect(t).toMatch(/faucet/u)
+    expect(t).not.toMatch(/small amount such as 1 USDC/u)
+    expect(t).toMatch(/test key/u)
+  })
+
+  it('keeps the live wording in live mode', () => {
+    const t = text(firstRunSteps({ created: false, paid: false, mode: 'live' }))
+    expect(t).toMatch(/small amount such as 1 USDC/u)
+    expect(t).not.toMatch(/faucet/u)
+  })
+})
