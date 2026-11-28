@@ -1,5 +1,15 @@
 # @strimz/sdk
 
+## 0.19.2
+
+### Patch Changes
+
+- 3834c78: Package links point to the public read-only source at github.com/StrimzLab/strimz-sdk, and support goes to support@strimz.finance.
+- Updated dependencies [3834c78]
+  - @strimz/shared-config@0.14.1
+  - @strimz/shared-crypto@0.3.7
+  - @strimz/shared-types@0.23.1
+
 ## 0.19.1
 
 ### Patch Changes
