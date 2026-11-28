@@ -16,7 +16,7 @@ contracts. Launch target is Arc testnet (chain id 5042002), then Arc mainnet (50
 ### Layers
 
 ```
-apps/        web  demo-merchant  api  scheduler  agent  indexer (Go)
+apps/        web  docs  dashboard  admin  checkout  api  scheduler  agent  indexer (Go)
                \       |          |       |        |       |
 packages/     ui  sdk-react -> sdk   db   email-templates   |
                          \      |     |                     |

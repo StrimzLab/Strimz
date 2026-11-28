@@ -1,5 +1,5 @@
-# Applies to Vercel CLI deploys that upload the monorepo root (e.g. the
-# demo-merchant deploy). Vercel already skips node_modules / .git / .vercel.
+# Applies to Vercel CLI deploys that upload the monorepo root. Vercel already
+# skips node_modules / .git / .vercel.
 #
 # IMPORTANT: do NOT exclude any apps/* or packages/* SOURCE directories.
 # The build runs `pnpm install --frozen-lockfile` at the root, which needs

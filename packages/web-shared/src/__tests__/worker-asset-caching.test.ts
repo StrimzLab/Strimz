@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const apps = join(__dirname, '../../../../apps')
-const WORKER_APPS = ['web', 'dashboard', 'checkout', 'admin', 'docs', 'demo-merchant']
+const WORKER_APPS = ['web', 'dashboard', 'checkout', 'admin', 'docs']
 
 // #496: Workers serve /_next/static with max-age=0, so every visit re-checks every build file.
 describe('Worker asset caching', () => {

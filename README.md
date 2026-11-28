@@ -340,7 +340,6 @@ Turborepo monorepo. Apps under `apps/`:
   (`docs/runbooks/cloudflare-workers.md`).
 - `api` (NestJS HTTP), `indexer` (Go), `scheduler` (NestJS workers),
   `agent` (NestJS).
-- `demo-merchant`, a sample dApp.
 
 `packages/contracts` is the Foundry workspace. Shared SDKs, brand UI and
 code the frontends share (`web-shared`) live under `packages/`.
@@ -351,6 +350,7 @@ code the frontends share (`web-shared`) live under `packages/`.
 
 - Marketing: [strimz.finance](https://strimz.finance)
 - Docs: [strimz docs](https://docs.strimz.finance/docs)
+- Example integration: [Fanline](https://github.com/StrimzLab/fanline), a demo creator platform in test mode ([live demo](https://fanline.strimz.finance))
 - Email: support@strimz.finance
 
 ---

@@ -100,6 +100,7 @@ On 2026-11-25 and 2026-11-26 the founder reversed this:
    - Creator handles must be one of the four demo creators.
    - Both routes are rate-limited per IP.
    - The copy says Fanline is a demo, the creators are fictional, and payments use free testnet USDC.
+   - **Amended 2026-11-28 (founder):** Fanline lives in its own public repository, `StrimzLab/fanline` (MIT), so anyone can read the integration. It depends only on the published `@strimz/sdk` and `@strimz/sdk-react`. `apps/demo-merchant` is removed from this repository. The 1 USDC cap is lifted, since every payment is test USDC: tips are 1, 2 or 5 USDC and Pro is 5 USDC a month. The server still accepts only those amounts and the four demo creators.
 9. **Abuse limits on testnet.**
    - Sign-up keeps Turnstile.
    - The testnet relayer's balance is watched, and topped up from the faucet when it runs low.
