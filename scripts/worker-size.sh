@@ -3,12 +3,11 @@
 # Fail if a Worker is over the Workers Free limit (3 MiB gzipped).
 # ADR-2026-11-14-split-web-into-workers.
 #
-# Usage:   scripts/worker-size.sh <web|docs|dashboard|admin|checkout|fanline>
+# Usage:   scripts/worker-size.sh <web|docs|dashboard|admin|checkout>
 #          (run `pnpm --filter <app> build:cloudflare` first)
 set -euo pipefail
 
 app="${1:-}"
-[ "$app" = fanline ] && app=demo-merchant
 root="$(cd "$(dirname "$0")/.." && pwd)"
 dir="$root/apps/$app"
 limit_kib=3072

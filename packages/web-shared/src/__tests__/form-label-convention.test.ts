@@ -1,7 +1,5 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { REPO, readWeb } from './web-source'
+import { readWeb } from './web-source'
 
 const read = (path: string) => readWeb(path)
 
@@ -33,13 +31,5 @@ describe('form label convention: every input says (required) * or (optional)', (
     ['src/components/dashboard/filter-bar/date-filter.tsx', 'To', false],
   ])('%s labels %s as required=%s', (path, text, required) => {
     expect(fieldLabel(read(path), required, text)).toBe(true)
-  })
-
-  it('the demo merchant marks its custom tip amount optional', () => {
-    const tip = readFileSync(
-      join(REPO, 'apps', 'demo-merchant', 'src', 'components', 'TipWidget.tsx'),
-      'utf8',
-    )
-    expect(tip).toMatch(/htmlFor="custom"[\s\S]{0,200}\(optional\)/u)
   })
 })

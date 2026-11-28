@@ -3,7 +3,7 @@
 # Smoke test an app on the Workers runtime (workerd), not `next start`.
 # A build can pass every Next check and still fail on Workers.
 #
-# Usage:   scripts/worker-smoke.sh <web|docs|dashboard|admin|checkout|fanline>
+# Usage:   scripts/worker-smoke.sh <web|docs|dashboard|admin|checkout>
 #          (run `pnpm --filter <app> build:cloudflare` first)
 # Env:     SMOKE_PORT   port for wrangler dev (default 8799)
 set -euo pipefail
@@ -37,12 +37,8 @@ case "$app" in
   checkout)
     routes=("/ 307" "/no-such-page 404")
     ;;
-  fanline)
-    app=demo-merchant
-    routes=("/ 200" "/thanks 200" "/cancelled 200" "/no-such-page 404")
-    ;;
   *)
-    echo "usage: $0 <web|docs|dashboard|admin|checkout|fanline>" >&2
+    echo "usage: $0 <web|docs|dashboard|admin|checkout>" >&2
     exit 2
     ;;
 esac

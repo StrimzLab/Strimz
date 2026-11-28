@@ -17,7 +17,6 @@ describe('each host tells search engines what to index (#468)', () => {
   it.each([
     ['web', 'https://strimz.finance/sitemap.xml'],
     ['docs', 'https://docs.strimz.finance/sitemap.xml'],
-    ['demo-merchant', 'https://fanline.strimz.finance/sitemap.xml'],
   ])('%s is indexable and points at its own sitemap', (app, sitemap) => {
     expect(read(`${app}/src/app/robots.ts`)).toContain(sitemap)
     expect(existsSync(join(APPS, app, 'src/app/sitemap.ts'))).toBe(true)

@@ -1,3 +1,0 @@
-# Build files are content-hashed, so they never change once deployed.
-/_next/static/*
-  Cache-Control: public, max-age=31536000, immutable
