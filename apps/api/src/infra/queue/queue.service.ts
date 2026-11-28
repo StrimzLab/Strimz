@@ -4,6 +4,7 @@ import {
   agentActionJobSchema,
   QUEUE_NAMES,
   relayJobSchema,
+  relaySubmissionJobOptions,
   webhookDeliveryJobSchema,
   type AgentActionJob,
   type QueueName,
@@ -43,14 +44,22 @@ export class QueueService implements OnModuleDestroy {
 
   async addRelaySubmission(job: RelayJob, opts: { delayMs?: number } = {}): Promise<void> {
     const parsed = relayJobSchema.parse(job)
-    await this.queue(QUEUE_NAMES.relaySubmission).add(`relay:${parsed.reason}`, parsed, {
-      jobId: parsed.idempotencyKey,
-      delay: opts.delayMs ?? 0,
-      attempts: 5,
-      backoff: { type: 'exponential', delay: 2000 },
-      removeOnComplete: { age: 3600 },
-      removeOnFail: { age: 3600 },
-    })
+    await this.queue(QUEUE_NAMES.relaySubmission).add(
+      `relay:${parsed.reason}`,
+      parsed,
+      relaySubmissionJobOptions(parsed.idempotencyKey, opts.delayMs),
+    )
+  }
+
+  /**
+   * Like addRelaySubmission, but first clears a failed job with the same jobId, which BullMQ
+   * would otherwise keep and silently dedupe against (ADR-2026-11-28-registration-retry).
+   * A waiting, delayed, active or completed job is left alone.
+   */
+  async requeueRelaySubmission(job: RelayJob, opts: { delayMs?: number } = {}): Promise<void> {
+    const existing = await this.queue(QUEUE_NAMES.relaySubmission).getJob(job.idempotencyKey)
+    if (existing && (await existing.getState()) === 'failed') await existing.remove()
+    await this.addRelaySubmission(job, opts)
   }
 
   async onModuleDestroy(): Promise<void> {

@@ -7,6 +7,9 @@ model Merchant {
   privyUserId          String?        @unique
   onchainMerchantId    Int?           @unique
   onchainRegistrationTxHash      String?   @unique @db.VarChar(66)
+  /// Nonce and sender of that transaction, so a retry can tell a dropped one from a pending one.
+  onchainRegistrationTxNonce     Int?
+  onchainRegistrationTxFrom      String?   @db.VarChar(42)
   onchainRegistrationRequestedAt DateTime?
   /// The registry's fee and ceiling, projected by the indexer. Compared with the plan fee by the scheduler.
   onchainFeeBps        Int?

@@ -366,6 +366,70 @@ describe('relay job runner', () => {
     expect(await onchainId(m.id)).toBeNull()
   })
 
+  // ADR-2026-11-28-registration-retry: the earlier transaction decides whether to send again.
+  describe('registration retry', () => {
+    const row = (id: string) => t.prisma.db.merchant.findUniqueOrThrow({ where: { id } })
+    const leaveUnmined = async (merchantId: string) => {
+      chain.mineOnSend = false
+      await expect(runner.run(handle(registerJob(merchantId)))).rejects.toBeInstanceOf(
+        WaitForTransactionReceiptTimeoutError,
+      )
+      chain.mineOnSend = true
+      return must(chain.sent[0]).hash
+    }
+
+    it('records the nonce and sender with the hash before sending', async () => {
+      const m = await eligibleMerchant()
+      await runner.run(handle(registerJob(m.id)))
+      const r = await row(m.id)
+      expect(r.onchainRegistrationTxNonce).toBe(0)
+      expect(r.onchainRegistrationTxFrom).toBe(signer.address)
+    })
+
+    it('sends again after the earlier one reverted', async () => {
+      const m = await eligibleMerchant()
+      chain.revert = true
+      await expect(runner.run(handle(registerJob(m.id)))).rejects.toBeInstanceOf(UnrecoverableError)
+      chain.revert = false
+      await runner.run(handle(registerJob(m.id)))
+      expect(chain.sent).toHaveLength(2)
+      expect(await onchainId(m.id)).toBe(41)
+    })
+
+    it('waits when the node lost the earlier one but its nonce is still unused', async () => {
+      const m = await eligibleMerchant()
+      chain.forget(await leaveUnmined(m.id))
+      chain.latestNonce = 0
+      const err = await runner.run(handle(registerJob(m.id))).catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(Error)
+      expect(err).not.toBeInstanceOf(UnrecoverableError)
+      expect(chain.sent).toHaveLength(1)
+      expect(await onchainId(m.id)).toBeNull()
+    })
+
+    it('sends again once that nonce was used by another transaction, so the earlier one can never land', async () => {
+      const m = await eligibleMerchant()
+      chain.forget(await leaveUnmined(m.id))
+      chain.latestNonce = 1
+      nonces.next = 1n
+      await runner.run(handle(registerJob(m.id)))
+      expect(chain.sent).toHaveLength(2)
+      expect(await onchainId(m.id)).toBe(41)
+    })
+
+    it('waits for an earlier transaction recorded without a nonce', async () => {
+      const m = await eligibleMerchant()
+      await t.prisma.db.merchant.update({
+        where: { id: m.id },
+        data: { onchainRegistrationTxHash: `0x${'e'.repeat(64)}` },
+      })
+      chain.latestNonce = 9
+      const err = await runner.run(handle(registerJob(m.id))).catch((e: unknown) => e)
+      expect(err).not.toBeInstanceOf(UnrecoverableError)
+      expect(chain.sent).toHaveLength(0)
+    })
+  })
+
   it('never broadcasts a payment twice across a receipt timeout', async () => {
     const m = await seedMerchant(t.prisma.db)
     chain.timeoutWaits = 1
