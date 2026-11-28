@@ -53,6 +53,7 @@ echo -e "\n${BLUE}[4/5] Tests...${NC}"
 pnpm exec turbo run test "$TS_ONLY"
 (cd packages/contracts && arc-forge build && arc-forge test --network arc)
 scripts/generate-abis.sh --check
+scripts/mirror-sync.sh all --dry-run
 (cd packages/contracts && FOUNDRY_PROFILE=fork ARC_TESTNET_RPC_URL="${ARC_TESTNET_RPC_URL:-https://rpc.testnet.arc.io}" arc-forge test --network arc)
 
 if [ "$SKIP_BUILD" = "true" ]; then

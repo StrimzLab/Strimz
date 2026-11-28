@@ -351,6 +351,13 @@ code the frontends share (`web-shared`) live under `packages/`.
 - Marketing: [strimz.finance](https://strimz.finance)
 - Docs: [strimz docs](https://docs.strimz.finance/docs)
 - Example integration: [Fanline](https://github.com/StrimzLab/fanline), a demo creator platform in test mode ([live demo](https://fanline.strimz.finance))
+- Public read-only mirrors, synced on every merge to `main` by `.github/workflows/mirror.yml` (ADR-2026-11-28-public-mirrors):
+  - [strimz-sdk](https://github.com/StrimzLab/strimz-sdk): the SDKs and the shared packages they use (MIT);
+  - [strimz-contracts](https://github.com/StrimzLab/strimz-contracts): the smart contracts (MIT);
+  - [strimz-web](https://github.com/StrimzLab/strimz-web): the marketing site and docs (all rights reserved).
+
+  The folders each mirror takes are listed in `mirrors/<name>/paths`. Values the mirrors may contain that look like addresses or keys must be in `mirrors/address-allowlist.txt`; `scripts/mirror-sync.sh all --dry-run` (run by preflight and CI) fails on anything else.
+
 - Email: support@strimz.finance
 
 ---

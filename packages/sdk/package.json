@@ -4,14 +4,14 @@
   "description": "The Strimz SDK. Typed client for server and edge runtimes. Handles HTTP, retries, idempotency, pagination, EIP-712 typed-data building, and webhook signature verification.",
   "license": "MIT",
   "author": "Strimz <hello@strimz.finance>",
-  "homepage": "https://github.com/StrimzLab/strimz/tree/main/packages/sdk#readme",
+  "homepage": "https://github.com/StrimzLab/strimz-sdk/tree/main/packages/sdk#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/StrimzLab/strimz.git",
+    "url": "git+https://github.com/StrimzLab/strimz-sdk.git",
     "directory": "packages/sdk"
   },
   "bugs": {
-    "url": "https://github.com/StrimzLab/strimz/issues"
+    "email": "support@strimz.finance"
   },
   "keywords": [
     "strimz",

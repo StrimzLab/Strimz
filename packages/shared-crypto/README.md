@@ -113,9 +113,9 @@ small secrets where the key is held outside the data store.
 ## Links
 
 - [Documentation](https://www.strimz.finance/docs)
-- [Repository](https://github.com/StrimzLab/strimz/tree/main/packages/shared-crypto)
+- [Source](https://github.com/StrimzLab/strimz-sdk/tree/main/packages/shared-crypto) (read-only mirror)
 - [Changelog](./CHANGELOG.md)
-- [Issues](https://github.com/StrimzLab/strimz/issues)
+- Support: support@strimz.finance
 
 ## License
 

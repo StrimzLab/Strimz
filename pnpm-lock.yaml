@@ -1133,6 +1133,27 @@ importers:
         specifier: ^9.18.0
         version: 9.39.4(jiti@2.6.1)
 
+  packages/mirror:
+    devDependencies:
+      '@strimz/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@strimz/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.17
+      eslint:
+        specifier: ^9.18.0
+        version: 9.39.4(jiti@2.6.1)
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.17)(jsdom@25.0.1(bufferutil@4.1.0)(utf-8-validate@6.0.6))(lightningcss@1.32.0)(terser@5.46.2)
+
   packages/queue-contracts:
     dependencies:
       zod:

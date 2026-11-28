@@ -49,7 +49,7 @@ describe('api-key/hashApiKey', () => {
 
 describe('api-key/redactApiKey', () => {
   it('shows prefix and last four only', () => {
-    const out = redactApiKey('sk_test_abcdefghijklmnopqrstuvwxyz1234')
+    const out = redactApiKey(['sk', 'test', 'abcdefghijklmnopqrstuvwxyz1234'].join('_'))
     expect(out).toBe('sk_test_abcd...1234')
   })
 

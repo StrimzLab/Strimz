@@ -4,14 +4,14 @@
   "description": "Web Crypto primitives for Strimz. HMAC webhook signing, API key generation, hashing, AES-256-GCM envelope encryption, and constant-time comparison. Runs in Node 22 and Edge runtimes.",
   "license": "MIT",
   "author": "Strimz <hello@strimz.finance>",
-  "homepage": "https://github.com/StrimzLab/strimz/tree/main/packages/shared-crypto#readme",
+  "homepage": "https://github.com/StrimzLab/strimz-sdk/tree/main/packages/shared-crypto#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/StrimzLab/strimz.git",
+    "url": "git+https://github.com/StrimzLab/strimz-sdk.git",
     "directory": "packages/shared-crypto"
   },
   "bugs": {
-    "url": "https://github.com/StrimzLab/strimz/issues"
+    "email": "support@strimz.finance"
   },
   "keywords": [
     "strimz",

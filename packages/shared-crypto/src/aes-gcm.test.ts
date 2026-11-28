@@ -5,7 +5,7 @@ import { decryptAesGcm, encryptAesGcm, generateAesGcmKey } from './aes-gcm.js'
 describe('aes-gcm', () => {
   it('round-trips an ASCII string', async () => {
     const key = generateAesGcmKey()
-    const plaintext = 'whsec_abcdefghijklmnopqrstuvwxyz0123456789'
+    const plaintext = 'a webhook signing secret, 0123456789'
     const blob = await encryptAesGcm(plaintext, key)
     expect(await decryptAesGcm(blob, key)).toBe(plaintext)
   })

@@ -150,6 +150,9 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
+      - name: Public mirrors guard (dry run)
+        run: scripts/mirror-sync.sh all --dry-run
+
       # @strimz/contracts is excluded: its scripts call `forge`, which the foundry job runs.
       - name: Lint, typecheck and test
         env:

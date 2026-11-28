@@ -106,7 +106,7 @@ signatures and response types come from
 - **Retries.** Network errors, `5xx` responses on idempotent calls, and `429`s are retried up to 3 times with exponential backoff and jitter. `Retry-After` is respected on 429.
 - **Pagination.** `list(...)` returns one page (`{ data, nextCursor, hasMore }`). Pass `nextCursor` as `cursor` to get the next one.
 - **Refunds.** `refunds.create` returns `{ refund, signingInstructions }`. Send the transfer in `signingInstructions` from the payout wallet, then call `refunds.submitSignature({ id, refundTxHash })`.
-- **Version header.** Not yet: the `X-Strimz-Sdk-Version` header is always `0.0.0`. Tracked in [#296](https://github.com/StrimzLab/strimz/issues/296).
+- **Version header.** Not yet: the `X-Strimz-Sdk-Version` header is always `0.0.0`.
 - **Typed errors.** The SDK throws on failure rather than returning `{ ok: false }`. Catch the base `StrimzError` or narrow with `instanceof` (see [Error handling](#error-handling)).
 
 ## Webhook verification
@@ -250,9 +250,9 @@ The full code list is documented at
 
 - [Documentation](https://docs.strimz.finance/docs)
 - [API reference](https://docs.strimz.finance/docs/api/overview)
-- [Repository](https://github.com/StrimzLab/strimz/tree/main/packages/sdk)
+- [Source](https://github.com/StrimzLab/strimz-sdk/tree/main/packages/sdk) (read-only mirror)
 - [Changelog](./CHANGELOG.md)
-- [Issues](https://github.com/StrimzLab/strimz/issues)
+- Support: support@strimz.finance
 
 ## License
 
