@@ -4,14 +4,14 @@
   "description": "Strimz React components and hooks. Drop-in <StrimzPayButton/>, embedded checkout, typed hooks, and a context provider for the Strimz API.",
   "license": "MIT",
   "author": "Strimz <hello@strimz.finance>",
-  "homepage": "https://github.com/StrimzLab/strimz/tree/main/packages/sdk-react#readme",
+  "homepage": "https://github.com/StrimzLab/strimz-sdk/tree/main/packages/sdk-react#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/StrimzLab/strimz.git",
+    "url": "git+https://github.com/StrimzLab/strimz-sdk.git",
     "directory": "packages/sdk-react"
   },
   "bugs": {
-    "url": "https://github.com/StrimzLab/strimz/issues"
+    "email": "support@strimz.finance"
   },
   "keywords": [
     "strimz",

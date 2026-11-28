@@ -1,0 +1,46 @@
+name: mirror
+
+# Copies the SDKs, contracts, site and docs to their public read-only mirrors
+# (ADR-2026-11-28-public-mirrors). Only this job holds the mirrors' deploy keys.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/sdk/**'
+      - 'packages/sdk-react/**'
+      - 'packages/shared-config/**'
+      - 'packages/shared-crypto/**'
+      - 'packages/shared-types/**'
+      - 'packages/contracts/**'
+      - 'apps/web/**'
+      - 'apps/docs/**'
+      - 'mirrors/**'
+      - 'packages/mirror/**'
+      - 'scripts/mirror-sync.sh'
+      - '.github/workflows/mirror.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: mirror
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: '.nvmrc'
+      - name: Sync mirrors
+        env:
+          MIRROR_KEY_SDK: ${{ secrets.MIRROR_KEY_SDK }}
+          MIRROR_KEY_CONTRACTS: ${{ secrets.MIRROR_KEY_CONTRACTS }}
+          MIRROR_KEY_WEB: ${{ secrets.MIRROR_KEY_WEB }}
+        run: scripts/mirror-sync.sh all

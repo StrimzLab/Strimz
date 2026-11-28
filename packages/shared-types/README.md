@@ -95,9 +95,9 @@ every modern browser, Vercel Edge, Cloudflare Workers, Deno, and Bun.
 ## Links
 
 - [Documentation](https://www.strimz.finance/docs)
-- [Repository](https://github.com/StrimzLab/strimz/tree/main/packages/shared-types)
+- [Source](https://github.com/StrimzLab/strimz-sdk/tree/main/packages/shared-types) (read-only mirror)
 - [Changelog](./CHANGELOG.md)
-- [Issues](https://github.com/StrimzLab/strimz/issues)
+- Support: support@strimz.finance
 
 ## License
 

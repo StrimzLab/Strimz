@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { WEBHOOK_SIGNATURE_VERSION, signWebhookPayload, verifyWebhookSignature } from './webhook.js'
 
-const SECRET = 'whsec_test_1234567890abcdef'
+const SECRET = 'whsec_test'
 const PAYLOAD = '{"type":"payment.completed","data":{"amount":"1000000"}}'
 const T = 1_735_000_000
 

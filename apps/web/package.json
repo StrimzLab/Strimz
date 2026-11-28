@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Strimz web app — marketing site, merchant dashboard, hosted checkout, public storefronts, and developer documentation.",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "build": "NODE_OPTIONS=--max-old-space-size=4096 next build",

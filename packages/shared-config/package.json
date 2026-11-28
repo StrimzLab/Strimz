@@ -4,14 +4,14 @@
   "description": "Single source of truth for chain definitions, token registry, fee tiers, webhook events, and agent flags.",
   "license": "MIT",
   "author": "Strimz <hello@strimz.finance>",
-  "homepage": "https://github.com/StrimzLab/strimz/tree/main/packages/shared-config#readme",
+  "homepage": "https://github.com/StrimzLab/strimz-sdk/tree/main/packages/shared-config#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/StrimzLab/strimz.git",
+    "url": "git+https://github.com/StrimzLab/strimz-sdk.git",
     "directory": "packages/shared-config"
   },
   "bugs": {
-    "url": "https://github.com/StrimzLab/strimz/issues"
+    "email": "support@strimz.finance"
   },
   "keywords": [
     "strimz",

@@ -1,0 +1,8 @@
+Copyright (c) 2026 Strimz. All rights reserved.
+
+This repository is published so that anyone can read how the Strimz website and
+documentation are built. No licence is granted to copy, modify, distribute or host
+this code or its content, including the Strimz name, logo and design.
+
+The Strimz SDKs (github.com/StrimzLab/strimz-sdk) and smart contracts
+(github.com/StrimzLab/strimz-contracts) are MIT licensed.

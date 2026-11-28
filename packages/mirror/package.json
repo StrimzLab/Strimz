@@ -1,0 +1,22 @@
+{
+  "name": "@strimz/mirror",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Checks a public mirror's files before they leave the private repo (ADR-2026-11-28-public-mirrors).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf .turbo"
+  },
+  "devDependencies": {
+    "@strimz/eslint-config": "workspace:*",
+    "@strimz/tsconfig": "workspace:*",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

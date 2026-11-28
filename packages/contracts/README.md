@@ -224,10 +224,8 @@ These steps take you from a clean checkout to a verified deployment
 on Arc Testnet. Mainnet is identical except for the `.env` values and
 the `--rpc-url` flag.
 
-For a redeploy of a live environment, follow
-[`docs/runbooks/testnet-redeploy.md`](../../docs/runbooks/testnet-redeploy.md). It adds
-pausing the old contracts, resetting data that points at them, and pointing the services
-at the new addresses.
+A redeploy of a live environment also pauses the old contracts, resets data that points
+at them, and points the services at the new addresses.
 
 **Rehearse first.** `./script/rehearse.sh` runs steps 3 to 8 against a local
 `arc-anvil` fork of Arc testnet (chain id 31337) and spends nothing:

@@ -193,9 +193,9 @@ session id; never instantiate `StrimzBrowserClient` on the server.
 
 - [Documentation](https://docs.strimz.finance/docs)
 - [SDK reference](https://docs.strimz.finance/docs/sdks/react)
-- [Repository](https://github.com/StrimzLab/strimz/tree/main/packages/sdk-react)
+- [Source](https://github.com/StrimzLab/strimz-sdk/tree/main/packages/sdk-react) (read-only mirror)
 - [Changelog](./CHANGELOG.md)
-- [Issues](https://github.com/StrimzLab/strimz/issues)
+- Support: support@strimz.finance
 
 ## License
 
