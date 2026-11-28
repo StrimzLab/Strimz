@@ -7,7 +7,7 @@
   "homepage": "https://github.com/StrimzLab/strimz-sdk/tree/main/packages/shared-crypto#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/StrimzLab/strimz-sdk.git",
+    "url": "git+https://github.com/StrimzLab/strimz.git",
     "directory": "packages/shared-crypto"
   },
   "bugs": {
