@@ -119,6 +119,8 @@ export class RelayJobRunner {
         onboardingCompleted: true,
         onchainMerchantId: true,
         onchainRegistrationTxHash: true,
+        onchainRegistrationTxNonce: true,
+        onchainRegistrationTxFrom: true,
         tier: true,
       },
     })
@@ -133,9 +135,17 @@ export class RelayJobRunner {
     }
 
     if (!data.broadcast && merchant.onchainRegistrationTxHash) {
-      const earlier = await this.settledReceipt(merchant.onchainRegistrationTxHash as Hex)
+      const hash = merchant.onchainRegistrationTxHash as Hex
+      const earlier = await this.settledReceipt(hash)
       if (earlier?.status === 'success') {
         return this.linkRegistration(merchantId, earlier)
+      }
+      // The registry doesn't refuse a second registration for the same owner, so sending
+      // again while the earlier one could still land would give the merchant two ids.
+      if (!earlier && !(await this.canNeverLand(merchant))) {
+        throw new Error(
+          `registration tx ${hash} has no receipt and its nonce is still unused; waiting before sending another`,
+        )
       }
     }
 
@@ -154,14 +164,32 @@ export class RelayJobRunner {
         data: registerMerchantCallData(merchant),
         gas: REGISTER_MERCHANT_GAS_LIMIT,
       },
-      async (txHash) => {
+      async (txHash, nonce, from) => {
         await this.prisma.db.merchant.update({
           where: { id: merchantId },
-          data: { onchainRegistrationTxHash: txHash },
+          data: {
+            onchainRegistrationTxHash: txHash,
+            onchainRegistrationTxNonce: Number(nonce),
+            onchainRegistrationTxFrom: from,
+          },
         })
       },
     )
     return this.linkRegistration(merchantId, receipt)
+  }
+
+  /** True once the sender has confirmed a later nonce, so the recorded transaction can't be mined. */
+  private async canNeverLand(tx: {
+    onchainRegistrationTxNonce: number | null
+    onchainRegistrationTxFrom: string | null
+  }): Promise<boolean> {
+    if (tx.onchainRegistrationTxNonce === null || tx.onchainRegistrationTxFrom === null)
+      return false
+    const confirmed = await this.chain.client.getTransactionCount({
+      address: tx.onchainRegistrationTxFrom as Hex,
+      blockTag: 'latest',
+    })
+    return confirmed > tx.onchainRegistrationTxNonce
   }
 
   private async linkRegistration(
@@ -183,7 +211,7 @@ export class RelayJobRunner {
     job: RelayJobHandle,
     data: RelayJob,
     call: RelayCall,
-    onRecorded?: (txHash: Hex) => Promise<void>,
+    onRecorded?: (txHash: Hex, nonce: bigint, from: Hex) => Promise<void>,
   ): Promise<TransactionReceipt> {
     const chainId = this.chainId()
     let nonce: bigint
@@ -261,7 +289,7 @@ export class RelayJobRunner {
         maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
       },
     })
-    await onRecorded?.(txHash)
+    await onRecorded?.(txHash, nonce, this.signer.address)
 
     await this.chain.client.sendRawTransaction({ serializedTransaction: serialized })
     this.log.log(

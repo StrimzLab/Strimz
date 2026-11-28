@@ -111,7 +111,7 @@ export class MerchantChainService {
   }
 
   private async enqueueRegistration(merchantId: string): Promise<void> {
-    await this.queue.addRelaySubmission(
+    await this.queue.requeueRelaySubmission(
       {
         reason: 'registerMerchant',
         idempotencyKey: `merchant-register-${merchantId}`,

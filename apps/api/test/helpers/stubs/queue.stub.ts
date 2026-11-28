@@ -23,7 +23,11 @@ import type { QueueService } from '../../../src/infra/queue/queue.service.js'
 
 export class StubQueueService implements Pick<
   QueueService,
-  'addAgentAction' | 'addWebhookDelivery' | 'addRelaySubmission' | 'onModuleDestroy'
+  | 'addAgentAction'
+  | 'addWebhookDelivery'
+  | 'addRelaySubmission'
+  | 'requeueRelaySubmission'
+  | 'onModuleDestroy'
 > {
   public readonly recorded: RecordedJob[] = []
 
@@ -71,6 +75,11 @@ export class StubQueueService implements Pick<
       jobId: parsed.idempotencyKey,
       delay: opts.delayMs ?? 0,
     })
+  }
+
+  // Stub jobs never fail, so there's no failed job to clear.
+  requeueRelaySubmission(job: RelayJob, opts: { delayMs?: number } = {}): Promise<void> {
+    return this.addRelaySubmission(job, opts)
   }
 
   reset() {

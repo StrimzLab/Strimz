@@ -79,6 +79,7 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   process.env.MERCHANT_NOTIFICATION_CRON = '0 0 0 1 1 *'
   process.env.GAS_BALANCE_CRON = '0 0 0 1 1 *'
   process.env.WEBHOOK_RECOVERY_CRON = '0 0 0 1 1 *'
+  process.env.REGISTRATION_RETRY_CRON = '0 0 0 1 1 *'
   process.env.SESSION_EXPIRY_CRON = '0 0 0 1 1 *'
   process.env.SUBSCRIPTION_LAPSED_CRON = '0 0 0 1 1 *'
   process.env.REFUND_RECONCILER_CRON = '0 0 0 1 1 *'
