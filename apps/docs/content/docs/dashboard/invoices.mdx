@@ -45,9 +45,9 @@ Click any row. You'll see:
 
 **Sent.** The client has been emailed. The pay link is live.
 
-**Paid.** The indexer detected a matching on-chain payment. `invoice.paid` webhook fires. A payer-side receipt goes out via the payer notifier cron. The row locks — you can no longer edit line items.
+**Paid.** Strimz saw a matching on-chain payment. `invoice.paid` webhook fires. A receipt goes out to the payer. The invoice locks — you can no longer edit line items.
 
-**Overdue.** The due date passed without payment. Strimz emails you (and optionally the client) via the merchant notifier cron. The status is informational. The pay link keeps working for a year after the due date; void the invoice to close it sooner.
+**Overdue.** The due date passed without payment. Strimz emails you (and optionally the client). The status is informational. The pay link keeps working for a year after the due date; void the invoice to close it sooner.
 
 **Void.** You cancelled it. Pay link returns an error; no further status changes are possible.
 
@@ -59,6 +59,6 @@ Invoices require the merchant to be registered on the Strimz Registry contract. 
 
 **I need to bill a client for a fixed amount, one time.** New invoice → add a single line item → set due date → send. Done.
 
-**The client says they paid but the invoice is still `sent`.** Check whether the transaction hash on-chain landed against your merchant's payment address. If yes, the indexer will catch up within seconds. If it's been minutes, check the freshness of the indexer at `/self-hosting/indexer` — a stalled cursor delays confirmation.
+**The client says they paid but the invoice is still `sent`.** Check whether the transaction hash on-chain landed against your merchant's payment address. If yes, Strimz will catch up within seconds. If it's been minutes, contact support@strimz.finance with the transaction hash.
 
 **I want to charge a subscription-like recurring fee.** Use [Subscriptions](/docs/dashboard/subscriptions) instead. Invoices are one-off by design.

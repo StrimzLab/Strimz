@@ -96,14 +96,13 @@ describe('signup token', () => {
     expect(readSignupToken(null)).toBeNull()
   })
 
-  // ADR-2026-11-26-test-mode: Turnstile tokens are single-use, so the test backend gets its own.
-  it('keeps a second token for the test account apart from the first', () => {
+  // #588: sign-up keeps one token; the test account asks for its own check.
+  it('keeps a single token slot', () => {
     const store = memoryStore()
-    saveSignupToken('live-tok', store)
-    saveSignupToken('test-tok', store, 'test')
-    expect(readSignupToken(store, 'test')).toBe('test-tok')
-    expect(readSignupToken(store)).toBe('live-tok')
-    expect(readSignupToken(store, 'test')).toBeNull()
+    saveSignupToken('first', store)
+    saveSignupToken('second', store)
+    expect(readSignupToken(store)).toBe('second')
+    expect(readSignupToken(store)).toBeNull()
   })
 })
 

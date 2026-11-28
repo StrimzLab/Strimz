@@ -8,7 +8,7 @@ import { Button } from '@strimz/ui'
 import { TurnstileWidget } from '@strimz/web-shared/components/shared/turnstile-widget'
 import { addedTestNetwork } from '@strimz/web-shared/lib/networks'
 import { useMerchantApi } from '@/hooks/api/merchant-api-context'
-import { readSignupToken, turnstileSizeFor } from '@/lib/auth-flow'
+import { turnstileSizeFor } from '@/lib/auth-flow'
 import { syncSession } from '@/lib/auth-sync'
 import { ensureTestAccount } from '@/lib/test-account'
 import { useViewportWidth } from '@/components/auth/auth-methods'
@@ -59,7 +59,7 @@ export function TestAccountReady({
   useEffect(() => {
     if (started.current) return
     started.current = true
-    void run(readSignupToken(undefined, 'test'))
+    void run(null)
   }, [run])
 
   if (state.kind === 'ready') return <>{children}</>

@@ -4,9 +4,7 @@ description: The contract suite, the upgrade posture, and how you can verify it 
 ---
 
 Strimz's smart contracts are deployed on [Arc](https://arc.network),
-Circle's stablecoin-native L1 where USDC is the gas token. The full
-Foundry workspace is open source at
-[github.com/StrimzLab/strimz/tree/main/packages/contracts](https://github.com/StrimzLab/strimz/tree/main/packages/contracts).
+Circle's stablecoin-native L1 where USDC is the gas token.
 
 ## The contracts
 
@@ -14,9 +12,9 @@ Foundry workspace is open source at
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
 | `StrimzRegistry`      | Off-chain merchants register here to get an `onchainMerchantId`. Holds payout addresses, fee bps, active flags, and `parentMerchantId` for sub-tenancy.                                                             | UUPS           |
 | `StrimzPayments`      | One-shot payments. Exposes `pay()` (classic approve-then-pay) and `payWithAuthorization()` (EIP-3009 token auth plus Strimz `PayIntent`, two signatures). Splits the fee to FeeCollector and the net to the payout. | No, immutable. |
-| `StrimzSubscriptions` | Subscription enrolment via `createSubscription()` or `permitAndCreateSubscription()` (EIP-2612). The scheduler calls `batchCharge()` for renewals. Owns the `usedAttempts` ledger.                                  | No, immutable. |
+| `StrimzSubscriptions` | Subscription enrolment via `createSubscription()` or `permitAndCreateSubscription()` (EIP-2612). Strimz calls `batchCharge()` for renewals. Owns the `usedAttempts` ledger.                                         | No, immutable. |
 | `StrimzAgentEscrow`   | ERC-8183 escrow for the AutoPay Agent's commerce capability. Coming soon: it isn't deployed on mainnet yet.                                                                                                         | UUPS           |
-| `FeeCollector`        | Per-token, per-merchant fee accounting. Withdrawals are gated by `TREASURY_ROLE`.                                                                                                                                   | UUPS           |
+| `FeeCollector`        | Per-token, per-merchant fee accounting. Only the Strimz Safe can withdraw fees.                                                                                                                                     | UUPS           |
 | `TokenWhitelist`      | Which ERC-20s are accepted (USDC, EURC, USYC) and which signing standards each implements (EIP-3009, EIP-2612).                                                                                                     | UUPS           |
 
 ## Why some contracts are immutable
@@ -44,14 +42,13 @@ No single key controls the suite. Admin powers are split three ways.
 | ------------ | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Slow         | An OpenZeppelin `TimelockController` (48-hour delay on mainnet). Only the Strimz Safe proposes. | Upgrade a contract, rotate a dependency pointer, change the token whitelist, grant any role.                                                                                              |
 | Fast         | The Strimz Safe multisig. Two of three signers approve every transaction.                       | Pause and unpause, set a merchant's fee within that merchant's own ceiling, switch a merchant off, withdraw fees, resolve escrow disputes, adjust agent reputation, revoke a service key. |
-| Service keys | The API relayer and the scheduler, each with its own key.                                       | The relayer registers merchants. The scheduler charges subscriptions that are due.                                                                                                        |
+| Service keys | Strimz, with a separate key for each job.                                                       | One key registers merchants. Another charges subscriptions that are due.                                                                                                                  |
 
 A separate guardian key can pause the value-moving contracts and do
 nothing else. Every timelock operation emits `CallScheduled` when it is
 proposed, so anyone watching the timelock sees an upgrade or a pointer
-rotation before it can run. The key that deploys the contracts gives
-up every role in the same handoff that grants the table above. On Arc
-testnet the split takes effect with the next contract redeploy.
+rotation before it can run. The key that deploys the contracts keeps
+no powers after deployment.
 
 ## The two payment paths
 
@@ -60,19 +57,19 @@ entrypoint. The classic path is there for integrators who want to
 drive the wallet themselves. The meta-tx path is what the hosted
 checkout uses.
 
-| Flow                   | Classic                                                           | Meta-tx (default)                                                                                                                         |
-| ---------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| One-shot payment       | `pay()`. Payer approves USDC, then calls `pay()` themselves.      | `payWithAuthorization()`. Payer signs an EIP-3009 authorization plus a Strimz `PayIntent`. The relayer broadcasts.                        |
-| Subscription enrolment | `createSubscription()`. Payer approves, then calls it themselves. | `permitAndCreateSubscription()`. Payer signs an EIP-2612 permit plus a Strimz `SubscriptionIntent`. The relayer creates the sub for them. |
-| Wallet prompts         | Two on-chain transactions                                         | Two off-chain typed-data signatures, one on-chain transaction                                                                             |
-| Who pays gas           | The payer                                                         | The Strimz relayer                                                                                                                        |
+| Flow                   | Classic                                                           | Meta-tx (default)                                                                                                                    |
+| ---------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| One-shot payment       | `pay()`. Payer approves USDC, then calls `pay()` themselves.      | `payWithAuthorization()`. Payer signs an EIP-3009 authorization plus a Strimz `PayIntent`. Strimz broadcasts.                        |
+| Subscription enrolment | `createSubscription()`. Payer approves, then calls it themselves. | `permitAndCreateSubscription()`. Payer signs an EIP-2612 permit plus a Strimz `SubscriptionIntent`. Strimz creates the sub for them. |
+| Wallet prompts         | Two on-chain transactions                                         | Two off-chain typed-data signatures, one on-chain transaction                                                                        |
+| Who pays gas           | The payer                                                         | Strimz                                                                                                                               |
 
 The second signature (`PayIntent` or `SubscriptionIntent`) binds the
 merchant, amount, and routing fields the token never sees. Without it,
 an intercepted EIP-3009 or permit signature could be replayed against
 a different merchant.
 
-Both paths land in the same `Transaction` row, emit the same
+Both paths produce the same kind of transaction, emit the same
 `PaymentExecuted` event, and pay the same fees. The full security
 model lives on the
 [meta-tx flow page](/docs/concepts/meta-tx-flow).
@@ -80,7 +77,7 @@ model lives on the
 ## Deterministic charge idempotency
 
 The single most security-relevant call in the suite is
-`StrimzSubscriptions.batchCharge`. The scheduler hands it an array of
+`StrimzSubscriptions.batchCharge`. Strimz hands it an array of
 `chargeAttemptId` values, each one
 `keccak256(abi.encodePacked(onchainSubId, currentPeriodEndAt, attempt))`.
 The contract keeps a `mapping(bytes32 => bool) usedAttempts` and skips
@@ -88,19 +85,14 @@ any entry it has already seen. The skipped subscription emits a
 `SubscriptionChargeSkipped(subId, attemptId, ChargeOutcome.Duplicate)`
 event; the rest of the batch keeps going.
 
-In practical terms: the scheduler can resubmit the same `batchCharge`
-call as many times as it wants and never charge a customer twice. On
-the payments side, an invariant fuzz test drives both submission paths
-and checks that the FeeCollector balance never exceeds the fees it has
-accrued, so neither path can credit a fee twice.
+In practical terms: Strimz can resubmit the same `batchCharge`
+call as many times as it wants and never charge a customer twice.
 
 ## ERC-7201 namespaced storage
 
 Every upgradeable contract puts its state under a deterministic slot
 via [ERC-7201](https://eips.ethereum.org/EIPS/eip-7201). Adding fields
-in V2 cannot collide with V1's layout. The `Upgradeability.t.sol`
-suite asserts V1-to-V2 storage preservation through OpenZeppelin's
-Foundry Upgrades plugin.
+in V2 cannot collide with V1's layout.
 
 `StrimzPayments` and `StrimzSubscriptions` use the same namespace
 pattern even though they aren't upgradeable. The reason is mundane:
@@ -109,25 +101,9 @@ can still be rotated through the timelock after deploy, so the storage
 discipline buys us a clean migration path on the fields that do
 change.
 
-## Reading the contracts yourself
-
-```bash
-git clone https://github.com/StrimzLab/strimz
-cd strimz/packages/contracts
-forge build
-forge test
-```
-
-Contract addresses come from each deployment's output and are passed
-to every Strimz process through env vars such as
-`STRIMZ_PAYMENTS_ADDRESS` and `STRIMZ_SUBSCRIPTIONS_ADDRESS`.
-`@strimz/shared-config` holds token addresses, not contract
-addresses. There are no private deployments. What's in the
-repo is what runs in production.
-
 ## Verifying a transaction
 
-Every Strimz `Transaction` row carries an `onchainTxHash`. Drop it
+Every Strimz transaction carries an `onchainTxHash`. Drop it
 into Arc's block explorer and you can check, end to end:
 
 1. The EIP-3009 or EIP-2612 signature belongs to the payer your
@@ -140,6 +116,5 @@ into Arc's block explorer and you can check, end to end:
 4. The `ref` field (one-shot) or `chargeAttemptId` (subscription) is
    the value we recorded off-chain.
 
-The chain is the source of truth. Strimz's database is a view the
-indexer maintains over the event log. If you ever want to rebuild it
-from scratch, you can.
+The chain is the source of truth. Strimz builds its records from the
+contracts' events, so you can always check them against the chain.

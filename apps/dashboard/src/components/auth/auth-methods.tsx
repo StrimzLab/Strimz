@@ -1,11 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Captcha, usePrivy } from '@privy-io/react-auth'
 import { TurnstileWidget } from '@strimz/web-shared/components/shared/turnstile-widget'
 import { env } from '@strimz/web-shared/lib/env'
 import { withNext } from '@strimz/web-shared/lib/auth-redirect'
-import { addedTestNetwork } from '@strimz/web-shared/lib/networks'
 
 import { EmailCodeForm } from '@/components/auth/email-code-form'
 import { GoogleButton, PasskeyButton } from '@/components/auth/sign-in-buttons'
@@ -16,7 +15,6 @@ export function AuthMethods({ mode, next }: { mode: 'signup' | 'login'; next: st
   const { ready, authenticated } = usePrivy()
   const [human, setHuman] = useState(!env.turnstileSiteKey)
   const [resetKey, setResetKey] = useState(0)
-  const savedPrimaryToken = useRef(false)
 
   useEffect(() => {
     // Not router.replace: Privy clears its OAuth params from the URL right after Google
@@ -45,20 +43,9 @@ export function AuthMethods({ mode, next }: { mode: 'signup' | 'login'; next: st
         size={turnstileSizeFor(viewportWidth)}
         className="flex w-full justify-center"
         onToken={(token) => {
-          if (token === null) {
-            savedPrimaryToken.current = false
-            return setHuman(false)
-          }
-          setHuman(true)
-          if (mode !== 'signup') return
-          // Tokens are single-use, so the test account gets a second one (ADR-2026-11-26-test-mode).
-          if (addedTestNetwork && savedPrimaryToken.current) {
-            saveSignupToken(token, undefined, 'test')
-            return
-          }
-          saveSignupToken(token)
-          savedPrimaryToken.current = true
-          if (addedTestNetwork) setResetKey((k) => k + 1)
+          setHuman(token !== null)
+          // The test account asks for its own check when it's created (#588).
+          if (token !== null && mode === 'signup') saveSignupToken(token)
         }}
       />
       {env.turnstileSiteKey && !human && (

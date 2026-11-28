@@ -85,7 +85,7 @@ This is the page you open when a merchant tells you "the webhook never arrived" 
 
 ## Retry behaviour
 
-Failed deliveries retry after 1 minute, 5 minutes, 30 minutes and 2 hours, for 5 attempts in total (`WEBHOOK_MAX_ATTEMPTS`, default 5). After the last attempt:
+Failed deliveries retry after 1 minute, 5 minutes, 30 minutes and 2 hours, for 5 attempts in total. After the last attempt:
 
 - The delivery moves to `permanently_failed`
 - You get an email

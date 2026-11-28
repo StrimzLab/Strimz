@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useRef } from 'react'
 import arrowIcon from '@iconify-icons/solar/arrow-right-linear'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@strimz/ui'
@@ -17,6 +16,7 @@ import {
 } from '@strimz/web-shared/components/marketing/motion/gsap'
 import { CODE_TABS, DEV_LINKS, KEYBOARD_SCRIPT } from './developers-data'
 import { siteUrls } from '@strimz/web-shared/lib/site-urls'
+import { SiteLink } from '../site-link'
 
 const TypingKeyboard = dynamic(
   () => import('../fx/typing-keyboard').then((m) => m.TypingKeyboard),
@@ -112,16 +112,16 @@ export function Developers() {
           <ul data-dev-item className="mt-6 flex flex-wrap gap-2">
             {DEV_LINKS.map((l) => (
               <li key={l.href}>
-                <Link
+                <SiteLink
                   href={l.href}
                   className="font-poppins border-border text-foreground hover:border-accent focus-visible:ring-accent/50 inline-flex h-9 items-center rounded-full border px-4 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2"
                 >
                   {l.label}
-                </Link>
+                </SiteLink>
               </li>
             ))}
           </ul>
-          <Link
+          <SiteLink
             data-dev-item
             href={`${siteUrls.docs}/docs`}
             className="font-poppins text-foreground decoration-accent group mt-8 inline-flex items-center gap-1.5 text-[15px] font-medium underline decoration-2 underline-offset-[6px]"
@@ -131,7 +131,7 @@ export function Developers() {
               icon={arrowIcon}
               className="size-4 transition-transform duration-200 group-hover:translate-x-1"
             />
-          </Link>
+          </SiteLink>
         </div>
 
         <div className="relative min-w-0">

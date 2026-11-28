@@ -3,7 +3,7 @@ title: Plans
 description: A SubscriptionPlan is the template. Name, amount, interval, optional trial and return URLs. One plan, many subscribers. A plan's terms are fixed after creation; that's an intentional choice.
 ---
 
-A plan is the thing your customers subscribe to. "Pro Monthly," "Team Annual," "Starter. 5 USDC/month." You create the plan once with `subscriptionPlans.create`; payers subscribe on the plan's hosted checkout link by signing an EIP-2612 permit and a Strimz `SubscriptionIntent`; each one becomes a `Subscription` row that points back at the plan.
+A plan is the thing your customers subscribe to. "Pro Monthly," "Team Annual," "Starter. 5 USDC/month." You create the plan once with `subscriptionPlans.create`; payers subscribe on the plan's hosted checkout link by signing an EIP-2612 permit and a Strimz `SubscriptionIntent`; each one becomes a `Subscription` that points back at the plan.
 
 ## Creating one
 
@@ -33,7 +33,7 @@ What each field does:
 
 `interval` is `'daily'`, `'weekly'`, `'monthly'`, `'quarterly'`, or `'yearly'`. `intervalCount` multiplies it. `intervalCount: 2` with `interval: 'monthly'` is every two months. Default `intervalCount` is 1.
 
-`trialPeriodDays` is the free-trial length. The payer signs on day zero and the first charge is due `trialPeriodDays` later. The trial applies only to a payer's first subscription to the plan. Null or omitted means no trial: the first charge is due at enrolment and the scheduler takes it on its next run, within about 15 minutes. Enrolment itself moves no money.
+`trialPeriodDays` is the free-trial length. The payer signs on day zero and the first charge is due `trialPeriodDays` later. The trial applies only to a payer's first subscription to the plan. Null or omitted means no trial: the first charge is due at enrolment and Strimz takes it on its next check, within about 15 minutes. Enrolment itself moves no money.
 
 `successUrl` and `cancelUrl` are optional. See [Return URLs](#return-urls).
 
@@ -84,9 +84,9 @@ Each plan has a hosted checkout link. The `SubscriptionPlan` object has no URL f
 https://checkout.strimz.finance/sub/<planId>
 ```
 
-You send this to anyone you want to subscribe. The page handles wallet connect, the EIP-2612 permit signature, and a Strimz `SubscriptionIntent` signature that binds the plan the payer is enrolling in. Two typed-data prompts in one checkout flow. Enrolment moves no money; the first charge is taken by the scheduler when it is due.
+You send this to anyone you want to subscribe. The page handles wallet connect, the EIP-2612 permit signature, and a Strimz `SubscriptionIntent` signature that binds the plan the payer is enrolling in. Two typed-data prompts in one checkout flow. Enrolment moves no money; Strimz takes the first charge when it is due.
 
-There is no API or SDK call that creates a subscription. The hosted checkout flow handles it end-to-end. Payer signs, our relayer broadcasts `permitAndCreateSubscription(...)`, the indexer projects the resulting `Subscription`, and your `subscription.created` webhook fires.
+There is no API or SDK call that creates a subscription. The hosted checkout flow handles it end-to-end. Payer signs, Strimz broadcasts `permitAndCreateSubscription(...)`, sees the new `Subscription` on chain, and your `subscription.created` webhook fires.
 
 To start the checkout from your own page instead of a link, use `<StrimzSubscribeButton planId />` or `<StrimzSubscriptionEmbed planId />` from the [React SDK](/docs/sdks/react#subscription-plans).
 
@@ -116,7 +116,7 @@ The dashboard's plan page has the same fields under **After checkout**.
 
 ## The plan ↔ subscription relationship
 
-The plan is the template; each `Subscription` is an instance. When a payer subscribes, we snapshot the plan's amount, currency, interval, and intervalCount onto the subscription row. The relationship is:
+The plan is the template; each `Subscription` is an instance. When a payer subscribes, we snapshot the plan's amount, currency, interval, and intervalCount onto the subscription. The relationship is:
 
 ```
 SubscriptionPlan

@@ -5,7 +5,7 @@ import { MerchantNotSyncedError } from '@strimz/web-shared/lib/merchant-api/erro
 export interface TestAccountDeps {
   /** The live account, already onboarded. */
   primary: Merchant
-  /** A Turnstile token saved at sign-up for the test backend, if any. */
+  /** A Turnstile token from the check on this screen, if the test API asked for one. */
   token: string | null
   retrieve: () => Promise<Merchant>
   sync: (token: string | null) => Promise<Response>

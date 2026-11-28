@@ -3,7 +3,7 @@ title: Subscriptions
 description: Recurring revenue API.
 ---
 
-Subscriptions are bound to a `SubscriptionPlan` (the template) and a `Customer` (the buyer). The customer's wallet authorises a multi-period allowance; Strimz's scheduler charges every period.
+Subscriptions are bound to a `SubscriptionPlan` (the template) and a `Customer` (the buyer). The customer's wallet authorises a multi-period allowance; Strimz charges every period.
 
 ## Plans
 
@@ -39,7 +39,7 @@ PATCH /v1/subscription-plans/{id}
 
 ## Subscriptions
 
-Customers create subscriptions on-chain via your hosted checkout. There's no `POST /v1/subscriptions` endpoint. The indexer projects them when the chain emits `SubscriptionCreated`.
+Customers create subscriptions on-chain via your hosted checkout. There's no `POST /v1/subscriptions` endpoint. Strimz records them when the chain emits `SubscriptionCreated`.
 
 Read paths:
 
@@ -63,7 +63,7 @@ Only `cancelled` and `lapsed` are terminal; `at_risk` is recoverable if the cust
 
 ## Charges
 
-The indexer records every charge attempt from on-chain events: successful, failed and skipped. List them for one subscription, newest first:
+Strimz records every charge attempt from on-chain events: successful, failed and skipped. List them for one subscription, newest first:
 
 ```http
 GET /v1/subscriptions/{id}/charges?limit=25

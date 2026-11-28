@@ -12,7 +12,7 @@ Settings is where you configure your merchant account itself, as opposed to what
 
 ## On-chain policy
 
-The on-chain policy panel reads live from the Registry contract. Nothing you see here comes from Postgres; it's the source of truth as the chain sees it.
+The on-chain policy panel reads live from the Registry contract. Nothing you see here comes from Strimz's own records; it's the source of truth as the chain sees it.
 
 - **Payout address.** Where every payment lands. Changing it triggers a 24-hour cooldown before the new address takes effect — mitigation for a compromised dashboard session pointing your revenue at an attacker.
 - **Ownership.** Two-step nominate + accept flow. You nominate a new owner; the new owner has to accept from their wallet, no sooner than 24 hours after the nomination. Only the accepting wallet can complete the handover. Nominating cancels any payout change that is still pending, and the payout address can't change until the handover is accepted or cancelled, so the new owner gets the payout address they saw.

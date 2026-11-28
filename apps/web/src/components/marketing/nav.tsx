@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import {
@@ -31,6 +30,7 @@ import { PopLink } from './fx/pop-button'
 import { NAV_GROUPS, NAV_LINKS, type NavGroup, type NavItem } from './nav-data'
 import { panelAnchor } from './nav-panel'
 import { siteUrls } from '@strimz/web-shared/lib/site-urls'
+import { SiteLink } from './site-link'
 
 const TOP_ITEM =
   'font-poppins text-muted-foreground hover:text-foreground data-[state=open]:text-foreground aria-[current=page]:text-foreground focus-visible:ring-accent relative whitespace-nowrap rounded-full px-3 py-2 text-[15px] xl:px-4 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2'
@@ -157,12 +157,12 @@ export function MarketingNav() {
           </div>
         </NavigationMenu>
         <div className="flex items-center gap-2 sm:gap-3">
-          <Link
+          <SiteLink
             href={`${siteUrls.dashboard}/login`}
             className="font-poppins text-foreground focus-visible:ring-accent hidden whitespace-nowrap rounded-full px-2 text-[15px] font-medium focus-visible:outline-none focus-visible:ring-2 sm:inline"
           >
             Sign in
-          </Link>
+          </SiteLink>
           <ThemeToggle />
           <PopLink
             href={`${siteUrls.dashboard}/signup`}
@@ -199,13 +199,13 @@ export function MarketingNav() {
                           {group.items.map((item) => (
                             <li key={item.href}>
                               <SheetClose asChild>
-                                <Link
+                                <SiteLink
                                   href={item.href}
                                   aria-current={isCurrent(pathname, item.href) ? 'page' : undefined}
                                   className="font-poppins text-muted-foreground hover:text-foreground aria-[current=page]:text-foreground block rounded-lg py-2 text-lg"
                                 >
                                   {item.label}
-                                </Link>
+                                </SiteLink>
                               </SheetClose>
                             </li>
                           ))}
@@ -219,13 +219,13 @@ export function MarketingNav() {
                     (l) => (
                       <li key={l.href}>
                         <SheetClose asChild>
-                          <Link
+                          <SiteLink
                             href={l.href}
                             aria-current={isCurrent(pathname, l.href) ? 'page' : undefined}
                             className="font-sora text-foreground block py-3 text-3xl font-semibold tracking-[-0.03em]"
                           >
                             {l.label}
-                          </Link>
+                          </SiteLink>
                         </SheetClose>
                       </li>
                     ),
@@ -282,9 +282,9 @@ function TopLink({ link, pathname }: { link: NavItem; pathname: string }) {
   return (
     <NavigationMenuItem className="relative">
       <NavigationMenuLink asChild active={current}>
-        <Link href={link.href} className={TOP_ITEM} aria-current={current ? 'page' : undefined}>
+        <SiteLink href={link.href} className={TOP_ITEM} aria-current={current ? 'page' : undefined}>
           {link.label}
-        </Link>
+        </SiteLink>
       </NavigationMenuLink>
     </NavigationMenuItem>
   )
@@ -314,7 +314,7 @@ function Panel({ group, pathname }: { group: NavGroup; pathname: string }) {
 function PanelLink({ item, current }: { item: NavItem; current: boolean }) {
   return (
     <NavigationMenuLink asChild active={current}>
-      <Link
+      <SiteLink
         href={item.href}
         aria-current={current ? 'page' : undefined}
         className="hover:bg-muted focus-visible:bg-muted focus-visible:ring-accent group/item flex gap-3 rounded-[14px] p-3 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2"
@@ -338,7 +338,7 @@ function PanelLink({ item, current }: { item: NavItem; current: boolean }) {
             {item.description}
           </span>
         </span>
-      </Link>
+      </SiteLink>
     </NavigationMenuLink>
   )
 }
@@ -346,7 +346,7 @@ function PanelLink({ item, current }: { item: NavItem; current: boolean }) {
 function Feature({ item }: { item: NavItem }) {
   return (
     <NavigationMenuLink asChild>
-      <Link
+      <SiteLink
         href={item.href}
         className="bg-ink grain focus-visible:ring-accent group/feature relative isolate flex w-[220px] shrink-0 flex-col justify-between overflow-hidden rounded-[16px] p-5 text-white focus-visible:outline-none focus-visible:ring-2 dark:ring-1 dark:ring-white/10"
       >
@@ -385,7 +385,7 @@ function Feature({ item }: { item: NavItem }) {
             />
           </span>
         </span>
-      </Link>
+      </SiteLink>
     </NavigationMenuLink>
   )
 }

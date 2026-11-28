@@ -74,6 +74,7 @@ On 2026-11-25 and 2026-11-26 the founder reversed this:
    - Each API registers the merchant on its own chain.
    - If one side fails, the dashboard shows the side that worked. On the next load it repeats onboarding on the missing side, using the business details the other side already holds.
    - The required passkey step (ADR-2026-11-23-required-passkey) stays as it is, because the live account is created at the same time.
+   - **Amended 2026-11-28 (#588):** sign-up keeps one Turnstile token, for the live account. The test account asks for its own check when the test API wants one (ADR-2026-11-28-signup-turnstile-loop).
 3. **The dashboard and admin show both, with a Test / Live switch.**
    - Each app is built with the settings of both networks: API URL, RPC, contract addresses and publishable key. The wallet setup lists both chains.
    - The switch sits in the top bar and is remembered per browser. New merchants start in Test.

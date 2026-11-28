@@ -66,12 +66,11 @@ the same EIP-3009 nonce, which the token accepts once per payer wallet,
 and Strimz refuses a new attempt while an earlier one can still land.
 See the relay section of the [endpoint list](/docs/api-reference).
 
-Subscription charges are guarded by `chargeLock`: the sweeper locks
-a row before it enqueues the charge, so two scheduler replicas cannot
-queue the same subscription at once.
+Strimz locks a due subscription while it charges it, so the same
+subscription is never queued for charging twice at once.
 
 Webhook deliveries carry an `X-Strimz-Delivery-Id` that stays the same
-across retries. A delivery job that runs again after the delivery is
+across retries. A delivery that runs again after the delivery is
 already `delivered` or `permanently_failed` does nothing.
 
 ## On-chain
@@ -79,9 +78,9 @@ already `delivered` or `permanently_failed` does nothing.
 The contracts use deterministic identifiers for state-changing
 actions:
 
-- **`PaymentSession.id`** is passed as `bytes32 ref` on the on-chain `pay()` call. The contract emits it in `PaymentExecuted`. The indexer keys the resulting `Transaction` row on `(onchainTxHash, logIndex)`. Replays no-op.
+- **`PaymentSession.id`** is passed as `bytes32 ref` on the on-chain `pay()` call. The contract emits it in `PaymentExecuted`. Strimz records the resulting transaction once per `(onchainTxHash, logIndex)`. Replays no-op.
 - **`chargeAttemptId`** is `keccak256(abi.encodePacked(onchainSubId, currentPeriodEndAt, attempt))`. The contract keeps a `usedAttempts` mapping. Charging with an id that is already used does not revert: the contract emits `SubscriptionChargeSkipped` with outcome `Duplicate` and moves no money.
-- **Refund tx hashes** are recorded in `Refund.refundTxHash` after the merchant signs the transfer. The indexer matches incoming ERC-20 Transfer events by hash. Replays of the same hash flip nothing.
+- **Refund tx hashes** are recorded on the refund after the merchant signs the transfer. Strimz matches ERC-20 Transfer events on chain by hash. Replays of the same hash flip nothing.
 
 Because the chain enforces these, a replayed signed transaction can't
 cause a duplicate charge.

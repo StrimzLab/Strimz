@@ -6,8 +6,8 @@ description: Full or partial, with on-chain audit trail.
 A refund is a two-step flow. First you create the refund on the
 server. Strimz validates the amount against the original
 transaction and returns wallet-signing instructions. Then you sign
-the on-chain transfer from your own wallet to the customer's. The
-indexer watches Arc and marks the refund completed once the
+the on-chain transfer from your own wallet to the customer's. Strimz
+watches Arc and marks the refund completed once the
 transfer confirms.
 
 ## Why Strimz doesn't refund for you
@@ -92,7 +92,7 @@ Once the merchant has the tx hash, post it back to Strimz:
 await strimz.refunds.submitSignature({ id: refund.id, refundTxHash: txHash })
 ```
 
-This flips the refund from `awaiting_signature` to `submitted`. The indexer watches for the transfer with this tx hash; when it lands, it flips the refund to `completed` and fires `refund.completed`.
+This flips the refund from `awaiting_signature` to `submitted`. Strimz watches for the transfer with this tx hash; when it lands, it flips the refund to `completed` and fires `refund.completed`.
 
 You can submit only once, while the refund is `awaiting_signature`. A second call returns `403 session_invalid_state`.
 
@@ -102,7 +102,7 @@ Strimz won't let you refund more than the original transaction. On a 100 USDC tr
 
 The cap counts every refund in `pending`, `awaiting_signature`, `submitted` or `completed`. An unsigned `awaiting_signature` refund still holds its share, and there is no way to void or delete it today.
 
-## What if the indexer never sees the on-chain transfer?
+## What if Strimz never sees the on-chain transfer?
 
 This happens if the merchant submitted the wrong tx hash. The refund stays in `submitted`, and the API won't accept a second hash. Contact [support@strimz.finance](mailto:support@strimz.finance) with the refund id.
 

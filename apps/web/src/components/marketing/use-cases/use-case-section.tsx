@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useRef } from 'react'
 import checkIcon from '@iconify-icons/solar/check-circle-linear'
 import arrowIcon from '@iconify-icons/solar/arrow-right-linear'
@@ -16,6 +15,7 @@ import {
 } from '@strimz/web-shared/components/marketing/motion/gsap'
 import { USE_CASE_MOCKS } from './mock-map'
 import { sampleCost, type UseCase } from './data'
+import { SiteLink } from '../site-link'
 
 const amount = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 2 })
 
@@ -78,7 +78,7 @@ export function UseCaseSection({ useCase, flip }: { useCase: UseCase; flip: bool
               <li key={f.title} className="flex gap-3">
                 <MkIcon icon={checkIcon} className="text-brand-text mt-0.5 size-5 shrink-0" />
                 <div>
-                  <Link
+                  <SiteLink
                     href={f.href}
                     className="font-poppins text-foreground decoration-accent group inline-flex items-center gap-1.5 text-[15px] font-semibold underline-offset-4 hover:underline"
                   >
@@ -87,7 +87,7 @@ export function UseCaseSection({ useCase, flip }: { useCase: UseCase; flip: bool
                       icon={arrowIcon}
                       className="size-4 transition-transform duration-300 group-hover:translate-x-0.5"
                     />
-                  </Link>
+                  </SiteLink>
                   <p className="font-poppins text-muted-foreground mt-1 text-sm leading-relaxed">
                     {f.body}
                   </p>

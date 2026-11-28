@@ -20,6 +20,16 @@ describe('signup bot check', () => {
     expect(methods).toMatch(/saveSignupToken\(/u)
   })
 
+  // #588: resetting the widget for a second token cleared the first, so the check looped.
+  it('keeps one passed check on sign-up and never resets its own widget after a token', () => {
+    const onToken = methods.slice(
+      methods.indexOf('onToken='),
+      methods.indexOf('/>', methods.indexOf('onToken=')),
+    )
+    expect(onToken).not.toMatch(/setResetKey/u)
+    expect(methods).not.toMatch(/saveSignupToken\([^)]*'test'\)/u)
+  })
+
   it('offers no wallet sign-in', () => {
     expect(methods).not.toMatch(/wallet/iu)
   })

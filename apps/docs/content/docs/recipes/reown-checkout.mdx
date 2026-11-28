@@ -95,7 +95,7 @@ export async function POST(req: Request) {
   const { description, amount } = await req.json()
 
   const session = await strimz.paymentSessions.create({
-    amount,            // raw 6-decimal integer string
+    amount, // raw 6-decimal integer string
     currency: 'USDC',
     description,
   })
@@ -158,7 +158,7 @@ The user lands on `/checkout`. The page creates a session on mount (one fetch to
 
 The session id comes back and the page renders the Strimz checkout inline. The payer connects a wallet inside the checkout, through its own AppKit modal, and signs the payment there.
 
-`useStrimzSession` polls the session with your publishable key. When the indexer confirms the on-chain transaction, the status moves to `confirmed` and the panel shows the success state.
+`useStrimzSession` polls the session with your publishable key. When Strimz sees the transaction confirm on chain, the status moves to `confirmed` and the panel shows the success state.
 
 Fulfil the order from your [webhook handler](/docs/guides/webhooks), not from this page. The page is a UI signal; the signed webhook is the source of truth.
 

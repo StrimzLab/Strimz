@@ -49,10 +49,6 @@ export function normaliseCode(input: string): string {
 }
 
 const SIGNUP_TOKEN_KEY = 'strimz:signup-turnstile'
-/** `test` holds the second token, for the test account (ADR-2026-11-26-test-mode). */
-export type SignupTokenSlot = 'primary' | 'test'
-const slotKey = (slot: SignupTokenSlot) =>
-  slot === 'primary' ? SIGNUP_TOKEN_KEY : `${SIGNUP_TOKEN_KEY}:test`
 /** Turnstile tokens last 300 seconds; leave room for the sync request. */
 export const SIGNUP_TOKEN_TTL_MS = 280_000
 
@@ -65,22 +61,15 @@ function sessionStore(): StoreLike | null {
   }
 }
 
-export function saveSignupToken(
-  token: string,
-  store: StoreLike | null = sessionStore(),
-  slot: SignupTokenSlot = 'primary',
-): void {
-  store?.setItem(slotKey(slot), JSON.stringify({ token, at: Date.now() }))
+export function saveSignupToken(token: string, store: StoreLike | null = sessionStore()): void {
+  store?.setItem(SIGNUP_TOKEN_KEY, JSON.stringify({ token, at: Date.now() }))
 }
 
 /** The saved token, once. Null when there's none or it's too old to pass. */
-export function readSignupToken(
-  store: StoreLike | null = sessionStore(),
-  slot: SignupTokenSlot = 'primary',
-): string | null {
+export function readSignupToken(store: StoreLike | null = sessionStore()): string | null {
   if (!store) return null
-  const raw = store.getItem(slotKey(slot))
-  store.removeItem(slotKey(slot))
+  const raw = store.getItem(SIGNUP_TOKEN_KEY)
+  store.removeItem(SIGNUP_TOKEN_KEY)
   if (!raw) return null
   const saved = JSON.parse(raw) as { token?: unknown; at?: unknown }
   if (typeof saved.token !== 'string' || typeof saved.at !== 'number') return null

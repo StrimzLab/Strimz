@@ -10,4 +10,8 @@ export const siteUrls = {
   admin: trim(process.env.NEXT_PUBLIC_ADMIN_URL ?? 'http://localhost:3004'),
 } as const
 
+export function isDocsUrl(href: string): boolean {
+  return href === siteUrls.docs || href.startsWith(`${siteUrls.docs}/`)
+}
+
 export const bookDemoUrl = 'https://strimz.zohobookings.com/5025813000000039046'

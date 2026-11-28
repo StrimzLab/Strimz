@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import postcss, { type AtRule, type Rule } from 'postcss'
 import { describe, expect, it } from 'vitest'
-import { readWeb, webTree } from './web-source'
+import { readWeb, REPO, webTree } from './web-source'
 
 const WEB_ROOT = webTree()
 
@@ -30,6 +30,35 @@ describe('the docs describe Strimz without comparing it to other processors', ()
     const welcome = readWeb('content/docs/index.mdx')
     expect(welcome).toMatch(/cannot become a double charge/)
     expect(welcome).toMatch(/final/)
+  })
+})
+
+// #586: the docs teach merchants to use Strimz; how it's run stays out.
+const OPERATOR_ONLY = [
+  /self-hosting/iu,
+  /\b[A-Z]+(_[A-Z0-9]+)*_(CRON|ROLE|PROVIDER)\b/u,
+  /\b(KMS_[A-Z_]+|ARC_FALLBACK_RPC_URLS|ARC_RPC_URL|START_BLOCK|WEBHOOK_MAX_ATTEMPTS|SUBSCRIPTION_SWEEP_LIMIT|GAS_BALANCE_THRESHOLD_USDC|STRIMZ_PAYMENTS_ADDRESS|STRIMZ_SUBSCRIPTIONS_ADDRESS)\b/u,
+  /\b(BullMQ|Redis|IndexerCursor|apps\/(api|indexer|scheduler|agent|web))\b/u,
+  /\bthe (scheduler|indexer|relayer)\b/iu,
+]
+
+describe('the docs stay about using Strimz', () => {
+  it.each(OPERATOR_ONLY.map((re) => [String(re), re] as const))('never mentions %s', (_, re) => {
+    const hits = DOCS.filter((file) => re.test(readFileSync(file, 'utf8'))).map((file) =>
+      relative(WEB_ROOT, file),
+    )
+    expect(hits).toEqual([])
+  })
+
+  it('has no Operations section', () => {
+    const meta = readWeb('content/docs/meta.json')
+    expect(meta).not.toMatch(/Operations|self-hosting/u)
+  })
+
+  it('sends old self-hosting URLs to the docs home', () => {
+    expect(readFileSync(join(REPO, 'apps/docs/next.config.mjs'), 'utf8')).toMatch(
+      /source: '\/docs\/self-hosting\/:path\*', destination: '\/docs'/u,
+    )
   })
 })
 

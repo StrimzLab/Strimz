@@ -3,7 +3,7 @@ title: Recovery
 description: When a charge fails, Strimz retries with backoff for up to 48 hours past the period end before the subscription lapses.
 ---
 
-When a charge fails, the subscription moves to `at_risk` and the scheduler retries it on a backoff schedule. If a retry succeeds, the subscription goes back to `active`. If the 48-hour grace window runs out first, it lapses.
+When a charge fails, the subscription moves to `at_risk` and Strimz retries it on a backoff schedule. If a retry succeeds, the subscription goes back to `active`. If the 48-hour grace window runs out first, it lapses.
 
 ## What triggers recovery
 
@@ -14,11 +14,11 @@ The contract skips a charge with one of these outcomes:
 - `transfer_failed`: the token transfer failed, for example because the token blocklisted the payer's address.
 - `merchant_inactive`: the merchant is not active in the registry.
 
-The contract emits `SubscriptionChargeSkipped` instead of `SubscriptionCharged`. The indexer writes a failed `SubscriptionCharge` row, fires `subscription.charge_failed`, and flips the subscription to `at_risk`. It only does that when the period has no successful charge yet (see the [race-condition guard](/docs/concepts/safety-nets#the-race-condition-projector-fix)). A first charge that fails at the end of a trial is handled the same way: the subscription goes from `trialing` to `at_risk`.
+The contract emits `SubscriptionChargeSkipped` instead of `SubscriptionCharged`. Strimz records a failed charge, fires `subscription.charge_failed`, and flips the subscription to `at_risk`. It only does that when the period has no successful charge yet (see the [race-condition guard](/docs/concepts/safety-nets#the-race-condition-guard)). A first charge that fails at the end of a trial is handled the same way: the subscription goes from `trialing` to `at_risk`.
 
 ## The retry schedule
 
-When the indexer records a failed charge, it sets the next retry time:
+When Strimz records a failed charge, it sets the next retry time:
 
 | Failure       | Next retry after |
 | ------------- | ---------------- |
@@ -29,7 +29,7 @@ When the indexer records a failed charge, it sets the next retry time:
 | 5th           | 12 hours         |
 | 6th and later | 24 hours         |
 
-The sweeper runs every 15 minutes, so a retry fires on the first run after its time. About seven attempts fit in the grace window.
+Strimz checks for due charges every 15 minutes, so a retry fires on the first check after its time. The first charge and about six retries fit in the grace window.
 
 A retry after a balance or allowance failure reuses the same attempt id, so it updates the same charge: `charge.attemptNumber` goes up by one and `charge.outcome` shows the latest reason.
 
@@ -37,7 +37,7 @@ A retry after a balance or allowance failure reuses the same attempt id, so it u
 
 `gracePeriodHours` is 48 on every subscription. It is not configurable through the API, SDK or dashboard.
 
-An hourly scheduler cron moves every `at_risk` subscription to `lapsed` once `currentPeriodEndAt + 48 hours` has passed, and fires `subscription.lapsed`. In practice the schedule above fits about six retries inside the window.
+Strimz checks every hour and moves each `at_risk` subscription to `lapsed` once `currentPeriodEndAt + 48 hours` has passed, and fires `subscription.lapsed`.
 
 The `recoveryGracePeriodHours` setting on the Agents page does not change this window. It only controls when recovery emails are sent.
 
@@ -54,7 +54,7 @@ The first `charge_failed` (`charge.attemptNumber` 1) is the one to act on. Email
 
 ## What it costs to retry
 
-Each retry is an on-chain call. Strimz's scheduler pays the gas. You are not billed for failed retries.
+Each retry is an on-chain call. Strimz pays the network fee. You are not billed for failed retries.
 
 There is no call to retry a charge on demand. The next retry follows the schedule above.
 
@@ -62,4 +62,4 @@ There is no call to retry a charge on demand. The next retry follows the schedul
 
 Lapsed is terminal. Even if the payer tops up, Strimz will not charge the old subscription again.
 
-To come back, the payer subscribes again on the plan's checkout link, which creates a new subscription with a new id. A payer can hold only one live subscription per plan; a lapsed one does not count, so they can re-subscribe straight away. The old row stays for audit.
+To come back, the payer subscribes again on the plan's checkout link, which creates a new subscription with a new id. A payer can hold only one live subscription per plan; a lapsed one does not count, so they can re-subscribe straight away. The old subscription stays for audit.

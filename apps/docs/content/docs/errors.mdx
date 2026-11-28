@@ -33,7 +33,7 @@ The common codes. The tables below cover the ones you're most likely to see; a f
 | `step_up_required`        | 403  | A dashboard change that needs a fresh passkey confirmation (new or rotated API key, new webhook endpoint or rotated secret)                 |
 | `passkey_required`        | 403  | The account has no passkey yet; add one under Settings, Business, Security                                                                  |
 | `plan_required`           | 403  | The feature needs a higher plan; `details.requiredPlan` names it                                                                            |
-| `merchant_not_synced`     | 401  | Privy session is valid but no Merchant row. Call `POST /v1/auth/sync` first.                                                                |
+| `merchant_not_synced`     | 401  | Privy session is valid but no merchant account yet. Call `POST /v1/auth/sync` first.                                                        |
 | `turnstile_required`      | 428  | `POST /v1/auth/sync` would create a new account but has no passed Turnstile check (`turnstileToken`)                                        |
 | `terms_required`          | 403  | A dashboard change before the current Terms of Service are accepted; `details.version` is the version to accept. API keys are never blocked |
 | `secret_key_in_browser`   | none | Thrown by `@strimz/sdk` when `StrimzClient` is constructed in a browser. No request is sent.                                                |
@@ -251,6 +251,6 @@ If you hit an error you can't make sense of:
 
 1. Save the full response body, including `requestId`.
 2. Note the time in UTC. The logs are indexed by it.
-3. File at [github.com/StrimzLab/strimz/issues](https://github.com/StrimzLab/strimz/issues) or email support@strimz.finance.
+3. Email support@strimz.finance.
 
 Every report gets a reply within one business day.

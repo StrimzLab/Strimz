@@ -3,7 +3,7 @@ title: Payment sessions
 description: One-shot hosted checkouts.
 ---
 
-A `PaymentSession` is everything needed to render a hosted checkout for a single payment. Created server-side, paid by the customer in their wallet, confirmed by the indexer.
+A `PaymentSession` is everything needed to render a hosted checkout for a single payment. Created server-side, paid by the customer in their wallet, confirmed by Strimz once it settles on chain.
 
 ## Create
 
@@ -70,9 +70,9 @@ Cancels an open session (`created` or `awaiting_payment`). Any other status retu
 
 Statuses: `created`, `awaiting_payment`, `submitted`, `confirmed`, `failed`, `expired`, `cancelled`.
 
-A new session is `created`. When the relayer broadcasts the payment it becomes `submitted`, and the indexer moves it to `confirmed`. An open session (`created` or `awaiting_payment`) can be cancelled or can expire.
+A new session is `created`. When Strimz broadcasts the payment it becomes `submitted`, and it moves to `confirmed` once Strimz sees it settle on chain. An open session (`created` or `awaiting_payment`) can be cancelled or can expire.
 
-Sessions expire 30 minutes after creation by default. Set `expiresInMinutes` to change it. When `expiresAt` passes, the scheduler moves an open session to `expired`.
+Sessions expire 30 minutes after creation by default. Set `expiresInMinutes` to change it. When `expiresAt` passes, Strimz moves an open session to `expired`.
 
 ## Webhook events
 
@@ -80,4 +80,4 @@ Sessions expire 30 minutes after creation by default. Set `expiresInMinutes` to 
 | ------------------- | --------------------------------------------------- |
 | `payment.created`   | The session was created, by the API or a storefront |
 | `payment.completed` | The on-chain transaction confirmed                  |
-| `payment.failed`    | The scheduler expired the session                   |
+| `payment.failed`    | Strimz expired the session                          |
