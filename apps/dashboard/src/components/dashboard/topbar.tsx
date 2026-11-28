@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { KeyRound, LogOut, Menu, Sparkles, User, X } from 'lucide-react'
+import { Check, Copy, KeyRound, LogOut, Menu, Sparkles, User, X } from 'lucide-react'
 import { usePrivy } from '@privy-io/react-auth'
 import {
   DropdownMenu,
@@ -18,7 +18,7 @@ import { cn } from '@strimz/ui'
 import { runDashboardTour } from '@/hooks/use-dashboard-tour'
 import { BlockieAvatar } from '@strimz/web-shared/components/dashboard/blockie-avatar'
 import { NotificationsPopover } from './notifications-popover'
-import { ModeSwitch } from './mode-switch'
+import { ModeSwitch } from '@strimz/web-shared/components/dashboard/mode-switch'
 
 interface Props {
   title?: string
@@ -101,11 +101,19 @@ export function DashboardTopbar({ title, onMenuClick, menuOpen }: Props) {
             <button
               type="button"
               onClick={copyAddress}
-              className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-xs transition-colors"
+              aria-label="Copy wallet address"
+              className="text-muted-foreground hover:text-foreground focus-visible:outline-brand flex items-center gap-1.5 rounded text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
             >
               <span className="bg-accent size-1.5 rounded-full" />
               {wallet.slice(0, 8)}…{wallet.slice(-6)}
-              <span className="opacity-60">{copied ? '· copied!' : '· copy'}</span>
+              {copied ? (
+                <Check className="text-brand-text size-3" aria-hidden />
+              ) : (
+                <Copy className="size-3 opacity-70" aria-hidden />
+              )}
+              <span className="sr-only" aria-live="polite">
+                {copied ? 'Copied' : ''}
+              </span>
             </button>
           )}
         </div>

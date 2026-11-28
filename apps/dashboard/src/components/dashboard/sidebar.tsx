@@ -26,6 +26,7 @@ import { Logo } from '@strimz/web-shared/components/shared/logo'
 import { cn } from '@strimz/ui'
 import { useMerchantMe } from '@/hooks/api/use-merchant'
 import { siteUrls } from '@strimz/web-shared/lib/site-urls'
+import { tourKeyFor } from '@/lib/tour-keys'
 
 const SECTIONS: ReadonlyArray<{
   label: string
@@ -170,6 +171,7 @@ export function DashboardSidebar({ open, onClose }: Props) {
           <OnboardingCard />
           <Link
             href={`${siteUrls.docs}/docs`}
+            data-tour="nav-docs"
             target="_blank"
             rel="noreferrer"
             className="font-poppins text-muted-foreground hover:bg-card hover:text-foreground flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors"
@@ -190,17 +192,6 @@ export function DashboardSidebar({ open, onClose }: Props) {
       </aside>
     </>
   )
-}
-
-const TOUR_KEYS: Record<string, string> = {
-  '/app/api-keys': 'nav-api-keys',
-  '/app/payment-sessions': 'nav-payment-sessions',
-  '/app/webhooks': 'nav-webhooks',
-  '/app/settings': 'nav-settings',
-}
-
-function tourKeyFor(href: string): string | undefined {
-  return TOUR_KEYS[href]
 }
 
 function OnboardingCard() {

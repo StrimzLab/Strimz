@@ -39,7 +39,7 @@ describe('admin API token', () => {
   it('comes from the Privy the admin app mounts', () => {
     const providers = readFileSync(join(REPO, 'apps/admin/src/components/providers.tsx'), 'utf8')
     expect(providers).toMatch(/usePrivy\(\)/u)
-    expect(providers).toMatch(/new AdminApiClient\(\{ getAccessToken \}\)/u)
+    expect(providers).toMatch(/new AdminApiClient\(\{ getAccessToken, network \}\)/u)
   })
 })
 

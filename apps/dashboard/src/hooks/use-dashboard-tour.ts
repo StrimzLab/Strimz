@@ -8,12 +8,38 @@ import { useMerchantMe, useUpdateMerchant } from '@/hooks/api/use-merchant'
 
 const LOCAL_KEY = 'strimz.tour.completed'
 
-const STEPS: Array<{
+export const SIDEBAR_OPEN_EVENT = 'strimz:sidebar-open'
+
+interface TourStep {
   selector: string
   title: string
   description: string
   side?: 'top' | 'right' | 'bottom' | 'left'
-}> = [
+}
+
+const nav = (key: string, title: string, description: string): TourStep => ({
+  selector: `[data-tour="nav-${key}"]`,
+  title,
+  description,
+  side: 'right',
+})
+
+/** First-visit order. Steps whose element isn't on the page are skipped (#579). */
+export const TOUR_STEPS: TourStep[] = [
+  {
+    selector: '[data-tour="mode-switch"]',
+    title: 'Test and Live',
+    description:
+      'Test runs on testnet USDC from the faucet, so you can try everything for free. Live takes real payments. They never share data, and you go live by swapping test keys for live keys.',
+    side: 'bottom',
+  },
+  {
+    selector: '[data-tour="test-banner"]',
+    title: "You're in test mode",
+    description:
+      'This bar stays up while you test, so test data is never mistaken for real money. It links to how test mode works.',
+    side: 'bottom',
+  },
   {
     selector: '[data-tour="kpis"]',
     title: 'Your business at a glance',
@@ -22,37 +48,55 @@ const STEPS: Array<{
     side: 'bottom',
   },
   {
-    selector: '[data-tour="volume-chart"]',
-    title: '30 days of confirmed volume',
+    selector: '[data-tour="get-started"]',
+    title: 'Get paid',
     description:
-      'Every confirmed payment lands here in real time. Use it to spot spikes and dry patches at a glance.',
+      'The quickest way to your first payment: create a link, share it, and watch it land. Or hand the developer steps to your team.',
     side: 'top',
   },
   {
-    selector: '[data-tour="nav-payment-sessions"]',
-    title: 'Payment links',
-    description:
-      'Create a link for a set amount and send it to a customer. No code needed. Watch it confirm as they pay.',
-    side: 'right',
+    selector: '[data-tour="volume-chart"]',
+    title: '30 days of confirmed volume',
+    description: 'Every confirmed payment lands here. Use it to spot spikes and quiet days.',
+    side: 'top',
   },
+  nav(
+    'payment-sessions',
+    'Payment links',
+    'Create a link for a set amount and send it to a customer. No code needed.',
+  ),
+  nav('plans', 'Plans', 'Set a price that repeats: weekly, monthly or yearly.'),
+  nav(
+    'subscriptions',
+    'Subscriptions',
+    'Customers on a plan. They approve once, and Strimz charges them every period.',
+  ),
+  nav('invoices', 'Invoices', 'Bill a customer with a due date. They pay from the invoice link.'),
+  nav('storefront', 'Storefront', 'A simple shop for your products, with no code.'),
+  nav('transactions', 'Transactions', 'Every payment that reached your wallet, with its receipt.'),
+  nav('refunds', 'Refunds', 'Send money back to a customer, in full or in part.'),
+  nav('withdraw', 'Withdraw', 'Move USDC or EURC from your wallet to any address.'),
+  nav('customers', 'Customers', 'Everyone who has paid you, with their payments and plans.'),
+  nav('agents', 'AutoPay Agent', 'Lets software agents pay you within limits you set.'),
+  nav(
+    'webhooks',
+    'Webhooks',
+    'Point Strimz at your backend. We sign every event, retry on failure, and let you replay.',
+  ),
+  nav(
+    'api-keys',
+    'API keys',
+    'Use test keys while you build and live keys when you launch. Every key is scoped and revocable.',
+  ),
+  nav(
+    'settings',
+    'Settings',
+    'Business details, payout wallet, email preferences and your passkey.',
+  ),
   {
-    selector: '[data-tour="nav-api-keys"]',
-    title: 'API keys',
-    description: 'Create a live key for your integration. Every key is scoped and revocable.',
-    side: 'right',
-  },
-  {
-    selector: '[data-tour="nav-webhooks"]',
-    title: 'Webhooks',
-    description:
-      'Point Strimz at your backend. We sign every payload, retry on failure, and replay from the dashboard.',
-    side: 'right',
-  },
-  {
-    selector: '[data-tour="nav-settings"]',
-    title: 'Settings',
-    description:
-      'Payout policy, business info, email preferences, and the on-chain safety controls all live here.',
+    selector: '[data-tour="nav-docs"]',
+    title: 'Documentation',
+    description: 'Guides, the API reference and the SDKs, including how test mode works.',
     side: 'right',
   },
 ]
@@ -92,7 +136,7 @@ export function runDashboardTour({ onComplete, maxWaitMs = 3_000 }: RunOptions =
   stopActive = stop
 
   const attempt = () => {
-    const available = STEPS.filter((s) => document.querySelector(s.selector))
+    const available = TOUR_STEPS.filter((s) => document.querySelector(s.selector))
     if (available.length === 0) {
       if (performance.now() - start < maxWaitMs) {
         timer = window.setTimeout(attempt, 120)
@@ -115,6 +159,13 @@ export function runDashboardTour({ onComplete, maxWaitMs = 3_000 }: RunOptions =
         element: s.selector,
         popover: { title: s.title, description: s.description, side: s.side },
       })),
+      // The sidebar is a drawer on phones; open it so its links can be highlighted.
+      onHighlightStarted: (_el, step) => {
+        const target = typeof step.element === 'string' ? step.element : ''
+        if (target.includes('data-tour="nav-') && window.innerWidth < 1024) {
+          window.dispatchEvent(new CustomEvent(SIDEBAR_OPEN_EVENT))
+        }
+      },
       onDestroyed: () => {
         if (stopActive === stop) stopActive = null
         if (!stopped) onComplete?.()

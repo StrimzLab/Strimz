@@ -7,33 +7,41 @@ import { getArcChain } from '@strimz/shared-config'
 import { useResolvedTheme } from '@strimz/ui'
 import { env } from '@strimz/web-shared/lib/env'
 import { privyAppearanceTheme } from '@strimz/web-shared/lib/theme'
+import { networks } from '@strimz/web-shared/lib/networks'
+import {
+  DashboardModeProvider,
+  useDashboardMode,
+  useNetwork,
+} from '@strimz/web-shared/lib/dashboard-mode'
 import { AdminApiClient } from '@strimz/web-shared/lib/admin-api'
 import { AdminApiProvider } from '@strimz/web-shared/hooks/admin/admin-context'
 import { SessionCacheGuard } from '@strimz/web-shared/components/auth/session-cache-guard'
 
-/** Admin providers: Privy, React Query and the admin API. Browser only. */
+const newQueryClient = () =>
+  new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 30_000,
+        refetchOnWindowFocus: false,
+        retry: 1,
+      },
+    },
+  })
+
+/** Live first, so Privy's default chain is mainnet when the build has it. */
+const chains = [...networks].reverse().map((n) => getArcChain(n.arcEnvironment))
+
+/** Admin providers: Privy, the Test / Live mode, React Query and the admin API. Browser only. */
 export function Providers({ children }: { children: ReactNode }) {
   const resolvedTheme = useResolvedTheme()
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 30_000,
-            refetchOnWindowFocus: false,
-            retry: 1,
-          },
-        },
-      }),
+  const privy = Boolean(env.privyAppId)
+  const tree = (
+    <DashboardModeProvider>
+      <ModeScope privy={privy}>{children}</ModeScope>
+    </DashboardModeProvider>
   )
 
-  if (!env.privyAppId) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <AdminApiProvider>{children}</AdminApiProvider>
-      </QueryClientProvider>
-    )
-  }
+  if (!privy) return tree
 
   return (
     <PrivyProvider
@@ -45,15 +53,38 @@ export function Providers({ children }: { children: ReactNode }) {
         },
         loginMethods: ['email', 'google'],
         embeddedWallets: { ethereum: { createOnLogin: 'users-without-wallets' } },
-        defaultChain: getArcChain(env.arcEnvironment),
-        supportedChains: [getArcChain(env.arcEnvironment)],
+        defaultChain: chains[0],
+        supportedChains: chains,
       }}
     >
-      <SessionCacheGuard cache={queryClient} />
-      <QueryClientProvider client={queryClient}>
-        <PrivyAdminApi>{children}</PrivyAdminApi>
-      </QueryClientProvider>
+      {tree}
     </PrivyProvider>
+  )
+}
+
+/** Remounts per mode, so test and live never share cached data or in-flight requests. */
+function ModeScope({ privy, children }: { privy: boolean; children: ReactNode }) {
+  const mode = useDashboardMode()
+  return (
+    <ModeTree key={mode} privy={privy}>
+      {children}
+    </ModeTree>
+  )
+}
+
+function ModeTree({ privy, children }: { privy: boolean; children: ReactNode }) {
+  const [queryClient] = useState(newQueryClient)
+  return (
+    <QueryClientProvider client={queryClient}>
+      {privy ? (
+        <>
+          <SessionCacheGuard cache={queryClient} />
+          <PrivyAdminApi>{children}</PrivyAdminApi>
+        </>
+      ) : (
+        <NetworkAdminApi>{children}</NetworkAdminApi>
+      )}
+    </QueryClientProvider>
   )
 }
 
@@ -61,6 +92,16 @@ export function Providers({ children }: { children: ReactNode }) {
 // second, never-mounted copy of the library.
 function PrivyAdminApi({ children }: { children: ReactNode }) {
   const { getAccessToken } = usePrivy()
-  const client = useMemo(() => new AdminApiClient({ getAccessToken }), [getAccessToken])
+  const network = useNetwork()
+  const client = useMemo(
+    () => new AdminApiClient({ getAccessToken, network }),
+    [getAccessToken, network],
+  )
+  return <AdminApiProvider client={client}>{children}</AdminApiProvider>
+}
+
+function NetworkAdminApi({ children }: { children: ReactNode }) {
+  const network = useNetwork()
+  const client = useMemo(() => new AdminApiClient({ network }), [network])
   return <AdminApiProvider client={client}>{children}</AdminApiProvider>
 }

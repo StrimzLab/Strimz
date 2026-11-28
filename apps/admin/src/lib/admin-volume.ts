@@ -1,10 +1,5 @@
-import { paymentCurrencies, type Mode, type PaymentCurrency } from '@strimz/shared-types'
+import { paymentCurrencies, type PaymentCurrency } from '@strimz/shared-types'
 import { tokenAmountToNumber } from '@strimz/web-shared/lib/format'
-
-export const MODE_OPTIONS: readonly { value: Mode; label: string }[] = [
-  { value: 'live', label: 'Live' },
-  { value: 'test', label: 'Test' },
-]
 
 export const CURRENCY_OPTIONS: readonly { value: PaymentCurrency; label: string }[] =
   paymentCurrencies.map((c) => ({ value: c, label: c }))

@@ -37,8 +37,8 @@ describe('admin Safe console', () => {
     expect(card).toMatch(/open && !problem && meIsOwner && !signedByMe/u)
   })
 
-  it('refuses to approve when the server is on another chain', () => {
-    expect(read('app/(admin)/admin/safe/page.tsx')).toMatch(/state\.chainId !== CHAIN_ID/u)
+  it('refuses to approve when the server is on another chain than the selected mode', () => {
+    expect(read('app/(admin)/admin/safe/page.tsx')).toMatch(/state\.chainId !== chainId/u)
   })
 
   it('has a page', () => {

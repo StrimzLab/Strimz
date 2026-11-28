@@ -15,12 +15,12 @@ import {
 import { Card, CardContent } from '@strimz/ui'
 
 import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
-import type { Mode, PaymentCurrency } from '@strimz/shared-types'
+import type { PaymentCurrency } from '@strimz/shared-types'
 import { SegmentedToggle } from '@/components/shared/segmented-toggle'
 import { useDashboardMode } from '@strimz/web-shared/lib/dashboard-mode'
 import { formatTokenAmount } from '@strimz/web-shared/lib/format'
 import { formatCurrencyAmounts } from '@strimz/web-shared/lib/currency-totals'
-import { CURRENCY_OPTIONS, MODE_OPTIONS, pivotVolumeByCurrency } from '@/lib/admin-volume'
+import { CURRENCY_OPTIONS, pivotVolumeByCurrency } from '@/lib/admin-volume'
 import {
   useAdminOverview,
   useAdminSignups,
@@ -29,7 +29,7 @@ import {
 } from '@/hooks/admin'
 
 export default function AdminAnalyticsPage() {
-  const [mode, setMode] = React.useState<Mode>(useDashboardMode())
+  const mode = useDashboardMode()
   const [topCurrency, setTopCurrency] = React.useState<PaymentCurrency>('USDC')
   const overviewQuery = useAdminOverview(mode)
   const volumeQuery = useAdminVolume({ mode })
@@ -52,9 +52,6 @@ export default function AdminAnalyticsPage() {
       <PageHeader
         title="Analytics"
         description="Volume + signups across the platform. Bare numbers, no projections. This is what already happened."
-        action={
-          <SegmentedToggle label="Mode" options={MODE_OPTIONS} value={mode} onChange={setMode} />
-        }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

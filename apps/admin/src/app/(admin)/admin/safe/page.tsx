@@ -5,16 +5,13 @@ import { Badge, Button, Card, CardContent } from '@strimz/ui'
 import { arcExplorerTxUrl, getArcChain, getTokenAddress } from '@strimz/shared-config'
 
 import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
-import { env } from '@strimz/web-shared/lib/env'
 import type { SafeKnownAddresses } from '@strimz/web-shared/lib/safe-console'
 import { useAdminMe, useSafeProposals, useSafeState } from '@/hooks/admin'
 import { useOwnerWallet } from '@/hooks/use-owner-wallet'
 import { GuardianPanel } from '@/components/admin/safe/guardian-panel'
 import { ProposalCard } from '@/components/admin/safe/proposal-card'
 import { ProposeForm } from '@/components/admin/safe/propose-form'
-
-const CHAIN_ID = getArcChain(env.arcEnvironment).id
-const explorerTx = (hash: string) => arcExplorerTxUrl(env.arcEnvironment, hash)
+import { useNetwork } from '@strimz/web-shared/lib/dashboard-mode'
 
 export default function SafePage() {
   const me = useAdminMe()
@@ -30,6 +27,9 @@ export default function SafePage() {
 }
 
 function SafeConsole() {
+  const { arcEnvironment } = useNetwork()
+  const chainId = getArcChain(arcEnvironment).id
+  const explorerTx = (hash: string) => arcExplorerTxUrl(arcEnvironment, hash)
   const stateQuery = useSafeState()
   const proposalsQuery = useSafeProposals()
   const wallet = useOwnerWallet()
@@ -63,12 +63,12 @@ function SafeConsole() {
       </div>
     )
   }
-  if (state.chainId !== CHAIN_ID) {
+  if (state.chainId !== chainId) {
     return (
       <div className="space-y-6">
         {header}
         <p role="alert" className="text-danger text-sm">
-          The server reports chain {state.chainId}, but this app is built for chain {CHAIN_ID}.
+          The server reports chain {state.chainId}, but this app is built for chain {chainId}.
           Nothing can be approved until they match.
         </p>
       </div>
@@ -80,8 +80,8 @@ function SafeConsole() {
     timelock: state.timelock,
     contracts: state.contracts,
     tokens: {
-      USDC: getTokenAddress(env.arcEnvironment, 'USDC'),
-      EURC: getTokenAddress(env.arcEnvironment, 'EURC'),
+      USDC: getTokenAddress(arcEnvironment, 'USDC'),
+      EURC: getTokenAddress(arcEnvironment, 'EURC'),
     },
   }
   const mine = wallet.address as Address | null
@@ -148,7 +148,7 @@ function SafeConsole() {
       </div>
 
       {isGuardian && (
-        <GuardianPanel state={state} chainId={CHAIN_ID} wallet={wallet} explorerTx={explorerTx} />
+        <GuardianPanel state={state} chainId={chainId} wallet={wallet} explorerTx={explorerTx} />
       )}
 
       <ProposeForm state={state} />
@@ -174,7 +174,7 @@ function SafeConsole() {
             proposal={p}
             state={state}
             known={known}
-            chainId={CHAIN_ID}
+            chainId={chainId}
             wallet={wallet}
             explorerTx={explorerTx}
           />

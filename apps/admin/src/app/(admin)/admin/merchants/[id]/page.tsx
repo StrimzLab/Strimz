@@ -7,12 +7,9 @@ import { ArrowLeft, Ban, RotateCcw } from 'lucide-react'
 import { Badge, Button, Card, CardContent } from '@strimz/ui'
 
 import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
-import type { Mode } from '@strimz/shared-types'
-import { SegmentedToggle } from '@/components/shared/segmented-toggle'
 import { useDashboardMode } from '@strimz/web-shared/lib/dashboard-mode'
 import { relativeTime, shortAddress } from '@strimz/web-shared/lib/format'
 import { formatCurrencyAmounts } from '@strimz/web-shared/lib/currency-totals'
-import { MODE_OPTIONS } from '@/lib/admin-volume'
 import { tierRefusal } from '@/lib/admin-api/tier-refusal'
 import {
   moveToEnterpriseConfirm,
@@ -33,7 +30,7 @@ import {
 
 export default function AdminMerchantDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const [mode, setMode] = React.useState<Mode>(useDashboardMode())
+  const mode = useDashboardMode()
   const { data: merchant, isLoading, isError, error, refetch } = useAdminMerchantDetail(id, mode)
 
   const suspendMutation = useSuspendMerchant()
@@ -93,7 +90,6 @@ export default function AdminMerchantDetailPage() {
         <span className="text-muted-foreground text-xs">
           Figures below are for {merchant.stats.mode} mode.
         </span>
-        <SegmentedToggle label="Mode" options={MODE_OPTIONS} value={mode} onChange={setMode} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

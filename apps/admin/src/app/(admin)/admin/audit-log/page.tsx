@@ -16,10 +16,10 @@ import {
 } from '@strimz/web-shared/components/dashboard/filter-bar'
 import { dateFilter, multiFilter } from '@strimz/web-shared/lib/table-filters'
 import { relativeTime, shortAddress } from '@strimz/web-shared/lib/format'
-import { env } from '@strimz/web-shared/lib/env'
 import { ForbiddenError } from '@strimz/web-shared/lib/merchant-api/errors'
 import type { AuditCategory, AuditLogEntry } from '@strimz/web-shared/lib/admin-api'
 import { useAdminAuditLog } from '@/hooks/admin'
+import { useNetwork } from '@strimz/web-shared/lib/dashboard-mode'
 
 const CATEGORIES: readonly AuditCategory[] = [
   'admin',
@@ -161,6 +161,7 @@ function AuditLog() {
 }
 
 function AuditRow({ row }: { row: AuditLogEntry }) {
+  const network = useNetwork()
   const [open, setOpen] = React.useState(false)
   const m = row.metadata
   const txHash = typeof m.transactionHash === 'string' ? m.transactionHash : null
@@ -204,7 +205,7 @@ function AuditRow({ row }: { row: AuditLogEntry }) {
         <div className="space-y-2 px-4 pb-4">
           {txHash ? (
             <a
-              href={arcExplorerTxUrl(env.arcEnvironment, txHash)}
+              href={arcExplorerTxUrl(network.arcEnvironment, txHash)}
               target="_blank"
               rel="noreferrer"
               className="text-brand-text inline-flex items-center gap-1 text-xs hover:underline"
