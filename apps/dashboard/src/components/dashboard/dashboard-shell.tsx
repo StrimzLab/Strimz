@@ -8,13 +8,13 @@ import { Button } from '@strimz/ui'
 import { PasskeyMfaPrompt } from '@/components/dashboard/passkey-mfa-prompt'
 import { DashboardSidebar } from './sidebar'
 import { DashboardTopbar } from './topbar'
-import { TestModeBanner } from './test-mode-banner'
+import { TestModeBanner } from '@strimz/web-shared/components/dashboard/test-mode-banner'
 import { DashboardFooter } from './dashboard-footer'
 import { usePrimaryMerchantMe } from '@/hooks/api/use-merchant'
 import { useDashboardMode } from '@strimz/web-shared/lib/dashboard-mode'
 import { addedTestNetwork } from '@strimz/web-shared/lib/networks'
 import { TestAccountReady } from './test-account-ready'
-import { stopDashboardTour } from '@/hooks/use-dashboard-tour'
+import { SIDEBAR_OPEN_EVENT, stopDashboardTour } from '@/hooks/use-dashboard-tour'
 import { hasPasskeyMfa } from '@/hooks/use-passkey-mfa'
 import { dashboardGate, withNext } from '@strimz/web-shared/lib/auth-redirect'
 
@@ -52,6 +52,11 @@ export function DashboardShell({ children, title }: { children: React.ReactNode;
   useEffect(() => stopDashboardTour, [pathname])
 
   const [open, setOpen] = useState(false)
+  useEffect(() => {
+    const openSidebar = () => setOpen(true)
+    window.addEventListener(SIDEBAR_OPEN_EVENT, openSidebar)
+    return () => window.removeEventListener(SIDEBAR_OPEN_EVENT, openSidebar)
+  }, [])
 
   if (gate.kind === 'error') {
     return (
@@ -80,7 +85,9 @@ export function DashboardShell({ children, title }: { children: React.ReactNode;
       <DashboardSidebar open={open} onClose={() => setOpen(false)} />
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <DashboardTopbar title={title} menuOpen={open} onMenuClick={() => setOpen((o) => !o)} />
-        <TestModeBanner />
+        <TestModeBanner>
+          Payments use testnet USDC from the faucet. Nothing here touches real money.
+        </TestModeBanner>
         <PasskeyMfaPrompt />
         <main className="flex flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex-1">

@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@strimz/ui'
-import { useDashboardModeSwitch, type DashboardMode } from '@strimz/web-shared/lib/dashboard-mode'
+import { useDashboardModeSwitch, type DashboardMode } from '../../lib/dashboard-mode'
 
 const LABELS: Record<DashboardMode, string> = { test: 'Test', live: 'Live' }
 
@@ -13,6 +13,7 @@ export function ModeSwitch() {
     <div
       role="group"
       aria-label="Mode"
+      data-tour="mode-switch"
       className="border-border/60 bg-card flex h-9 items-center gap-0.5 rounded-md border p-0.5"
     >
       {control.modes.map((mode) => {

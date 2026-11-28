@@ -1,4 +1,5 @@
 import { env } from '../env'
+import type { Network } from '../networks'
 import { type AccessTokenProvider, defaultAccessTokenProvider } from '../merchant-api/auth-token'
 import { queryParam, type QueryValue } from '../merchant-api/client'
 import { apiErrorFromResponse, AuthenticationError } from '../merchant-api/errors'
@@ -65,10 +66,15 @@ export class AdminApiClient {
   /** Origin of this app. Used for the BFF base. Set at module load. */
   private readonly bffBaseUrl: string
   private readonly getAccessToken: AccessTokenProvider
+  /** Sent to the write routes so they forward to this mode's backend. */
+  private readonly mode: Network['mode'] | null
   private readonly defaultTimeoutMs = 30_000
 
-  constructor(opts: { getAccessToken?: AccessTokenProvider; bffBaseUrl?: string } = {}) {
-    this.apiBaseUrl = env.apiUrl.replace(/\/+$/, '')
+  constructor(
+    opts: { getAccessToken?: AccessTokenProvider; bffBaseUrl?: string; network?: Network } = {},
+  ) {
+    this.apiBaseUrl = (opts.network?.apiUrl ?? env.apiUrl).replace(/\/+$/, '')
+    this.mode = opts.network?.mode ?? null
     this.bffBaseUrl = (opts.bffBaseUrl ?? '').replace(/\/+$/, '')
     this.getAccessToken = opts.getAccessToken ?? defaultAccessTokenProvider
   }
@@ -222,13 +228,13 @@ export class AdminApiClient {
   // The BFF forward reads the Authorization header and re-forwards it
   // upstream, so writes must carry the Privy token just like reads.
   private bff<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>('POST', this.bffBaseUrl + path, { body }, true)
+    return this.request<T>('POST', this.bffBaseUrl + path, { body }, true, true)
   }
   private bffPatch<T>(path: string, body: unknown): Promise<T> {
-    return this.request<T>('PATCH', this.bffBaseUrl + path, { body }, true)
+    return this.request<T>('PATCH', this.bffBaseUrl + path, { body }, true, true)
   }
   private bffDelete<T>(path: string): Promise<T> {
-    return this.request<T>('DELETE', this.bffBaseUrl + path, undefined, true)
+    return this.request<T>('DELETE', this.bffBaseUrl + path, undefined, true, true)
   }
 
   private async request<T>(
@@ -236,8 +242,10 @@ export class AdminApiClient {
     url: string,
     options: RequestOptions | undefined,
     useBearer: boolean,
+    toBff = false,
   ): Promise<T> {
     const headers: Record<string, string> = { accept: 'application/json' }
+    if (toBff && this.mode) headers['x-strimz-mode'] = this.mode
     if (useBearer) {
       const token = await this.getAccessToken()
       if (!token) {

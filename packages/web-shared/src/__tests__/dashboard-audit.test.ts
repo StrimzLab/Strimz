@@ -26,10 +26,11 @@ describe('dashboard audit (#406)', () => {
     'src/app/(admin)/admin/page.tsx',
     'src/app/(admin)/admin/analytics/page.tsx',
     'src/app/(admin)/admin/merchants/[id]/page.tsx',
-  ])('%s starts in the deployment mode', (path) => {
+  ])('%s follows the Test / Live switch (ADR-2026-11-26-test-mode)', (path) => {
     const page = read(path)
-    expect(page).not.toMatch(/useState<Mode>\('live'\)/u)
-    expect(page).toMatch(/useState<Mode>\(useDashboardMode\(\)\)/u)
+    expect(page).toMatch(/const mode = useDashboardMode\(\)/u)
+    expect(page).not.toMatch(/useState<Mode>/u)
+    expect(page).not.toMatch(/label="Mode"/u)
   })
 
   it('keeps CCTP routing unavailable and gates its card on that flag', () => {

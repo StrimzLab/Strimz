@@ -84,6 +84,7 @@ Each Worker also needs:
   - build, test mode (ADR-2026-11-26-test-mode): `NEXT_PUBLIC_TEST_API_URL=https://api-test.strimz.finance`, `NEXT_PUBLIC_TEST_CHECKOUT_URL=https://checkout-test.strimz.finance`, `NEXT_PUBLIC_TEST_ARC_RPC_URL=https://rpc.testnet.arc.io`, and `NEXT_PUBLIC_TEST_STRIMZ_PUBLISHABLE_KEY` once Strimz's test account has one. Without the API and checkout URLs, the dashboard is live only and shows no Test / Live switch;
   - secret: `UPLOADTHING_TOKEN`.
 - **`strimz-admin`:** `NEXT_PUBLIC_APP_URL=https://admin.strimz.finance`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_PRIVY_APP_ID`, `NEXT_PUBLIC_ARC_ENVIRONMENT`, `NEXT_PUBLIC_ARC_RPC_URL`.
+  - Test mode (ADR-2026-11-26-test-mode): `NEXT_PUBLIC_TEST_API_URL`, `NEXT_PUBLIC_TEST_CHECKOUT_URL` and `NEXT_PUBLIC_TEST_ARC_RPC_URL`, the same values as on `strimz-dashboard`. Without the first two, admin is live only and shows no switch. An admin also needs an account on the test backend: bootstrap the super admin there (`docs/runbooks/testnet-deployment.md`, step 4), and invite others from admin while it's in Test.
 - **`strimz-checkout`:**
   - `NEXT_PUBLIC_APP_URL=https://checkout.strimz.finance`;
   - `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_ARC_ENVIRONMENT`, `NEXT_PUBLIC_ARC_RPC_URL`;

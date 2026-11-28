@@ -17,6 +17,8 @@ import {
 } from 'lucide-react'
 import { useEffect, type ReactNode } from 'react'
 import { Button, ThemeToggle } from '@strimz/ui'
+import { ModeSwitch } from '@strimz/web-shared/components/dashboard/mode-switch'
+import { TestModeBanner } from '@strimz/web-shared/components/dashboard/test-mode-banner'
 
 import { useAdminMe } from '@/hooks/admin'
 import type { AdminRole } from '@strimz/web-shared/lib/admin-api'
@@ -163,9 +165,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="border-border/60 flex h-14 shrink-0 items-center justify-end border-b px-6 sm:px-8">
+        <header className="border-border/60 flex h-14 shrink-0 items-center justify-end gap-2 border-b px-6 sm:px-8">
+          <ModeSwitch />
           <ThemeToggle />
         </header>
+        <TestModeBanner>
+          You&apos;re looking at the test backend: testnet merchants, payments and settings only.
+        </TestModeBanner>
         <main className="flex-1 overflow-y-auto p-6 sm:p-8">{children}</main>
       </div>
     </div>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 
 import { env } from '@strimz/web-shared/lib/env'
+import { networks, primaryNetwork } from '@strimz/web-shared/lib/networks'
 
 /**
  * Shared BFF forwarding helper for `/api/admin/*` route handlers.
@@ -35,6 +36,15 @@ const ALLOWED_ORIGINS = new Set([
   'https://www.strimz.finance',
 ])
 
+/**
+ * The API for the admin's selected mode, from this build's own settings (ADR-2026-11-26-test-mode).
+ * Null for a mode the build doesn't have, so the browser can't point a write anywhere else.
+ */
+export function adminUpstreamBase(mode: string | null): string | null {
+  if (mode === null) return primaryNetwork.apiUrl
+  return networks.find((n) => n.mode === mode)?.apiUrl ?? null
+}
+
 interface ForwardOptions {
   method: 'POST' | 'PATCH' | 'DELETE'
   /** Path on apps/api, e.g. `/v1/admin/merchants/abc/suspend`. */
@@ -62,6 +72,14 @@ export async function forwardAdminWrite(req: Request, opts: ForwardOptions): Pro
     )
   }
 
+  const upstreamBase = adminUpstreamBase(req.headers.get('x-strimz-mode'))
+  if (!upstreamBase) {
+    return NextResponse.json(
+      { error: { code: 'mode_unavailable', message: 'this admin has no such mode' } },
+      { status: 400 },
+    )
+  }
+
   // 3. Audit context. The client IP and user-agent are surfaced via
   // forwarded headers; apps/api reads them when writing the audit log.
   const reqHeaders = await headers()
@@ -78,7 +96,7 @@ export async function forwardAdminWrite(req: Request, opts: ForwardOptions): Pro
     fwdHeaders['content-type'] = 'application/json'
   }
 
-  const upstream = new URL(opts.upstreamPath, env.apiUrl).toString()
+  const upstream = new URL(opts.upstreamPath, upstreamBase).toString()
   const res = await fetch(upstream, {
     method: opts.method,
     headers: fwdHeaders,

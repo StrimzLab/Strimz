@@ -38,7 +38,9 @@ describe('dashboard tour skin', () => {
     }
   })
 
-  it('describes live keys only', () => {
-    expect(tour).not.toMatch(/test key/iu)
+  // ADR-2026-11-26-test-mode replaced live-only: test keys while building, live keys at launch.
+  it('describes test keys for building and live keys for launch', () => {
+    expect(tour).toMatch(/test keys/iu)
+    expect(tour).toMatch(/live keys/iu)
   })
 })

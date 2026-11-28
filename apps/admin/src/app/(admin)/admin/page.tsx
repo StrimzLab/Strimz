@@ -17,12 +17,12 @@ import {
 import { Card, CardContent, Button } from '@strimz/ui'
 
 import { PageHeader } from '@strimz/web-shared/components/dashboard/page-header'
-import type { Mode, PaymentCurrency } from '@strimz/shared-types'
+import type { PaymentCurrency } from '@strimz/shared-types'
 import { SegmentedToggle } from '@/components/shared/segmented-toggle'
 import { useDashboardMode } from '@strimz/web-shared/lib/dashboard-mode'
 import { formatTokenAmount } from '@strimz/web-shared/lib/format'
 import { formatCurrencyAmounts } from '@strimz/web-shared/lib/currency-totals'
-import { CURRENCY_OPTIONS, MODE_OPTIONS, pivotVolumeByCurrency } from '@/lib/admin-volume'
+import { CURRENCY_OPTIONS, pivotVolumeByCurrency } from '@/lib/admin-volume'
 import {
   useAdminOverview,
   useAdminSignups,
@@ -39,7 +39,7 @@ import {
  * read paths feed straight from `/v1/admin/*` without any BFF hop.
  */
 export default function AdminOverviewPage() {
-  const [mode, setMode] = React.useState<Mode>(useDashboardMode())
+  const mode = useDashboardMode()
   const [topCurrency, setTopCurrency] = React.useState<PaymentCurrency>('USDC')
   const overviewQuery = useAdminOverview(mode)
   const volumeQuery = useAdminVolume({ mode })
@@ -64,9 +64,6 @@ export default function AdminOverviewPage() {
       <PageHeader
         title="Platform overview"
         description="Strimz across every merchant. Volume, fees, signups, top performers, MRR."
-        action={
-          <SegmentedToggle label="Mode" options={MODE_OPTIONS} value={mode} onChange={setMode} />
-        }
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
