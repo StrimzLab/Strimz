@@ -12,10 +12,10 @@ For static reference, the resources are:
 Every request requires a Bearer token:
 
 - **Dashboard auth**: a Privy access token (`POST /v1/auth/sync` first).
-- **SDK auth**: a merchant secret API key (prefix `sk_live_…`).
+- **SDK auth**: a merchant secret API key (prefix `sk_test_…` in test mode, `sk_live_…` in live mode).
 
 ```http
-Authorization: Bearer sk_live_xxx
+Authorization: Bearer sk_test_xxx
 ```
 
 ## Resources

@@ -20,9 +20,10 @@ cannot become a double charge. Arc finalises a block in under a
 second, so a payment is settled for good by the time your webhook
 fires.
 
-<Callout title="Live on Arc" type="info">
+<Callout title="Test first, then go live" type="info">
   All examples in these docs assume Arc, Circle's stablecoin-native L1 where USDC is the gas token.
-  Strimz runs in live mode only. See [Testing your integration](/docs/testing).
+  Build in test mode on Arc testnet with free test USDC, then swap to live keys for real payments.
+  See [Test mode and live mode](/docs/testing).
 </Callout>
 
 ## Get started in 5 minutes
@@ -41,9 +42,9 @@ fires.
     description="Privy for the dashboard, API keys for the SDK, with scopes you control."
   />
   <Card
-    title="Testing your integration"
+    title="Test mode and live mode"
     href="/docs/testing"
-    description="Try Strimz end to end with a small real payment that comes back to you."
+    description="Free test USDC from the faucet, test keys, and going live with a key swap."
   />
   <Card
     title="Modes of failure"

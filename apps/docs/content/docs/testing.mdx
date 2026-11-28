@@ -1,28 +1,76 @@
 ---
-title: Testing your integration
-description: Try Strimz end to end with a small real payment.
+title: Test mode and live mode
+description: Build and try everything with free test USDC, then go live by swapping your keys.
 ---
 
-Strimz runs in live mode only. There is no separate test environment and no test keys. To try your integration, make a small real payment to yourself, for example 1 USDC.
+Strimz has two modes. **Test mode** runs on Arc testnet with free test USDC, so you can build and try every flow without spending money. **Live mode** runs on Arc mainnet and takes real payments. When your integration works in test mode, you go live by swapping your test keys for live keys.
 
-## Why this costs almost nothing
+|                 | Test mode                                       | Live mode                         |
+| --------------- | ----------------------------------------------- | --------------------------------- |
+| Network         | Arc testnet                                     | Arc mainnet                       |
+| Money           | test USDC and EURC from a faucet, worth nothing | real USDC and EURC                |
+| Keys            | `sk_test_…` and `pk_test_…`                     | `sk_live_…` and `pk_live_…`       |
+| API             | `https://api-test.strimz.finance`               | `https://api.strimz.finance`      |
+| Hosted checkout | `https://checkout-test.strimz.finance`          | `https://checkout.strimz.finance` |
 
-- **The money comes back to you.** You pay from one wallet and it lands in your own payout wallet.
-- **The fee is refunded.** On the Free plan, Strimz refunds its fee on your first 1,000 USDC and first 1,000 EURC. See [Fees and your free $1,000](/docs/concepts/fees).
-- **Strimz pays the network fee** in most cases, so your test payer only needs the amount itself.
+The two modes never share data. Payments, customers, plans, keys and webhook endpoints you create in test mode stay in test mode. A test key never works in live mode, and a live key never works in test mode.
 
-## How to run a test
+## Your account has both
 
-1. Issue a secret key in **API keys** (`sk_live_…`) and keep it on your server.
-2. Create a payment session for a small amount from your server (see the [Quickstart](/docs/quickstart)), or create a payment link in the dashboard.
-3. Open the checkout and pay it from a second wallet that holds a little USDC or EURC.
-4. Watch the session move to `confirmed` in **Payment sessions**, and your webhook endpoint receive `payment.completed`.
+When you sign up, Strimz sets up your test account and your live account together, with the same business details. If you signed up before test mode existed, your test account is created the first time you open test mode.
 
-Test subscriptions the same way: subscribe to a plan with a small amount, then cancel it from the payer's side.
+In the dashboard, the **Test / Live** switch in the top bar chooses which mode you're looking at. In test mode a yellow bar across the top reminds you that nothing there touches real money. The switch only changes what you see and where the dashboard sends requests; each mode still checks its own keys on the server.
+
+## Get test USDC
+
+Test payments need test USDC on Arc testnet. Circle's faucet gives it out for free:
+
+1. Go to [faucet.circle.com](https://faucet.circle.com).
+2. Choose **Arc Testnet** as the network and **USDC** as the token. Choose EURC instead to test EURC payments.
+3. Paste the wallet address you want to pay from, and send.
+4. Check the balance in your wallet, or on the [Arc testnet explorer](https://explorer.testnet.arc.io).
+
+Fund a **payer** wallet, the one you'll pay from in checkout. Use a different wallet from your Strimz account's own wallet, so the payment isn't to yourself. Strimz pays the network fee in most cases, so the payer usually only needs the payment amount.
+
+## Build against test mode
+
+1. In the dashboard, switch to **Test** and open **API keys**. Create a secret key (`sk_test_…`) for your server and, if you use the React SDK, a publishable key (`pk_test_…`). In test mode Strimz doesn't ask for your passkey to create keys.
+2. Put the test keys in your app's settings. The SDKs pick the test API from the key, so you don't set a URL:
+
+   ```ts
+   import { StrimzClient } from '@strimz/sdk'
+
+   // sk_test_ keys go to the test API, sk_live_ keys to the live one.
+   const strimz = new StrimzClient({ apiKey: process.env.STRIMZ_SECRET_KEY! })
+   ```
+
+   `StrimzProvider` in `@strimz/sdk-react` does the same with a `pk_test_` key, and also opens the test checkout.
+
+3. Create a payment session or a payment link, open the checkout, and pay it from your funded payer wallet.
+4. Watch the session move to `confirmed` in **Payment links**, and the payment appear in **Transactions**.
+5. Add a webhook endpoint in test mode and check that it receives `payment.completed`. Test and live endpoints are separate, each with its own signing secret.
+
+Try subscriptions the same way: create a plan, subscribe from the payer wallet, and cancel it from the payer's side.
+
+### What's different in test mode
+
+- **Emails say so.** Every email Strimz sends from test mode starts with "[Test]" and says no real money moved. This includes your receipts and your customers'.
+- **Fewer passkey prompts.** Strimz doesn't ask for your passkey to create keys, add webhooks, withdraw or refund in test mode. Your wallet provider still asks before your wallet signs a withdrawal or a refund, at most once every 15 minutes.
+- **No real money.** Test USDC has no value. Don't send real funds to test-mode addresses.
+
+## Go live
+
+When your integration works in test mode:
+
+1. **Switch the dashboard to Live.** Your live account has the same business details.
+2. **Check your payout wallet** in **Settings**. Live payments land there.
+3. **Create live keys** in **API keys** (`sk_live_…`, `pk_live_…`). Live mode asks for your passkey.
+4. **Swap the keys** in your production settings. No code change is needed; the SDKs pick the live API from the key.
+5. **Add your live webhook endpoint** and store its new signing secret. Test endpoints don't carry over.
+6. **Make a first small live payment,** for example 1 USDC, to see real money arrive.
 
 ## Good habits
 
-- **Use small amounts.** The minimum is 1.00 of the stablecoin.
-- **Label your tests,** for example in the session description, so you can tell them apart in your records.
-- **Refund a test if you want to,** from the dashboard. A refund is a transfer from your wallet back to the payer.
-- **Keep keys apart.** Use a separate key for a development machine, with only the scopes it needs, and revoke it when you're done.
+- **Keep test and live keys apart.** Never put a live key in a development machine.
+- **Label your tests,** for example in the session description, so they're easy to spot.
+- **Give each key only the scopes it needs,** and revoke keys you no longer use.

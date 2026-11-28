@@ -42,18 +42,18 @@ custom admin tool, the browser SDK handles the token round-trip for you.
 Every server-side integration uses a Strimz API key:
 
 ```http
-Authorization: Bearer sk_live_xxxxxxxxxxxxxxxxxxxxxxxx
+Authorization: Bearer sk_test_xxx
 ```
 
 Keys come in two kinds:
 
-| Kind        | Prefix     | Use         |
-| ----------- | ---------- | ----------- |
-| Secret      | `sk_live_` | server-side |
-| Publishable | `pk_live_` | browser     |
+| Kind        | Test mode  | Live mode  | Use         |
+| ----------- | ---------- | ---------- | ----------- |
+| Secret      | `sk_test_` | `sk_live_` | server-side |
+| Publishable | `pk_test_` | `pk_live_` | browser     |
 
-Strimz runs in live mode only. There are no test keys; to try your
-integration, see [Testing your integration](/docs/testing).
+Build with test keys, then swap in live keys to go live. A test key only works in test
+mode and a live key only in live mode. See [Test mode and live mode](/docs/testing).
 
 **Secret keys must never reach the browser.** If one leaks, revoke
 it and create a new one.

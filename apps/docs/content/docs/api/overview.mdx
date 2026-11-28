@@ -11,14 +11,14 @@ The Strimz API is a single host (`https://api.strimz.finance`) serving JSON over
 https://api.strimz.finance
 ```
 
-Strimz runs in live mode on Arc mainnet and accepts `sk_live_` keys
-only. See [Authentication](/docs/authentication) and
-[Testing your integration](/docs/testing).
+That's live mode, on Arc mainnet, for `sk_live_` keys. Test mode, on Arc testnet, is at
+`https://api-test.strimz.finance` for `sk_test_` keys. The SDKs choose the right one from your
+key. See [Authentication](/docs/authentication) and [Test mode and live mode](/docs/testing).
 
 ## Authentication
 
 ```http
-Authorization: Bearer sk_live_xxx
+Authorization: Bearer sk_test_xxx
 ```
 
 See [Authentication](/docs/authentication) for the full breakdown.
@@ -96,6 +96,6 @@ Every resource has its own page in the sidebar. The most-used ones:
 A one-line sanity check against the test API:
 
 ```bash
-curl https://api.strimz.finance/v1/merchants/me \
-  -H "Authorization: Bearer sk_live_xxxxxxxxxxx"
+curl https://api-test.strimz.finance/v1/merchants/me \
+  -H "Authorization: Bearer sk_test_xxx"
 ```

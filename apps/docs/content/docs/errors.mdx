@@ -29,7 +29,7 @@ The common codes. The tables below cover the ones you're most likely to see; a f
 | `authentication_error`    | 401  | Missing, invalid, or expired auth token                                                                                                     |
 | `permission_denied`       | 403  | Token is valid but lacks the required scope, or the route accepts only a dashboard session                                                  |
 | `live_mode_ineligible`    | 403  | A live key was requested but the account fails a live-mode check; `details.reasons` lists which                                             |
-| `mode_unavailable`        | 403  | The key is not a live key. Strimz accepts `sk_live_` and `pk_live_` keys only                                                               |
+| `mode_unavailable`        | 403  | The key is for the other mode: a test key sent to the live API, or a live key sent to the test API                                          |
 | `step_up_required`        | 403  | A dashboard change that needs a fresh passkey confirmation (new or rotated API key, new webhook endpoint or rotated secret)                 |
 | `passkey_required`        | 403  | The account has no passkey yet; add one under Settings, Business, Security                                                                  |
 | `plan_required`           | 403  | The feature needs a higher plan; `details.requiredPlan` names it                                                                            |
@@ -172,7 +172,7 @@ Returned when creating or rotating a live key. Each reason's `code` is one of `e
 }
 ```
 
-Strimz accepts live keys (`sk_live_`, `pk_live_`) only. There are no test keys; see [Testing your integration](/docs/testing).
+Each API accepts its own mode's keys: `sk_live_` and `pk_live_` at `api.strimz.finance`, `sk_test_` and `pk_test_` at `api-test.strimz.finance`. The SDKs pick the right API from the key, so this usually means a custom `baseUrl` points at the wrong one. See [Test mode and live mode](/docs/testing).
 
 ### `plan_required`
 

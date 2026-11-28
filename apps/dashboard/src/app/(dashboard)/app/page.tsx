@@ -36,6 +36,7 @@ import {
   useSubscriptionPlans,
   useStatsVolume,
 } from '@/hooks/api'
+import { useDashboardMode } from '@strimz/web-shared/lib/dashboard-mode'
 
 const CHART_DAYS = 30
 
@@ -290,7 +291,7 @@ function FirstRunCard({ paid }: { paid: boolean }) {
   const sessionsQuery = usePaymentSessions({ limit: 1 }, { select: (page) => page.data.length })
   const plansQuery = useSubscriptionPlans({ limit: 1 }, { select: (page) => page.data.length })
   const created = (sessionsQuery.data ?? 0) > 0 || (plansQuery.data ?? 0) > 0
-  const paths = firstRunSteps({ created, paid })
+  const paths = firstRunSteps({ created, paid, mode: useDashboardMode() })
   const [pathId, setPathId] = React.useState<FirstRunPath['id']>('no-code')
   const path = paths.find((p) => p.id === pathId)
   if (!path) return null
