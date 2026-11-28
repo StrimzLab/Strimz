@@ -1,5 +1,11 @@
 # @strimz/shared-config
 
+## 0.14.1
+
+### Patch Changes
+
+- 3834c78: Package links point to the public read-only source at github.com/StrimzLab/strimz-sdk, and support goes to support@strimz.finance.
+
 ## 0.14.0
 
 ### Minor Changes
