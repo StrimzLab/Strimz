@@ -46,7 +46,7 @@ The customer signs two typed-data messages. The first is an EIP-3009
 `ReceiveWithAuthorization` that the token verifies. The second is a
 Strimz `PayIntent` that binds the payment to your specific merchant
 id. Two prompts, one on-chain transaction.
-Strimz's relayer turns those signatures into the on-chain transaction
+Strimz turns those signatures into the on-chain transaction
 and pays the gas. The customer never sees a separate approval prompt
 and never has gas in their wallet. The
 [meta-tx flow page](/docs/concepts/meta-tx-flow) covers the security
@@ -61,9 +61,8 @@ Open **Webhooks**, click **Add endpoint**, and paste in an HTTPS URL.
 Strimz signs every delivery with HMAC-SHA256.
 
 The signing secret comes back exactly once, on the response to the
-create-endpoint call. Save it in your secrets manager immediately. On
-our side it lives only as an AES-256-GCM ciphertext in Postgres, so
-we cannot read it back to you later.
+create-endpoint call. Save it in your secrets manager immediately.
+Strimz stores it encrypted and cannot show it to you again.
 
 Verify the signature on receipt, on your server, against the raw
 request body. `verifyWebhookSignature` is async, so `await` it and check

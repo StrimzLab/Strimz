@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useRef } from 'react'
 import checkIcon from '@iconify-icons/solar/check-circle-linear'
 import arrowIcon from '@iconify-icons/solar/arrow-right-linear'
@@ -21,6 +20,7 @@ import {
   SubscriptionsMock,
 } from './billing-mocks'
 import { siteUrls } from '@strimz/web-shared/lib/site-urls'
+import { SiteLink } from '../site-link'
 
 const SHEETS = [
   {
@@ -232,7 +232,7 @@ export function BillingTools() {
                     </li>
                   ))}
                 </ul>
-                <Link
+                <SiteLink
                   href={s.href}
                   className="font-poppins text-foreground decoration-accent group mt-7 inline-flex items-center gap-1.5 text-[15px] font-medium underline decoration-2 underline-offset-[6px]"
                 >
@@ -241,7 +241,7 @@ export function BillingTools() {
                     icon={arrowIcon}
                     className="size-4 transition-transform duration-200 group-hover:translate-x-1"
                   />
-                </Link>
+                </SiteLink>
               </div>
               <div
                 data-mock

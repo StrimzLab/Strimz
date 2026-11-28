@@ -64,12 +64,12 @@ fires.
   <Card
     title="Build a subscription"
     href="/docs/guides/subscriptions"
-    description="Recurring revenue with one customer signature. The scheduler charges each period, and the contract refuses a double charge."
+    description="Recurring revenue with one customer signature. Strimz charges each period, and the contract refuses a double charge."
   />
   <Card
     title="Process a refund"
     href="/docs/guides/refunds"
-    description="Server-side intent + wallet-signed transfer. Indexer reconciles on-chain status automatically."
+    description="Server-side intent + wallet-signed transfer. Strimz tracks the on-chain status for you."
   />
   <Card
     title="Verify a webhook"
@@ -114,12 +114,7 @@ fires.
   <Card
     title="Concepts"
     href="/docs/concepts/overview"
-    description="The six processes that make up Strimz, how data flows, what's idempotent vs eventually consistent."
-  />
-  <Card
-    title="Self-hosting"
-    href="/docs/self-hosting/overview"
-    description="The full stack is open source. Audit it, fork it, run it on your own infrastructure."
+    description="What happens between creating a payment and the money landing in your wallet."
   />
 </Cards>
 
@@ -142,11 +137,11 @@ A short tour of what you get out of the box.
   />
   <Card
     title="Refund pipeline"
-    description="Wallet-signing instructions returned in the create response. Indexer closes the loop."
+    description="Wallet-signing instructions returned in the create response. Strimz confirms it on chain."
   />
   <Card
     title="Analytics"
-    description="MRR, churn, conversion, LTV, 90-day forecast. SQL-backed against your own Postgres."
+    description="MRR, churn, conversion, LTV and a 90-day forecast, from your own payments."
   />
   <Card title="AutoPay Agent" description="Recovery emails, cashflow digest, anomaly detection." />
   <Card
@@ -165,9 +160,8 @@ These docs assume you know what an HTTP request looks like, so they
 skip the lecture on JSON. They try to get to the curl command
 quickly. If a section is too long or too short, that's worth fixing.
 
-If something is wrong, unclear, or out of date,
-[open an issue](https://github.com/StrimzLab/strimz/issues/new).
-Docs PRs go through the same review as code PRs.
+If something is wrong, unclear, or out of date, email
+**support@strimz.finance**.
 
 <Callout title="Need help fast?" type="info">
   Email **support@strimz.finance**. Starter, Growth and Enterprise merchants get priority email

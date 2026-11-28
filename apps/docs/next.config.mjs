@@ -15,7 +15,11 @@ const config = {
   // Fumadocs MDX generates `.source` at the project root, outside `src/`.
   ...baseNextConfig({ aliases: { '@/.source': path.resolve(__dirname, '.source') } }),
   redirects() {
-    return Promise.resolve([{ source: '/', destination: '/docs', permanent: true }])
+    return Promise.resolve([
+      { source: '/', destination: '/docs', permanent: true },
+      // The self-hosting pages were removed (#586).
+      { source: '/docs/self-hosting/:path*', destination: '/docs', permanent: true },
+    ])
   },
 }
 

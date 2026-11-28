@@ -17,14 +17,14 @@ token along with every API request:
 Authorization: Bearer <privy-access-token>
 ```
 
-The Strimz API verifies the token with Privy's server-side library, finds
-the merchant by `privyUserId`, and attaches them to the request. The very
+The Strimz API verifies the token with Privy, finds the merchant, and
+attaches them to the request. The very
 first time a new merchant logs in, you'll see a `merchant_not_synced`
 error. The dashboard handles this automatically by calling
-`POST /v1/auth/sync` to create the merchant row, then retrying the
+`POST /v1/auth/sync` to create the merchant account, then retrying the
 original request.
 
-Creating that row needs a Cloudflare Turnstile token from the sign-up
+Creating that account needs a Cloudflare Turnstile token from the sign-up
 page, which the API checks before it creates anything. Without one, sync
 answers `428 turnstile_required`, and the dashboard shows the check again.
 Existing merchants never need a token.

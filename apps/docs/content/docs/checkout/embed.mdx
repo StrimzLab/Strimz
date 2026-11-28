@@ -1,11 +1,11 @@
 ---
 title: Embedded checkout
-description: When a redirect doesn't fit. Render Strimz checkout inside your own page with the React SDK. Strimz still owns the wallet flow, the relayer, and the on-chain submission.
+description: When a redirect doesn't fit. Render Strimz checkout inside your own page with the React SDK. Strimz still owns the wallet flow and the on-chain submission.
 ---
 
 Hosted is the path most merchants take. Embedded is the answer when a redirect doesn't fit, usually because the checkout is one step inside a multi-step product flow that you don't want to break.
 
-With embedded, the checkout renders inside your page instead of on a separate one. Strimz still owns the wallet flow, the relayer, and the on-chain submission. You own the page around it.
+With embedded, the checkout renders inside your page instead of on a separate one. Strimz still owns the wallet flow and the on-chain submission. You own the page around it.
 
 ## When to actually pick embedded
 
@@ -140,11 +140,11 @@ Fulfilment. Grant access or ship the order from your [webhook handler](/docs/gui
 
 The wallet flow. Wallet connect, the typed-data prompts, and the chain switch all happen inside the checkout.
 
-The relayer. We pay the gas. We broadcast.
+The on-chain submission. We pay the gas. We broadcast.
 
-The indexer. We watch for the on-chain confirmation and project it into the session.
+The confirmation. We watch for the payment on chain and update the session.
 
-The webhook. Once the indexer confirms, we fire `payment.completed` to whatever endpoints you've subscribed.
+The webhook. Once the payment confirms, we fire `payment.completed` to whatever endpoints you've subscribed.
 
 The state machine. The session statuses are driven entirely by Strimz's backend; the React SDK reads them but doesn't write them.
 

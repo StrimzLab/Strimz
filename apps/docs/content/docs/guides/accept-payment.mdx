@@ -55,7 +55,7 @@ That's the entire client side. The customer lands on
 picker for every major one), and approves two signature prompts: an
 EIP-3009 `ReceiveWithAuthorization` for the token, and the Strimz `PayIntent`.
 
-Neither prompt is a transaction. Strimz's relayer turns the two
+Neither prompt is a transaction. Strimz turns the two
 signatures into the on-chain `payWithAuthorization` call, pays the gas
 itself, and settles the transfer. The customer never pays gas. The fee split (platform fee to
 FeeCollector, net to your payout) lands atomically in the same
@@ -63,7 +63,7 @@ transaction.
 
 The full security model lives on the
 [meta-tx flow page](/docs/concepts/meta-tx-flow): what the customer
-signs, why the relayer cannot move funds on its own, how the
+signs, why Strimz cannot move funds on its own, how the
 signature expires.
 
 ## Webhook: react when it confirms
@@ -109,16 +109,16 @@ app.post('/webhooks/strimz', express.raw({ type: 'application/json' }), async (r
 - **Session expiry**: 30 minutes by default (set `expiresInMinutes`, up to one day). If the customer doesn't pay in time, the session goes to `expired` and you'll receive `payment.failed`. Create a new session.
 - **Customer changes their mind mid-checkout**: they hit the back button, you see no webhook. Don't fulfill until you receive `payment.completed`. The session stays `created` or `awaiting_payment` until it expires.
 - **Customer pays the same session twice**: the token authorization's nonce is derived from the session id, so the token contract rejects a second authorization for the same session.
-- **Finality**: Arc has deterministic finality. The indexer stays `CONFIRMATIONS` blocks behind the chain head (required; `1` is recommended), so a `confirmed` session doesn't flip back.
+- **Finality**: Arc has deterministic finality, so a `confirmed` session doesn't flip back.
 
 ## What just happened on-chain
 
-The customer's wallet signed an EIP-3009 authorisation. Strimz's
-relayer wrapped it into a `StrimzPayments.payWithAuthorization` call
+The customer's wallet signed an EIP-3009 authorisation. Strimz
+wrapped it into a `StrimzPayments.payWithAuthorization` call
 and broadcast the transaction. Arc settled it in under a second.
 Your `payoutAddress` received `amount - feeAmount` USDC immediately.
-The indexer picked up the `PaymentExecuted` event, matched its
-`ref` to your `PaymentSession.id`, inserted a
-`Transaction(kind=one_shot, status=confirmed)`, and fired
+Strimz saw the `PaymentExecuted` event on chain, matched its
+`ref` to your payment session, recorded a
+`one_shot` transaction with status `confirmed`, and fired
 `payment.completed`. End to end (the click to your webhook handler)
 takes about 20 seconds.

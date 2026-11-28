@@ -15,18 +15,15 @@ so they don't have to bridge first.
 
 ## What exists today
 
-Only part of the destination side is built. The agent has a bridge worker
-that polls Circle's attestation API for a burn, every 30 seconds for up to
-120 polls (about an hour). Nothing in checkout starts a bridge yet, so the
-worker never receives a job in production. When attestation doesn't land
-in time, the worker gives up and logs it. There is no automatic refund.
+Only part of the Arc side is built. Nothing in checkout starts a
+cross-chain payment yet.
 
 ## What's coming
 
 1. The customer picks their source chain in checkout.
 2. They sign a `depositForBurn` on that chain, which burns USDC.
 3. Strimz waits for Circle's attestation.
-4. The scheduler calls `MessageTransmitter.receiveMessage(message, attestation)`
+4. Strimz calls `MessageTransmitter.receiveMessage(message, attestation)`
    on Arc and the USDC lands in your wallet.
 
 This page will describe the supported chains, dashboard view and failure

@@ -17,7 +17,7 @@ The contract emits `SubscriptionChargeSkipped(subId, attemptId, outcome)` instea
 - `TransferFailed`. The token transfer failed, for example because the token blocklisted the payer.
 - `MerchantInactive`. The merchant is not active in the registry.
 
-The indexer projects these into `SubscriptionCharge(status: failed, outcome: <enum>)`, fires `subscription.charge_failed`, and flips the `Subscription` to `at_risk`. The scheduler retries after 15m, 1h, 3h, 6h, 12h, then every 24h. The agent's recovery capability (if enabled) emails the customer per your `recoveryStrategy`. If no charge succeeds within 48 hours of the period end, the scheduler's hourly `subscription-lapsed` cron flips the sub to `lapsed` and fires `subscription.lapsed`.
+Strimz records each one as a failed charge with its outcome, fires `subscription.charge_failed`, and flips the subscription to `at_risk`. Strimz retries after 15m, 1h, 3h, 6h, 12h, then every 24h. The AutoPay Agent's recovery capability (if enabled) emails the customer per your `recoveryStrategy`. If no charge succeeds within 48 hours of the period end, Strimz flips the sub to `lapsed` within the hour and fires `subscription.lapsed`.
 
 Other outcomes are recorded but change nothing: `Cancelled` (already cancelled), `NotDue` (charged before `nextChargeAt`), `Duplicate` (attempt id already used), `Ended` and `Unknown`.
 
@@ -42,24 +42,24 @@ After permanent failure:
 
 1. Strimz emails the merchant with the delivery ID, last response, and last error.
 2. If the same endpoint has had 5+ permanent failures in 24 hours, the endpoint auto-disables (status: `disabled`) and a separate notice goes out. You re-enable from the dashboard.
-3. The delivery row stays in your `WebhookDelivery` table with `status='permanently_failed'` and `lastError` for triage. You can manually replay via `POST /v1/webhook-deliveries/:id/replay`.
+3. The delivery stays in your dashboard with `status='permanently_failed'` and `lastError` for triage. You can manually replay via `POST /v1/webhook-deliveries/:id/replay`.
 
 ## The on-chain payment is broadcast but doesn't confirm
 
-Arc has deterministic sub-second finality, so a confirmed transaction is not reorged away. The indexer projects after `CONFIRMATIONS` blocks; the setting is required and 1 is recommended. If a `batchCharge` broadcast fails or never lands, the worker releases the lock and the next sweep tries again. If the earlier attempt did land, the contract skips the repeat with outcome `Duplicate` (or `NotDue` once the period has moved on), so the payer is not charged twice.
+Arc has deterministic sub-second finality, so a confirmed transaction is not reorged away. If a `batchCharge` broadcast fails or never lands, Strimz tries again on its next check, about 15 minutes later. If the earlier attempt did land, the contract skips the repeat with outcome `Duplicate` (or `NotDue` once the period has moved on), so the payer is not charged twice.
 
 ## A customer cancels their subscription on-chain (without telling you)
 
-The contract emits `SubscriptionCancelled(subId, by)`. The indexer projects `Subscription.status = cancelled` and `cancellationReason = 'on-chain cancel by 0x… in tx 0x…'`. No `subscription.cancelled` webhook fires for an on-chain cancel today, so check `GET /v1/subscriptions/:id` if your records disagree.
+The contract emits `SubscriptionCancelled(subId, by)`. Strimz sets the subscription's `status` to `cancelled` and `cancellationReason = 'on-chain cancel by 0x… in tx 0x…'`. Strimz then sends `subscription.cancelled`. If your records still disagree, check `GET /v1/subscriptions/:id`.
 
 ## A refund tx is signed but never broadcast
 
 The merchant created a refund (status: `awaiting_signature`) but didn't sign and send it. The refund stays in `awaiting_signature` until manually voided (cancel via dashboard) or the merchant does eventually broadcast.
 
 If they broadcast but submit the wrong tx hash to
-`POST /v1/refunds/:id/signature`, the indexer's ERC-20 matcher
-finds no corresponding Transfer event and the row sits in
-`submitted`. Re-submit the correct hash to fix it; the row updates
+`POST /v1/refunds/:id/signature`, Strimz finds no matching
+Transfer event on chain and the refund sits in
+`submitted`. Re-submit the correct hash to fix it; the refund updates
 idempotently.
 
 ## API key leaks
@@ -74,7 +74,7 @@ These are real failure modes you should still build for:
 - **Strimz API is down**. Strimz is a single hosted service today. Outage equals downtime, and no plan carries an uptime SLA today. The on-chain layer keeps working. Payments via direct contract calls still settle.
 - **Arc network outage**. Same idea: this is a chain-level event. Strimz inherits Arc's availability.
 
-For anything not on this page,
-[open an issue](https://github.com/StrimzLab/strimz/issues/new).
+For anything not on this page, email
+[support@strimz.finance](mailto:support@strimz.finance).
 New failure modes and their recovery get documented here as they
 come up.

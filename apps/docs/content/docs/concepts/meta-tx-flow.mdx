@@ -28,7 +28,7 @@ ordering.
 
 USDC and EURC support signature schemes that let a third party submit
 the transaction on the customer's behalf, as long as the customer's
-signature authorises it. Strimz's relayer turns the signatures into
+signature authorises it. Strimz turns the signatures into
 the on-chain transaction. The customer never broadcasts.
 
 Every meta-tx flow needs a second signature. That signature is a
@@ -44,8 +44,8 @@ merchant.
 
 The token standards are not a Strimz invention. Circle's USDC
 implements both natively. Strimz signs the token message and its own
-intent with the same wallet, then routes both signatures to the
-relayer.
+intent with the same wallet, then sends both signatures to
+Strimz, which submits them.
 
 ## What the customer actually signs
 
@@ -117,7 +117,7 @@ through ERC-1271 (`isValidSignature`).
 This means:
 
 - **Strimz cannot move a customer's funds without both signatures.**
-  The relayer holds no authority. It only submits the pair the
+  Strimz's own key holds no authority. It only submits the pair the
   customer minted in their wallet.
 - **Signatures are single-use.** EIP-3009 tracks a `nonce`
   per-authorizer. EIP-2612 tracks a monotonic per-owner nonce. Either
@@ -140,12 +140,11 @@ This means:
 sequenceDiagram
   participant Wallet
   participant Checkout as Strimz checkout
-  participant Relay as Strimz relayer
+  participant Relay as Strimz
   participant Contract as StrimzPayments
   Wallet->>Checkout: signTypedData(ReceiveWithAuthorization)
   Wallet->>Checkout: signTypedData(PayIntent)
   Checkout->>Relay: POST { authSignature, intentSignature }
-  Relay->>Relay: KMS-sign the on-chain tx
   Relay->>Contract: payWithAuthorization(...)
   Contract->>Contract: verify intent, verify auth, settle USDC
   Contract-->>Relay: receipt
@@ -153,11 +152,10 @@ sequenceDiagram
   Checkout-->>Wallet: "Payment confirmed"
 ```
 
-The relayer's signing key lives in a KMS-backed signer. Software for
-v1, hardware-backed once funded. The key only authorises Strimz to
-spend its own gas. The contracts authorise the customer's signatures,
-not the relayer's, so a relayer compromise costs Strimz some gas and
-nothing else. Customer funds stay where they are.
+Strimz pays the network fee for this transaction. Its key only
+authorises Strimz to spend its own gas. The contracts authorise the
+customer's signatures, not Strimz's key, so that key cannot move
+customer funds.
 
 ## What this means for your integration
 

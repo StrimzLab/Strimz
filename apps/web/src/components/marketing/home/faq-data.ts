@@ -45,7 +45,7 @@ export const FAQS = [
   },
   {
     q: 'Where can I find the technical details?',
-    a: 'In the docs at docs.strimz.finance: the API, SDKs, webhook signatures, contract architecture and error codes, from a 5-minute quickstart to self-hosting.',
+    a: 'In the docs at docs.strimz.finance: a 5-minute quickstart, guides for payments, subscriptions and invoices, the API and SDKs, webhooks and error codes.',
   },
 ] as const
 

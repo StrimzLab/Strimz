@@ -1,133 +1,37 @@
 ---
-title: How Strimz fits together
-description: A 90-second tour of the six processes and what each one does.
+title: How Strimz works
+description: What happens between creating a payment and the money landing in your wallet.
 ---
 
-Strimz runs as six processes. You only ever call one of them directly,
-the API. Knowing what the other five do is mostly useful when something
-breaks and you need to pick the right log file.
+You talk to Strimz through the API, the SDKs or the dashboard. Everything else, from the wallet prompts to the network fee to the webhook, Strimz handles for you.
 
-## Architecture at a glance
+## A one-time payment
 
-```text
-                ┌──────────────┐
-                │   apps/web   │  Marketing · Dashboard · Hosted checkout · Docs
-                └──────┬───────┘
-                       │ HTTPS
-                ┌──────▼───────┐
-                │   apps/api   │  Nest + Fastify · Privy auth · OpenAPI 3.1
-                └──┬───────┬───┘
-                   │       │
-        ┌──────────┘       └──────────┐
-        ▼                              ▼
- ┌─────────────┐               ┌──────────────┐
- │ Postgres    │               │     Redis    │
- │  (data)     │               │   (queues)   │
- └──────┬──────┘               └───────┬──────┘
-        │                              │
-        ▼                              ▼
- ┌─────────────┐               ┌──────────────┐
- │   indexer   │               │   scheduler  │
- │   (Go)      │  ◀──Arc RPC──▶│  (Nest+BullMQ)
- └─────────────┘               │  cron+webhook│
-        ▲                      └───────┬──────┘
-        │                              │
-        │           ┌──────────────────┘
-        │           ▼
-        │    ┌──────────────┐
-        └────│    agent     │  Background AI worker
-             │ (Nest+cron)  │  Read-only · emails · digests
-             └──────────────┘
-```
+1. **You create a payment session** (or a payment link) with an amount and a currency. Strimz returns a checkout URL.
+2. **Your customer opens the hosted checkout** and connects a wallet. They approve the payment with signatures, not a transaction, so they don't need gas.
+3. **Strimz submits the payment on Arc** and pays the network fee.
+4. **The money lands in your payout wallet** in the same transaction, minus the Strimz fee. Strimz never holds it.
+5. **Strimz records the payment** in your dashboard and sends `payment.completed` to your webhook endpoint, with the on-chain transaction hash.
 
-Requests hit `apps/api`. It writes to Postgres and pushes background
-work onto Redis. When a payer submits an EIP-3009 or EIP-2612
-signature, the relayer module inside `apps/api` signs and broadcasts
-the on-chain transaction with a KMS-managed key. The scheduler runs
-the cron side of the system: subscription charges, retry sweeps, and
-the webhook delivery queue. The indexer watches Arc and writes the
-events it sees back to Postgres. The agent reads from Postgres but
-never signs anything.
+## A subscription
 
-## The six processes
+1. **Your customer subscribes once** in the hosted checkout. They approve the plan's amount and schedule with a signature.
+2. **Strimz charges them on each billing date,** straight from their wallet to yours. They don't have to come back.
+3. **If a charge fails,** for example because their balance is low, Strimz retries and emails them. You get webhooks for each step: `subscription.charge_failed` when a charge fails, `subscription.charged` when one succeeds and, if it never recovers within the grace window, `subscription.lapsed`.
 
-<Cards>
-  <Card
-    title="apps/api"
-    href="/docs/self-hosting/overview"
-    description="Nest + Fastify. Validates input with Zod, writes to Postgres, fires events. Also hosts the relayer that broadcasts payer-signed meta-transactions. The relayer's key is held by a KMS provider; the API process never sees raw bytes."
-  />
-  <Card
-    title="apps/indexer"
-    href="/docs/self-hosting/indexer"
-    description="Go process polling Arc RPC. Decodes contract events, projects them into Postgres tables. Re-derives state from chain history."
-  />
-  <Card
-    title="apps/scheduler"
-    href="/docs/self-hosting/scheduler"
-    description="Nest + BullMQ. Runs cron jobs (subscription charges and retry sweeps) and the webhook delivery queue. On startup it decrypts the webhook signing secrets out of Postgres so the delivery worker can read them from Redis."
-  />
-  <Card
-    title="apps/agent"
-    href="/docs/self-hosting/agent"
-    description="The AutoPay Agent. Hourly + daily crons. Recovery emails, cashflow digests, anomaly detection. Cross-chain routing is coming; payers pay on Arc only today. Holds no key."
-  />
-  <Card
-    title="apps/web"
-    href="https://github.com/StrimzLab/strimz/tree/main/apps/web"
-    description="Next.js. Marketing site, merchant dashboard, hosted checkout, public storefronts, and these docs all live in the same app."
-  />
-  <Card
-    title="packages/contracts"
-    href="https://github.com/StrimzLab/strimz/tree/main/packages/contracts"
-    description="Foundry workspace. Payments and Subscriptions are immutable. Registry, FeeCollector, and TokenWhitelist are UUPS-upgradeable. Every contract uses ERC-7201 namespaced storage."
-  />
-</Cards>
+Either side can cancel at any time. See [Subscriptions](/docs/subscriptions/lifecycle).
 
-## Repository layout
+## Test mode and live mode
 
-<Files>
-  <Folder name="strimz" defaultOpen>
-    <Folder name="apps">
-      <File name="api" />
-      <File name="indexer" />
-      <File name="scheduler" />
-      <File name="agent" />
-      <File name="web" />
-    </Folder>
-    <Folder name="packages">
-      <File name="contracts" />
-      <File name="sdk" />
-      <File name="sdk-react" />
-      <File name="ui" />
-      <File name="db" />
-      <File name="shared-config" />
-      <File name="shared-types" />
-      <File name="shared-crypto" />
-    </Folder>
-  </Folder>
-</Files>
-
-## Where to look when something is wrong
-
-Each process owns a well-defined slice of behaviour. Knowing which
-slice covers the symptom is usually enough to pick the right log.
-
-| Symptom                                | Process to check                         |
-| -------------------------------------- | ---------------------------------------- |
-| API returning 5xx                      | `apps/api` logs                          |
-| Subscriptions not charging on schedule | `apps/scheduler` (sweeper tick + worker) |
-| Webhooks failing or stuck retrying     | `apps/scheduler` (delivery worker)       |
-| New on-chain payment not in dashboard  | `apps/indexer` (cursor caught up?)       |
-| Merchant not getting daily digest      | `apps/agent` (cashflow cron logs)        |
+Everything above works the same in both modes. Test mode uses free test USDC on Arc testnet; live mode moves real money on Arc mainnet. See [Test mode and live mode](/docs/testing).
 
 ## What you don't need to think about
 
 <Callout title="Built-in guarantees" type="info">
 
 - **On-chain idempotency.** The contract's `usedAttempts[id]` mapping makes a charge attempt safe to replay: a reused id is skipped with outcome `Duplicate`, never charged twice.
-- **Webhook delivery retries.** The scheduler makes 5 attempts, waiting 1m, 5m, 30m and 2h between them. If all five fail, you get an email, and 5 permanent failures in 24 hours auto-disable the endpoint.
-- **Finality.** Arc has deterministic sub-second finality, so there are no reorgs to wait out. The indexer's `CONFIRMATIONS` setting is required, and 1 is the recommended value.
+- **Webhook delivery retries.** Strimz makes 5 attempts, waiting 1m, 5m, 30m and 2h between them. If all five fail, you get an email, and 5 permanent failures in 24 hours auto-disable the endpoint.
+- **Finality.** Arc has deterministic sub-second finality, so a confirmed payment stays confirmed. There are no reorgs to wait out.
 
 </Callout>
 
@@ -142,7 +46,7 @@ slice covers the symptom is usually enough to pick the right log.
   <Card
     title="Idempotency"
     href="/docs/concepts/idempotency"
-    description="How Strimz keeps retries safe at every layer: the API, the scheduler, and the contracts."
+    description="How Strimz keeps retries safe, from your API calls to the charge on chain."
   />
   <Card
     title="On-chain architecture"

@@ -97,7 +97,7 @@ export async function POST() {
 }
 ```
 
-The checkout link is built from the plan id. Strimz hosts the page, which handles wallet connect and the two signatures (the EIP-2612 permit and the `SubscriptionIntent`). Enrolment moves no money. With the 14-day trial the first charge is due when the trial ends; without a trial the scheduler takes it within about 15 minutes. There is no SDK call for the signup itself, and no way to attach metadata to it today.
+The checkout link is built from the plan id. Strimz hosts the page, which handles wallet connect and the two signatures (the EIP-2612 permit and the `SubscriptionIntent`). Enrolment moves no money. With the 14-day trial the first charge is due when the trial ends; without a trial Strimz takes it within about 15 minutes. There is no SDK call for the signup itself, and no way to attach metadata to it today.
 
 ## The webhook handler
 

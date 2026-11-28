@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useRef } from 'react'
 import { FaGithub, FaLinkedin, FaXTwitter } from 'react-icons/fa6'
 import art1 from '@/../public/art/1.svg'
@@ -17,6 +16,7 @@ import {
   useGSAP,
   PLAY_ONCE,
 } from '@strimz/web-shared/components/marketing/motion/gsap'
+import { SiteLink } from './site-link'
 
 const AsciiStage = dynamic(() => import('./fx/ascii-stage').then((m) => m.AsciiStage), {
   ssr: false,
@@ -108,7 +108,7 @@ export function MarketingFooter() {
             <ul className="mt-6 flex items-center gap-2">
               {SOCIAL.map(({ href, label, Icon }) => (
                 <li key={href}>
-                  <Link
+                  <SiteLink
                     href={href}
                     target="_blank"
                     rel="noreferrer"
@@ -116,7 +116,7 @@ export function MarketingFooter() {
                     className="border-border text-muted-foreground hover:border-accent hover:text-foreground focus-visible:ring-accent grid size-10 place-items-center rounded-full border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2"
                   >
                     <Icon className="size-[18px]" />
-                  </Link>
+                  </SiteLink>
                 </li>
               ))}
             </ul>
@@ -128,7 +128,7 @@ export function MarketingFooter() {
                 <ul className="font-poppins text-muted-foreground space-y-3 text-sm">
                   {col.links.map((l) => (
                     <li key={l.href}>
-                      <Link
+                      <SiteLink
                         href={l.href}
                         {...(l.external ? { target: '_blank', rel: 'noreferrer' } : {})}
                         className="from-accent to-accent hover:text-foreground focus-visible:ring-accent group inline-flex items-center gap-1 rounded-sm bg-gradient-to-r bg-[length:0%_1.5px] bg-left-bottom bg-no-repeat pb-0.5 transition-[background-size,color] duration-300 hover:bg-[length:100%_1.5px] focus-visible:outline-none focus-visible:ring-2"
@@ -140,7 +140,7 @@ export function MarketingFooter() {
                             className="size-3.5 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
                           />
                         ) : null}
-                      </Link>
+                      </SiteLink>
                     </li>
                   ))}
                 </ul>

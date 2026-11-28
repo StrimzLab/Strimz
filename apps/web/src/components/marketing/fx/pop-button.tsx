@@ -1,6 +1,7 @@
-import Link from 'next/link'
+import type Link from 'next/link'
 import type { ComponentProps } from 'react'
 import { cn } from '@strimz/ui'
+import { SiteLink } from '../site-link'
 
 // Adapted from Vengeance UI's Pop Button (MIT): https://github.com/Ashutoshx7/VengeanceUI
 
@@ -25,7 +26,7 @@ export function PopLink({
   ...props
 }: PopLinkProps) {
   return (
-    <Link
+    <SiteLink
       data-tone={tone === 'neutral' ? 'neutral' : undefined}
       data-size={size === 'sm' ? 'sm' : undefined}
       data-on-ink={onInk ? '' : undefined}

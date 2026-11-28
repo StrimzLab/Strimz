@@ -44,7 +44,7 @@ draft  →  sent  →  paid
               ↘   overdue
 ```
 
-An hourly scheduler job flips `sent` invoices past `dueAt` to `overdue` and fires `invoice.overdue`. Use this webhook to chase the customer. The AutoPay Agent doesn't follow up on overdue invoices. Any invoice that isn't paid can be voided.
+Strimz checks every hour and flips `sent` invoices past `dueAt` to `overdue` and fires `invoice.overdue`. Use this webhook to chase the customer. The AutoPay Agent doesn't follow up on overdue invoices. Any invoice that isn't paid can be voided.
 
 ## Void
 

@@ -7,14 +7,14 @@ Strimz exposes a small number of resources. Most have a lifecycle of statuses th
 
 ## Merchant
 
-You, basically. Created by Privy on first login. Holds business info
+You, basically. Created when you first sign in. Holds business info
 (name, sector, country, payout address) and configuration (active
 capabilities, agent settings). Most other resources hang off
 `merchantId`.
 
 ## Customer
 
-Anyone who has paid you. Strimz creates a `Customer` row automatically the first time a wallet pays one of your sessions or subscriptions. Unique on `(merchantId, walletAddress)`. The same wallet across two merchants is two distinct rows.
+Anyone who has paid you. Strimz creates a `Customer` automatically the first time a wallet pays one of your sessions or subscriptions. Unique on `(merchantId, walletAddress)`. The same wallet across two merchants is two distinct customers.
 
 ## PaymentSession
 
@@ -37,11 +37,11 @@ trialing  →  active  →  at_risk  →  lapsed
              cancelled   cancelled
 ```
 
-A failed charge moves a sub from `active` to `at_risk`, and the scheduler retries on a backoff. If the recovery agent is on, it emails the customer per your strategy. If no charge succeeds within 48 hours of the period end, the sub flips to `lapsed` and stops attempting charges. See [Subscription lifecycle](/docs/subscriptions/lifecycle). The customer can also cancel directly from their wallet. The indexer projects `SubscriptionCancelled` and Strimz marks the row.
+A failed charge moves a sub from `active` to `at_risk`, and Strimz retries on a backoff. If the AutoPay Agent's recovery capability is on, it emails the customer per your strategy. If no charge succeeds within 48 hours of the period end, the sub flips to `lapsed` and stops attempting charges. See [Subscription lifecycle](/docs/subscriptions/lifecycle). The customer can also cancel directly from their wallet. Strimz sees `SubscriptionCancelled` on chain and marks the subscription cancelled.
 
 ## SubscriptionCharge
 
-One charge attempt. The scheduler sends the charge when a sub is due, and the indexer writes the row from the contract's event. Idempotency comes from `chargeAttemptId = keccak256(abi.encodePacked(onchainSubId, currentPeriodEndAt, attempt))`; the contract skips a reused id with outcome `duplicate`.
+One charge attempt. Strimz sends the charge when a sub is due and records the result from the contract's event. Idempotency comes from `chargeAttemptId = keccak256(abi.encodePacked(onchainSubId, currentPeriodEndAt, attempt))`; the contract skips a reused id with outcome `duplicate`.
 
 ```
 pending  →  succeeded  ↦  Transaction(kind=subscription_charge)
@@ -52,11 +52,11 @@ pending  →  succeeded  ↦  Transaction(kind=subscription_charge)
 
 A confirmed on-chain payment. There are several kinds:
 
-| `kind`                | Source                               |
-| --------------------- | ------------------------------------ |
-| `one_shot`            | Customer paid a session              |
-| `subscription_charge` | Scheduler successfully charged a sub |
-| `refund`              | A refund tx was confirmed            |
+| `kind`                | Source                            |
+| --------------------- | --------------------------------- |
+| `one_shot`            | Customer paid a session           |
+| `subscription_charge` | Strimz successfully charged a sub |
+| `refund`              | A refund tx was confirmed         |
 
 `Transaction.amount` is in smallest token units (USDC has 6 decimals). `feeAmount` is the Strimz fee the contract took. `netAmount` is what landed in the merchant's payout wallet. `feeRefund` is set when the payment falls inside the business's free 1,000: `{ amount, status, txHash }`, with `status` going `pending`, `sending`, then `refunded` ([Fees and your free $1,000](/docs/concepts/fees)).
 
@@ -72,8 +72,8 @@ awaiting_signature  →  submitted  →  completed
 You create the refund. Strimz validates the amount against
 `Transaction.amount` so cumulative refunds cannot exceed the
 original. On the dashboard, your Strimz wallet then signs and sends
-the ERC-20 transfer. The indexer sees the on-chain transfer and
-flips the row to `completed`.
+the ERC-20 transfer. Strimz sees the transfer on chain and
+marks the refund `completed`.
 
 `strimz.refunds.create` returns `{ refund, signingInstructions }`:
 the refund and the transfer to sign.
@@ -87,7 +87,7 @@ draft  →  sent  →  paid
             ↘   overdue
 ```
 
-Any unpaid invoice can be moved to `void`. A `sent` invoice that passes its `dueAt` unpaid flips to `overdue` (hourly cron) and fires `invoice.overdue`. An overdue invoice can still be paid.
+Any unpaid invoice can be moved to `void`. A `sent` invoice that passes its `dueAt` unpaid flips to `overdue` (Strimz checks every hour) and fires `invoice.overdue`. An overdue invoice can still be paid.
 
 ## WebhookEndpoint + WebhookDelivery
 
@@ -98,7 +98,7 @@ pending  →  delivered                      (2xx response)
         ↘   retrying  →  permanently_failed (after max attempts)
 ```
 
-Every delivery is one BullMQ job. The attempts stay visible in your dashboard so you can debug a flaky receiver row by row.
+The attempts stay visible in your dashboard so you can debug a flaky receiver attempt by attempt.
 
 ## AgentJob
 

@@ -34,11 +34,11 @@ Daily 9am UTC, the agent emails you yesterday's roll-up:
 - Net to your wallet
 - Unique customers
 
-Idempotent per UTC day. If a flapping cron fires twice, you only get one email.
+You get at most one digest per UTC day.
 
 ## `cashflow.anomaly`
 
-Starter plan and above. Hourly, the agent computes a z-score for the last completed clock-hour against the trailing 30-day average for that same hour-of-day. If your revenue dropped more than `nσ` (n derived from your `anomalySensitivity`: `low=3σ`, `medium=2σ`, `high=1σ`), you get an email plus an `AuditLog` entry. The agent only flags drops because revenue surges aren't actionable.
+Starter plan and above. Hourly, the agent computes a z-score for the last completed clock-hour against the trailing 30-day average for that same hour-of-day. If your revenue dropped more than `nσ` (n derived from your `anomalySensitivity`: `low=3σ`, `medium=2σ`, `high=1σ`), you get an email plus an entry in your activity log. The agent only flags drops because revenue surges aren't actionable.
 
 The math:
 

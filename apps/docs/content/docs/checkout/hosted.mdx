@@ -18,7 +18,7 @@ They click your "Pay" link and land on `https://checkout.strimz.finance/pay/cmq4
 
 They tap Connect wallet and our Reown AppKit modal shows the wallet options. Once connected, they enter an email for the receipt and pay. The wallet shows two signature prompts: an EIP-3009 `ReceiveWithAuthorization` for the token, with the recipient, amount and deadline, and the Strimz `PayIntent`. Neither is a transaction, and the payer pays no gas.
 
-After they sign, the page shows a confirming state and watches the session status. As soon as the indexer records the on-chain settlement, the page shows a confirmation and, if you set a `successUrl`, sends the payer there after a few seconds.
+After they sign, the page shows a confirming state and watches the session status. As soon as Strimz sees the settlement on chain, the page shows a confirmation and, if you set a `successUrl`, sends the payer there after a few seconds.
 
 ## What you can customize
 

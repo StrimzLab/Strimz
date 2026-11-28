@@ -15,17 +15,17 @@ The status enum also contains `paused`, but nothing sets it today. There is no p
 
 ## Enrolment
 
-Enrolment moves no money. The payer signs on the plan's checkout page, the relayer submits `permitAndCreateSubscription(...)`, and the contract stores the subscription with `nextChargeAt = startAt`, or the current block time when there is no trial. The indexer projects the row and fires `subscription.created`.
+Enrolment moves no money. The payer signs on the plan's checkout page, Strimz submits `permitAndCreateSubscription(...)`, and the contract stores the subscription with `nextChargeAt = startAt`, or the current block time when there is no trial. Strimz sees the new subscription on chain and fires `subscription.created`.
 
 ## Trial to active
 
 If the plan has `trialPeriodDays`, a payer's first subscription to that plan starts in `trialing`, and `nextChargeAt` is set to the end of the trial. A payer who subscribed to the same plan before gets no second trial.
 
-When the trial ends, the scheduler's sweeper picks the row up on its next run (every 15 minutes) and calls `batchCharge(...)`. If the charge succeeds, the status flips to `active` and `nextChargeAt` moves forward by one interval. If it fails for a payment reason, the subscription moves to `at_risk` and follows the [retry schedule](/docs/subscriptions/recovery#the-retry-schedule).
+When the trial ends, Strimz picks the subscription up on its next check (every 15 minutes) and calls `batchCharge(...)`. If the charge succeeds, the status flips to `active` and `nextChargeAt` moves forward by one interval. If it fails for a payment reason, the subscription moves to `at_risk` and follows the [retry schedule](/docs/subscriptions/recovery#the-retry-schedule).
 
 ## No trial
 
-Without a trial, the subscription starts in `active` with the first charge due at enrolment. The sweeper takes that charge on its next run, so expect up to about 15 minutes between `subscription.created` and the first `subscription.charged`.
+Without a trial, the subscription starts in `active` with the first charge due at enrolment. Strimz takes that charge on its next check, so expect up to about 15 minutes between `subscription.created` and the first `subscription.charged`.
 
 ## Active to at_risk
 
@@ -36,25 +36,25 @@ A charge fails when the contract skips it with a payment failure outcome:
 - `transfer_failed`: the token transfer itself failed, for example because the token blocklisted the payer.
 - `merchant_inactive`: the merchant is not active in the registry.
 
-The contract does not revert. It emits `SubscriptionChargeSkipped`, and the indexer:
+The contract does not revert. It emits `SubscriptionChargeSkipped`, and Strimz:
 
-1. Writes a `SubscriptionCharge` row with `status: 'failed'` and the outcome.
+1. Records a failed charge with the outcome.
 2. Fires `subscription.charge_failed`.
 3. Flips the subscription to `at_risk` and schedules the next retry.
 
-Other outcomes, such as `not_due` or `duplicate`, are written for the audit trail but do not change the status or fire a webhook.
+Other outcomes, such as `not_due` or `duplicate`, are recorded for the audit trail but do not change the status or fire a webhook.
 
 ## Retries
 
 Retries back off: 15 minutes after the first failure, then 1 hour, 3 hours, 6 hours, 12 hours, then every 24 hours. About seven attempts fit in the 48-hour grace window.
 
-Each failed retry fires `subscription.charge_failed` again and pushes the next retry further out. A retry that reuses the same attempt id updates its charge row and raises `attemptNumber` (see [Recovery](/docs/subscriptions/recovery)).
+Each failed retry fires `subscription.charge_failed` again and pushes the next retry further out. A retry that reuses the same attempt id updates its charge and raises `attemptNumber` (see [Recovery](/docs/subscriptions/recovery)).
 
-If a retry succeeds, the subscription returns to `active`, the retry counter resets, and the schedule continues. The failed `SubscriptionCharge` rows stay for audit.
+If a retry succeeds, the subscription returns to `active`, the retry counter resets, and the schedule continues. The failed charges stay for audit.
 
 ## At_risk to lapsed
 
-The grace window is fixed at 48 hours after `currentPeriodEndAt`. An hourly scheduler cron moves every `at_risk` subscription past that point to `lapsed` and fires `subscription.lapsed`.
+The grace window is fixed at 48 hours after `currentPeriodEndAt`. Strimz checks every hour and moves each `at_risk` subscription past that point to `lapsed` and fires `subscription.lapsed`.
 
 Lapsed is terminal. To come back, the payer subscribes again on the plan's checkout link. That creates a new subscription with a new id. A payer can only hold one live subscription per plan, so the old one has to be cancelled or lapsed first.
 
@@ -66,7 +66,7 @@ There is one kind of cancel, and it is immediate.
 await strimz.subscriptions.cancel({ id: 'cmq4wck6a0002je6lfmb5bgjp', reason: 'customer request' })
 ```
 
-The row is `cancelled` at once and `subscription.cancelled` fires during the API call. The scheduler stops charging it. The payer can also cancel from their own wallet by calling `cancel()` on the contract; the indexer marks the row cancelled. See [Cancellation](/docs/subscriptions/cancellation).
+The subscription is `cancelled` at once and `subscription.cancelled` fires during the API call. Strimz stops charging it. The payer can also cancel from their own wallet by calling `cancel()` on the contract; Strimz marks the subscription cancelled. See [Cancellation](/docs/subscriptions/cancellation).
 
 ## What fires on each transition
 
@@ -75,7 +75,7 @@ The row is `cancelled` at once and `subscription.cancelled` fires during the API
 - each failed charge (`active → at_risk`, `at_risk → at_risk`): `subscription.charge_failed`
 - `at_risk → lapsed`: `subscription.lapsed`
 - API cancel: `subscription.cancelled`
-- `cancelled → active`, when Strimz restores a subscription its operator key cancelled by mistake: `subscription.reactivated`
+- `cancelled → active`, when Strimz restores a subscription it cancelled by mistake: `subscription.reactivated`
 
 The payloads are in [Webhooks](/docs/webhooks#events). Make your handler idempotent on `event.id`, since a delivery can arrive more than once.
 
